@@ -1,4 +1,3 @@
-import {get} from "http";
 import {parse} from "yaml";
 import {getBookSlug} from "./bible";
 

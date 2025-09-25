@@ -18,6 +18,12 @@ Using a fs:
 12. 
 
 
+Possible INTERFACES:
+Editor
+Parser
+Project / FS
+Git (though maybe just above?)
+
 
 
 

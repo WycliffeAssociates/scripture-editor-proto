@@ -3,11 +3,9 @@ import {ContentEditable} from "@lexical/react/LexicalContentEditable";
 import {EditorRefPlugin} from "@lexical/react/LexicalEditorRefPlugin";
 import {LexicalErrorBoundary} from "@lexical/react/LexicalErrorBoundary";
 import {HistoryPlugin} from "@lexical/react/LexicalHistoryPlugin";
-import {OnChangePlugin} from "@lexical/react/LexicalOnChangePlugin";
 import {RichTextPlugin} from "@lexical/react/LexicalRichTextPlugin";
 import {$dfsIterator} from "@lexical/utils";
 import {
-  $getNodeByKey,
   $getSelection,
   $isTextNode,
   CLEAR_HISTORY_COMMAND,
@@ -25,9 +23,9 @@ import {USFMElementNode} from "@/features/editor/nodes/USFMElementNode";
 import {USFMDecoratorNode} from "@/features/editor/nodes/USFMMarkerDecoratorNode";
 import {USFMTextNode} from "@/features/editor/nodes/USFMTextNode";
 import {UseLineBreaks} from "@/features/editor/plugins/AdjustLineBreaks";
+import {CustomOnChangePlugin} from "@/features/editor/plugins/CustomOnChangePlugin";
 import {DecoratorFocusPlugin} from "@/features/editor/plugins/DecoratorFocus";
 import {SearchHighlightPlugin} from "@/features/editor/plugins/LocalSearch";
-import {CustomOnChangePlugin} from "@/features/editor/plugins/USFMPlugin";
 import {
   type ChapterSearchResult,
   type SearchMatch,
@@ -154,13 +152,13 @@ export function Editor() {
   return (
     <div>
       <div>
-        <input
+        {/* <input
           type="text"
           className="p-2 border rounded"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Toolbar />
+        /> */}
+        {/* <Toolbar /> */}
       </div>
       <div className="flex gap-2">
         <div className="w-2/3">

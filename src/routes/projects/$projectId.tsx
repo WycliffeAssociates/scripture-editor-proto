@@ -11,6 +11,7 @@ import {
 } from "@/api/api";
 import {DelayedLoader} from "@/components/primitives/delayedLoader";
 import {ProjectProvider} from "@/contexts/ProjectContext";
+import {AppPreferences} from "@/customTypes/types";
 
 export const Route = createFileRoute("/projects/$projectId")({
   component: ProjectProviderWrapper,
@@ -28,6 +29,14 @@ function ProjectProviderWrapper() {
   const projectsQuery = useProjects(useRouter().options.context);
   const {pathSeparator} = Route.useRouteContext();
   const files = Route.useLoaderData();
+  const appPreferences = localStorage.getItem("appPreferences");
+  let appPreferencesParsed: AppPreferences;
+  try {
+    appPreferencesParsed = appPreferences ? JSON.parse(appPreferences) : {};
+  } catch (e) {
+    console.error("Error parsing appPreferences", e);
+    appPreferencesParsed = {} as AppPreferences;
+  }
 
   if (!files) {
     return <div>No files found</div>;
@@ -55,10 +64,11 @@ function ProjectProviderWrapper() {
 
   return (
     <ProjectProvider
-      projectId={projectId}
+      projectPath={projectId}
       files={files}
       pathSeparator={pathSeparator}
       allProjects={projectsQuery.data}
+      initialAppPreferences={appPreferencesParsed}
     >
       <Outlet /> {/* renders either edit or search route. todo, probs */}
     </ProjectProvider>

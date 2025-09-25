@@ -9,6 +9,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 import {TanStackRouterDevtools} from "@tanstack/react-router-devtools";
+import {getCurrentWebview} from "@tauri-apps/api/webview";
 import {Toaster} from "@/components/primitives/sonner";
 import type {RouterContext} from "@/contexts/RouterContext";
 
@@ -20,7 +21,7 @@ const RootLayout = () => {
 
   return (
     <>
-      <div className="p-2 flex gap-2">
+      {/* <div className="p-2 flex gap-2">
         <Link to="/" className="[&.active]:font-bold">
           Home
         </Link>{" "}
@@ -37,8 +38,8 @@ const RootLayout = () => {
           </Link>
         )}
       </div>
-      <hr />
-      <div className="p-2">
+      <hr /> */}
+      <div className="">
         <Outlet />
       </div>
       <Toaster />

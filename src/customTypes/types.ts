@@ -25,3 +25,7 @@ export type ParsedFile = ProjectFile & {
     [chapter: string]: ParsedChapterState;
   };
 };
+export type AppPreferences = {
+  fontSize: string;
+  zoom: number;
+};

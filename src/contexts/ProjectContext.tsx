@@ -7,9 +7,19 @@ import {
 } from "lexical";
 import {createContext, useContext, useMemo, useRef, useState} from "react";
 import {useProjectFiles} from "@/api/api";
-import type {ParsedChapterState, ParsedFile} from "@/customTypes/types";
+import type {
+  AppPreferences,
+  ParsedChapterState,
+  ParsedFile,
+} from "@/customTypes/types";
 
 export type DragState = {draggingNodeKey: string} | null;
+
+export type SearchOptions = {
+  term: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+};
 
 interface ProjectContextType {
   allFiles: ParsedFile[] | undefined;
@@ -51,6 +61,11 @@ interface ProjectContextType {
   setReferenceProjectPath: (id: string) => void;
   selectionSids: Set<string>;
   setSelectionSids: (sids: Set<string>) => void;
+  projectPath: string;
+  projectSearchOptions: SearchOptions;
+  setProjectSearchOptions: (args: SearchOptions) => void;
+  appPreferences: AppPreferences;
+  updateAppPreferences: (args: AppPreferences) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -63,24 +78,25 @@ export const useProjectContext = () => {
 interface ProjectProviderProps {
   children: React.ReactNode;
   files: ParsedFile[];
-  projectId: string;
+  projectPath: string;
   allProjects: {
     name: string;
     path: string;
   }[];
   pathSeparator: string;
+  initialAppPreferences: AppPreferences;
 }
 
 export const ProjectProvider: React.FC<ProjectProviderProps> = ({
   children,
-  projectId,
+  projectPath,
   files,
   allProjects,
   pathSeparator,
+  initialAppPreferences,
 }) => {
   const editorRef = useRef<LexicalEditor>(null);
   const [localFiles, setLocalFiles] = useState(files);
-  const [currentProjectId, setCurrentProjectId] = useState(projectId);
   const [referenceProjectPath, setReferenceProjectPath] = useState<
     null | string
   >(null);
@@ -97,6 +113,16 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({
   const [mode, setMode] = useState<"wysi" | "raw">("wysi");
   const [dragState, setDragState] = useState<DragState>(null);
   const [selectionSids, setSelectionSids] = useState<Set<string>>(new Set());
+  const [projectSearchOptions, setProjectSearchOptions] = useState({
+    term: "",
+    caseSensitive: false,
+    wholeWord: false,
+  });
+  const [appPreferences, setAppPreferences] = useState(initialAppPreferences);
+  const updateAppPreferences = (newPreferences: AppPreferences) => {
+    setAppPreferences(newPreferences);
+    localStorage.setItem("appPreferences", JSON.stringify(newPreferences));
+  };
 
   // const pickedFile = localFiles.find((f) => f.path === currentFile);
   const pickedFile = useMemo(
@@ -306,6 +332,11 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({
         referenceProjectPath,
         selectionSids,
         setSelectionSids,
+        projectPath,
+        projectSearchOptions,
+        setProjectSearchOptions,
+        appPreferences,
+        updateAppPreferences,
       }}
     >
       {children}
