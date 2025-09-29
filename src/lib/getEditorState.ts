@@ -8,21 +8,21 @@ import {
 import {
     getSerializedDecoratorNode,
     type USFMDecoratorNodeJSON,
-} from "@/features/editor/nodes/USFMMarkerDecoratorNode";
+} from "@/domain/editor/nodes/USFMMarkerDecoratorNode";
 import {
     getSerializedNestedEditorNode,
     type USFMNestedEditorNodeJSON,
-} from "@/features/editor/nodes/USFMNestedEditorDecorator";
+} from "@/domain/editor/nodes/USFMNestedEditorDecorator";
 import {
     $createUSFMElementNode,
     createSerializedUSFMElementNode,
     type USFMElementNodeJSON,
-} from "../features/editor/nodes/USFMElementNode";
+} from "@/domain/editor/nodes/USFMElementNode";
 import {
     $createUSFMTextNode,
     getSerializedTextNode,
     type USFMTextNodeJSON,
-} from "../features/editor/nodes/USFMTextNode";
+} from "@/domain/editor/nodes/USFMTextNode";
 import type { ParsedToken } from "./parse";
 
 // tweak to your USFM set

@@ -1,17 +1,10 @@
 import {
     createRootRouteWithContext,
-    getRouteApi,
-    Link,
     Outlet,
-    type ResolveParams,
-    useMatch,
-    useMatchRoute,
     useParams,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { Toaster } from "@/components/primitives/sonner";
-import type { RouterContext } from "@/contexts/RouterContext";
+import {Toaster} from "sonner";
+import {RouterContext} from "@/ui/contexts/RouterContext.tsx";
 
 const RootLayout = () => {
     const params = useParams({

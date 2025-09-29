@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { readDir } from "@tauri-apps/plugin-fs";
 import { useProjects } from "@/api/api";
 import { Route as ProjectRoute } from "./projects/$projectId.edit";
 

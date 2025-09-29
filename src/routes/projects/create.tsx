@@ -2,9 +2,9 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/primitives/button";
-import { Input } from "@/components/primitives/input";
-import { Label } from "@/components/primitives/label";
+import {Label} from "@radix-ui/react-label";
+import {Input} from "@/ui/components/primitives/input.tsx";
+import {Button} from "@/ui/components/primitives/button.tsx";
 
 export const Route = createFileRoute("/projects/create")({
     component: RouteComponent,

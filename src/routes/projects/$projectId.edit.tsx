@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ProjectView } from "@/components/views/ProjectView";
+import {ProjectView} from "@/ui/components/views/ProjectView.tsx";
 
 export const Route = createFileRoute("/projects/$projectId/edit")({
     component: ProjectViewWrapper,

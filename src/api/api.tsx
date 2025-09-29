@@ -1,20 +1,19 @@
 import {
     queryOptions,
-    type UseQueryResult,
     useQuery,
 } from "@tanstack/react-query";
 import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { toast } from "sonner";
-import type { RouterContext } from "@/contexts/RouterContext";
-import type { ParsedFile, ProjectFile } from "@/customTypes/types";
+import type { RouterContext } from "@/ui/contexts/RouterContext";
 import { getSerializedLexicalNodes } from "@/lib/getEditorState";
 import { type ParsedToken, parseUSFM } from "@/lib/parse";
 import {
     getLocalizedBookNameFromManifest,
     sortBasedOnManifest,
-} from "@/utils/resourceContainer";
-import { parseResourceContainer } from "../utils/resourceContainer";
+} from "@/domain/project/resourceContainer/resourceContainer.ts";
+import { parseResourceContainer } from "../domain/project/resourceContainer/resourceContainer.ts";
+import {ParsedFile} from "@/data/parser/parsed.ts";
 
 export function useProjects(context: RouterContext) {
     return useQuery({

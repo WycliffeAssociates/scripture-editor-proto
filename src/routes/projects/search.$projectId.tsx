@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { projectFilesQueryOptions } from "@/api/api";
-import { DelayedLoader } from "@/components/primitives/delayedLoader";
+import {DelayedLoader} from "@/ui/components/primitives/delayedLoader.tsx";
 
 export const Route = createFileRoute("/projects/search/$projectId")({
     component: SearchPage,

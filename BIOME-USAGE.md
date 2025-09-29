@@ -38,7 +38,7 @@ The Biome configuration is stored in `biome.json` at the root of the project. It
 You can also format specific files or directories:
 
 ```bash
-npm run format -- src/features/editor
+npm run format -- src/domain/editor
 ```
 
 ## Pre-commit Hook (Recommendation)

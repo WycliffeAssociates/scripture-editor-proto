@@ -13,24 +13,24 @@ import {
     SerializedLexicalNode,
     TextNode,
 } from "lexical";
-import { ParsedFile } from "@/customTypes/types";
-import { nodeIsUsfmElementNode } from "@/features/editor/nodes/USFMElementNode";
+import { nodeIsUsfmElementNode } from "@/domain/editor/nodes/USFMElementNode";
 import {
     USFM_DECORATOR_TYPE,
     USFMDecoratorNode,
-} from "@/features/editor/nodes/USFMMarkerDecoratorNode";
+} from "@/domain/editor/nodes/USFMMarkerDecoratorNode";
 import {
     $isUSFMNestedEditorNode,
     getChildrenFromNestedEditorNode,
     USFM_NESTED_DECORATOR_TYPE,
     USFMNestedEditorNode,
-} from "@/features/editor/nodes/USFMNestedEditorDecorator";
+} from "@/domain/editor/nodes/USFMNestedEditorDecorator";
 import {
     isSerializedUSFMTextNode,
     USFMTextNode,
-} from "@/features/editor/nodes/USFMTextNode";
+} from "@/domain/editor/nodes/USFMTextNode";
 import { tokensExpectingClose } from "./lex";
 import { parseUSFM } from "./parse";
+import {ParsedFile} from "@/data/parser/parsed.ts";
 
 export function moveDecoratorNode(editor: LexicalEditor, nodeKey: string) {
     editor.update(() => {

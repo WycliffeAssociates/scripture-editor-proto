@@ -1,17 +1,14 @@
 import {
     createFileRoute,
     Outlet,
-    useLoaderData,
     useRouter,
 } from "@tanstack/react-router";
 import {
     projectFilesQueryOptions,
-    useProjectFiles,
     useProjects,
 } from "@/api/api";
-import { DelayedLoader } from "@/components/primitives/delayedLoader";
-import { ProjectProvider } from "@/contexts/ProjectContext";
-import { AppPreferences } from "@/customTypes/types";
+import {AppPreferences} from "@/data/app/preferences.ts";
+import {ProjectProvider} from "@/ui/contexts/ProjectContext.tsx";
 
 export const Route = createFileRoute("/projects/$projectId")({
     component: ProjectProviderWrapper,
