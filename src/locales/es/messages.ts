@@ -1,1 +1,4 @@
-/*eslint-disable*/import type{Messages}from"@lingui/core";export const messages=JSON.parse("{\"GkOUec\":[\"Se trata de un componente de prueba para verificar la configuración de internacionalización de Lingui.\"],\"jRoWEb\":[\"Bienvenido a USFM Editor\"]}")as Messages;
+/*eslint-disable*/ import type { Messages } from "@lingui/core";
+export const messages = JSON.parse(
+    '{"GkOUec":["Se trata de un componente de prueba para verificar la configuración de internacionalización de Lingui."],"jRoWEb":["Bienvenido a USFM Editor"]}',
+) as Messages;
