@@ -6,14 +6,14 @@ import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { toast } from "sonner";
 import type { RouterContext } from "@/ui/contexts/RouterContext";
-import { getSerializedLexicalNodes } from "@/lib/getEditorState";
-import { type ParsedToken, parseUSFM } from "@/lib/parse";
+import { getSerializedLexicalNodes } from "@core/lib/getEditorState";
+import { type ParsedToken, parseUSFM } from "@core/lib/parse";
 import {
     getLocalizedBookNameFromManifest,
     sortBasedOnManifest,
-} from "@/domain/project/resourceContainer/resourceContainer.ts";
-import { parseResourceContainer } from "../domain/project/resourceContainer/resourceContainer.ts";
-import {ParsedFile} from "@/data/parser/parsed.ts";
+    parseResourceContainer
+} from "@core/domain/project/resourceContainer/resourceContainer";
+import {ParsedFile} from "@core/data/parser/parsed";
 
 export function useProjects(context: RouterContext) {
     return useQuery({
