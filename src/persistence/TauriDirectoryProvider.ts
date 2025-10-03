@@ -8,38 +8,27 @@ import {TauriFileHandle} from "@/persistence/handlers/TauriFileHandle.ts";
 // @ts-ignore
 export class TauriDirectoryProvider implements IDirectoryProvider {
 
-    private static async getUserHome(osName: string): Promise<string> {
+    private static async getAppPublicRoot(osName: string, appName: string): Promise<string> {
         if (["ios", "android", "macos"].includes(osName)) {
             return await appDataDir();
         } else {
-            return await homeDir();
+            return await join(await homeDir(), appName);
         }
     }
 
-    private constructor(private appName: string, private userHome: string) {
+    private constructor(private appName: string, private appPublicDir: string) {
     }
 
     static async create(appName: string): Promise<TauriDirectoryProvider> {
         const osName = platform();
         console.log(`Directory Provider for: ${osName}`);
-        const userHome = await this.getUserHome(osName);
+        const userHome = await this.getAppPublicRoot(osName, appName);
         console.log(`User home: ${userHome}`);
         return new TauriDirectoryProvider(appName, userHome);
     }
 
-    async getHomeDirectory(): Promise<TauriDirectoryHandle> {
-        console.log(`Home directory: ${this.userHome}`);
-        return new TauriDirectoryHandle(this.userHome);
-    }
-
     async getUserDataDirectory(appendedPath?: string): Promise<TauriDirectoryHandle> {
-        let root = this.userHome;
-        const osName = platform()
-        if (!["ios", "android"].includes(osName)) {
-            root = await join(root, this.appName);
-        }
-
-        const path = appendedPath ? await join(root, appendedPath) : root;
+        const path = appendedPath ? await join(this.appPublicDir, appendedPath) : this.appPublicDir;
         await mkdir(await path, { recursive: true });
         console.log(`User data directory: ${path}`);
         return new TauriDirectoryHandle(path);
@@ -61,7 +50,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         const baseDir = await this.getUserDataDirectory();
         const path = join(
             baseDir.path,
-            this.appName,
             targetCreator,
             source.creator,
             `${source.language.slug}_${source.identifier}`,
@@ -93,13 +81,12 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     }
 
     async createTempFile(prefix: string, suffix?: string): Promise<TauriFileHandle> {
-        const path = join(this.userHome, this.appName, "temp", `${prefix}${suffix ?? ""}`);
-        await mkdir(await join(this.userHome, this.appName, "temp"), { recursive: true });
+        const path = join((await this.tempDirectory).path, `${prefix}${suffix ?? ""}`);
         return new TauriFileHandle(await path);
     }
 
     async cleanTempDirectory(): Promise<void> {
-        const tempDir = await this.getAppDataDirectory("temp");
+        const tempDir = await this.tempDirectory;
         for await (const [name] of tempDir.entries()) {
             await tempDir.removeEntry(name, { recursive: true });
         }

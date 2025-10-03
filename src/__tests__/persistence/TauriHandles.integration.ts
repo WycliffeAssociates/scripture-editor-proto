@@ -1,7 +1,7 @@
 import {appLocalDataDir, join} from "@tauri-apps/api/path";
 import {mkdir, remove} from "@tauri-apps/plugin-fs";
+import {TauriFileHandle} from "../../persistence/handlers/TauriFileHandle.ts";
 
-import {TauriFileHandle} from "@/persistence/handlers/TauriFileHandle.ts"; // Assuming TauriHandles is in the same directory
 
 const log = (message: string, isError: boolean = false) => {
     const color = isError ? "[31m[FAILURE][0m" : "[33m[INFO][0m";

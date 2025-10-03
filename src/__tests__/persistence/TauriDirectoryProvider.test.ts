@@ -1,21 +1,17 @@
-import {TauriDirectoryProvider} from "@/persistence/TauriDirectoryProvider.ts";
-import {join} from "@tauri-apps/api/path";
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { TauriDirectoryProvider } from "@/persistence/TauriDirectoryProvider.ts";
+import { join } from "@tauri-apps/api/path"; // This will be mocked
+import { platform } from '@tauri-apps/plugin-os'; // This will be mocked
+import { mkdir, open } from '@tauri-apps/plugin-fs'; // These will be mocked
+import { getName } from "@tauri-apps/api/app"; // This will be mocked
+import { TauriDirectoryHandle } from "@/persistence/handlers/TauriDirectoryHandle.ts";
+import {TauriFileHandle} from "@/persistence/handlers/TauriFileHandle.ts";
 
-/**
- * Appends a message to the UI log area.
- * @param {string} message
- * @param {string} [className]
- */
-function log(message: string, className = '') {
-    // const entry = document.createElement('div');
-    // entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    // if (className) {
-    //     entry.className = className;
-    // }
-    // logArea.appendChild(entry);
-    // logArea.scrollTop = logArea.scrollHeight; // Scroll to bottom
-    console.log(message);
-}
+// --- MOCK CONSTANTS ---
+const MOCK_APP_NAME = "test-app";
+const MOCK_HOME_DIR = "/mock/user/home";
+const MOCK_APP_LOCAL_DATA = "/mock/app/localdata";
+const MOCK_IOS_APPDATA = "/mock/ios/appdata";
 
 const SAMPLE_SOURCE_METADATA = {
     creator: "unfoldingWord",
@@ -32,73 +28,175 @@ const SAMPLE_TARGET_METADATA = {
     version: 2
 };
 
-/**
- * Executes all functional tests for the Directory Provider.
- */
-export async function runTests() {
-    log("--- Starting Functional Directory Tests ---", "font-bold");
+// --- VITEST MOCKS ---
 
-    const provider = await TauriDirectoryProvider.create("app");
+// Mocking @tauri-apps/api/app to control the app name
+vi.mock("@tauri-apps/api/app", () => ({
+    getName: vi.fn(() => Promise.resolve(MOCK_APP_NAME)),
+}));
 
-    try {
-        // TEST 1: Get User Data Directory
-        log("--- Test 1: create settings directory in UserDataDirectory ---");
+// Mocking @tauri-apps/plugin-os to control the OS name
+vi.mock('@tauri-apps/plugin-os', () => ({
+    platform: vi.fn(() => 'windows'), // Default to 'windows' for testing homeDir logic
+}));
+
+// Mocking @tauri-apps/api/path to provide predictable paths
+// Note: In Vitest, Node.js path module's join is often sufficient,
+// but we mock it to control the output of Tauri's path functions.
+vi.mock("@tauri-apps/api/path", () => {
+    // We use Node's path.join here just for simple, consistent path concatenation
+    const path = require('path');
+    return {
+        join: vi.fn(path.join),
+        homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),
+        appDataDir: vi.fn(() => Promise.resolve(MOCK_IOS_APPDATA)),
+        appLocalDataDir: vi.fn(() => Promise.resolve(MOCK_APP_LOCAL_DATA)),
+    };
+});
+
+// Mocking @tauri-apps/plugin-fs commands
+vi.mock('@tauri-apps/plugin-fs', () => ({
+    // Mocking mkdir to ensure no actual directories are created
+    mkdir: vi.fn(() => Promise.resolve()),
+    // Mocking open to ensure no actual file manager interaction
+    open: vi.fn(() => Promise.resolve()),
+}));
+
+// Mocking your custom file/directory handlers for isolation
+vi.mock('@/persistence/handlers/TauriFileHandle.ts', () => ({
+    TauriFileHandle: vi.fn((path) => ({
+        path,
+        createWritable: vi.fn(() => Promise.resolve({
+            getWriter: vi.fn(() => ({
+                write: vi.fn(() => Promise.resolve()),
+                close: vi.fn(() => Promise.resolve()),
+            })),
+        })),
+        getFile: vi.fn(() => Promise.resolve({
+            name: path.split('/').pop(),
+            size: 1234,
+        })),
+    })),
+}));
+
+vi.mock('@/persistence/handlers/TauriDirectoryHandle.ts', () => ({
+    TauriDirectoryHandle: vi.fn((path) => ({
+        path,
+        // Mock entries/removeEntry for cleanTempDirectory
+        entries: vi.fn(async function* () {
+            yield ['file1.tmp', { isFile: () => true }];
+            yield ['dir2', { isDirectory: () => true }];
+        }),
+        removeEntry: vi.fn(() => Promise.resolve()),
+    })),
+}));
+
+// --- VITEST TESTS ---
+
+describe('TauriDirectoryProvider', () => {
+    let provider: TauriDirectoryProvider;
+
+    beforeEach(async () => {
+        // Reset mocks and create a new provider instance before each test
+        vi.clearAllMocks();
+        provider = await TauriDirectoryProvider.create("test-app");
+    });
+
+    // --- Test 1: Get User Data Directory ---
+    test('getUserDataDirectory creates the correct path on Windows/Linux', async () => {
+        const appendedPath = "settings";
+        const userDataDir = await provider.getUserDataDirectory(appendedPath);
+
+        const expectedPath = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}/${appendedPath}`;
+
+        expect(userDataDir.path).toBe(expectedPath);
+        expect(mkdir).toHaveBeenCalledWith(expectedPath, { recursive: true });
+    });
+
+    // --- Test 2 & 3: File Write/Read ---
+    test('newFileWriter and newFileReader call file handlers correctly', async () => {
         const userDataDir = await provider.getUserDataDirectory("settings");
-        log(`Path generated: ${userDataDir.path}`);
-        log("Test 1 Passed: User data directory created.", "log-success");
-
-        // TEST 2: Write a file to the User Data Directory
-        log("--- Test 2: newFileWriter (Write Test) ---");
         const testFilePath = await join(userDataDir.path, "test_file.txt");
-        const writer = await provider.newFileWriter(await testFilePath);
+
+        // Test 2 (Write)
+        const writer = await provider.newFileWriter(testFilePath);
         await writer.write("Hello Tauri filesystem test!");
         await writer.close();
-        log("Test 2 Passed: File written (mocked).", "log-success");
 
-        // TEST 3: Read the file back (mocked)
-        log("--- Test 3: newFileReader (Read Test) ---");
-        const file = await provider.newFileReader(await testFilePath);
-        log(`File name: ${file.name}, Size: ${file.size} (Mocked File).`);
-        log("Test 3 Passed: File read (mocked).", "log-success");
+        expect(TauriFileHandle).toHaveBeenCalledWith(testFilePath);
+        // The mock writer's methods should have been called
+        // @ts-ignore
+        expect(TauriFileHandle.mock.results[0].value.createWritable).toHaveBeenCalled();
 
-        // TEST 4: Get App Data Directory
-        log("--- Test 4: getAppDataDirectory ---");
-        const appDataDir = await provider.getAppDataDirectory("db");
-        log(`Path generated: ${appDataDir.path}`);
-        log("Test 4 Passed: App data directory created.", "log-success");
+        // Test 3 (Read)
+        const file = await provider.newFileReader(testFilePath);
+        expect(file.name).toBe("test_file.txt");
+        // @ts-ignore
+        expect(TauriFileHandle.mock.results[1].value.getFile).toHaveBeenCalled();
+    });
 
-        // TEST 5: Get Project Directory (Complex Path)
-        log("--- Test 5: getProjectDirectory ---");
+    // --- Test 4: Get App Data Directory ---
+    test('getAppDataDirectory uses appLocalDataDir', async () => {
+        const appendedPath = "db";
+        const appDataDir = await provider.getAppDataDirectory(appendedPath);
+
+        const expectedPath = `${MOCK_APP_LOCAL_DATA}/${appendedPath}`;
+
+        expect(appDataDir.path).toBe(expectedPath);
+        expect(mkdir).toHaveBeenCalledWith(expectedPath, { recursive: true });
+    });
+
+    // --- Test 5: Get Project Directory (Complex Path) ---
+    test('getProjectDirectory generates complex path correctly', async () => {
+        // The project path is built off getUserDataDirectory()
         const projectDir = await provider.getProjectDirectory(
             SAMPLE_SOURCE_METADATA,
             SAMPLE_TARGET_METADATA,
-            "mat" // Book slug
+            "mat"
         );
-        log(`Project Path: ${projectDir.path}`);
-        log("Test 5 Passed: Complex project path generated.", "log-success");
 
+        const baseDir = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}`;
+        const expectedPath = `${baseDir}/${SAMPLE_TARGET_METADATA.creator}/${SAMPLE_SOURCE_METADATA.creator}/${SAMPLE_SOURCE_METADATA.language.slug}_${SAMPLE_SOURCE_METADATA.identifier}/v${SAMPLE_TARGET_METADATA.version}/${SAMPLE_TARGET_METADATA.language.slug}/mat`;
 
-        // TEST 7: Test Predefined Directory (logsDirectory)
-        log("--- Test 7: logsDirectory (Predefined) ---");
+        expect(projectDir.path).toBe(expectedPath);
+        expect(mkdir).toHaveBeenCalledWith(expectedPath, { recursive: true });
+    });
+
+    // --- Test 7: Predefined Directory (logsDirectory) ---
+    test('logsDirectory calls getAppDataDirectory with "logs"', async () => {
         const logsDir = await provider.logsDirectory;
-        log(`Logs Path: ${logsDir.path}`);
-        log("Test 7 Passed: Predefined logs directory accessed.", "log-success");
+        const expectedPath = `${MOCK_APP_LOCAL_DATA}/logs`;
 
-        // TEST 8: Test Temp File and Clean
-        log("--- Test 8: createTempFile & cleanTempDirectory ---");
-        const tempFile = await provider.createTempFile("upload", ".part");
-        log(`Temp File Path: ${tempFile.path}`);
+        expect(logsDir.path).toBe(expectedPath);
+        expect(mkdir).toHaveBeenCalledWith(expectedPath, { recursive: true });
+    });
+
+    // --- Test 8: Test Temp File and Clean ---
+    test('cleanTempDirectory calls removeEntry on all entries', async () => {
+        // This test relies on the mock implementation of TauriDirectoryHandle
         await provider.cleanTempDirectory();
-        log("Test 8 Passed: Temp directory created and clean called.", "log-success");
 
-        // TEST 9: openInFileManager
-        log("--- Test 9: openInFileManager ---");
-        await provider.openInFileManager(userDataDir.path);
-        log("Test 9 Passed: openInFileManager called (mocked).", "log-success");
-    } catch (error: any) {
-        log(`FATAL TEST ERROR: ${error.message}`, "log-error");
-        console.error("Test Error:", error);
-    }
+        const expectedTempDirPath = `${MOCK_APP_LOCAL_DATA}/temp`;
 
-    log("--- All Functional Directory Tests Complete ---", "font-bold");
-}
+        // Assert that the temp directory was accessed
+        // @ts-ignore
+        expect(TauriDirectoryHandle).toHaveBeenCalledWith(expectedTempDirPath);
+
+        // Assert that the entries were iterated and removed
+        // The mock yields 'file1.tmp' and 'dir2'
+        // @ts-ignore
+        const tempDirHandle = TauriDirectoryHandle.mock.results.find(r => r.value.path === expectedTempDirPath)?.value;
+
+        expect(tempDirHandle.entries).toHaveBeenCalled();
+        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith('file1.tmp', { recursive: true });
+        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith('dir2', { recursive: true });
+        expect(tempDirHandle.removeEntry).toHaveBeenCalledTimes(2);
+    });
+
+    // --- Test 9: openInFileManager ---
+    test('openInFileManager calls open command', async () => {
+        const testPath = "/test/path/to/open";
+        await provider.openInFileManager(testPath);
+        expect(open).toHaveBeenCalledWith(testPath);
+    });
+});
