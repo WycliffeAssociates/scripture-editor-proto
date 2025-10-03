@@ -97,7 +97,11 @@ export class TauriDirectoryHandle implements FileSystemDirectoryHandle {
 }
 
 /* ------------------------------ File Handle ------------------------------ */
-
+// Define the extended writer interface to match FileSystemWritableFileStream's writer
+interface TauriWritableFileStreamWriter extends WritableStreamDefaultWriter<any> {
+    seek(position: number): Promise<void>;
+    truncate(size: number): Promise<void>;
+}
 export class TauriFileHandle implements FileSystemFileHandle {
     kind: "file" = "file";
     name: string;
@@ -119,15 +123,30 @@ export class TauriFileHandle implements FileSystemFileHandle {
         return new File([text], this.name);
     }
 
-    async createWritable(): Promise<FileSystemWritableFileStream> {
+    async createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream> {
+        // Handle options: default behavior is to truncate (keepExistingData: false)
+        const keepExistingData = options?.keepExistingData ?? false;
+
         let buffer: Uint8Array;
-        try {
-            const existing = await readTextFile(this.path);
-            buffer = new TextEncoder().encode(existing);
-        } catch {
+        let position: number;
+
+        if (keepExistingData) {
+            // Load existing file content and set position to end (matching the user's requirement for existing tests).
+            try {
+                const existingText = await readTextFile(this.path);
+                buffer = new TextEncoder().encode(existingText);
+                // Set the initial position to the end of the file content for easy appending.
+                position = buffer.length;
+            } catch (e) {
+                // If file doesn't exist, start with an empty buffer
+                buffer = new Uint8Array(0);
+                position = 0;
+            }
+        } else {
+            // Default behavior (truncate) or explicit truncate: start with empty buffer.
             buffer = new Uint8Array(0);
+            position = 0;
         }
-        let position = buffer.length;
 
         const ensureCapacity = (needed: number) => {
             if (needed <= buffer.length) return;
@@ -207,11 +226,63 @@ export class TauriFileHandle implements FileSystemFileHandle {
             },
         };
 
-        // Create the native WritableStream using your sink object.
-        const stream = new WritableStream(sink) as FileSystemWritableFileStream;
+        // Create the core WritableStream using your sink object.
+        const nativeStream = new WritableStream(sink);
 
-        // The stream now has the getWriter() method.
-        return stream;
+        // Helper function to send operation/data to the sink via the underlying native stream's writer.
+        const writeOp = async (op: any) => {
+            // Acquire a writer to send the chunk, then immediately release the lock
+            const writer = nativeStream.getWriter();
+            try {
+                await writer.write(op);
+            } finally {
+                // It is CRITICAL to release the lock immediately so the stream is not locked.
+                writer.releaseLock();
+            }
+        };
+
+        // Define the custom writer that augments the native writer with seek/truncate.
+        const getCustomWriter = (): TauriWritableFileStreamWriter => {
+            const nativeWriter = nativeStream.getWriter();
+            const customWriter = nativeWriter as TauriWritableFileStreamWriter;
+
+            // Add the seek and truncate methods to the writer, converting to structured writes
+            customWriter.seek = (position: number): Promise<void> => {
+                return nativeWriter.write({ type: "seek", position });
+            };
+            customWriter.truncate = (size: number): Promise<void> => {
+                return nativeWriter.write({ type: "truncate", size });
+            };
+
+            return customWriter;
+        };
+
+        // Return a distinct object that fully implements FileSystemWritableFileStream
+        // by delegating standard methods and implementing the custom ones.
+        return {
+            // Properties delegated to native stream
+            get closed() { return nativeStream.getWriter().closed; },
+            get ready() { return nativeStream.getWriter().ready; },
+            get locked() { return nativeStream.locked; },
+
+            // Methods delegated or wrapped
+            abort: (reason?: any) => nativeStream.abort(reason),
+            close: () => nativeStream.close(),
+            getWriter: getCustomWriter,
+
+            // Custom FileSystemWritableFileStream methods (using the writeOp helper)
+            seek: (position: number) => writeOp({ type: "seek", position }),
+            truncate: (size: number) => writeOp({ type: "truncate", size }),
+            write: (data: any, position?: number) => {
+                // If position is provided, it's a structured write operation
+                if (typeof position === 'number') {
+                    return writeOp({ type: "write", position, data });
+                }
+                // Otherwise, it's a standard WritableStream write (uses current internal position)
+                return writeOp(data);
+            },
+
+        } as FileSystemWritableFileStream;
     }
 
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {
