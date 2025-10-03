@@ -3,7 +3,7 @@ mod parse;
 #[cfg(debug_assertions)]
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::time::Instant;
-use std::{fs, io};
+use std::{fs, io, os};
 use tauri::Manager;
 
 use crate::parse::OwnedParsedUSFM;
@@ -36,6 +36,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             parse_usfm,

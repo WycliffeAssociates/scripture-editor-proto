@@ -1,107 +1,7 @@
-// TauriHandles.ts
+import {normalize} from "@/persistence/handlers/PathUtils.ts";
+import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
+import {TauriWritableFileStreamWriter} from "@/persistence/handlers/TauriWritableFileStreamWriter.ts";
 
-import { join } from "@tauri-apps/api/path";
-import {
-    type DirEntry,
-    mkdir,
-    readDir,
-    readTextFile,
-    remove,
-    writeTextFile,
-} from "@tauri-apps/plugin-fs";
-
-/* ------------------------- Utilities ------------------------- */
-
-const normalize = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
-const splitPath = (p: string) => normalize(p).split("/").filter(Boolean);
-
-/* ---------------------- Directory Handle --------------------- */
-
-export class TauriDirectoryHandle implements FileSystemDirectoryHandle {
-    kind: "directory" = "directory";
-    name: string;
-    readonly path: string;
-
-    constructor(path: string) {
-        this.path = normalize(path);
-        this.name = this.path.split("/").pop() || this.path;
-    }
-
-    async getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<TauriDirectoryHandle> {
-        const dirPath = await join(this.path, name);
-        if (opts?.create) await mkdir(dirPath, { recursive: true });
-        return new TauriDirectoryHandle(dirPath);
-    }
-
-    async getFileHandle(name: string, opts?: { create?: boolean }): Promise<TauriFileHandle> {
-        const filePath = await join(this.path, name);
-        if (opts?.create) {
-            await mkdir(this.path, { recursive: true });
-            try {
-                await readTextFile(filePath);
-            } catch {
-                await writeTextFile(filePath, "");
-            }
-        }
-        return new TauriFileHandle(filePath);
-    }
-
-    async removeEntry(name: string, opts?: { recursive?: boolean }): Promise<void> {
-        const targetPath = await join(this.path, name);
-        await remove(targetPath, { recursive: !!opts?.recursive }).catch((e) => {
-            const msg = String((e as any)?.message || "");
-            if (!/not found|no such file|does not exist/i.test(msg)) throw e;
-        });
-    }
-
-    async *entries(): AsyncIterableIterator<[string, FileSystemHandle]> {
-        const items: DirEntry[] = await readDir(this.path).catch(() => []);
-        for (const item of items) {
-            const childPath = await join(this.path, item.name);
-            if (item.isDirectory) {
-                yield [item.name, new TauriDirectoryHandle(childPath)];
-            } else {
-                yield [item.name, new TauriFileHandle(childPath)];
-            }
-        }
-    }
-
-    async *keys(): AsyncIterableIterator<string> {
-        for await (const [name] of this.entries()) yield name;
-    }
-
-    async *values(): AsyncIterableIterator<FileSystemHandle> {
-        for await (const [, handle] of this.entries()) yield handle;
-    }
-
-    [Symbol.asyncIterator]() {
-        return this.entries();
-    }
-
-    async resolve(other: FileSystemHandle): Promise<string[] | null> {
-        const otherPath = (other as any)?.path;
-        if (!otherPath || typeof otherPath !== "string") return null;
-        const base = normalize(this.path);
-        const cmp = normalize(otherPath);
-
-        if (base === cmp) return [];
-        const baseWithSlash = base.endsWith("/") ? base : base + "/";
-        if (!cmp.startsWith(baseWithSlash)) return null;
-
-        return cmp.slice(baseWithSlash.length).split("/").filter(Boolean);
-    }
-
-    async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-        return (other as any)?.path === this.path;
-    }
-}
-
-/* ------------------------------ File Handle ------------------------------ */
-// Define the extended writer interface to match FileSystemWritableFileStream's writer
-interface TauriWritableFileStreamWriter extends WritableStreamDefaultWriter<any> {
-    seek(position: number): Promise<void>;
-    truncate(size: number): Promise<void>;
-}
 export class TauriFileHandle implements FileSystemFileHandle {
     kind: "file" = "file";
     name: string;
@@ -248,10 +148,10 @@ export class TauriFileHandle implements FileSystemFileHandle {
 
             // Add the seek and truncate methods to the writer, converting to structured writes
             customWriter.seek = (position: number): Promise<void> => {
-                return nativeWriter.write({ type: "seek", position });
+                return nativeWriter.write({type: "seek", position});
             };
             customWriter.truncate = (size: number): Promise<void> => {
-                return nativeWriter.write({ type: "truncate", size });
+                return nativeWriter.write({type: "truncate", size});
             };
 
             return customWriter;
@@ -261,9 +161,15 @@ export class TauriFileHandle implements FileSystemFileHandle {
         // by delegating standard methods and implementing the custom ones.
         return {
             // Properties delegated to native stream
-            get closed() { return nativeStream.getWriter().closed; },
-            get ready() { return nativeStream.getWriter().ready; },
-            get locked() { return nativeStream.locked; },
+            get closed() {
+                return nativeStream.getWriter().closed;
+            },
+            get ready() {
+                return nativeStream.getWriter().ready;
+            },
+            get locked() {
+                return nativeStream.locked;
+            },
 
             // Methods delegated or wrapped
             abort: (reason?: any) => nativeStream.abort(reason),
@@ -271,12 +177,12 @@ export class TauriFileHandle implements FileSystemFileHandle {
             getWriter: getCustomWriter,
 
             // Custom FileSystemWritableFileStream methods (using the writeOp helper)
-            seek: (position: number) => writeOp({ type: "seek", position }),
-            truncate: (size: number) => writeOp({ type: "truncate", size }),
+            seek: (position: number) => writeOp({type: "seek", position}),
+            truncate: (size: number) => writeOp({type: "truncate", size}),
             write: (data: any, position?: number) => {
                 // If position is provided, it's a structured write operation
                 if (typeof position === 'number') {
-                    return writeOp({ type: "write", position, data });
+                    return writeOp({type: "write", position, data});
                 }
                 // Otherwise, it's a standard WritableStream write (uses current internal position)
                 return writeOp(data);
@@ -288,10 +194,4 @@ export class TauriFileHandle implements FileSystemFileHandle {
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {
         return (other as any)?.path === this.path;
     }
-}
-
-/* ------------------------------ Factory ------------------------------ */
-
-export function createTauriHandle(path: string, isDirectory: boolean) {
-    return isDirectory ? new TauriDirectoryHandle(path) : new TauriFileHandle(path);
 }

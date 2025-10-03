@@ -2,7 +2,8 @@ import type { IDirectoryProvider, ResourceMetadata } from "../../src-core/persis
 import {join, homeDir, appDataDir, appLocalDataDir} from "@tauri-apps/api/path";
 import { mkdir, open } from "@tauri-apps/plugin-fs";
 import { platform } from '@tauri-apps/plugin-os';
-import { TauriDirectoryHandle, TauriFileHandle } from "./TauriHandles";
+import {TauriDirectoryHandle} from "@/persistence/handlers/TauriDirectoryHandle.ts";
+import {TauriFileHandle} from "@/persistence/handlers/TauriFileHandle.ts";
 
 // @ts-ignore
 export class TauriDirectoryProvider implements IDirectoryProvider {
@@ -19,7 +20,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     }
 
     static async create(appName: string): Promise<TauriDirectoryProvider> {
-        const osName = "macos";//platform();
+        const osName = platform();
         console.log(`Directory Provider for: ${osName}`);
         const userHome = await this.getUserHome(osName);
         console.log(`User home: ${userHome}`);
@@ -33,7 +34,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
     async getUserDataDirectory(appendedPath?: string): Promise<TauriDirectoryHandle> {
         let root = this.userHome;
-        const osName = "macos";//platform()
+        const osName = platform()
         if (!["ios", "android"].includes(osName)) {
             root = await join(root, this.appName);
         }
@@ -105,7 +106,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     }
 
     async openInFileManager(path: string): Promise<void> {
-        open(path);
+        await open(path);
     }
 
     get databaseDirectory(): Promise<TauriDirectoryHandle> {

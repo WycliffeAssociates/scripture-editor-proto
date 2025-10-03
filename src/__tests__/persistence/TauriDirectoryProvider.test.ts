@@ -1,18 +1,12 @@
-// --------------------------------------------------------------------------------
-// TEST LOGIC AND EXECUTION
-// --------------------------------------------------------------------------------
-
 import {TauriDirectoryProvider} from "@/persistence/TauriDirectoryProvider.ts";
 import {join} from "@tauri-apps/api/path";
-
-const logArea = document.getElementById('log-area');
 
 /**
  * Appends a message to the UI log area.
  * @param {string} message
  * @param {string} [className]
  */
-function log(message, className = '') {
+function log(message: string, className = '') {
     // const entry = document.createElement('div');
     // entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     // if (className) {
@@ -101,8 +95,7 @@ export async function runTests() {
         log("--- Test 9: openInFileManager ---");
         await provider.openInFileManager(userDataDir.path);
         log("Test 9 Passed: openInFileManager called (mocked).", "log-success");
-
-    } catch (error) {
+    } catch (error: any) {
         log(`FATAL TEST ERROR: ${error.message}`, "log-error");
         console.error("Test Error:", error);
     }
