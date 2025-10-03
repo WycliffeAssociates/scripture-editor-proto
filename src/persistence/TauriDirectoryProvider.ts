@@ -1,20 +1,53 @@
-import type { IDirectoryProvider, ResourceMetadata } from "@core/persistence/DirectoryProvider.ts";
-import { join } from "@tauri-apps/api/path";
+import type { IDirectoryProvider, ResourceMetadata } from "../../src-core/persistence/DirectoryProvider.ts";
+import {join, homeDir, appDataDir, appLocalDataDir} from "@tauri-apps/api/path";
 import { mkdir, open } from "@tauri-apps/plugin-fs";
+import { platform } from '@tauri-apps/plugin-os';
 import { TauriDirectoryHandle, TauriFileHandle } from "./TauriHandles";
 
+// @ts-ignore
 export class TauriDirectoryProvider implements IDirectoryProvider {
-    constructor(private appName: string, private userHome: string = "/user/home") {}
+
+    private static async getUserHome(osName: string): Promise<string> {
+        if (["ios", "android", "macos"].includes(osName)) {
+            return await appDataDir();
+        } else {
+            return await homeDir();
+        }
+    }
+
+    private constructor(private appName: string, private userHome: string) {
+    }
+
+    static async create(appName: string): Promise<TauriDirectoryProvider> {
+        const osName = "macos";//platform();
+        console.log(`Directory Provider for: ${osName}`);
+        const userHome = await this.getUserHome(osName);
+        console.log(`User home: ${userHome}`);
+        return new TauriDirectoryProvider(appName, userHome);
+    }
+
+    async getHomeDirectory(): Promise<TauriDirectoryHandle> {
+        console.log(`Home directory: ${this.userHome}`);
+        return new TauriDirectoryHandle(this.userHome);
+    }
 
     async getUserDataDirectory(appendedPath?: string): Promise<TauriDirectoryHandle> {
-        const path = appendedPath ? join(this.userHome, this.appName, appendedPath) : join(this.userHome, this.appName);
+        let root = this.userHome;
+        const osName = "macos";//platform()
+        if (!["ios", "android"].includes(osName)) {
+            root = await join(root, this.appName);
+        }
+
+        const path = appendedPath ? await join(root, appendedPath) : root;
         await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
+        console.log(`User data directory: ${path}`);
+        return new TauriDirectoryHandle(path);
     }
 
     async getAppDataDirectory(appendedPath?: string): Promise<TauriDirectoryHandle> {
-        const path = appendedPath ? join(this.userHome, "." + this.appName, appendedPath) : join(this.userHome, "." + this.appName);
+        const path = appendedPath ? await join(await appLocalDataDir(), appendedPath) : await appLocalDataDir();
         await mkdir(await path, { recursive: true });
+        console.log(`App data directory: ${path}`);
         return new TauriDirectoryHandle(await path);
     }
 
@@ -24,8 +57,9 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         bookSlug: string
     ): Promise<TauriDirectoryHandle> {
         const targetCreator = target?.creator ?? ".";
+        const baseDir = await this.getUserDataDirectory();
         const path = join(
-            this.userHome,
+            baseDir.path,
             this.appName,
             targetCreator,
             source.creator,
@@ -35,77 +69,21 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
             bookSlug
         );
         await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
-    }
-
-    async getProjectAudioDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<TauriDirectoryHandle> {
-        const base = await this.getProjectDirectory(source, target, bookSlug);
-        const path = join(base.path, ".apps", "orature", "takes");
-        await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
-    }
-
-    async getProjectSourceDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<TauriDirectoryHandle> {
-        const base = await this.getProjectDirectory(source, target, bookSlug);
-        const path = join(base.path, ".apps", "orature", "source");
-        await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
-    }
-
-    async getProjectSourceAudioDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<TauriDirectoryHandle> {
-        const base = await this.getProjectSourceDirectory(source, target, bookSlug);
-        const path = join(base.path, "audio");
-        await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
-    }
-
-    async getSourceContainerDirectory(metadata: ResourceMetadata): Promise<TauriDirectoryHandle> {
-        const path = join(
-            this.userHome,
-            this.appName,
-            "src",
-            metadata.creator,
-            `${metadata.language.slug}_${metadata.identifier}`,
-            `v${metadata.version}`
-        );
-        await mkdir(await path, { recursive: true });
-        return new TauriDirectoryHandle(await path);
-    }
-
-    async getDerivedContainerDirectory(metadata: ResourceMetadata, source: ResourceMetadata): Promise<TauriDirectoryHandle> {
-        const path = join(
-            this.userHome,
-            this.appName,
-            "rc",
-            "der",
-            metadata.creator,
-            source.creator,
-            `${source.language.slug}_${source.identifier}`,
-            `v${metadata.version}`,
-            metadata.language.slug
-        );
-        await mkdir(await path, { recursive: true });
+        console.log(`Project directory: ${path}`);
         return new TauriDirectoryHandle(await path);
     }
 
     // ---------------- File utilities ----------------
 
     async newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter<any>> {
+        console.log("creating file writer for: " + filePath)
         const file = new TauriFileHandle(filePath);
         const stream = await file.createWritable();
-        return stream.getWriter?.() as WritableStreamDefaultWriter<any>;
+        console.log("file writer created: " + filePath)
+        debugger
+        const writer = stream.getWriter();
+        console.log("file writer ready: " + filePath)
+        return writer;
     }
 
     async newFileReader(filePath: string): Promise<File> {
@@ -129,8 +107,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     async openInFileManager(path: string): Promise<void> {
         open(path);
     }
-
-    // ---------------- Predefined directories ----------------
 
     get databaseDirectory(): Promise<TauriDirectoryHandle> {
         return this.getAppDataDirectory("database");

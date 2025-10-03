@@ -43,7 +43,7 @@ export class TauriDirectoryHandle implements FileSystemDirectoryHandle {
                 await writeTextFile(filePath, "");
             }
         }
-        return new TauriHandles(filePath);
+        return new TauriFileHandle(filePath);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }): Promise<void> {
@@ -137,6 +137,7 @@ export class TauriFileHandle implements FileSystemFileHandle {
         };
 
         const toUint8 = async (data: any): Promise<Uint8Array> => {
+            // ... (your existing toUint8 function)
             if (typeof data === "string") return new TextEncoder().encode(data);
             if (data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
             if (data instanceof ArrayBuffer) return new Uint8Array(data);
@@ -149,8 +150,10 @@ export class TauriFileHandle implements FileSystemFileHandle {
             await writeTextFile(this.path, text);
         };
 
-        const writer = {
+        // This object is now the sink for the WritableStream
+        const sink = {
             async write(chunkOrOp: any) {
+                // Your existing write logic, adapted to be in the sink's write method
                 if (chunkOrOp && typeof chunkOrOp === "object" && "type" in chunkOrOp) {
                     const op: { type: string; position?: number; data?: any; size?: number } = chunkOrOp;
                     switch (op.type) {
@@ -202,9 +205,13 @@ export class TauriFileHandle implements FileSystemFileHandle {
                 buffer = new Uint8Array(0);
                 position = 0;
             },
-        } as unknown as FileSystemWritableFileStream;
+        };
 
-        return writer;
+        // Create the native WritableStream using your sink object.
+        const stream = new WritableStream(sink) as FileSystemWritableFileStream;
+
+        // The stream now has the getWriter() method.
+        return stream;
     }
 
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {

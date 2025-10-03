@@ -11,23 +11,13 @@ export interface IDirectoryProvider {
         bookSlug: string
     ): Promise<FileSystemDirectoryHandle>;
 
-    getProjectAudioDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<FileSystemDirectoryHandle>;
-
     getProjectSourceDirectory(
         source: ResourceMetadata,
         target: ResourceMetadata | null,
         bookSlug: string
     ): Promise<FileSystemDirectoryHandle>;
 
-    getProjectSourceAudioDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<FileSystemDirectoryHandle>;
+
 
     getSourceContainerDirectory(metadata: ResourceMetadata): Promise<FileSystemDirectoryHandle>;
     getDerivedContainerDirectory(
@@ -49,8 +39,6 @@ export interface IDirectoryProvider {
     readonly resourceContainerDirectory: Promise<FileSystemDirectoryHandle>;
     readonly internalSourceRCDirectory: Promise<FileSystemDirectoryHandle>;
     readonly userProfileImageDirectory: Promise<FileSystemDirectoryHandle>;
-    readonly userProfileAudioDirectory: Promise<FileSystemDirectoryHandle>;
-    readonly audioPluginDirectory: Promise<FileSystemDirectoryHandle>;
     readonly versificationDirectory: Promise<FileSystemDirectoryHandle>;
     readonly logsDirectory: Promise<FileSystemDirectoryHandle>;
     readonly cacheDirectory: Promise<FileSystemDirectoryHandle>;
