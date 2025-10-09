@@ -1,11 +1,11 @@
-import { defineConfig } from "@lingui/cli";
+import {defineConfig} from "@lingui/cli";
 
 export default defineConfig({
   sourceLocale: "en",
   locales: ["en", "es"],
   catalogs: [
     {
-      path: "<rootDir>/src/ui/i18n/locales/{locale}/messages",
+      path: "<rootDir>/src/app/ui/i18n/locales/{locale}/messages",
       include: ["src"],
     },
   ],

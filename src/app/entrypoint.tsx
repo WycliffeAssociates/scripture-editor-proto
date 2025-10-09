@@ -1,0 +1,70 @@
+// import "./App.css";
+// import "./ui/styles/";
+
+import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import {createRouter, RouterProvider} from "@tanstack/react-router";
+import type {SettingsManager} from "@/app/data/settings";
+
+import {routeTree} from "@/app/generated/routeTree.gen";
+import {I18nEntry} from "@/app/ui/i18n/i18nEntry";
+import type {IGitProvider} from "@/core/data/git/GitProvider";
+import {IDirectoryProvider} from "@/core/data/persistence/DirectoryProvider";
+
+type EntryPointProps = {
+  settingsManager: SettingsManager;
+  gitProvider: IGitProvider;
+  directoryProvider: IDirectoryProvider;
+};
+
+// Create a client for React Query
+const queryClient = new QueryClient();
+export interface RouterContext {
+  queryClient: QueryClient; //for if wanting to manage tanstack query in route loader,
+  settingsManager: SettingsManager;
+  gitProvider: IGitProvider;
+  directoryProvider: IDirectoryProvider;
+}
+// wrapping this let's us get it's type as ReturnType to declaration merge, whilse just receiving service deps as props to app
+
+const wrapCreateRouter = (
+  settingsManager: SettingsManager,
+  gitProvider: IGitProvider,
+  directoryProvider: IDirectoryProvider
+) => {
+  const router = createRouter({
+    routeTree,
+    context: {
+      settingsManager,
+      queryClient,
+      gitProvider,
+      directoryProvider,
+    },
+  });
+  return router;
+};
+declare module "@tanstack/react-router" {
+  interface Register {
+    // This infers the type of our router and registers it across your entire project
+    router: ReturnType<typeof wrapCreateRouter>;
+  }
+}
+export function App({
+  settingsManager,
+  gitProvider,
+  directoryProvider,
+}: EntryPointProps) {
+  // Create a router
+  const router = wrapCreateRouter(
+    settingsManager,
+    gitProvider,
+    directoryProvider
+  );
+
+  return (
+    <I18nEntry defaultLocale={settingsManager.get("appLanguage")}>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </I18nEntry>
+  );
+}
