@@ -5,6 +5,7 @@ mod parse;
 use std::time::Instant;
 use std::{fs, io, os};
 use tauri::Manager;
+use md5::Digest;
 
 use crate::parse::OwnedParsedUSFM;
 
@@ -31,6 +32,12 @@ fn hello_world() -> String {
     "Hello, world!".to_string()
 }
 
+#[tauri::command]
+pub fn calculate_md5(text: String) -> String {
+    let digest = md5::Md5::digest(text.as_bytes());
+    format!("{:x}", digest)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -41,8 +48,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             parse_usfm,
             git::clone_repo,
-            hello_world
+            hello_world,
+            calculate_md5
         ])
+        .invoke_handler
         .setup(move |app| {
             #[cfg(debug_assertions)] // only include this code on dev builds
             {

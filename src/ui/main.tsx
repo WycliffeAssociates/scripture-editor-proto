@@ -14,6 +14,8 @@ import { messages as esMessages } from "@/ui/i18n/locales/es/messages.ts";
 import { getProjectsDir } from "@/ui/contexts/RouterContext.tsx";
 // Import the generated route tree
 import { routeTree } from "@/routeTree.gen.ts";
+import { TauriMd5Service } from "@/api/TauriMd5Service.ts";
+import { Md5Provider } from "./contexts/Md5Context.tsx";
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -48,6 +50,9 @@ async function bootstrap() {
     const rootElement = document.getElementById("root");
     if (!rootElement || rootElement.innerHTML) return;
 
+    // Instantiate TauriMd5Service
+    const tauriMd5Service = new TauriMd5Service();
+
     // wait for dirs
     const ctx = await getProjectsDir();
 
@@ -56,7 +61,9 @@ async function bootstrap() {
         // <StrictMode>
         <I18nProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
-                <RouterProvider router={router} context={ctx} />
+                <Md5Provider md5Service={tauriMd5Service}>
+                    <RouterProvider router={router} context={ctx} />
+                </Md5Provider>
             </QueryClientProvider>
         </I18nProvider>,
         // </StrictMode>

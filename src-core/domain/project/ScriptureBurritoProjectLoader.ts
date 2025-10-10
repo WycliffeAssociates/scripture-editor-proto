@@ -1,10 +1,11 @@
 import { IProjectLoader } from "./IProjectLoader.ts";
 import { Project } from "@/src-core/persistence/ProjectRepository.ts";
 import { IFileWriter } from "./IFileWriter.ts";
-import { canonicalBookMap } from "./bookMapping.ts";
+import { generateUsfmFilename, createBurritoIngredient, updateBurritoMetadata } from "./scriptureBurritoHelpers.ts";
+import { IMd5Service } from "../md5/IMd5Service.ts";
 
 export class ScriptureBurritoProjectLoader implements IProjectLoader {
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter): Promise<Project | null> {
+    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const metadataFileHandle = await projectDir.getFileHandle("metadata.json");
             const file = await metadataFileHandle.getFile();
@@ -20,12 +21,9 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                 projectDir,
                 fileWriter,
                 metadataJson: metadata,
+                md5Service,
                 addBook: async (bookCode: string, localizedBookTitle?: string, contents: string = "") => {
-                    const book = canonicalBookMap[bookCode.toUpperCase()];
-                    if (!book) {
-                        throw new Error(`Invalid book code: ${bookCode}`);
-                    }
-                    const filename = `${book.num}-${book.code}.usfm`;
+                    const filename = generateUsfmFilename(bookCode);
                     const filePath = filename; // Path relative to projectDir
 
                     try {
@@ -38,21 +36,8 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
 
                     await fileWriter.writeFile(filePath, contents);
 
-                    // Update metadata.json (Scripture Burrito ingredient)
-                    // This is a simplified mock. Real implementation would be more complex.
-                    project.metadataJson.ingredients = project.metadataJson.ingredients || {};
-                    project.metadataJson.ingredients[filePath] = {
-                        checksum: {
-                            md5: "", // Placeholder
-                        },
-                        size: contents.length,
-                        mimeType: "text/usfm",
-                        title: localizedBookTitle || book.code,
-                    };
-
-                    // Write updated metadata back (mocked)
-                    const updatedMetadataString = JSON.stringify(project.metadataJson, null, 2);
-                    await fileWriter.writeFile("metadata.json", updatedMetadataString);
+                    const ingredientData = await createBurritoIngredient(filePath, contents, md5Service, localizedBookTitle, bookCode);
+                    await updateBurritoMetadata(project, filePath, ingredientData);
                     console.log(`Added ${filename} as ingredient to metadata.json`);
                 },
             };

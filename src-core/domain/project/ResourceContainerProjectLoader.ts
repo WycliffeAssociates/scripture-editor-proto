@@ -2,9 +2,10 @@ import { IProjectLoader } from "./IProjectLoader.ts";
 import { Project } from "@/src-core/persistence/ProjectRepository.ts";
 import { IFileWriter } from "./IFileWriter.ts";
 import { canonicalBookMap } from "./bookMapping.ts";
+import { IMd5Service } from "../md5/IMd5Service.ts";
 
 export class ResourceContainerProjectLoader implements IProjectLoader {
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter): Promise<Project | null> {
+    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const manifestFileHandle = await projectDir.getFileHandle("manifest.yaml");
             const file = await manifestFileHandle.getFile();
@@ -22,6 +23,7 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                 projectDir,
                 fileWriter,
                 manifestYaml: parsedManifest,
+                md5Service,
                 addBook: async (bookCode: string, localizedBookTitle?: string, contents: string = "") => {
                     const book = canonicalBookMap[bookCode.toUpperCase()];
                     if (!book) {
