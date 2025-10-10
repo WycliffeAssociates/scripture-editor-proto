@@ -1,10 +1,15 @@
 
 import { IProjectRepository, Project } from "../ProjectRepository.ts";
 import { IDirectoryProvider } from "../DirectoryProvider.ts";
-// import { TauriDirectoryHandle } from "../../../src/persistence/handlers/TauriDirectoryHandle.ts";
+import { IFileWriter } from "../../domain/project/IFileWriter.ts";
+import { FileWriter } from "../../../src/persistence/FileWriter.ts";
 
 export class ProjectRepository implements IProjectRepository {
     constructor(private directoryProvider: IDirectoryProvider) {}
+
+    private createFileWriter(projectDir: FileSystemDirectoryHandle): IFileWriter {
+        return new FileWriter(this.directoryProvider); // Now using the concrete FileWriter
+    }
 
     async saveProject(project: Project): Promise<void> {
         const userDataDir = await this.directoryProvider.getUserDataDirectory();
