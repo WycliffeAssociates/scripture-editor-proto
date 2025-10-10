@@ -12,7 +12,6 @@ export interface Project {
     id: string;
     name: string;
     files: ProjectFile[];
-    path: string;
     metadata: ProjectMetadata;
     projectDir: FileSystemDirectoryHandle;
     fileWriter: IFileWriter;
@@ -21,3 +20,7 @@ export interface Project {
     md5Service: IMd5Service; // New: MD5 service for checksums
     addBook(bookCode: string, localizedBookTitle?: string, contents?: string): Promise<void>;
 }
+
+// Redefined ProjectMetadata and Language are now imported from ../data/project/project.ts
+// export interface ProjectMetadata { ... }
+// export interface Language { ... }
