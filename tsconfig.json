@@ -25,6 +25,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "src-core/persistence/repositories/ProjectRepository.ts", "src-core/data/project/project.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
