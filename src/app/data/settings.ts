@@ -1,6 +1,29 @@
-import {EditorMarkersViewStates, EditorModes} from "@/app/data/editor";
+import {
+  type EditorMarkersViewState,
+  EditorMarkersViewStates,
+  type EditorMode,
+  EditorModes,
+} from "@/app/data/editor";
 
-export const settingsDefaults = {
+type SupportedLocales = "en" | "es";
+export type Settings = {
+  fontSize: string;
+  fontFamily: string;
+  zoom: number;
+  canSetZoom: boolean;
+  canAccessSystemFonts: boolean;
+  lastProjectPath: string | null;
+  lastBookIdentifier: string | null;
+  lastChapterNumber: number | null;
+  restoreToLastProjectOnLaunch: true;
+  mode: EditorMode;
+  markersViewState: EditorMarkersViewState;
+  lockMarkers: boolean;
+  appLanguage: SupportedLocales;
+  appDirection: "ltr" | "rtl";
+  colorScheme: "light" | "dark";
+};
+export const settingsDefaults: Settings = {
   fontSize: "16px",
   fontFamily: "Inter",
   zoom: 1,
@@ -12,13 +35,10 @@ export const settingsDefaults = {
   restoreToLastProjectOnLaunch: true,
   mode: EditorModes.WYSIWYG,
   markersViewState: EditorMarkersViewStates.WHEN_EDITING,
+  lockMarkers: false,
   appLanguage: "en",
   appDirection: "ltr",
-};
-type SupportedLocales = "en" | "es";
-export type Settings = typeof settingsDefaults & {
-  appLanguage: SupportedLocales;
-  appDirection: "ltr" | "rtl";
+  colorScheme: "light",
 };
 
 export interface SettingsManager {

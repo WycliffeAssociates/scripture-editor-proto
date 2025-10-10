@@ -1,22 +1,22 @@
 // import {invoke} from "@tauri-apps/api/tauri";
 
-import {invoke} from "@tauri-apps/api/core";
-import type {IGitProvider} from "@/core/data/git/GitProvider";
-import type {TauriDirectoryProvider} from "@/tauri/domain/persistence/tauriDirectoryProvider";
+import { invoke } from "@tauri-apps/api/core";
+import type { IGitProvider } from "@/core/data/git/GitProvider";
+import type { TauriDirectoryProvider } from "@/tauri/domain/persistence/tauriDirectoryProvider";
 
 export class TauriGitProvider implements IGitProvider {
-  private directoryProvider: TauriDirectoryProvider;
+    private directoryProvider: TauriDirectoryProvider;
 
-  constructor(directoryProvider: TauriDirectoryProvider) {
-    this.directoryProvider = directoryProvider;
-  }
+    constructor(directoryProvider: TauriDirectoryProvider) {
+        this.directoryProvider = directoryProvider;
+    }
 
-  async cloneRepository(url: string): Promise<undefined | Error> {
-    const basePath = await this.directoryProvider.getUserDataDirectory();
-    const args = {
-      url,
-      path: basePath.path,
-    };
-    return invoke("clone_repo", args);
-  }
+    async cloneRepository(url: string): Promise<undefined | Error> {
+        const basePath = await this.directoryProvider.getUserDataDirectory();
+        const args = {
+            url,
+            path: basePath.path,
+        };
+        return invoke("clone_repo", args);
+    }
 }

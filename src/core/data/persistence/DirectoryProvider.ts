@@ -1,69 +1,72 @@
 // IDirectoryProvider.ts
 
 export interface IDirectoryProvider {
-  // Directory access
-  getUserDataDirectory(
-    appendedPath?: string
-  ): Promise<FileSystemDirectoryHandle>;
-  getAppDataDirectory(
-    appendedPath?: string
-  ): Promise<FileSystemDirectoryHandle>;
+    // Directory access
+    getUserDataDirectory(
+        appendedPath?: string,
+    ): Promise<FileSystemDirectoryHandle>;
+    getAppDataDirectory(
+        appendedPath?: string,
+    ): Promise<FileSystemDirectoryHandle>;
 
-  getProjectDirectory(
-    source: ResourceMetadata,
-    target: ResourceMetadata | null,
-    bookSlug: string
-  ): Promise<FileSystemDirectoryHandle>;
+    getDirectoryHandle(path: string): Promise<FileSystemDirectoryHandle>;
 
-  getProjectSourceDirectory(
-    source: ResourceMetadata,
-    target: ResourceMetadata | null,
-    bookSlug: string
-  ): Promise<FileSystemDirectoryHandle>;
+    getProjectDirectory(
+        source: ResourceMetadata,
+        target: ResourceMetadata | null,
+        bookSlug: string,
+    ): Promise<FileSystemDirectoryHandle>;
 
-  getSourceContainerDirectory(
-    metadata: ResourceMetadata
-  ): Promise<FileSystemDirectoryHandle>;
-  getDerivedContainerDirectory(
-    metadata: ResourceMetadata,
-    source: ResourceMetadata
-  ): Promise<FileSystemDirectoryHandle>;
+    getProjectSourceDirectory(
+        source: ResourceMetadata,
+        target: ResourceMetadata | null,
+        bookSlug: string,
+    ): Promise<FileSystemDirectoryHandle>;
 
-  // File utilities
-  newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter<any>>;
-  newFileReader(filePath: string): Promise<File>;
+    getSourceContainerDirectory(
+        metadata: ResourceMetadata,
+    ): Promise<FileSystemDirectoryHandle>;
+    getDerivedContainerDirectory(
+        metadata: ResourceMetadata,
+        source: ResourceMetadata,
+    ): Promise<FileSystemDirectoryHandle>;
 
-  createTempFile(
-    prefix: string,
-    suffix?: string
-  ): Promise<FileSystemFileHandle>;
-  cleanTempDirectory(): Promise<void>;
+    // File utilities
+    newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter<any>>;
+    newFileReader(filePath: string): Promise<File>;
 
-  openInFileManager(path: string): Promise<void>;
+    createTempFile(
+        prefix: string,
+        suffix?: string,
+    ): Promise<FileSystemFileHandle>;
+    cleanTempDirectory(): Promise<void>;
 
-  // Predefined directories
-  readonly databaseDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly resourceContainerDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly internalSourceRCDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly userProfileImageDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly versificationDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly logsDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly cacheDirectory: Promise<FileSystemDirectoryHandle>;
-  readonly tempDirectory: Promise<FileSystemDirectoryHandle>;
+    openInFileManager(path: string): Promise<void>;
+
+    // Predefined directories
+    readonly databaseDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly resourceContainerDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly internalSourceRCDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly userProfileImageDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly versificationDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly logsDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly cacheDirectory: Promise<FileSystemDirectoryHandle>;
+    readonly tempDirectory: Promise<FileSystemDirectoryHandle>;
 }
 
 export interface WebFileHandleExtended extends FileSystemFileHandle {
-  write(
-    data: FileSystemWriteChunkType,
-    options?: {keepExistingData?: boolean}
-  ): Promise<void>;
+    path: string;
+    write(
+        data: FileSystemWriteChunkType,
+        options?: { keepExistingData?: boolean },
+    ): Promise<void>;
 }
 
 // Example domain models
 export interface ResourceMetadata {
-  creator: string;
-  identifier: string;
-  language: {slug: string};
-  version: number;
-  type?: string;
+    creator: string;
+    identifier: string;
+    language: { slug: string };
+    version: number;
+    type?: string;
 }

@@ -1,173 +1,216 @@
-import { createId } from "@paralleldrive/cuid2";
+import type {EditorConfig, LexicalNode, SerializedElementNode} from "lexical";
 import {
-    type EditorConfig,
-    ElementNode,
-    LexicalNode,
-    type NodeKey,
-    type SerializedElementNode,
+  $create,
+  $getState,
+  $getStateChange,
+  $setState,
+  ElementNode,
+  TextNode,
 } from "lexical";
-import type { USFMNodeJSON } from "@/lib/getEditorState";
-import type { ParsedToken } from "@/lib/parse";
+import {USFM_ELEMENT_NODE_TYPE, type USFMNodeJSON} from "@/app/data/editor";
+import {
+  classNameState,
+  idState,
+  inParaState,
+  markerState,
+  sidState,
+  tokenTypeState,
+} from "@/app/domain/editor/states";
+import type {ParsedToken} from "@/core/data/usfm/parse";
 
 export type USFMElementNodeJSON = SerializedElementNode & {
-    type: "usfm-element";
-    cuid: string;
-    marker?: string;
-    inPara?: string;
-    sid?: string;
-    level?: string;
-    attributes?: Record<string, string>;
-    version: 1;
+  type: typeof USFM_ELEMENT_NODE_TYPE;
+  id: string;
+  tokenType: string;
+  marker?: string;
+  inPara?: string;
+  sid?: string;
+  // attributes?: Record<string, string>;
+  version: 1;
 };
 
 export class USFMElementNode extends ElementNode {
-    __cuid: string;
-    __marker?: string;
-    __inPara?: string;
-    __sid?: string;
-    __level?: string;
-    __attributes: Record<string, string>;
+  static getType(): string {
+    return USFM_ELEMENT_NODE_TYPE;
+  }
+  /**
+   * Automatically handles cloning, import/export JSON by using the modern $config API.
+   * This significantly reduces boilerplate code.
+   */
+  $config() {
+    return this.config(USFM_ELEMENT_NODE_TYPE, {
+      extends: TextNode,
+      stateConfigs: [
+        {flat: true, stateConfig: idState},
+        {flat: true, stateConfig: sidState},
+        {flat: true, stateConfig: inParaState},
+        {flat: true, stateConfig: tokenTypeState},
+        {flat: true, stateConfig: markerState},
+        {flat: true, stateConfig: classNameState},
+      ],
+    });
+  }
 
-    static getType(): string {
-        return "usfm-element";
-    }
+  // getters and setters
+  // --- Getters ---
+  getId(): string {
+    return $getState(this.getLatest(), idState);
+  }
 
-    static clone(node: USFMElementNode): USFMElementNode {
-        return new USFMElementNode(
-            {
-                cuid: node.__cuid,
-                marker: node.__marker,
-                inPara: node.__inPara,
-                sid: node.__sid,
-                level: node.__level,
-                attributes: { ...node.__attributes },
-            },
-            node.__key,
-        );
-    }
+  getClassNames(): string[] {
+    const current = $getState(this.getLatest(), classNameState);
+    return Object.entries(current)
+      .filter(([_, v]) => v)
+      .map(([k]) => k);
+  }
 
-    constructor(
-        opts: {
-            cuid: string;
-            marker?: string;
-            inPara?: string;
-            sid?: string;
-            level?: string;
-            attributes?: Record<string, string>;
-        } = {
-            cuid: createId(),
-        },
-        key?: NodeKey,
-    ) {
-        super(key);
-        this.__cuid = opts.cuid;
-        this.__marker = opts.marker;
-        this.__inPara = opts.inPara;
-        this.__sid = opts.sid;
-        this.__level = opts.level;
-        this.__attributes = opts.attributes || {};
-    }
+  getSid(): string {
+    return $getState(this.getLatest(), sidState);
+  }
 
-    static importJSON(json: USFMElementNodeJSON): USFMElementNode {
-        return new USFMElementNode({
-            cuid: json.cuid,
-            marker: json.marker,
-            inPara: json.inPara,
-            sid: json.sid,
-            level: json.level,
-            attributes: json.attributes,
-        });
-    }
+  getInPara(): string {
+    return $getState(this.getLatest(), inParaState);
+  }
 
-    exportJSON(): USFMElementNodeJSON {
-        return {
-            ...super.exportJSON(),
-            type: "usfm-element",
-            cuid: this.__cuid,
-            marker: this.__marker,
-            inPara: this.__inPara,
-            sid: this.__sid,
-            level: this.__level,
-            attributes: this.__attributes,
-            version: 1,
-        };
-    }
+  getTokenType(): string {
+    return $getState(this.getLatest(), tokenTypeState);
+  }
 
-    createDOM(_config: EditorConfig): HTMLElement {
-        // choose DOM tag based on marker
-        const el =
-            this.__marker === "p"
-                ? document.createElement("p")
-                : document.createElement("span");
-
-        el.className = `usfm usfm-${this.__marker || "generic"}`;
-        if (this.__inPara) el.dataset.inPara = this.__inPara;
-        if (this.__sid) el.dataset.sid = this.__sid;
-        if (this.__level) el.dataset.level = this.__level;
-
-        return el;
-    }
-
-    updateDOM(prevNode: USFMElementNode, dom: HTMLElement): boolean {
-        let needsUpdate = false;
-
-        if (this.__marker !== prevNode.__marker) {
-            dom.className = `usfm usfm-${this.__marker || "generic"}`;
-            needsUpdate = true;
-        }
-        if (this.__inPara !== prevNode.__inPara) {
-            if (this.__inPara) dom.dataset.inPara = this.__inPara;
-            else delete dom.dataset.inPara;
-            needsUpdate = true;
-        }
-        if (this.__sid !== prevNode.__sid) {
-            if (this.__sid) dom.dataset.sid = this.__sid;
-            else delete dom.dataset.sid;
-            needsUpdate = true;
-        }
-
-        return needsUpdate;
-    }
-    getMarker(): string | undefined {
-        return this.__marker;
-    }
-    getSid(): string | undefined {
-        return this.__sid;
-    }
-}
-
-export function $createUSFMElementNode(opts?: {
-    cuid: string;
-    marker?: string;
-    inPara?: string;
+  getMarker(): string | undefined {
+    return $getState(this.getLatest(), markerState);
+  }
+  getAllStates(): {
+    id: string;
+    tokenType: string;
     sid?: string;
-    level?: string;
-    attributes?: Record<string, string>;
-}): USFMElementNode {
-    return new USFMElementNode(opts);
+    inPara?: string;
+    marker?: string;
+  } {
+    return {
+      id: this.getId(),
+      tokenType: this.getTokenType(),
+      sid: this.getSid(),
+      inPara: this.getInPara(),
+      marker: this.getMarker(),
+    };
+  }
+
+  // --- Setters ---
+
+  setId(id: string): this {
+    $setState(this.getWritable(), idState, id);
+    return this;
+  }
+
+  setClassName(name: string, value: boolean) {
+    const writable = this.getWritable();
+    const current = $getState(writable, classNameState);
+    $setState(writable, classNameState, {...current, [name]: value});
+    return this;
+  }
+
+  setSid(sid: string): this {
+    $setState(this.getWritable(), sidState, sid);
+    return this;
+  }
+
+  setInPara(inPara: string): this {
+    $setState(this.getWritable(), inParaState, inPara);
+    return this;
+  }
+
+  setTokenType(tokenType: string): this {
+    $setState(this.getWritable(), tokenTypeState, tokenType);
+    return this;
+  }
+
+  setMarker(marker: string | undefined): this {
+    $setState(this.getWritable(), markerState, marker);
+    return this;
+  }
+
+  createDOM(config: EditorConfig) {
+    const el =
+      this.getMarker() === "p"
+        ? document.createElement("p")
+        : document.createElement("span");
+    const ds = el.dataset;
+    const states = this.getAllStates();
+    const classNames = this.getClassNames();
+    Object.entries(states).forEach(([k, v]) => {
+      if (v) {
+        ds[k] = v.toString();
+      }
+    });
+    classNames.forEach((c) => {
+      el.classList.add(c);
+    });
+    return el;
+  }
+  updateDOM(
+    prevNode: USFMElementNode,
+    dom: HTMLElement,
+    config: EditorConfig
+  ): boolean {
+    // super.updateDOM returns true if the text content or format has changed.
+    let needsUpdate = super.updateDOM(prevNode as this, dom, config);
+    [sidState, inParaState, markerState, tokenTypeState].forEach((s) => {
+      if ($getStateChange(this, prevNode, s as any)) {
+        needsUpdate = true;
+      }
+    });
+    return needsUpdate;
+  }
+  canBeEmpty(): boolean {
+    return true;
+  }
+  remove() {
+    return false;
+  }
 }
-export function nodeIsUsfmElementNode(
-    node: LexicalNode,
-): node is USFMElementNode {
-    return node.getType() === "usfm-element";
+
+/* type guards */
+export function $isUSFMElementNode(node: LexicalNode): node is USFMElementNode {
+  return node.getType() === USFM_ELEMENT_NODE_TYPE;
+}
+
+// creates
+export function $createUSFMElementNode(opts?: {
+  id: string;
+  marker?: string;
+  inPara?: string;
+  sid?: string;
+  attributes?: Record<string, string>;
+}): USFMElementNode {
+  const node = $create(USFMElementNode);
+  const writable = node.getWritable();
+  if (opts) {
+    $setState(writable, idState, opts.id);
+    $setState(writable, markerState, opts.marker);
+    $setState(writable, inParaState, opts.inPara ?? "");
+    $setState(writable, sidState, opts.sid ?? "");
+    $setState(writable, classNameState, opts.attributes ?? {});
+  }
+  return node;
 }
 
 export function createSerializedUSFMElementNode(
-    opts: ParsedToken,
-    childrenCb: () => USFMNodeJSON[],
+  opts: ParsedToken,
+  direction: "ltr" | "rtl",
+  children: USFMNodeJSON[]
 ): USFMElementNodeJSON {
-    return {
-        type: "usfm-element",
-        cuid: opts.cuid,
-        marker: opts.marker,
-        inPara: opts.inPara,
-        sid: opts.sid,
-        level: opts.level,
-        attributes: opts.attributes ?? {},
-        version: 1,
-        children: childrenCb(),
-        direction: "ltr",
-        indent: 0,
-        format: "start",
-    };
+  return {
+    type: USFM_ELEMENT_NODE_TYPE,
+    id: opts.id,
+    tokenType: opts.type,
+    marker: opts.marker,
+    inPara: opts.inPara,
+    sid: opts.sid,
+    // attributes: opts.attributes ?? {},
+    version: 1,
+    children,
+    direction,
+    indent: 0,
+    format: "start",
+  };
 }

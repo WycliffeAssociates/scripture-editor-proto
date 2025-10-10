@@ -1,4 +1,6 @@
-const bibleOrder = [
+// bibleUtils.ts
+// Core canonical ordering of books (standard 66)
+export const BIBLE_ORDER = [
     "GEN",
     "EXO",
     "LEV",
@@ -66,85 +68,106 @@ const bibleOrder = [
     "JUD",
     "REV",
 ];
-const bibleOrderMap = new Map(bibleOrder.map((book, index) => [book, index]));
 
-export const sortUsfmfilesByCanonicalOrder = (
-    files: { name: string; path: string }[],
-) => {
-    return files.sort((a, b) => {
+export const BIBLE_ORDER_MAP = new Map<string, number>(
+    BIBLE_ORDER.map((b, i) => [b, i]),
+);
+
+// --- 1. Canonical sort of files --------------------------------------------
+
+export function sortUsfmFilesByCanonicalOrder<T extends { name: string }>(
+    files: T[],
+): T[] {
+    return [...files].sort((a, b) => {
         const aSlug = getBookSlug(a.name);
         const bSlug = getBookSlug(b.name);
-        const aIndex = bibleOrderMap.get(aSlug);
-        const bIndex = bibleOrderMap.get(bSlug);
-        return (aIndex || 0) - (bIndex || 0);
+        return (
+            (BIBLE_ORDER_MAP.get(aSlug) ?? 0) -
+            (BIBLE_ORDER_MAP.get(bSlug) ?? 0)
+        );
     });
-};
-export const getBookSlug = (book: string) => {
-    const containsDash = book.indexOf("-");
-    if (containsDash !== -1) {
-        return book.slice(containsDash + 1, containsDash + 4);
-    } else return book;
-};
+}
 
-// a map of book names to fuzzy common slugs
-const BOOKS: Record<string, string[]> = {
-    Genesis: ["genesis", "gen", "ge"],
-    Exodus: ["exodus", "exo", "ex"],
-    Leviticus: ["leviticus", "lev", "lv"],
-    Numbers: ["numbers", "num", "nu"],
-    Deuteronomy: ["deuteronomy", "deut", "de"],
-    Joshua: ["joshua", "jos", "js"],
-    Judges: ["judges", "jud", "jd"],
-    Ruth: ["ruth", "rt"],
-    Samuel1: ["1 samuel", "1 sam", "1sa", "1sm"],
-    Samuel2: ["2 samuel", "2 sam", "2sa", "2sm"],
-    Kings1: ["1 kings", "1 ki", "1k"],
-    Kings2: ["2 kings", "2 ki", "2k"],
-    Isaiah: ["isaiah", "isa", "is"],
-    Jeremiah: ["jeremiah", "jer", "je"],
-    Lamentations: ["lamentations", "lam"],
-    Ezekiel: ["ezekiel", "ezek", "ez"],
-    Daniel: ["daniel", "dan", "da"],
-    Hosea: ["hosea", "hos"],
-    Joel: ["joel", "jl"],
-    Amos: ["amos", "am"],
-    Obadiah: ["obadiah", "oba"],
-    Jonah: ["jonah", "jon"],
-    Micah: ["micah", "mic", "mi"],
-    Nahum: ["nahum", "nah", "na"],
-    Habakkuk: ["habakkuk", "hab", "hb"],
-    Zephaniah: ["zephaniah", "zeph", "zep", "zh"],
-    Haggai: ["haggai", "hag"],
-    Zechariah: ["zechiah", "zech", "zec", "zc"],
-    Malachi: ["malachi", "mal", "ml"],
+export function getBookSlug(book: string): string {
+    const dashIndex = book.indexOf("-");
+    const slug =
+        dashIndex !== -1
+            ? book.slice(dashIndex + 1, dashIndex + 4)
+            : book.slice(0, 3);
+    return slug.toUpperCase();
+}
 
-    Matthew: ["matthew", "matt", "mat", "mt"],
-    Mark: ["mark", "mrk", "mk"],
-    Luke: ["luke", "lk"],
-    John: ["john", "jn", "jhn"],
-    Acts: ["acts", "ac"],
-    Romans: ["romans", "rom", "rm"],
-    Corinthians1: ["1 corinthians", "1 cor", "1co"],
-    Corinthians2: ["2 corinthians", "2 cor", "2co"],
-    Galatians: ["galatians", "gal", "gl"],
-    Ephesians: ["ephesians", "eph", "ep"],
-    Philippians: ["philippians", "philippian", "phil", "ph", "php"],
-    Colossians: ["colossians", "col", "cl"],
-    Thessalonians1: ["1 thessalonians", "1 thess", "1th", "1 th"],
-    Thessalonians2: ["2 thessalonians", "2 thess", "2th", "2 th"],
-    Timothy1: ["1 timothy", "1 tim", "1ti"],
-    Timothy2: ["2 timothy", "2 tim", "2ti"],
-    Titus: ["titus", "tit"],
-    Philemon: ["philemon", "phm"],
-    Hebrews: ["hebrews", "heb", "hl"],
-    James: ["james", "jas"],
-    Peter1: ["1 peter", "1 pet", "1pe"],
-    Peter2: ["2 peter", "2 pet", "2pe"],
-    John1: ["1 john", "1 jn", "1 joh"],
-    John2: ["2 john", "2 jn", "2 joh"],
-    John3: ["3 john", "3 jn", "3 joh"],
-    Jude: ["jude", "jud"],
-    Revelation: [
+// --- 2. Navigation (previous / next book) ---------------------------------
+
+export function getNeighborBook(
+    bookId: string,
+    dir: "prev" | "next",
+): string | null {
+    const idx = BIBLE_ORDER_MAP.get(bookId);
+    if (idx === undefined) return null;
+    const newIdx = dir === "prev" ? idx - 1 : idx + 1;
+    return BIBLE_ORDER[newIdx] ?? null;
+}
+
+// --- 3. Fuzzy book matching ------------------------------------------------
+
+// Simplified fuzzy map (abbreviations and English names)
+const BOOK_ALIASES: Record<string, string[]> = {
+    GEN: ["genesis", "gen", "ge"],
+    EXO: ["exodus", "exo", "ex"],
+    LEV: ["leviticus", "lev", "lv"],
+    NUM: ["numbers", "num", "nu"],
+    DEU: ["deuteronomy", "deut", "de"],
+    JOS: ["joshua", "jos", "js"],
+    JDG: ["judges", "jud", "jd"],
+    RUT: ["ruth", "rt"],
+    "1SA": ["1 samuel", "1 sam", "1sa", "1sm"],
+    "2SA": ["2 samuel", "2 sam", "2sa", "2sm"],
+    "1KI": ["1 kings", "1 ki", "1k"],
+    "2KI": ["2 kings", "2 ki", "2k"],
+    ISA: ["isaiah", "isa", "is"],
+    JER: ["jeremiah", "jer", "je"],
+    LAM: ["lamentations", "lam"],
+    EZK: ["ezekiel", "ezek", "ez"],
+    DAN: ["daniel", "dan", "da"],
+    HOS: ["hosea", "hos"],
+    JOL: ["joel", "jl"],
+    AMO: ["amos", "am"],
+    OBA: ["obadiah", "oba"],
+    JON: ["jonah", "jon"],
+    MIC: ["micah", "mic", "mi"],
+    NAM: ["nahum", "nah", "na"],
+    HAB: ["habakkuk", "hab", "hb"],
+    ZEP: ["zephaniah", "zeph", "zep", "zh"],
+    HAG: ["haggai", "hag"],
+    ZEC: ["zechiah", "zech", "zec", "zc"],
+    MAL: ["malachi", "mal", "ml"],
+    MAT: ["matthew", "matt", "mat", "mt"],
+    MRK: ["mark", "mrk", "mk"],
+    LUK: ["luke", "lk"],
+    JHN: ["john", "jn", "jhn"],
+    ACT: ["acts", "ac"],
+    ROM: ["romans", "rom", "rm"],
+    COR: ["corinthians", "cor", "co"],
+    GAL: ["galatians", "gal", "gl"],
+    EPH: ["ephesians", "eph", "ep"],
+    PHI: ["philippians", "philippian", "phil", "ph", "php"],
+    COL: ["colossians", "col", "cl"],
+    TH1: ["1 thessalonians", "1 thess", "1th", "1 th"],
+    TH2: ["2 thessalonians", "2 thess", "2th", "2 th"],
+    "1TI": ["1 timothy", "1 tim", "1ti"],
+    "2TI": ["2 timothy", "2 tim", "2ti"],
+    TIT: ["titus", "tit"],
+    PHM: ["philemon", "phm"],
+    HEB: ["hebrews", "heb", "hl"],
+    JAS: ["james", "jas"],
+    "1PE": ["1 peter", "1 pet", "1pe"],
+    "2PE": ["2 peter", "2 pet", "2pe"],
+    "1JO": ["1 john", "1 jn", "1 joh"],
+    "2JO": ["2 john", "2 jn", "2 joh"],
+    "3JO": ["3 john", "3 jn", "3 joh"],
+    JUD: ["jude", "jud"],
+    REV: [
         "revelation",
         "revelations",
         "rev",
@@ -154,27 +177,50 @@ const BOOKS: Record<string, string[]> = {
     ],
     // ... add the rest
 };
-const bibleBooksToSlug = bibleOrder.reduce((acc, book, index) => {
-    const matchingBook = Object.keys(BOOKS).find((b) =>
-        BOOKS[b].some((abbr) => abbr === book.toLowerCase()),
-    );
-    if (matchingBook) {
-        acc.set(matchingBook, book);
+
+export function matchBook(input: string): string | null {
+    const normalized = input.toLowerCase().replace(/\s+/g, "");
+    for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
+        if (aliases.some((alias) => normalized.startsWith(alias))) {
+            return id;
+        }
     }
-    return acc;
-}, new Map<string, string>());
+    return null;
+}
+
+// --- 4. Parse free-form references ----------------------------------------
+//word or digit 3, all ws or noe, 1-3 digits, colon, 1-3 digits optional hyphen 1-3 digits optional. I.e. this supports
+// 1CO 1:1 and 1CO 1:1-2, but not sequences like 1,2
+const SID_REGEX = /(.{3})\s*(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?/;
+
+export interface ParsedReference {
+    book: string;
+    chapter: number;
+    verseStart: number;
+    verseEnd: number;
+}
+export function parseSid(sid: string): ParsedReference | null {
+    const m = SID_REGEX.exec(sid.toUpperCase());
+    if (!m) return null;
+    const [, book, chap, start, end] = m;
+    if (!BIBLE_ORDER_MAP.has(book)) return null;
+    return {
+        book,
+        chapter: Number(chap),
+        verseStart: Number(start),
+        verseEnd: end ? Number(end) : Number(start),
+    };
+}
+
+// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
+
 export function parseReference(input: string) {
     const normalized = input.toLowerCase().replace(/\s+/g, "");
-    // regex
-    const match = normalized.match(/^(\d?[a-z]+)\s*(\d+)?$/i);
+    const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);
     if (!match) return null;
-
-    const [, rawBook, rawChap, rawNextNum] = match;
-    const book = Object.keys(BOOKS).find((b) =>
-        BOOKS[b].some((abbr) => rawBook.startsWith(abbr)),
-    );
-    const chapter = rawChap ? Number(rawChap) : null;
-    const nextNum = rawNextNum ? Number(rawNextNum.replace(/\s/g, "")) : null;
-    const identifier = book ? bibleBooksToSlug.get(book) : null;
-    return book ? { book, chapter, identifier, nextNum } : null;
+    const [, rawBook, rawChap] = match;
+    const bookId = matchBook(rawBook);
+    return bookId
+        ? { book: bookId, chapter: rawChap ? Number(rawChap) : null }
+        : null;
 }

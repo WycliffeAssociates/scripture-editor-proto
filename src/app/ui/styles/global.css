@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  /* Sets the default text color for light mode */
+  /* --mantine-color-text: #a9cef0;
+  --mantine-color-default-border: var(--mantine-color-gray-1);
+  --mantine-color-error: var(--mantine-color-danger-7);
+  --mantine-color-placeholder: var(--mantine-color-gray-6); */
+}
