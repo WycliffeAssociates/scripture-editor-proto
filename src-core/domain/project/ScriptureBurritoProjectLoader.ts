@@ -5,9 +5,25 @@ import { generateUsfmFilename, createBurritoIngredient, updateBurritoMetadata } 
 import { IMd5Service } from "../md5/IMd5Service.ts";
 import { LanguageDirection } from "../../data/project/project.ts";
 
+/**
+ * @class ScriptureBurritoProjectLoader
+ * @implements {IProjectLoader}
+ * @description Implements IProjectLoader for Scripture Burrito projects. It loads project data
+ *              from a `metadata.json` file, extracts metadata, and provides functionality to add books
+ *              as ingredients with MD5 checksums.
+ */
 export class ScriptureBurritoProjectLoader implements IProjectLoader {
     static readonly METADATA_FILENAME = "metadata.json";
 
+    /**
+     * @method loadProject
+     * @description Loads a Scripture Burrito project from the specified directory handle.
+     * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
+     * @param fileWriter - An IFileWriter instance for writing files within the project directory.
+     * @param md5Service - An IMd5Service instance for calculating MD5 checksums for ingredients.
+     * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
+     *          (e.g., metadata.json is missing or malformed).
+     */
     async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const metadataFileHandle = await projectDir.getFileHandle(ScriptureBurritoProjectLoader.METADATA_FILENAME);
@@ -23,6 +39,7 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                 id: metadata.id || projectDir.name,
                 name: metadata.name || metadata.identification?.name?.en || projectDir.name,
                 files: [],
+                // path: projectDir.path || "", // Removed as FileSystemDirectoryHandle does not have a .path property
                 metadata: {
                     id: metadata.id,
                     name: metadata.name || metadata.identification?.name?.en,
@@ -36,6 +53,16 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                 fileWriter,
                 metadataJson: metadata,
                 md5Service,
+                /**
+                 * @method addBook
+                 * @description Adds a USFM book as an ingredient to the Scripture Burrito project. If the book already exists
+                 *              (either as an ingredient in metadata.json or as a physical file), it will not be overwritten.
+                 *              It automatically calculates and adds the MD5 checksum for the new book.
+                 * @param bookCode - The three-letter book code (e.g., "MAT").
+                 * @param localizedBookTitle - Optional. The localized title of the book. Defaults to the book code.
+                 * @param contents - Optional. The USFM content of the book. Defaults to an empty string.
+                 * @returns A Promise that resolves when the book is added and `metadata.json` is updated.
+                 */
                 addBook: async (bookCode: string, localizedBookTitle?: string, contents: string = "") => {
                     const filename = generateUsfmFilename(bookCode);
                     const filePath = filename; // Path relative to projectDir

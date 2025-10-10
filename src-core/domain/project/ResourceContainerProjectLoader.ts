@@ -5,9 +5,25 @@ import { canonicalBookMap } from "./bookMapping.ts";
 import { IMd5Service } from "../md5/IMd5Service.ts";
 import { LanguageDirection } from "../../data/project/project.ts";
 
+/**
+ * @class ResourceContainerProjectLoader
+ * @implements {IProjectLoader}
+ * @description Implements IProjectLoader for Resource Container projects. It loads project data
+ *              from a `manifest.yaml` file, extracts metadata, and provides functionality to add books
+ *              according to the Resource Container specification.
+ */
 export class ResourceContainerProjectLoader implements IProjectLoader {
     static readonly MANIFEST_FILENAME = "manifest.yaml";
 
+    /**
+     * @method loadProject
+     * @description Loads a Resource Container project from the specified directory handle.
+     * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
+     * @param fileWriter - An IFileWriter instance for writing files within the project directory.
+     * @param md5Service - An IMd5Service instance (though not directly used in RC loading, it's part of the Project interface).
+     * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
+     *          (e.g., manifest.yaml is missing or malformed).
+     */
     async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const manifestFileHandle = await projectDir.getFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME);
@@ -27,6 +43,7 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                 id: projectId,
                 name: projectMetadata.name || projectId,
                 files: [],
+                // path: projectDir.path || "", // Removed as FileSystemDirectoryHandle does not have a .path property
                 metadata: {
                     id: projectId,
                     name: projectMetadata.name || projectId,
@@ -40,6 +57,15 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                 fileWriter,
                 manifestYaml: parsedManifest,
                 md5Service,
+                /**
+                 * @method addBook
+                 * @description Adds a USFM book to the Resource Container project. If the book already exists
+                 *              (either as a resource in the manifest or as a physical file), it will not be overwritten.
+                 * @param bookCode - The three-letter book code (e.g., "MAT").
+                 * @param localizedBookTitle - Optional. The localized title of the book. Defaults to the book code.
+                 * @param contents - Optional. The USFM content of the book. Defaults to an empty string.
+                 * @returns A Promise that resolves when the book is added and the manifest is updated.
+                 */
                 addBook: async (bookCode: string, localizedBookTitle?: string, contents: string = "") => {
                     const book = canonicalBookMap[bookCode.toUpperCase()];
                     if (!book) {
