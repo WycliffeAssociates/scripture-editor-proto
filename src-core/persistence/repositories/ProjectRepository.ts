@@ -4,9 +4,13 @@ import { IDirectoryProvider } from "../DirectoryProvider.ts";
 import { IFileWriter } from "../../domain/project/IFileWriter.ts";
 import { FileWriter } from "../../../src/persistence/FileWriter.ts";
 import { ProjectLoader } from "../../domain/project/ProjectLoader.ts";
+import { IMd5Service } from "../../domain/md5/IMd5Service.ts";
 
 export class ProjectRepository implements IProjectRepository {
-    constructor(private directoryProvider: IDirectoryProvider) {}
+    constructor(
+        private directoryProvider: IDirectoryProvider,
+        private md5Service: IMd5Service
+    ) {}
 
     private createFileWriter(projectDir: FileSystemDirectoryHandle): IFileWriter {
         return new FileWriter(this.directoryProvider, projectDir);
@@ -30,7 +34,7 @@ export class ProjectRepository implements IProjectRepository {
 
             const fileWriter = this.createFileWriter(projectDir);
             const projectLoader = new ProjectLoader(); // Instantiate ProjectLoader here
-            const project = await projectLoader.loadProject(projectDir, fileWriter);
+            const project = await projectLoader.loadProject(projectDir, fileWriter, this.md5Service);
 
             if (project) {
                 // The Project object now has its fileWriter and projectDir correctly set

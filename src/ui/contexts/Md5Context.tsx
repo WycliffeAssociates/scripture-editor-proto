@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { IMd5Service } from "@/src-core/domain/md5/IMd5Service.ts";
+import { IMd5Service } from "@/../src-core/domain/md5/IMd5Service.ts";
 
 interface Md5ContextType {
     md5Service: IMd5Service | null;

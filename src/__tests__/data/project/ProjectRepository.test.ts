@@ -1,10 +1,20 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { ProjectRepository } from "@/../src-core/persistence/repositories/ProjectRepository.ts";
 import type { IDirectoryProvider } from "@/../src-core/persistence/DirectoryProvider.ts";
-import type { Project } from "@/../src-core/data/project/project.ts";
+import type { Project } from "@/../src-core/persistence/ProjectRepository.ts"; // Adjusted import for Project interface
 import { LanguageDirection } from "@/../src-core/data/project/project.ts";
-// import { TauriDirectoryHandle } from "@/persistence/handlers/TauriDirectoryHandle.ts";
-// import { FileSystemHandle } from "@tauri-apps/api/path";
+import type { IMd5Service } from "@/../src-core/domain/md5/IMd5Service.ts";
+import type { IFileWriter } from "@/../src-core/domain/project/IFileWriter.ts";
+import { FileWriter } from "@/../src/persistence/FileWriter.ts";
+
+// Mock implementations for dependencies
+const mockFileWriter: IFileWriter = {
+    writeFile: vi.fn(() => Promise.resolve()),
+};
+
+const mockMd5Service: IMd5Service = {
+    calculateMd5: vi.fn((text: string) => Promise.resolve(`mock-md5-${text}`)),
+};
 
 // Mock data
 const MOCK_USER_DATA_DIR = "/mock/user/data";
@@ -14,7 +24,6 @@ const MOCK_PROJECT_1: Project = {
     id: MOCK_PROJECT_ID_1,
     name: MOCK_PROJECT_NAME_1,
     files: [],
-    path: '',
     metadata: {
         name: '',
         id: '',
@@ -23,7 +32,13 @@ const MOCK_PROJECT_1: Project = {
             id: '',
             direction: LanguageDirection.LTR
         }
-    }
+    },
+    projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
+    fileWriter: mockFileWriter,
+    manifestYaml: undefined,
+    metadataJson: undefined,
+    md5Service: mockMd5Service,
+    addBook: vi.fn(),
 };
 
 const MOCK_PROJECT_ID_2 = "project-2";
@@ -32,7 +47,6 @@ const MOCK_PROJECT_2: Project = {
     id: MOCK_PROJECT_ID_2,
     name: MOCK_PROJECT_NAME_2,
     files: [],
-    path: '',
     metadata: {
         name: '',
         id: '',
@@ -41,14 +55,20 @@ const MOCK_PROJECT_2: Project = {
             id: '',
             direction: LanguageDirection.LTR
         }
-    }
+    },
+    projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
+    fileWriter: mockFileWriter,
+    manifestYaml: undefined,
+    metadataJson: undefined,
+    md5Service: mockMd5Service,
+    addBook: vi.fn(),
 };
 
 // Mock for FileSystemDirectoryHandle-like behavior
 class MockDirectoryHandle implements FileSystemDirectoryHandle {
     kind: "directory" = "directory";
     name: string;
-    path: string;
+    path: string; // Keep for internal mock logic, not Project interface
     private entriesMap: Map<string, MockDirectoryHandle | MockFileHandle>;
 
     constructor(path: string, initialEntries: Record<string, any> = {}) {
@@ -132,7 +152,7 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
 class MockFileHandle implements FileSystemFileHandle {
     kind: "file" = "file";
     name: string;
-    path: string;
+    path: string; // Keep for internal mock logic
     private content: string;
 
     constructor(path: string, initialContent: string = '') {
@@ -219,7 +239,7 @@ describe('ProjectRepository', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        projectRepository = new ProjectRepository(mockDirectoryProvider);
+        projectRepository = new ProjectRepository(mockDirectoryProvider, mockMd5Service);
     });
 
     test('saveProject should save a project to the correct directory', async () => {
@@ -257,7 +277,13 @@ describe('ProjectRepository', () => {
 
         const loadedProject = await projectRepository.loadProject(MOCK_PROJECT_ID_1);
 
-        expect(loadedProject).toEqual(MOCK_PROJECT_1);
+        // Expect the loaded project to match the mocked project, with additional properties from loader
+        expect(loadedProject).toMatchObject({
+            ...MOCK_PROJECT_1,
+            projectDir: expect.any(MockDirectoryHandle),
+            fileWriter: expect.any(FileWriter), // Check if FileWriter is instantiated
+            md5Service: mockMd5Service,
+        });
         expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
     });
 
@@ -298,7 +324,11 @@ describe('ProjectRepository', () => {
 
         const listedProjects = await projectRepository.listProjects();
 
-        expect(listedProjects).toEqual([MOCK_PROJECT_1, MOCK_PROJECT_2]);
+        // The listed projects will have the added properties from the loader
+        expect(listedProjects).toEqual(expect.arrayContaining([
+            expect.objectContaining({ ...MOCK_PROJECT_1, projectDir: expect.any(MockDirectoryHandle), fileWriter: expect.any(FileWriter), md5Service: mockMd5Service }),
+            expect.objectContaining({ ...MOCK_PROJECT_2, projectDir: expect.any(MockDirectoryHandle), fileWriter: expect.any(FileWriter), md5Service: mockMd5Service }),
+        ]));
         expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
     });
 

@@ -11,20 +11,6 @@ export interface IDirectoryProvider {
         bookSlug: string
     ): Promise<FileSystemDirectoryHandle>;
 
-    getProjectSourceDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string
-    ): Promise<FileSystemDirectoryHandle>;
-
-
-
-    getSourceContainerDirectory(metadata: ResourceMetadata): Promise<FileSystemDirectoryHandle>;
-    getDerivedContainerDirectory(
-        metadata: ResourceMetadata,
-        source: ResourceMetadata
-    ): Promise<FileSystemDirectoryHandle>;
-
     // File utilities
     newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter<any>>;
     newFileReader(filePath: string): Promise<File>;

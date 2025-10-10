@@ -16,6 +16,8 @@ import { getProjectsDir } from "@/ui/contexts/RouterContext.tsx";
 import { routeTree } from "@/routeTree.gen.ts";
 import { TauriMd5Service } from "@/api/TauriMd5Service.ts";
 import { Md5Provider } from "./contexts/Md5Context.tsx";
+import { PersistenceProvider } from "./contexts/PersistenceContext.tsx";
+import { TauriDirectoryProvider } from "@/../src/persistence/TauriDirectoryProvider.ts";
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -56,13 +58,17 @@ async function bootstrap() {
     // wait for dirs
     const ctx = await getProjectsDir();
 
+    const directoryProvider = await TauriDirectoryProvider.create("usfm-editor");
+
     const root = ReactDOM.createRoot(rootElement);
     root.render(
         // <StrictMode>
         <I18nProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
                 <Md5Provider md5Service={tauriMd5Service}>
-                    <RouterProvider router={router} context={ctx} />
+                    <PersistenceProvider md5Service={tauriMd5Service} directoryProvider={directoryProvider}>
+                        <RouterProvider router={router} context={ctx}/>
+                    </PersistenceProvider>
                 </Md5Provider>
             </QueryClientProvider>
         </I18nProvider>,
