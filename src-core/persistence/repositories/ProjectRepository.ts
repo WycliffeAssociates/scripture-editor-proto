@@ -3,12 +3,13 @@ import { IProjectRepository, Project } from "../ProjectRepository.ts";
 import { IDirectoryProvider } from "../DirectoryProvider.ts";
 import { IFileWriter } from "../../domain/project/IFileWriter.ts";
 import { FileWriter } from "../../../src/persistence/FileWriter.ts";
+import { ProjectLoader } from "../../domain/project/ProjectLoader.ts";
 
 export class ProjectRepository implements IProjectRepository {
     constructor(private directoryProvider: IDirectoryProvider) {}
 
     private createFileWriter(projectDir: FileSystemDirectoryHandle): IFileWriter {
-        return new FileWriter(this.directoryProvider); // Now using the concrete FileWriter
+        return new FileWriter(this.directoryProvider, projectDir);
     }
 
     async saveProject(project: Project): Promise<void> {
@@ -24,12 +25,18 @@ export class ProjectRepository implements IProjectRepository {
     async loadProject(projectId: string): Promise<Project | null> {
         try {
             const userDataDir = await this.directoryProvider.getUserDataDirectory();
-            const projectsDir = await userDataDir.getDirectoryHandle("projects");
-            const projectDir = await projectsDir.getDirectoryHandle(projectId);
-            const projectFile = await projectDir.getFileHandle("project.json");
-            const file = await projectFile.getFile();
-            const contents = await file.text();
-            return JSON.parse(contents);
+            const projectsRootDir = await userDataDir.getDirectoryHandle("projects", { create: true });
+            const projectDir = await projectsRootDir.getDirectoryHandle(projectId, { create: true });
+
+            const fileWriter = this.createFileWriter(projectDir);
+            const projectLoader = new ProjectLoader(); // Instantiate ProjectLoader here
+            const project = await projectLoader.loadProject(projectDir, fileWriter);
+
+            if (project) {
+                // The Project object now has its fileWriter and projectDir correctly set
+                return project;
+            }
+            return null;
         } catch (error) {
             console.error(`Error loading project ${projectId}:`, error);
             return null;
