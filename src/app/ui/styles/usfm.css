@@ -1,0 +1,68 @@
+body:not(.source-mode) {
+  .verse-number,
+  [data-marker="v"] {
+    font-size: 0.8em;
+    font-weight: bold;
+    padding: 0 2px;
+  }
+
+  [data-token-type="marker"] {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  [data-usfm-type="para"] {
+    margin: 0.25em 0;
+  }
+  .chapter-number,
+  [data-marker="c"],
+  [data-marker="c"] + [data-token-type="verseRange"] {
+    font-size: 2em;
+    font-weight: bold;
+    text-align: center;
+    margin: 0.5em 0;
+    font-family: var(--font-serif);
+    /* user-select: none; */
+  }
+  .chapter-label,
+  [data-marker="cl"],
+  [data-marker="cl"] + [data-token-type="text"] {
+    font-size: 1.2em;
+    text-align: center;
+    margin: 0.5em 0;
+    font-family: var(--font-serif);
+  }
+
+  [data-show="false"] {
+    display: none;
+  }
+  [data-show="true"] {
+    display: inline;
+  }
+  [data-is-mutable="false"] {
+    opacity: 0.5 !important;
+    pointer-events: none;
+  }
+
+  [data-marker="q1"],
+  [data-in-para="q1"],
+  [data-marker="q"],
+  [data-in-para="q"] {
+    font-style: italic;
+    margin-inline-start: 0.5em;
+  }
+  [data-marker="q2"],
+  [data-in-para="q2"] {
+    font-style: italic;
+    margin-inline-start: 1.25em;
+  }
+}
+
+.verseRangeDuplicate {
+  outline: 2px solid var(--color-red-700);
+  outline-offset: 2px;
+}
+.verseRangeOutOfOrder {
+  outline: 2px solid var(--color-blue-700);
+  outline-offset: 2px;
+}

@@ -53,7 +53,8 @@ export const ProjectProvider = ({
     currentFile: project.currentFile,
     setCurrentChapter: project.setCurrentChapter,
     setCurrentFile: project.setCurrentFile,
-    settingsManager,
+    updateAppSettings: project.updateAppSettings,
+    appSettings: project.appSettings,
     workingFiles,
     setWorkingFiles,
   });
@@ -64,9 +65,9 @@ export const ProjectProvider = ({
   });
 
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
-  useEffect(() => {
-    setWorkingFiles(projectFiles);
-  }, [projectFiles]);
+  // useEffect(() => {
+  //   setWorkingFiles(projectFiles);
+  // }, [projectFiles]);
   return (
     <ProjectContext.Provider
       value={{

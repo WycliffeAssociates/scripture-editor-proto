@@ -14,6 +14,7 @@ import {
 } from "lexical";
 import {
   TOKEN_TYPES_CAN_TOGGLE_HIDE,
+  TOKENS_TO_LOCK_FROM_EDITING,
   USFM_TEXT_NODE_TYPE,
 } from "@/app/data/editor";
 import {
@@ -167,7 +168,11 @@ export class USFMTextNode extends TextNode {
     const states = this.getAllStates();
     const classNames = this.getClassNames();
     Object.entries(states).forEach(([k, v]) => {
-      ds[k] = v.toString();
+      if (typeof v === "boolean") {
+        ds[k] = v.toString();
+      } else if (v) {
+        ds[k] = v;
+      }
     });
     classNames.forEach((c) => {
       element.classList.add(c);
@@ -181,7 +186,16 @@ export class USFMTextNode extends TextNode {
   ): boolean {
     // super.updateDOM returns true if the text content or format has changed.
     let needsUpdate = super.updateDOM(prevNode as this, dom, config);
-    [sidState, inParaState, markerState, tokenTypeState].forEach((s) => {
+    [
+      sidState,
+      inParaState,
+      markerState,
+      tokenTypeState,
+      isMutableState,
+      classNameState,
+      showState,
+    ].forEach((s) => {
+      // biome-ignore lint/suspicious/noExplicitAny: don't care about mixed types returned from state change, just want to know if it changed
       if ($getStateChange(this, prevNode, s as any)) {
         needsUpdate = true;
       }
@@ -200,21 +214,21 @@ export class USFMTextNode extends TextNode {
     }
     super.remove(preserveEmptyParent);
   }
-  setTextContent(text: string): this {
-    // --- Decide if we should block the update ---
-    const isLockableTextNode = $isToggleableUSFMTextNode(this);
-    if (isLockableTextNode) {
-      const isMutable = $getState(this, isMutableState);
+  // setTextContent(text: string): this {
+  //   // --- Decide if we should block the update ---
+  //   const isLockableTextNode = $isToggleableUSFMTextNode(this);
+  //   if (isLockableTextNode) {
+  //     const isMutable = $getState(this, isMutableState);
 
-      // If the node is lockable AND the editor is in "immutable" mode,
-      // block the update by exiting immediately.. This does prevent copying
-      if (isMutable === false) {
-        return this;
-      }
-    }
-    super.setTextContent(text);
-    return this;
-  }
+  //     // If the node is lockable AND the editor is in "immutable" mode,
+  //     // block the update by exiting immediately.. This does prevent copying
+  //     if (isMutable === false) {
+  //       return this;
+  //     }
+  //   }e
+  //   super.setTextContent(text);
+  //   return this;
+  // }
   canInsertTextBefore(): boolean {
     const isLockable = $isToggleableUSFMTextNode(this);
     if (isLockable) {
@@ -257,12 +271,21 @@ export function isSerializedUSFMTextNode(
 ): node is SerializedUSFMTextNode {
   return node.type === USFM_TEXT_NODE_TYPE;
 }
-export function isSerializedToggleableUSFMTextNode(
+export function isSerializedToggleShowUSFMTextNode(
   node: SerializedLexicalNode
 ): node is SerializedUSFMTextNode {
   const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
   if (!isSerializedUsfmNode) return false;
   const isToggleable = TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.tokenType ?? "");
+  return isToggleable;
+}
+export function isSerializedToggleMutableUSFMTextNode(
+  node: SerializedLexicalNode
+): node is SerializedUSFMTextNode {
+  const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
+  if (!isSerializedUsfmNode) return false;
+  // @ts-expect-error: tokenType is a string and checking set inclusion
+  const isToggleable = TOKENS_TO_LOCK_FROM_EDITING.has(node.tokenType ?? "");
   return isToggleable;
 }
 
@@ -274,6 +297,7 @@ export function $createUSFMTextNode(
     sid?: string;
     inPara: string;
     tokenType?: string;
+    show?: boolean;
     marker?: string;
     className?: Record<string, boolean>;
     isMutable?: boolean;
@@ -286,8 +310,9 @@ export function $createUSFMTextNode(
   metadata.sid && $setState(writable, sidState, metadata.sid);
   $setState(writable, inParaState, metadata.inPara);
 
-  const show = !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(metadata.tokenType ?? "");
-  const isMutable = true;
+  const show =
+    metadata.show ?? !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(metadata.tokenType ?? "");
+  const isMutable = metadata.isMutable ?? true;
   // const isMutable =
   //   metadata.isMutable ??
   //   !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(metadata.tokenType ?? "");
@@ -320,9 +345,10 @@ export function createSerializedUSFMTextNode(
 ): SerializedUSFMTextNode {
   const show =
     params.show || !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(params.tokenType ?? "");
-  const isMutable = true;
-  // const isMutable = !tokenTypesToHideByDefault.includes(params.tokenType ?? "");
-  // debugger;
+  // We always need this to be true initialy for setTextContent. We can lock them after initial render I think;
+  // const isMutable = true;
+  // @ts-expect-error: set inclusion check is fine
+  const isMutable = !TOKENS_TO_LOCK_FROM_EDITING.has(params.tokenType);
   return {
     type: USFM_TEXT_NODE_TYPE,
     id: params.id,

@@ -1,17 +1,17 @@
 // this is the tauri entrypoint, and any tauri / rust specific code should be passed into app is props through here: IE App is generic and takes service interfaces:
-
-import { StrictMode } from "react";
+import {StrictMode} from "react";
 import ReactDOM from "react-dom/client";
-import { App } from "@/app/entrypoint";
-import { IGitProvider } from "@/core/data/git/GitProvider";
-import { TauriGitProvider } from "@/tauri/domain/git/tauriGitProvider";
-import { TauriDirectoryProvider } from "@/tauri/domain/persistence/tauriDirectoryProvider";
-import { createTauriSettingsManager } from "@/tauri/domain/settings/settings";
+import {App} from "@/app/entrypoint";
+import {IGitProvider} from "@/core/data/git/GitProvider";
+import {TauriGitProvider} from "@/tauri/domain/git/tauriGitProvider";
+import {TauriDirectoryProvider} from "@/tauri/domain/persistence/tauriDirectoryProvider";
+import {createTauriSettingsManager} from "@/tauri/domain/settings/settings";
 
 // instantiante services
 const settingsManager = createTauriSettingsManager();
-const directoryProvider =
-    await TauriDirectoryProvider.create("scripture-editor");
+const directoryProvider = await TauriDirectoryProvider.create(
+  "scripture-editor"
+);
 const gitProvider = new TauriGitProvider(directoryProvider);
 
 // react entry stuff
@@ -20,11 +20,11 @@ if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 
 root.render(
-    <StrictMode>
-        <App
-            settingsManager={settingsManager}
-            gitProvider={gitProvider}
-            directoryProvider={directoryProvider}
-        />
-    </StrictMode>,
+  <StrictMode>
+    <App
+      settingsManager={settingsManager}
+      gitProvider={gitProvider}
+      directoryProvider={directoryProvider}
+    />
+  </StrictMode>
 );

@@ -1,4 +1,9 @@
-import type {EditorConfig, LexicalNode, SerializedElementNode} from "lexical";
+import type {
+  EditorConfig,
+  LexicalNode,
+  SerializedElementNode,
+  SerializedLexicalNode,
+} from "lexical";
 import {
   $create,
   $getState,
@@ -172,6 +177,11 @@ export class USFMElementNode extends ElementNode {
 /* type guards */
 export function $isUSFMElementNode(node: LexicalNode): node is USFMElementNode {
   return node.getType() === USFM_ELEMENT_NODE_TYPE;
+}
+export function isSerializedElementNode(
+  node: SerializedLexicalNode
+): node is SerializedElementNode {
+  return node.type === USFM_ELEMENT_NODE_TYPE || node.type === "paragraph";
 }
 
 // creates

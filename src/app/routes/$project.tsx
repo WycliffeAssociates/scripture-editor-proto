@@ -54,7 +54,7 @@ export async function projectParamToParsedFiles(
   const parsedManifest = parse(manifestText);
   const language = parsedManifest?.dublin_core?.language;
   const files = await directoryProvider.getDirectoryHandle(project);
-  let entry: Array<{
+  const entry: Array<{
     path: string;
     name: string;
     file: File;

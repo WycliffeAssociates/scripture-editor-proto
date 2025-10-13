@@ -11,6 +11,11 @@ export const EditorModes = {
 } as const;
 
 export type EditorMarkersViewState = "always" | "never" | "whenEditing";
+export type EditorMarkersMutableState = "mutable" | "immutable";
+export const EditorMarkersMutableStates = {
+  MUTABLE: "mutable",
+  IMMUTABLE: "immutable",
+} as const;
 export const EditorMarkersViewStates = {
   ALWAYS: "always",
   NEVER: "never",

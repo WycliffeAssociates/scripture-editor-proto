@@ -1,5 +1,5 @@
 import {LexicalEditor} from "lexical";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useMemo, useRef, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import type {Settings, SettingsManager} from "@/app/data/settings";
 import {setDocumentRootFontSize} from "@/app/domain/settings/settings";
@@ -72,7 +72,6 @@ export const useProjectState = (
     // otherwise just next chapter
     return pickedFile?.chapters[currentChapter - 1];
   }, [pickedFile, currentChapter, allFiles]);
-  console.log(pickedFile, pickedChapter);
   return {
     editorRef,
     workingFiles: allFiles,

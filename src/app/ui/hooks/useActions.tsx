@@ -1,11 +1,28 @@
 import {produce} from "immer";
 import {
   CLEAR_HISTORY_COMMAND,
+  HISTORY_MERGE_TAG,
   LexicalEditor,
   SerializedEditorState,
+  SerializedLexicalNode,
 } from "lexical";
-import {ParsedFile} from "@/app/data/parsedProject";
-import {SettingsManager} from "@/app/data/settings";
+import {useEffectOnce} from "react-use";
+import {
+  EditorMarkersMutableState,
+  EditorMarkersMutableStates,
+  EditorMarkersViewState,
+  EditorMarkersViewStates,
+  USFM_TEXT_NODE_TYPE,
+} from "@/app/data/editor";
+import {ParsedChapter, ParsedFile} from "@/app/data/parsedProject";
+import {Settings, SettingsManager, settingsDefaults} from "@/app/data/settings";
+import {isSerializedElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
+import {
+  isSerializedToggleMutableUSFMTextNode,
+  isSerializedToggleShowUSFMTextNode,
+  SerializedUSFMTextNode,
+  updateSerializedToggleableUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode";
 
 export type UseActionsHook = ReturnType<typeof useProjectActions>;
 
@@ -16,7 +33,8 @@ type Props = {
   currentChapter: number;
   setCurrentFile: (file: string) => void;
   setCurrentChapter: (chapter: number) => void;
-  settingsManager: SettingsManager;
+  appSettings: Settings;
+  updateAppSettings: (newSettings: Partial<Settings>) => void;
   workingFiles: ParsedFile[];
   setWorkingFiles: (files: ParsedFile[]) => void;
 };
@@ -28,7 +46,8 @@ export const useProjectActions = ({
   currentChapter,
   setCurrentFile,
   setCurrentChapter,
-  settingsManager,
+  appSettings,
+  updateAppSettings,
 }: Props) => {
   function updateChapterLexical(
     filePath: string,
@@ -45,25 +64,31 @@ export const useProjectActions = ({
     );
   }
 
-  function setEditorContent(file: string, chapter: number) {
+  function setEditorContent(
+    file: string,
+    chapter: number,
+    chapterContent?: ParsedChapter
+  ) {
+    console.log("setEditorContent", file, chapter);
     const editor = editorRef.current;
     if (!editor) return;
     const targetFile = workingFiles?.find((f) => f.path === file);
-    const chapterState = targetFile?.chapters[chapter];
+    const chapterState = chapterContent || targetFile?.chapters[chapter];
     if (!chapterState) return;
     editor.setEditorState(editor.parseEditorState(chapterState.lexicalState), {
-      tag: "programatic",
+      tag: HISTORY_MERGE_TAG,
     });
     editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
     //  editor.setEditorState(workingFiles.find(file => file.path === file)?.chapters[chapter].lexicalState);
   }
 
   function switchBookOrChapter(file: string, chapter: number) {
+    // FIRST SAVE THE CURRENT DIRTY STATE
     const currentJson = editorRef.current?.getEditorState().toJSON();
     if (currentJson) {
-      // current dirty
       updateChapterLexical(currentFile, currentChapter, currentJson);
     }
+    // THEN SET THE NEW CONTENT
     const targetFile = workingFiles?.find((f) => f.path === file);
     if (!targetFile) return;
     const chapterState =
@@ -72,19 +97,188 @@ export const useProjectActions = ({
     editorRef.current?.setEditorState(
       editorRef.current.parseEditorState(chapterState.lexicalState),
       {
-        tag: "programatic",
+        tag: HISTORY_MERGE_TAG,
       }
     );
     editorRef.current?.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
+    // The update the ui
     setCurrentFile(file);
     setCurrentChapter(chapter);
-    queueMicrotask(() => {
-      settingsManager.set("lastBookIdentifier", file);
-      settingsManager.set("lastChapterNumber", chapter);
+    // And persisted settings
+    updateAppSettings({
+      lastChapterNumber: chapter,
+      lastBookIdentifier: file,
     });
   }
+  // for "source" we toggle all nodes to mutable and showing;
+  /**
+   * Toggles the editor to source mode, which means all nodes will be mutable and shown.
+   */
+  function toggleToSourceMode() {
+    // save dirty
+    const editor = editorRef.current;
+    if (!editor) return;
+    const currentJson = editorRef.current?.getEditorState().toJSON();
+    if (currentJson) {
+      updateChapterLexical(currentFile, currentChapter, currentJson);
+    }
+
+    // update lexical state to show State = true for all + immutable = false for everything:
+    let thisChapterUpdated: ParsedChapter | undefined;
+    const clone = structuredClone(workingFiles);
+    clone.forEach((file) => {
+      file.chapters.forEach((chapter) => {
+        const rootChildren = chapter.lexicalState.root.children.map((node) => {
+          return adjustSerializedLexicalNodes(node, {
+            show: true,
+            isMutable: true,
+          });
+        });
+        chapter.lexicalState.root.children = rootChildren;
+        if (
+          chapter.chapNumber === currentChapter &&
+          file.path === currentFile
+        ) {
+          thisChapterUpdated = chapter;
+        }
+      });
+      // return file;
+    });
+
+    setWorkingFiles(clone);
+    if (thisChapterUpdated) {
+      setEditorContent(currentFile, currentChapter, thisChapterUpdated);
+    }
+    updateAppSettings({
+      mode: "source",
+      markersMutableState: "mutable",
+      markersViewState: EditorMarkersViewStates.ALWAYS,
+    });
+    document.body.classList.add("source-mode");
+  }
+  // wsyi has some submodes, ie we can wysi with markers always visible, or never visible, or only when editing; never visible will lock the markers as well: always or
+  type adjustWysiModeArgs = {
+    markersViewState?: EditorMarkersViewState;
+    markersMutableState?: EditorMarkersMutableState;
+  };
+  /**
+   * Adjusts the editor state to WYSIWYG mode with the given parameters.
+   * @param {adjustWysiModeArgs} args - The arguments to adjust the WYSIWYG mode state.
+   * @param {EditorMarkersViewState} args.markersViewState - The state of the markers in the editor.
+   *   If not provided, the value of `appSettings.markersViewState` will be used.
+   * @param {boolean} args.markersMutableState - Whether the markers are mutable in the editor.
+   *   If not provided, the value of `appSettings.markersMutableState` will be used.
+   */
+  function adjustWysiwygMode(args: adjustWysiModeArgs) {
+    // save dirty
+    const editor = editorRef.current;
+    if (!editor) return;
+    const currentJson = editorRef.current?.getEditorState().toJSON();
+    if (currentJson) {
+      updateChapterLexical(currentFile, currentChapter, currentJson);
+    }
+    const markerViewState =
+      args.markersViewState || appSettings.markersViewState;
+    const markersMutableState =
+      markerViewState === EditorMarkersViewStates.NEVER
+        ? // if never view markers, then never mutable
+          EditorMarkersMutableStates.IMMUTABLE
+        : args.markersMutableState || appSettings.markersMutableState;
+    let thisChapterUpdated: ParsedChapter | undefined;
+    // show false, mutable false:
+    // let adjustedFiles: ParsedFile[];
+    // default hide = if never view markers or when editing, else then show them
+    const hide =
+      markerViewState === EditorMarkersViewStates.NEVER ||
+      markerViewState === EditorMarkersViewStates.WHEN_EDITING;
+    // never mutable if hidden, else if use passed or current setting
+    const isMutable =
+      markerViewState === EditorMarkersViewStates.NEVER
+        ? EditorMarkersMutableStates.IMMUTABLE
+        : markersMutableState;
+
+    const clone = structuredClone(workingFiles);
+    clone.forEach((file) => {
+      file.chapters.forEach((chapter) => {
+        const rootChildren = chapter.lexicalState.root.children.map((node) => {
+          return adjustSerializedLexicalNodes(node, {
+            show: !hide,
+            isMutable: isMutable === EditorMarkersMutableStates.MUTABLE,
+          });
+        });
+        chapter.lexicalState.root.children = rootChildren;
+        if (
+          chapter.chapNumber === currentChapter &&
+          file.path === currentFile
+        ) {
+          thisChapterUpdated = chapter;
+        }
+      });
+    });
+    setWorkingFiles(clone);
+    if (thisChapterUpdated) {
+      setEditorContent(currentFile, currentChapter, thisChapterUpdated);
+    }
+    updateAppSettings({
+      markersViewState: markerViewState,
+      markersMutableState: markersMutableState,
+      mode: "wysiwyg",
+    });
+    document.body.classList.remove("source-mode");
+  }
+  // show true, mutable = chosen option
+
+  /* effect once to set initial content (if present), from then on, instead of effect scheduling, we'll prefer to make sure it's set only explicitly during swtichBookChap */
+  useEffectOnce(() => {
+    // yes, this readjusting state we just rendered, but perf is not bad, and it let's us just keep the logic here instead of in dependency code for lexical, so nodes uust always render a default, and we can adjust to saved preferences real quick before this first showing of content.
+
+    if (appSettings.mode === "source") {
+      toggleToSourceMode();
+    } else if (
+      appSettings.markersMutableState !==
+        settingsDefaults.markersMutableState ||
+      appSettings.markersViewState !== settingsDefaults.markersViewState
+    ) {
+      adjustWysiwygMode({
+        markersMutableState: appSettings.markersMutableState,
+        markersViewState: appSettings.markersViewState,
+      });
+    } else {
+      setEditorContent(currentFile, currentChapter);
+    }
+  });
+
   return {
     updateChapterLexical,
     switchBookOrChapter,
+    toggleToSourceMode,
+    adjustWysiwygMode,
   };
 };
+
+// markers view state is whenEditing, always / never:
+// mode is wysiwyg / source:  Source is synonym: for always for always view + all mutable?
+
+function adjustSerializedLexicalNodes(
+  node: SerializedLexicalNode,
+  {show, isMutable}: {show: boolean; isMutable: boolean}
+) {
+  if (node.type === USFM_TEXT_NODE_TYPE) {
+    node = updateSerializedToggleableUSFMTextNode(
+      node as SerializedUSFMTextNode,
+      {
+        show: isSerializedToggleShowUSFMTextNode(node) ? show : true,
+        isMutable: isSerializedToggleMutableUSFMTextNode(node)
+          ? isMutable
+          : true,
+      }
+    );
+    return node;
+  }
+  if (isSerializedElementNode(node)) {
+    node.children = node.children.map((node) => {
+      return adjustSerializedLexicalNodes(node, {show, isMutable});
+    });
+  }
+  return node;
+}

@@ -59,7 +59,6 @@ function serializeToken(
       marker: t.marker,
       inPara: t.inPara,
     });
-    // debugger;/
     const children =
       t.content?.map((c) => serializeToken(c, languageDirection)) ?? [];
     const close = createSerializedUSFMTextNode({

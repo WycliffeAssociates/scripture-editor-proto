@@ -67,14 +67,15 @@ export const calcSidsAndParaFlags = (
     }
 
     // Set paragraph flags to read forwards for styles
-    if (token.type === "marker" && isValidParaMarker(token.value)) {
+    if (token.type === TokenMap.marker && isValidParaMarker(token.value)) {
       currentParaMarker = token.value;
-      // After a paragraph break, the verse context is reset until the next \v marker.
-      curVerse = null;
     }
 
     // Handle Chapter and Verse Markers (\c, \v)
-    if (token.type === "marker" && nextToken?.type === "verseRange") {
+    if (
+      token.type === TokenMap.marker &&
+      nextToken?.type === TokenMap.verseRange
+    ) {
       if (token.value === "c") {
         curChap = nextToken.value;
         curVerse = null; // Reset verse number on new chapter
@@ -236,21 +237,54 @@ export const nestCharsAndAssignAttributes = (
   return result;
 };
 
+export const adjustEndingParaMarkerSids = (
+  tokens: IntermediateToken[]
+): IntermediateToken[] => {
+  let nextSid: string | null = null;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    if (
+      t?.sid &&
+      !isValidParaMarker(t.marker ?? "") &&
+      t.type !== TokenMap.verticalWhitespace
+    ) {
+      // Update the "next known" sid
+      nextSid = t.sid;
+    } else if (
+      t?.sid &&
+      nextSid &&
+      t.type === TokenMap.marker &&
+      isValidParaMarker(t.marker ?? "")
+    ) {
+      // Fill backwards
+      t.sid = nextSid;
+    }
+  }
+
+  return tokens;
+};
+
 export const organizeByChapters = (parsedTokens: ParsedToken[]) => {
+  const chapMatch = /\w{3}\s+(\d{1,3})/;
   const processed = parsedTokens.reduce(
     (acc, token, idx) => {
-      if (token.type === TokenMap.marker && token.marker === "c") {
-        // const chapterMatch = token?.text.match(/(\d+)/);
-        const nextToken = parsedTokens[idx + 1];
-        if (nextToken?.type === TokenMap.verseRange) {
-          const verseMatch = nextToken?.text.match(/(\d+)/);
-          const verse = verseMatch?.[1];
-          if (verse) {
-            acc.curIdx = parseInt(verse, 10);
-            acc.chapters[acc.curIdx] = [];
-          }
-        }
+      const chapterMatch = token?.sid?.match(chapMatch);
+
+      const chap = chapterMatch?.[1];
+      if (chap && chap !== acc.curIdx.toString()) {
+        acc.curIdx = parseInt(chap, 10);
+        acc.chapters[acc.curIdx] = [];
       }
+      // const chapterMatch = token?.text.match(/(\d+)/);
+      // const nextToken = parsedTokens[idx + 1];
+      // if (nextToken?.type === TokenMap.verseRange) {
+      //   const verseMatch = nextToken?.text.match(/(\d+)/);
+      //   const verse = verseMatch?.[1];
+      //   if (verse) {
+      //     acc.curIdx = parseInt(verse, 10);
+      //     acc.chapters[acc.curIdx] = [];
+      //   }
+      // }
       // ;
       acc.chapters[acc.curIdx].push(token);
       return acc;

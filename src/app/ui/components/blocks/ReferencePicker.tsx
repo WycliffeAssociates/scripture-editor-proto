@@ -36,13 +36,20 @@ export function ReferencePicker() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!allProjects.length) return;
-
     const ref = parseReference(search);
     if (!ref) return;
 
-    const file = allProjects.find(
-      (f) => f.name?.toLowerCase() === ref.book.toLowerCase()
+    // match one, a bible id matched fuzzily from above
+    let file = workingFiles.find(
+      (f) => f.bibleIdentifier?.toLowerCase() === ref.book.toLowerCase()
     );
+    const uniqueStartsWith = workingFiles.filter((f) =>
+      f.title?.toLocaleLowerCase().startsWith(search.toLocaleLowerCase())
+    );
+    if (uniqueStartsWith.length === 1) {
+      file = uniqueStartsWith[0];
+    }
+    // match 2, a unique startsWith
     if (file) {
       actions.switchBookOrChapter(
         file.path,
@@ -57,7 +64,7 @@ export function ReferencePicker() {
     <Popover
       opened={open}
       onChange={setOpen}
-      width={280}
+      width={380}
       withArrow
       shadow="md"
       position="bottom-start"

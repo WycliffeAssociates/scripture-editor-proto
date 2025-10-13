@@ -1,4 +1,5 @@
 import {
+  EditorMarkersMutableState,
   type EditorMarkersViewState,
   EditorMarkersViewStates,
   type EditorMode,
@@ -18,11 +19,12 @@ export type Settings = {
   restoreToLastProjectOnLaunch: true;
   mode: EditorMode;
   markersViewState: EditorMarkersViewState;
-  lockMarkers: boolean;
+  markersMutableState: EditorMarkersMutableState;
   appLanguage: SupportedLocales;
   appDirection: "ltr" | "rtl";
   colorScheme: "light" | "dark";
 };
+
 export const settingsDefaults: Settings = {
   fontSize: "16px",
   fontFamily: "Inter",
@@ -35,7 +37,7 @@ export const settingsDefaults: Settings = {
   restoreToLastProjectOnLaunch: true,
   mode: EditorModes.WYSIWYG,
   markersViewState: EditorMarkersViewStates.WHEN_EDITING,
-  lockMarkers: false,
+  markersMutableState: "mutable",
   appLanguage: "en",
   appDirection: "ltr",
   colorScheme: "light",

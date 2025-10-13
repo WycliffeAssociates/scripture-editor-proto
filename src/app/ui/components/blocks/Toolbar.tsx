@@ -1,27 +1,31 @@
 import {
   ActionIcon,
   Button,
-  Checkbox,
+  Center,
   Divider,
   Group,
   Menu,
-  Popover,
+  SegmentedControl,
   Select,
-  Stack,
   Text,
-  TextInput,
 } from "@mantine/core";
 import {Link} from "@tanstack/react-router";
-import {invoke} from "@tauri-apps/api/core";
-import {ChevronDown, Plus, Search, Settings2} from "lucide-react";
-import {useEffect, useState} from "react";
+import {ChevronDown, Code, Plus} from "lucide-react";
+import {useState} from "react";
+import {
+  type EditorMarkersMutableState,
+  type EditorMarkersViewState,
+  EditorMarkersViewStates,
+} from "@/app/data/editor";
 // import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
 import {ReferencePicker} from "@/app/ui/components/blocks/ReferencePicker";
 import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {EditorMarkersMutableStates} from "../../../data/editor";
 
 export function Toolbar() {
+  const {actions, project} = useProjectContext();
   // const {} = useProjectContext();
 
   // function seeUsfm() {
@@ -49,6 +53,74 @@ export function Toolbar() {
       {/* <SearchBar /> */}
       <FontSizeAdjust />
       <FontPicker />
+      <ActionIcon
+        variant="default"
+        onClick={() => actions.toggleToSourceMode()}
+      >
+        <Code size={16} />
+      </ActionIcon>
+      <SegmentedControl
+        value={project.appSettings.markersMutableState}
+        onChange={(value) => {
+          actions.adjustWysiwygMode({
+            markersMutableState: value as EditorMarkersMutableState,
+            // already set view state
+          });
+        }}
+        data={[
+          {
+            value: EditorMarkersMutableStates.IMMUTABLE,
+            label: (
+              <Center style={{gap: 10}}>
+                <span>Lock markers</span>
+              </Center>
+            ),
+          },
+          {
+            value: EditorMarkersMutableStates.MUTABLE,
+            label: (
+              <Center style={{gap: 10}}>
+                <span>Unlock markers</span>
+              </Center>
+            ),
+          },
+        ]}
+      />
+      <SegmentedControl
+        value={project.appSettings.markersViewState}
+        onChange={(value) =>
+          actions.adjustWysiwygMode({
+            // already set mutable state
+            markersViewState: value as EditorMarkersViewState,
+          })
+        }
+        data={[
+          {
+            value: EditorMarkersViewStates.ALWAYS,
+            label: (
+              <Center style={{gap: 10}}>
+                <span>Always visible</span>
+              </Center>
+            ),
+          },
+          {
+            value: EditorMarkersViewStates.WHEN_EDITING,
+            label: (
+              <Center style={{gap: 10}}>
+                <span>When editing</span>
+              </Center>
+            ),
+          },
+          {
+            value: EditorMarkersViewStates.NEVER,
+            label: (
+              <Center style={{gap: 10}}>
+                <span>Never visible</span>
+              </Center>
+            ),
+          },
+        ]}
+      />
     </Group>
   );
 }
@@ -214,13 +286,13 @@ function FontPicker() {
   const [fonts, setFonts] = useState<string[]>(["Inter"]);
   const [selected, setSelected] = useState("Inter");
 
-  useEffect(() => {
-    invoke<string[]>("get_system_fonts")
-      .then((sysFonts) => {
-        setFonts(["Inter", ...new Set(sysFonts)]);
-      })
-      .catch(() => {});
-  }, []);
+  // useEffect(() => {
+  //   invoke<string[]>("get_system_fonts")
+  //     .then((sysFonts) => {
+  //       setFonts(["Inter", ...new Set(sysFonts)]);
+  //     })
+  //     .catch(() => {});
+  // }, []);
   if (!appSettings.canAccessSystemFonts) return null;
 
   return (
