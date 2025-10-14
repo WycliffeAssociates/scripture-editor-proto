@@ -9,11 +9,9 @@ import { platform } from "@tauri-apps/plugin-os";
 import type {
     IDirectoryProvider,
     ResourceMetadata,
-} from "@/core/data/persistence/DirectoryProvider";
-import {
-    TauriDirectoryHandle,
-    TauriFileHandle,
-} from "@/tauri/domain/persistence/tauriHandles";
+} from "@/core/persistence/DirectoryProvider.ts";
+import {TauriFileHandle} from "@/tauri/persistence/handlers/TauriFileHandle.ts";
+import {TauriDirectoryHandle} from "@/tauri/persistence/handlers/TauriDirectoryHandle.ts";
 
 export class TauriDirectoryProvider implements IDirectoryProvider {
     private static async getUserHome(osName: string): Promise<string> {
@@ -38,14 +36,14 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         return new TauriDirectoryProvider(appName, userHome);
     }
 
-    async getHomeDirectory(): Promise<TauriDirectoryHandle> {
+    async getHomeDirectory(): Promise<FileSystemDirectoryHandle> {
         console.log(`Home directory: ${this.userHome}`);
         return new TauriDirectoryHandle(this.userHome);
     }
 
     async getUserDataDirectory(
         appendedPath?: string,
-    ): Promise<TauriDirectoryHandle> {
+    ): Promise<FileSystemDirectoryHandle> {
         let root = this.userHome;
         const osName = platform();
         if (!["ios", "android"].includes(osName)) {
@@ -60,7 +58,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
     async getAppDataDirectory(
         appendedPath?: string,
-    ): Promise<TauriDirectoryHandle> {
+    ): Promise<FileSystemDirectoryHandle> {
         const path = appendedPath
             ? await join(await appLocalDataDir(), appendedPath)
             : await appLocalDataDir();
@@ -73,7 +71,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         source: ResourceMetadata,
         target: ResourceMetadata | null,
         bookSlug: string,
-    ): Promise<TauriDirectoryHandle> {
+    ): Promise<FileSystemDirectoryHandle> {
         const targetCreator = target?.creator ?? ".";
         const baseDir = await this.getUserDataDirectory();
         const path = await join(
@@ -93,7 +91,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     async getDirectoryHandle(
         path: string,
         opts?: { create?: boolean },
-    ): Promise<TauriDirectoryHandle> {
+    ): Promise<FileSystemDirectoryHandle> {
         if (opts?.create) await mkdir(path, { recursive: true });
         return new TauriDirectoryHandle(path);
     }
@@ -120,7 +118,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     async createTempFile(
         prefix: string,
         suffix?: string,
-    ): Promise<TauriFileHandle> {
+    ): Promise<FileSystemFileHandle> {
         const path = await join(
             this.userHome,
             this.appName,
@@ -144,43 +142,19 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         open(path);
     }
 
-    get databaseDirectory(): Promise<TauriDirectoryHandle> {
+    get databaseDirectory(): Promise<FileSystemDirectoryHandle> {
         return this.getAppDataDirectory("database");
     }
 
-    get resourceContainerDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("rc");
-    }
-
-    get internalSourceRCDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("rc/src");
-    }
-
-    get userProfileImageDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("users/images");
-    }
-
-    get userProfileAudioDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("users/audio");
-    }
-
-    get audioPluginDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("plugins");
-    }
-
-    get versificationDirectory(): Promise<TauriDirectoryHandle> {
-        return this.getAppDataDirectory("versification");
-    }
-
-    get logsDirectory(): Promise<TauriDirectoryHandle> {
+    get logsDirectory(): Promise<FileSystemDirectoryHandle> {
         return this.getAppDataDirectory("logs");
     }
 
-    get cacheDirectory(): Promise<TauriDirectoryHandle> {
+    get cacheDirectory(): Promise<FileSystemDirectoryHandle> {
         return this.getAppDataDirectory("cache");
     }
 
-    get tempDirectory(): Promise<TauriDirectoryHandle> {
+    get tempDirectory(): Promise<FileSystemDirectoryHandle> {
         return this.getAppDataDirectory("temp");
     }
 }

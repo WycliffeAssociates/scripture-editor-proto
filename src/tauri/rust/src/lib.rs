@@ -2,7 +2,7 @@ mod git;
 mod parse;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::time::Instant;
-use std::{fs, io};
+use std::{fs, io, os};
 use tauri::Manager;
 
 use crate::parse::OwnedParsedUSFM;

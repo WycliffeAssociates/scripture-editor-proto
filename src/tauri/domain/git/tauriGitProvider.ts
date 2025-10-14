@@ -1,8 +1,8 @@
 // import {invoke} from "@tauri-apps/api/tauri";
 
 import { invoke } from "@tauri-apps/api/core";
-import type { IGitProvider } from "@/core/data/git/GitProvider";
-import type { TauriDirectoryProvider } from "@/tauri/domain/persistence/tauriDirectoryProvider";
+import type { IGitProvider } from "@/core/persistence/git/GitProvider";
+import type { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider.ts";
 
 export class TauriGitProvider implements IGitProvider {
     private directoryProvider: TauriDirectoryProvider;

@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import { getBookSlug } from "../../../core/data/bible/bible.ts";
+import { getBookSlug } from "@/core/data/bible/bible.ts";
 
 type DublinCore = {
     conformsto: string;
@@ -9,7 +9,7 @@ type DublinCore = {
     format: string;
     identifier: string;
     issued: string;
-    language: string;
+    language: Language;
     modified: string;
     publisher: string;
     relation: string[];
@@ -18,8 +18,9 @@ type DublinCore = {
     title: string;
     type: string;
     version: string;
-    source: string[];
+    source: Source[];
 };
+
 type Checking = {
     checking_entity: string[];
     checking_level: string;

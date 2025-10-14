@@ -25,6 +25,8 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": ["src", "src/tauri/domain/persistence/.ts"],
+    "include": ["src",
+      "src/tauri/persistence/.ts"
+    ],
     "references": [{ "path": "./tsconfig.node.json" }]
 }
