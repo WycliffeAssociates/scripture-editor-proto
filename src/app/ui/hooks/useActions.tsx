@@ -1,5 +1,6 @@
 import {produce} from "immer";
 import {
+  $getRoot,
   CLEAR_HISTORY_COMMAND,
   HISTORY_MERGE_TAG,
   LexicalEditor,
@@ -17,6 +18,7 @@ import {
 import {ParsedChapter, ParsedFile} from "@/app/data/parsedProject";
 import {Settings, SettingsManager, settingsDefaults} from "@/app/data/settings";
 import {isSerializedElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
+import {isSerializedUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   isSerializedToggleMutableUSFMTextNode,
   isSerializedToggleShowUSFMTextNode,
@@ -54,14 +56,23 @@ export const useProjectActions = ({
     chap: number,
     newLexical: SerializedEditorState
   ) {
-    return setWorkingFiles(
-      produce(workingFiles, (draft) => {
-        const file = draft.find((file) => file.path === filePath);
-        if (!file) return;
-        file.chapters[chap].lexicalState = newLexical;
-        file.chapters[chap].dirty = true;
-      })
-    );
+    let newFiles = produce(workingFiles, (draft) => {
+      const file = draft.find((file) => file.path === filePath);
+      if (!file) return;
+      file.chapters[chap].lexicalState = newLexical;
+      file.chapters[chap].dirty = true;
+    });
+
+    setWorkingFiles(newFiles);
+    return newFiles;
+    // return setWorkingFiles(
+    //   produce(workingFiles, (draft) => {
+    //     const file = draft.find((file) => file.path === filePath);
+    //     if (!file) return;
+    //     file.chapters[chap].lexicalState = newLexical;
+    //     file.chapters[chap].dirty = true;
+    //   })
+    // );
   }
 
   function setEditorContent(
@@ -84,15 +95,16 @@ export const useProjectActions = ({
 
   function switchBookOrChapter(file: string, chapter: number) {
     // FIRST SAVE THE CURRENT DIRTY STATE
-    const currentJson = editorRef.current?.getEditorState().toJSON();
-    if (currentJson) {
-      updateChapterLexical(currentFile, currentChapter, currentJson);
-    }
+    const dirtySaved = saveCurrentDirtyLexical();
     // THEN SET THE NEW CONTENT
-    const targetFile = workingFiles?.find((f) => f.path === file);
+    const filesToUse = dirtySaved || workingFiles;
+    const targetFile = filesToUse?.find((f) => f.path === file);
     if (!targetFile) return;
     const chapterState =
       targetFile?.chapters[chapter] || targetFile?.chapters[0]; //i.e that chapter doesn't exist in target file
+    if (file === currentFile && chapter === currentChapter) {
+      return chapterState; //noop from here, but return dirty chapterSTate in case caller needs.
+    }
     if (!chapterState) return;
     editorRef.current?.setEditorState(
       editorRef.current.parseEditorState(chapterState.lexicalState),
@@ -109,6 +121,23 @@ export const useProjectActions = ({
       lastChapterNumber: chapter,
       lastBookIdentifier: file,
     });
+    // scroll editorRef to top since we actually switched:
+    const editorContainer = document.querySelector(
+      '[data-js="editor-container"]'
+    );
+    if (editorContainer) {
+      editorContainer.scrollTop = 0;
+    }
+    return chapterState;
+  }
+
+  function saveCurrentDirtyLexical(): ParsedFile[] | undefined {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const currentJson = editorRef.current?.getEditorState().toJSON();
+    if (currentJson) {
+      return updateChapterLexical(currentFile, currentChapter, currentJson);
+    }
   }
   // for "source" we toggle all nodes to mutable and showing;
   /**
@@ -116,12 +145,7 @@ export const useProjectActions = ({
    */
   function toggleToSourceMode() {
     // save dirty
-    const editor = editorRef.current;
-    if (!editor) return;
-    const currentJson = editorRef.current?.getEditorState().toJSON();
-    if (currentJson) {
-      updateChapterLexical(currentFile, currentChapter, currentJson);
-    }
+    saveCurrentDirtyLexical();
 
     // update lexical state to show State = true for all + immutable = false for everything:
     let thisChapterUpdated: ParsedChapter | undefined;
@@ -171,12 +195,7 @@ export const useProjectActions = ({
    */
   function adjustWysiwygMode(args: adjustWysiModeArgs) {
     // save dirty
-    const editor = editorRef.current;
-    if (!editor) return;
-    const currentJson = editorRef.current?.getEditorState().toJSON();
-    if (currentJson) {
-      updateChapterLexical(currentFile, currentChapter, currentJson);
-    }
+    saveCurrentDirtyLexical();
     const markerViewState =
       args.markersViewState || appSettings.markersViewState;
     const markersMutableState =
@@ -253,6 +272,7 @@ export const useProjectActions = ({
     switchBookOrChapter,
     toggleToSourceMode,
     adjustWysiwygMode,
+    saveCurrentDirtyLexical,
   };
 };
 
@@ -279,6 +299,13 @@ function adjustSerializedLexicalNodes(
     node.children = node.children.map((node) => {
       return adjustSerializedLexicalNodes(node, {show, isMutable});
     });
+  }
+  if (isSerializedUSFMNestedEditorNode(node)) {
+    node.editorState.root.children = node.editorState.root.children.map(
+      (node) => {
+        return adjustSerializedLexicalNodes(node, {show, isMutable});
+      }
+    );
   }
   return node;
 }

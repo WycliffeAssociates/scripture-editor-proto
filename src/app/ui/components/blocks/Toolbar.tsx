@@ -21,6 +21,7 @@ import {
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
 import {ReferencePicker} from "@/app/ui/components/blocks/ReferencePicker";
+import {SearchInput} from "@/app/ui/components/blocks/Search";
 import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
 import {EditorMarkersMutableStates} from "../../../data/editor";
 
@@ -121,6 +122,7 @@ export function Toolbar() {
           },
         ]}
       />
+      <SearchInput />
     </Group>
   );
 }

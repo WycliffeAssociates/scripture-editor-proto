@@ -3,23 +3,24 @@ import {COMMAND_PRIORITY_HIGH, KEY_DOWN_COMMAND, NodeKey} from "lexical";
 import {useEffect, useRef} from "react";
 import {
   EditorMarkersMutableState,
+  EditorMarkersMutableStates,
   EditorMarkersViewState,
   EditorMarkersViewStates,
   EditorModes,
 } from "@/app/data/editor";
 import {lintVerseRangeReferences} from "@/app/domain/editor/listeners/lintChecks";
 import {toggleShowOnToggleableNodes} from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
-import {USFMTextNode} from "@/app/domain/editor/nodes/USFMTextNode";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
 import {
   lockImmutableMarkersOnCut,
   lockImmutableMarkersOnPaste,
   lockImutableMarkersOnType,
-} from "../listeners/lockImmutableMarkers";
+} from "@/app/domain/editor/listeners/lockImmutableMarkers";
 import {
   inverseTextNodeTransform,
   textNodeTransform,
-} from "../listeners/manageUsfmMarkers";
+} from "@/app/domain/editor/listeners/manageUsfmMarkers";
+import {USFMTextNode} from "@/app/domain/editor/nodes/USFMTextNode";
+import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
 
 export function USFMPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -75,7 +76,7 @@ export function USFMPlugin() {
     const keyDownUnregister = editor.registerCommand(
       KEY_DOWN_COMMAND,
       (event: KeyboardEvent) => {
-        return lockImutableMarkersOnType({editor, event});
+        return lockImutableMarkersOnType({editor, event, markersMutableState});
       },
       COMMAND_PRIORITY_HIGH
     );
@@ -90,7 +91,13 @@ export function USFMPlugin() {
       pasteCommand();
       lockImmutablesOnCut();
     };
-  }, [mode, markersViewState, editor]);
+  }, [mode, markersViewState, editor, markersMutableState]);
 
   return null;
 }
+
+/* 
+FIND + go to
+chapter (in addition to verse)
+See Source (and sync a highlight)
+*/

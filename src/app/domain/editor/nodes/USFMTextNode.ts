@@ -39,6 +39,7 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
   sid?: string;
   inPara?: string;
   marker?: string;
+  classNames?: string[];
 };
 
 export class USFMTextNode extends TextNode {
@@ -65,6 +66,21 @@ export class USFMTextNode extends TextNode {
     });
   }
 
+  // idk why $config not working for auto serialize
+  exportJSON(): SerializedUSFMTextNode {
+    return {
+      ...super.exportJSON(),
+      type: USFM_TEXT_NODE_TYPE,
+      id: this.getId(),
+      tokenType: this.getTokenType(),
+      show: this.getShow(),
+      isMutable: this.getMutable(),
+      classNames: this.getClassNames(),
+      sid: this.getSid(),
+      inPara: this.getInPara(),
+      marker: this.getMarker(),
+    };
+  }
   // getters and setters
   // --- Getters ---
   getId(): string {
@@ -287,6 +303,13 @@ export function isSerializedToggleMutableUSFMTextNode(
   // @ts-expect-error: tokenType is a string and checking set inclusion
   const isToggleable = TOKENS_TO_LOCK_FROM_EDITING.has(node.tokenType ?? "");
   return isToggleable;
+}
+export function isSerializedPlainTextUSFMTextNode(
+  node: SerializedLexicalNode
+): node is SerializedUSFMTextNode {
+  const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
+  if (!isSerializedUsfmNode) return false;
+  return node.tokenType === TokenMap.text;
 }
 
 /* CREATES */

@@ -55,6 +55,19 @@ export class USFMElementNode extends ElementNode {
       ],
     });
   }
+  // not sure why $config not working for auto serialize
+  exportJSON(): USFMElementNodeJSON {
+    return {
+      ...super.exportJSON(),
+      version: 1,
+      type: USFM_ELEMENT_NODE_TYPE,
+      id: this.getId(),
+      tokenType: this.getTokenType(),
+      marker: this.getMarker(),
+      inPara: this.getInPara(),
+      sid: this.getSid(),
+    };
+  }
 
   // getters and setters
   // --- Getters ---

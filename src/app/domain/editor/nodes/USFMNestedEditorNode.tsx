@@ -2,6 +2,7 @@ import type {
   EditorConfig,
   EditorState,
   LexicalEditor,
+  LexicalNode,
   NodeKey,
   SerializedEditorState,
   SerializedElementNode,
@@ -22,12 +23,12 @@ export type USFMNestedEditorNodeJSON = Spread<
     id: string;
     version: 1;
     marker: string;
-    sid?: string;
     usfmType: string;
+    editorState: SerializedEditorState;
+    sid?: string;
     level?: string;
     inPara?: string;
     attributes?: Record<string, string>;
-    editorState: SerializedEditorState;
   },
   SerializedLexicalNode
 >;
@@ -102,6 +103,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
   // JSON serialization
   exportJSON(): USFMNestedEditorNodeJSON {
     return {
+      ...super.exportJSON(),
       type: USFM_NESTED_DECORATOR_TYPE,
       id: this.__id,
       version: 1,
@@ -210,9 +212,14 @@ export function getSerializedNestedEditorNode(
 }
 
 export function $isUSFMNestedEditorNode(
-  node: unknown
+  node: LexicalNode
 ): node is USFMNestedEditorNode {
   return node instanceof USFMNestedEditorNode;
+}
+export function isSerializedUSFMNestedEditorNode(
+  node: SerializedLexicalNode
+): node is USFMNestedEditorNodeJSON {
+  return node.type === USFM_NESTED_DECORATOR_TYPE;
 }
 export function getChildrenFromNestedEditorNode(node: USFMNestedEditorNode) {
   return node.__editorState.root.children;

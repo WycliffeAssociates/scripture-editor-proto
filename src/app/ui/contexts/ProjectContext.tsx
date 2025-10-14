@@ -7,6 +7,7 @@ import {
   type ProjectState,
   useProjectState,
 } from "@/app/ui/hooks/useProjectState";
+import {UseSearchReturn, useProjectSearch} from "@/app/ui/hooks/useSearch";
 import {type UseActionsHook, useProjectActions} from "../hooks/useActions";
 import {
   type ReferenceProjectHook,
@@ -21,6 +22,7 @@ interface ProjectContextType {
   project: ProjectState;
   actions: UseActionsHook;
   referenceProject: ReferenceProjectHook;
+  search: UseSearchReturn;
 }
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
@@ -63,6 +65,12 @@ export const ProjectProvider = ({
     pickedFileIdentifier: project.pickedFile.bibleIdentifier,
     pickedChapterNumber: project.pickedChapter.chapNumber,
   });
+  const search = useProjectSearch({
+    workingFiles,
+    saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
+    switchBookOrChapter: actions.switchBookOrChapter,
+    editorRef,
+  });
 
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
   // useEffect(() => {
@@ -78,6 +86,7 @@ export const ProjectProvider = ({
         project,
         actions,
         referenceProject,
+        search,
       }}
     >
       {children}

@@ -27,7 +27,7 @@ import {guidGenerator} from "@/core/data/utils/generic";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
 const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+$/;
-const markerTokenMatchLineMid = /^\s+\\([\w\d]+-?\w*)\s/;
+const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\s/;
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
 const verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
 
@@ -141,15 +141,17 @@ function $handleVerseInsert({
       .getTextContent()
       .trimEnd()
       .slice(0, -markerNode.getTextContentSize())} `;
-    left.setTextContent(woMarker);
+    left?.setTextContent(woMarker);
     if ($isUSFMTextNode(right)) right.setSid(newSid);
     left.insertAfter(markerNode);
     markerNode.insertAfter(verseRangeNode);
-    right.setTextContent(`\u00A0${right.getTextContent()}`);
-    right.selectStart();
+    // todo: extract the unicode constant here to named reusable const
+    right?.setTextContent(`\u00A0${right.getTextContent()}`);
+    right?.selectStart();
     if (!selection || !$isRangeSelection(selection)) return;
-    selection.anchor.set(right.getKey(), 1, "text");
-    selection.focus.set(right.getKey(), 1, "text");
+    if (!right) {
+      verseRangeNode.selectEnd();
+    }
   } else {
     const sibling = anchorNode.getNextSibling();
     anchorNode.replace(markerNode);

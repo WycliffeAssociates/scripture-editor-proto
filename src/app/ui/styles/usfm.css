@@ -7,7 +7,7 @@ body:not(.source-mode) {
   }
 
   [data-token-type="marker"] {
-    display: inline-flex;
+    display: inline-block;
     align-items: center;
   }
 

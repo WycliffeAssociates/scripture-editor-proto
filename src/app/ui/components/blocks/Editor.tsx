@@ -24,7 +24,10 @@ export function MainEditor() {
   return (
     <div className="h-full overflow-y-auto">
       <LexicalComposer initialConfig={getIntialConfig()}>
-        <div className="editor-container relative h-full overflow-y-auto">
+        <div
+          data-js="editor-container"
+          className="editor-container relative h-full overflow-y-auto"
+        >
           <RichTextPlugin
             contentEditable={
               <ContentEditable
