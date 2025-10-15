@@ -94,7 +94,6 @@ export async function projectParamToParsedFiles(
     };
   });
   console.timeEnd("parse");
-  console.log(parsed);
   console.timeEnd("total time");
   return parsed;
 }

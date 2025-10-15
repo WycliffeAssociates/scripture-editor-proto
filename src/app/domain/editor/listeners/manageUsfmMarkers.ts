@@ -162,6 +162,9 @@ function $handleVerseInsert({
     if (!alreadyHasVerseRangeSibling) {
       markerNode.insertAfter(verseRangeNode);
       verseRangeNode.insertAfter(blankTextNode);
+      blankTextNode.select();
+    } else {
+      sibling?.selectStart();
     }
   }
 }
@@ -225,32 +228,33 @@ export function inverseTextNodeTransform({
     replacement.select();
   }
 
-  if (nodeTokenType === UsfmTokenTypes.verseRange) {
-    // if it's no longer a valid verse range, keep it, but flag it as invalid
-    const isValid = content.match(verseRangeValidRegex);
-    const currentClassNames = node.getClassNames();
-    const shouldBeInvalid = !isValid;
-    const hasInvalidClass = currentClassNames.includes("verseRangeInvalid");
+  // if (nodeTokenType === UsfmTokenTypes.verseRange) {
+  //   // debugger;
+  //   // if it's no longer a valid verse range, keep it, but flag it as invalid
+  //   const isValid = content.match(verseRangeValidRegex);
+  //   const currentClassNames = node.getClassNames();
+  //   const shouldBeInvalid = !isValid;
+  //   const hasInvalidClass = currentClassNames.includes("verseRangeInvalid");
 
-    if (shouldBeInvalid === hasInvalidClass) return;
-    editor.update(
-      () => {
-        node.setClassName("verseRangeInvalid", shouldBeInvalid);
-        node.selectEnd();
-      },
-      {
-        tag: [HISTORY_MERGE_TAG, "programatic"],
-        // immediately flush this change
-        discrete: true,
-      }
-    );
-    // const replacement = $createUSFMTextNode(textNode.getTextContent(), {
-    //   id: textNode.getId(),
-    //   sid: textNode.getSid(),
-    //   inPara: textNode.getInPara(),
-    //   tokenType: validTokenTypes.text,
-    // });
-    // textNode.replace(replacement);
-    // replacement.select();
-  }
+  //   if (shouldBeInvalid === hasInvalidClass) return;
+  //   editor.update(
+  //     () => {
+  //       node.setClassName("verseRangeInvalid", shouldBeInvalid);
+  //       node.selectEnd();
+  //     },
+  //     {
+  //       tag: [HISTORY_MERGE_TAG, "programatic"],
+  //       // immediately flush this change
+  //       discrete: true,
+  //     }
+  //   );
+  //   // const replacement = $createUSFMTextNode(textNode.getTextContent(), {
+  //   //   id: textNode.getId(),
+  //   //   sid: textNode.getSid(),
+  //   //   inPara: textNode.getInPara(),
+  //   //   tokenType: validTokenTypes.text,
+  //   // });
+  //   // textNode.replace(replacement);
+  //   // replacement.select();
+  // }
 }

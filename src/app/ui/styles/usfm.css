@@ -52,17 +52,31 @@ body:not(.source-mode) {
     margin-inline-start: 0.5em;
   }
   [data-marker="q2"],
-  [data-in-para="q2"] {
+  [data-in-para="q2"]:not([data-token-type="verseRange"]) {
     font-style: italic;
     margin-inline-start: 1.25em;
   }
+  /* [data-token-type="text"]:empty {
+    content: "_";
+  } */
 }
 
-.verseRangeDuplicate {
-  outline: 2px solid var(--color-red-700);
-  outline-offset: 2px;
+.lint-error {
+  background: var(--color-red-700);
+  color: var(--color-red-50);
+  border-radius: 2px;
 }
-.verseRangeOutOfOrder {
-  outline: 2px solid var(--color-blue-700);
-  outline-offset: 2px;
+.lint-error.selected {
+  background: var(--color-yellow-300) !important;
+  color: var(--color-yellow-900) !important;
 }
+/* .verseRangeDuplicate {
+  background: var(--color-yellow-700);
+  color: var(--color-yellow-50);
+  border-radius: 2px;
+}
+.verseRangeMalformed {
+  background: var(--color-pink-700);
+  color: var(--color-pink-50);
+  border-radius: 2px;
+} */

@@ -4,6 +4,7 @@ import {
   COMMAND_PRIORITY_HIGH,
   CUT_COMMAND,
   type LexicalEditor,
+  LexicalNode,
   PASTE_COMMAND,
 } from "lexical";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/app/data/editor";
 import {
   $createUSFMTextNode,
+  $isLockedUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -33,7 +35,7 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
         // Get text from only unlocked nodes
         const unlockedNodes = nodes
           .filter(
-            (node) => $isUSFMTextNode(node) && !$isInLockedUSFMTextNode(node)
+            (node) => $isUSFMTextNode(node) && !$isLockedUSFMTextNode(node)
           )
           .map((node) => node as USFMTextNode);
 
@@ -140,7 +142,7 @@ export function lockImutableMarkersOnType({
   const isDestructive = event.key === "Backspace" || event.key === "Delete";
   // only handle destructive key touches
   // true = to stop propagation. false = continue
-  if (!isDestructive) return false;
+  if (isNonEditingKey(event)) return false;
   const hasAltKey = event.altKey;
   const hasModKey = event.metaKey || event.ctrlKey;
   const selectionInfo = $getSelectionInfo();
@@ -155,6 +157,7 @@ export function lockImutableMarkersOnType({
   } = selectionInfo;
   // no modifiers, if we don't cross locked nodes, do nothing
   if (!crossesLockedNodes && !hasAltKey && !hasModKey) return false;
+
   // a collapsed section with alt key will just delete to next word boundary
   if (
     isCollapsed &&
@@ -165,9 +168,9 @@ export function lockImutableMarkersOnType({
     return false;
   }
 
+  // at this point, whether destructive or additive, we have decided to ahndle it
+  killEvent(event);
   if (isDestructive) {
-    event.preventDefault();
-    event.stopPropagation();
     // with modifiers, we need to account for a bit more:
     // if crossing locked boundaries but deleting, computing all unlocked ranges and call delete on each
     editor.update(() => {
@@ -230,16 +233,29 @@ export function lockImutableMarkersOnType({
 
 function isNonEditingKey(event: KeyboardEvent): boolean {
   // if (event.altKey || event.ctrlKey) return true;
-  const nonEditingKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+  const nonEditingKeys = [
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+    "Home",
+    "End",
+    "PageUp",
+    "PageDown",
+    "Escape",
+    "CapsLock",
+    "Control",
+    "Alt",
+    "Meta",
+    "Shift",
+  ];
   return nonEditingKeys.includes(event.key);
 }
 function $getSelectionInfo() {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return false;
   const nodes = selection.getNodes();
-  const crossesLockedNodes = nodes.some(
-    (node) => $isUSFMTextNode(node) && $isInLockedUSFMTextNode(node)
-  );
+  const crossesLockedNodes = nodes.some((node) => $isLockedUSFMTextNode(node));
   return {
     selection,
     crossesLockedNodes,
@@ -253,19 +269,7 @@ function $getSelectionInfo() {
   };
 }
 
-function $getActiveUSFMTextNode(): USFMTextNode | null {
-  const selection = $getSelection();
-  if (!$isRangeSelection(selection)) return null;
-  const anchor = selection.anchor.getNode();
-  return $isUSFMTextNode(anchor) ? anchor : null;
-}
-
-/** Checks whether the given node (or active node if omitted) is locked (immutable). */
-function $isInLockedUSFMTextNode(node?: USFMTextNode | null): boolean {
-  const target = node ?? $getActiveUSFMTextNode();
-  return target ? target.getMutable() === false : false;
-}
-function $isShowingUSFMTextNode(node?: USFMTextNode | null): boolean {
-  const target = node ?? $getActiveUSFMTextNode();
-  return target ? target.getShow() : false;
+function killEvent(event: Event) {
+  event.preventDefault();
+  event.stopPropagation();
 }

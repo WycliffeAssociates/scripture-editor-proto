@@ -3,11 +3,12 @@ import type {LexicalEditor} from "lexical";
 import {createContext, useContext, useEffect, useRef, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import type {SettingsManager} from "@/app/data/settings";
+import {type UseLintReturn, useLint} from "@/app/ui/hooks/useLint";
 import {
   type ProjectState,
   useProjectState,
 } from "@/app/ui/hooks/useProjectState";
-import {UseSearchReturn, useProjectSearch} from "@/app/ui/hooks/useSearch";
+import {type UseSearchReturn, useProjectSearch} from "@/app/ui/hooks/useSearch";
 import {type UseActionsHook, useProjectActions} from "../hooks/useActions";
 import {
   type ReferenceProjectHook,
@@ -23,6 +24,7 @@ interface ProjectContextType {
   actions: UseActionsHook;
   referenceProject: ReferenceProjectHook;
   search: UseSearchReturn;
+  lint: UseLintReturn;
 }
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
@@ -44,7 +46,6 @@ export const ProjectProvider = ({
 }: ProjectProviderProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
   const {projects} = useLoaderData({from: "__root__"});
-
   const [workingFiles, setWorkingFiles] = useState<ParsedFile[]>(projectFiles);
   const {settingsManager, directoryProvider} = useRouter().options.context;
 
@@ -71,6 +72,7 @@ export const ProjectProvider = ({
     switchBookOrChapter: actions.switchBookOrChapter,
     editorRef,
   });
+  const lint = useLint();
 
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
   // useEffect(() => {
@@ -87,6 +89,7 @@ export const ProjectProvider = ({
         actions,
         referenceProject,
         search,
+        lint,
       }}
     >
       {children}

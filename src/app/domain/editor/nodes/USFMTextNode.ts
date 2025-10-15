@@ -16,6 +16,7 @@ import {
   TOKEN_TYPES_CAN_TOGGLE_HIDE,
   TOKENS_TO_LOCK_FROM_EDITING,
   USFM_TEXT_NODE_TYPE,
+  UsfmTokenTypes,
 } from "@/app/data/editor";
 import {
   classNameState,
@@ -28,7 +29,6 @@ import {
   tokenTypeState,
 } from "@/app/domain/editor/states";
 import {isValidParaMarker} from "@/core/data/usfm/tokens";
-import {TokenMap} from "@/core/domain/usfm/lex";
 
 export type SerializedUSFMTextNode = SerializedTextNode & {
   type: typeof USFM_TEXT_NODE_TYPE;
@@ -219,7 +219,7 @@ export class USFMTextNode extends TextNode {
     return needsUpdate;
   }
   // functions for lock / unlock
-  remove(preserveEmptyParent?: boolean): void {
+  remove(_preserveEmptyParent?: boolean): void {
     const isLockable = $isToggleableUSFMTextNode(this);
     const isShowing = $getState(this, showState);
     if (isLockable || !isShowing) {
@@ -228,7 +228,7 @@ export class USFMTextNode extends TextNode {
         return;
       }
     }
-    super.remove(preserveEmptyParent);
+    super.remove();
   }
   // setTextContent(text: string): this {
   //   // --- Decide if we should block the update ---
@@ -245,6 +245,7 @@ export class USFMTextNode extends TextNode {
   //   super.setTextContent(text);
   //   return this;
   // }
+
   canInsertTextBefore(): boolean {
     const isLockable = $isToggleableUSFMTextNode(this);
     if (isLockable) {
@@ -282,6 +283,16 @@ export function $isUSFMTextNode(
 ): node is USFMTextNode {
   return node instanceof USFMTextNode;
 }
+export function $isLockedUSFMTextNode(node: LexicalNode | null | undefined) {
+  return $isUSFMTextNode(node) && node.getMutable() === false;
+}
+export function $isVerseRangeTextNode(
+  node: LexicalNode | null | undefined
+): node is USFMTextNode {
+  return (
+    $isUSFMTextNode(node) && node.getTokenType() === UsfmTokenTypes.verseRange
+  );
+}
 export function isSerializedUSFMTextNode(
   node: SerializedLexicalNode
 ): node is SerializedUSFMTextNode {
@@ -309,7 +320,7 @@ export function isSerializedPlainTextUSFMTextNode(
 ): node is SerializedUSFMTextNode {
   const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
   if (!isSerializedUsfmNode) return false;
-  return node.tokenType === TokenMap.text;
+  return node.tokenType === UsfmTokenTypes.text;
 }
 
 /* CREATES */

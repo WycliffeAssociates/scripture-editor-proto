@@ -1,116 +1,359 @@
-import {$dfs} from "@lexical/utils";
-import {$getRoot, type LexicalEditor} from "lexical";
+import {
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  type EditorState,
+  HISTORY_MERGE_TAG,
+  type LexicalEditor,
+} from "lexical";
 import {UsfmTokenTypes} from "@/app/data/editor";
 import {
+  $createUSFMTextNode,
   $isUSFMTextNode,
-  USFMTextNode,
+  $isVerseRangeTextNode,
+  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import {parseSid} from "@/core/data/bible/bible";
+import {
+  classNameToMsgMap,
+  LintMessage,
+  lintMessages,
+} from "@/app/ui/hooks/useLint";
+import {type ParsedReference, parseSid} from "@/core/data/bible/bible";
+import {guidGenerator} from "@/core/data/utils/generic";
 
 type LintVersesArgs = {
+  editorState: EditorState;
   editor: LexicalEditor;
-  node: USFMTextNode;
 };
-export function lintVerseRangeReferences({editor, node}: LintVersesArgs) {
-  const nodeTokenType = node.getTokenType();
-  if (nodeTokenType !== UsfmTokenTypes.verseRange) return;
-  const sid = node.getSid().trim();
-  const classNames: {
-    [nodeKey: string]: {
-      node: USFMTextNode;
-      classNames: string[];
-    };
-  } = {};
+type LintVerseCn = (typeof lintMessages)[keyof typeof lintMessages];
+export function lintVerseRangeReferences({
+  editorState,
+  editor,
+}: LintVersesArgs) {
+  const messages: Array<LintMessage> = [];
+  editorState.read(() => {
+    const root = $getRoot();
 
-  // if the sid is chapter type of 1CO #, ignore. only verses;
-  if (!parseSid(sid)) return;
-  const root = $getRoot();
-  const allVerseRanges = $dfs(root)
-    .filter(
-      (node) =>
-        $isUSFMTextNode(node.node) &&
-        node.node.getTokenType() === UsfmTokenTypes.verseRange &&
-        parseSid(node.node.getSid().trim())
-    )
-    .map((node) => {
-      return {
-        node: node.node as USFMTextNode,
-        key: node.node.getKey(),
-        textContent: node.node.getTextContent().trim(),
+    type VerseRangeReduce = {
+      malformed: Array<{
+        node: USFMTextNode;
+        sid: string;
+        reason: LintVerseCn;
+      }>;
+      valid: Array<{
+        node: USFMTextNode;
+        sid: string;
+        reference: ParsedReference;
+      }>;
+    };
+
+    const allVerseRanges = root.getAllTextNodes().reduce(
+      (acc, node) => {
+        if ($isVerseRangeTextNode(node)) {
+          const sid = node.getSid().trim();
+          const textContent = node.getTextContent().trim();
+          if (!textContent) {
+            acc.malformed.push({
+              node,
+              sid,
+              reason: lintMessages.vrEmpty,
+            });
+            return acc;
+          }
+          const isVerseBridge = textContent.includes("-");
+          const verseStart = isVerseBridge
+            ? Number(textContent.split("-")[0])
+            : Number(textContent);
+          const verseEnd = isVerseBridge
+            ? Number(textContent.split("-")[1])
+            : verseStart;
+          const sidParsed = parseSid(sid);
+          // chapters have stuff like this: 1CO 1
+          if (!sidParsed) {
+            acc.malformed.push({
+              node,
+              sid,
+              reason: lintMessages.vrMalformed,
+            });
+            return acc;
+          }
+          // using first sid to get what new one would be
+          const newSid = sidParsed.getNewParsedReference({
+            verseStart,
+            verseEnd,
+          });
+          const newSidParsed = parseSid(newSid.toSidString());
+          if (!newSidParsed) {
+            acc.malformed.push({
+              node,
+              sid,
+              reason: lintMessages.vrMalformed,
+            });
+            return acc;
+          }
+
+          if (newSidParsed?.isBookChapOnly) return acc;
+          acc.valid.push({
+            node,
+            reference: newSidParsed,
+            sid: newSid.toSidString(),
+          });
+        }
+        return acc;
+      },
+      {valid: [], malformed: []} as VerseRangeReduce
+    );
+
+    const classNameTracker: {
+      [nodeKey: string]: {
+        node: USFMTextNode;
+        pendingSid: string;
+        classNames: LintVerseCn[];
       };
+    } = {};
+    const lintArgs = {
+      allVerseRanges: allVerseRanges.valid,
+      classNameTracker,
+    };
+    // Mark duplicates
+    determineDuplicate(lintArgs);
+
+    // Check order (based on numeric start)
+    determineOutOfOrder(lintArgs);
+
+    allVerseRanges.malformed.forEach(({node, reason}) => {
+      const existing = classNameTracker[node.getKey()] ?? {
+        node,
+        classNames: [],
+      };
+      existing.classNames.push(reason);
+      classNameTracker[node.getKey()] = existing;
     });
 
-  // check for dups and out of orders. If so, add className "verseRangeDuplicate" or "verseRangeOutOfOrder"
+    //easier to loop everything below and then conidtionally call editor.update, cuase if no changes actually happen, even calling editor.update can trigger unwanted loops
+    const updates: Array<() => void> = [];
 
-  // Mark duplicates
-  determineDuplicate(allVerseRanges, classNames);
+    // classNames lints
+    Object.entries(classNameTracker).forEach(
+      ([_, {node, classNames, pendingSid}]) => {
+        const currentClassNamesOnNode = new Set(node.getClassNames());
+        const pendingClassNames = new Set(classNames.map((c) => c.className));
 
-  // Check order (based on numeric start)
-  determineOutOfOrder(allVerseRanges, classNames);
-  const currentClassNames = new Set(node.getClassNames());
-  Object.entries(classNames).forEach(([_, {node, classNames}]) => {
-    [...new Set(classNames)].forEach((c) => {
-      if (!currentClassNames.has(c)) {
-        node.setClassName(c, true);
+        if (pendingClassNames.size === 0 && currentClassNamesOnNode.size > 0) {
+          // make sure there are no classnames on this node;
+          currentClassNamesOnNode.forEach((c) => {
+            updates.push(() => node.setClassName(c, false));
+          });
+          return;
+        }
+        // for each one on current and not in pending, remove:
+        currentClassNamesOnNode.forEach((c) => {
+          // @ts-expect-error: Set check
+          if (!pendingClassNames.has(c) && c !== "lint-error") {
+            updates.push(() => node.setClassName(c, false));
+          }
+        });
+        // for each one in pending and not on current, add:
+        pendingClassNames.forEach((c) => {
+          const msg = classNameToMsgMap.get(c);
+          if (!msg) return;
+          messages.push({
+            nodeKey: node.getKey(),
+            message: msg,
+            sid: pendingSid,
+          });
+          if (!currentClassNamesOnNode.has(c)) {
+            updates.push(() => {
+              node.setClassName(c, true);
+              node.setClassName("lint-error", true);
+            });
+          }
+        });
+      }
+    );
+
+    if (updates.length > 0) {
+      editor.update(() => {
+        updates.forEach((update) => {
+          update();
+        });
+      });
+    }
+  });
+  return messages;
+}
+
+export function ensurePlainTextNodeAlwaysFollowsVerseRange({
+  editorState,
+  editor,
+}: LintVersesArgs) {
+  const updates: Array<() => void> = [];
+  editorState.read(() => {
+    const root = $getRoot();
+    root.getAllTextNodes().forEach((node) => {
+      if (!$isVerseRangeTextNode(node)) return;
+      const next = node.getNextSibling();
+      if (
+        !next ||
+        !$isUSFMTextNode(next) ||
+        next.getTokenType() !== UsfmTokenTypes.text
+      ) {
+        updates.push(() => {
+          const emptySibling = $createUSFMTextNode(" ", {
+            id: guidGenerator(),
+            sid: node.getSid().trim(),
+            inPara: node.getInPara(),
+            tokenType: UsfmTokenTypes.text,
+          });
+          node.insertAfter(emptySibling);
+        });
       }
     });
   });
+  editor.update(
+    () => {
+      updates.forEach((update) => {
+        update();
+      });
+    },
+    {
+      skipTransforms: true,
+      tag: [HISTORY_MERGE_TAG],
+    }
+  );
+}
+export function ensureVerseRangeAlwaysFollowsVerseMarker({
+  editorState,
+  editor,
+}: LintVersesArgs) {
+  const updates: Array<() => void> = [];
+  editorState.read(() => {
+    const root = $getRoot();
+    root.getAllTextNodes().forEach((node) => {
+      if (!$isUSFMTextNode(node)) return;
+      const hasVerseMarker = node.getMarker() === "v";
+      if (!hasVerseMarker) return;
+      const next = node.getNextSibling();
+      if ($isVerseRangeTextNode(next)) return;
+      updates.push(() => {
+        const emptySibling = $createUSFMTextNode(" ", {
+          id: guidGenerator(),
+          sid: node.getSid().trim(),
+          inPara: node.getInPara(),
+          tokenType: UsfmTokenTypes.verseRange,
+        });
+        node.insertAfter(emptySibling);
+      });
+    });
+  });
+  editor.update(
+    () => {
+      const selection = $getSelection();
+      updates.forEach((update) => {
+        update();
+      });
+    },
+    {
+      skipTransforms: true,
+      tag: [HISTORY_MERGE_TAG],
+    }
+  );
 }
 
-function determineOutOfOrder(
-  allVerseRanges: {node: USFMTextNode; textContent: string}[],
-  classNames: {[nodeKey: string]: {node: USFMTextNode; classNames: string[]}}
-) {
+type VerseRangeLintArg = {
+  allVerseRanges: {
+    node: USFMTextNode;
+    reference: ParsedReference;
+    sid: string;
+  }[];
+  classNameTracker: {
+    [nodeKey: string]: {node: USFMTextNode; classNames: LintVerseCn[]};
+  };
+};
+
+function determineOutOfOrder({
+  allVerseRanges,
+  classNameTracker,
+}: VerseRangeLintArg) {
   for (let i = 0; i < allVerseRanges.length; i++) {
-    const {node, textContent} = allVerseRanges[i];
-    const start = parseStart(textContent);
+    const {node} = allVerseRanges[i];
+    const start = parseStart(node.getTextContent().trim());
 
     // First node: should usually start at 1 (adjust if you want a different rule)
     if (i === 0 && !Number.isNaN(start) && start !== 1) {
-      const existing = classNames[node.getKey()] ?? {node, classNames: []};
-      existing.classNames.push("verseRangeOutOfOrder");
-      classNames[node.getKey()] = existing;
+      const existing = classNameTracker[node.getKey()] ?? {
+        node,
+        classNames: [],
+      };
+      existing.classNames.push(lintMessages.vrOutOfOrder);
+      classNameTracker[node.getKey()] = existing;
     }
 
     // Compare this node to the next node; mark THIS node if it jumps ahead.
     const next = allVerseRanges[i + 1];
     if (next) {
-      const nextStart = parseStart(next.textContent);
+      const nextStart = parseStart(next.node.getTextContent().trim());
       if (
         !Number.isNaN(start) &&
         !Number.isNaN(nextStart) &&
         start > nextStart
       ) {
-        const existing = classNames[node.getKey()] ?? {node, classNames: []};
-        existing.classNames.push("verseRangeOutOfOrder");
-        classNames[node.getKey()] = existing;
+        const existing = classNameTracker[node.getKey()] ?? {
+          node,
+          classNames: [],
+        };
+        existing.classNames.push(lintMessages.vrOutOfOrder);
+        classNameTracker[node.getKey()] = existing;
+      }
+    } else {
+      // if not a next, assuem last, and make sure it's +1 of prev
+      const prev = allVerseRanges[i - 1];
+      if (prev) {
+        const prevStart = parseStart(prev.node.getTextContent().trim());
+        if (!Number.isNaN(prevStart) && start !== prevStart + 1) {
+          const existing = classNameTracker[node.getKey()] ?? {
+            node,
+            classNames: [],
+          };
+          existing.classNames.push(lintMessages.vrOutOfOrder);
+          classNameTracker[node.getKey()] = existing;
+        }
       }
     }
   }
 }
 
-function determineDuplicate(
-  allVerseRanges: {node: USFMTextNode; textContent: string}[],
-  classNames: {[nodeKey: string]: {node: USFMTextNode; classNames: string[]}}
-) {
-  const seen = new Map<string, USFMTextNode[]>();
-  for (const {node, textContent} of allVerseRanges) {
-    const key = textContent;
-    const group = seen.get(key) ?? [];
-    group.push(node);
+function determineDuplicate({
+  allVerseRanges,
+  classNameTracker,
+}: VerseRangeLintArg) {
+  type MapType = {
+    nodes: USFMTextNode[];
+    pendingSid: string;
+  };
+  const seen = new Map<string, MapType>();
+  for (const {node, sid} of allVerseRanges) {
+    const key = sid;
+    const group = seen.get(key) ?? {
+      nodes: [],
+      pendingSid: sid,
+    };
+    group.nodes.push(node);
     seen.set(key, group);
   }
 
   // Mark duplicates
-  for (const [, group] of seen) {
-    const isDuplicate = group.length > 1;
-    for (const dupNode of group) {
-      const existing = classNames[dupNode.getKey()] ?? {
+  for (const [_, group] of seen) {
+    const isDuplicate = group.nodes.length > 1;
+    const {pendingSid, nodes} = group;
+    for (const dupNode of nodes) {
+      const existing = classNameTracker[dupNode.getKey()] ?? {
         node: dupNode,
+        pendingSid,
         classNames: [],
       };
-      if (isDuplicate) existing.classNames.push("verseRangeDuplicate");
-      classNames[dupNode.getKey()] = existing;
+      if (isDuplicate) existing.classNames.push(lintMessages.vrDuplicate);
+      classNameTracker[dupNode.getKey()] = existing;
       // domEl.classList.toggle("verseRangeDuplicate", isDuplicate);
     }
   }
