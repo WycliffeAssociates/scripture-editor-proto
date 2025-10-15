@@ -63,17 +63,11 @@ const mockResourceContainerProject: Project = {
 
 // Mock the actual loader implementations
 vi.mock("@/core/domain/project/ResourceContainerProjectLoader.ts", () => ({
-    ResourceContainerProjectLoader: vi.fn(() => ({
-        loadProject: vi.fn(() => Promise.resolve(mockResourceContainerProject)),
-        MANIFEST_FILENAME: "manifest.yaml", // Ensure static property is mocked
-    })),
+    ResourceContainerProjectLoader: vi.fn(),
 }));
 
 vi.mock("@/core/domain/project/ScriptureBurritoProjectLoader.ts", () => ({
-    ScriptureBurritoProjectLoader: vi.fn(() => ({
-        loadProject: vi.fn(() => Promise.resolve(mockScriptureBurritoProject)),
-        METADATA_FILENAME: "metadata.json", // Ensure static property is mocked
-    })),
+    ScriptureBurritoProjectLoader: vi.fn(),
 }));
 
 // Helper mock for FileSystemDirectoryHandle to implement methods
@@ -98,10 +92,21 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
 
 describe('ProjectLoader', () => {
     let projectLoader: ProjectLoader;
+    let mockScriptureBurritoLoader: any;
+    let mockResourceContainerLoader: any;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        projectLoader = new ProjectLoader();
+        // vi.spyOn(ScriptureBurritoProjectLoader, 'METADATA_FILENAME', 'get').mockReturnValue("metadata.json");
+        // vi.spyOn(ResourceContainerProjectLoader, 'MANIFEST_FILENAME', 'get').mockReturnValue("manifest.yaml");
+
+        mockScriptureBurritoLoader = {
+            loadProject: vi.fn(() => Promise.resolve(mockScriptureBurritoProject)),
+        };
+        mockResourceContainerLoader = {
+            loadProject: vi.fn(() => Promise.resolve(mockResourceContainerProject)),
+        };
+        projectLoader = new ProjectLoader(mockResourceContainerLoader, mockScriptureBurritoLoader);
     });
 
     test('should prefer ScriptureBurritoProjectLoader if metadata.json exists', async () => {
@@ -113,9 +118,9 @@ describe('ProjectLoader', () => {
 
         const loadedProject = await projectLoader.loadProject(mockProjectDir, mockFileWriter, mockMd5Service);
 
-        expect(ScriptureBurritoProjectLoader).toHaveBeenCalledTimes(1);
-        expect(ScriptureBurritoProjectLoader.mock.results[0].value.loadProject).toHaveBeenCalledWith(mockProjectDir, mockFileWriter, mockMd5Service);
-        //expect(ResourceContainerProjectLoader).not.toHaveBeenCalled();
+        expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledTimes(1);
+        expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledWith(mockProjectDir, mockFileWriter, mockMd5Service);
+        expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
         expect(loadedProject).toEqual(mockScriptureBurritoProject);
     });
 
@@ -127,9 +132,9 @@ describe('ProjectLoader', () => {
 
         const loadedProject = await projectLoader.loadProject(mockProjectDir, mockFileWriter, mockMd5Service);
 
-        expect(ScriptureBurritoProjectLoader).not.toHaveBeenCalled();
-        expect(ResourceContainerProjectLoader).toHaveBeenCalledTimes(1);
-        expect(ResourceContainerProjectLoader.mock.results[0].value.loadProject).toHaveBeenCalledWith(mockProjectDir, mockFileWriter, mockMd5Service);
+        expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledTimes(1);
+        expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledWith(mockProjectDir, mockFileWriter, mockMd5Service);
+        expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
         expect(loadedProject).toEqual(mockResourceContainerProject);
     });
 
@@ -138,8 +143,8 @@ describe('ProjectLoader', () => {
 
         const loadedProject = await projectLoader.loadProject(mockProjectDir, mockFileWriter, mockMd5Service);
 
-        expect(ScriptureBurritoProjectLoader).not.toHaveBeenCalled();
-        expect(ResourceContainerProjectLoader).not.toHaveBeenCalled();
+        expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
+        expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
         expect(loadedProject).toBeNull();
     });
 });

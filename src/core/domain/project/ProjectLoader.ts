@@ -20,9 +20,12 @@ export class ProjectLoader implements IProjectLoader {
      * @constructor
      * @description Creates an instance of ProjectLoader, initializing its internal loader implementations.
      */
-    constructor() {
-        this.resourceContainerLoader = new ResourceContainerProjectLoader();
-        this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader();
+    constructor(
+        rcLoader: ResourceContainerProjectLoader = new ResourceContainerProjectLoader(),
+        sbLoader: ScriptureBurritoProjectLoader = new ScriptureBurritoProjectLoader()
+    ) {
+        this.resourceContainerLoader = rcLoader;
+        this.scriptureBurritoLoader = sbLoader;
     }
 
     /**

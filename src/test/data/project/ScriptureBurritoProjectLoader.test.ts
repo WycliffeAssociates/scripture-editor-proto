@@ -144,6 +144,7 @@ describe('ScriptureBurritoProjectLoader', () => {
         expect(mockMd5Service.calculateMd5).toHaveBeenCalledWith(bookContents);
 
         const updatedMetadata = JSON.parse(mockProjectDir.files.get(ScriptureBurritoProjectLoader.METADATA_FILENAME)!);
+        console.log(updatedMetadata);
         expect(updatedMetadata.ingredients).toHaveProperty(expectedFilename);
         expect(updatedMetadata.ingredients[expectedFilename].checksum.md5).toBe(`mock-md5-${bookContents}`);
         expect(updatedMetadata.ingredients[expectedFilename].title).toBe(localizedBookTitle);
