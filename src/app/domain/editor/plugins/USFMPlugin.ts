@@ -38,6 +38,7 @@ export function USFMPlugin() {
   const {appSettings} = project;
   const {markersMutableState, markersViewState, mode} = appSettings;
   const markersInPreview = useRef(new Set<NodeKey>());
+
   const debouncedLint = useDebouncedCallback((editorState) => {
     console.count(`debouncedLint`);
     console.time("lint");

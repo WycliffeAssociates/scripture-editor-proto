@@ -1,4 +1,9 @@
-import {createTheme, MantineColorsTuple, virtualColor} from "@mantine/core";
+import {
+  createTheme,
+  MantineColorsTuple,
+  Tooltip,
+  virtualColor,
+} from "@mantine/core";
 
 const primaryColors: MantineColorsTuple = [
   "#e7f3ff",
@@ -73,8 +78,13 @@ export const theme = createTheme({
       dark: "#2c3036",
     }),
   },
-
-  // variantColorResolver:
+  components: {
+    Tooltip: Tooltip.extend({
+      defaultProps: {
+        openDelay: 200,
+      },
+    }),
+  },
 });
 type ThemeType = typeof theme;
 

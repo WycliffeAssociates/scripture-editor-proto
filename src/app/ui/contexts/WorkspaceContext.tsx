@@ -76,6 +76,8 @@ export const ProjectProvider = ({
     saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     switchBookOrChapter: actions.switchBookOrChapter,
     editorRef,
+    pickedFile: project.pickedFile,
+    pickedChapter: project.pickedChapter,
   });
   const lint = useLint();
 

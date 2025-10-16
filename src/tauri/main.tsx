@@ -19,11 +19,11 @@ if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 
 root.render(
-  <StrictMode>
-    <App
-      settingsManager={settingsManager}
-      gitProvider={gitProvider}
-      directoryProvider={directoryProvider}
-    />
-  </StrictMode>
+  // <StrictMode>
+  <App
+    settingsManager={settingsManager}
+    gitProvider={gitProvider}
+    directoryProvider={directoryProvider}
+  />
+  // </StrictMode>
 );

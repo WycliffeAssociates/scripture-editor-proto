@@ -241,8 +241,23 @@ export function parseSid(sid: string): ParsedReference | null {
   };
 }
 
-// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
+type MakeSidPart = {
+  bookId: string;
+  chapter: number;
+  verseStart?: number;
+  verseEnd?: number;
+};
+export function makeSid({bookId, chapter, verseStart, verseEnd}: MakeSidPart) {
+  if (!verseStart || !verseEnd) {
+    return `${bookId.toUpperCase()} ${chapter}`;
+  }
+  if (verseStart === verseEnd) {
+    return `${bookId.toUpperCase()} ${chapter}:${verseStart}`;
+  }
+  return `${bookId.toUpperCase()} ${chapter}:${verseStart}-${verseEnd}`;
+}
 
+// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
 export function parseReference(input: string) {
   const normalized = input.toLowerCase().replace(/\s+/g, "");
   const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);

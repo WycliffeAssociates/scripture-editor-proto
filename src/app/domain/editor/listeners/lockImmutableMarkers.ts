@@ -141,8 +141,9 @@ export function lockImutableMarkersOnType({
     return false;
   const isDestructive = event.key === "Backspace" || event.key === "Delete";
   // only handle destructive key touches
-  // true = to stop propagation. false = continue
-  if (isNonEditingKey(event)) return false;
+  // true = to stop propagation. false = cont
+  // inue
+  if (isNonEditingKey(event) || isKnownCommonKeyCombo(event)) return false;
   const hasAltKey = event.altKey;
   const hasModKey = event.metaKey || event.ctrlKey;
   const selectionInfo = $getSelectionInfo();
@@ -250,6 +251,12 @@ function isNonEditingKey(event: KeyboardEvent): boolean {
     "Shift",
   ];
   return nonEditingKeys.includes(event.key);
+}
+function isKnownCommonKeyCombo(event: KeyboardEvent): boolean {
+  const undoKeyCombo = event.metaKey && event.key === "z";
+  const redoKeyCombo = event.metaKey && event.key === "y";
+  const selectAllKeyCombo = event.metaKey && event.key === "a";
+  return undoKeyCombo || redoKeyCombo || selectAllKeyCombo;
 }
 function $getSelectionInfo() {
   const selection = $getSelection();

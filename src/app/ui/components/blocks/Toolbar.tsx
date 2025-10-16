@@ -9,7 +9,7 @@ import {
   Select,
   Text,
 } from "@mantine/core";
-import {Link} from "@tanstack/react-router";
+import {Link, useRouter} from "@tanstack/react-router";
 import {ChevronDown, Code, Plus} from "lucide-react";
 import {useState} from "react";
 import {
@@ -21,7 +21,7 @@ import {
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
 import {ReferencePicker} from "@/app/ui/components/blocks/ReferencePicker";
-import {SearchInput} from "@/app/ui/components/blocks/Search";
+import {SearchInput} from "@/app/ui/components/blocks/SearchTrigger";
 import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import {EditorMarkersMutableStates} from "../../../data/editor";
 
@@ -51,7 +51,6 @@ export function Toolbar() {
       {/* Assume ReferencePicker is Mantine-wrapped already */}
       {/* <Button variant="subtle" onClick={seeUsfm}>See USFM</Button> */}
       <ReferenceProjectList />
-      {/* <SearchBar /> */}
       <FontSizeAdjust />
       <FontPicker />
       <ActionIcon
@@ -130,9 +129,21 @@ export function Toolbar() {
 /* ---------------- Project List ---------------- */
 function ProjectList() {
   const {allProjects, project, currentProjectRoute} = useWorkspaceContext();
+  const router = useRouter();
   const currentProject = allProjects.find(
     (p) => p.path === currentProjectRoute
   );
+  const navigateToNewProject = (projectPath: string) => {
+    project.updateAppSettings({
+      lastProjectPath: projectPath,
+    });
+    router.navigate({
+      to: `/$project`,
+      params: {project: projectPath},
+    });
+    // update project settings to this project
+    // navigate("/create");
+  };
 
   return (
     <Menu shadow="md" width={220}>
@@ -148,9 +159,14 @@ function ProjectList() {
       <Menu.Dropdown>
         {allProjects.map((project) => (
           <Menu.Item key={project.path}>
-            <Link to="/$project" params={{project: project.path}}>
+            <Button
+              variant="default"
+              bd={"none"}
+              rightSection={<ChevronDown size={16} />}
+              onClick={() => navigateToNewProject(project.path)}
+            >
               {project.name}
-            </Link>
+            </Button>
           </Menu.Item>
         ))}
         <Divider />
@@ -177,6 +193,11 @@ function ReferenceProjectList() {
         </Button>
       </Menu.Target>
       <Menu.Dropdown>
+        <Menu.Item
+          onClick={() => referenceProject.setReferenceProjectPath(undefined)}
+        >
+          Clear Reference Project
+        </Menu.Item>
         {allProjects.map((project) => (
           <Menu.Item
             key={project.path}
