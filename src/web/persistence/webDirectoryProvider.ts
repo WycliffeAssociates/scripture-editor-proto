@@ -2,7 +2,7 @@ import type {
     IDirectoryProvider,
     ResourceMetadata,
 } from "@/core/persistence/DirectoryProvider";
-import { WebDirectoryHandleWrapper } from "../io/WebDirectoryHandle.ts";
+import { WebDirectoryHandleWrapper } from "@/web/io/WebDirectoryHandle.ts";
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
@@ -193,5 +193,9 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             dir = await dir.getDirectoryHandle(part, { create: opts?.create });
         const file = await dir.getFileHandle(fileName, opts);
         return new WebFileHandleWrapper(file, path, this.getHandle.bind(this));
+    }
+    
+    resolveHandle(path: string): Promise<IPathHandle> {
+        return this.getHandle(path);
     }
 }

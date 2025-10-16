@@ -5,9 +5,7 @@ import {IPathHandle} from "@/core/io/IPathHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
-export class WebFileHandleWrapper
-    extends FileSystemFileHandle
-    implements IFileHandle {
+export class WebFileHandleWrapper implements IFileHandle {
     kind: "file" = "file";
     name: string;
     readonly path: string;
@@ -18,10 +16,9 @@ export class WebFileHandleWrapper
     private readonly resolveHandle: ResolveHandle;
 
     constructor(handle: FileSystemFileHandle, path: string, resolveHandle: ResolveHandle) {
-        super();
         this.handle = handle;
         this.path = path;
-        this.name = path.split("/").pop() ?? path;
+        this.name = handle.name; // Delegate name from the native handle
         this.resolveHandle = resolveHandle;
     }
 
@@ -61,8 +58,13 @@ export class WebFileHandleWrapper
     asDirectoryHandle(): IDirectoryHandle | null {
         return null;
     }
-    
+
     async getAbsolutePath(): Promise<string> {
         return this.path;
+    }
+
+    // Implement FileSystemHandle properties and methods by delegating to this.handle
+    async isSameEntry(other: FileSystemHandle): Promise<boolean> {
+        return this.handle.isSameEntry(other);
     }
 }

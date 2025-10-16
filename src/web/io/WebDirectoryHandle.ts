@@ -5,7 +5,7 @@ import {WebFileHandleWrapper} from "@/web/io/WebFileHandleWrapper.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
-export class WebDirectoryHandleWrapper extends FileSystemDirectoryHandle implements IDirectoryHandle {
+export class WebDirectoryHandleWrapper implements IDirectoryHandle {
     kind: "directory" = "directory";
     name: string;
     readonly path: string;
@@ -16,10 +16,9 @@ export class WebDirectoryHandleWrapper extends FileSystemDirectoryHandle impleme
     private readonly resolveHandle: ResolveHandle;
 
     constructor(handle: FileSystemDirectoryHandle, path: string, resolveHandle: ResolveHandle) {
-        super();
         this.handle = handle;
         this.path = path;
-        this.name = path.split("/").pop() ?? path;
+        this.name = handle.name; // Delegate name from the native handle
         this.resolveHandle = resolveHandle;
     }
 
@@ -50,9 +49,6 @@ export class WebDirectoryHandleWrapper extends FileSystemDirectoryHandle impleme
     async getParent(): Promise<IDirectoryHandle> {
         const parentPath = this.path.substring(0, this.path.lastIndexOf("/"));
         if (parentPath === "") {
-            // If it's the root, we need to return the root directory itself, or null if there's no parent.
-            // For the web, the root of OPFS typically doesn't have a 'parent' in the traditional sense.
-            // We'll return the root directory handle, which represents the effective parent for the top-level items.
             return await this.resolveHandle("/") as IDirectoryHandle;
         }
         return await this.resolveHandle(parentPath) as IDirectoryHandle;
@@ -68,5 +64,22 @@ export class WebDirectoryHandleWrapper extends FileSystemDirectoryHandle impleme
 
     async getAbsolutePath(): Promise<string> {
         return this.path;
+    }
+
+    // Implement FileSystemHandle properties and methods by delegating to this.handle
+    async isSameEntry(other: FileSystemHandle): Promise<boolean> {
+        return this.handle.isSameEntry(other);
+    }
+
+    resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null> {
+        return this.handle.resolve(possibleDescendant);
+    }
+
+    [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]> {
+        return this.entries();
+    }
+
+    [Symbol.asyncDispose](): Promise<void> {
+        return Promise.resolve(void 0);
     }
 }
