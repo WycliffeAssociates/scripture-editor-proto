@@ -3,10 +3,10 @@ import {$getNodeByKey, HISTORY_MERGE_TAG} from "lexical";
 import {useRef, useState} from "react";
 import {MainEditor} from "@/app/ui/components/blocks/Editor";
 import {Toolbar} from "@/app/ui/components/blocks/Toolbar";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 
 export function ProjectView() {
-  const {search, lint, editorRef} = useProjectContext();
+  const {search, lint, editorRef} = useWorkspaceContext();
   const hasMessages = lint.messages.length > 0;
   const prevSelected = useRef<HTMLElement | null>(null);
   const [lintPopoverIsOpen, setLintPopoverIsOpen] = useState(false);

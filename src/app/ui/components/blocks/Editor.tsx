@@ -15,11 +15,11 @@ import {
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import {USFMPlugin} from "@/app/domain/editor/plugins/USFMPlugin";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import {guidGenerator} from "@/core/data/utils/generic";
 
 export function MainEditor() {
-  const {editorRef} = useProjectContext();
+  const {editorRef} = useWorkspaceContext();
 
   return (
     <div className="h-full overflow-y-auto">

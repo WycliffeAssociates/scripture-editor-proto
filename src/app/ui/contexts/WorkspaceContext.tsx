@@ -3,33 +3,38 @@ import type {LexicalEditor} from "lexical";
 import {createContext, useContext, useEffect, useRef, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import type {SettingsManager} from "@/app/data/settings";
-import {type UseLintReturn, useLint} from "@/app/ui/hooks/useLint";
 import {
-  type ProjectState,
-  useProjectState,
-} from "@/app/ui/hooks/useProjectState";
-import {type UseSearchReturn, useProjectSearch} from "@/app/ui/hooks/useSearch";
-import {type UseActionsHook, useProjectActions} from "../hooks/useActions";
+  type UseActionsHook,
+  useWorkspaceActions,
+} from "@/app/ui/hooks/useActions";
+import {type UseLintReturn, useLint} from "@/app/ui/hooks/useLint";
 import {
   type ReferenceProjectHook,
   useReferenceProject,
-} from "../hooks/useReferenceProject";
+} from "@/app/ui/hooks/useReferenceProject";
+import {type UseSearchReturn, useProjectSearch} from "@/app/ui/hooks/useSearch";
+import {
+  useWorkspaceState,
+  type WorkspaceState,
+} from "@/app/ui/hooks/useWorkspaceState";
 
-interface ProjectContextType {
+interface WorkSpaceContextType {
   editorRef: React.RefObject<LexicalEditor | null>;
   settingsManager: SettingsManager;
   allProjects: {path: string; name: string}[];
   currentProjectRoute: string;
-  project: ProjectState;
+  project: WorkspaceState;
   actions: UseActionsHook;
   referenceProject: ReferenceProjectHook;
   search: UseSearchReturn;
   lint: UseLintReturn;
 }
-const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
+  undefined
+);
 
-export const useProjectContext = () => {
-  const ctx = useContext(ProjectContext);
+export const useWorkspaceContext = () => {
+  const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error("useProjectContext must be inside ProjectProvider");
   return ctx;
 };
@@ -49,8 +54,8 @@ export const ProjectProvider = ({
   const [workingFiles, setWorkingFiles] = useState<ParsedFile[]>(projectFiles);
   const {settingsManager, directoryProvider} = useRouter().options.context;
 
-  const project = useProjectState(settingsManager, workingFiles);
-  const actions = useProjectActions({
+  const project = useWorkspaceState(settingsManager, workingFiles);
+  const actions = useWorkspaceActions({
     editorRef,
     currentChapter: project.currentChapter,
     currentFile: project.currentFile,
@@ -79,7 +84,7 @@ export const ProjectProvider = ({
   //   setWorkingFiles(projectFiles);
   // }, [projectFiles]);
   return (
-    <ProjectContext.Provider
+    <WorkspaceContext.Provider
       value={{
         editorRef,
         settingsManager,
@@ -93,6 +98,6 @@ export const ProjectProvider = ({
       }}
     >
       {children}
-    </ProjectContext.Provider>
+    </WorkspaceContext.Provider>
   );
 };

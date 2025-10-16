@@ -30,11 +30,11 @@ import {
   textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers";
 import {USFMTextNode} from "@/app/domain/editor/nodes/USFMTextNode";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 
 export function USFMPlugin() {
   const [editor] = useLexicalComposerContext();
-  const {project, lint} = useProjectContext();
+  const {project, lint} = useWorkspaceContext();
   const {appSettings} = project;
   const {markersMutableState, markersViewState, mode} = appSettings;
   const markersInPreview = useRef(new Set<NodeKey>());

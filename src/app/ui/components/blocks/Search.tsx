@@ -6,10 +6,10 @@ import {
   Replace,
   ReplaceAll,
 } from "lucide-react";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 
 export function SearchInput() {
-  const {search} = useProjectContext();
+  const {search} = useWorkspaceContext();
   const {
     searchTerm,
     setSearch,

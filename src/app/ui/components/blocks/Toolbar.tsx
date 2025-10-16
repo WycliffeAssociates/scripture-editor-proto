@@ -22,11 +22,11 @@ import {
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
 import {ReferencePicker} from "@/app/ui/components/blocks/ReferencePicker";
 import {SearchInput} from "@/app/ui/components/blocks/Search";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import {EditorMarkersMutableStates} from "../../../data/editor";
 
 export function Toolbar() {
-  const {actions, project} = useProjectContext();
+  const {actions, project} = useWorkspaceContext();
   // const {} = useProjectContext();
 
   // function seeUsfm() {
@@ -129,7 +129,7 @@ export function Toolbar() {
 
 /* ---------------- Project List ---------------- */
 function ProjectList() {
-  const {allProjects, project, currentProjectRoute} = useProjectContext();
+  const {allProjects, project, currentProjectRoute} = useWorkspaceContext();
   const currentProject = allProjects.find(
     (p) => p.path === currentProjectRoute
   );
@@ -164,7 +164,7 @@ function ProjectList() {
 
 /* ---------------- Reference Project ---------------- */
 function ReferenceProjectList() {
-  const {allProjects, referenceProject} = useProjectContext();
+  const {allProjects, referenceProject} = useWorkspaceContext();
   const selected =
     allProjects.find((p) => p.path === referenceProject?.referenceProjectPath)
       ?.name ?? "Select Reference Project";
@@ -253,7 +253,7 @@ function SearchBar() {
 
 /* ---------------- Font Size Adjust ---------------- */
 function FontSizeAdjust() {
-  const {project} = useProjectContext();
+  const {project} = useWorkspaceContext();
   const {appSettings, updateAppSettings} = project;
 
   const minSize = 8;
@@ -283,7 +283,7 @@ function FontSizeAdjust() {
 
 /* ---------------- Font Picker ---------------- */
 function FontPicker() {
-  const {project} = useProjectContext();
+  const {project} = useWorkspaceContext();
   const {appSettings, updateAppSettings} = project;
   const [fonts, setFonts] = useState<string[]>(["Inter"]);
   const [selected, setSelected] = useState("Inter");

@@ -3,7 +3,7 @@ import {parse} from "yaml";
 import {ParsedFile} from "@/app/data/parsedProject";
 import {parsedUsfmTokensToJsonLexicalNode} from "@/app/domain/editor/serialization/serialize";
 import {ProjectView} from "@/app/ui/components/views/ProjectView";
-import {ProjectProvider} from "@/app/ui/contexts/ProjectContext";
+import {ProjectProvider} from "@/app/ui/contexts/WorkspaceContext";
 import {
   getBookSlug,
   sortUsfmFilesByCanonicalOrder,

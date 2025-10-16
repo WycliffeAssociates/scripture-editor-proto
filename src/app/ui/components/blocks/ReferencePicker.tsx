@@ -10,7 +10,7 @@ import {
 import {BookIcon, ChevronDownIcon} from "lucide-react";
 import {useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
-import {useProjectContext} from "@/app/ui/contexts/ProjectContext";
+import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import referencePickerCss from "@/app/ui/styles/modules/ReferencePicker.module.css";
 import {parseReference} from "@/core/data/bible/bible";
 
@@ -24,7 +24,7 @@ export function ReferencePicker() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const theme = useMantineTheme();
-  const {allProjects, project, actions} = useProjectContext();
+  const {allProjects, project, actions} = useWorkspaceContext();
   const {currentFile, currentChapter, workingFiles, pickedFile} = project;
 
   // --- derived state

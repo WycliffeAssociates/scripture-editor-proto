@@ -26,7 +26,7 @@ import {
   updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 
-export type UseActionsHook = ReturnType<typeof useProjectActions>;
+export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
 type Props = {
   // projectPath: string,
@@ -40,7 +40,7 @@ type Props = {
   workingFiles: ParsedFile[];
   setWorkingFiles: (files: ParsedFile[]) => void;
 };
-export const useProjectActions = ({
+export const useWorkspaceActions = ({
   workingFiles,
   setWorkingFiles,
   editorRef,

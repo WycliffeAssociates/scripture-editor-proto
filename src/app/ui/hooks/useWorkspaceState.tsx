@@ -2,11 +2,10 @@ import {LexicalEditor} from "lexical";
 import {useMemo, useRef, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import type {Settings, SettingsManager} from "@/app/data/settings";
-import {setDocumentRootFontSize} from "@/app/domain/settings/settings";
 
-export type ProjectState = ReturnType<typeof useProjectState>;
+export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 
-export const useProjectState = (
+export const useWorkspaceState = (
   settingsManager: SettingsManager,
   allFiles: ParsedFile[]
 ) => {
