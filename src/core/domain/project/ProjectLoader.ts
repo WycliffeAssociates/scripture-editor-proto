@@ -41,8 +41,11 @@ export class ProjectLoader implements IProjectLoader {
      * @returns A Promise that resolves to the loaded Project object, or null if no project can be loaded.
      */
     async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
-        const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
-        const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
+        // const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
+        // const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
+
+        const hasMetadataJson = await this.checkFileExists(projectDir, "metadata.json");
+        const hasManifestYaml = await this.checkFileExists(projectDir, "manifest.yaml");
 
         if (hasMetadataJson) {
             const project = await this.scriptureBurritoLoader.loadProject(projectDir, fileWriter, md5Service);
@@ -67,10 +70,11 @@ export class ProjectLoader implements IProjectLoader {
      */
     private async checkFileExists(dir: FileSystemDirectoryHandle, fileName: string): Promise<boolean> {
         try {
-            await dir.getFileHandle(fileName);
-            return true;
+            const handle = await dir.getFileHandle(fileName);
+            if (handle != null && handle != undefined) return true;
         } catch (error) {
             return false;
         }
+        return false
     }
 }

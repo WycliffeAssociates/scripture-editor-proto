@@ -21,7 +21,7 @@ const mockProjectDir: FileSystemDirectoryHandle = {
     name: "mock-project-dir",
     getDirectoryHandle: vi.fn(() => Promise.resolve(new MockDirectoryHandle("mock-subdir"))),
     getFileHandle: vi.fn((fileName: string) => {
-        if (fileName === ScriptureBurritoProjectLoader.METADATA_FILENAME || fileName === ResourceContainerProjectLoader.MANIFEST_FILENAME) {
+        if (fileName === "metadata.json" || fileName === "manifest.yaml") {
             return Promise.resolve({} as FileSystemFileHandle); // Just return a mock handle indicating existence
         }
         return Promise.reject(new Error("File not found"));
@@ -64,10 +64,12 @@ const mockResourceContainerProject: Project = {
 // Mock the actual loader implementations
 vi.mock("@/core/domain/project/ResourceContainerProjectLoader.ts", () => ({
     ResourceContainerProjectLoader: vi.fn(),
+    MANIFEST_FILENAME: "manifest.yaml",
 }));
 
 vi.mock("@/core/domain/project/ScriptureBurritoProjectLoader.ts", () => ({
     ScriptureBurritoProjectLoader: vi.fn(),
+    METADATA_FILENAME: "metadata.json",
 }));
 
 // Helper mock for FileSystemDirectoryHandle to implement methods
@@ -97,22 +99,22 @@ describe('ProjectLoader', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        // vi.spyOn(ScriptureBurritoProjectLoader, 'METADATA_FILENAME', 'get').mockReturnValue("metadata.json");
-        // vi.spyOn(ResourceContainerProjectLoader, 'MANIFEST_FILENAME', 'get').mockReturnValue("manifest.yaml");
 
         mockScriptureBurritoLoader = {
             loadProject: vi.fn(() => Promise.resolve(mockScriptureBurritoProject)),
+            METADATA_FILENAME: "metadata.json",
         };
         mockResourceContainerLoader = {
             loadProject: vi.fn(() => Promise.resolve(mockResourceContainerProject)),
+            MANIFEST_FILENAME: "manifest.yaml",
         };
         projectLoader = new ProjectLoader(mockResourceContainerLoader, mockScriptureBurritoLoader);
     });
 
     test('should prefer ScriptureBurritoProjectLoader if metadata.json exists', async () => {
         vi.spyOn(mockProjectDir, 'getFileHandle').mockImplementation((fileName) => {
-            if (fileName === ScriptureBurritoProjectLoader.METADATA_FILENAME) return Promise.resolve({} as FileSystemFileHandle);
-            if (fileName === ResourceContainerProjectLoader.MANIFEST_FILENAME) return Promise.resolve({} as FileSystemFileHandle);
+            if (fileName === "metadata.json") return Promise.resolve({} as FileSystemFileHandle);
+            if (fileName === "manifest.yaml") return Promise.resolve({} as FileSystemFileHandle);
             return Promise.reject(new Error("File not found"));
         });
 
@@ -126,7 +128,7 @@ describe('ProjectLoader', () => {
 
     test('should use ResourceContainerProjectLoader if only manifest.yaml exists', async () => {
         vi.spyOn(mockProjectDir, 'getFileHandle').mockImplementation((fileName) => {
-            if (fileName === ResourceContainerProjectLoader.MANIFEST_FILENAME) return Promise.resolve({} as FileSystemFileHandle);
+            if (fileName === "manifest.yaml") return Promise.resolve({} as FileSystemFileHandle);
             return Promise.reject(new Error("File not found"));
         });
 
