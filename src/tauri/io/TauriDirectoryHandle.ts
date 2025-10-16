@@ -7,6 +7,8 @@ import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
+type ResolveHandle = (path: string) => Promise<IPathHandle>;
+
 export class TauriDirectoryHandle implements IDirectoryHandle {
     kind: "directory" = "directory";
     name: string;
@@ -14,15 +16,18 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
     isDir: boolean = true;
     isFile: boolean = false;
 
-    constructor(path: string) {
+    private readonly resolveHandle: ResolveHandle;
+
+    constructor(path: string, resolveHandle: ResolveHandle) {
         this.path = normalize(path);
         this.name = this.path.split("/").pop() || this.path;
+        this.resolveHandle = resolveHandle;
     }
 
     async getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<IDirectoryHandle> {
         const dirPath = await join(this.path, name);
         if (opts?.create) await mkdir(dirPath, {recursive: true});
-        return new TauriDirectoryHandle(dirPath);
+        return new TauriDirectoryHandle(dirPath, this.resolveHandle);
     }
 
     async getFileHandle(name: string, opts?: { create?: boolean }): Promise<IFileHandle> {
@@ -35,7 +40,7 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
                 await writeTextFile(filePath, "");
             }
         }
-        return new TauriFileHandle(filePath);
+        return new TauriFileHandle(filePath, this.resolveHandle);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }): Promise<void> {
@@ -51,9 +56,9 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
         for (const item of items) {
             const childPath = await join(this.path, item.name);
             if (item.isDirectory) {
-                yield [item.name, new TauriDirectoryHandle(childPath)];
+                yield [item.name, new TauriDirectoryHandle(childPath, this.resolveHandle)];
             } else {
-                yield [item.name, new TauriFileHandle(childPath)];
+                yield [item.name, new TauriFileHandle(childPath, this.resolveHandle)];
             }
         }
     }
@@ -93,7 +98,7 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
 
     async getParent(): Promise<IDirectoryHandle> {
         const parentPath = await dirname(this.path);
-        return new TauriDirectoryHandle(parentPath);
+        return await this.resolveHandle(parentPath) as IDirectoryHandle;
     }
 
     asFileHandle(): IFileHandle | null {
@@ -102,5 +107,9 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
 
     asDirectoryHandle(): IDirectoryHandle | null {
         return this;
+    }
+
+    async getAbsolutePath(): Promise<string> {
+        return this.path;
     }
 }

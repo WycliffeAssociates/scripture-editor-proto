@@ -16,4 +16,6 @@ export interface IPathHandle extends FileSystemHandle {
     asFileHandle(): IFileHandle | null;
 
     asDirectoryHandle(): IDirectoryHandle | null;
+    
+    getAbsolutePath(): Promise<string>;
 }

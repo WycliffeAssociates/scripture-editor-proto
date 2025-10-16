@@ -33,7 +33,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
   async getHomeDirectory(): Promise<IDirectoryHandle> {
     console.log(`Home directory: ${this.userHome}`);
-    return new TauriDirectoryHandle(this.userHome);
+    return new TauriDirectoryHandle(this.userHome, this.getHandle.bind(this));
   }
 
   async getUserDataDirectory(
@@ -48,7 +48,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     const path = appendedPath ? await join(root, appendedPath) : root;
     await mkdir(path, {recursive: true});
     console.log(`User data directory: ${path}`);
-    return new TauriDirectoryHandle(path);
+    return new TauriDirectoryHandle(path, this.getHandle.bind(this));
   }
 
   async getAppDataDirectory(
@@ -59,7 +59,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
       : await appLocalDataDir();
     await mkdir(path, {recursive: true});
     console.log(`App data directory: ${path}`);
-    return new TauriDirectoryHandle(path);
+    return new TauriDirectoryHandle(path, this.getHandle.bind(this));
   }
 
   async getProjectDirectory(
@@ -81,23 +81,23 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     );
     await mkdir(path, {recursive: true});
     console.log(`Project directory: ${path}`);
-    return new TauriDirectoryHandle(path);
+    return new TauriDirectoryHandle(path, this.getHandle.bind(this));
   }
   async getDirectoryHandle(
     path: string,
     opts?: {create?: boolean}
   ): Promise<IDirectoryHandle> {
     if (opts?.create) await mkdir(path, {recursive: true});
-    return new TauriDirectoryHandle(path);
+    return new TauriDirectoryHandle(path, this.getHandle.bind(this));
   }
 
   async getHandle(path: string): Promise<IPathHandle> {
-    const fileHandle = new TauriFileHandle(path);
+    const fileHandle = new TauriFileHandle(path, this.getHandle.bind(this));
     try {
       await fileHandle.getFile();
       return fileHandle;
     } catch (e) {
-      const dirHandle = new TauriDirectoryHandle(path);
+      const dirHandle = new TauriDirectoryHandle(path, this.getHandle.bind(this));
       try {
         await dirHandle.entries().next(); // Attempt to read directory to check existence
         return dirHandle;
@@ -143,7 +143,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     await mkdir(await join(this.userHome, this.appName, "temp"), {
       recursive: true,
     });
-    return new TauriFileHandle(path);
+    return new TauriFileHandle(path, this.getHandle.bind(this));
   }
 
   async cleanTempDirectory(): Promise<void> {
@@ -171,5 +171,8 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
   get tempDirectory(): Promise<IDirectoryHandle> {
     return this.getAppDataDirectory("temp");
+  }
+  resolveHandle(path: string): Promise<IPathHandle> {
+    return this.getHandle(path);
   }
 }

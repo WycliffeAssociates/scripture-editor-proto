@@ -29,6 +29,7 @@ export interface IDirectoryProvider {
     readonly tempDirectory: Promise<IDirectoryHandle>;
 
     getHandle(path: string): Promise<IPathHandle>;
+    resolveHandle(path: string): Promise<IPathHandle>;
 }
 
 // Example domain models
