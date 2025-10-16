@@ -8,7 +8,7 @@ import {
 import { useEffect } from "react";
 import { useEffectOnce } from "react-use";
 import type { RouterContext } from "@/app/entrypoint";
-import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider";
 
 const RootLayout = () => {
     const router = useRouter();

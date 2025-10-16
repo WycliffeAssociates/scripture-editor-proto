@@ -1,11 +1,19 @@
 import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
-import {normalize} from "@/tauri/persistence/handlers/PathUtils.ts";
-import {TauriWritableFileStreamWriter} from "@/tauri/persistence/handlers/TauriWritableFileStreamWriter.ts";
+import {normalize} from "@/tauri/io/PathUtils.ts";
+import {TauriWritableFileStreamWriter} from "@/tauri/io/TauriWritableFileStreamWriter.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {dirname} from "@tauri-apps/api/path";
+import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
+import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
-export class TauriFileHandle implements FileSystemFileHandle {
+
+export class TauriFileHandle implements IFileHandle {
     kind: "file" = "file";
     name: string;
     readonly path: string;
+    isDir: boolean = false;
+    isFile: boolean = true;
 
     constructor(path: string) {
         this.path = normalize(path);
@@ -193,5 +201,23 @@ export class TauriFileHandle implements FileSystemFileHandle {
 
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {
         return (other as any)?.path === this.path;
+        return (other as IPathHandle)?.path === this.path;
+    }
+
+    async getParent(): Promise<IDirectoryHandle> {
+        const parentPath = await dirname(this.path);
+        return new TauriDirectoryHandle(parentPath);
+    }
+
+    asFileHandle(): IFileHandle | null {
+        return this;
+    }
+
+    asDirectoryHandle(): IDirectoryHandle | null {
+        return null;
+    }
+
+    [Symbol.asyncDispose](): Promise<void> {
+        return Promise.resolve(void 0);
     }
 }

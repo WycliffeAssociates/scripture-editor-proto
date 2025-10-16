@@ -2,8 +2,7 @@ import {useQuery} from "@tanstack/react-query";
 import {useMemo, useState} from "react";
 import {ParsedFile} from "@/app/data/parsedProject";
 import {projectParamToParsedFiles} from "@/app/routes/$project";
-import {IDirectoryProvider} from "@/core/data/persistence/DirectoryProvider";
-
+import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider";
 export type ReferenceProjectHook = ReturnType<typeof useReferenceProject>;
 
 type Props = {

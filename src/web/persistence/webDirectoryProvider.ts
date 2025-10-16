@@ -1,9 +1,13 @@
 import type {
     IDirectoryProvider,
     ResourceMetadata,
-    WebFileHandleExtended,
-} from "@/core/data/persistence/DirectoryProvider";
-import { WebDirectoryHandleWrapper } from "./webDirectoryHandle";
+} from "@/core/persistence/DirectoryProvider";
+import { WebDirectoryHandleWrapper } from "../io/WebDirectoryHandle.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {IFileHandle} from "@/core/io/IFileHandle.ts";
+import {WebFileHandleWrapper} from "@/web/io/WebFileHandleWrapper.ts";
+// import {WebFileHandleExtended} from "@/web/io/WebFileHandleExtended.ts"; // Removed as it's now part of core interfaces
 
 export class WebDirectoryProvider implements IDirectoryProvider {
     private constructor(private root: FileSystemDirectoryHandle) {}
@@ -13,25 +17,57 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         return new WebDirectoryProvider(root);
     }
 
-    async getUserDataDirectory(appendedPath?: string) {
+    async getUserDataDirectory(appendedPath?: string): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(
             appendedPath ? ["userData", appendedPath] : ["userData"],
         );
         return dir;
     }
 
-    async getAppDataDirectory(appendedPath?: string) {
+    async getAppDataDirectory(appendedPath?: string): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(
             appendedPath ? ["appData", appendedPath] : ["appData"],
         );
         return dir;
     }
 
+    async getDirectoryHandle(path: string): Promise<IDirectoryHandle> {
+        const parts = path.split("/").filter(Boolean);
+        let dir: FileSystemDirectoryHandle = this.root;
+        let currentPath = "";
+        for (const part of parts) {
+            dir = await dir.getDirectoryHandle(part, { create: true });
+            currentPath += `/${part}`;
+        }
+        return new WebDirectoryHandleWrapper(dir, currentPath);
+    }
+
+    async getHandle(path: string): Promise<IPathHandle> {
+        const parts = path.split("/").filter(Boolean);
+        const name = parts.pop();
+        if (!name) return new WebDirectoryHandleWrapper(this.root, "/");
+
+        let dir: FileSystemDirectoryHandle = this.root;
+        let currentPath = "";
+        for (const part of parts) {
+            dir = await dir.getDirectoryHandle(part, { create: false });
+            currentPath += `/${part}`;
+        }
+
+        try {
+            const fileHandle = await dir.getFileHandle(name);
+            return new WebFileHandleWrapper(fileHandle, path);
+        } catch {
+            const dirHandle = await dir.getDirectoryHandle(name);
+            return new WebDirectoryHandleWrapper(dirHandle, path);
+        }
+    }
+
     async getProjectDirectory(
         source: ResourceMetadata,
         target: ResourceMetadata | null,
         bookSlug: string,
-    ) {
+    ): Promise<IDirectoryHandle> {
         const parts = [
             "projects",
             source.creator,
@@ -48,11 +84,11 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         source: ResourceMetadata,
         target: ResourceMetadata | null,
         bookSlug: string,
-    ) {
+    ): Promise<IDirectoryHandle> {
         return this.getProjectDirectory(source, target, bookSlug);
     }
 
-    async getSourceContainerDirectory(metadata: ResourceMetadata) {
+    async getSourceContainerDirectory(metadata: ResourceMetadata): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(["containers", metadata.creator]);
         return dir;
     }
@@ -60,8 +96,8 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     async getDerivedContainerDirectory(
         metadata: ResourceMetadata,
         source: ResourceMetadata,
-    ) {
-        const dir = await this.ensurePath([
+    ): Promise<IDirectoryHandle> {
+        const dir = await this.ensurePath([ 
             "derived",
             metadata.creator,
             source.identifier,
@@ -70,26 +106,30 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     }
 
     async newFileWriter(filePath: string) {
-        const fileHandle = await this.getFileByPath(filePath, { create: true });
-        const stream = await fileHandle.createWritable();
+        const fileHandle = await this.getHandle(filePath);
+        const file = fileHandle.asFileHandle();
+        if (!file) throw new Error("Path is not a file: " + filePath);
+        const stream = await file.createWritable();
         return stream.getWriter();
     }
 
     async newFileReader(filePath: string) {
-        const fileHandle = await this.getFileByPath(filePath);
-        return fileHandle.getFile();
+        const fileHandle = await this.getHandle(filePath);
+        const file = fileHandle.asFileHandle();
+        if (!file) throw new Error("Path is not a file: " + filePath);
+        return file.getFile();
     }
 
-    async createTempFile(prefix: string, suffix?: string) {
+    async createTempFile(prefix: string, suffix?: string): Promise<IFileHandle> {
         const dir = await this.ensurePath(["temp"]);
         const name = `${prefix}${suffix ?? ""}`;
         const handle = await dir.getFileHandle(name, { create: true });
         const tmpDir = await this.tempDirectory;
-        const tmpFilePath = `${tmpDir}/${name}`;
-        return new WebFileHandle(handle, tmpFilePath);
+        const tmpFilePath = `${tmpDir.path}/${name}`;
+        return new WebFileHandleWrapper(handle, tmpFilePath);
     }
 
-    async cleanTempDirectory() {
+    async cleanTempDirectory(): Promise<void> {
         const tempDir = await this.ensurePath(["temp"]);
         for await (const [name] of tempDir.entries()) {
             await tempDir.removeEntry(name, { recursive: true });
@@ -101,42 +141,38 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     }
 
     // --- Predefined directories (lazy) ---
-    get databaseDirectory() {
+    get databaseDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["database"]);
     }
-    get resourceContainerDirectory() {
+    get resourceContainerDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["rc"]);
     }
-    get internalSourceRCDirectory() {
+    get internalSourceRCDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["rc", "src"]);
     }
-    get userProfileImageDirectory() {
+    get userProfileImageDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["users", "images"]);
     }
-    get versificationDirectory() {
+    get versificationDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["versification"]);
     }
-    get logsDirectory() {
+    get logsDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["logs"]);
     }
-    get cacheDirectory() {
+    get cacheDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["cache"]);
     }
-    get tempDirectory() {
+    get tempDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["temp"]);
     }
 
     // --- Helpers ---
-    private async ensureDirHandle(
-        parts: string[],
-    ): Promise<FileSystemDirectoryHandle> {
+    private async ensureDirHandle(parts: string[],): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(parts);
         return dir;
     }
-    private async ensurePath(
-        parts: string[],
-    ): Promise<WebDirectoryHandleWrapper> {
-        let dir = this.root;
+    private async ensurePath(parts: string[],): Promise<IDirectoryHandle> {
+        let dir: FileSystemDirectoryHandle = this.root;
         let path = "";
         for (const part of parts) {
             dir = await dir.getDirectoryHandle(part, { create: true });
@@ -148,7 +184,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     private async getFileByPath(
         path: string,
         opts?: { create?: boolean },
-    ): Promise<WebFileHandle> {
+    ): Promise<IFileHandle> {
         const parts = path.split("/").filter(Boolean);
         const fileName = parts.pop();
         if (!fileName) throw new Error("Invalid file path");
@@ -156,32 +192,6 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         for (const part of parts)
             dir = await dir.getDirectoryHandle(part, { create: opts?.create });
         const file = await dir.getFileHandle(fileName, opts);
-        return new WebFileHandle(file, path);
-    }
-}
-
-// Tiny wrapper to provide write all in one go
-export class WebFileHandle
-    extends FileSystemFileHandle
-    implements WebFileHandleExtended
-{
-    kind: "file" = "file";
-    path: string;
-    constructor(
-        public handle: FileSystemFileHandle,
-        path: string,
-    ) {
-        super();
-        this.path = path;
-    }
-    async write(
-        data: FileSystemWriteChunkType,
-        options?: { keepExistingData?: boolean },
-    ) {
-        const writable = await this.handle.createWritable({
-            keepExistingData: options?.keepExistingData ?? false,
-        });
-        await writable.write(data);
-        await writable.close();
+        return new WebFileHandleWrapper(file, path);
     }
 }

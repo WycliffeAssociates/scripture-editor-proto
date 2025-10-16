@@ -3,8 +3,8 @@ import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
 import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
 import {ProjectRepository} from "@/core/persistence/repositories/ProjectRepository.ts";
-import {FileWriter} from "@/core/persistence/DefaultFileWriter.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {FileWriter} from "@/core/io/DefaultFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 
 // Mock implementations for dependencies

@@ -4,7 +4,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
 // ⚠️ IMPORTANT: These must be the actual Tauri APIs, not mocks!
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { mkdir, remove, readTextFile } from "@tauri-apps/plugin-fs";
-import {TauriFileHandle} from "@/tauri/persistence/handlers/TauriFileHandle.ts";
+import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
 
 // Assuming this path is correct for your project structure
 

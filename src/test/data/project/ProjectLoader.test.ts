@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {ScriptureBurritoProjectLoader} from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
 import {ResourceContainerProjectLoader} from "@/core/domain/project/ResourceContainerProjectLoader.ts";

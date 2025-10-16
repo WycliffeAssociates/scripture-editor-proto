@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { join } from "@tauri-apps/api/path"; // This will be mocked
 import { mkdir, open } from '@tauri-apps/plugin-fs';
 import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
-import {TauriFileHandle} from "@/tauri/persistence/handlers/TauriFileHandle.ts"; // These will be mocked
+import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts"; // These will be mocked
 
 // --- MOCK CONSTANTS ---
 const MOCK_APP_NAME = "test-app";

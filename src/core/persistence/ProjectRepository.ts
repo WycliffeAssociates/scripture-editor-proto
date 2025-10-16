@@ -1,7 +1,8 @@
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {ProjectFile} from "@/app/data/parsedProject.ts";
 import {ProjectMetadata} from "@/core/domain/project/project.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
 
 
 /**
@@ -43,7 +44,7 @@ export interface Project {
     name: string;
     files: ProjectFile[];
     metadata: ProjectMetadata;
-    projectDir: FileSystemDirectoryHandle;
+    projectDir: IPathHandle;
     fileWriter: IFileWriter;
     manifestYaml?: any; // To hold parsed manifest data for updates (for Resource Container projects)
     metadataJson?: any; // To hold parsed metadata data for updates (for Scripture Burrito projects)

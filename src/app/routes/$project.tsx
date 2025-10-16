@@ -8,7 +8,7 @@ import {
   getBookSlug,
   sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible";
-import {IDirectoryProvider} from "@/core/data/persistence/DirectoryProvider";
+import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider";
 import {parseUSFMfile} from "@/core/domain/usfm/parse";
 
 export const Route = createFileRoute("/$project")({
