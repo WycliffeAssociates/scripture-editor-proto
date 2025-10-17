@@ -1,11 +1,10 @@
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {WebDirectoryHandleWrapper} from "@/web/io/WebDirectoryHandle.ts";
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
-export class WebFileHandleWrapper implements IFileHandle {
+export class WebFileHandle implements IFileHandle {
     kind: "file" = "file";
     name: string;
     readonly path: string;

@@ -1,11 +1,11 @@
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import {WebFileHandleWrapper} from "@/web/io/WebFileHandleWrapper.ts";
+import {WebFileHandle} from "@/web/io/WebFileHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
-export class WebDirectoryHandleWrapper implements IDirectoryHandle {
+export class WebDirectoryHandle implements IDirectoryHandle {
     kind: "directory" = "directory";
     name: string;
     readonly path: string;
@@ -30,7 +30,7 @@ export class WebDirectoryHandleWrapper implements IDirectoryHandle {
         } else {
             pattern = `${this.path}/${name}`
         }
-        return new WebDirectoryHandleWrapper(child, pattern, this.resolveHandle);
+        return new WebDirectoryHandle(child, pattern, this.resolveHandle);
     }
 
     async getFileHandle(name: string, opts?: { create?: boolean }): Promise<IFileHandle> {
@@ -41,19 +41,27 @@ export class WebDirectoryHandleWrapper implements IDirectoryHandle {
         } else {
             pattern = `${this.path}/${name}`
         }
-        return new WebFileHandleWrapper(file, pattern, this.resolveHandle);
+        return new WebFileHandle(file, pattern, this.resolveHandle);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }) {
         return this.handle.removeEntry(name, opts);
     }
 
-    async* entries(): AsyncIterableIterator<[string, IPathHandle]> {
+    async* keys(): FileSystemDirectoryHandleAsyncIterator<string> {
+        for await (const [name] of this.entries()) yield name;
+    }
+
+    async* values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
+        for await (const [, handle] of this.entries()) yield handle;
+    }
+
+    async* entries(): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]> {
         for await (const [name, handle] of this.handle.entries()) {
             if (handle.kind === "directory") {
-                yield [name, new WebDirectoryHandleWrapper(handle as FileSystemDirectoryHandle, `${this.path}/${name}`, this.resolveHandle)];
+                yield [name, new WebDirectoryHandle(handle as FileSystemDirectoryHandle, `${this.path}/${name}`, this.resolveHandle)];
             } else {
-                yield [name, new WebFileHandleWrapper(handle as FileSystemFileHandle, `${this.path}/${name}`, this.resolveHandle)];
+                yield [name, new WebFileHandle(handle as FileSystemFileHandle, `${this.path}/${name}`, this.resolveHandle)];
             }
         }
     }

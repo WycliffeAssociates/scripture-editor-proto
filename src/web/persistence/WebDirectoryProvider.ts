@@ -2,12 +2,11 @@ import type {
     IDirectoryProvider,
     ResourceMetadata,
 } from "@/core/persistence/DirectoryProvider";
-import { WebDirectoryHandleWrapper } from "@/web/io/WebDirectoryHandle.ts";
+import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import {WebFileHandleWrapper} from "@/web/io/WebFileHandleWrapper.ts";
-// import {WebFileHandleExtended} from "@/web/io/WebFileHandleExtended.ts"; // Removed as it's now part of core interfaces
+import {WebFileHandle} from "@/web/io/WebFileHandle.ts";
 
 export class WebDirectoryProvider implements IDirectoryProvider {
     private constructor(private root: FileSystemDirectoryHandle) {}
@@ -39,13 +38,13 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             dir = await dir.getDirectoryHandle(part, { create: true });
             currentPath += `/${part}`;
         }
-        return new WebDirectoryHandleWrapper(dir, currentPath, this.getHandle.bind(this));
+        return new WebDirectoryHandle(dir, currentPath, this.getHandle.bind(this));
     }
 
     async getHandle(path: string): Promise<IPathHandle> {
         const parts = path.split("/").filter(Boolean);
         const name = parts.pop();
-        if (!name) return new WebDirectoryHandleWrapper(this.root, "/", this.getHandle.bind(this));
+        if (!name) return new WebDirectoryHandle(this.root, "/", this.getHandle.bind(this));
 
         let dir: FileSystemDirectoryHandle = this.root;
         let currentPath = "";
@@ -56,10 +55,10 @@ export class WebDirectoryProvider implements IDirectoryProvider {
 
         try {
             const fileHandle = await dir.getFileHandle(name);
-            return new WebFileHandleWrapper(fileHandle, path, this.getHandle.bind(this));
+            return new WebFileHandle(fileHandle, path, this.getHandle.bind(this));
         } catch {
             const dirHandle = await dir.getDirectoryHandle(name);
-            return new WebDirectoryHandleWrapper(dirHandle, path, this.getHandle.bind(this));
+            return new WebDirectoryHandle(dirHandle, path, this.getHandle.bind(this));
         }
     }
 
@@ -126,7 +125,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         const handle = await dir.getFileHandle(name, { create: true });
         const tmpDir = await this.tempDirectory;
         const tmpFilePath = `${tmpDir.path}/${name}`;
-        return new WebFileHandleWrapper(handle, tmpFilePath, this.getHandle.bind(this));
+        return new WebFileHandle(handle, tmpFilePath, this.getHandle.bind(this));
     }
 
     async cleanTempDirectory(): Promise<void> {
@@ -178,7 +177,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             dir = await dir.getDirectoryHandle(part, { create: true });
             path += `/${part}`;
         }
-        return new WebDirectoryHandleWrapper(dir, path, this.getHandle.bind(this));
+        return new WebDirectoryHandle(dir, path, this.getHandle.bind(this));
     }
 
     private async getFileByPath(
@@ -192,7 +191,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         for (const part of parts)
             dir = await dir.getDirectoryHandle(part, { create: opts?.create });
         const file = await dir.getFileHandle(fileName, opts);
-        return new WebFileHandleWrapper(file, path, this.getHandle.bind(this));
+        return new WebFileHandle(file, path, this.getHandle.bind(this));
     }
     
     resolveHandle(path: string): Promise<IPathHandle> {

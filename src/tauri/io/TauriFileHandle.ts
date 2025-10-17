@@ -4,7 +4,6 @@ import {TauriWritableFileStreamWriter} from "@/tauri/io/TauriWritableFileStreamW
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {dirname} from "@tauri-apps/api/path";
-import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
