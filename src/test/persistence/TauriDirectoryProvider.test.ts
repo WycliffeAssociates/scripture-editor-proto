@@ -1,8 +1,9 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { join } from "@tauri-apps/api/path"; // This will be mocked
-import { mkdir, open } from '@tauri-apps/plugin-fs';
+import {dirname, join, normalize} from "@tauri-apps/api/path"; // This will be mocked
+import {mkdir, open, remove} from '@tauri-apps/plugin-fs';
 import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
-import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts"; // These will be mocked
+import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
+import pathModule from "path"; // These will be mocked
 
 // --- MOCK CONSTANTS ---
 const MOCK_APP_NAME = "test-app";
@@ -37,26 +38,145 @@ vi.mock('@tauri-apps/plugin-os', () => ({
     platform: vi.fn(() => 'windows'), // Default to 'windows' for testing homeDir logic
 }));
 
-// Mocking @tauri-apps/api/path to provide predictable paths
-// Note: In Vitest, Node.js path module's join is often sufficient,
-// but we mock it to control the output of Tauri's path functions.
+
+
 vi.mock("@tauri-apps/api/path", () => {
-    // We use Node's path.join here just for simple, consistent path concatenation
-    const path = require('path');
+    const pathModule = require('path');
     return {
-        join: vi.fn(path.join),
-        homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),
-        appDataDir: vi.fn(() => Promise.resolve(MOCK_IOS_APPDATA)),
         appLocalDataDir: vi.fn(() => Promise.resolve(MOCK_APP_LOCAL_DATA)),
+        appDataDir: vi.fn(() => Promise.resolve(MOCK_IOS_APPDATA)),
+        join: vi.fn(pathModule.join),
+        homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),
+        dirname: vi.fn(pathModule.dirname),
+        normalize: vi.fn(pathModule.normalize),
     };
 });
 
-// Mocking @tauri-apps/plugin-fs commands
+const fileStore = new Map<string, string>();
+const mockDirectories = new Set<string>();
+
 vi.mock('@tauri-apps/plugin-fs', () => ({
-    // Mocking mkdir to ensure no actual directories are created
-    mkdir: vi.fn(() => Promise.resolve()),
-    // Mocking open to ensure no actual file manager interaction
-    open: vi.fn(() => Promise.resolve()),
+
+    mkdir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        const normalizedPath = await normalize(path);
+        if (options?.recursive) {
+            let currentPath = '';
+            for (const part of (await normalizedPath).split('/').filter(Boolean)) {
+                currentPath = currentPath === '' ? `/${part}` : `${currentPath}/${part}`;
+                mockDirectories.add(await normalize(currentPath));
+            }
+        } else {
+            mockDirectories.add(normalizedPath);
+        }
+    }),
+    remove: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        const normalizedPath = await normalize(path);
+        const isDirectory = mockDirectories.has(normalizedPath);
+        const isFile = fileStore.has(normalizedPath);
+
+        if (isDirectory) {
+            const children = Array.from(fileStore.keys()).filter(key => key.startsWith(`${normalizedPath}/`));
+            const subDirs = Array.from(mockDirectories).filter(dir => dir.startsWith(`${normalizedPath}/`));
+
+            if ((children.length > 0 || subDirs.length > 1) && !options?.recursive) {
+                throw new Error(`ENOTEMPTY: directory not empty, remove '${normalizedPath}'`);
+            }
+
+            children.forEach(key => fileStore.delete(key));
+            subDirs.forEach(dir => mockDirectories.delete(dir));
+            mockDirectories.delete(normalizedPath);
+
+        } else if (isFile) {
+            fileStore.delete(normalizedPath);
+        } else {
+            throw new Error(`ENOENT: no such file or directory, remove '${normalizedPath}'`);
+        }
+    }),
+
+    writeTextFile: vi.fn(async (path: string, contents: string, options?: { append?: boolean }) => {
+        const normalizedPath = await normalize(path);
+        const parentPath = await dirname(normalizedPath); // Use dirname for parent path
+        if (parentPath && parentPath !== '/' && !mockDirectories.has(parentPath)) {
+            await mkdir(parentPath, { recursive: true });
+        }
+
+        const existing = fileStore.get(normalizedPath) || '';
+        const newContent = options?.append ? existing + contents : contents;
+        fileStore.set(normalizedPath, newContent);
+    }),
+
+    readTextFile: vi.fn(async (path: string) => {
+        const normalizedPath = await normalize(path);
+        if (mockDirectories.has(normalizedPath)) {
+            throw new Error(`EISDIR: illegal operation on a directory, read ${normalizedPath}`);
+        }
+
+        const content = fileStore.get(normalizedPath);
+        if (content === undefined) {
+            throw new Error(`File not found: ${normalizedPath}`);
+        }
+        return content;
+    }),
+
+    exists: vi.fn(async (path: string) => {
+        const normalizedPath = await normalize(path);
+        return fileStore.has(normalizedPath) || mockDirectories.has(normalizedPath);
+    }),
+
+    removeDir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        await remove(await normalize(path), options);
+    }),
+
+    removeFile: vi.fn(async (path: string) => {
+        await remove(await normalize(path));
+    }),
+
+    createDir: vi.fn(async () => { /* Handled by mkdir */ }),
+
+    readDir: vi.fn(async (path: string) => {
+        const normalizedPath = await normalize(path);
+        if (!mockDirectories.has(normalizedPath)) {
+            throw new Error(`ENOENT: no such file or directory, scandir '${normalizedPath}'`);
+        }
+
+        const entries: any[] = [];
+        const seenNames = new Set<string>();
+
+        for (const key of fileStore.keys()) {
+            const normalizedKey = await normalize(key);
+            if (normalizedKey.startsWith(`${normalizedPath}/`)) {
+                const relativePath = normalizedKey.substring(normalizedPath.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
+                    if (!seenNames.has(relativePath)) {
+                        entries.push({
+                            name: relativePath,
+                            isDirectory: false,
+                            isFile: true,
+                        });
+                        seenNames.add(relativePath);
+                    }
+                }
+            }
+        }
+
+        for (const dir of mockDirectories) {
+            const normalizedDir = await normalize(dir);
+            if (normalizedDir.startsWith(`${normalizedPath}/`) && normalizedDir !== normalizedPath) {
+                const relativePath = normalizedDir.substring(normalizedPath.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
+                    if (!seenNames.has(relativePath)) {
+                        entries.push({
+                            name: relativePath,
+                            isDirectory: true,
+                            isFile: false,
+                        });
+                        seenNames.add(relativePath);
+                    }
+                }
+            }
+        }
+        return entries;
+    }),
 }));
 
 // Mocking your custom file/directory handlers for isolation

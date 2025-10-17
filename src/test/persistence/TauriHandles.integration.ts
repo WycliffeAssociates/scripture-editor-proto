@@ -20,12 +20,6 @@ let testSubDirPath: string;
 let testSubFilePath: string;
 let tauriDirectoryProvider: TauriDirectoryProvider;
 
-// --- Helper to read file content via Tauri FS plugin (for verification) ---
-// This bypasses the stream API and reads the final state of the file directly.
-const readVerificationContent = async (path: string): Promise<string> => {
-    return readTextFile(path);
-};
-
 // All mocks are now unconditional to ensure tests always run.
 vi.mock("@tauri-apps/plugin-os", () => ({
     platform: vi.fn(() => Promise.resolve('windows')),
@@ -208,14 +202,14 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
         await writer.write("Hello, World!");
         await writer.close();
 
-        let content = await readVerificationContent(testFilePath);
+        let content = await readTextFile(testFilePath);
         expect(content).toBe("Hello, World!");
 
         writer = await handle.createWritable({ keepExistingData: true }).then(s => s.getWriter());
         await writer.write(" Appended.");
         await writer.close();
 
-        content = await readVerificationContent(testFilePath);
+        content = await readTextFile(testFilePath);
         expect(content).toBe("Hello, World! Appended.");
     });
 
@@ -235,7 +229,7 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
         await stream.close();
 
         const expected = initialContent.slice(0, 10) + "RED" + initialContent.slice(13);
-        const actual = await readVerificationContent(testFilePath);
+        const actual = await readTextFile(testFilePath);
 
         expect(actual).toBe(expected);
     });
@@ -252,7 +246,7 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
         await stream.truncate(expectedTruncate.length);
         await stream.close();
 
-        let actual = await readVerificationContent(testFilePath);
+        let actual = await readTextFile(testFilePath);
         expect(actual).toBe(expectedTruncate);
 
         stream = await handle.createWritable({ keepExistingData: true });
@@ -260,7 +254,7 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
         await stream.write("Z");
         await stream.close();
 
-        actual = await readVerificationContent(testFilePath);
+        actual = await readTextFile(testFilePath);
         expect(actual).toBe("0123456789Z");
     });
 
@@ -275,7 +269,7 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
         await writer.write("NEW");
         await writer.close();
 
-        const actual = await readVerificationContent(testFilePath);
+        const actual = await readTextFile(testFilePath);
         expect(actual).toBe("NEW");
     });
 
