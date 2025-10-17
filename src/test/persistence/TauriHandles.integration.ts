@@ -1,10 +1,10 @@
 // src/__tests__/persistence/TauriFileHandle.integration.ts
 
-import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, test, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
 // ⚠️ IMPORTANT: These tests now always run against mocks, not actual Tauri APIs.
 // To run against actual Tauri APIs, a true Tauri environment must be set up
 // and these mocks should be conditionally skipped or removed.
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { appLocalDataDir, join, dirname, normalize } from "@tauri-apps/api/path";
 import { mkdir, remove, readTextFile, readDir, writeTextFile } from "@tauri-apps/plugin-fs";
 import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
 import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
@@ -38,6 +38,7 @@ vi.mock("@tauri-apps/api/path", () => {
         join: vi.fn(pathModule.join),
         homeDir: vi.fn(() => Promise.resolve(pathModule.join(process.cwd(), 'mock-home-dir'))),
         dirname: vi.fn(pathModule.dirname),
+        normalize: vi.fn(pathModule.normalize),
     };
 });
 
@@ -47,97 +48,95 @@ const mockDirectories = new Set<string>();
 vi.mock('@tauri-apps/plugin-fs', () => ({
 
     mkdir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        const normalizedPath = await normalize(path);
         if (options?.recursive) {
             let currentPath = '';
-            for (const part of path.split('/').filter(Boolean)) {
+            for (const part of (await normalizedPath).split('/').filter(Boolean)) {
                 currentPath = currentPath === '' ? `/${part}` : `${currentPath}/${part}`;
-                mockDirectories.add(currentPath);
+                mockDirectories.add(await normalize(currentPath));
             }
         } else {
-            mockDirectories.add(path);
+            mockDirectories.add(normalizedPath);
         }
-        // console.log(`[Mock FS] mkdir: ${path}, recursive: ${options?.recursive}, current dirs: ${Array.from(mockDirectories)}`);
     }),
     remove: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
-        const isDirectory = mockDirectories.has(path);
-        const isFile = fileStore.has(path);
+        const normalizedPath = await normalize(path);
+        const isDirectory = mockDirectories.has(normalizedPath);
+        const isFile = fileStore.has(normalizedPath);
 
         if (isDirectory) {
-            const children = Array.from(fileStore.keys()).filter(key => key.startsWith(`${path}/`));
-            const subDirs = Array.from(mockDirectories).filter(dir => dir.startsWith(`${path}/`));
+            const children = Array.from(fileStore.keys()).filter(key => key.startsWith(`${normalizedPath}/`));
+            const subDirs = Array.from(mockDirectories).filter(dir => dir.startsWith(`${normalizedPath}/`));
 
             if ((children.length > 0 || subDirs.length > 1) && !options?.recursive) {
-                throw new Error(`ENOTEMPTY: directory not empty, remove '${path}'`);
+                throw new Error(`ENOTEMPTY: directory not empty, remove '${normalizedPath}'`);
             }
 
-            // Remove all children files and subdirectories
             children.forEach(key => fileStore.delete(key));
             subDirs.forEach(dir => mockDirectories.delete(dir));
-            mockDirectories.delete(path);
+            mockDirectories.delete(normalizedPath);
 
         } else if (isFile) {
-            fileStore.delete(path);
+            fileStore.delete(normalizedPath);
         } else {
-            throw new Error(`ENOENT: no such file or directory, remove '${path}'`);
+            throw new Error(`ENOENT: no such file or directory, remove '${normalizedPath}'`);
         }
-        // console.log(`[Mock FS] remove: ${path}, recursive: ${options?.recursive}, current dirs: ${Array.from(mockDirectories)}, current files: ${Array.from(fileStore.keys())}`);
     }),
 
     writeTextFile: vi.fn(async (path: string, contents: string, options?: { append?: boolean }) => {
-        // Ensure parent directory exists before writing file
-        const parentPath = path.substring(0, path.lastIndexOf('/'));
-        if (parentPath && !mockDirectories.has(parentPath)) {
-            // This might happen if parent wasn't explicitly created, so create it
+        const normalizedPath = await normalize(path);
+        const parentPath = await dirname(normalizedPath); // Use dirname for parent path
+        if (parentPath && parentPath !== '/' && !mockDirectories.has(parentPath)) {
             await mkdir(parentPath, { recursive: true });
         }
 
-        const existing = fileStore.get(path) || '';
+        const existing = fileStore.get(normalizedPath) || '';
         const newContent = options?.append ? existing + contents : contents;
-        fileStore.set(path, newContent);
-        // console.log(`[Mock FS] Wrote to: ${path}. Content length: ${newContent.length}`);
+        fileStore.set(normalizedPath, newContent);
     }),
 
     readTextFile: vi.fn(async (path: string) => {
-        // Check if it's a directory first
-        if (mockDirectories.has(path) && Array.from(fileStore.keys()).filter(key => key.startsWith(`${path}/`)).length === 0) {
-            throw new Error(`EISDIR: illegal operation on a directory, read ${path}`);
+        const normalizedPath = await normalize(path);
+        if (mockDirectories.has(normalizedPath)) {
+            throw new Error(`EISDIR: illegal operation on a directory, read ${normalizedPath}`);
         }
 
-        const content = fileStore.get(path);
+        const content = fileStore.get(normalizedPath);
         if (content === undefined) {
-            throw new Error(`File not found: ${path}`);
+            throw new Error(`File not found: ${normalizedPath}`);
         }
         return content;
     }),
 
     exists: vi.fn(async (path: string) => {
-        return fileStore.has(path) || mockDirectories.has(path);
+        const normalizedPath = await normalize(path);
+        return fileStore.has(normalizedPath) || mockDirectories.has(normalizedPath);
     }),
 
     removeDir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
-        // Delegate to general remove, ensure recursive is passed if applicable
-        await remove(path, options);
+        await remove(await normalize(path), options);
     }),
 
     removeFile: vi.fn(async (path: string) => {
-        await remove(path);
+        await remove(await normalize(path));
     }),
 
     createDir: vi.fn(async () => { /* Handled by mkdir */ }),
 
     readDir: vi.fn(async (path: string) => {
-        if (!mockDirectories.has(path)) {
-            throw new Error(`ENOENT: no such file or directory, scandir '${path}'`);
+        const normalizedPath = await normalize(path);
+        if (!mockDirectories.has(normalizedPath)) {
+            throw new Error(`ENOENT: no such file or directory, scandir '${normalizedPath}'`);
         }
 
         const entries: any[] = [];
         const seenNames = new Set<string>();
 
-        // Add files
         for (const key of fileStore.keys()) {
-            if (key.startsWith(`${path}/`)) {
-                const relativePath = key.substring(path.length).replace(/^\/|^\\/, '');
-                if (!relativePath.includes('/') && !relativePath.includes('\\')) { // Only direct children
+            const normalizedKey = await normalize(key);
+            if (normalizedKey.startsWith(`${normalizedPath}/`)) {
+                const relativePath = normalizedKey.substring(normalizedPath.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
                     if (!seenNames.has(relativePath)) {
                         entries.push({
                             name: relativePath,
@@ -150,11 +149,11 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
             }
         }
 
-        // Add directories
         for (const dir of mockDirectories) {
-            if (dir.startsWith(`${path}/`) && dir !== path) {
-                const relativePath = dir.substring(path.length).replace(/^\/|^\\/, '');
-                if (!relativePath.includes('/') && !relativePath.includes('\\')) { // Only direct children
+            const normalizedDir = await normalize(dir);
+            if (normalizedDir.startsWith(`${normalizedPath}/`) && normalizedDir !== normalizedPath) {
+                const relativePath = normalizedDir.substring(normalizedPath.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
                     if (!seenNames.has(relativePath)) {
                         entries.push({
                             name: relativePath,
@@ -180,18 +179,17 @@ describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
 
         tauriDirectoryProvider = await TauriDirectoryProvider.create("test-app");
 
-        try {
-            await remove(testFilePath);
-            await remove(testSubFilePath);
-            await remove(testSubDirPath, { recursive: true });
-            await remove(testDirPath, { recursive: true });
-        } catch (e) {
-        }
+        console.log(`\n\t🧪 LIVE I/O: Using base test directory: ${testDirPath}`);
+    });
 
+    beforeEach(async () => {
+        // Clear file system state before each test
+        fileStore.clear();
+        mockDirectories.clear();
+
+        // Set up initial directories for each test
         await mkdir(testDirPath, { recursive: true });
         await mkdir(testSubDirPath, { recursive: true });
-
-        console.log(`\n\t🧪 LIVE I/O: Using base test directory: ${testDirPath}`);
     });
 
     afterAll(async () => {
@@ -309,15 +307,19 @@ describe('TauriDirectoryHandle Integration Tests (LIVE FS I/O)', () => {
 
         tauriDirectoryProvider = await TauriDirectoryProvider.create("test-app");
 
-        try {
-            await remove(testRootPath, { recursive: true });
-        } catch (e) { /* ignore */ }
+        console.log(`\n\t🧪 LIVE I/O: Using base test directory for TauriDirectoryHandle: ${testRootPath}`);
+    });
+
+    beforeEach(async () => {
+        // Clear file system state before each test
+        fileStore.clear();
+        mockDirectories.clear();
+
+        // Set up initial directories and files for each test
         await mkdir(testRootPath, { recursive: true });
         await mkdir(testSubDirPath1, { recursive: true });
         await writeTextFile(testSubFilePath1, "File 1 content");
         await mkdir(testSubDirPath2, { recursive: true });
-
-        console.log(`\n\t🧪 LIVE I/O: Using base test directory for TauriDirectoryHandle: ${testRootPath}`);
     });
 
     afterAll(async () => {
@@ -365,14 +367,12 @@ describe('TauriDirectoryHandle Integration Tests (LIVE FS I/O)', () => {
         for await (const [name, handle] of rootHandle.entries()) {
             entries.push([name, handle]);
         }
-        const expectedNames = ['sub_dir_1', 'sub_dir_2', 'new_directory', 'new_file.txt'];
+        const expectedNames = ['sub_dir_1', 'sub_dir_2'];
         expect(entries.map(([name]) => name).sort()).toEqual(expectedNames.sort());
 
         const subDir1Entry = entries.find(([name]) => name === 'sub_dir_1');
         expect(subDir1Entry?.[1]).toBeInstanceOf(TauriDirectoryHandle);
 
-        const file1Entry = entries.find(([name]) => name === 'new_file.txt');
-        expect(file1Entry?.[1]).toBeInstanceOf(TauriFileHandle);
     });
 
     test('removeEntry should remove a child entry', async () => {

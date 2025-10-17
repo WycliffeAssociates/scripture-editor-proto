@@ -280,10 +280,10 @@ describe('WebDirectoryHandleWrapper', () => {
         expect(parent.name).toBe('/');
     });
 
-    test('getAbsolutePath returns the correct absolute path', () => {
+    test('getAbsolutePath returns the correct absolute path', async () => {
         const nativeHandle = new MockFileSystemDirectoryHandle('testDir');
         const wrapper = new WebDirectoryHandleWrapper(nativeHandle, '/root/testDir', mockResolveHandle);
-        expect(wrapper.getAbsolutePath()).resolves.toBe('/root/testDir');
+        await expect(wrapper.getAbsolutePath()).resolves.toBe('/root/testDir');
     });
 
     test('asFileHandle returns null', () => {
