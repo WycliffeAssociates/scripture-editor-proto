@@ -1,47 +1,46 @@
 // src/__tests__/persistence/TauriFileHandle.integration.ts
 
 import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
-// ⚠️ IMPORTANT: These must be the actual Tauri APIs, not mocks!
+// ⚠️ IMPORTANT: These tests now always run against mocks, not actual Tauri APIs.
+// To run against actual Tauri APIs, a true Tauri environment must be set up
+// and these mocks should be conditionally skipped or removed.
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
-import { mkdir, remove, readTextFile } from "@tauri-apps/plugin-fs";
+import { mkdir, remove, readTextFile, readDir, writeTextFile } from "@tauri-apps/plugin-fs";
 import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
-
-// Assuming this path is correct for your project structure
+import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
+import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
 
 // --- SETUP CONSTANTS ---
 const TEST_DIR_NAME = "tauri-file-handle-tests";
 const TEST_FILE_NAME = "stream_test.txt";
 let testDirPath: string;
 let testFilePath: string;
+let testSubDirPath: string;
+let testSubFilePath: string;
+let tauriDirectoryProvider: TauriDirectoryProvider;
 
 // --- Helper to read file content via Tauri FS plugin (for verification) ---
 // This bypasses the stream API and reads the final state of the file directly.
 const readVerificationContent = async (path: string): Promise<string> => {
-    // We use the direct readTextFile call from the FS plugin for assertion,
-    // which is the simplest way to check the final state.
     return readTextFile(path);
 };
 
-// --- SKIP CONTROL ---
-// These tests MUST be skipped in a regular Vitest/Node.js environment.
-// They should only be run using a specific command/flag in Tauri.
-// E.g., run only if a specific environment variable is set.
-const isTauriEnv = process.env.TAURI_TEST_INTEGRATION === 'true';
-const integrationTest = isTauriEnv ? test : test.skip;
-
-// 3. Mock the OS Plugin API
+// All mocks are now unconditional to ensure tests always run.
 vi.mock("@tauri-apps/plugin-os", () => ({
     platform: vi.fn(() => Promise.resolve('windows')),
 }));
 
-vi.mock("@tauri-apps/api/path", () => ({
-    // Since invoke is mocked, appLocalDataDir *should* work without being fully mocked,
-    // but it's safer to provide direct mocks for stability.
-    appLocalDataDir: vi.fn(() => Promise.resolve('/mock/app/localdata')),
-    join: (base, ...parts) => require('path').join(base, ...parts),
-}));
+vi.mock("@tauri-apps/api/path", () => {
+    const pathModule = require('path');
+    return {
+        appLocalDataDir: vi.fn(() => Promise.resolve(pathModule.join(process.cwd(), 'mock-app-local-data'))),
+        join: vi.fn(pathModule.join),
+        homeDir: vi.fn(() => Promise.resolve(pathModule.join(process.cwd(), 'mock-home-dir'))),
+        dirname: vi.fn(pathModule.dirname),
+    };
+});
 
-// Simple in-memory storage for file content simulation
 const fileStore = new Map<string, string>();
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
@@ -49,70 +48,84 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     mkdir: vi.fn(() => Promise.resolve()),
     remove: vi.fn(() => Promise.resolve()),
 
-    // Mock functions for reading and writing data
     writeTextFile: vi.fn(async (path: string, contents: string, options?: { append?: boolean }) => {
         const existing = fileStore.get(path) || '';
         const newContent = options?.append ? existing + contents : contents;
         fileStore.set(path, newContent);
-        // console.log(`[Mock FS] Wrote ${options?.append ? 'and appended' : ''} to: ${path}. Content length: ${newContent.length}`);
     }),
 
     readTextFile: vi.fn(async (path: string) => {
         const content = fileStore.get(path);
-        if (content === undefined) {
-            // Simulate file not found error if needed, but for now return empty string if not exists
-            // depending on what the actual Tauri readTextFile does when a file is missing.
-            return '';
+        const entries = await readDir(path).catch(() => []);
+        if (entries.length > 0) {
+            throw new Error(`EISDIR: illegal operation on a directory, read ${path}`);
         }
-        // console.log(`[Mock FS] Read from: ${path}. Content length: ${content.length}`);
+        if (content === undefined) {
+            throw new Error(`File not found: ${path}`);
+        }
         return content;
     }),
 
-    // Mock functions for path and directory management (used in setup/teardown)
-    exists: vi.fn(async (path: string) => fileStore.has(path)),
+    exists: vi.fn(async (path: string) => {
+        const isFile = fileStore.has(path);
+        const isDirectory = (await readDir(path).catch(() => [])).length > 0;
+        return isFile || isDirectory;
+    }),
 
-    // Mock for directory removal (used in cleanup)
     removeDir: vi.fn(async (path: string) => {
-        // Simulate directory removal by clearing all files under this path
         const keysToDelete = Array.from(fileStore.keys()).filter(key => key.startsWith(path));
         keysToDelete.forEach(key => fileStore.delete(key));
     }),
 
-    // Mock for file removal (in case TauriFileHandle uses it)
     removeFile: vi.fn(async (path: string) => {
         fileStore.delete(path);
     }),
 
-    // Mock for directory creation (used in setup)
     createDir: vi.fn(async () => {}),
+
+    readDir: vi.fn(async (path: string) => {
+        const childEntries: any[] = [];
+        for (const key of fileStore.keys()) {
+            if (key.startsWith(path) && key !== path) {
+                const relativePath = key.substring(path.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
+                    childEntries.push({
+                        name: relativePath,
+                        isDirectory: !relativePath.includes('.'),
+                        isFile: relativePath.includes('.'),
+                    });
+                }
+            }
+        }
+        return childEntries;
+    }),
 }));
 
-describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
-
-    // --- SETUP AND CLEANUP HOOKS ---
+describe('TauriFileHandle Integration Tests (LIVE FS I/O)', () => {
     beforeAll(async () => {
-        // 1. Determine paths
         const baseDir = await appLocalDataDir();
         testDirPath = await join(baseDir, TEST_DIR_NAME);
         testFilePath = await join(testDirPath, TEST_FILE_NAME);
+        testSubDirPath = await join(testDirPath, "sub_dir");
+        testSubFilePath = await join(testSubDirPath, "sub_file.txt");
 
-        // 2. Initial cleanup and directory creation
+        tauriDirectoryProvider = await TauriDirectoryProvider.create("test-app");
+
         try {
-            // Remove the file first, then the directory recursively
             await remove(testFilePath);
+            await remove(testSubFilePath);
+            await remove(testSubDirPath, { recursive: true });
             await remove(testDirPath, { recursive: true });
         } catch (e) {
-            // Ignore 'not found' errors during clean up
         }
 
-        // 3. Create the necessary directory
         await mkdir(testDirPath, { recursive: true });
+        await mkdir(testSubDirPath, { recursive: true });
 
         console.log(`\n\t🧪 LIVE I/O: Using base test directory: ${testDirPath}`);
     });
 
     afterAll(async () => {
-        // Final cleanup
         try {
             await remove(testDirPath, { recursive: true });
             console.log(`\t🧹 Cleaned up test directory: ${testDirPath}\n`);
@@ -121,13 +134,9 @@ describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', 
         }
     });
 
-    // --- INTEGRATION TESTS ---
+    test('should write and append content using keepExistingData: true', async () => {
+        const handle = new TauriFileHandle(testFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
 
-    // --- Test 1: Basic Write/Append (keepExistingData: true) ---
-    integrationTest('should write and append content using keepExistingData: true', async () => {
-        const handle = new TauriFileHandle(testFilePath);
-
-        // Step 1: Write initial content (file is created or truncated)
         let writer = await handle.createWritable({ keepExistingData: true }).then(s => s.getWriter());
         await writer.write("Hello, World!");
         await writer.close();
@@ -135,7 +144,6 @@ describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', 
         let content = await readVerificationContent(testFilePath);
         expect(content).toBe("Hello, World!");
 
-        // Step 2: Re-open and append
         writer = await handle.createWritable({ keepExistingData: true }).then(s => s.getWriter());
         await writer.write(" Appended.");
         await writer.close();
@@ -145,41 +153,33 @@ describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', 
     });
 
 
-    // --- Test 2: Stream Seek/Write (keepExistingData: true) ---
-    integrationTest('should perform a stream seek and overwrite content', async () => {
-        const handle = new TauriFileHandle(testFilePath);
+    test('should perform a stream seek and overwrite content', async () => {
+        const handle = new TauriFileHandle(testFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
         const initialContent = "The quick brown fox jumps over the lazy dog.";
 
-        // Set file content (Truncate for fresh start)
         let stream = await handle.createWritable({ keepExistingData: false });
         await stream.write(initialContent);
         await stream.close();
 
-        // Overwrite 'brown' with 'RED'
         stream = await handle.createWritable({ keepExistingData: true });
 
-        // "The quick ".length is 10
         await stream.seek(10);
-        await stream.write("RED"); // Note: Using "RED" instead of "RED  " for simpler assertion
+        await stream.write("RED");
         await stream.close();
 
-        // Expected: The content should be "The quick RED fox jumps over the lazy dog."
         const expected = initialContent.slice(0, 10) + "RED" + initialContent.slice(13);
         const actual = await readVerificationContent(testFilePath);
 
         expect(actual).toBe(expected);
     });
 
-    // --- Test 3: Truncate and Mixed Ops (keepExistingData: true) ---
-    integrationTest('should truncate file and then seek/append correctly', async () => {
-        const handle = new TauriFileHandle(testFilePath);
+    test('should truncate file and then seek/append correctly', async () => {
+        const handle = new TauriFileHandle(testFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
 
-        // Set file content (Truncate for fresh start)
         let stream = await handle.createWritable({ keepExistingData: false });
         await stream.write("0123456789ABCDEF");
         await stream.close();
 
-        // Truncate to 10 bytes (should leave '0123456789')
         stream = await handle.createWritable({ keepExistingData: true });
         const expectedTruncate = "0123456789";
         await stream.truncate(expectedTruncate.length);
@@ -188,9 +188,8 @@ describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', 
         let actual = await readVerificationContent(testFilePath);
         expect(actual).toBe(expectedTruncate);
 
-        // Re-open and seek/append
         stream = await handle.createWritable({ keepExistingData: true });
-        await stream.seek(expectedTruncate.length); // seek to 10
+        await stream.seek(expectedTruncate.length);
         await stream.write("Z");
         await stream.close();
 
@@ -198,21 +197,142 @@ describe.skipIf(!isTauriEnv)('TauriFileHandle Integration Tests (LIVE FS I/O)', 
         expect(actual).toBe("0123456789Z");
     });
 
-    // --- Test 4: Default Truncation Test (Uses keepExistingData: false / default) ---
-    integrationTest('should perform default truncation (keepExistingData: false)', async () => {
-        const handle = new TauriFileHandle(testFilePath);
+    test('should perform default truncation (keepExistingData: false)', async () => {
+        const handle = new TauriFileHandle(testFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
 
-        // Set file content to 'OLD DATA'
         let stream = await handle.createWritable({ keepExistingData: false });
         await stream.write("OLD DATA");
         await stream.close();
 
-        // Re-open with default options (should truncate the file)
-        let writer = await handle.createWritable().then(s => s.getWriter()); // Note: No options passed
+        let writer = await handle.createWritable().then(s => s.getWriter());
         await writer.write("NEW");
         await writer.close();
 
         const actual = await readVerificationContent(testFilePath);
         expect(actual).toBe("NEW");
+    });
+
+    test('TauriFileHandle should return its absolute path', async () => {
+        const handle = new TauriFileHandle(testFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        expect(await handle.getAbsolutePath()).toBe(testFilePath);
+    });
+
+    test('TauriFileHandle should return its parent directory', async () => {
+        const handle = new TauriFileHandle(testSubFilePath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const parent = await handle.getParent();
+        expect(parent).toBeInstanceOf(TauriDirectoryHandle);
+        expect(parent.path).toBe(testSubDirPath);
+    });
+});
+
+describe('TauriDirectoryHandle Integration Tests (LIVE FS I/O)', () => {
+    let testRootPath: string;
+    let testSubDirPath1: string;
+    let testSubFilePath1: string;
+    let testSubDirPath2: string;
+
+    beforeAll(async () => {
+        const baseDir = await appLocalDataDir();
+        testRootPath = await join(baseDir, "tauri-directory-handle-tests");
+        testSubDirPath1 = await join(testRootPath, "sub_dir_1");
+        testSubFilePath1 = await join(testSubDirPath1, "file_1.txt");
+        testSubDirPath2 = await join(testRootPath, "sub_dir_2");
+
+        tauriDirectoryProvider = await TauriDirectoryProvider.create("test-app");
+
+        try {
+            await remove(testRootPath, { recursive: true });
+        } catch (e) { /* ignore */ }
+        await mkdir(testRootPath, { recursive: true });
+        await mkdir(testSubDirPath1, { recursive: true });
+        await writeTextFile(testSubFilePath1, "File 1 content");
+        await mkdir(testSubDirPath2, { recursive: true });
+
+        console.log(`\n\t🧪 LIVE I/O: Using base test directory for TauriDirectoryHandle: ${testRootPath}`);
+    });
+
+    afterAll(async () => {
+        try {
+            await remove(testRootPath, { recursive: true });
+            console.log(`\t🧹 Cleaned up test directory for TauriDirectoryHandle: ${testRootPath}\n`);
+        } catch (e) {
+            console.error(`\t🚨 Failed final cleanup for ${testRootPath}: ${e}`);
+        }
+    });
+
+    test('getDirectoryHandle should create and return a directory handle', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const newDirName = 'new_directory';
+        const newDirPath = await join(testRootPath, newDirName);
+
+        const newDirHandle = await rootHandle.getDirectoryHandle(newDirName, { create: true });
+
+        expect(newDirHandle).toBeInstanceOf(TauriDirectoryHandle);
+        expect(newDirHandle.path).toBe(newDirPath);
+        expect(newDirHandle.name).toBe(newDirName);
+
+        const actualEntries = await readDir(testRootPath);
+        expect(actualEntries.some(entry => entry.name === newDirName && entry.isDirectory)).toBe(true);
+    });
+
+    test('getFileHandle should create and return a file handle', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const newFileName = 'new_file.txt';
+        const newFilePath = await join(testRootPath, newFileName);
+
+        const newFileHandle = await rootHandle.getFileHandle(newFileName, { create: true });
+
+        expect(newFileHandle).toBeInstanceOf(TauriFileHandle);
+        expect(newFileHandle.path).toBe(newFilePath);
+        expect(newFileHandle.name).toBe(newFileName);
+
+        const content = await readTextFile(newFilePath);
+        expect(content).toBe('');
+    });
+
+    test('entries should iterate through children', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const entries: [string, IPathHandle][] = [];
+        for await (const [name, handle] of rootHandle.entries()) {
+            entries.push([name, handle]);
+        }
+        const expectedNames = ['sub_dir_1', 'sub_dir_2', 'new_directory', 'new_file.txt'];
+        expect(entries.map(([name]) => name).sort()).toEqual(expectedNames.sort());
+
+        const subDir1Entry = entries.find(([name]) => name === 'sub_dir_1');
+        expect(subDir1Entry?.[1]).toBeInstanceOf(TauriDirectoryHandle);
+
+        const file1Entry = entries.find(([name]) => name === 'new_file.txt');
+        expect(file1Entry?.[1]).toBeInstanceOf(TauriFileHandle);
+    });
+
+    test('removeEntry should remove a child entry', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const fileToRemove = 'temp_remove.txt';
+        await rootHandle.getFileHandle(fileToRemove, { create: true });
+
+        let initialEntries: [string, IPathHandle][] = [];
+        for await (const entry of rootHandle.entries()) { initialEntries.push(entry); }
+        expect(initialEntries.some(([name]) => name === fileToRemove)).toBe(true);
+
+        await rootHandle.removeEntry(fileToRemove);
+
+        let finalEntries: [string, IPathHandle][] = [];
+        for await (const entry of rootHandle.entries()) { finalEntries.push(entry); }
+        expect(finalEntries.some(([name]) => name === fileToRemove)).toBe(false);
+
+        await expect(readTextFile(await join(testRootPath, fileToRemove))).rejects.toThrow();
+    });
+
+    test('TauriDirectoryHandle should return its parent directory', async () => {
+        const subDir1Handle = new TauriDirectoryHandle(testSubDirPath1, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const parent = await subDir1Handle.getParent();
+        expect(parent).toBeInstanceOf(TauriDirectoryHandle);
+        expect(parent.path).toBe(testRootPath);
+    });
+
+    test('TauriDirectoryHandle should return its absolute path', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        expect(await rootHandle.getAbsolutePath()).toBe(testRootPath);
     });
 });

@@ -213,7 +213,9 @@ export class TauriFileHandle implements IFileHandle {
 
     async getParent(): Promise<IDirectoryHandle> {
         const parentPath = await dirname(this.path);
-        return await this.resolveHandle(parentPath) as IDirectoryHandle;
+        const parentHandle = await this.resolveHandle(parentPath);
+        const abs = await parentHandle.getAbsolutePath();
+        return new TauriDirectoryHandle(abs, this.resolveHandle)
     }
 
     asFileHandle(): IFileHandle | null {
