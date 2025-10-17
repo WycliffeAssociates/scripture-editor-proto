@@ -51,29 +51,32 @@ vi.mock("@tauri-apps/api/path", () => {
 
 // Mocking your custom file/directory handlers for isolation
 vi.mock('@/tauri/io/TauriFileHandle.ts', () => ({
-    TauriFileHandle: vi.fn((path, resolveHandle) => ({
-        path,
-        name: path.split('/').pop(),
-        kind: 'file',
-        isDir: false,
-        isFile: true,
-        getAbsolutePath: vi.fn(() => Promise.resolve(path)),
-        getParent: vi.fn(() => resolveHandle(path.substring(0, path.lastIndexOf('/')))),
-        asFileHandle: vi.fn(() => (this as any)),
-        asDirectoryHandle: vi.fn(() => null),
-        isSameEntry: vi.fn(() => Promise.resolve(true)),
-        getFile: vi.fn(() => Promise.resolve({
-            name: path.split('/').pop(),
-            size: 1234,
-            text: vi.fn(() => Promise.resolve("mock file content"))
-        })),
-        createWritable: vi.fn(() => Promise.resolve({
-            getWriter: vi.fn(() => ({
-                write: vi.fn(() => Promise.resolve()),
-                close: vi.fn(() => Promise.resolve()),
+    TauriFileHandle: vi.fn((path, resolveHandle) => {
+        const mockFileHandle = {
+            path,
+            name: path.split('/').pop() || '',
+            kind: 'file' as const,
+            isDir: false,
+            isFile: true,
+            getAbsolutePath: vi.fn(() => Promise.resolve(path)),
+            getParent: vi.fn(() => resolveHandle(path.substring(0, path.lastIndexOf('/')))),
+            asFileHandle: vi.fn(() => mockFileHandle),
+            asDirectoryHandle: vi.fn(() => null),
+            isSameEntry: vi.fn(() => Promise.resolve(true)),
+            getFile: vi.fn(() => Promise.resolve({
+                name: path.split('/').pop() || '',
+                size: 1234,
+                text: vi.fn(() => Promise.resolve("mock file content"))
             })),
-        })),
-    })),
+            createWritable: vi.fn(() => Promise.resolve({
+                getWriter: vi.fn(() => ({
+                    write: vi.fn(() => Promise.resolve()),
+                    close: vi.fn(() => Promise.resolve()),
+                })),
+            })),
+        };
+        return mockFileHandle;
+    }),
 }));
 
 vi.mock('@/tauri/io/TauriDirectoryHandle.ts', () => ({
@@ -106,6 +109,8 @@ const fileStore = new Map<string, string>();
 const mockDirectories = new Set<string>();
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
+
+    open: vi.fn((path: string) => Promise.resolve()),
 
     mkdir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
         const normalizedPath = await normalize(path);
@@ -261,7 +266,7 @@ describe('TauriDirectoryProvider', () => {
         await writer.write("Hello Tauri filesystem test!");
         await writer.close();
 
-        expect(TauriFileHandle).toHaveBeenCalledWith(testFilePath);
+        expect(TauriFileHandle).toHaveBeenCalledWith(testFilePath, expect.any(Function));
         // The mock writer's methods should have been called
         // @ts-ignore
         expect(TauriFileHandle.mock.results[0].value.createWritable).toHaveBeenCalled();
@@ -270,7 +275,7 @@ describe('TauriDirectoryProvider', () => {
         const file = await provider.newFileReader(testFilePath);
         expect(file.name).toBe("test_file.txt");
         // @ts-ignore
-        expect(TauriFileHandle.mock.results[1].value.getFile).toHaveBeenCalled();
+        expect(TauriFileHandle.mock.results[1].value.getFile).toHaveBeenCalledWith();
     });
 
     // --- Test 4: Get App Data Directory ---

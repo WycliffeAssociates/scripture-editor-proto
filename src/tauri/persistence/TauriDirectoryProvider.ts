@@ -153,7 +153,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
   }
 
   async openInFileManager(path: string): Promise<void> {
-    open(path);
+    await open(path);
   }
 
   get databaseDirectory(): Promise<IDirectoryHandle> {
