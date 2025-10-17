@@ -1,9 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import {dirname, join, normalize} from "@tauri-apps/api/path"; // This will be mocked
 import {mkdir, open, remove} from '@tauri-apps/plugin-fs';
-import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
-import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
-import pathModule from "path"; // These will be mocked
 
 // --- MOCK CONSTANTS ---
 const MOCK_APP_NAME = "test-app";
@@ -51,6 +48,59 @@ vi.mock("@tauri-apps/api/path", () => {
         normalize: vi.fn(pathModule.normalize),
     };
 });
+
+// Mocking your custom file/directory handlers for isolation
+vi.mock('@/tauri/io/TauriFileHandle.ts', () => ({
+    TauriFileHandle: vi.fn((path, resolveHandle) => ({
+        path,
+        name: path.split('/').pop(),
+        kind: 'file',
+        isDir: false,
+        isFile: true,
+        getAbsolutePath: vi.fn(() => Promise.resolve(path)),
+        getParent: vi.fn(() => resolveHandle(path.substring(0, path.lastIndexOf('/')))),
+        asFileHandle: vi.fn(() => (this as any)),
+        asDirectoryHandle: vi.fn(() => null),
+        isSameEntry: vi.fn(() => Promise.resolve(true)),
+        getFile: vi.fn(() => Promise.resolve({
+            name: path.split('/').pop(),
+            size: 1234,
+            text: vi.fn(() => Promise.resolve("mock file content"))
+        })),
+        createWritable: vi.fn(() => Promise.resolve({
+            getWriter: vi.fn(() => ({
+                write: vi.fn(() => Promise.resolve()),
+                close: vi.fn(() => Promise.resolve()),
+            })),
+        })),
+    })),
+}));
+
+vi.mock('@/tauri/io/TauriDirectoryHandle.ts', () => ({
+    TauriDirectoryHandle: vi.fn((path, resolveHandle) => ({
+        path,
+        name: path.split('/').pop(),
+        kind: 'directory',
+        isDir: true,
+        isFile: false,
+        getAbsolutePath: vi.fn(() => Promise.resolve(path)),
+        getParent: vi.fn(() => resolveHandle(path.substring(0, path.lastIndexOf('/')))),
+        asFileHandle: vi.fn(() => null),
+        asDirectoryHandle: vi.fn(() => (this as any)),
+        isSameEntry: vi.fn(() => Promise.resolve(true)),
+        entries: vi.fn(async function* () {
+            yield ['file1.tmp', { isFile: () => true }];
+            yield ['dir2', { isDirectory: () => true }];
+        }),
+        removeEntry: vi.fn(() => Promise.resolve()),
+        getFileHandle: vi.fn(() => Promise.reject(new Error("Mock: Not a file"))),
+        getDirectoryHandle: vi.fn(() => Promise.reject(new Error("Mock: Not a directory"))),
+    })),
+}));
+
+import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
+import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
+import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
 
 const fileStore = new Map<string, string>();
 const mockDirectories = new Set<string>();
@@ -179,35 +229,6 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     }),
 }));
 
-// Mocking your custom file/directory handlers for isolation
-vi.mock('@/persistence/handlers/TauriFileHandle.ts', () => ({
-    TauriFileHandle: vi.fn((path) => ({
-        path,
-        createWritable: vi.fn(() => Promise.resolve({
-            getWriter: vi.fn(() => ({
-                write: vi.fn(() => Promise.resolve()),
-                close: vi.fn(() => Promise.resolve()),
-            })),
-        })),
-        getFile: vi.fn(() => Promise.resolve({
-            name: path.split('/').pop(),
-            size: 1234,
-        })),
-    })),
-}));
-
-vi.mock('@/persistence/handlers/TauriDirectoryHandle.ts', () => ({
-    TauriDirectoryHandle: vi.fn((path) => ({
-        path,
-        // Mock entries/removeEntry for cleanTempDirectory
-        entries: vi.fn(async function* () {
-            yield ['file1.tmp', { isFile: () => true }];
-            yield ['dir2', { isDirectory: () => true }];
-        }),
-        removeEntry: vi.fn(() => Promise.resolve()),
-    })),
-}));
-
 // --- VITEST TESTS ---
 
 describe('TauriDirectoryProvider', () => {
@@ -297,7 +318,7 @@ describe('TauriDirectoryProvider', () => {
 
         // Assert that the temp directory was accessed
         // @ts-ignore
-        expect(TauriDirectoryHandle).toHaveBeenCalledWith(expectedTempDirPath);
+        expect(TauriDirectoryHandle).toHaveBeenCalledWith(expectedTempDirPath, expect.any(Function));
 
         // Assert that the entries were iterated and removed
         // The mock yields 'file1.tmp' and 'dir2'

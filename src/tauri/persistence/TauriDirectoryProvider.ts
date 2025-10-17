@@ -71,7 +71,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     const baseDir = await this.getUserDataDirectory();
     const path = await join(
       baseDir.path,
-      this.appName,
       targetCreator,
       source.creator,
       `${source.language.slug}_${source.identifier}`,
