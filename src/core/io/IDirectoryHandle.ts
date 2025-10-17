@@ -20,3 +20,4 @@ export interface IDirectoryHandle extends IPathHandle {
 
     [Symbol.asyncDispose](): Promise<void>;
 }
+

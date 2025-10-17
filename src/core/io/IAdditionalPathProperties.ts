@@ -1,4 +1,5 @@
-import {IDirectoryHandle, IFileHandle} from "@/core/persistence/DirectoryProvider.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
 export interface IAdditionalPathProperties {
     readonly path: string;

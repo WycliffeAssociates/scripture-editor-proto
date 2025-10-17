@@ -1,4 +1,6 @@
-import {IPathHandle, IDirectoryHandle, IFileHandle} from "@/core/io/IPathHandle.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
 export interface IDirectoryProvider {
     // Directory access
