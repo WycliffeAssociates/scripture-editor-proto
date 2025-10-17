@@ -42,24 +42,68 @@ vi.mock("@tauri-apps/api/path", () => {
 });
 
 const fileStore = new Map<string, string>();
+const mockDirectories = new Set<string>();
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
 
-    mkdir: vi.fn(() => Promise.resolve()),
-    remove: vi.fn(() => Promise.resolve()),
+    mkdir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        if (options?.recursive) {
+            let currentPath = '';
+            for (const part of path.split('/').filter(Boolean)) {
+                currentPath = currentPath === '' ? `/${part}` : `${currentPath}/${part}`;
+                mockDirectories.add(currentPath);
+            }
+        } else {
+            mockDirectories.add(path);
+        }
+        // console.log(`[Mock FS] mkdir: ${path}, recursive: ${options?.recursive}, current dirs: ${Array.from(mockDirectories)}`);
+    }),
+    remove: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        const isDirectory = mockDirectories.has(path);
+        const isFile = fileStore.has(path);
+
+        if (isDirectory) {
+            const children = Array.from(fileStore.keys()).filter(key => key.startsWith(`${path}/`));
+            const subDirs = Array.from(mockDirectories).filter(dir => dir.startsWith(`${path}/`));
+
+            if ((children.length > 0 || subDirs.length > 1) && !options?.recursive) {
+                throw new Error(`ENOTEMPTY: directory not empty, remove '${path}'`);
+            }
+
+            // Remove all children files and subdirectories
+            children.forEach(key => fileStore.delete(key));
+            subDirs.forEach(dir => mockDirectories.delete(dir));
+            mockDirectories.delete(path);
+
+        } else if (isFile) {
+            fileStore.delete(path);
+        } else {
+            throw new Error(`ENOENT: no such file or directory, remove '${path}'`);
+        }
+        // console.log(`[Mock FS] remove: ${path}, recursive: ${options?.recursive}, current dirs: ${Array.from(mockDirectories)}, current files: ${Array.from(fileStore.keys())}`);
+    }),
 
     writeTextFile: vi.fn(async (path: string, contents: string, options?: { append?: boolean }) => {
+        // Ensure parent directory exists before writing file
+        const parentPath = path.substring(0, path.lastIndexOf('/'));
+        if (parentPath && !mockDirectories.has(parentPath)) {
+            // This might happen if parent wasn't explicitly created, so create it
+            await mkdir(parentPath, { recursive: true });
+        }
+
         const existing = fileStore.get(path) || '';
         const newContent = options?.append ? existing + contents : contents;
         fileStore.set(path, newContent);
+        // console.log(`[Mock FS] Wrote to: ${path}. Content length: ${newContent.length}`);
     }),
 
     readTextFile: vi.fn(async (path: string) => {
-        const content = fileStore.get(path);
-        const entries = await readDir(path).catch(() => []);
-        if (entries.length > 0) {
+        // Check if it's a directory first
+        if (mockDirectories.has(path) && Array.from(fileStore.keys()).filter(key => key.startsWith(`${path}/`)).length === 0) {
             throw new Error(`EISDIR: illegal operation on a directory, read ${path}`);
         }
+
+        const content = fileStore.get(path);
         if (content === undefined) {
             throw new Error(`File not found: ${path}`);
         }
@@ -67,37 +111,62 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     }),
 
     exists: vi.fn(async (path: string) => {
-        const isFile = fileStore.has(path);
-        const isDirectory = (await readDir(path).catch(() => [])).length > 0;
-        return isFile || isDirectory;
+        return fileStore.has(path) || mockDirectories.has(path);
     }),
 
-    removeDir: vi.fn(async (path: string) => {
-        const keysToDelete = Array.from(fileStore.keys()).filter(key => key.startsWith(path));
-        keysToDelete.forEach(key => fileStore.delete(key));
+    removeDir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
+        // Delegate to general remove, ensure recursive is passed if applicable
+        await remove(path, options);
     }),
 
     removeFile: vi.fn(async (path: string) => {
-        fileStore.delete(path);
+        await remove(path);
     }),
 
-    createDir: vi.fn(async () => {}),
+    createDir: vi.fn(async () => { /* Handled by mkdir */ }),
 
     readDir: vi.fn(async (path: string) => {
-        const childEntries: any[] = [];
+        if (!mockDirectories.has(path)) {
+            throw new Error(`ENOENT: no such file or directory, scandir '${path}'`);
+        }
+
+        const entries: any[] = [];
+        const seenNames = new Set<string>();
+
+        // Add files
         for (const key of fileStore.keys()) {
-            if (key.startsWith(path) && key !== path) {
+            if (key.startsWith(`${path}/`)) {
                 const relativePath = key.substring(path.length).replace(/^\/|^\\/, '');
-                if (!relativePath.includes('/') && !relativePath.includes('\\')) {
-                    childEntries.push({
-                        name: relativePath,
-                        isDirectory: !relativePath.includes('.'),
-                        isFile: relativePath.includes('.'),
-                    });
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) { // Only direct children
+                    if (!seenNames.has(relativePath)) {
+                        entries.push({
+                            name: relativePath,
+                            isDirectory: false,
+                            isFile: true,
+                        });
+                        seenNames.add(relativePath);
+                    }
                 }
             }
         }
-        return childEntries;
+
+        // Add directories
+        for (const dir of mockDirectories) {
+            if (dir.startsWith(`${path}/`) && dir !== path) {
+                const relativePath = dir.substring(path.length).replace(/^\/|^\\/, '');
+                if (!relativePath.includes('/') && !relativePath.includes('\\')) { // Only direct children
+                    if (!seenNames.has(relativePath)) {
+                        entries.push({
+                            name: relativePath,
+                            isDirectory: true,
+                            isFile: false,
+                        });
+                        seenNames.add(relativePath);
+                    }
+                }
+            }
+        }
+        return entries;
     }),
 }));
 
