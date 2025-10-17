@@ -11,6 +11,8 @@ import {
   type NodeKey,
 } from "lexical";
 import {
+  type EditorMarkersMutableState,
+  EditorMarkersMutableStates,
   type EditorMarkersViewState,
   EditorMarkersViewStates,
   TOKEN_TYPES_CAN_TOGGLE_HIDE,
@@ -27,6 +29,7 @@ type toggleShowOnToggleableNodesArgs = {
   markersViewState: EditorMarkersViewState;
   currentActive: Set<NodeKey>;
   setCurrentActive: (activeNodes: Set<NodeKey>) => void;
+  markersMutableState: EditorMarkersMutableState;
 };
 
 export function toggleShowOnToggleableNodes({
@@ -35,6 +38,7 @@ export function toggleShowOnToggleableNodes({
   markersViewState,
   currentActive,
   setCurrentActive,
+  markersMutableState,
 }: toggleShowOnToggleableNodesArgs) {
   if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
     return;
@@ -82,7 +86,9 @@ export function toggleShowOnToggleableNodes({
           const node = $getNodeByKey(key);
           if ($isUSFMTextNode(node)) {
             node.setShow(true);
-            node.setMutable(true);
+            if (markersMutableState === EditorMarkersMutableStates.MUTABLE) {
+              node.setMutable(true);
+            }
           }
         }
       },

@@ -76,9 +76,13 @@ export async function projectParamToParsedFiles(
   // Next function call as parsing and going to lexicla state is separate is fine
   const parsed: ParsedFile[] = sorted.map((file, i) => {
     const parsed = parseUSFMfile(file.text);
+    const bookSlug = getBookSlug(file.name);
     return {
       title: file.name,
-      bibleIdentifier: getBookSlug(file.name),
+      localizedTitle: parsedManifest?.projects?.find(
+        (p: any) => p.identifier?.toUpperCase() === bookSlug
+      )?.title,
+      bibleIdentifier: bookSlug,
       nextBookId:
         i === sorted.length - 1 ? null : getBookSlug(sorted[i + 1]?.name),
       prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.name),

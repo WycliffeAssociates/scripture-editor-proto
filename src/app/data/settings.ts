@@ -1,5 +1,5 @@
 import {
-  EditorMarkersMutableState,
+  type EditorMarkersMutableState,
   type EditorMarkersViewState,
   EditorMarkersViewStates,
   type EditorMode,

@@ -1,5 +1,5 @@
 import {LexicalEditor} from "lexical";
-import {useMemo, useRef, useState} from "react";
+import {useCallback, useMemo, useRef, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import type {Settings, SettingsManager} from "@/app/data/settings";
 
@@ -23,7 +23,7 @@ export const useWorkspaceState = (
   const [appSettings, setAppSettings] = useState<Settings>(
     settingsManager.getSettings()
   );
-  const [currentFile, setCurrentFile] = useState(
+  const [currentFileBibleIdentifier, setCurrentFileBibleIdentifier] = useState(
     getSavedIfPrefersRestore("lastBookIdentifier") ||
       allFiles[0].bibleIdentifier
   );
@@ -34,57 +34,49 @@ export const useWorkspaceState = (
     string | null
   >(null);
 
-  const updateAppSettings = (newSettings: Partial<Settings>) => {
-    setAppSettings({...appSettings, ...newSettings});
-    settingsManager.update(newSettings);
-    // will adjust root font size, webview zoom, etc; at needed
-    settingsManager.applySettings();
-  };
+  const updateAppSettings = useCallback(
+    (newSettings: Partial<Settings>) => {
+      setAppSettings({...appSettings, ...newSettings});
+      settingsManager.update(newSettings);
+      // will adjust root font size, webview zoom, etc; at needed
+      settingsManager.applySettings();
+    },
+    [appSettings, settingsManager]
+  );
   const pickedFile = useMemo(
-    () => allFiles.find((file) => file.path === currentFile) || allFiles[0],
-    [allFiles, currentFile]
+    () =>
+      allFiles.find(
+        (file) => file.bibleIdentifier === currentFileBibleIdentifier
+      ) || allFiles[0],
+    [allFiles, currentFileBibleIdentifier]
   );
   const pickedChapter = useMemo(() => {
-    return pickedFile?.chapters[currentChapter ? currentChapter : 0];
-  }, [pickedFile, currentChapter]);
-  const nextChapter = useMemo(() => {
-    if (!pickedFile || (!currentChapter && currentChapter !== 0)) return null;
-    // at edge of book so need to get next book first chapter
-    if (currentChapter === pickedFile?.chapters.length - 1) {
-      const nextFile = allFiles.find(
-        (file) => file.bibleIdentifier === pickedFile?.nextBookId
-      );
-      return nextFile?.chapters[0];
+    let candidate = pickedFile?.chapters[currentChapter ? currentChapter : 0];
+    // if currentChapter is greater than the number of chapters in pickedFile, set it to the last chapter else first:
+    if (currentChapter > pickedFile?.chapters.length - 1) {
+      setCurrentChapter(pickedFile?.chapters.length - 1 || 0);
+      candidate = pickedFile?.chapters[pickedFile?.chapters.length - 1];
+      updateAppSettings({lastChapterNumber: pickedFile?.chapters.length - 1});
+    } else if (currentChapter < 0) {
+      setCurrentChapter(0);
+      candidate = pickedFile?.chapters[0];
+      updateAppSettings({lastChapterNumber: 0});
     }
-    // otherwise just next chapter
-    return pickedFile?.chapters[currentChapter + 1];
-  }, [pickedFile, currentChapter, allFiles]);
-  const prevChapter = useMemo(() => {
-    if (!pickedFile || (!currentChapter && currentChapter !== 0)) return null;
-    // at edge of book so need to get next book first chapter
-    if (currentChapter === 0) {
-      const prevFile = allFiles.find(
-        (file) => file.bibleIdentifier === pickedFile?.prevBookId
-      );
-      return prevFile?.chapters[prevFile?.chapters.length - 1];
-    }
-    // otherwise just next chapter
-    return pickedFile?.chapters[currentChapter - 1];
-  }, [pickedFile, currentChapter, allFiles]);
+    return candidate;
+  }, [pickedFile, currentChapter, updateAppSettings]);
+
   return {
     editorRef,
     workingFiles: allFiles,
     appSettings,
     updateAppSettings,
-    currentFile,
-    setCurrentFile,
+    currentFileBibleIdentifier,
+    setCurrentFileBibleIdentifier,
     currentChapter,
     setCurrentChapter,
     referenceProjectPath,
     setReferenceProjectPath,
     pickedFile,
     pickedChapter,
-    nextChapter,
-    prevChapter,
   };
 };

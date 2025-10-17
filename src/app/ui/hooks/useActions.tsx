@@ -7,6 +7,7 @@ import {
   SerializedEditorState,
   SerializedLexicalNode,
 } from "lexical";
+import {useEffect, useMemo, useRef} from "react";
 import {useEffectOnce} from "react-use";
 import {
   EditorMarkersMutableState,
@@ -31,40 +32,59 @@ export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 type Props = {
   // projectPath: string,
   editorRef: React.RefObject<LexicalEditor | null>;
-  currentFile: string;
+  currentFileBibleIdentifier: string;
   currentChapter: number;
-  setCurrentFile: (file: string) => void;
+  setCurrentFileBibleIdentifier: (file: string) => void;
   setCurrentChapter: (chapter: number) => void;
   appSettings: Settings;
   updateAppSettings: (newSettings: Partial<Settings>) => void;
   workingFiles: ParsedFile[];
   setWorkingFiles: (files: ParsedFile[]) => void;
+  pickedFile: ParsedFile | null;
 };
 export const useWorkspaceActions = ({
   workingFiles,
   setWorkingFiles,
   editorRef,
-  currentFile,
+  currentFileBibleIdentifier,
   currentChapter,
-  setCurrentFile,
+  setCurrentFileBibleIdentifier,
   setCurrentChapter,
   appSettings,
   updateAppSettings,
+  pickedFile,
 }: Props) => {
-  function updateChapterLexical(
-    filePath: string,
-    chap: number,
-    newLexical: SerializedEditorState
-  ) {
-    let newFiles = produce(workingFiles, (draft) => {
-      const file = draft.find((file) => file.path === filePath);
-      if (!file) return;
-      file.chapters[chap].lexicalState = newLexical;
-      file.chapters[chap].dirty = true;
-    });
+  // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
+  const workingFilesRef = useRef(workingFiles);
 
-    setWorkingFiles(newFiles);
-    return newFiles;
+  // keep ref in sync when React commits new state
+  useEffect(() => {
+    // won't fire needlesslely when workingFiles is already set to the value of workingFilesRef.current; only if props changes
+    workingFilesRef.current = workingFiles;
+  }, [workingFiles]);
+
+  type UpdateChapterLexicalArgs = {
+    fileBibleIdentifier: string;
+    chap: number;
+    newLexical: SerializedEditorState;
+    doSetWorkingFiles?: boolean;
+  };
+  function updateChapterLexical({
+    fileBibleIdentifier,
+    chap,
+    newLexical,
+    doSetWorkingFiles = true,
+  }: UpdateChapterLexicalArgs) {
+    const file = workingFilesRef.current.find(
+      (file) => file.bibleIdentifier === fileBibleIdentifier
+    );
+    if (!file) return;
+    file.chapters[chap].lexicalState = newLexical;
+    file.chapters[chap].dirty = true;
+    if (!doSetWorkingFiles) {
+      setWorkingFiles(workingFilesRef.current);
+    }
+    return workingFilesRef.current;
     // return setWorkingFiles(
     //   produce(workingFiles, (draft) => {
     //     const file = draft.find((file) => file.path === filePath);
@@ -76,14 +96,16 @@ export const useWorkspaceActions = ({
   }
 
   function setEditorContent(
-    file: string,
+    fileBibleIdentifier: string,
     chapter: number,
     chapterContent?: ParsedChapter
   ) {
-    console.log("setEditorContent", file, chapter);
+    console.log("setEditorContent", fileBibleIdentifier, chapter);
     const editor = editorRef.current;
     if (!editor) return;
-    const targetFile = workingFiles?.find((f) => f.path === file);
+    const targetFile = chapterContent
+      ? null
+      : workingFiles?.find((f) => f.bibleIdentifier === fileBibleIdentifier);
     const chapterState = chapterContent || targetFile?.chapters[chapter];
     if (!chapterState) return;
     editor.setEditorState(editor.parseEditorState(chapterState.lexicalState), {
@@ -93,33 +115,41 @@ export const useWorkspaceActions = ({
     //  editor.setEditorState(workingFiles.find(file => file.path === file)?.chapters[chapter].lexicalState);
   }
 
-  function switchBookOrChapter(file: string, chapter: number) {
+  function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
     // FIRST SAVE THE CURRENT DIRTY STATE
-    const dirtySaved = saveCurrentDirtyLexical();
+    const dirtySaved = saveCurrentDirtyLexical({doSetWorkingFiles: true});
     // THEN SET THE NEW CONTENT
     const filesToUse = dirtySaved || workingFiles;
-    const targetFile = filesToUse?.find((f) => f.path === file);
+    const targetFile = filesToUse?.find(
+      (f) => f.bibleIdentifier === fileBibleIdentifier
+    );
+    let chapterToSave = chapter;
     if (!targetFile) return;
-    const chapterState =
-      targetFile?.chapters[chapter] || targetFile?.chapters[0]; //i.e that chapter doesn't exist in target file
-    if (file === currentFile && chapter === currentChapter) {
+    let chapterState = targetFile?.chapters[chapter];
+    if (!chapterState) {
+      if (chapter > targetFile?.chapters.length - 1) {
+        chapterToSave = targetFile?.chapters.length - 1;
+      } else {
+        chapterToSave = 0;
+      }
+    }
+    chapterState = targetFile?.chapters[chapterToSave];
+    if (
+      fileBibleIdentifier === currentFileBibleIdentifier &&
+      chapter === currentChapter
+    ) {
       return chapterState; //noop from here, but return dirty chapterSTate in case caller needs.
     }
     if (!chapterState) return;
-    editorRef.current?.setEditorState(
-      editorRef.current.parseEditorState(chapterState.lexicalState),
-      {
-        tag: HISTORY_MERGE_TAG,
-      }
-    );
-    editorRef.current?.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
+    setEditorContent(fileBibleIdentifier, chapter, chapterState);
+    // editorRef.current?.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
     // The update the ui
-    setCurrentFile(file);
-    setCurrentChapter(chapter);
+    setCurrentFileBibleIdentifier(fileBibleIdentifier);
+    setCurrentChapter(chapterToSave);
     // And persisted settings
     updateAppSettings({
-      lastChapterNumber: chapter,
-      lastBookIdentifier: file,
+      lastChapterNumber: chapterToSave,
+      lastBookIdentifier: fileBibleIdentifier,
     });
     // scroll editorRef to top since we actually switched:
     const editorContainer = document.querySelector(
@@ -131,12 +161,100 @@ export const useWorkspaceActions = ({
     return chapterState;
   }
 
-  function saveCurrentDirtyLexical(): ParsedFile[] | undefined {
+  const nextChapter = useMemo(() => {
+    if (!pickedFile || (!currentChapter && currentChapter !== 0))
+      return {
+        hasNext: false,
+        go: () => {},
+      };
+    if (currentChapter === pickedFile?.chapters.length - 1) {
+      const nextBookId = pickedFile.nextBookId;
+      const nextBook = workingFiles.find(
+        (file) => file.bibleIdentifier === nextBookId
+      );
+      const firstChap = 0;
+      const title =
+        nextBook?.localizedTitle ||
+        nextBook?.title ||
+        nextBook?.bibleIdentifier;
+      return {
+        hasNext: true,
+        display: `${title} ${firstChap}`,
+        go: () =>
+          switchBookOrChapter(
+            nextBookId || pickedFile.bibleIdentifier,
+            firstChap
+          ),
+      };
+    } else {
+      return {
+        hasNext: true,
+        display: `${currentChapter + 1}`,
+        go: () =>
+          switchBookOrChapter(pickedFile.bibleIdentifier, currentChapter + 1),
+      };
+    }
+  }, [pickedFile, currentChapter]);
+
+  const prevChapter = useMemo(() => {
+    if (!pickedFile || (!currentChapter && currentChapter !== 0))
+      return {
+        hasPrev: false,
+        go: () => {},
+      };
+    if (currentChapter === 0) {
+      const prevBookId = pickedFile.prevBookId;
+      const prevBook = workingFiles.find(
+        (file) => file.bibleIdentifier === prevBookId
+      );
+      if (!prevBook || !prevBook.chapters?.length)
+        return {
+          hasPrev: false,
+          prevBookName: null,
+          prevChapNum: null,
+          go: () => {},
+        };
+      const lastChap = prevBook?.chapters?.length - 1;
+      let title =
+        prevBook?.localizedTitle ||
+        prevBook?.title ||
+        prevBook?.bibleIdentifier;
+      return {
+        hasPrev: true,
+        display: `${title} ${lastChap}`,
+        go: () =>
+          switchBookOrChapter(
+            prevBookId || pickedFile.bibleIdentifier,
+            lastChap
+          ),
+      };
+    } else {
+      return {
+        hasPrev: true,
+        display: `${currentChapter - 1}`,
+        go: () =>
+          switchBookOrChapter(pickedFile.bibleIdentifier, currentChapter - 1),
+      };
+    }
+  }, [pickedFile, currentChapter]);
+
+  function saveCurrentDirtyLexical({
+    doSetWorkingFiles = true,
+  }: {
+    doSetWorkingFiles?: boolean;
+  }): ParsedFile[] | undefined {
     const editor = editorRef.current;
     if (!editor) return;
+
     const currentJson = editorRef.current?.getEditorState().toJSON();
+
     if (currentJson) {
-      return updateChapterLexical(currentFile, currentChapter, currentJson);
+      return updateChapterLexical({
+        fileBibleIdentifier: currentFileBibleIdentifier,
+        chap: currentChapter,
+        newLexical: currentJson,
+        doSetWorkingFiles,
+      });
     }
   }
   // for "source" we toggle all nodes to mutable and showing;
@@ -145,40 +263,50 @@ export const useWorkspaceActions = ({
    */
 
   function toggleToSourceMode(args?: {isInitialLoad?: boolean}) {
+    console.time("toggleToSourceMode");
     const {isInitialLoad = false} = args || {};
-    // save dirty
-    const inProgress = isInitialLoad ? undefined : saveCurrentDirtyLexical();
+
+    // save dirty, but don't set state yet; We will when finished mutating what's in memory: InProgress returned from saveCurrentDirtyLexical is already a mutable clone
+    const inProgress = isInitialLoad
+      ? undefined
+      : saveCurrentDirtyLexical({doSetWorkingFiles: false});
 
     // update lexical state to show State = true for all + immutable = false for everything:
-    const filesToUse = inProgress || workingFiles;
-    const produced = produce(filesToUse, (draft) => {
-      draft.forEach((file) => {
-        file.chapters.forEach((chapter) => {
-          const rootChildren = chapter.lexicalState.root.children.map(
-            (node) => {
-              return adjustSerializedLexicalNodes(node, {
-                show: true,
-                isMutable: true,
-              });
-            }
-          );
-          chapter.lexicalState.root.children = rootChildren;
+    const filesToUse = inProgress || workingFilesRef.current;
+    let thisChapterUpdated: ParsedChapter | undefined;
+    filesToUse.forEach((file) => {
+      file.chapters.forEach((chapter) => {
+        const rootChildren = chapter.lexicalState.root.children.map((node) => {
+          return adjustSerializedLexicalNodes(node, {
+            show: true,
+            isMutable: true,
+          });
         });
+        chapter.lexicalState.root.children = rootChildren;
+        if (
+          chapter.chapNumber === currentChapter &&
+          file.bibleIdentifier === currentFileBibleIdentifier
+        ) {
+          thisChapterUpdated = chapter;
+        }
       });
     });
-    const thisChapterUpdated = produced
-      .find((f) => f.path === currentFile)
-      ?.chapters.find((c) => c.chapNumber === currentChapter);
+
     if (thisChapterUpdated) {
-      setEditorContent(currentFile, currentChapter, thisChapterUpdated);
+      setEditorContent(
+        currentFileBibleIdentifier,
+        currentChapter,
+        thisChapterUpdated
+      );
     }
-    setWorkingFiles(produced);
+    setWorkingFiles(filesToUse);
     updateAppSettings({
       mode: "source",
       markersMutableState: "mutable",
       markersViewState: EditorMarkersViewStates.ALWAYS,
     });
     document.body.classList.add("source-mode");
+    console.timeEnd("toggleToSourceMode");
   }
   // wsyi has some submodes, ie we can wysi with markers always visible, or never visible, or only when editing; never visible will lock the markers as well: always or
   type adjustWysiModeArgs = {
@@ -195,9 +323,13 @@ export const useWorkspaceActions = ({
    *   If not provided, the value of `appSettings.markersMutableState` will be used.
    */
   function adjustWysiwygMode(args: adjustWysiModeArgs) {
+    console.time("adjustWysiwygMode");
     // save dirty
 
-    const inProgress = args.duringLoad ? undefined : saveCurrentDirtyLexical();
+    const inProgress = args.duringLoad
+      ? undefined
+      : saveCurrentDirtyLexical({doSetWorkingFiles: false});
+
     const markerViewState =
       args.markersViewState || appSettings.markersViewState;
     const markersMutableState =
@@ -205,9 +337,15 @@ export const useWorkspaceActions = ({
         ? // if never view markers, then never mutable
           EditorMarkersMutableStates.IMMUTABLE
         : args.markersMutableState || appSettings.markersMutableState;
+    const root = document.querySelector("#root") as HTMLElement;
+    if (root) {
+      root.dataset.markerViewState = markerViewState;
+      root.dataset.markersMutableState = markersMutableState;
+    }
     // show false, mutable false:
     // let adjustedFiles: ParsedFile[];
     // default hide = if never view markers or when editing, else then show them
+
     const hide =
       markerViewState === EditorMarkersViewStates.NEVER ||
       markerViewState === EditorMarkersViewStates.WHEN_EDITING;
@@ -217,43 +355,47 @@ export const useWorkspaceActions = ({
         ? EditorMarkersMutableStates.IMMUTABLE
         : markersMutableState;
 
-    // const clone = inProgress || structuredClone(workingFiles);
-    const filesToUse = inProgress || workingFiles;
-    const produced = produce(filesToUse, (draft) => {
-      draft.forEach((file) => {
-        file.chapters.forEach((chapter) => {
-          const rootChildren = chapter.lexicalState.root.children.map(
-            (node) => {
-              return adjustSerializedLexicalNodes(node, {
-                show: !hide,
-                isMutable: isMutable === EditorMarkersMutableStates.MUTABLE,
-              });
-            }
-          );
-          chapter.lexicalState.root.children = rootChildren;
+    const filesToUse = inProgress || workingFilesRef.current;
+    let thisChapterUpdated: ParsedChapter | undefined;
+    filesToUse.forEach((file) => {
+      file.chapters.forEach((chapter) => {
+        const rootChildren = chapter.lexicalState.root.children.map((node) => {
+          return adjustSerializedLexicalNodes(node, {
+            show: !hide,
+            isMutable: isMutable === EditorMarkersMutableStates.MUTABLE,
+          });
         });
+        chapter.lexicalState.root.children = rootChildren;
+        if (
+          chapter.chapNumber === currentChapter &&
+          file.bibleIdentifier === currentFileBibleIdentifier
+        ) {
+          thisChapterUpdated = chapter;
+        }
       });
     });
-    const thisChapterUpdated = produced
-      .find((f) => f.path === currentFile)
-      ?.chapters.find((c) => c.chapNumber === currentChapter);
     if (thisChapterUpdated) {
-      setEditorContent(currentFile, currentChapter, thisChapterUpdated);
+      setEditorContent(
+        currentFileBibleIdentifier,
+        currentChapter,
+        thisChapterUpdated
+      );
     }
-    setWorkingFiles(produced);
+    setWorkingFiles(filesToUse);
     updateAppSettings({
       markersViewState: markerViewState,
       markersMutableState: markersMutableState,
       mode: "wysiwyg",
     });
+
     document.body.classList.remove("source-mode");
+    console.timeEnd("adjustWysiwygMode");
   }
   // show true, mutable = chosen option
 
   /* effect once to set initial content (if present), from then on, instead of effect scheduling, we'll prefer to make sure it's set only explicitly during swtichBookChap */
   useEffectOnce(() => {
     // yes, this readjusting state we just rendered, but perf is not bad, and it let's us just keep the logic here instead of in dependency code for lexical, so nodes uust always render a default, and we can adjust to saved preferences real quick before this first showing of content.
-
     if (appSettings.mode === "source") {
       toggleToSourceMode({isInitialLoad: true});
     } else if (
@@ -267,7 +409,7 @@ export const useWorkspaceActions = ({
         duringLoad: true,
       });
     } else {
-      setEditorContent(currentFile, currentChapter);
+      setEditorContent(currentFileBibleIdentifier, currentChapter);
     }
   });
 
@@ -277,6 +419,8 @@ export const useWorkspaceActions = ({
     toggleToSourceMode,
     adjustWysiwygMode,
     saveCurrentDirtyLexical,
+    nextChapter,
+    prevChapter,
   };
 };
 

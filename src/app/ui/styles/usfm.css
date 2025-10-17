@@ -56,8 +56,25 @@ body:not(.source-mode) {
     font-style: italic;
     margin-inline-start: 1.25em;
   }
-  /* [data-token-type="text"]:empty {
-    content: "_";
+  [data-marker="b"] {
+    display: block !important;
+  }
+  [data-marker="b"][data-show="false"] {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  [data-marker-view-state="never"] [data-marker] + br {
+    display: none;
+  }
+  /* .isParaMarker + [data-token-type="text"] {
+    display: block;
+  } */
+  /* .isParaMarker
+    + [data-token-type="text"]:has(
+      + :where([data-marker="p"], [data-marker="m"], [data-marker="s5"])
+    ) {
+    margin-block-end: 0.5rem;
   } */
 }
 

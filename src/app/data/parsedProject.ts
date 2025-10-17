@@ -2,6 +2,7 @@ import {SerializedEditorState, SerializedLexicalNode} from "lexical";
 
 export type ProjectFile = {
   title: string;
+  localizedTitle: string | undefined;
   bibleIdentifier: string;
   nextBookId: string | null;
   prevBookId: string | null;

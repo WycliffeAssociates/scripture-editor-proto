@@ -88,12 +88,12 @@ export function Toolbar() {
       />
       <SegmentedControl
         value={project.appSettings.markersViewState}
-        onChange={(value) =>
+        onChange={(value) => {
           actions.adjustWysiwygMode({
             // already set mutable state
             markersViewState: value as EditorMarkersViewState,
-          })
-        }
+          });
+        }}
         data={[
           {
             value: EditorMarkersViewStates.ALWAYS,
@@ -140,6 +140,7 @@ function ProjectList() {
     router.navigate({
       to: `/$project`,
       params: {project: projectPath},
+      reloadDocument: true,
     });
     // update project settings to this project
     // navigate("/create");
@@ -158,15 +159,11 @@ function ProjectList() {
       </Menu.Target>
       <Menu.Dropdown>
         {allProjects.map((project) => (
-          <Menu.Item key={project.path}>
-            <Button
-              variant="default"
-              bd={"none"}
-              rightSection={<ChevronDown size={16} />}
-              onClick={() => navigateToNewProject(project.path)}
-            >
-              {project.name}
-            </Button>
+          <Menu.Item
+            key={project.path}
+            onClick={() => navigateToNewProject(project.path)}
+          >
+            {project.name}
           </Menu.Item>
         ))}
         <Divider />

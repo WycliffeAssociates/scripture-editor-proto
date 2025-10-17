@@ -39,6 +39,34 @@ export const mergeHorizontalWhitespaceToAdjacent = (
   return tokens;
 };
 
+export const removeVerticalWhiteSpaceInVerses = (tokens: Token[]) => {
+  const indiciesToRemove: number[] = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.type !== TokenMap.text) continue;
+    const second = tokens[i + 1];
+    if (!second || second.type !== TokenMap.verticalWhitespace) continue;
+
+    const third = tokens[i + 2];
+    if (!third || third.type !== TokenMap.marker) continue;
+
+    // this pattern: \v {#} text BR \v {#}
+    if (
+      second?.type === TokenMap.verticalWhitespace &&
+      third?.type === TokenMap.marker &&
+      third.value === "v"
+    ) {
+      // remove the vertical whitespace
+      indiciesToRemove.push(i + 1);
+    }
+  }
+
+  for (let i = indiciesToRemove.length - 1; i >= 0; i--) {
+    tokens.splice(indiciesToRemove[i], 1);
+  }
+};
+
 type IntermediateToken = {
   type: string;
   value: string;

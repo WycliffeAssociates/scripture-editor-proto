@@ -7,8 +7,9 @@ import {
   TextInput,
   useMantineTheme,
 } from "@mantine/core";
+import {useDebouncedValue} from "@mantine/hooks";
 import {BookIcon, ChevronDownIcon} from "lucide-react";
-import {useState} from "react";
+import {useMemo, useState} from "react";
 import type {ParsedFile} from "@/app/data/parsedProject";
 import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import referencePickerCss from "@/app/ui/styles/modules/ReferencePicker.module.css";
@@ -22,10 +23,13 @@ type Props = {
 
 export function ReferencePicker() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search, 50);
+
   const [open, setOpen] = useState(false);
   const theme = useMantineTheme();
   const {allProjects, project, actions} = useWorkspaceContext();
-  const {currentFile, currentChapter, workingFiles, pickedFile} = project;
+  const {currentFileBibleIdentifier, currentChapter, workingFiles, pickedFile} =
+    project;
 
   // --- derived state
   const currentBook = pickedFile?.bibleIdentifier ?? "Select";
@@ -40,25 +44,47 @@ export function ReferencePicker() {
     if (!ref) return;
 
     // match one, a bible id matched fuzzily from above
-    let file = workingFiles.find(
-      (f) => f.bibleIdentifier?.toLowerCase() === ref.book.toLowerCase()
-    );
-    const uniqueStartsWith = workingFiles.filter((f) =>
-      f.title?.toLocaleLowerCase().startsWith(search.toLocaleLowerCase())
+    let file = ref.knownBookId
+      ? workingFiles.find(
+          (f) =>
+            f.bibleIdentifier?.toLowerCase() === ref.knownBookId?.toLowerCase()
+        )
+      : undefined;
+    // match 2, a unique startsWith, whhich actuall takes priority from fuzzy in that we overwrite file here if we find
+    const uniqueStartsWith = workingFiles.filter(
+      (f) =>
+        f.localizedTitle
+          ?.toLocaleLowerCase()
+          .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
+        f.title
+          ?.toLocaleLowerCase()
+          .startsWith(ref.bookMatch.toLocaleLowerCase())
     );
     if (uniqueStartsWith.length === 1) {
       file = uniqueStartsWith[0];
     }
-    // match 2, a unique startsWith
     if (file) {
       actions.switchBookOrChapter(
-        file.path,
+        file.bibleIdentifier,
         ref.chapter ?? currentChapter ?? 1
       );
       // setSearch("");
       setOpen(false);
     }
   }
+  const uniqueFilesStartsWith = useMemo(() => {
+    const ref = parseReference(debouncedSearch);
+    if (!ref) return workingFiles;
+    return workingFiles.filter(
+      (f) =>
+        f.localizedTitle
+          ?.toLocaleLowerCase()
+          .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
+        f.title
+          ?.toLocaleLowerCase()
+          .startsWith(ref.bookMatch.toLocaleLowerCase())
+    );
+  }, [workingFiles, debouncedSearch]);
 
   return (
     <Popover
@@ -108,8 +134,9 @@ export function ReferencePicker() {
             content: referencePickerCss.accordionContent,
           }}
         >
-          {workingFiles.map((file) => {
+          {uniqueFilesStartsWith.map((file) => {
             const fileTitle =
+              file.localizedTitle ||
               file.title ||
               file.bibleIdentifier ||
               file.path.split("/").pop() ||
@@ -119,7 +146,7 @@ export function ReferencePicker() {
               <Accordion.Item key={file.path} value={fileTitle}>
                 <Accordion.Control
                   className={
-                    currentFile === file.path
+                    currentFileBibleIdentifier === file.bibleIdentifier
                       ? referencePickerCss.activeBook
                       : undefined
                   }
@@ -144,7 +171,10 @@ export function ReferencePicker() {
                             }
                             size="lg"
                             onClick={() =>
-                              actions.switchBookOrChapter(file.path, chap)
+                              actions.switchBookOrChapter(
+                                file.bibleIdentifier,
+                                chap
+                              )
                             }
                           >
                             {chap}

@@ -18,7 +18,11 @@ import {makeSid, type ParsedReference, parseSid} from "@/core/data/bible/bible";
 
 type Props = {
   workingFiles: ParsedFile[];
-  saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+  saveCurrentDirtyLexical: ({
+    doSetWorkingFiles,
+  }: {
+    doSetWorkingFiles?: boolean;
+  }) => ParsedFile[] | undefined;
   switchBookOrChapter: (
     file: string,
     chapter: number
@@ -32,6 +36,7 @@ type SearchResult = {
   sid: string;
   text: string;
   filePath: string;
+  bibleIdentifier: string;
   chapNum: number;
   parsedSid: ParsedReference | null;
   isCaseMismatch: boolean;
@@ -78,7 +83,9 @@ export function useProjectSearch({
   function searchProject() {
     CSS.highlights.clear();
 
-    const filesToSearch = saveCurrentDirtyLexical() || workingFiles;
+    // This is a mutable ref returned here with latest. Don't mutate right now
+    const filesToSearch =
+      saveCurrentDirtyLexical({doSetWorkingFiles: true}) || workingFiles;
     const allResults: SearchResult[] = [];
 
     for (const file of filesToSearch) {
@@ -98,6 +105,7 @@ export function useProjectSearch({
               sid,
               text,
               filePath: file.path,
+              bibleIdentifier: file.bibleIdentifier,
               chapNum: chapter.chapNumber,
               parsedSid: parseSid(sid),
               isCaseMismatch: searchTerm !== matchResult.matchedTerm,
@@ -126,7 +134,7 @@ export function useProjectSearch({
     setPickedResult(result);
 
     const newChapterState = switchBookOrChapter(
-      result.filePath,
+      result.bibleIdentifier,
       result.chapNum
     );
     if (!newChapterState) return;

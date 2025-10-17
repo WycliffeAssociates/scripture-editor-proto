@@ -76,6 +76,7 @@ export function USFMPlugin() {
         editorState,
         markersViewState,
         currentActive: markersInPreview.current,
+        markersMutableState,
         setCurrentActive: (activeNodes) => {
           markersInPreview.current = activeNodes;
         },

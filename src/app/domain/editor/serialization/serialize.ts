@@ -23,7 +23,9 @@ export function parsedUsfmTokensToJsonLexicalNode(
     direction: languageDirection,
     format: "start",
     indent: 0,
-    children: tokens.map((t) => serializeToken(t, languageDirection)),
+    children: tokens
+      .map((t) => serializeToken(t, languageDirection))
+      .filter(Boolean),
   };
   return {
     root: {
@@ -76,6 +78,13 @@ function serializeToken(
     ]);
   }
 
+  // if (token.marker === "b") {
+  //   const lb: SerializedLineBreakNode = {
+  //     type: "linebreak",
+  //     version: 1,
+  //   };
+  //   return lb;
+  // }
   if (token.type === TokenMap.verticalWhitespace) {
     const lb: SerializedLineBreakNode = {
       type: "linebreak",

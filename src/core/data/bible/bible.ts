@@ -173,7 +173,12 @@ const BOOK_ALIASES: Record<string, string[]> = {
 export function matchBook(input: string): string | null {
   const normalized = input.toLowerCase().replace(/\s+/g, "");
   for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
-    if (aliases.some((alias) => normalized.startsWith(alias))) {
+    if (
+      aliases.some(
+        (alias) =>
+          normalized.startsWith(alias) || normalized === id.toLowerCase()
+      )
+    ) {
       return id;
     }
   }
@@ -264,7 +269,9 @@ export function parseReference(input: string) {
   if (!match) return null;
   const [, rawBook, rawChap] = match;
   const bookId = matchBook(rawBook);
-  return bookId
-    ? {book: bookId, chapter: rawChap ? Number(rawChap) : null}
-    : null;
+  return {
+    knownBookId: bookId,
+    bookMatch: rawBook,
+    chapter: rawChap ? Number(rawChap) : null,
+  };
 }

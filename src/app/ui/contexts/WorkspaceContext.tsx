@@ -58,13 +58,14 @@ export const ProjectProvider = ({
   const actions = useWorkspaceActions({
     editorRef,
     currentChapter: project.currentChapter,
-    currentFile: project.currentFile,
+    currentFileBibleIdentifier: project.currentFileBibleIdentifier,
     setCurrentChapter: project.setCurrentChapter,
-    setCurrentFile: project.setCurrentFile,
+    setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
     updateAppSettings: project.updateAppSettings,
     appSettings: project.appSettings,
     workingFiles,
     setWorkingFiles,
+    pickedFile: project.pickedFile,
   });
   const referenceProject = useReferenceProject({
     directoryProvider,
@@ -82,9 +83,9 @@ export const ProjectProvider = ({
   const lint = useLint();
 
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
-  // useEffect(() => {
-  //   setWorkingFiles(projectFiles);
-  // }, [projectFiles]);
+  useEffect(() => {
+    setWorkingFiles(projectFiles);
+  }, [projectFiles]);
   return (
     <WorkspaceContext.Provider
       value={{

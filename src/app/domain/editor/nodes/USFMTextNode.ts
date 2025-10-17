@@ -193,6 +193,9 @@ export class USFMTextNode extends TextNode {
     classNames.forEach((c) => {
       element.classList.add(c);
     });
+    if (states.marker && isValidParaMarker(states.marker)) {
+      element.classList.add("isParaMarker");
+    }
     return element;
   }
   updateDOM(
