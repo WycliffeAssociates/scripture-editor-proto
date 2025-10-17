@@ -24,12 +24,24 @@ export class WebDirectoryHandleWrapper implements IDirectoryHandle {
 
     async getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<IDirectoryHandle> {
         const child = await this.handle.getDirectoryHandle(name, opts);
-        return new WebDirectoryHandleWrapper(child, `${this.path}/${name}`, this.resolveHandle);
+        let pattern = "";
+        if (this.path.endsWith("/")) {
+            pattern = `${this.path}${name}`
+        } else {
+            pattern = `${this.path}/${name}`
+        }
+        return new WebDirectoryHandleWrapper(child, pattern, this.resolveHandle);
     }
 
     async getFileHandle(name: string, opts?: { create?: boolean }): Promise<IFileHandle> {
         const file = await this.handle.getFileHandle(name, opts);
-        return new WebFileHandleWrapper(file, `${this.path}/${name}`, this.resolveHandle);
+        let pattern = "";
+        if (this.path.endsWith("/")) {
+            pattern = `${this.path}${name}`
+        } else {
+            pattern = `${this.path}/${name}`
+        }
+        return new WebFileHandleWrapper(file, pattern, this.resolveHandle);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }) {
