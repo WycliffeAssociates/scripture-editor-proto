@@ -3,6 +3,7 @@ import {ProjectFile} from "@/app/data/parsedProject.ts";
 import {ProjectMetadata} from "@/core/domain/project/project.ts";
 import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
 /**
@@ -44,11 +45,8 @@ export interface Project {
     name: string;
     files: ProjectFile[];
     metadata: ProjectMetadata;
-    projectDir: IPathHandle;
+    projectDir: IDirectoryHandle;
     fileWriter: IFileWriter;
-    manifestYaml?: any; // To hold parsed manifest data for updates (for Resource Container projects)
-    metadataJson?: any; // To hold parsed metadata data for updates (for Scripture Burrito projects)
-    md5Service: IMd5Service; // MD5 service for checksums, passed to addBook and internal operations
     /**
      * @method addBook
      * @description Adds a USFM file (book) to the project. This method is intelligent about project type

@@ -1,7 +1,7 @@
 import { parse } from "yaml";
 import { getBookSlug } from "@/core/data/bible/bible.ts";
 
-type DublinCore = {
+export type ResourceContainerDublinCore = {
     conformsto: string;
     contributor: string[];
     creator: string;
@@ -9,7 +9,7 @@ type DublinCore = {
     format: string;
     identifier: string;
     issued: string;
-    language: Language;
+    language: ResourceContainerLanguage;
     modified: string;
     publisher: string;
     relation: string[];
@@ -18,36 +18,36 @@ type DublinCore = {
     title: string;
     type: string;
     version: string;
-    source: Source[];
+    source: ResourceContainerSource[];
 };
 
-type Checking = {
+export type Checking = {
     checking_entity: string[];
     checking_level: string;
 };
-type Language = {
+export type ResourceContainerLanguage = {
     direction: string;
     identifier: string;
     title: string;
 };
-type Project = {
+export type ResourceContainerProject = {
     title: string;
     versification: string;
     identifier: string;
-    sortAsString: string;
     sort: number;
     path: string;
     categories: string[];
 };
-type Source = {
+export type ResourceContainerSource = {
     identifier: string;
     language: string;
     version: string;
 };
-type ResourceContainer = {
-    dublin_core: DublinCore;
+
+export type ResourceContainer = {
+    dublin_core: ResourceContainerDublinCore;
     checking: Checking;
-    projects: Project[];
+    projects: ResourceContainerProject[];
 };
 
 export function parseResourceContainer(yamlManifest: string) {

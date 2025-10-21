@@ -4,8 +4,9 @@ import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {parseResourceContainer, ResourceContainer} from "@/core/domain/project/resourceContainer/resourceContainer.ts";
+import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
 
 
 /**
@@ -17,50 +18,58 @@ import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
  */
 export class ResourceContainerProjectLoader implements IProjectLoader {
     static readonly MANIFEST_FILENAME = "manifest.yaml";
+    private const directoryProvider: IDirectoryProvider;
+
+    constructor(directoryProvider: IDirectoryProvider) {
+        this.directoryProvider = directoryProvider;
+    }
+
 
     /**
      * @method loadProject
      * @description Loads a Resource Container project from the specified directory handle.
      * @param projectDir - The IDirectoryHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
-     * @param md5Service - An IMd5Service instance (though not directly used in RC loading, it's part of the Project interface).
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
      *          (e.g., manifest.yaml is missing or malformed).
      */
-    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter): Promise<Project | null> {
         try {
             const manifestFileHandle = await projectDir.getFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME);
             if (!manifestFileHandle) return null;
             const file = await manifestFileHandle.getFile();
             const contents = await file.text();
-            // TODO: Implement actual YAML parsing
-            const parsedManifest: any = { projects: {} }; // Initialize with a structure that anticipates 'projects'
+            const parsedManifest: Partial<ResourceContainer> = parseResourceContainer(contents);
             console.log("Loading Resource Container manifest:", contents);
 
-            const projectId = projectDir.name; // Resource Container usually derives project ID from directory name
-            const projectMetadata = parsedManifest.projects?.[projectId]?.projectMeta || {};
-            const defaultLanguageTag = projectMetadata.target_language?.tag || "und";
-            const defaultLanguageName = projectMetadata.target_language?.name || "Undefined";
-            const defaultLanguageDirection = projectMetadata.target_language?.direction === "rtl" ? LanguageDirection.RTL : LanguageDirection.LTR;
+            const projectId = parsedManifest.dublin_core?.identifier;
+            const language = parsedManifest.dublin_core?.language;
+            if (!projectId) {
+                console.log("No project id found for project:", projectId);
+                return null;
+            }
+
+            if (!language) {
+                console.log("No language found for project:", projectId);
+                return null;
+            }
+
 
             const project: Project = {
                 id: projectId,
-                name: projectMetadata.name || projectId,
+                name: parsedManifest.dublin_core?.title || projectId,
                 files: [],
-                // path: projectDir.path || "", // Removed as FileSystemDirectoryHandle does not have a .path property
                 metadata: {
                     id: projectId,
-                    name: projectMetadata.name || projectId,
+                    name: parsedManifest.dublin_core?.title || projectId,
                     language: {
-                        id: defaultLanguageTag,
-                        name: defaultLanguageName,
-                        direction: defaultLanguageDirection,
+                        id: language.identifier,
+                        name: language.title,
+                        direction: (language.direction === LanguageDirection.RTL)? LanguageDirection.RTL : LanguageDirection.LTR,
                     },
                 },
                 projectDir,
                 fileWriter,
-                manifestYaml: parsedManifest,
-                md5Service,
                 /**
                  * @method addBook
                  * @description Adds a USFM book to the Resource Container project. If the book already exists
@@ -75,15 +84,16 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     if (!book) {
                         throw new Error(`Invalid book code: ${bookCode}`);
                     }
-                    const filename = `${book.num}-${book.code}.usfm`;
-                    const filePath = filename; // Path relative to projectDir
 
-                    const existingResources = project.manifestYaml.projects?.[project.id]?.resources || [];
-                    const bookExistsInManifest = existingResources.some((res: any) => res.identifier === book.code.toLowerCase());
+                    const existingProjects = parsedManifest.projects || [];
+                    const bookIndex = existingProjects.findIndex((res: any) => res.identifier === book.code.toLowerCase());
+                    const bookInManifest = existingProjects[bookIndex];
+                    const bookExistsInManifest = bookIndex !== -1
 
+                    let filename = `${book.num}-${book.code}.usfm`;
                     if (bookExistsInManifest) {
-                        console.warn(`Book ${filename} already exists in manifest. Not adding.`);
-                        return;
+                        filename = bookInManifest.path
+                        filename = filename.split("/").pop()!
                     }
 
                     try {
@@ -91,29 +101,38 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                         if (!directoryHandle) {
                             throw new Error(`Project directory ${project.projectDir.path} is not a directory.`);
                         }
-                        await directoryHandle.getFileHandle(filePath, { create: false });
+                        const filePath = await directoryHandle.getFileHandle(filename, { create: false });
+                        const file = await filePath.getAbsolutePath();
+                        await fileWriter.writeFile(file, contents);
                         console.warn(`Book ${filename} already exists as a file. Not adding.`);
                         return;
-                    } catch {
-                        // File does not exist, proceed to create
+                    } catch(error) {
+                        console.error(error);
                     }
 
-                    await fileWriter.writeFile(filePath, contents);
+
+                    if (bookExistsInManifest) {
+                        console.warn(`Book ${filename} already exists in manifest. Not adding.`);
+                        await fileWriter.writeFile(filePath, contents);
+                        return;
+                    }
 
                     // Update manifest.yaml
-                    // This is a simplified mock. Real implementation would involve YAML parsing/serialization.
-                    project.manifestYaml.projects = project.manifestYaml.projects || {};
-                    project.manifestYaml.projects[project.id] = project.manifestYaml.projects[project.id] || {};
-                    project.manifestYaml.projects[project.id].resources = project.manifestYaml.projects[project.id].resources || [];
-                    project.manifestYaml.projects[project.id].resources.push({
-                        identifier: book.code.toLowerCase(),
-                        name: localizedBookTitle || book.code,
-                        format: "usfm",
-                        path: filePath,
-                    });
+                    const existingBookIndex = existingProjects.findIndex((res: any) => res.identifier === book.code.toLowerCase());
+
+                    if (existingBookIndex == -1) {
+                        existingProjects.push({
+                            identifier: book.code.toLowerCase(),
+                            title: localizedBookTitle || book.code,
+                            path: filePath,
+                            sort: 1,
+                            versification: "ufw",
+                            categories: []
+                        });
+                    }
 
                     // Write updated manifest back (mocked)
-                    const updatedManifestString = JSON.stringify(project.manifestYaml, null, 2);
+                    const updatedManifestString = JSON.stringify(project, null, 4);
                     await fileWriter.writeFile(ResourceContainerProjectLoader.MANIFEST_FILENAME, updatedManifestString);
                     console.log(`Added ${filename} to manifest.yaml`);
                 },
