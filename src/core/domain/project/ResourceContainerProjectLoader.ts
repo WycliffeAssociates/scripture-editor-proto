@@ -5,6 +5,7 @@ import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {parseResourceContainer, ResourceContainer, ResourceContainerProject} from "@/core/domain/project/resourceContainer/resourceContainer.ts";
+import { stringify } from "yaml";
 
 
 /**
@@ -131,7 +132,7 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     parsedManifest.projects = currentProjects;
 
                     // Write updated manifest back
-                    const updatedManifestString = JSON.stringify(parsedManifest, null, 2); // Using JSON for simplicity here
+                    const updatedManifestString = stringify(parsedManifest);
                     const manifestFileHandle = await projectDir.getFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME, { create: true });
                     const manifestWriter = await manifestFileHandle.createWriter();
                     await manifestWriter.write(updatedManifestString);
