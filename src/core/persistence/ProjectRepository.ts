@@ -57,4 +57,11 @@ export interface Project {
      * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
      */
     addBook(bookCode: string, localizedBookTitle?: string, contents?: string): Promise<void>;
+    /**
+     * @method getBook
+     * @description Retrieves the content of a specific book from the project.
+     * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
+     * @returns A Promise that resolves to the content of the book as a string, or null if the book is not found.
+     */
+    getBook(bookCode: string): Promise<string | null>;
 }

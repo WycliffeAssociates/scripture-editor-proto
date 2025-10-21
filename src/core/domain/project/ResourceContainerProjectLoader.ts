@@ -139,6 +139,44 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     await manifestWriter.close();
                     console.log(`Manifest ${ResourceContainerProjectLoader.MANIFEST_FILENAME} updated.`);
                 },
+                /**
+                 * @method getBook
+                 * @description Retrieves the content of a specific book from the Resource Container project.
+                 * @param bookCode - The three-letter book code (e.g., "MAT").
+                 * @returns A Promise that resolves to the content of the book as a string, or null if the book is not found.
+                 */
+                getBook: async (bookCode: string): Promise<string | null> => {
+                    const book = canonicalBookMap[bookCode.toUpperCase()];
+                    if (!book) {
+                        console.warn(`Book with code ${bookCode} not found in canonical map.`);
+                        return null;
+                    }
+
+                    const currentProjects: ResourceContainerProject[] = parsedManifest.projects || [];
+                    const bookInManifest = currentProjects.find((res) => res.identifier === book.code.toLowerCase());
+
+                    let bookPath: string;
+                    if (bookInManifest && bookInManifest.path) {
+                        bookPath = bookInManifest.path;
+                    } else {
+                        bookPath = `${book.num}-${book.code}.usfm`; // Default path if not in manifest or path is missing
+                    }
+
+                    const directoryHandle: IDirectoryHandle | null = project.projectDir.asDirectoryHandle();
+                    if (!directoryHandle) {
+                        console.error(`Project directory ${project.projectDir.path} is not a directory.`);
+                        return null;
+                    }
+
+                    try {
+                        const fileHandle = await directoryHandle.getFileHandle(bookPath);
+                        const file = await fileHandle.getFile();
+                        return await file.text();
+                    } catch (error) {
+                        console.debug(`Could not read book file for ${bookCode} at path ${bookPath}: ${error}`);
+                        return null;
+                    }
+                },
             };
             return project;
         } catch (error) {
