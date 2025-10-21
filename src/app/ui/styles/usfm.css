@@ -16,7 +16,7 @@ body:not(.source-mode) {
   }
   .chapter-number,
   [data-marker="c"],
-  [data-marker="c"] + [data-token-type="verseRange"] {
+  [data-marker="c"] + [data-token-type="numberRange"] {
     font-size: 2em;
     font-weight: bold;
     text-align: center;
@@ -44,17 +44,49 @@ body:not(.source-mode) {
     pointer-events: none;
   }
 
-  [data-marker="q1"],
-  [data-in-para="q1"],
-  [data-marker="q"],
-  [data-in-para="q"] {
-    font-style: italic;
-    margin-inline-start: 0.5em;
+  .markers-hidden
+    :where(
+      [data-marker="q1"],
+      [data-in-para="q1"]:not([data-token-type="numberRange"])
+    ) {
+    margin-inline-start: 0.5rem; /* or your preferred smaller indentation */
   }
-  [data-marker="q2"],
-  [data-in-para="q2"]:not([data-token-type="verseRange"]) {
+  .markers-hidden
+    :where(
+      [data-marker="q2"],
+      [data-in-para="q2"]:not([data-token-type="numberRange"])
+    ) {
+    margin-inline-start: 1rem;
+  }
+
+  .markers-shown
+    :where(
+      br + [data-marker="q1"],
+      br + [data-in-para="q1"]:not([data-token-type="numberRange"])
+    ) {
+    margin-inline-start: 1rem;
+  }
+  .markers-shown
+    :where(
+      br + [data-marker="q2"],
+      br + [data-in-para="q2"]:not([data-token-type="numberRange"])
+    ) {
+    margin-inline-start: 2rem;
+  }
+
+  :where(
+      [data-marker="q"],
+      [data-in-para="q"],
+      [data-marker="q1"],
+      [data-in-para="q1"],
+      [data-marker="q2"],
+      [data-in-para="q2"],
+      [data-marker="q3"],
+      [data-in-para="q3"],
+      [data-marker="q4"],
+      [data-in-para="q4"]
+    ) {
     font-style: italic;
-    margin-inline-start: 1.25em;
   }
   [data-marker="b"] {
     display: block !important;
@@ -67,7 +99,10 @@ body:not(.source-mode) {
   [data-marker-view-state="never"] [data-marker] + br {
     display: none;
   }
-  /* .isParaMarker + [data-token-type="text"] {
+  /* .isParaMarker[data-token-type="text"] {
+    display: block;
+  } */
+  /* [data-token-type="text"] + .isParaMarker {
     display: block;
   } */
   /* .isParaMarker
@@ -79,7 +114,8 @@ body:not(.source-mode) {
 }
 
 .lint-error {
-  background: var(--color-red-700);
+  background: var(--color-red-800);
+  padding: 1px;
   color: var(--color-red-50);
   border-radius: 2px;
 }
@@ -97,3 +133,9 @@ body:not(.source-mode) {
   color: var(--color-pink-50);
   border-radius: 2px;
 } */
+.nested-editor {
+  display: inline-flex;
+}
+.nested-editor:has(+ .isParaMarker)::after {
+  content: "";
+}

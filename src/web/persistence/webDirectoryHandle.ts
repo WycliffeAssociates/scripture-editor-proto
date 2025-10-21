@@ -1,4 +1,4 @@
-import { WebFileHandleExtended } from "@/core/data/persistence/DirectoryProvider";
+import type { WebFileHandleExtended } from "@/core/data/persistence/DirectoryProvider";
 
 export class WebDirectoryHandleWrapper extends FileSystemDirectoryHandle {
     kind: "directory" = "directory";

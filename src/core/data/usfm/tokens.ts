@@ -11,7 +11,7 @@ export const CHAPTER_VERSE_MARKERS = new Set([
 BORROWED FROM https://github.com/eten-tech-foundation/scripture-editors/
 */
 /** @see https://docs.usfm.bible/usfm/3.1/note/index.html */
-const VALID_NOTE_MARKERS = [
+export const VALID_NOTE_MARKERS = new Set([
     // Footnote
     "f",
     "fe",
@@ -19,10 +19,10 @@ const VALID_NOTE_MARKERS = [
     // Cross Reference
     "x",
     "ex",
-] as const;
+]);
 
 /** @see https://docs.usfm.bible/usfm/3.1/char/notes/footnote/index.html */
-const VALID_CHAR_FOOTNOTE_MARKERS = [
+export const VALID_CHAR_FOOTNOTE_MARKERS = new Set([
     "fr",
     "fq",
     "fqa",
@@ -34,10 +34,10 @@ const VALID_CHAR_FOOTNOTE_MARKERS = [
     "fv",
     "fdc",
     "fm",
-];
+]);
 
 /** @see https://docs.usfm.bible/usfm/3.1/char/notes/crossref/index.html */
-const VALID_CHAR_CROSS_REFERENCE_MARKERS = [
+export const VALID_CHAR_CROSS_REFERENCE_MARKERS = new Set([
     "xo",
     "xop",
     "xk",
@@ -47,9 +47,9 @@ const VALID_CHAR_CROSS_REFERENCE_MARKERS = [
     "xot",
     "xnt",
     "xdc",
-];
+]);
 
-const VALID_CHAR_MARKERS = [
+export const VALID_CHAR_MARKERS = new Set([
     // Chapter & Verse
     "ca",
     "cp",
@@ -106,12 +106,9 @@ const VALID_CHAR_MARKERS = [
     "liv3",
     "liv4",
     "liv5",
+]);
 
-    ...VALID_CHAR_FOOTNOTE_MARKERS,
-    ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
-] as const;
-
-const VALID_MILESTONE_MARKERS = [
+const VALID_MILESTONE_MARKERS = new Set([
     "ts-s",
     "ts-e",
     "t-s",
@@ -129,9 +126,9 @@ const VALID_MILESTONE_MARKERS = [
     "qt5-e",
     "qt-s",
     "qt-e",
-] as const;
+]);
 
-export const VALID_PARA_MARKERS = [
+export const VALID_PARA_MARKERS = new Set([
     // Identification
     "ide",
     "sts",
@@ -258,15 +255,16 @@ export const VALID_PARA_MARKERS = [
     "lim4",
     // Breaks - see https://docs.usfm.bible/usfm/3.1/char/breaks/pb.html
     "pb",
-] as const;
+]);
 export const isValidParaMarker = (marker: string) => {
-    // @ts-expect-error; it wants one of the as const vals, but not needed for this check
-    return VALID_PARA_MARKERS.includes(marker);
+    return VALID_PARA_MARKERS.has(marker);
 };
 
 export const ALL_USFM_MARKERS = new Set([
     ...VALID_PARA_MARKERS,
     ...VALID_CHAR_MARKERS,
+    ...VALID_CHAR_FOOTNOTE_MARKERS,
+    ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
     ...VALID_MILESTONE_MARKERS,
     ...VALID_NOTE_MARKERS,
     ...CHAPTER_VERSE_MARKERS,

@@ -1,10 +1,9 @@
-import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {LanguageDirection} from "@/core/domain/project/project.ts";
-import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
-
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
+import type { IProjectLoader } from "@/core/domain/project/IProjectLoader.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
  * @class ResourceContainerProjectLoader
@@ -25,9 +24,15 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
      *          (e.g., manifest.yaml is missing or malformed).
      */
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(
+        projectDir: FileSystemDirectoryHandle,
+        fileWriter: IFileWriter,
+        md5Service: IMd5Service,
+    ): Promise<Project | null> {
         try {
-            const manifestFileHandle = await projectDir.getFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME);
+            const manifestFileHandle = await projectDir.getFileHandle(
+                ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            );
             const file = await manifestFileHandle.getFile();
             const contents = await file.text();
             // TODO: Implement actual YAML parsing
@@ -35,10 +40,16 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
             console.log("Loading Resource Container manifest:", contents);
 
             const projectId = projectDir.name; // Resource Container usually derives project ID from directory name
-            const projectMetadata = parsedManifest.projects?.[projectId]?.projectMeta || {};
-            const defaultLanguageTag = projectMetadata.target_language?.tag || "und";
-            const defaultLanguageName = projectMetadata.target_language?.name || "Undefined";
-            const defaultLanguageDirection = projectMetadata.target_language?.direction === "rtl" ? LanguageDirection.RTL : LanguageDirection.LTR;
+            const projectMetadata =
+                parsedManifest.projects?.[projectId]?.projectMeta || {};
+            const defaultLanguageTag =
+                projectMetadata.target_language?.tag || "und";
+            const defaultLanguageName =
+                projectMetadata.target_language?.name || "Undefined";
+            const defaultLanguageDirection =
+                projectMetadata.target_language?.direction === "rtl"
+                    ? LanguageDirection.RTL
+                    : LanguageDirection.LTR;
 
             const project: Project = {
                 id: projectId,
@@ -67,7 +78,11 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                  * @param contents - Optional. The USFM content of the book. Defaults to an empty string.
                  * @returns A Promise that resolves when the book is added and the manifest is updated.
                  */
-                addBook: async (bookCode: string, localizedBookTitle?: string, contents: string = "") => {
+                addBook: async (
+                    bookCode: string,
+                    localizedBookTitle?: string,
+                    contents: string = "",
+                ) => {
                     const book = canonicalBookMap[bookCode.toUpperCase()];
                     if (!book) {
                         throw new Error(`Invalid book code: ${bookCode}`);
@@ -75,17 +90,28 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     const filename = `${book.num}-${book.code}.usfm`;
                     const filePath = filename; // Path relative to projectDir
 
-                    const existingResources = project.manifestYaml.projects?.[project.id]?.resources || [];
-                    const bookExistsInManifest = existingResources.some((res: any) => res.identifier === book.code.toLowerCase());
+                    const existingResources =
+                        project.manifestYaml.projects?.[project.id]
+                            ?.resources || [];
+                    const bookExistsInManifest = existingResources.some(
+                        (res: any) =>
+                            res.identifier === book.code.toLowerCase(),
+                    );
 
                     if (bookExistsInManifest) {
-                        console.warn(`Book ${filename} already exists in manifest. Not adding.`);
+                        console.warn(
+                            `Book ${filename} already exists in manifest. Not adding.`,
+                        );
                         return;
                     }
 
                     try {
-                        await projectDir.getFileHandle(filePath, { create: false });
-                        console.warn(`Book ${filename} already exists as a file. Not adding.`);
+                        await projectDir.getFileHandle(filePath, {
+                            create: false,
+                        });
+                        console.warn(
+                            `Book ${filename} already exists as a file. Not adding.`,
+                        );
                         return;
                     } catch {
                         // File does not exist, proceed to create
@@ -95,9 +121,13 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
 
                     // Update manifest.yaml
                     // This is a simplified mock. Real implementation would involve YAML parsing/serialization.
-                    project.manifestYaml.projects = project.manifestYaml.projects || {};
-                    project.manifestYaml.projects[project.id] = project.manifestYaml.projects[project.id] || {};
-                    project.manifestYaml.projects[project.id].resources = project.manifestYaml.projects[project.id].resources || [];
+                    project.manifestYaml.projects =
+                        project.manifestYaml.projects || {};
+                    project.manifestYaml.projects[project.id] =
+                        project.manifestYaml.projects[project.id] || {};
+                    project.manifestYaml.projects[project.id].resources =
+                        project.manifestYaml.projects[project.id].resources ||
+                        [];
                     project.manifestYaml.projects[project.id].resources.push({
                         identifier: book.code.toLowerCase(),
                         name: localizedBookTitle || book.code,
@@ -106,8 +136,15 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     });
 
                     // Write updated manifest back (mocked)
-                    const updatedManifestString = JSON.stringify(project.manifestYaml, null, 2);
-                    await fileWriter.writeFile(ResourceContainerProjectLoader.MANIFEST_FILENAME, updatedManifestString);
+                    const updatedManifestString = JSON.stringify(
+                        project.manifestYaml,
+                        null,
+                        2,
+                    );
+                    await fileWriter.writeFile(
+                        ResourceContainerProjectLoader.MANIFEST_FILENAME,
+                        updatedManifestString,
+                    );
                     console.log(`Added ${filename} to manifest.yaml`);
                 },
             };

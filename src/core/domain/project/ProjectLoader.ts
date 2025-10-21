@@ -1,10 +1,9 @@
-import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
-import {ResourceContainerProjectLoader} from "@/core/domain/project/ResourceContainerProjectLoader.ts";
-import {ScriptureBurritoProjectLoader} from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
-
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IProjectLoader } from "@/core/domain/project/IProjectLoader.ts";
+import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
+import { ScriptureBurritoProjectLoader } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
  * @class ProjectLoader
@@ -37,17 +36,35 @@ export class ProjectLoader implements IProjectLoader {
      * @param md5Service - An IMd5Service instance for calculating MD5 checksums.
      * @returns A Promise that resolves to the loaded Project object, or null if no project can be loaded.
      */
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
-        const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
-        const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
+    async loadProject(
+        projectDir: FileSystemDirectoryHandle,
+        fileWriter: IFileWriter,
+        md5Service: IMd5Service,
+    ): Promise<Project | null> {
+        const hasMetadataJson = await this.checkFileExists(
+            projectDir,
+            ScriptureBurritoProjectLoader.METADATA_FILENAME,
+        );
+        const hasManifestYaml = await this.checkFileExists(
+            projectDir,
+            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+        );
 
         if (hasMetadataJson) {
-            const project = await this.scriptureBurritoLoader.loadProject(projectDir, fileWriter, md5Service);
+            const project = await this.scriptureBurritoLoader.loadProject(
+                projectDir,
+                fileWriter,
+                md5Service,
+            );
             if (project) return project;
         }
 
         if (hasManifestYaml) {
-            const project = await this.resourceContainerLoader.loadProject(projectDir, fileWriter, md5Service);
+            const project = await this.resourceContainerLoader.loadProject(
+                projectDir,
+                fileWriter,
+                md5Service,
+            );
             if (project) return project;
         }
 
@@ -62,7 +79,10 @@ export class ProjectLoader implements IProjectLoader {
      * @param fileName - The name of the file to check for.
      * @returns A Promise that resolves to true if the file exists, false otherwise.
      */
-    private async checkFileExists(dir: FileSystemDirectoryHandle, fileName: string): Promise<boolean> {
+    private async checkFileExists(
+        dir: FileSystemDirectoryHandle,
+        fileName: string,
+    ): Promise<boolean> {
         try {
             await dir.getFileHandle(fileName);
             return true;

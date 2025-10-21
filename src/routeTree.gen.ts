@@ -11,11 +11,11 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AboutRouteImport } from "./routes/about";
 import { Route as IndexRouteImport } from "./routes/index";
-import { Route as ProjectsCreateRouteImport } from "./routes/projects/create";
 import { Route as ProjectsProjectIdRouteImport } from "./routes/projects/$projectId";
-import { Route as ProjectsSearchProjectIdRouteImport } from "./routes/projects/search.$projectId";
-import { Route as ProjectsProjectIdSearchRouteImport } from "./routes/projects/$projectId.search";
 import { Route as ProjectsProjectIdEditRouteImport } from "./routes/projects/$projectId.edit";
+import { Route as ProjectsProjectIdSearchRouteImport } from "./routes/projects/$projectId.search";
+import { Route as ProjectsCreateRouteImport } from "./routes/projects/create";
+import { Route as ProjectsSearchProjectIdRouteImport } from "./routes/projects/search.$projectId";
 
 const AboutRoute = AboutRouteImport.update({
     id: "/about",

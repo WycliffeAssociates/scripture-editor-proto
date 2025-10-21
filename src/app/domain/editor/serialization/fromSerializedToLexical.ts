@@ -44,39 +44,40 @@ function serializeToken(
 ): USFMNodeJSON {
   const token = normalizeToken(t);
   if (nestedEditorMarkers.has(token.marker ?? "")) {
-    return getSerializedNestedEditorNode(
+    return getSerializedNestedEditorNode({
       token,
-      () =>
-        token.content?.map((c) => serializeToken(c, languageDirection)) ?? []
-    );
+      childrenCb: () =>
+        token.content?.map((c) => serializeToken(c, languageDirection)) ?? [],
+      languageDirection,
+    });
   }
 
   // If token has children → element node
-  if (Array.isArray(token.content) && token.content.length > 0) {
-    const openSerializedMarker = createSerializedUSFMTextNode({
-      text: token.text,
-      id: token.id,
-      sid: token.sid || "",
-      tokenType: token.type,
-      marker: t.marker,
-      inPara: t.inPara,
-    });
-    const children =
-      t.content?.map((c) => serializeToken(c, languageDirection)) ?? [];
-    const close = createSerializedUSFMTextNode({
-      text: `\\${t.marker}*`,
-      id: t.id,
-      sid: t.sid || "",
-      tokenType: "endMarker",
-      marker: t.marker,
-      inPara: t.inPara,
-    });
-    return createSerializedUSFMElementNode(t, languageDirection, [
-      openSerializedMarker,
-      ...children,
-      close,
-    ]);
-  }
+  // if (Array.isArray(token.content) && token.content.length > 0) {
+  //   const openSerializedMarker = createSerializedUSFMTextNode({
+  //     text: token.text,
+  //     id: token.id,
+  //     sid: token.sid || "",
+  //     tokenType: token.tokenType,
+  //     marker: t.marker,
+  //     inPara: t.inPara,
+  //   });
+  //   const children =
+  //     t.content?.map((c) => serializeToken(c, languageDirection)) ?? [];
+  //   const close = createSerializedUSFMTextNode({
+  //     text: `\\${t.marker}*`,
+  //     id: t.id,
+  //     sid: t.sid || "",
+  //     tokenType: "endMarker",
+  //     marker: t.marker,
+  //     inPara: t.inPara,
+  //   });
+  //   return createSerializedUSFMElementNode(t, languageDirection, [
+  //     openSerializedMarker,
+  //     ...children,
+  //     close,
+  //   ]);
+  // }
 
   // if (token.marker === "b") {
   //   const lb: SerializedLineBreakNode = {
@@ -85,7 +86,7 @@ function serializeToken(
   //   };
   //   return lb;
   // }
-  if (token.type === TokenMap.verticalWhitespace) {
+  if (token.tokenType === TokenMap.verticalWhitespace) {
     const lb: SerializedLineBreakNode = {
       type: "linebreak",
       version: 1,
@@ -93,25 +94,28 @@ function serializeToken(
     return lb;
   }
   // else it is a text node
+
   return createSerializedUSFMTextNode({
     text: token.text,
     id: token.id,
     sid: token.sid || "",
-    tokenType: token.type,
+    tokenType: token.tokenType,
     marker: token.marker,
     inPara: token.inPara,
+    lintErrors: token.lintErrors,
+    // maybe set isMutable and show from parse if remembering settings? Right now we just adjust once we've rendered the stuff. NOt sure
   });
 }
 
 function normalizeToken(t: ParsedToken): ParsedToken {
   const token =
-    t.type === "idMarker"
+    t.tokenType === "idMarker"
       ? {
           ...t,
           marker: "id",
-          type: "marker",
+          tokenType: "marker",
           text: t.text.replace("id", ""),
-          identity: t.id,
+          id: t.id,
         }
       : t;
   return token;

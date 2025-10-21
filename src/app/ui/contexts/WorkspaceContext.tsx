@@ -17,6 +17,7 @@ import {
   useWorkspaceState,
   type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState";
+import type {LintError} from "@/core/domain/usfm/parse";
 
 interface WorkSpaceContextType {
   editorRef: React.RefObject<LexicalEditor | null>;
@@ -42,11 +43,13 @@ export const useWorkspaceContext = () => {
 type ProjectProviderProps = {
   currentProjectRoute: string;
   projectFiles: ParsedFile[];
+  allInitialLintErrors: LintError[];
   children: React.ReactNode;
 };
 export const ProjectProvider = ({
   currentProjectRoute,
   projectFiles,
+  allInitialLintErrors,
   children,
 }: ProjectProviderProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -80,7 +83,7 @@ export const ProjectProvider = ({
     pickedFile: project.pickedFile,
     pickedChapter: project.pickedChapter,
   });
-  const lint = useLint();
+  const lint = useLint({initialLintErrors: allInitialLintErrors});
 
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
   useEffect(() => {

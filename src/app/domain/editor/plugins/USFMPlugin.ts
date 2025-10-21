@@ -3,7 +3,7 @@ import {useDebouncedCallback} from "@mantine/hooks";
 import {
   COMMAND_PRIORITY_HIGH,
   KEY_DOWN_COMMAND,
-  NodeKey,
+  type NodeKey,
   SELECTION_CHANGE_COMMAND,
 } from "lexical";
 import {useEffect, useRef} from "react";
@@ -17,6 +17,7 @@ import {
 import {
   ensurePlainTextNodeAlwaysFollowsVerseRange,
   ensureVerseRangeAlwaysFollowsVerseMarker,
+  lintAll,
   lintVerseRangeReferences,
 } from "@/app/domain/editor/listeners/lintChecks";
 import {toggleShowOnToggleableNodes} from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
@@ -41,21 +42,22 @@ export function USFMPlugin() {
 
   const debouncedLint = useDebouncedCallback((editorState) => {
     console.count(`debouncedLint`);
-    console.time("lint");
-    const messages = lintVerseRangeReferences({editorState, editor});
+    // console.time("lint");
+    // const messages = lintVerseRangeReferences({editorState, editor});
+    lintAll({editorState, editor});
     ensureVerseRangeAlwaysFollowsVerseMarker({editorState, editor});
     ensurePlainTextNodeAlwaysFollowsVerseRange({editorState, editor});
     // console.log(messages);
-    if (!messages.length) {
-      // sett if we actually need to clear the messages:
-      const allMessagesInDom = document.querySelectorAll(".lint-error");
-      if (allMessagesInDom.length === 0) {
-        lint.setMessage([]);
-      }
-    } else {
-      lint.setMessage(messages);
-    }
-    console.timeEnd("lint");
+    // if (!messages.length) {
+    //   // sett if we actually need to clear the messages:
+    //   const allMessagesInDom = document.querySelectorAll(".lint-error");
+    //   if (allMessagesInDom.length === 0) {
+    //     lint.setMessage([]);
+    //   }
+    // } else {
+    //   lint.setMessage(messages);
+    // }
+    // console.timeEnd("lint");
   }, 200);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function USFMPlugin() {
       if (mode !== EditorModes.WYSIWYG) {
         return;
       }
-      console.log({tags});
+      //   console.log({tags});
       debouncedLint(editorState);
     });
 
@@ -109,7 +111,11 @@ export function USFMPlugin() {
     const keyDownUnregister = editor.registerCommand(
       KEY_DOWN_COMMAND,
       (event: KeyboardEvent) => {
-        return lockImutableMarkersOnType({editor, event, markersMutableState});
+        return lockImutableMarkersOnType({
+          editor,
+          event,
+          markersMutableState,
+        });
       },
       COMMAND_PRIORITY_HIGH
     );

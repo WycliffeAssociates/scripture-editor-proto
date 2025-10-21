@@ -66,7 +66,7 @@ async function getProjects(directoryProvider: IDirectoryProvider) {
     const projects: { path: string; name: string }[] = [];
     for await (const [name, handle] of appDataDir.entries()) {
         if (handle.kind === "directory") {
-            // @ts-ignore todo: fix this
+            // @ts-expect-error todo: fix this
             projects.push({ path: handle.path, name });
         }
     }

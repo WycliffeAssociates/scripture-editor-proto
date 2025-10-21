@@ -19,27 +19,43 @@ import {
   UsfmTokenTypes,
 } from "@/app/data/editor";
 import {
-  classNameState,
   idState,
+  inCharsState,
   inParaState,
   isMutableState,
+  lintErrorsState,
   markerState,
   showState,
   sidState,
   tokenTypeState,
 } from "@/app/domain/editor/states";
 import {isValidParaMarker} from "@/core/data/usfm/tokens";
+import {
+  arraysEqualByKey,
+  everyArrayItemInEach,
+} from "@/core/data/utils/generic";
+import type {LintError} from "@/core/domain/usfm/parse";
 
+// make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
-  type: typeof USFM_TEXT_NODE_TYPE;
-  id: string;
+  /* 
+  SerializedTextNOde is:
+  detail: number;
+      format: number;
+      mode: TextModeType;
+      style: string;
+      text: string;
+  */
   tokenType: string;
+  sid?: string;
   show: boolean;
   isMutable: boolean;
-  sid?: string;
-  inPara?: string;
   marker?: string;
-  classNames?: string[];
+  lexicalType: typeof USFM_TEXT_NODE_TYPE;
+  lexicalKey?: string;
+  inPara?: string;
+  id: string;
+  lintErrors?: LintError[];
 };
 
 export class USFMTextNode extends TextNode {
@@ -61,7 +77,8 @@ export class USFMTextNode extends TextNode {
         {flat: true, stateConfig: markerState},
         {flat: true, stateConfig: showState},
         {flat: true, stateConfig: isMutableState},
-        {flat: true, stateConfig: classNameState},
+        {flat: true, stateConfig: lintErrorsState},
+        {flat: true, stateConfig: inCharsState},
       ],
     });
   }
@@ -70,12 +87,13 @@ export class USFMTextNode extends TextNode {
   exportJSON(): SerializedUSFMTextNode {
     return {
       ...super.exportJSON(),
-      type: USFM_TEXT_NODE_TYPE,
-      id: this.getId(),
+      lexicalKey: this.getKey(),
+      lexicalType: USFM_TEXT_NODE_TYPE,
       tokenType: this.getTokenType(),
+      id: this.getId(),
       show: this.getShow(),
       isMutable: this.getMutable(),
-      classNames: this.getClassNames(),
+      lintErrors: this.getLintErrors(),
       sid: this.getSid(),
       inPara: this.getInPara(),
       marker: this.getMarker(),
@@ -87,11 +105,8 @@ export class USFMTextNode extends TextNode {
     return $getState(this.getLatest(), idState);
   }
 
-  getClassNames(): string[] {
-    const current = $getState(this.getLatest(), classNameState);
-    return Object.entries(current)
-      .filter(([_, v]) => v)
-      .map(([k]) => k);
+  getLintErrors(): LintError[] {
+    return $getState(this.getLatest(), lintErrorsState);
   }
 
   getSid(): string {
@@ -115,7 +130,11 @@ export class USFMTextNode extends TextNode {
   getShow(): boolean {
     return $getState(this.getLatest(), showState);
   }
-  getAllStates(): {
+  getInChars(): Array<string> {
+    return $getState(this.getLatest(), inCharsState);
+  }
+
+  getAllScalarStates(): {
     id: string;
     tokenType: string;
     show: boolean;
@@ -123,6 +142,9 @@ export class USFMTextNode extends TextNode {
     sid?: string;
     inPara?: string;
     marker?: string;
+    // inChars?: Array<string>;
+    // lintClassNames?: Array<string>;
+    isPara?: boolean;
   } {
     return {
       id: this.getId(),
@@ -142,10 +164,8 @@ export class USFMTextNode extends TextNode {
     return this;
   }
 
-  setClassName(name: string, value: boolean) {
-    const writable = this.getWritable();
-    const current = $getState(writable, classNameState);
-    $setState(writable, classNameState, {...current, [name]: value});
+  setLintErrors(lintErrors: LintError[]) {
+    $setState(this.getWritable(), lintErrorsState, lintErrors);
     return this;
   }
 
@@ -177,12 +197,17 @@ export class USFMTextNode extends TextNode {
     $setState(this.getWritable(), isMutableState, isMutable);
     return this;
   }
+  setInChars(inChars: Array<string>): this {
+    $setState(this.getWritable(), inCharsState, inChars);
+    return this;
+  }
 
   createDOM(config: EditorConfig) {
     const element = super.createDOM(config);
     const ds = element.dataset;
-    const states = this.getAllStates();
-    const classNames = this.getClassNames();
+    const states = this.getAllScalarStates();
+    const lintErrors = this.getLintErrors();
+    const inChars = this.getInChars();
     Object.entries(states).forEach(([k, v]) => {
       if (typeof v === "boolean") {
         ds[k] = v.toString();
@@ -190,8 +215,15 @@ export class USFMTextNode extends TextNode {
         ds[k] = v;
       }
     });
-    classNames.forEach((c) => {
-      element.classList.add(c);
+    if (lintErrors.length) {
+      element.classList.add("lint-error");
+      ds.isLintError = "true";
+      lintErrors.forEach((c) => {
+        element.classList.add(c.msgKey);
+      });
+    }
+    inChars.forEach((c) => {
+      element.classList.add(`inChar-${c}`);
     });
     if (states.marker && isValidParaMarker(states.marker)) {
       element.classList.add("isParaMarker");
@@ -206,19 +238,35 @@ export class USFMTextNode extends TextNode {
     // super.updateDOM returns true if the text content or format has changed.
     let needsUpdate = super.updateDOM(prevNode as this, dom, config);
     [
-      sidState,
+      // inCharsState,
       inParaState,
-      markerState,
-      tokenTypeState,
       isMutableState,
-      classNameState,
+      // lintErrorsState,
+      markerState,
       showState,
+      sidState,
+      tokenTypeState,
     ].forEach((s) => {
       // biome-ignore lint/suspicious/noExplicitAny: don't care about mixed types returned from state change, just want to know if it changed
       if ($getStateChange(this, prevNode, s as any)) {
         needsUpdate = true;
       }
     });
+    // if any scalar states changed, we need to update the DOM
+    if (needsUpdate) return true;
+    const prevInChars = prevNode.getInChars();
+    const currentInChars = this.getInChars();
+    if (!everyArrayItemInEach(prevInChars, currentInChars)) {
+      needsUpdate = true;
+    }
+    const prevLintErrors = prevNode.getLintErrors();
+    const currentLintErrors = this.getLintErrors();
+    if (!arraysEqualByKey(prevLintErrors, currentLintErrors, "message")) {
+      needsUpdate = true;
+    }
+
+    // since object references are different, have to manual check the arrays:
+
     return needsUpdate;
   }
   // functions for lock / unlock
@@ -270,6 +318,17 @@ export class USFMTextNode extends TextNode {
     }
     return true;
   }
+
+  // misc functionality:
+  classNamesNeedUpdate(newClassNames: LintError[]) {
+    const current = this.getLintErrors().map((c) => c.message);
+    const incomingMessages = newClassNames.map((c) => c.message);
+    // if either set is not fully contained in the other, then we need to update
+    return (
+      !current.every((c) => incomingMessages.includes(c)) ||
+      !incomingMessages.every((c) => current.includes(c))
+    );
+  }
 }
 
 /* type guards */
@@ -293,7 +352,7 @@ export function $isVerseRangeTextNode(
   node: LexicalNode | null | undefined
 ): node is USFMTextNode {
   return (
-    $isUSFMTextNode(node) && node.getTokenType() === UsfmTokenTypes.verseRange
+    $isUSFMTextNode(node) && node.getTokenType() === UsfmTokenTypes.numberRange
   );
 }
 export function isSerializedUSFMTextNode(
@@ -336,7 +395,7 @@ export function $createUSFMTextNode(
     tokenType?: string;
     show?: boolean;
     marker?: string;
-    className?: Record<string, boolean>;
+    lintErrors?: LintError[];
     isMutable?: boolean;
   }
 ): USFMTextNode {
@@ -361,8 +420,8 @@ export function $createUSFMTextNode(
   if (metadata.marker) {
     $setState(writable, markerState, metadata.marker);
   }
-  if (metadata.className) {
-    $setState(writable, classNameState, metadata.className);
+  if (metadata.lintErrors) {
+    $setState(writable, lintErrorsState, metadata.lintErrors);
   }
 
   return node;
@@ -375,6 +434,7 @@ type CreateSerializedUSFMTextNodeParams = {
   inPara?: string;
   marker?: string;
   show?: boolean;
+  lintErrors?: LintError[];
   isMutable?: boolean;
 };
 export function createSerializedUSFMTextNode(
@@ -385,15 +445,19 @@ export function createSerializedUSFMTextNode(
   // We always need this to be true initialy for setTextContent. We can lock them after initial render I think;
   // const isMutable = true;
   // @ts-expect-error: set inclusion check is fine
-  const isMutable = !TOKENS_TO_LOCK_FROM_EDITING.has(params.tokenType);
+  const isMutable =
+    params.isMutable || !TOKENS_TO_LOCK_FROM_EDITING.has(params.tokenType);
   return {
+    // yes, type and lexicalType are the same, but I like deserializing to explicty lexicalType vs parsed token type, and lexical create the node internall via it's regualar "type";
     type: USFM_TEXT_NODE_TYPE,
+    lexicalType: USFM_TEXT_NODE_TYPE,
     id: params.id,
     sid: params.sid,
     inPara: params.inPara,
     tokenType: params.tokenType,
     marker: params.marker,
     isMutable: isMutable,
+    lintErrors: params.lintErrors,
     show,
     version: 1,
     text: params.text,

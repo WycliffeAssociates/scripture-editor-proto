@@ -136,3 +136,17 @@ Scaffold from git:
 
 So we if kept history on a per file per chapter basis, we could keep undo/redo working on per each; For now it's all or nothing or rough; 
 
+
+
+Todo:
+make all ops against json shape
+from json shape, for live editor instance moments, pass by keys and if an update is actually needed. Need to measure perf on getting json for each node though: 
+Nested editors, get all of that type, and then pass those in as well: I,e, for each editor (main, and then nested), dispatch custom event?
+
+for lexing:
+maybe no id? 2 pass: Lint since we already have to touch every token. Flags for "in-markers' can apply to chars to, especially since they inline. 
+
+Maybe change className to just be static string:
+
+Overall we want message scoped to nodes / serialized objects: 
+so on the obj we can just set lintErrors, (also keep a running list elsehwere for diplay) and then we can in serializeToken, pass those in, and then during keystroke lints, we just assumed all classNames returned from lint is correct; Deterministic alphabetic string, and if not equal just call set.  Perhaps in an ideal world we use css highlight instead of mutating the dom, but not supported in firefox atm. 

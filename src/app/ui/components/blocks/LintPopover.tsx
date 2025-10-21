@@ -1,8 +1,10 @@
 import {Button, Popover} from "@mantine/core";
-import {$getNodeByKey, HISTORY_MERGE_TAG, LexicalEditor} from "lexical";
+import {$getNodeByKey, HISTORY_MERGE_TAG, type LexicalEditor} from "lexical";
 import {useRef, useState} from "react";
 import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
 import type {LintMessage} from "@/app/ui/hooks/useLint";
+import {parseSid} from "@/core/data/bible/bible";
+import type {LintError} from "@/core/domain/usfm/parse";
 
 type Props = {
   wrapperClassNames?: string;
@@ -41,7 +43,6 @@ export function LintPopover({wrapperClassNames}: Props) {
           <ul className="space-y-2 text-sm flex flex-col items-start">
             {lint.messages.map((msg) => (
               <LintMessageItem
-                key={msg.nodeKey}
                 msg={msg}
                 editorRef={editorRef}
                 prevDomElSelected={prevDomElSelected}
@@ -55,7 +56,7 @@ export function LintPopover({wrapperClassNames}: Props) {
 }
 
 type LintMessageItemProps = {
-  msg: LintMessage;
+  msg: LintError;
   editorRef: React.RefObject<LexicalEditor | null>;
   prevDomElSelected: React.RefObject<HTMLElement | null>;
 };
@@ -64,6 +65,31 @@ function LintMessageItem({
   editorRef,
   prevDomElSelected,
 }: LintMessageItemProps) {
+  const {project, actions} = useWorkspaceContext();
+
+  function findLintErrInDom() {
+    editorRef.current?.read(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const domEl = document.querySelector(
+        `[data-is-lint-error="true"][data-id="${msg.nodeId}"]`
+      ) as HTMLElement;
+      if (!domEl) return;
+      if (prevDomElSelected.current) {
+        prevDomElSelected.current.classList.remove("selected");
+      }
+      prevDomElSelected.current = domEl;
+      domEl.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      domEl.classList.add("selected");
+      if (domEl.getAttribute("data-is-nested-editor-button") === "true") {
+        domEl.click();
+      }
+    });
+  }
+
   return (
     <li>
       <Button
@@ -71,32 +97,23 @@ function LintMessageItem({
         color="gray"
         fullWidth
         onClick={() => {
-          editorRef.current?.read(() => {
-            const editor = editorRef.current;
-            if (!editor) return;
-            const el = editor.getElementByKey(msg.nodeKey);
-            editor.update(
-              () => {
-                const node = $getNodeByKey(msg.nodeKey);
-                node?.selectEnd();
-              },
-              {
-                tag: [HISTORY_MERGE_TAG],
-                skipTransforms: true,
-              }
-            );
-            if (el) {
-              if (prevDomElSelected.current) {
-                prevDomElSelected.current.classList.remove("selected");
-              }
-              prevDomElSelected.current = el;
-              el.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              });
-              el.classList.add("selected");
-            }
-          });
+          const sidParsed = parseSid(msg.sid);
+          if (!sidParsed) return;
+          // if (sidParsed.)
+          // if same book and chap as current, scroll, else gonna have to set content and scroll:
+          const currentBook = project.pickedFile.bibleIdentifier;
+          const currentChapter = project.pickedChapter.chapNumber;
+          if (
+            sidParsed.book === currentBook &&
+            sidParsed.chapter === currentChapter
+          ) {
+            findLintErrInDom();
+          } else {
+            actions.switchBookOrChapter(sidParsed.book, sidParsed.chapter);
+            setTimeout(() => {
+              findLintErrInDom();
+            }, 100);
+          }
         }}
         className=""
       >

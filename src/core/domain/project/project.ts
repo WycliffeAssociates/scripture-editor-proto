@@ -22,15 +22,16 @@ export interface ProjectMetadata {
 export interface Language {
     name: string;
     id: string;
-    direction: LanguageDirection
+    direction: LanguageDirection;
 }
 
 export const LanguageDirection = {
     LTR: "ltr",
-    RTL: "rtl"
+    RTL: "rtl",
 } as const;
 
-type LanguageDirection = typeof LanguageDirection[keyof typeof LanguageDirection];
+type LanguageDirection =
+    (typeof LanguageDirection)[keyof typeof LanguageDirection];
 
 export interface ProjectFile2 {
     path: string;

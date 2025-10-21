@@ -11,12 +11,12 @@
         "fs:allow-appdata-write-recursive",
         "fs:allow-open",
         {
-          "identifier": "fs:scope",
-          "allow": [
-            { "path": "$APPLOCALDATA/**" },
-            { "path": "$APPDATA/**" },
-            { "path": "$HOME/com.willkelly.tauri-app/**" }
-          ]
+            "identifier": "fs:scope",
+            "allow": [
+                { "path": "$APPLOCALDATA/**" },
+                { "path": "$APPDATA/**" },
+                { "path": "$HOME/com.willkelly.tauri-app/**" }
+            ]
         },
         "opener:allow-open-path",
         "core:webview:allow-set-webview-zoom",

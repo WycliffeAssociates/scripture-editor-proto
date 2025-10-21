@@ -1,6 +1,6 @@
-import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
-import {normalize} from "@/tauri/persistence/handlers/PathUtils.ts";
-import {TauriWritableFileStreamWriter} from "@/tauri/persistence/handlers/TauriWritableFileStreamWriter.ts";
+import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { normalize } from "@/tauri/persistence/handlers/PathUtils.ts";
+import type { TauriWritableFileStreamWriter } from "@/tauri/persistence/handlers/TauriWritableFileStreamWriter.ts";
 
 export class TauriFileHandle implements FileSystemFileHandle {
     kind: "file" = "file";
@@ -23,7 +23,9 @@ export class TauriFileHandle implements FileSystemFileHandle {
         return new File([text], this.name);
     }
 
-    async createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream> {
+    async createWritable(
+        options?: FileSystemCreateWritableOptions,
+    ): Promise<FileSystemWritableFileStream> {
         // Handle options: default behavior is to truncate (keepExistingData: false)
         const keepExistingData = options?.keepExistingData ?? false;
 
@@ -58,9 +60,11 @@ export class TauriFileHandle implements FileSystemFileHandle {
         const toUint8 = async (data: any): Promise<Uint8Array> => {
             // ... (your existing toUint8 function)
             if (typeof data === "string") return new TextEncoder().encode(data);
-            if (data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
+            if (data instanceof Blob)
+                return new Uint8Array(await data.arrayBuffer());
             if (data instanceof ArrayBuffer) return new Uint8Array(data);
-            if (ArrayBuffer.isView(data)) return new Uint8Array((data as any).buffer);
+            if (ArrayBuffer.isView(data))
+                return new Uint8Array((data as any).buffer);
             return new TextEncoder().encode(String(data));
         };
 
@@ -73,19 +77,34 @@ export class TauriFileHandle implements FileSystemFileHandle {
         const sink = {
             async write(chunkOrOp: any) {
                 // Your existing write logic, adapted to be in the sink's write method
-                if (chunkOrOp && typeof chunkOrOp === "object" && "type" in chunkOrOp) {
-                    const op: { type: string; position?: number; data?: any; size?: number } = chunkOrOp;
+                if (
+                    chunkOrOp &&
+                    typeof chunkOrOp === "object" &&
+                    "type" in chunkOrOp
+                ) {
+                    const op: {
+                        type: string;
+                        position?: number;
+                        data?: any;
+                        size?: number;
+                    } = chunkOrOp;
                     switch (op.type) {
                         case "write": {
                             const bytes = await toUint8(op.data);
-                            const writePos = typeof op.position === "number" ? op.position : position;
+                            const writePos =
+                                typeof op.position === "number"
+                                    ? op.position
+                                    : position;
                             ensureCapacity(writePos + bytes.length);
                             buffer.set(bytes, writePos);
                             position = writePos + bytes.length;
                             break;
                         }
                         case "seek": {
-                            if (typeof op.position !== "number" || op.position < 0) {
+                            if (
+                                typeof op.position !== "number" ||
+                                op.position < 0
+                            ) {
                                 throw new DOMException("Invalid seek position");
                             }
                             position = op.position;
@@ -95,13 +114,15 @@ export class TauriFileHandle implements FileSystemFileHandle {
                             if (typeof op.size !== "number" || op.size < 0) {
                                 throw new DOMException("Invalid truncate size");
                             }
-                            if (op.size < buffer.length) buffer = buffer.slice(0, op.size);
+                            if (op.size < buffer.length)
+                                buffer = buffer.slice(0, op.size);
                             else {
                                 const nb = new Uint8Array(op.size);
                                 nb.set(buffer, 0);
                                 buffer = nb;
                             }
-                            if (position > buffer.length) position = buffer.length;
+                            if (position > buffer.length)
+                                position = buffer.length;
                             break;
                         }
                         default:
@@ -148,10 +169,10 @@ export class TauriFileHandle implements FileSystemFileHandle {
 
             // Add the seek and truncate methods to the writer, converting to structured writes
             customWriter.seek = (position: number): Promise<void> => {
-                return nativeWriter.write({type: "seek", position});
+                return nativeWriter.write({ type: "seek", position });
             };
             customWriter.truncate = (size: number): Promise<void> => {
-                return nativeWriter.write({type: "truncate", size});
+                return nativeWriter.write({ type: "truncate", size });
             };
 
             return customWriter;
@@ -177,17 +198,16 @@ export class TauriFileHandle implements FileSystemFileHandle {
             getWriter: getCustomWriter,
 
             // Custom FileSystemWritableFileStream methods (using the writeOp helper)
-            seek: (position: number) => writeOp({type: "seek", position}),
-            truncate: (size: number) => writeOp({type: "truncate", size}),
+            seek: (position: number) => writeOp({ type: "seek", position }),
+            truncate: (size: number) => writeOp({ type: "truncate", size }),
             write: (data: any, position?: number) => {
                 // If position is provided, it's a structured write operation
-                if (typeof position === 'number') {
-                    return writeOp({type: "write", position, data});
+                if (typeof position === "number") {
+                    return writeOp({ type: "write", position, data });
                 }
                 // Otherwise, it's a standard WritableStream write (uses current internal position)
                 return writeOp(data);
             },
-
         } as FileSystemWritableFileStream;
     }
 

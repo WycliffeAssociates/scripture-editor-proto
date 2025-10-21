@@ -1,19 +1,26 @@
 export interface IDirectoryProvider {
     // Directory access
-    getUserDataDirectory(appendedPath?: string): Promise<FileSystemDirectoryHandle>;
-    getAppDataDirectory(appendedPath?: string): Promise<FileSystemDirectoryHandle>;
+    getUserDataDirectory(
+        appendedPath?: string,
+    ): Promise<FileSystemDirectoryHandle>;
+    getAppDataDirectory(
+        appendedPath?: string,
+    ): Promise<FileSystemDirectoryHandle>;
 
     getProjectDirectory(
         source: ResourceMetadata,
         target: ResourceMetadata | null,
-        bookSlug: string
+        bookSlug: string,
     ): Promise<FileSystemDirectoryHandle>;
 
     // File utilities
     newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter<any>>;
     newFileReader(filePath: string): Promise<File>;
 
-    createTempFile(prefix: string, suffix?: string): Promise<FileSystemFileHandle>;
+    createTempFile(
+        prefix: string,
+        suffix?: string,
+    ): Promise<FileSystemFileHandle>;
     cleanTempDirectory(): Promise<void>;
 
     openInFileManager(path: string): Promise<void>;

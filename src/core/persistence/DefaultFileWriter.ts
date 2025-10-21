@@ -1,5 +1,5 @@
-import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
 
 /**
  * @class FileWriter
@@ -17,7 +17,10 @@ export class FileWriter implements IFileWriter {
      * @param directoryProvider - The IDirectoryProvider instance to access file system operations.
      * @param baseDir - The FileSystemDirectoryHandle representing the base directory for file operations.
      */
-    constructor(directoryProvider: IDirectoryProvider, baseDir: FileSystemDirectoryHandle) {
+    constructor(
+        directoryProvider: IDirectoryProvider,
+        baseDir: FileSystemDirectoryHandle,
+    ) {
         this.directoryProvider = directoryProvider;
         this.baseDir = baseDir;
     }
@@ -31,7 +34,9 @@ export class FileWriter implements IFileWriter {
      * @returns A Promise that resolves when the file has been successfully written.
      */
     async writeFile(filePath: string, contents: string): Promise<void> {
-        const fileHandle = await this.baseDir.getFileHandle(filePath, { create: true });
+        const fileHandle = await this.baseDir.getFileHandle(filePath, {
+            create: true,
+        });
         const writer = await fileHandle.createWritable();
         await writer.write(contents);
         await writer.close();

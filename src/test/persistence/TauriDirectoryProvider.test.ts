@@ -1,8 +1,8 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { join } from "@tauri-apps/api/path"; // This will be mocked
-import { mkdir, open } from '@tauri-apps/plugin-fs';
-import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider.ts";
-import {TauriFileHandle} from "@/tauri/persistence/handlers/TauriFileHandle.ts"; // These will be mocked
+import { mkdir, open } from "@tauri-apps/plugin-fs";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { TauriFileHandle } from "@/tauri/persistence/handlers/TauriFileHandle.ts"; // These will be mocked
+import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider.ts";
 
 // --- MOCK CONSTANTS ---
 const MOCK_APP_NAME = "test-app";
@@ -15,14 +15,14 @@ const SAMPLE_SOURCE_METADATA = {
     identifier: "ult",
     language: { slug: "en" },
     version: 1,
-    type: "bible"
+    type: "bible",
 };
 
 const SAMPLE_TARGET_METADATA = {
     creator: "proskomma",
     identifier: "luke",
     language: { slug: "fr" },
-    version: 2
+    version: 2,
 };
 
 // --- VITEST MOCKS ---
@@ -33,8 +33,8 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 // Mocking @tauri-apps/plugin-os to control the OS name
-vi.mock('@tauri-apps/plugin-os', () => ({
-    platform: vi.fn(() => 'windows'), // Default to 'windows' for testing homeDir logic
+vi.mock("@tauri-apps/plugin-os", () => ({
+    platform: vi.fn(() => "windows"), // Default to 'windows' for testing homeDir logic
 }));
 
 // Mocking @tauri-apps/api/path to provide predictable paths
@@ -42,7 +42,7 @@ vi.mock('@tauri-apps/plugin-os', () => ({
 // but we mock it to control the output of Tauri's path functions.
 vi.mock("@tauri-apps/api/path", () => {
     // We use Node's path.join here just for simple, consistent path concatenation
-    const path = require('path');
+    const path = require("path");
     return {
         join: vi.fn(path.join),
         homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),
@@ -52,7 +52,7 @@ vi.mock("@tauri-apps/api/path", () => {
 });
 
 // Mocking @tauri-apps/plugin-fs commands
-vi.mock('@tauri-apps/plugin-fs', () => ({
+vi.mock("@tauri-apps/plugin-fs", () => ({
     // Mocking mkdir to ensure no actual directories are created
     mkdir: vi.fn(() => Promise.resolve()),
     // Mocking open to ensure no actual file manager interaction
@@ -60,29 +60,33 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 
 // Mocking your custom file/directory handlers for isolation
-vi.mock('@/persistence/handlers/TauriFileHandle.ts', () => ({
+vi.mock("@/persistence/handlers/TauriFileHandle.ts", () => ({
     TauriFileHandle: vi.fn((path) => ({
         path,
-        createWritable: vi.fn(() => Promise.resolve({
-            getWriter: vi.fn(() => ({
-                write: vi.fn(() => Promise.resolve()),
-                close: vi.fn(() => Promise.resolve()),
-            })),
-        })),
-        getFile: vi.fn(() => Promise.resolve({
-            name: path.split('/').pop(),
-            size: 1234,
-        })),
+        createWritable: vi.fn(() =>
+            Promise.resolve({
+                getWriter: vi.fn(() => ({
+                    write: vi.fn(() => Promise.resolve()),
+                    close: vi.fn(() => Promise.resolve()),
+                })),
+            }),
+        ),
+        getFile: vi.fn(() =>
+            Promise.resolve({
+                name: path.split("/").pop(),
+                size: 1234,
+            }),
+        ),
     })),
 }));
 
-vi.mock('@/persistence/handlers/TauriDirectoryHandle.ts', () => ({
+vi.mock("@/persistence/handlers/TauriDirectoryHandle.ts", () => ({
     TauriDirectoryHandle: vi.fn((path) => ({
         path,
         // Mock entries/removeEntry for cleanTempDirectory
         entries: vi.fn(async function* () {
-            yield ['file1.tmp', { isFile: () => true }];
-            yield ['dir2', { isDirectory: () => true }];
+            yield ["file1.tmp", { isFile: () => true }];
+            yield ["dir2", { isDirectory: () => true }];
         }),
         removeEntry: vi.fn(() => Promise.resolve()),
     })),
@@ -90,7 +94,7 @@ vi.mock('@/persistence/handlers/TauriDirectoryHandle.ts', () => ({
 
 // --- VITEST TESTS ---
 
-describe('TauriDirectoryProvider', () => {
+describe("TauriDirectoryProvider", () => {
     let provider: TauriDirectoryProvider;
 
     beforeEach(async () => {
@@ -100,7 +104,7 @@ describe('TauriDirectoryProvider', () => {
     });
 
     // --- Test 1: Get User Data Directory ---
-    test('getUserDataDirectory creates the correct path on Windows/Linux', async () => {
+    test("getUserDataDirectory creates the correct path on Windows/Linux", async () => {
         const appendedPath = "settings";
         const userDataDir = await provider.getUserDataDirectory(appendedPath);
 
@@ -111,7 +115,7 @@ describe('TauriDirectoryProvider', () => {
     });
 
     // --- Test 2 & 3: File Write/Read ---
-    test('newFileWriter and newFileReader call file handlers correctly', async () => {
+    test("newFileWriter and newFileReader call file handlers correctly", async () => {
         const userDataDir = await provider.getUserDataDirectory("settings");
         const testFilePath = await join(userDataDir.path, "test_file.txt");
 
@@ -122,18 +126,22 @@ describe('TauriDirectoryProvider', () => {
 
         expect(TauriFileHandle).toHaveBeenCalledWith(testFilePath);
         // The mock writer's methods should have been called
-        // @ts-ignore
-        expect(TauriFileHandle.mock.results[0].value.createWritable).toHaveBeenCalled();
+        // @ts-expect-error
+        expect(
+            TauriFileHandle.mock.results[0].value.createWritable,
+        ).toHaveBeenCalled();
 
         // Test 3 (Read)
         const file = await provider.newFileReader(testFilePath);
         expect(file.name).toBe("test_file.txt");
-        // @ts-ignore
-        expect(TauriFileHandle.mock.results[1].value.getFile).toHaveBeenCalled();
+        // @ts-expect-error
+        expect(
+            TauriFileHandle.mock.results[1].value.getFile,
+        ).toHaveBeenCalled();
     });
 
     // --- Test 4: Get App Data Directory ---
-    test('getAppDataDirectory uses appLocalDataDir', async () => {
+    test("getAppDataDirectory uses appLocalDataDir", async () => {
         const appendedPath = "db";
         const appDataDir = await provider.getAppDataDirectory(appendedPath);
 
@@ -144,12 +152,12 @@ describe('TauriDirectoryProvider', () => {
     });
 
     // --- Test 5: Get Project Directory (Complex Path) ---
-    test('getProjectDirectory generates complex path correctly', async () => {
+    test("getProjectDirectory generates complex path correctly", async () => {
         // The project path is built off getUserDataDirectory()
         const projectDir = await provider.getProjectDirectory(
             SAMPLE_SOURCE_METADATA,
             SAMPLE_TARGET_METADATA,
-            "mat"
+            "mat",
         );
 
         const baseDir = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}`;
@@ -169,29 +177,35 @@ describe('TauriDirectoryProvider', () => {
     });
 
     // --- Test 8: Test Temp File and Clean ---
-    test('cleanTempDirectory calls removeEntry on all entries', async () => {
+    test("cleanTempDirectory calls removeEntry on all entries", async () => {
         // This test relies on the mock implementation of TauriDirectoryHandle
         await provider.cleanTempDirectory();
 
         const expectedTempDirPath = `${MOCK_APP_LOCAL_DATA}/temp`;
 
         // Assert that the temp directory was accessed
-        // @ts-ignore
+        // @ts-expect-error
         expect(TauriDirectoryHandle).toHaveBeenCalledWith(expectedTempDirPath);
 
         // Assert that the entries were iterated and removed
         // The mock yields 'file1.tmp' and 'dir2'
-        // @ts-ignore
-        const tempDirHandle = TauriDirectoryHandle.mock.results.find(r => r.value.path === expectedTempDirPath)?.value;
+        // @ts-expect-error
+        const tempDirHandle = TauriDirectoryHandle.mock.results.find(
+            (r) => r.value.path === expectedTempDirPath,
+        )?.value;
 
         expect(tempDirHandle.entries).toHaveBeenCalled();
-        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith('file1.tmp', { recursive: true });
-        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith('dir2', { recursive: true });
+        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith("file1.tmp", {
+            recursive: true,
+        });
+        expect(tempDirHandle.removeEntry).toHaveBeenCalledWith("dir2", {
+            recursive: true,
+        });
         expect(tempDirHandle.removeEntry).toHaveBeenCalledTimes(2);
     });
 
     // --- Test 9: openInFileManager ---
-    test('openInFileManager calls open command', async () => {
+    test("openInFileManager calls open command", async () => {
         const testPath = "/test/path/to/open";
         await provider.openInFileManager(testPath);
         expect(open).toHaveBeenCalledWith(testPath);

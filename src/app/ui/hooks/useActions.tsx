@@ -3,27 +3,31 @@ import {
   $getRoot,
   CLEAR_HISTORY_COMMAND,
   HISTORY_MERGE_TAG,
-  LexicalEditor,
-  SerializedEditorState,
-  SerializedLexicalNode,
+  type LexicalEditor,
+  type SerializedEditorState,
+  type SerializedLexicalNode,
 } from "lexical";
 import {useEffect, useMemo, useRef} from "react";
 import {useEffectOnce} from "react-use";
 import {
-  EditorMarkersMutableState,
+  type EditorMarkersMutableState,
   EditorMarkersMutableStates,
-  EditorMarkersViewState,
+  type EditorMarkersViewState,
   EditorMarkersViewStates,
   USFM_TEXT_NODE_TYPE,
 } from "@/app/data/editor";
-import {ParsedChapter, ParsedFile} from "@/app/data/parsedProject";
-import {Settings, SettingsManager, settingsDefaults} from "@/app/data/settings";
+import type {ParsedChapter, ParsedFile} from "@/app/data/parsedProject";
+import {
+  type Settings,
+  SettingsManager,
+  settingsDefaults,
+} from "@/app/data/settings";
 import {isSerializedElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
 import {isSerializedUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   isSerializedToggleMutableUSFMTextNode,
   isSerializedToggleShowUSFMTextNode,
-  SerializedUSFMTextNode,
+  type SerializedUSFMTextNode,
   updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 
@@ -81,7 +85,7 @@ export const useWorkspaceActions = ({
     if (!file) return;
     file.chapters[chap].lexicalState = newLexical;
     file.chapters[chap].dirty = true;
-    if (!doSetWorkingFiles) {
+    if (doSetWorkingFiles) {
       setWorkingFiles(workingFilesRef.current);
     }
     return workingFilesRef.current;
@@ -215,7 +219,7 @@ export const useWorkspaceActions = ({
           go: () => {},
         };
       const lastChap = prevBook?.chapters?.length - 1;
-      let title =
+      const title =
         prevBook?.localizedTitle ||
         prevBook?.title ||
         prevBook?.bibleIdentifier;
@@ -263,7 +267,6 @@ export const useWorkspaceActions = ({
    */
 
   function toggleToSourceMode(args?: {isInitialLoad?: boolean}) {
-    console.time("toggleToSourceMode");
     const {isInitialLoad = false} = args || {};
 
     // save dirty, but don't set state yet; We will when finished mutating what's in memory: InProgress returned from saveCurrentDirtyLexical is already a mutable clone
@@ -306,7 +309,6 @@ export const useWorkspaceActions = ({
       markersViewState: EditorMarkersViewStates.ALWAYS,
     });
     document.body.classList.add("source-mode");
-    console.timeEnd("toggleToSourceMode");
   }
   // wsyi has some submodes, ie we can wysi with markers always visible, or never visible, or only when editing; never visible will lock the markers as well: always or
   type adjustWysiModeArgs = {
@@ -323,7 +325,6 @@ export const useWorkspaceActions = ({
    *   If not provided, the value of `appSettings.markersMutableState` will be used.
    */
   function adjustWysiwygMode(args: adjustWysiModeArgs) {
-    console.time("adjustWysiwygMode");
     // save dirty
 
     const inProgress = args.duringLoad
@@ -389,7 +390,17 @@ export const useWorkspaceActions = ({
     });
 
     document.body.classList.remove("source-mode");
-    console.timeEnd("adjustWysiwygMode");
+    // set the marker visibility
+    if (
+      markerViewState === EditorMarkersViewStates.NEVER ||
+      markerViewState === EditorMarkersViewStates.WHEN_EDITING
+    ) {
+      document.body.firstElementChild?.classList.add("markers-hidden");
+      document.body.firstElementChild?.classList.remove("markers-shown");
+    } else {
+      document.body.firstElementChild?.classList.remove("markers-hidden");
+      document.body.firstElementChild?.classList.add("markers-shown");
+    }
   }
   // show true, mutable = chosen option
 

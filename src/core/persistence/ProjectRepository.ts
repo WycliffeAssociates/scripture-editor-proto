@@ -1,8 +1,7 @@
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {ProjectFile} from "@/app/data/parsedProject.ts";
-import {ProjectMetadata} from "@/core/domain/project/project.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-
+import type { ProjectFile } from "@/app/data/parsedProject.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { ProjectMetadata } from "@/core/domain/project/project.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
 
 /**
  * @interface IProjectRepository
@@ -24,7 +23,10 @@ export interface IProjectRepository {
      * @param md5Service - An IMd5Service instance for calculating MD5 checksums (used by the ProjectLoader within).
      * @returns A Promise that resolves to the loaded Project object, or null if no project is found with the given ID.
      */
-    loadProject(projectId: string, md5Service: IMd5Service): Promise<Project | null>;
+    loadProject(
+        projectId: string,
+        md5Service: IMd5Service,
+    ): Promise<Project | null>;
     /**
      * @method listProjects
      * @description Retrieves a list of all available projects.
@@ -58,5 +60,9 @@ export interface Project {
      * @param contents - Optional. The USFM content of the book. Defaults to an empty string to initialize an empty file.
      * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
      */
-    addBook(bookCode: string, localizedBookTitle?: string, contents?: string): Promise<void>;
+    addBook(
+        bookCode: string,
+        localizedBookTitle?: string,
+        contents?: string,
+    ): Promise<void>;
 }

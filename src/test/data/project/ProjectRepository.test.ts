@@ -1,11 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
-import {LanguageDirection} from "@/core/domain/project/project.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
-import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
-import {ProjectRepository} from "@/core/persistence/repositories/ProjectRepository.ts";
-import {FileWriter} from "@/core/persistence/DefaultFileWriter.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
+import { FileWriter } from "@/core/persistence/DefaultFileWriter.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 
 // Mock implementations for dependencies
 const mockFileWriter: IFileWriter = {
@@ -25,13 +25,13 @@ const MOCK_PROJECT_1: Project = {
     name: MOCK_PROJECT_NAME_1,
     files: [],
     metadata: {
-        name: '',
-        id: '',
+        name: "",
+        id: "",
         language: {
-            name: '',
-            id: '',
-            direction: LanguageDirection.LTR
-        }
+            name: "",
+            id: "",
+            direction: LanguageDirection.LTR,
+        },
     },
     projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
     fileWriter: mockFileWriter,
@@ -48,13 +48,13 @@ const MOCK_PROJECT_2: Project = {
     name: MOCK_PROJECT_NAME_2,
     files: [],
     metadata: {
-        name: '',
-        id: '',
+        name: "",
+        id: "",
         language: {
-            name: '',
-            id: '',
-            direction: LanguageDirection.LTR
-        }
+            name: "",
+            id: "",
+            direction: LanguageDirection.LTR,
+        },
     },
     projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
     fileWriter: mockFileWriter,
@@ -73,23 +73,42 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
 
     constructor(path: string, initialEntries: Record<string, any> = {}) {
         this.path = path;
-        this.name = path.split('/').pop() || '';
+        this.name = path.split("/").pop() || "";
         this.entriesMap = new Map();
         for (const [name, content] of Object.entries(initialEntries)) {
-            if (typeof content === 'string') {
-                this.entriesMap.set(name, new MockFileHandle(`${path}/${name}`, content));
-            } else if (content && typeof content === 'object' && content.kind === 'directory') {
-                this.entriesMap.set(name, new MockDirectoryHandle(`${path}/${name}`, content.entries));
+            if (typeof content === "string") {
+                this.entriesMap.set(
+                    name,
+                    new MockFileHandle(`${path}/${name}`, content),
+                );
+            } else if (
+                content &&
+                typeof content === "object" &&
+                content.kind === "directory"
+            ) {
+                this.entriesMap.set(
+                    name,
+                    new MockDirectoryHandle(`${path}/${name}`, content.entries),
+                );
             } else {
-                this.entriesMap.set(name, new MockFileHandle(`${path}/${name}`, JSON.stringify(content)));
+                this.entriesMap.set(
+                    name,
+                    new MockFileHandle(
+                        `${path}/${name}`,
+                        JSON.stringify(content),
+                    ),
+                );
             }
         }
     }
 
-    async getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<FileSystemDirectoryHandle> {
+    async getDirectoryHandle(
+        name: string,
+        options?: { create?: boolean },
+    ): Promise<FileSystemDirectoryHandle> {
         const fullPath = `${this.path}/${name}`;
         let handle = this.entriesMap.get(name);
-        if (!handle || handle.kind !== 'directory') {
+        if (!handle || handle.kind !== "directory") {
             if (options?.create) {
                 handle = new MockDirectoryHandle(fullPath);
                 this.entriesMap.set(name, handle);
@@ -100,12 +119,15 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
         return handle as FileSystemDirectoryHandle;
     }
 
-    async getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle> {
+    async getFileHandle(
+        name: string,
+        options?: { create?: boolean },
+    ): Promise<FileSystemFileHandle> {
         const fullPath = `${this.path}/${name}`;
         let handle = this.entriesMap.get(name);
-        if (!handle || handle.kind !== 'file') {
+        if (!handle || handle.kind !== "file") {
             if (options?.create) {
-                handle = new MockFileHandle(fullPath, '');
+                handle = new MockFileHandle(fullPath, "");
                 this.entriesMap.set(name, handle);
             } else {
                 throw new Error(`File not found: ${fullPath}`);
@@ -114,7 +136,9 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
         return handle as FileSystemFileHandle;
     }
 
-    async *entries(): FileSystemDirectoryHandleAsyncIterator<[string, FileSystemHandle]> {
+    async *entries(): FileSystemDirectoryHandleAsyncIterator<
+        [string, FileSystemHandle]
+    > {
         for (const entry of this.entriesMap.entries()) {
             yield entry;
         }
@@ -155,9 +179,9 @@ class MockFileHandle implements FileSystemFileHandle {
     path: string; // Keep for internal mock logic
     private content: string;
 
-    constructor(path: string, initialContent: string = '') {
+    constructor(path: string, initialContent: string = "") {
         this.path = path;
-        this.name = path.split('/').pop() || '';
+        this.name = path.split("/").pop() || "";
         this.content = initialContent;
     }
 
@@ -196,10 +220,18 @@ class MockFile implements File {
     async text(): Promise<string> {
         return this.content;
     }
-    async bytes(): Promise<Uint8Array> { return new Uint8Array(); }
-    arrayBuffer(): Promise<ArrayBuffer> { throw new Error("Method not implemented."); }
-    slice(_start?: number, _end?: number, _contentType?: string): Blob { throw new Error("Method not implemented."); }
-    stream(): ReadableStream<Uint8Array> { throw new Error("Method not implemented."); }
+    async bytes(): Promise<Uint8Array> {
+        return new Uint8Array();
+    }
+    arrayBuffer(): Promise<ArrayBuffer> {
+        throw new Error("Method not implemented.");
+    }
+    slice(_start?: number, _end?: number, _contentType?: string): Blob {
+        throw new Error("Method not implemented.");
+    }
+    stream(): ReadableStream<Uint8Array> {
+        throw new Error("Method not implemented.");
+    }
 }
 
 class MockWritableStreamDefaultWriter {
@@ -211,7 +243,9 @@ class MockWritableStreamDefaultWriter {
 // Mock IDirectoryProvider
 const mockDirectoryProvider: IDirectoryProvider = {
     getUserDataDirectory: vi.fn(async (appendedPath?: string) => {
-        const path = appendedPath ? `${MOCK_USER_DATA_DIR}/${appendedPath}` : MOCK_USER_DATA_DIR;
+        const path = appendedPath
+            ? `${MOCK_USER_DATA_DIR}/${appendedPath}`
+            : MOCK_USER_DATA_DIR;
         return new MockDirectoryHandle(path);
     }),
     getAppDataDirectory: vi.fn(),
@@ -221,54 +255,79 @@ const mockDirectoryProvider: IDirectoryProvider = {
     createTempFile: vi.fn(),
     cleanTempDirectory: vi.fn(),
     openInFileManager: vi.fn(),
-    databaseDirectory: Promise.resolve(new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/database`)),
-    logsDirectory: Promise.resolve(new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/logs`)),
-    cacheDirectory: Promise.resolve(new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/cache`)),
-    tempDirectory: Promise.resolve(new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/temp`)),
+    databaseDirectory: Promise.resolve(
+        new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/database`),
+    ),
+    logsDirectory: Promise.resolve(
+        new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/logs`),
+    ),
+    cacheDirectory: Promise.resolve(
+        new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/cache`),
+    ),
+    tempDirectory: Promise.resolve(
+        new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/temp`),
+    ),
 };
 
-describe('ProjectRepository', () => {
+describe("ProjectRepository", () => {
     let projectRepository: ProjectRepository;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        projectRepository = new ProjectRepository(mockDirectoryProvider, mockMd5Service);
+        projectRepository = new ProjectRepository(
+            mockDirectoryProvider,
+            mockMd5Service,
+        );
     });
 
-    test('saveProject should save a project to the correct directory', async () => {
+    test("saveProject should save a project to the correct directory", async () => {
         const projectToSave = { ...MOCK_PROJECT_1 };
         await projectRepository.saveProject(projectToSave);
 
-        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
+        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+            undefined,
+        );
 
         // Simulate the directory structure being built and file being written
         const userDataDir = await mockDirectoryProvider.getUserDataDirectory();
         const projectsDir = await userDataDir.getDirectoryHandle("projects");
-        const projectDir = await projectsDir.getDirectoryHandle(MOCK_PROJECT_ID_1);
+        const projectDir =
+            await projectsDir.getDirectoryHandle(MOCK_PROJECT_ID_1);
         const projectFile = await projectDir.getFileHandle("project.json");
 
         const writer = await projectFile.createWritable();
-        expect(writer.write).toHaveBeenCalledWith(JSON.stringify(projectToSave, null, 2));
+        expect(writer.write).toHaveBeenCalledWith(
+            JSON.stringify(projectToSave, null, 2),
+        );
         expect(writer.close).toHaveBeenCalled();
     });
 
-    test('loadProject should load an existing project', async () => {
+    test("loadProject should load an existing project", async () => {
         // Setup a mock directory structure with a saved project
-        const projectsDirMock = new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/projects`, {
-            [MOCK_PROJECT_ID_1]: {
-                kind: 'directory',
-                entries: {
-                    'project.json': MOCK_PROJECT_1,
+        const projectsDirMock = new MockDirectoryHandle(
+            `${MOCK_USER_DATA_DIR}/projects`,
+            {
+                [MOCK_PROJECT_ID_1]: {
+                    kind: "directory",
+                    entries: {
+                        "project.json": MOCK_PROJECT_1,
+                    },
                 },
             },
-        });
-
-        // Temporarily override getUserDataDirectory to return the pre-populated structure
-        vi.spyOn(mockDirectoryProvider, 'getUserDataDirectory').mockResolvedValueOnce(
-            new MockDirectoryHandle(MOCK_USER_DATA_DIR, { projects: projectsDirMock }),
         );
 
-        const loadedProject = await projectRepository.loadProject(MOCK_PROJECT_ID_1);
+        // Temporarily override getUserDataDirectory to return the pre-populated structure
+        vi.spyOn(
+            mockDirectoryProvider,
+            "getUserDataDirectory",
+        ).mockResolvedValueOnce(
+            new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
+                projects: projectsDirMock,
+            }),
+        );
+
+        const loadedProject =
+            await projectRepository.loadProject(MOCK_PROJECT_ID_1);
 
         // Expect the loaded project to match the mocked project, with additional properties from loader
         expect(loadedProject).toMatchObject({
@@ -277,58 +336,85 @@ describe('ProjectRepository', () => {
             fileWriter: expect.any(FileWriter), // Check if FileWriter is instantiated
             md5Service: mockMd5Service,
         });
-        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
+        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+            undefined,
+        );
     });
 
-    test('loadProject should return null if project does not exist', async () => {
+    test("loadProject should return null if project does not exist", async () => {
         // Setup a mock directory with no projects
-        vi.spyOn(mockDirectoryProvider, 'getUserDataDirectory').mockResolvedValueOnce(
-            new MockDirectoryHandle(MOCK_USER_DATA_DIR),
-        );
+        vi.spyOn(
+            mockDirectoryProvider,
+            "getUserDataDirectory",
+        ).mockResolvedValueOnce(new MockDirectoryHandle(MOCK_USER_DATA_DIR));
 
-        const loadedProject = await projectRepository.loadProject("non-existent-id");
+        const loadedProject =
+            await projectRepository.loadProject("non-existent-id");
         expect(loadedProject).toBeNull();
     });
 
-    test('listProjects should return a list of all saved projects', async () => {
+    test("listProjects should return a list of all saved projects", async () => {
         // Setup a mock directory structure with multiple saved projects
-        const projectsDirMock = new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/projects`, {
-            [MOCK_PROJECT_ID_1]: {
-                kind: 'directory',
-                entries: {
-                    'project.json': MOCK_PROJECT_1,
+        const projectsDirMock = new MockDirectoryHandle(
+            `${MOCK_USER_DATA_DIR}/projects`,
+            {
+                [MOCK_PROJECT_ID_1]: {
+                    kind: "directory",
+                    entries: {
+                        "project.json": MOCK_PROJECT_1,
+                    },
                 },
-            },
-            [MOCK_PROJECT_ID_2]: {
-                kind: 'directory',
-                entries: {
-                    'project.json': MOCK_PROJECT_2,
+                [MOCK_PROJECT_ID_2]: {
+                    kind: "directory",
+                    entries: {
+                        "project.json": MOCK_PROJECT_2,
+                    },
                 },
+                "invalid-project": {
+                    kind: "directory",
+                    entries: {},
+                }, // Should be ignored
             },
-            'invalid-project': {
-                kind: 'directory',
-                entries: {},
-            } // Should be ignored
-        });
+        );
 
-        vi.spyOn(mockDirectoryProvider, 'getUserDataDirectory').mockResolvedValueOnce(
-            new MockDirectoryHandle(MOCK_USER_DATA_DIR, { projects: projectsDirMock }),
+        vi.spyOn(
+            mockDirectoryProvider,
+            "getUserDataDirectory",
+        ).mockResolvedValueOnce(
+            new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
+                projects: projectsDirMock,
+            }),
         );
 
         const listedProjects = await projectRepository.listProjects();
 
         // The listed projects will have the added properties from the loader
-        expect(listedProjects).toEqual(expect.arrayContaining([
-            expect.objectContaining({ ...MOCK_PROJECT_1, projectDir: expect.any(MockDirectoryHandle), fileWriter: expect.any(FileWriter), md5Service: mockMd5Service }),
-            expect.objectContaining({ ...MOCK_PROJECT_2, projectDir: expect.any(MockDirectoryHandle), fileWriter: expect.any(FileWriter), md5Service: mockMd5Service }),
-        ]));
-        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
+        expect(listedProjects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    ...MOCK_PROJECT_1,
+                    projectDir: expect.any(MockDirectoryHandle),
+                    fileWriter: expect.any(FileWriter),
+                    md5Service: mockMd5Service,
+                }),
+                expect.objectContaining({
+                    ...MOCK_PROJECT_2,
+                    projectDir: expect.any(MockDirectoryHandle),
+                    fileWriter: expect.any(FileWriter),
+                    md5Service: mockMd5Service,
+                }),
+            ]),
+        );
+        expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+            undefined,
+        );
     });
 
-    test('listProjects should return an empty array if no projects exist', async () => {
-        vi.spyOn(mockDirectoryProvider, 'getUserDataDirectory').mockResolvedValueOnce(
-            new MockDirectoryHandle(MOCK_USER_DATA_DIR),
-        );
+    test("listProjects should return an empty array if no projects exist", async () => {
+        vi.spyOn(
+            mockDirectoryProvider,
+            "getUserDataDirectory",
+        ).mockResolvedValueOnce(new MockDirectoryHandle(MOCK_USER_DATA_DIR));
 
         const listedProjects = await projectRepository.listProjects();
         expect(listedProjects).toEqual([]);

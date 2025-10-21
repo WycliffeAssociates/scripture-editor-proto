@@ -1,29 +1,29 @@
 .appLayout {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
 }
 
 .contentGrid {
-  display: grid;
-  grid-template-columns: 1fr minmax(0, 75ch) 1fr;
-  overflow: hidden;
-  padding: 1rem;
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 75ch) 1fr;
+    overflow: hidden;
+    padding: 1rem;
 }
 
 .mainContent {
-  position: relative;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  justify-content: center;
-  grid-column: 2;
+    position: relative;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    grid-column: 2;
 }
 
 .editorWrapper {
-  width: 100%;
-  max-width: 75ch;
-  padding: 2rem 1rem;
+    width: 100%;
+    max-width: 75ch;
+    padding: 2rem 1rem;
 }
 /* .navButtons {
   justify-content: space-between;

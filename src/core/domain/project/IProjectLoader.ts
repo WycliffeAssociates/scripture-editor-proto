@@ -1,6 +1,6 @@
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
  * @interface IProjectLoader
@@ -19,6 +19,6 @@ export interface IProjectLoader {
     loadProject(
         projectDir: FileSystemDirectoryHandle,
         fileWriter: IFileWriter,
-        md5Service: IMd5Service
+        md5Service: IMd5Service,
     ): Promise<Project | null>;
 }

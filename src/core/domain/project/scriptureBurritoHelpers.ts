@@ -1,6 +1,6 @@
-import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
  * @function generateUsfmFilename
@@ -28,7 +28,13 @@ export function generateUsfmFilename(bookCode: string): string {
  * @param bookCode - Optional. The book code, used if localizedBookTitle is not provided.
  * @returns A JavaScript object representing the Burrito ingredient.
  */
-export function createBurritoIngredient(filePath: string, contents: string, md5Service: IMd5Service, localizedBookTitle?: string, bookCode?: string) {
+export function createBurritoIngredient(
+    filePath: string,
+    contents: string,
+    md5Service: IMd5Service,
+    localizedBookTitle?: string,
+    bookCode?: string,
+) {
     const md5Checksum = md5Service.calculateMd5(contents);
     return {
         checksum: {
@@ -50,7 +56,11 @@ export function createBurritoIngredient(filePath: string, contents: string, md5S
  * @param ingredientData - The ingredient data object to add to `metadata.json`.
  * @returns A Promise that resolves when `metadata.json` has been successfully updated and written.
  */
-export async function updateBurritoMetadata(project: Project, filePath: string, ingredientData: any): Promise<void> {
+export async function updateBurritoMetadata(
+    project: Project,
+    filePath: string,
+    ingredientData: any,
+): Promise<void> {
     project.metadataJson.ingredients = project.metadataJson.ingredients || {};
     project.metadataJson.ingredients[filePath] = ingredientData;
 

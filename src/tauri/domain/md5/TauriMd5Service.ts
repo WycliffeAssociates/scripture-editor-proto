@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 
 /**
  * @class TauriMd5Service

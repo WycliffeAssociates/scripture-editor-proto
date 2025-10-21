@@ -13,6 +13,7 @@ import {DecoratorNode} from "lexical";
 import type {USFMNodeJSON} from "@/app/data/editor";
 import {NestedEditor} from "@/app/ui/components/blocks/NestedEditor";
 import type {ParsedToken} from "@/core/data/usfm/parse";
+import type {LintError} from "@/core/domain/usfm/parse";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 export const nestedEditorMarkers = new Set(["f", "x"]); // expandable later
@@ -20,14 +21,16 @@ export const nestedEditorMarkers = new Set(["f", "x"]); // expandable later
 export type USFMNestedEditorNodeJSON = Spread<
   {
     type: typeof USFM_NESTED_DECORATOR_TYPE;
+    tokenType: string;
     id: string;
     version: 1;
     marker: string;
-    usfmType: string;
     editorState: SerializedEditorState;
+    lintErrors?: LintError[];
     sid?: string;
     level?: string;
     inPara?: string;
+    inChars?: string[];
     attributes?: Record<string, string>;
   },
   SerializedLexicalNode
@@ -37,17 +40,19 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
   __marker: string;
   __id: string;
   __sid?: string;
-  __usfmType: string;
+  __tokenType: string;
   __level?: string;
   __inPara?: string;
   __attributes: Record<string, string>;
   __editorState: SerializedEditorState;
+  __lintErrors?: LintError[];
 
   constructor(
     marker: string,
     id: string,
-    usfmType: string,
+    tokenType: string,
     editorState: SerializedEditorState,
+    lintErrors?: LintError[],
     sid?: string,
     level?: string,
     inPara?: string,
@@ -58,11 +63,12 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     this.__marker = marker;
     this.__id = id;
     this.__sid = sid;
-    this.__usfmType = usfmType;
+    this.__tokenType = tokenType;
     this.__level = level;
     this.__inPara = inPara;
     this.__attributes = attributes;
     this.__editorState = editorState;
+    this.__lintErrors = lintErrors;
   }
 
   static getType(): string {
@@ -75,13 +81,17 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
   getSid(): string | undefined {
     return this.__sid;
   }
+  getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
+    return this.getLatest().__editorState;
+  }
 
   static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {
     return new USFMNestedEditorNode(
       node.__marker,
       node.__id,
-      node.__usfmType,
+      node.__tokenType,
       node.__editorState,
+      node.__lintErrors,
       node.__sid,
       node.__level,
       node.__inPara,
@@ -90,7 +100,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     );
   }
   createDOM(): HTMLElement {
-    return document.createElement("div");
+    const el = document.createElement("div");
+    el.classList.add("nested-editor");
+    return el;
   }
   updateDOM(
     _prevNode: unknown,
@@ -98,6 +110,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     _config: EditorConfig
   ): boolean {
     return false;
+  }
+  isInline(): boolean {
+    return true;
   }
 
   // JSON serialization
@@ -109,7 +124,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
       version: 1,
       marker: this.__marker,
       sid: this.__sid,
-      usfmType: this.__usfmType,
+      tokenType: this.__tokenType,
+      lintErrors: this.__lintErrors,
       level: this.__level,
       inPara: this.__inPara,
       attributes: this.__attributes,
@@ -121,8 +137,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     return new USFMNestedEditorNode(
       json.marker,
       json.id,
-      json.usfmType,
+      json.tokenType,
       json.editorState,
+      json.lintErrors,
       json.sid,
       json.level,
       json.inPara,
@@ -139,6 +156,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         id={this.__id}
         // lexicalKey={this.__key}
         initialEditorState={this.__editorState}
+        lintErrors={this.__lintErrors}
         onChange={(
           newState: SerializedEditorState<SerializedLexicalNode>,
           mainEditor: LexicalEditor
@@ -158,6 +176,7 @@ export function $createUSFMNestedEditorNode(
   id: string,
   usfmType: string,
   editorState: SerializedEditorState,
+  lintErrors?: LintError[],
   sid?: string,
   level?: string,
   inPara?: string,
@@ -168,22 +187,30 @@ export function $createUSFMNestedEditorNode(
     id,
     usfmType,
     editorState,
+    lintErrors,
     sid,
     level,
     inPara,
     attributes
   );
 }
-export function getSerializedNestedEditorNode(
-  token: ParsedToken,
-  childrenCb: () => USFMNodeJSON[]
-): USFMNestedEditorNodeJSON {
+
+export function getSerializedNestedEditorNode({
+  token,
+  childrenCb,
+  languageDirection,
+}: {
+  token: ParsedToken;
+  childrenCb: () => USFMNodeJSON[];
+  languageDirection: "ltr" | "rtl";
+}): USFMNestedEditorNodeJSON {
+  // needed to wrap nested flat text nodes
   const serializedPara: SerializedElementNode = {
     children: childrenCb(),
     type: "paragraph",
     version: 1,
-    direction: "ltr",
-    format: "start",
+    direction: languageDirection,
+    format: "",
     indent: 0,
   };
 
@@ -193,15 +220,16 @@ export function getSerializedNestedEditorNode(
     version: 1,
     marker: token.marker ?? "",
     sid: token.sid ?? undefined,
-    usfmType: token.type,
-    level: token.level ?? undefined,
+    tokenType: token.tokenType,
     inPara: token.inPara ?? undefined,
+    inChars: token.inChars ?? undefined,
     attributes: token.attributes ?? {},
+    lintErrors: token.lintErrors ?? [],
     // Serialize children of this token into a nested editor state
     editorState: {
       root: {
         children: [serializedPara],
-        direction: "ltr",
+        direction: languageDirection,
         format: "",
         indent: 0,
         type: "root",

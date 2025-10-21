@@ -13,13 +13,16 @@ import {
   $isVerseRangeTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import {$serializedLexicalToUsfm} from "@/app/domain/editor/serialization/lexicalToUsfm";
 import {
   classNameToMsgMap,
-  LintMessage,
+  type LintMessage,
   lintMessages,
 } from "@/app/ui/hooks/useLint";
 import {type ParsedReference, parseSid} from "@/core/data/bible/bible";
 import {guidGenerator} from "@/core/data/utils/generic";
+import {parseUSFMChapter} from "@/core/domain/usfm/parse";
+import {initBaseTokenContext} from "@/core/domain/usfm/parse-v2";
 
 type LintVersesArgs = {
   editorState: EditorState;
@@ -46,7 +49,9 @@ export function lintVerseRangeReferences({
         reference: ParsedReference;
       }>;
     };
-
+    // todo:
+    // root.getAllTextNodes().map((node) => node.exportJSON())
+    // then pass to
     const allVerseRanges = root.getAllTextNodes().reduce(
       (acc, node) => {
         if ($isVerseRangeTextNode(node)) {
@@ -183,6 +188,28 @@ export function lintVerseRangeReferences({
   return messages;
 }
 
+export function lintAll({editorState, editor}: LintVersesArgs) {
+  // todo: fix the lint side to take a less strict token. See what it might entail to take editorSTate to usfm -> parse + lint to automatically descend into nestedEditors without having to recurse here?
+  console.time("lint all via parse core");
+  debugger;
+  const newUsfm = $serializedLexicalToUsfm(editor);
+  if (!newUsfm) return;
+  //   debugger;
+  //   todo: did above todo, but maybe tokens instead of round tripped usfm. But do have to manually descend into any nestedEditor here:   if we create new ids on type, we want to be able to querySelectThoseLater: Or, update the nodes that have error via; Not sure there's a clean way to do such right now just round tripped also maybe options to skip some lints, such as
+  const {usfm, lintErrors} = parseUSFMChapter(newUsfm, "GEN");
+  console.log("lintErrors", lintErrors);
+  console.timeEnd("lint all via parse core");
+  //   const parseTokens = editorState.read(() => {
+  //     const root = $getRoot();
+  //     return root
+  //       .getAllTextNodes()
+  //       .filter((node) => $isUSFMTextNode(node))
+  //       .map((node) => node.exportJSON());
+  //   });
+  //   const ctx = initBaseTokenContext(parseTokens, {});
+  //   lint(ctx);
+}
+
 export function ensurePlainTextNodeAlwaysFollowsVerseRange({
   editorState,
   editor,
@@ -240,7 +267,7 @@ export function ensureVerseRangeAlwaysFollowsVerseMarker({
           id: guidGenerator(),
           sid: node.getSid().trim(),
           inPara: node.getInPara(),
-          tokenType: UsfmTokenTypes.verseRange,
+          tokenType: UsfmTokenTypes.numberRange,
         });
         node.insertAfter(emptySibling);
       });
