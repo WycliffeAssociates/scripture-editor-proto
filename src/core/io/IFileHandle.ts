@@ -5,6 +5,8 @@ interface _IFileHandle extends IPathHandle {
 
     createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream>;
 
+    createWriter(): Promise<WritableStreamDefaultWriter<any>>;
+
     [Symbol.asyncDispose](): Promise<void>;
 }
 

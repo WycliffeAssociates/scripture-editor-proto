@@ -206,6 +206,11 @@ export class TauriFileHandle implements IFileHandle {
         } as FileSystemWritableFileStream;
     }
 
+    async createWriter(): Promise<WritableStreamDefaultWriter<any>> {
+        const writableStream = await this.createWritable();
+        return writableStream.getWriter();
+    }
+
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {
         return (other as IPathHandle)?.path === this.path;
     }

@@ -2,7 +2,6 @@ import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {ProjectFile} from "@/app/data/parsedProject.ts";
 import {ProjectMetadata} from "@/core/domain/project/project.ts";
 import {IFileWriter} from "@/core/io/IFileWriter.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
