@@ -27,6 +27,12 @@ interface ScriptureBurritoProject extends Project {
 export class ScriptureBurritoProjectLoader implements IProjectLoader {
     static readonly METADATA_FILENAME = "metadata.json";
 
+    private readonly md5Service: IMd5Service;
+
+    constructor(md5Service: IMd5Service) {
+        this.md5Service = md5Service;
+    }
+
     /**
      * @method loadProject
      * @description Loads a Scripture Burrito project from the specified directory handle.
@@ -36,7 +42,7 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
      *          (e.g., metadata.json is missing or malformed).
      */
-    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<ScriptureBurritoProject | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter): Promise<ScriptureBurritoProject | null> {
         try {
             const metadataFileHandle = await projectDir.getFileHandle(ScriptureBurritoProjectLoader.METADATA_FILENAME);
             const file = await metadataFileHandle.getFile();
@@ -46,6 +52,8 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
             const defaultLanguageTag = metadata.languages?.default?.tag || "und";
             const defaultLanguageName = metadata.languages?.[defaultLanguageTag]?.name?.en || "Undefined";
             const defaultLanguageDirection = metadata.languages?.[defaultLanguageTag]?.direction === "rtl" ? LanguageDirection.RTL : LanguageDirection.LTR;
+
+            const md5Service = this.md5Service;
 
             const project: ScriptureBurritoProject = {
                 id: metadata.id || projectDir.name,

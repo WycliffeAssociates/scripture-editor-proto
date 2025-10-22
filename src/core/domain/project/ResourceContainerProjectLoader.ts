@@ -6,6 +6,7 @@ import {Project} from "@/core/persistence/ProjectRepository.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {parseResourceContainer, ResourceContainer, ResourceContainerProject} from "@/core/domain/project/resourceContainer/resourceContainer.ts";
 import { stringify } from "yaml";
+import {ProjectFile} from "@/app/data/parsedProject.ts";
 
 
 /**
@@ -50,7 +51,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                 console.log("No language found for project:", projectId);
                 return null;
             }
-
 
             const project: Project = {
                 id: projectId,

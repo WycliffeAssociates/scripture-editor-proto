@@ -21,9 +21,9 @@ export class ProjectLoader implements IProjectLoader {
      * @constructor
      * @description Creates an instance of ProjectLoader, initializing its internal loader implementations.
      */
-    constructor() {
+    constructor(md5Service: IMd5Service) {
         this.resourceContainerLoader = new ResourceContainerProjectLoader();
-        this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader();
+        this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader(md5Service);
     }
 
     /**
@@ -35,20 +35,19 @@ export class ProjectLoader implements IProjectLoader {
      *              If neither is found, or both fail, it returns null.
      * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
-     * @param md5Service - An IMd5Service instance for calculating MD5 checksums.
      * @returns A Promise that resolves to the loaded Project object, or null if no project can be loaded.
      */
-    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter): Promise<Project | null> {
         const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
         const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
 
         if (hasMetadataJson) {
-            const project = await this.scriptureBurritoLoader.loadProject(projectDir, fileWriter, md5Service);
+            const project = await this.scriptureBurritoLoader.loadProject(projectDir, fileWriter);
             if (project) return project;
         }
 
         if (hasManifestYaml) {
-            const project = await this.resourceContainerLoader.loadProject(projectDir, fileWriter, md5Service);
+            const project = await this.resourceContainerLoader.loadProject(projectDir, fileWriter);
             if (project) return project;
         }
 
