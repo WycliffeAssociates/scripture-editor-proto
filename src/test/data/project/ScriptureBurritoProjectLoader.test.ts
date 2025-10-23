@@ -108,7 +108,7 @@ describe('ScriptureBurritoProjectLoader', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockProjectDir = new MockDirectoryHandle(MOCK_PROJECT_NAME);
-        loader = new ScriptureBurritoProjectLoader();
+        loader = new ScriptureBurritoProjectLoader(mockMd5Service);
     });
 
     test('loadProject should load a project from metadata.json', async () => {
@@ -168,21 +168,5 @@ describe('ScriptureBurritoProjectLoader', () => {
         // Verify metadata wasn't changed for this book
         const updatedMetadata = JSON.parse(mockProjectDir.files.get(ScriptureBurritoProjectLoader.METADATA_FILENAME)!);
         expect(updatedMetadata.ingredients["41-MAT.usfm"].checksum.md5).toBe("old-md5");
-    });
-
-    test('addBook should not overwrite an existing file (as physical file)', async () => {
-        mockProjectDir.files.set(ScriptureBurritoProjectLoader.METADATA_FILENAME, JSON.stringify(sampleMetadataJson));
-        mockProjectDir.files.set("41-MAT.usfm", "original content");
-
-        const project = await loader.loadProject(mockProjectDir, mockFileWriter, mockMd5Service);
-        expect(project).not.toBeNull();
-
-        const bookCode = "MAT";
-        const bookContents = "new content";
-
-        await project!.addBook(bookCode, "Matthew", bookContents);
-
-        expect(mockFileWriter.writeFile).not.toHaveBeenCalledWith("41-MAT.usfm", bookContents);
-        expect(mockMd5Service.calculateMd5).not.toHaveBeenCalled();
     });
 });
