@@ -2,23 +2,17 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useDebouncedCallback } from "@mantine/hooks";
 import {
     COMMAND_PRIORITY_HIGH,
+    COMMAND_PRIORITY_NORMAL,
+    type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
-    SELECTION_CHANGE_COMMAND,
 } from "lexical";
 import { useEffect, useRef } from "react";
-import {
-    EditorMarkersMutableState,
-    EditorMarkersMutableStates,
-    EditorMarkersViewState,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor";
+import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
 import {
     ensurePlainTextNodeAlwaysFollowsVerseRange,
     ensureVerseRangeAlwaysFollowsVerseMarker,
     lintAll,
-    lintVerseRangeReferences,
 } from "@/app/domain/editor/listeners/lintChecks";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
 import {
@@ -32,33 +26,37 @@ import {
 } from "@/app/domain/editor/listeners/manageUsfmMarkers";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
-    const { project, lint } = useWorkspaceContext();
+    const { project, actions, lint } = useWorkspaceContext();
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
 
-    const debouncedLint = useDebouncedCallback((editorState) => {
+    const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
         console.count(`debouncedLint`);
         // console.time("lint");
         // const messages = lintVerseRangeReferences({editorState, editor});
-        lintAll({ editorState, editor });
         ensureVerseRangeAlwaysFollowsVerseMarker({ editorState, editor });
         ensurePlainTextNodeAlwaysFollowsVerseRange({ editorState, editor });
+        const errMessages = lintAll(
+            { editorState, editor },
+            actions.getFlatFileTokens,
+        );
+
         // console.log(messages);
-        // if (!messages.length) {
-        //   // sett if we actually need to clear the messages:
-        //   const allMessagesInDom = document.querySelectorAll(".lint-error");
-        //   if (allMessagesInDom.length === 0) {
-        //     lint.setMessage([]);
-        //   }
-        // } else {
-        //   lint.setMessage(messages);
-        // }
+        const merged = lint.mergeInNewErrorsFromChapter(errMessages);
+        if (!merged.length) {
+            // sett if we actually need to clear the messages:
+            const allMessagesInDom = document.querySelectorAll(".lint-error");
+            if (allMessagesInDom.length === 0) {
+                lint.setMessage([]);
+            }
+        } else {
+            lint.setMessage(merged);
+        }
         // console.timeEnd("lint");
-    }, 200);
+    }, 600);
 
     useEffect(() => {
         if (mode === EditorModes.SOURCE) {
@@ -99,13 +97,15 @@ export function USFMPlugin() {
             },
         );
 
-        const lints = editor.registerUpdateListener(({ editorState, tags }) => {
-            if (mode !== EditorModes.WYSIWYG) {
-                return;
-            }
-            //   console.log({tags});
-            debouncedLint(editorState);
-        });
+        const lints = editor.registerUpdateListener(
+            ({ editorState, tags: _tags }) => {
+                if (mode !== EditorModes.WYSIWYG) {
+                    return;
+                }
+                //   console.log({tags});
+                debouncedLint(editorState);
+            },
+        );
 
         // commands:
         const keyDownUnregister = editor.registerCommand(
@@ -117,7 +117,7 @@ export function USFMPlugin() {
                     markersMutableState,
                 });
             },
-            COMMAND_PRIORITY_HIGH,
+            COMMAND_PRIORITY_NORMAL,
         );
         const pasteCommand = lockImmutableMarkersOnPaste(editor);
         const lockImmutablesOnCut = lockImmutableMarkersOnCut(editor);

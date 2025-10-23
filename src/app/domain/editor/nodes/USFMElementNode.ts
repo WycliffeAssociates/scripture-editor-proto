@@ -131,7 +131,7 @@ export class USFMElementNode extends ElementNode {
         return this;
     }
 
-    createDOM(config: EditorConfig) {
+    createDOM(_config: EditorConfig) {
         const el =
             this.getMarker() === "p"
                 ? document.createElement("p")

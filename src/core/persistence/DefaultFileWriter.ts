@@ -8,7 +8,6 @@ import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
  *              using the provided IDirectoryProvider and FileSystemDirectoryHandle.
  */
 export class FileWriter implements IFileWriter {
-    private directoryProvider: IDirectoryProvider;
     private baseDir: FileSystemDirectoryHandle;
 
     /**

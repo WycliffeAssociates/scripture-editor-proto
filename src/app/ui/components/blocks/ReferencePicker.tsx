@@ -10,16 +10,9 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ParsedFile } from "@/app/data/parsedProject";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import referencePickerCss from "@/app/ui/styles/modules/ReferencePicker.module.css";
 import { parseReference } from "@/core/data/bible/bible";
-
-type Props = {
-    // allFiles?: ParsedFile[];
-    // currentFile?: string;
-    // currentChapter?: number;
-};
 
 export function ReferencePicker() {
     const [search, setSearch] = useState("");

@@ -90,10 +90,7 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                     const filename = generateUsfmFilename(bookCode);
                     const filePath = filename; // Path relative to projectDir
 
-                    if (
-                        project.metadataJson.ingredients &&
-                        project.metadataJson.ingredients[filePath]
-                    ) {
+                    if (project.metadataJson.ingredients?.[filePath]) {
                         console.warn(
                             `Book ${filename} already exists as an ingredient. Not adding.`,
                         );

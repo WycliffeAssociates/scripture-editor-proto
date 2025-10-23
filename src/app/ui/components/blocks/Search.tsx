@@ -16,7 +16,6 @@ import {
     WholeWord,
     X,
 } from "lucide-react";
-import { useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import type { UseSearchReturn } from "@/app/ui/hooks/useSearch";
 

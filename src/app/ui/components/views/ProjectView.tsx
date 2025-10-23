@@ -1,6 +1,3 @@
-import { Button, Group, Popover } from "@mantine/core";
-import { $getNodeByKey, HISTORY_MERGE_TAG } from "lexical";
-import { useRef, useState } from "react";
 import { MainEditor } from "@/app/ui/components/blocks/Editor";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor";
@@ -10,7 +7,7 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import styles from "@/app/ui/styles/modules/Projectview.module.css";
 
 export function ProjectView() {
-    const { actions } = useWorkspaceContext();
+    const { actions: _actions } = useWorkspaceContext();
     return (
         <div className={styles.appLayout}>
             <nav>

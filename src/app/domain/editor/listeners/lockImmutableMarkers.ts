@@ -4,7 +4,6 @@ import {
     COMMAND_PRIORITY_HIGH,
     CUT_COMMAND,
     type LexicalEditor,
-    LexicalNode,
     PASTE_COMMAND,
 } from "lexical";
 import {
@@ -12,12 +11,10 @@ import {
     EditorMarkersMutableStates,
 } from "@/app/data/editor";
 import {
-    $createUSFMTextNode,
     $isLockedUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import { guidGenerator } from "@/core/data/utils/generic";
 
 export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
     return editor.registerCommand(
@@ -94,7 +91,7 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
 export function lockImmutableMarkersOnPaste(editor: LexicalEditor) {
     return editor.registerCommand(
         PASTE_COMMAND,
-        (event: ClipboardEvent) => {
+        (_event: ClipboardEvent) => {
             const selectionInfo = $getSelectionInfo();
             if (!selectionInfo) return false;
             if (selectionInfo.crossesLockedNodes) {

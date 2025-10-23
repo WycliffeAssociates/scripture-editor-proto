@@ -1,4 +1,4 @@
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { parse } from "yaml";
 import type { ParsedFile } from "@/app/data/parsedProject";
 import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical";
@@ -9,7 +9,8 @@ import {
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible";
 import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
-import { type LintError, parseUSFMfile } from "@/core/domain/usfm/parse";
+import type { LintError } from "@/core/domain/usfm/lint";
+import { parseUSFMfile } from "@/core/domain/usfm/parse";
 
 export const Route = createFileRoute("/$project")({
     component: RouteComponent,

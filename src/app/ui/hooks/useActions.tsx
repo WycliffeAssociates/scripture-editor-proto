@@ -1,6 +1,4 @@
-import { produce } from "immer";
 import {
-    $getRoot,
     CLEAR_HISTORY_COMMAND,
     HISTORY_MERGE_TAG,
     type LexicalEditor,
@@ -17,11 +15,7 @@ import {
     USFM_TEXT_NODE_TYPE,
 } from "@/app/data/editor";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import {
-    type Settings,
-    SettingsManager,
-    settingsDefaults,
-} from "@/app/data/settings";
+import { type Settings, settingsDefaults } from "@/app/data/settings";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
@@ -30,6 +24,7 @@ import {
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import type { USFMNestedEditorNodeJSON } from "../../domain/editor/nodes/USFMNestedEditorNode";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
@@ -206,7 +201,7 @@ export const useWorkspaceActions = ({
                     ),
             };
         }
-    }, [pickedFile, currentChapter]);
+    }, [pickedFile, currentChapter, switchBookOrChapter, workingFiles]);
 
     const prevChapter = useMemo(() => {
         if (!pickedFile || (!currentChapter && currentChapter !== 0))
@@ -251,7 +246,7 @@ export const useWorkspaceActions = ({
                     ),
             };
         }
-    }, [pickedFile, currentChapter]);
+    }, [pickedFile, currentChapter, switchBookOrChapter, workingFiles]);
 
     function saveCurrentDirtyLexical({
         doSetWorkingFiles = true,
@@ -419,7 +414,32 @@ export const useWorkspaceActions = ({
             document.body.firstElementChild?.classList.add("markers-shown");
         }
     }
-    // show true, mutable = chosen option
+
+    function getFlatFileTokens(
+        currentEditorState: SerializedEditorState,
+    ): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+        return getFlattenedFileTokens(
+            pickedFile,
+            currentEditorState,
+            currentChapter,
+        );
+    }
+    function getProjectAsFlatTokens(currentEditorState: SerializedEditorState) {
+        return workingFilesRef.current.flatMap((file) => {
+            return file.chapters.flatMap((chapter) => {
+                const editorState =
+                    chapter.chapNumber === currentChapter &&
+                    file.bibleIdentifier === currentFileBibleIdentifier
+                        ? currentEditorState
+                        : chapter.lexicalState;
+                return getFlattenedFileTokens(
+                    file,
+                    editorState,
+                    chapter.chapNumber,
+                );
+            });
+        });
+    }
 
     /* effect once to set initial content (if present), from then on, instead of effect scheduling, we'll prefer to make sure it's set only explicitly during swtichBookChap */
     useEffectOnce(() => {
@@ -447,6 +467,8 @@ export const useWorkspaceActions = ({
         toggleToSourceMode,
         adjustWysiwygMode,
         saveCurrentDirtyLexical,
+        getFlatFileTokens,
+        getProjectAsFlatTokens,
         nextChapter,
         prevChapter,
     };
@@ -484,4 +506,68 @@ function adjustSerializedLexicalNodes(
         );
     }
     return node;
+}
+
+function getFlattenedEditorStateAsParseTokens(
+    serializedEditorState: SerializedEditorState,
+): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+    const root = serializedEditorState.root;
+    const firstChild = root.children?.[0];
+    if (!isSerializedElementNode(firstChild)) return [];
+
+    // Recursive helper to descend through nested structures
+    function collectTokens(
+        nodes: SerializedLexicalNode[],
+    ): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+        const tokens = [];
+
+        for (const node of nodes) {
+            if (node.type === USFM_TEXT_NODE_TYPE) {
+                tokens.push(node);
+                continue;
+            }
+
+            if (isSerializedElementNode(node)) {
+                tokens.push(...collectTokens(node.children ?? []));
+                continue;
+            }
+
+            if (isSerializedUSFMNestedEditorNode(node)) {
+                const nestedChildren = node.editorState?.root?.children ?? [];
+                // the node itself has the opening marker
+                tokens.push(node, ...collectTokens(nestedChildren));
+            }
+        }
+
+        return tokens as Array<
+            SerializedUSFMTextNode | USFMNestedEditorNodeJSON
+        >;
+    }
+
+    return collectTokens(firstChild.children ?? []);
+}
+
+export function getFlattenedFileTokens(
+    pickedFile: ParsedFile | null,
+    currentEditorState: SerializedEditorState,
+    currentChapter: number,
+): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+    if (!pickedFile) return [];
+
+    const tokens: Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> = [];
+
+    for (const chapter of pickedFile.chapters) {
+        // Use the live editor state for the current chapter
+        const serializedState =
+            chapter.chapNumber === currentChapter
+                ? currentEditorState
+                : chapter.lexicalState;
+
+        const flattened = getFlattenedEditorStateAsParseTokens(serializedState);
+        if (flattened?.length) {
+            tokens.push(...flattened);
+        }
+    }
+
+    return tokens;
 }

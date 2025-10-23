@@ -219,14 +219,14 @@ function ReferenceProjectList() {
 }
 
 /* ---------------- Search ---------------- */
-function SearchBar() {
+function _SearchBar() {
     // const {
     //   projectSearchTerm,
     //   setProjectSearchTerm,
     //   projectSearchOptions,
     //   setProjectSearchOptions,
     // } = useProjectContext();
-    const [opened, setOpened] = useState(false);
+    const [_opened, _setOpened] = useState(false);
 
     // return (
     //   <Group gap="xs" align="center">
@@ -311,8 +311,8 @@ function FontSizeAdjust() {
 function FontPicker() {
     const { project } = useWorkspaceContext();
     const { appSettings, updateAppSettings } = project;
-    const [fonts, setFonts] = useState<string[]>(["Inter"]);
-    const [selected, setSelected] = useState("Inter");
+    const [fonts, _setFonts] = useState<string[]>(["Inter"]);
+    const [_selected, _setSelected] = useState("Inter");
 
     // useEffect(() => {
     //   invoke<string[]>("get_system_fonts")

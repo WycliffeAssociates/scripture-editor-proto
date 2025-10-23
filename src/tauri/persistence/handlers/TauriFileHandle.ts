@@ -39,7 +39,7 @@ export class TauriFileHandle implements FileSystemFileHandle {
                 buffer = new TextEncoder().encode(existingText);
                 // Set the initial position to the end of the file content for easy appending.
                 position = buffer.length;
-            } catch (e) {
+            } catch (_e) {
                 // If file doesn't exist, start with an empty buffer
                 buffer = new Uint8Array(0);
                 position = 0;

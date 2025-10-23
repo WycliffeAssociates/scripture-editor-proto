@@ -20,7 +20,6 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import { guidGenerator } from "@/core/data/utils/generic";
 

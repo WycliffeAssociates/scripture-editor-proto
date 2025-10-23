@@ -1,4 +1,5 @@
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
@@ -6,7 +7,6 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { Button, Group, Popover } from "@mantine/core";
-import { remove } from "@tauri-apps/plugin-fs";
 import {
     type EditorState,
     type LexicalEditor,
@@ -17,14 +17,13 @@ import {
 } from "lexical";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import type { LintError } from "@/core/domain/usfm/parse";
+import type { LintError } from "@/core/domain/usfm/lint";
 
 type Props = {
     outerMarker: string;
-    initialEditorState: any;
+    initialEditorState: SerializedEditorState<SerializedLexicalNode>;
     onChange: (
         newState: SerializedEditorState<SerializedLexicalNode>,
         mainEditor: LexicalEditor,
@@ -42,9 +41,12 @@ export function NestedEditor({
 }: Props) {
     const nestedRef = useRef<LexicalEditor>(null);
     const [isOpen, setIsOpen] = useState(false);
-    const [hasOpened, setHasOpened] = useState(false);
-    const [hasSetInitialContent, setHasSetInitialContent] = useState(false);
-    //   const [opened, setOpened] = useState(false);
+    const [mainEditor] = useLexicalComposerContext();
+    // const [hasOpened, setHasOpened] = useState(false);
+    const [inProgressEditsJson, setInProgressEditsJson] =
+        useState<SerializedEditorState<SerializedLexicalNode> | null>(
+            initialEditorState,
+        );
 
     const nestedConfig = {
         namespace: `nested-${outerMarker}-${id}`,
@@ -58,38 +60,37 @@ export function NestedEditor({
     const handleSave = useCallback(() => {
         const editor = nestedRef.current;
         if (!editor) return;
-        const json = editor.getEditorState().toJSON();
+        const state = editor.getEditorState();
+        const json = state.toJSON();
         // bubble serialized state to parent
-        onChange(json, editor);
-        setHasOpened(false);
-    }, [onChange]);
+        onChange(json, mainEditor);
+        setInProgressEditsJson(json);
+    }, [onChange, mainEditor]);
 
     const handleClose = useCallback(() => {
         handleSave();
-        setHasOpened(false);
     }, [handleSave]);
 
-    useEffect(() => {
-        if (!hasOpened) return;
-        let cancelled = false;
+    // useEffect(() => {
+    //     if (!isOpen) return;
+    //     let cancelled = false;
 
-        const tryInit = () => {
-            const editor = nestedRef.current;
-            if (editor) {
-                const parsed = editor.parseEditorState(initialEditorState);
-                editor.setEditorState(parsed, { tag: "history-merge" });
-                setHasSetInitialContent(true);
-            } else if (!cancelled) {
-                requestAnimationFrame(tryInit);
-            }
-        };
-        if (!hasSetInitialContent) {
-            tryInit();
-        }
-        return () => {
-            cancelled = true;
-        };
-    }, [hasOpened, initialEditorState, hasSetInitialContent]);
+    //     const tryInit = () => {
+    //         const editor = nestedRef.current;
+    //         const domEl = document.querySelector(`[data-id="${id}"]`);
+    //         debugger;
+    //         if (editor && domEl) {
+    //             const parsed = editor.parseEditorState(initialEditorState);
+    //             editor.setEditorState(parsed, { tag: "history-merge" });
+    //         } else if (!cancelled) {
+    //             requestAnimationFrame(tryInit);
+    //         }
+    //     };
+    //     tryInit();
+    //     return () => {
+    //         cancelled = true;
+    //     };
+    // }, [isOpen, initialEditorState]);
 
     const hasErrors = lintErrors.length > 0;
     const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";
@@ -101,13 +102,22 @@ export function NestedEditor({
             defaultOpened={isOpen}
             onChange={(c) => {
                 setIsOpen(c);
-                if (!hasOpened) {
-                    setHasOpened(true);
-                }
             }}
             position="bottom"
             shadow="md"
             width={500}
+            onEnterTransitionEnd={() => {
+                const editor = nestedRef.current;
+                const domEl = document.querySelector(`[data-id="${id}"]`);
+                if (editor && inProgressEditsJson && domEl) {
+                    editor.setEditorState(
+                        editor.parseEditorState(inProgressEditsJson),
+                        {
+                            tag: "history-merge",
+                        },
+                    );
+                }
+            }}
         >
             <Popover.Target>
                 <Button
@@ -147,7 +157,11 @@ export function NestedEditor({
                             }
                         />
                         <HistoryPlugin />
-                        <OnChangePlugin onChange={() => {}} />
+                        <OnChangePlugin
+                            onChange={(editorState) =>
+                                onChange(editorState.toJSON(), mainEditor)
+                            }
+                        />
                         <EditorRefPlugin editorRef={nestedRef} />
                     </LexicalComposer>
 

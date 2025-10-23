@@ -101,12 +101,12 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     async newFileWriter(
         filePath: string,
     ): Promise<WritableStreamDefaultWriter<any>> {
-        console.log("creating file writer for: " + filePath);
+        console.log(`creating file writer for: ${filePath}`);
         const file = new TauriFileHandle(filePath);
         const stream = await file.createWritable();
-        console.log("file writer created: " + filePath);
+        console.log(`file writer created: ${filePath}`);
         const writer = stream.getWriter();
-        console.log("file writer ready: " + filePath);
+        console.log(`file writer ready: ${filePath}`);
         return writer;
     }
 

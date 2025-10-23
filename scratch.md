@@ -150,3 +150,22 @@ Maybe change className to just be static string:
 
 Overall we want message scoped to nodes / serialized objects: 
 so on the obj we can just set lintErrors, (also keep a running list elsehwere for diplay) and then we can in serializeToken, pass those in, and then during keystroke lints, we just assumed all classNames returned from lint is correct; Deterministic alphabetic string, and if not equal just call set.  Perhaps in an ideal world we use css highlight instead of mutating the dom, but not supported in firefox atm. 
+
+
+TOMORROW: 
+fix linting bugs against kng nt
+use linebreak plugin so we never use paras. Always one level flat: 
+upgrade markers back to markers after downgrading if the textNode matches marker + space
+fix footnotes
+context menu
+localization
+tool tips
+reverse find (from source text)
+insert X for top 8-10 markers that can call from type or from context menu action
+Make nesteds work like top editor in terms of context menu and stuff? 
+node selection jumps 2 when wysi preview on
+allow enter key at the very edge of locked node?
+sync reference panels with main editor
+more lint rules? 
+Start writing tests?
+Start refining ui? 

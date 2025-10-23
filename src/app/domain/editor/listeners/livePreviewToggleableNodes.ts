@@ -110,7 +110,7 @@ function findRelevantConditionals(node: LexicalNode): USFMTextNode[] | null {
     const thisSid = node.getSid();
     if (!thisSid) return null;
     const root = $getRoot();
-    const endNode: USFMTextNode | null = null;
+    const _endNode: USFMTextNode | null = null;
     const collected: USFMTextNode[] = [];
     for (const prevNode of $reverseDfs(node, root)) {
         if ($isUSFMTextNode(prevNode.node)) {

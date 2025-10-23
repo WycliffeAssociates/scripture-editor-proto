@@ -42,7 +42,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 // but we mock it to control the output of Tauri's path functions.
 vi.mock("@tauri-apps/api/path", () => {
     // We use Node's path.join here just for simple, consistent path concatenation
-    const path = require("path");
+    const path = require("node:path");
     return {
         join: vi.fn(path.join),
         homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),

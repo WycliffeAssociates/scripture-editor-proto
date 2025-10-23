@@ -8,22 +8,28 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
+import { Text } from "lucide-react";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin";
+import {
+    MarkerTooltip,
+    // ToolTipPlugin,
+} from "@/app/domain/editor/plugins/ToolTipPlugin";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import { guidGenerator } from "@/core/data/utils/generic";
-// import {NodeContextMenuPlugin} from "@lexical/react/LexicalNodeContextMenuPlugin";
 
 export function MainEditor() {
     const { editorRef } = useWorkspaceContext();
 
     return (
         <div className="h-full overflow-y-auto">
+            <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js="editor-container"
@@ -74,6 +80,22 @@ export function MainEditor() {
               currentEditorState={currentEditorState}
             /> */}
                 <USFMPlugin />
+                <NodeContextMenuPlugin
+                    items={[
+                        {
+                            title: "Insert \\v",
+                            onSelect: () => console.log("Insert \\v"),
+                        },
+                        {
+                            title: "Insert \\p",
+                            onSelect: () => console.log("Insert \\p"),
+                        },
+                        {
+                            title: "Split Section",
+                            onSelect: () => console.log("Split Section"),
+                        },
+                    ]}
+                />
             </LexicalComposer>
         </div>
     );

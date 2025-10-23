@@ -1,10 +1,9 @@
 import { Button, Popover } from "@mantine/core";
-import { $getNodeByKey, HISTORY_MERGE_TAG, type LexicalEditor } from "lexical";
+import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import type { LintMessage } from "@/app/ui/hooks/useLint";
 import { parseSid } from "@/core/data/bible/bible";
-import type { LintError } from "@/core/domain/usfm/parse";
+import type { LintError } from "@/core/domain/usfm/lint";
 
 type Props = {
     wrapperClassNames?: string;
@@ -43,6 +42,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
                     <ul className="space-y-2 text-sm flex flex-col items-start">
                         {lint.messages.map((msg) => (
                             <LintMessageItem
+                                key={msg.nodeId}
                                 msg={msg}
                                 editorRef={editorRef}
                                 prevDomElSelected={prevDomElSelected}

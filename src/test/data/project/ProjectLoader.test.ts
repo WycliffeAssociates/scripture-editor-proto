@@ -100,7 +100,7 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
     getDirectoryHandle = vi.fn((name: string) =>
         Promise.resolve(new MockDirectoryHandle(name)),
     );
-    getFileHandle = vi.fn((name: string) =>
+    getFileHandle = vi.fn((_name: string) =>
         Promise.resolve({} as FileSystemFileHandle),
     );
     entries = vi.fn(() => (async function* () {})());

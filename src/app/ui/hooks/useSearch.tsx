@@ -1,7 +1,5 @@
 import {
-    $createRangeSelection,
     $getRoot,
-    $setSelection,
     type LexicalEditor,
     type LexicalNode,
     type SerializedLexicalNode,

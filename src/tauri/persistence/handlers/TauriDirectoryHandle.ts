@@ -100,7 +100,7 @@ export class TauriDirectoryHandle implements FileSystemDirectoryHandle {
         const cmp = normalize(otherPath);
 
         if (base === cmp) return [];
-        const baseWithSlash = base.endsWith("/") ? base : base + "/";
+        const baseWithSlash = base.endsWith("/") ? base : `${base}/`;
         if (!cmp.startsWith(baseWithSlash)) return null;
 
         return cmp.slice(baseWithSlash.length).split("/").filter(Boolean);

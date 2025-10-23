@@ -45,7 +45,7 @@ export function UseLineBreaks() {
                             anchorNode.insertBefore(lineBreak);
                         } else {
                             // Cursor in MIDDLE: split
-                            const [left, right] = anchorNode.splitText(offset);
+                            const [_left, right] = anchorNode.splitText(offset);
                             lineBreak = $createLineBreakNode();
                             right.insertBefore(lineBreak);
                             right.select(0, 0);

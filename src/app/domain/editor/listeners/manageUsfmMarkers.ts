@@ -3,7 +3,6 @@ import {
     $getRoot,
     $getSelection,
     $isRangeSelection,
-    HISTORY_MERGE_TAG,
     type LexicalEditor,
     type LexicalNode,
 } from "lexical";
@@ -29,7 +28,7 @@ const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
 const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+$/;
 const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\s/;
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
-const verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
+const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
 
 type TextNodeTransformParams = {
     node: USFMTextNode;

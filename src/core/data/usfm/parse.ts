@@ -1,7 +1,7 @@
 import type { Token } from "moo";
 import { ALL_USFM_MARKERS } from "@/core/data/usfm/tokens";
 import { isMarker, markerTrimNoSlash } from "@/core/domain/usfm/lex";
-import type { LintError } from "@/core/domain/usfm/parse";
+import type { LintableToken, LintError } from "@/core/domain/usfm/lint";
 export type TokenDuringParse = Token & {
     attributes?: Record<string, string>;
     content?: Array<TokenDuringParse>;
@@ -26,12 +26,13 @@ export interface ParsedToken {
     text: string;
     tokenType: string;
 }
-export const createParsedToken = (token: TokenDuringParse): ParsedToken => {
+export const createParsedToken = <T extends LintableToken>(token: T) => {
     const isAMarker: string | undefined = isMarker(token.text)
         ? markerTrimNoSlash(token.text)
         : undefined;
     const isInvalidMarker = isAMarker && !ALL_USFM_MARKERS.has(isAMarker);
     return {
+        ...token,
         attributes: token.attributes,
         content: token.content,
         id: token.id,

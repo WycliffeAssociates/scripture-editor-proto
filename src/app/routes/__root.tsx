@@ -1,11 +1,8 @@
 import {
     createRootRouteWithContext,
     Outlet,
-    redirect,
-    useParams,
     useRouter,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { useEffectOnce } from "react-use";
 import type { RouterContext } from "@/app/entrypoint";
 import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
@@ -53,7 +50,7 @@ const RootLayout = () => {
 };
 const rootRoute = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
-    loader: async ({ context, route }) => {
+    loader: async ({ context }) => {
         const { directoryProvider } = context;
         const projects = await getProjects(directoryProvider);
         return { projects };

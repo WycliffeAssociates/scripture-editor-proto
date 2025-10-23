@@ -38,7 +38,7 @@ vi.mock("@tauri-apps/api/path", () => ({
     // Since invoke is mocked, appLocalDataDir *should* work without being fully mocked,
     // but it's safer to provide direct mocks for stability.
     appLocalDataDir: vi.fn(() => Promise.resolve("/mock/app/localdata")),
-    join: (base, ...parts) => require("path").join(base, ...parts),
+    join: (base, ...parts) => require("node:path").join(base, ...parts),
 }));
 
 // Simple in-memory storage for file content simulation
@@ -109,7 +109,7 @@ describe.skipIf(!isTauriEnv)(
                 // Remove the file first, then the directory recursively
                 await remove(testFilePath);
                 await remove(testDirPath, { recursive: true });
-            } catch (e) {
+            } catch (_e) {
                 // Ignore 'not found' errors during clean up
             }
 

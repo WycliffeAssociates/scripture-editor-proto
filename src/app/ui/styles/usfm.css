@@ -41,7 +41,7 @@ body:not(.source-mode) {
   }
   [data-is-mutable="false"] {
     opacity: 0.5 !important;
-    pointer-events: none;
+    /* pointer-events: none; */
   }
 
   .markers-hidden
@@ -93,7 +93,7 @@ body:not(.source-mode) {
   }
   [data-marker="b"][data-show="false"] {
     opacity: 0 !important;
-    pointer-events: none !important;
+    /* pointer-events: none !important; */
   }
 
   [data-marker-view-state="never"] [data-marker] + br {

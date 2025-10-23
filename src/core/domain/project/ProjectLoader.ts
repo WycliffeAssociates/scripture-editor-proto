@@ -86,7 +86,7 @@ export class ProjectLoader implements IProjectLoader {
         try {
             await dir.getFileHandle(fileName);
             return true;
-        } catch (error) {
+        } catch (_error) {
             return false;
         }
     }

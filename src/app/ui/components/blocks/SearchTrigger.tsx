@@ -1,23 +1,5 @@
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Popover,
-    Stack,
-    Text,
-    TextInput,
-    Tooltip,
-} from "@mantine/core";
-import {
-    CaseSensitive,
-    ChevronLeft,
-    ChevronRight,
-    Search as IconSearch,
-    Replace,
-    ReplaceAll,
-    WholeWord,
-} from "lucide-react";
-import { useState } from "react";
+import { ActionIcon } from "@mantine/core";
+import { Search as IconSearch } from "lucide-react";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 
 export function SearchInput() {

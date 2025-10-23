@@ -9,7 +9,6 @@ import {
     $getState,
     $getStateChange,
     $setState,
-    createState,
     TextNode,
 } from "lexical";
 import {
@@ -30,11 +29,7 @@ import {
     tokenTypeState,
 } from "@/app/domain/editor/states";
 import { isValidParaMarker } from "@/core/data/usfm/tokens";
-import {
-    arraysEqualByKey,
-    everyArrayItemInEach,
-} from "@/core/data/utils/generic";
-import type { LintError } from "@/core/domain/usfm/parse";
+import type { LintError } from "@/core/domain/usfm/lint";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
@@ -93,7 +88,7 @@ export class USFMTextNode extends TextNode {
             id: this.getId(),
             show: this.getShow(),
             isMutable: this.getMutable(),
-            lintErrors: this.getLintErrors(),
+            lintErrors: [], // we don't want to serialize lint errors
             sid: this.getSid(),
             inPara: this.getInPara(),
             marker: this.getMarker(),
@@ -238,10 +233,10 @@ export class USFMTextNode extends TextNode {
         // super.updateDOM returns true if the text content or format has changed.
         let needsUpdate = super.updateDOM(prevNode as this, dom, config);
         [
-            // inCharsState,
+            inCharsState,
             inParaState,
             isMutableState,
-            // lintErrorsState,
+            lintErrorsState,
             markerState,
             showState,
             sidState,
@@ -254,16 +249,16 @@ export class USFMTextNode extends TextNode {
         });
         // if any scalar states changed, we need to update the DOM
         if (needsUpdate) return true;
-        const prevInChars = prevNode.getInChars();
-        const currentInChars = this.getInChars();
-        if (!everyArrayItemInEach(prevInChars, currentInChars)) {
-            needsUpdate = true;
-        }
-        const prevLintErrors = prevNode.getLintErrors();
-        const currentLintErrors = this.getLintErrors();
-        if (!arraysEqualByKey(prevLintErrors, currentLintErrors, "message")) {
-            needsUpdate = true;
-        }
+        // const prevInChars = prevNode.getInChars();
+        // const currentInChars = this.getInChars();
+        // if (!everyArrayItemInEach(prevInChars, currentInChars)) {
+        //   needsUpdate = true;
+        // }
+        // const stateChange = $getStateChange(this, prevNode, lintErrorsState);
+        // if (stateChange) {
+        //   needsUpdate = true;
+        // }
+        // const prevLintErrors = prevNode.getLintErrors();
 
         // since object references are different, have to manual check the arrays:
 
@@ -320,14 +315,12 @@ export class USFMTextNode extends TextNode {
     }
 
     // misc functionality:
-    classNamesNeedUpdate(newClassNames: LintError[]) {
+    lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
         const current = this.getLintErrors().map((c) => c.message);
-        const incomingMessages = newClassNames.map((c) => c.message);
+        const incomingMessages = newLintErrors.map((c) => c.message);
         // if either set is not fully contained in the other, then we need to update
-        return (
-            !current.every((c) => incomingMessages.includes(c)) ||
-            !incomingMessages.every((c) => current.includes(c))
-        );
+        if (newLintErrors.length !== current.length) return true;
+        return !current.every((c) => incomingMessages.includes(c));
     }
 }
 
@@ -446,8 +439,8 @@ export function createSerializedUSFMTextNode(
         params.show || !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(params.tokenType ?? "");
     // We always need this to be true initialy for setTextContent. We can lock them after initial render I think;
     // const isMutable = true;
-    // @ts-expect-error: set inclusion check is fine
     const isMutable =
+        // @ts-expect-error: set inclusion check is fine
         params.isMutable || !TOKENS_TO_LOCK_FROM_EDITING.has(params.tokenType);
     return {
         // yes, type and lexicalType are the same, but I like deserializing to explicty lexicalType vs parsed token type, and lexical create the node internall via it's regualar "type";

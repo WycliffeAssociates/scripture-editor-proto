@@ -4,7 +4,6 @@ import type {
     SerializedLineBreakNode,
 } from "lexical";
 import type { USFMNodeJSON } from "@/app/data/editor";
-import { createSerializedUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
