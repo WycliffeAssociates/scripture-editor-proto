@@ -1,5 +1,5 @@
 import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {
@@ -8,6 +8,8 @@ import {
     updateBurritoMetadata
 } from "@/core/domain/project/scriptureBurritoHelpers.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
 /**
@@ -23,13 +25,13 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
     /**
      * @method loadProject
      * @description Loads a Scripture Burrito project from the specified directory handle.
-     * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
+     * @param projectDir - The IDirectoryHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
      * @param md5Service - An IMd5Service instance for calculating MD5 checksums for ingredients.
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
      *          (e.g., metadata.json is missing or malformed).
      */
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const metadataFileHandle = await projectDir.getFileHandle(ScriptureBurritoProjectLoader.METADATA_FILENAME);
             const file = await metadataFileHandle.getFile();
@@ -78,7 +80,11 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                     }
 
                     try {
-                        await projectDir.getFileHandle(filePath, { create: false });
+                        const directoryHandle: IDirectoryHandle | null = project.projectDir.asDirectoryHandle();
+                        if (!directoryHandle) {
+                            throw new Error(`Project directory ${project.projectDir.path} is not a directory.`);
+                        }
+                        await directoryHandle.getFileHandle(filePath, { create: false });
                         console.warn(`Book ${filename} already exists as a file. Not adding.`);
                         return;
                     } catch {

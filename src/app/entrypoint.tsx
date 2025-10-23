@@ -10,7 +10,7 @@ import type {SettingsManager} from "@/app/data/settings";
 import {routeTree} from "@/app/generated/routeTree.gen";
 import {I18nEntry} from "@/app/ui/i18n/i18nEntry";
 import {cssVariablesResolver, theme} from "@/app/ui/styles/mantineTheme";
-import type {IDirectoryProvider} from "@/core/data/persistence/DirectoryProvider";
+import type {IDirectoryProvider} from "@/core/persistence/DirectoryProvider";
 import type {IGitProvider} from "@/core/persistence/git/GitProvider";
 
 type EntryPointProps = {

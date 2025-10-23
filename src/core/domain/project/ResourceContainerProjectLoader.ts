@@ -1,9 +1,11 @@
 import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
 /**
@@ -19,15 +21,16 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
     /**
      * @method loadProject
      * @description Loads a Resource Container project from the specified directory handle.
-     * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
+     * @param projectDir - The IDirectoryHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
      * @param md5Service - An IMd5Service instance (though not directly used in RC loading, it's part of the Project interface).
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded
      *          (e.g., manifest.yaml is missing or malformed).
      */
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         try {
             const manifestFileHandle = await projectDir.getFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME);
+            if (!manifestFileHandle) return null;
             const file = await manifestFileHandle.getFile();
             const contents = await file.text();
             // TODO: Implement actual YAML parsing
@@ -84,7 +87,11 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     }
 
                     try {
-                        await projectDir.getFileHandle(filePath, { create: false });
+                        const directoryHandle: IDirectoryHandle | null = project.projectDir.asDirectoryHandle();
+                        if (!directoryHandle) {
+                            throw new Error(`Project directory ${project.projectDir.path} is not a directory.`);
+                        }
+                        await directoryHandle.getFileHandle(filePath, { create: false });
                         console.warn(`Book ${filename} already exists as a file. Not adding.`);
                         return;
                     } catch {

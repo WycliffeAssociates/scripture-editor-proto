@@ -1,15 +1,30 @@
 import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
-import {normalize} from "@/tauri/persistence/handlers/PathUtils.ts";
-import {TauriWritableFileStreamWriter} from "@/tauri/persistence/handlers/TauriWritableFileStreamWriter.ts";
+import {normalize} from "@/tauri/io/PathUtils.ts";
+import {TauriWritableFileStreamWriter} from "@/tauri/io/TauriWritableFileStreamWriter.ts";
+import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {dirname} from "@tauri-apps/api/path";
+import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
-export class TauriFileHandle implements FileSystemFileHandle {
+type ResolveHandle = (path: string) => Promise<IPathHandle>;
+
+export class TauriFileHandle implements IFileHandle {
     kind: "file" = "file";
     name: string;
     readonly path: string;
+    isDir: boolean = false;
+    isFile: boolean = true;
 
-    constructor(path: string) {
+    private readonly resolveHandle: ResolveHandle;
+
+    constructor(path: string, resolveHandle: ResolveHandle) {
         this.path = normalize(path);
         this.name = this.path.split("/").pop() || this.path;
+        this.resolveHandle = resolveHandle;
+    }
+
+    [Symbol.asyncDispose](): Promise<void> {
+        return Promise.resolve(void 0);
     }
 
     async getFile(): Promise<File> {
@@ -192,6 +207,23 @@ export class TauriFileHandle implements FileSystemFileHandle {
     }
 
     async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-        return (other as any)?.path === this.path;
+        return (other as IPathHandle)?.path === this.path;
+    }
+
+    async getParent(): Promise<IDirectoryHandle> {
+        const parentPath = await dirname(this.path);
+        return await this.resolveHandle(parentPath) as IDirectoryHandle;
+    }
+
+    asFileHandle(): IFileHandle | null {
+        return this;
+    }
+
+    asDirectoryHandle(): IDirectoryHandle | null {
+        return null;
+    }
+    
+    async getAbsolutePath(): Promise<string> {
+        return this.path;
     }
 }

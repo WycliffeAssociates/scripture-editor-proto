@@ -1,8 +1,8 @@
 import {IProjectRepository, Project} from "@/core/persistence/ProjectRepository.ts";
 import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
-import {FileWriter} from "@/core/persistence/DefaultFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
+import {FileWriter} from "@/core/io/DefaultFileWriter.ts";
 import {ProjectLoader} from "@/core/domain/project/ProjectLoader.ts";
 
 

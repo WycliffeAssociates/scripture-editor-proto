@@ -1,9 +1,10 @@
 import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
 import {ResourceContainerProjectLoader} from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import {ScriptureBurritoProjectLoader} from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
-import {IFileWriter} from "@/core/persistence/IFileWriter.ts";
+import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {Project} from "@/core/persistence/ProjectRepository.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
 /**
@@ -37,7 +38,7 @@ export class ProjectLoader implements IProjectLoader {
      * @param md5Service - An IMd5Service instance for calculating MD5 checksums.
      * @returns A Promise that resolves to the loaded Project object, or null if no project can be loaded.
      */
-    async loadProject(projectDir: FileSystemDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
+    async loadProject(projectDir: IDirectoryHandle, fileWriter: IFileWriter, md5Service: IMd5Service): Promise<Project | null> {
         const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
         const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
 
