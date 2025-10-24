@@ -12,3 +12,6 @@
 ::highlight(matched-search) {
   background-color: yellow;
 }
+body {
+  line-height: 1.7;
+}

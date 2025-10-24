@@ -1,29 +1,12 @@
 import {parseSid} from "@/core/data/bible/bible";
-import {type LintErrorKey, LintErrorKeys} from "@/core/data/usfm/lint";
+import {
+  type LintableToken,
+  LintErrorKeys,
+  lintErrorToUniqueKey,
+} from "@/core/data/usfm/lint";
 import {ALL_USFM_MARKERS, VALID_NOTE_MARKERS} from "@/core/data/usfm/tokens";
 import {markerTrimNoSlash, TokenMap} from "@/core/domain/usfm/lex";
 import type {ParseContext} from "@/core/domain/usfm/tokenParsers";
-
-export type LintError = {
-  message: string;
-  sid: string;
-  msgKey: LintErrorKey;
-  nodeId: string;
-};
-
-export type LintableToken = {
-  text: string;
-  tokenType: string;
-  sid?: string;
-  marker?: string;
-  lintErrors?: Array<LintError>;
-  isParaMarker?: boolean;
-  inPara?: string;
-  inChars?: Array<string>;
-  id: string;
-  content?: Array<LintableToken>;
-  attributes?: Record<string, string>;
-};
 
 export function lint<T extends LintableToken>(ctx: ParseContext<T>) {
   // this is a parse fxn that tracks the state of open/close char and note markers
@@ -33,6 +16,7 @@ export function lint<T extends LintableToken>(ctx: ParseContext<T>) {
   lintVerseRanges(ctx);
   lintCheckForDuplicateChapNum(ctx);
   lintIsUnknownMarker(ctx);
+  lintAddErrorsToLexedUnknownMarker(ctx);
 }
 
 export type LintOrParseFxn<T extends LintableToken> = (
@@ -43,18 +27,18 @@ export const lintChapterLabels: LintOrParseFxn<LintableToken> = (
   ctx: ParseContext<LintableToken>
 ) => {
   const token = ctx.currentToken;
-  if (!token?.text) return;
+  if (!token?.text || !ctx.nextToken) return;
 
   const isMarker = token.tokenType === TokenMap.marker;
   const isClMarker = markerTrimNoSlash(token.text) === "cl";
   if (!isMarker || !isClMarker) return;
-
   let nextText = ctx.nextToken?.text?.trim();
   if (!nextText) return;
 
   // Strip numbers (e.g. "Chapter 3" → "Chapter")
   const hasNum = nextText.match(/[0-9]/);
   if (hasNum && typeof hasNum.index === "number") {
+    // everything before the first number
     nextText = nextText.substring(0, hasNum.index).trim();
   }
 
@@ -63,34 +47,8 @@ export const lintChapterLabels: LintOrParseFxn<LintableToken> = (
     labels.map.set(nextText, []);
     labels.order.push(nextText);
   }
-  labels.map.get(nextText)?.push(token);
-
-  // --- Check for inconsistencies
-  if (labels.map.size > 1) {
-    const canonical = labels.order[0];
-    const badOnes = labels.order.slice(1);
-    for (const bad of badOnes) {
-      const badTokens = labels.map.get(bad);
-      if (!badTokens) continue;
-      for (const token of badTokens) {
-        const msg = `Multiple chapter labels found: '${canonical}' and '${bad}'`;
-        ctx.errorMessages.push({
-          message: msg,
-          sid: token.sid ?? "unknown location",
-          msgKey: LintErrorKeys.inconsistentChapterLabel,
-          nodeId: token.id,
-        });
-      }
-      // also attach to the current token (if it’s one of the “bad” ones)
-      token.lintErrors ??= [];
-      token.lintErrors.push({
-        message: `Inconsistent chapter label: expected '${canonical}', found '${bad}' at ${token.sid}`,
-        sid: token.sid ?? "unknown location",
-        msgKey: LintErrorKeys.inconsistentChapterLabel,
-        nodeId: token.id,
-      });
-    }
-  }
+  //   we want to add the text, not the cl marker
+  labels.map.get(nextText)?.push(ctx.nextToken);
 };
 
 export const checkForVerseRangeAfterVerseMarker: LintOrParseFxn<
@@ -223,11 +181,7 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
       if (!already) {
         seenTok.lintErrors ??= [];
         seenTok.lintErrors.push(err);
-        ctx.errorMessages.push({
-          ...err,
-          nodeId: seenTok.id,
-          sid: seenTok.sid ?? "unknown location",
-        });
+        ctx.errorMessages.push(err);
       }
     }
 
@@ -297,9 +251,9 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
     // if there token following isn't text, but is a note, good chance this is intentionally empty and noted
     return;
   }
-  if (nextToken.tokenType !== TokenMap.text) {
+  if (nextToken.tokenType !== TokenMap.text || !nextToken.text?.trim()) {
     const err = {
-      message: `Expected verse content expected after \\v. Location: ${ctx.currentToken.sid}`,
+      message: `Expected verse content after \\v`,
       sid: ctx.currentToken?.sid ?? "unknown location",
       msgKey: LintErrorKeys.verseTextFollowsVerseRange,
       nodeId: ctx.currentToken?.id,
@@ -334,4 +288,70 @@ export const nearbyTokenText: LintOrParseFxn<LintableToken> = (
   ctx: ParseContext<LintableToken>
 ) => {
   return `${ctx.prevToken?.text} ${ctx.currentToken?.text} ${ctx.nextToken?.text} ${ctx.twoFromCurrent?.text}`;
+};
+
+export function finalizeChapterLabelLint<T extends LintableToken>(
+  ctx: ParseContext<T>
+) {
+  const labels = ctx.foundChapterLabels;
+  if (labels.map.size <= 1) return;
+
+  // Count how many times each label occurs
+  const counts = new Map<string, number>();
+  for (const [label, tokens] of labels.map.entries()) {
+    counts.set(label, tokens.length);
+  }
+
+  // Pick canonical (most frequent, then first discovered)
+  let canonical = labels.order[0];
+  let maxCount = counts.get(canonical) ?? 0;
+  for (const label of labels.order) {
+    const count = counts.get(label) ?? 0;
+    if (count > maxCount) {
+      canonical = label;
+      maxCount = count;
+    }
+  }
+
+  // Build a summary message
+  const countStr = Array.from(counts.entries())
+    .filter(([lbl]) => lbl !== canonical)
+    .map(([lbl, cnt]) => `'${lbl}' (${cnt})`)
+    .join(", ");
+  const msg = `Inconsistent chapter labels found. Most common: '${canonical}' (${maxCount}). Others: ${countStr}`;
+
+  // Attach errors to all non-canonical tokens
+  for (const [label, tokens] of labels.map.entries()) {
+    if (label === canonical) continue;
+    for (const token of tokens) {
+      const err = {
+        message: msg,
+        sid: token.sid ?? "unknown location",
+        msgKey: LintErrorKeys.inconsistentChapterLabel,
+        nodeId: token.id,
+      };
+      ctx.errorMessages.push(err);
+      token.lintErrors ??= [];
+      token.lintErrors.push(err);
+    }
+  }
+}
+
+export const lintAddErrorsToLexedUnknownMarker: LintOrParseFxn<
+  LintableToken
+> = (ctx: ParseContext<LintableToken>) => {
+  if (!ctx.currentToken) return;
+  if (ctx.currentToken.tokenType !== TokenMap.error) {
+    return;
+  }
+
+  const err = {
+    message: `Unknown token ${ctx.currentToken.text}`,
+    sid: ctx.currentToken?.sid ?? "unknown location",
+    msgKey: LintErrorKeys.unknownToken,
+    nodeId: ctx.currentToken.id,
+  };
+  ctx.errorMessages.push(err);
+  ctx.currentToken.lintErrors ??= [];
+  ctx.currentToken.lintErrors.push(err);
 };

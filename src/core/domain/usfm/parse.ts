@@ -1,5 +1,5 @@
+import type {LintableToken} from "@/core/data/usfm/lint";
 import {lexUsfm} from "@/core/domain/usfm/lex";
-import type {LintableToken} from "@/core/domain/usfm/lint";
 import {organizeByChapters, prepareTokens} from "@/core/domain/usfm/parseUtils";
 import {type ParseContext, parseTokens} from "./tokenParsers";
 
@@ -11,6 +11,9 @@ export const parseUSFMfile = <T extends LintableToken>(
   const r = parseTokens({tokens, partialContext: partialParseCtx});
 
   const organized = organizeByChapters(r.tokens);
+  // if (text.startsWith("\\id ROM")) {
+  //   debugger;
+  // }
   return {usfm: organized, lintErrors: r.errorMessages};
 };
 

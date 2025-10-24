@@ -20,7 +20,7 @@ import {
     useWorkspaceState,
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState";
-import type { LintError } from "@/core/domain/usfm/lint";
+import type { LintError } from "@/core/data/usfm/lint";
 
 interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -91,6 +91,7 @@ export const ProjectProvider = ({
     const lint = useLint({
         initialLintErrors: allInitialLintErrors,
         currentChapter: project.currentChapter,
+        currentBibleBookId: project.currentFileBibleIdentifier,
     });
 
     // sync props to state: Be sure all dirty work is saved before navigating away or closing app

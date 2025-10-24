@@ -86,6 +86,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     getSid(): string | undefined {
         return this.__sid;
     }
+    getLintErrors(): LintError[] | undefined {
+        return this.__lintErrors;
+    }
     getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
         return this.getLatest().__editorState;
     }

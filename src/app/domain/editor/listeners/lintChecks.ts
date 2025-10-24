@@ -1,3 +1,4 @@
+import {$dfs} from "@lexical/utils";
 import {
   $getNodeByKey,
   $getRoot,
@@ -5,11 +6,13 @@ import {
   HISTORY_MERGE_TAG,
   type LexicalEditor,
   type SerializedEditorState,
+  SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import {UsfmTokenTypes} from "@/app/data/editor";
-import type {
-  USFMNestedEditorNode,
-  USFMNestedEditorNodeJSON,
+import {
+  $isUSFMNestedEditorNode,
+  type USFMNestedEditorNode,
+  type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   $createUSFMTextNode,
@@ -18,6 +21,7 @@ import {
   type SerializedUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import type {LintableTokenLike} from "@/app/ui/hooks/useActions";
 import {guidGenerator} from "@/core/data/utils/generic";
 import {lintExistingUsfmTokens} from "@/core/domain/usfm/parse";
 import {initParseContext} from "@/core/domain/usfm/tokenParsers";
@@ -31,7 +35,7 @@ export function lintAll(
   {editorState, editor}: LintVersesArgs,
   getFlatFileTokens: (
     currentEditorState: SerializedEditorState
-  ) => Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON>
+  ) => Array<LintableTokenLike>
 ) {
   const flatFileTokens = getFlatFileTokens(editorState.toJSON());
   const ctx = initParseContext(flatFileTokens);
@@ -39,6 +43,7 @@ export function lintAll(
   const withErrorsInThisBook = ctx.parseTokens.filter(
     (t) => t.lintErrors?.length && t.lexicalKey
   );
+
   if (withErrorsInThisBook.length) {
     const updateFxns: (() => void)[] = [];
     editor.read(() => {
@@ -47,6 +52,7 @@ export function lintAll(
           | USFMNestedEditorNode
           | USFMTextNode;
         // if no node, probably belongs to differnt chapter in this book.  noop
+        if (!nodeOfThisKey) return;
         const needsUpdate = nodeOfThisKey?.lintErrorsDoNeedUpdate(
           t.lintErrors ?? []
         );
@@ -60,15 +66,35 @@ export function lintAll(
     if (updateFxns.length) {
       editor.update(
         () => {
+          console.log("lintAll update");
           updateFxns.forEach((fxn) => {
             fxn();
           });
         },
         {
           skipTransforms: true,
-          tag: [HISTORY_MERGE_TAG],
+          tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
         }
       );
+    }
+  } else {
+    // if there are any lint errors in the currentEditorState, we need to remove them:
+    const nodesWithErrors: Array<USFMTextNode | USFMNestedEditorNode> = [];
+    editorState.read(() => {
+      for (const entry of $dfs($getRoot())) {
+        const isApplicableNode =
+          $isUSFMTextNode(entry.node) || $isUSFMNestedEditorNode(entry.node);
+        if (isApplicableNode && entry.node?.getLintErrors()?.length) {
+          nodesWithErrors.push(entry.node);
+        }
+      }
+    });
+    if (nodesWithErrors.length) {
+      editor.update(() => {
+        nodesWithErrors.forEach((node) => {
+          node.setLintErrors([]);
+        });
+      });
     }
   }
   return lintErrors;
@@ -109,7 +135,7 @@ export function ensurePlainTextNodeAlwaysFollowsVerseRange({
     },
     {
       skipTransforms: true,
-      tag: [HISTORY_MERGE_TAG],
+      tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
     }
   );
 }
@@ -144,8 +170,7 @@ export function ensureVerseRangeAlwaysFollowsVerseMarker({
       });
     },
     {
-      skipTransforms: true,
-      tag: [HISTORY_MERGE_TAG],
+      tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
     }
   );
 }

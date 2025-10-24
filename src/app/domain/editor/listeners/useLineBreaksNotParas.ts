@@ -1,0 +1,17 @@
+import {
+  COMMAND_PRIORITY_HIGH,
+  INSERT_LINE_BREAK_COMMAND,
+  INSERT_PARAGRAPH_COMMAND,
+  type LexicalEditor,
+} from "lexical";
+
+export function redirectParaInsertionToLineBreak(editor: LexicalEditor) {
+  return editor.registerCommand(
+    INSERT_PARAGRAPH_COMMAND,
+    (event: KeyboardEvent) => {
+      editor.dispatchCommand(INSERT_LINE_BREAK_COMMAND, false);
+      return true;
+    },
+    COMMAND_PRIORITY_HIGH
+  );
+}

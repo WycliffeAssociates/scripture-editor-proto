@@ -33,14 +33,19 @@ body:not(.source-mode) {
     font-family: var(--font-serif);
   }
 
-  [data-show="false"] {
-    display: none;
-  }
   [data-show="true"] {
-    display: inline;
+    visibility: visible;
+    pointer-events: auto;
   }
   [data-is-mutable="false"] {
     opacity: 0.5 !important;
+    /* pointer-events: none; */
+  }
+  [data-show="false"] {
+    /* display: none; */
+    opacity: 0 !important;
+    /* visibility: hidden; */
+    /* position: absolute; */
     /* pointer-events: none; */
   }
 

@@ -19,7 +19,7 @@ import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import type { LintError } from "@/core/domain/usfm/lint";
+import type { LintError } from "@/core/data/usfm/lint";
 
 type Props = {
     outerMarker: string;

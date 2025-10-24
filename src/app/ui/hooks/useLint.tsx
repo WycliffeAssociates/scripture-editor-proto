@@ -1,41 +1,39 @@
 import { useState } from "react";
-import { parseSid } from "@/core/data/bible/bible";
-import type { LintError } from "@/core/domain/usfm/lint";
+import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible";
+import { dedupeErrorMessagesList, type LintError } from "@/core/data/usfm/lint";
 
 export type UseLintReturn = ReturnType<typeof useLint>;
 type UseLintProps = {
     initialLintErrors: LintError[];
     currentChapter: number;
+    currentBibleBookId: string;
 };
-export function useLint({ initialLintErrors, currentChapter }: UseLintProps) {
+export function useLint({
+    initialLintErrors,
+    currentChapter,
+    currentBibleBookId,
+}: UseLintProps) {
     // todo: like initial files data, this is that semi anti pattern of change in props won't sync without reload or an effect, but right now we just hard reload on project change
     const [messages, setMessage] = useState<LintError[]>(initialLintErrors);
 
     function mergeInNewErrorsFromChapter(errors: LintError[]) {
-        const merged = [
-            // keep messages not in the current chapter
-            ...messages.filter((m) => {
-                const sidParsed = parseSid(m.sid);
-                if (!sidParsed) return true;
-                return sidParsed.chapter !== currentChapter;
-            }),
-            // add all for current chapter (new source of truth)
-            ...errors,
-        ];
+        console.log({ newErrors: errors });
+        const filtered = messages.filter((m) => {
+            const sidParsed = parseSid(m.sid);
+            if (!sidParsed) return true;
+            return (
+                sidParsed.chapter !== currentChapter ||
+                sidParsed.book !== currentBibleBookId
+            );
+        });
+        const merged = [...filtered, ...errors];
 
-        // optional: dedupe by sid+message
-        const deduped = Array.from(
-            new Map(merged.map((m) => [`${m.sid}:${m.message}`, m])).values(),
+        const ensureDeduped = sortListBySidCanonical(
+            dedupeErrorMessagesList(merged),
         );
 
-        deduped.sort((a, b) => {
-            const aParsed = parseSid(a.sid);
-            const bParsed = parseSid(b.sid);
-            if (!aParsed || !bParsed) return 0;
-            return aParsed.chapter - bParsed.chapter;
-        });
-        setMessage(deduped);
-        return deduped;
+        setMessage(ensureDeduped);
+        return ensureDeduped;
     }
 
     return {

@@ -1,131 +1,137 @@
-import type { Token } from "moo";
-import { LintErrorKeys } from "@/core/data/usfm/lint";
+import type {Token} from "moo";
 import {
-    isValidParaMarker,
-    VALID_CHAR_CROSS_REFERENCE_MARKERS,
-    VALID_CHAR_FOOTNOTE_MARKERS,
-    VALID_CHAR_MARKERS,
-    VALID_NOTE_MARKERS,
+  dedupeErrorMessagesList,
+  type LintableToken,
+  type LintError,
+  LintErrorKeys,
+  lintErrorToUniqueKey,
+} from "@/core/data/usfm/lint";
+import {
+  isValidParaMarker,
+  VALID_CHAR_CROSS_REFERENCE_MARKERS,
+  VALID_CHAR_FOOTNOTE_MARKERS,
+  VALID_CHAR_MARKERS,
+  VALID_NOTE_MARKERS,
 } from "@/core/data/usfm/tokens";
-import { markerTrimNoSlash } from "@/core/domain/usfm/lex";
-
-import { TokenMap } from "./lex";
-import { type LintableToken, type LintError, lint } from "./lint";
-import { mergeHorizontalWhitespaceToAdjacent } from "./parseUtils";
+import {markerTrimNoSlash} from "@/core/domain/usfm/lex";
+import {finalizeChapterLabelLint, lint} from "@/core/domain/usfm/lint";
+import {TokenMap} from "./lex";
+import {mergeHorizontalWhitespaceToAdjacent} from "./parseUtils";
 
 const attributeRegex = /^([a-zA-Z0-9\-_]+)="([^"]*)"$/;
 
 export type ParseContext<T extends LintableToken> = {
-    parseTokens: T[];
-    bookCode: string;
-    chapterLabel: string | null;
-    mutCurChap: string | null;
-    mutCurSid: string | null;
-    mutCurVerse: string | null;
-    lastMarker: T | null;
-    idsToFilterOut: string[];
-    currentParaMarker: string | null;
-    charStack: string[];
-    noteParent: T | null;
-    errorMessages: LintError[];
-    currentToken: T | null;
-    prevToken: T | null;
-    nextToken: T | null;
-    twoFromCurrent: T | null;
-    foundChapterLabels: {
-        order: string[]; // in order of discovery
-        map: Map<string, T[]>; // label -> tokens
-    };
-    lintChapters: { seen: Set<string>; list: string[] };
-    lintVerseNums: {
-        byChapter: Map<string, { seen: Map<string, T[]>; last: number }>;
-    };
+  parseTokens: T[];
+  bookCode: string;
+  chapterLabel: string | null;
+  mutCurChap: string | null;
+  mutCurSid: string | null;
+  mutCurVerse: string | null;
+  lastMarker: T | null;
+  idsToFilterOut: string[];
+  currentParaMarker: string | null;
+  charStack: string[];
+  noteParent: T | null;
+  errorMessages: LintError[];
+  currentToken: T | null;
+  prevToken: T | null;
+  nextToken: T | null;
+  twoFromCurrent: T | null;
+  foundChapterLabels: {
+    order: string[]; // in order of discovery
+    map: Map<string, T[]>; // label -> tokens
+  };
+  lintChapters: {seen: Set<string>; list: string[]};
+  lintVerseNums: {
+    byChapter: Map<string, {seen: Map<string, T[]>; last: number}>;
+  };
 };
 
 export function initParseContext<T extends LintableToken>(
-    parseTokens: T[],
-    partialCtx?: Partial<ParseContext<T>>,
+  parseTokens: T[],
+  partialCtx?: Partial<ParseContext<T>>
 ): ParseContext<T> {
-    const bookCode =
-        partialCtx?.bookCode ||
-        parseTokens
-            .find((t) => t.tokenType === TokenMap.bookCode)
-            ?.text?.trim();
-    if (!bookCode) throw new Error("No book code found");
-    return {
-        parseTokens,
-        bookCode,
-        chapterLabel: null,
-        mutCurChap: null,
-        mutCurSid: null,
-        mutCurVerse: null,
-        lastMarker: null,
-        idsToFilterOut: [],
-        currentParaMarker: null,
-        charStack: [],
-        noteParent: null,
-        errorMessages: [],
-        currentToken: null,
-        prevToken: null,
-        nextToken: null,
-        twoFromCurrent: null,
-        foundChapterLabels: { order: [], map: new Map() },
-        lintChapters: { seen: new Set(), list: [] },
-        lintVerseNums: { byChapter: new Map() },
-        ...partialCtx,
-    };
+  const bookCode =
+    partialCtx?.bookCode ||
+    parseTokens.find((t) => t.tokenType === TokenMap.bookCode)?.text?.trim();
+  if (!bookCode) throw new Error("No book code found");
+  return {
+    parseTokens,
+    bookCode,
+    chapterLabel: null,
+    mutCurChap: null,
+    mutCurSid: null,
+    mutCurVerse: null,
+    lastMarker: null,
+    idsToFilterOut: [],
+    currentParaMarker: null,
+    charStack: [],
+    noteParent: null,
+    errorMessages: [],
+    currentToken: null,
+    prevToken: null,
+    nextToken: null,
+    twoFromCurrent: null,
+    foundChapterLabels: {order: [], map: new Map()},
+    lintChapters: {seen: new Set(), list: []},
+    lintVerseNums: {byChapter: new Map()},
+    ...partialCtx,
+  };
 }
 
 /** Top-level parse entry */
 type ParseTokenArgs<T extends LintableToken> = {
-    partialContext?: Partial<ParseContext<T>>;
-    tokens: (T & Token)[] | T[];
+  partialContext?: Partial<ParseContext<T>>;
+  tokens: (T & Token)[] | T[];
 };
 type ParseResult<T extends LintableToken> = {
-    tokens: T[];
-    errorMessages: LintError[];
-    idsToFilterOut: string[];
-    ctx: ParseContext<T>;
+  tokens: T[];
+  errorMessages: LintError[];
+  idsToFilterOut: string[];
+  ctx: ParseContext<T>;
 };
 export function parseTokens<T extends LintableToken>(
-    args: ParseTokenArgs<T>,
+  args: ParseTokenArgs<T>
 ): ParseResult<T> {
-    const ctx = initParseContext(args.tokens, args.partialContext || {});
+  const ctx = initParseContext(args.tokens, args.partialContext || {});
 
-    // first normalization pass
-    mergeHorizontalWhitespaceToAdjacent(ctx.parseTokens);
+  // first normalization pass
+  mergeHorizontalWhitespaceToAdjacent(ctx.parseTokens);
 
-    for (let i = 0; i < ctx.parseTokens.length; i++) {
-        ctx.currentToken = ctx.parseTokens[i];
-        ctx.prevToken = ctx.parseTokens[i - 1] ?? null;
-        ctx.nextToken = ctx.parseTokens[i + 1] ?? null;
-        ctx.twoFromCurrent = ctx.parseTokens[i + 2] ?? null;
+  for (let i = 0; i < ctx.parseTokens.length; i++) {
+    ctx.currentToken = ctx.parseTokens[i];
+    ctx.prevToken = ctx.parseTokens[i - 1] ?? null;
+    ctx.nextToken = ctx.parseTokens[i + 1] ?? null;
+    ctx.twoFromCurrent = ctx.parseTokens[i + 2] ?? null;
 
-        [
-            checkAndSetIfLastMarker,
-            manageSid,
-            checkIfValidParaMarker,
-            // checkForHangingNoteStacks needs to come after checkIfValidParaMarker
-            checkForHangingNoteStacks,
-            checkCharStack,
-            checkUpdateNoteParent,
-            pushAttrPairToLastMarker,
-            addParentTokenContextInfo,
-            lint,
-            checkIfShouldNestInNoteParent,
-        ].forEach((fn) => {
-            fn(ctx);
-        });
-    }
+    [
+      checkAndSetIfLastMarker,
+      manageSid,
+      checkIfValidParaMarker,
+      // checkForHangingNoteStacks needs to come after checkIfValidParaMarker
+      checkForHangingNoteStacks,
+      checkCharStack,
+      checkUpdateNoteParent,
+      pushAttrPairToLastMarker,
+      addParentTokenContextInfo,
+      lint,
+      checkIfShouldNestInNoteParent,
+    ].forEach((fn) => {
+      fn(ctx);
+    });
+  }
 
-    return {
-        tokens: ctx.parseTokens.filter(
-            (t) => !ctx.idsToFilterOut.includes(t.id),
-        ) as T[],
-        errorMessages: ctx.errorMessages,
-        idsToFilterOut: ctx.idsToFilterOut,
-        ctx,
-    };
+  /* POST PROCESSING */
+  // Some stuff such as chapter label linting needs to see the entirety of the token stream before we can present the best error message. So we do post processing here.
+  finalizeChapterLabelLint(ctx);
+  return {
+    tokens: ctx.parseTokens.filter(
+      (t) => !ctx.idsToFilterOut.includes(t.id)
+    ) as T[],
+    errorMessages: dedupeErrorMessagesList(ctx.errorMessages),
+    idsToFilterOut: ctx.idsToFilterOut,
+    ctx,
+  };
 }
 
 /* ----------------------------
@@ -133,181 +139,183 @@ export function parseTokens<T extends LintableToken>(
    ---------------------------- */
 
 export function checkAndSetIfLastMarker<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!t) return;
-    if (t.tokenType === TokenMap.marker || t.tokenType === TokenMap.idMarker) {
-        ctx.lastMarker = t;
-        t.marker = markerTrimNoSlash(t.text);
-    }
+  const t = ctx.currentToken;
+  if (!t) return;
+  if (t.tokenType === TokenMap.marker || t.tokenType === TokenMap.idMarker) {
+    ctx.lastMarker = t;
+    t.marker = markerTrimNoSlash(t.text);
+  }
 }
 
 export function manageSid<T extends LintableToken>(ctx: ParseContext<T>) {
-    const t = ctx.currentToken;
-    const n = ctx.nextToken;
-    if (
-        (t?.tokenType === TokenMap.marker ||
-            t?.tokenType === TokenMap.idMarker) &&
-        n?.tokenType === TokenMap.numberRange
-    ) {
-        if (markerTrimNoSlash(t.text) === "c") {
-            ctx.mutCurChap = n.text;
-            ctx.mutCurVerse = null;
-            ctx.currentParaMarker = null;
-        } else if (markerTrimNoSlash(t.text) === "v") {
-            ctx.mutCurVerse = n.text;
-        }
+  const t = ctx.currentToken;
+  const n = ctx.nextToken;
+  if (
+    (t?.tokenType === TokenMap.marker || t?.tokenType === TokenMap.idMarker) &&
+    n?.tokenType === TokenMap.numberRange
+  ) {
+    if (markerTrimNoSlash(t.text) === "c") {
+      ctx.mutCurChap = n.text;
+      ctx.mutCurVerse = null;
+      ctx.currentParaMarker = null;
+    } else if (markerTrimNoSlash(t.text) === "v") {
+      ctx.mutCurVerse = n.text;
     }
+  }
 
-    if (ctx.mutCurVerse) {
-        ctx.mutCurSid = `${ctx.bookCode} ${ctx.mutCurChap}:${ctx.mutCurVerse}`;
-    } else if (ctx.mutCurChap) {
-        ctx.mutCurSid = `${ctx.bookCode} ${ctx.mutCurChap}`;
-    } else if (
-        ctx.bookCode &&
-        (t?.tokenType === TokenMap.marker || t?.tokenType === TokenMap.idMarker)
-    ) {
-        ctx.mutCurSid = `${ctx.bookCode}-${t.text}`;
-    }
+  if (ctx.mutCurVerse) {
+    ctx.mutCurSid =
+      `${ctx.bookCode} ${ctx.mutCurChap}:${ctx.mutCurVerse}`.trim();
+  } else if (ctx.mutCurChap) {
+    ctx.mutCurSid = `${ctx.bookCode} ${ctx.mutCurChap}`.trim();
+  } else if (
+    ctx.bookCode &&
+    (t?.tokenType === TokenMap.marker || t?.tokenType === TokenMap.idMarker)
+  ) {
+    ctx.mutCurSid = `${ctx.bookCode}-${t.text}`.trim();
+  }
 
-    if (t && ctx.mutCurSid) {
-        t.sid = ctx.mutCurSid;
-    }
+  if (t && ctx.mutCurSid) {
+    t.sid = ctx.mutCurSid;
+  }
 }
 
 export function checkForHangingNoteStacks<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!t) return;
-    if (t.isParaMarker || t.tokenType === TokenMap.verticalWhitespace) {
-        if (ctx.charStack.length || ctx.noteParent) {
-            if (ctx.charStack.length) {
-                const err = {
-                    message: `Character marker ${ctx.charStack[0]} left at opening of new paragraph at ${ctx.mutCurSid}`,
-                    sid: ctx.mutCurSid ?? "",
-                    msgKey: LintErrorKeys.charNotClosed,
-                    nodeId: t.id,
-                };
-                ctx.errorMessages.push(err);
-                //   just push the error to the nearest paragraph node:
-                t.lintErrors ??= [];
-                t.lintErrors.push(err);
-            }
-            if (ctx.noteParent) {
-                const err = {
-                    message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${ctx.mutCurSid}`,
-                    sid: ctx.mutCurSid ?? "",
-                    msgKey: LintErrorKeys.noteNotClosed,
-                    nodeId: ctx.noteParent.id,
-                };
-                ctx.errorMessages.push(err);
-                ctx.noteParent.lintErrors ??= [];
-                ctx.noteParent.lintErrors.push(err);
-            }
-            ctx.charStack = [];
-            ctx.noteParent = null;
-        }
+  const t = ctx.currentToken;
+  if (!t) return;
+  if (t.isParaMarker || t.tokenType === TokenMap.verticalWhitespace) {
+    if (ctx.charStack.length || ctx.noteParent) {
+      if (ctx.charStack.length) {
+        const err = {
+          message: `Character marker ${ctx.charStack[0]} left at opening of new paragraph at ${ctx.mutCurSid}`,
+          sid: ctx.mutCurSid ?? "",
+          msgKey: LintErrorKeys.charNotClosed,
+          nodeId: t.id,
+        };
+        ctx.errorMessages.push(err);
+        //   just push the error to the nearest paragraph node:
+        t.lintErrors ??= [];
+        t.lintErrors.push(err);
+      }
+      if (ctx.noteParent) {
+        const err = {
+          message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${ctx.mutCurSid}`,
+          sid: ctx.mutCurSid ?? "",
+          msgKey: LintErrorKeys.noteNotClosed,
+          nodeId: ctx.noteParent.id,
+        };
+
+        ctx.errorMessages.push(err);
+        //   just push the error to the nearest paragraph node:
+        ctx.noteParent.lintErrors ??= [];
+        ctx.noteParent.lintErrors.push(err);
+      }
+      ctx.charStack = [];
+      ctx.noteParent = null;
     }
+  }
 }
 
 export function checkIfValidParaMarker<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    const isValidPara =
-        t?.tokenType === TokenMap.marker &&
-        isValidParaMarker(markerTrimNoSlash(t.text));
-    if (!isValidPara || !t) return;
-    ctx.currentParaMarker = markerTrimNoSlash(t.text);
-    t.isParaMarker = true;
+  const t = ctx.currentToken;
+  const isValidPara =
+    t?.tokenType === TokenMap.marker &&
+    isValidParaMarker(markerTrimNoSlash(t.text));
+  if (!isValidPara || !t) return;
+  ctx.currentParaMarker = markerTrimNoSlash(t.text);
+  t.isParaMarker = true;
 }
 
 export function checkCharStack<T extends LintableToken>(ctx: ParseContext<T>) {
-    const t = ctx.currentToken;
-    if (!t?.tokenType) return;
-    const type = t.tokenType;
-    const typesToProcess: string[] = [
-        TokenMap.marker,
-        TokenMap.endMarker,
-        TokenMap.implicitClose,
-    ];
-    if (!typesToProcess.includes(type)) return;
+  const t = ctx.currentToken;
+  if (!t?.tokenType) return;
+  const type = t.tokenType;
+  const typesToProcess: string[] = [
+    TokenMap.marker,
+    TokenMap.endMarker,
+    TokenMap.implicitClose,
+  ];
+  if (!typesToProcess.includes(type)) return;
 
-    if (type === TokenMap.marker) {
-        if (VALID_CHAR_MARKERS.has(markerTrimNoSlash(t.text))) {
-            ctx.charStack.push(markerTrimNoSlash(t.text));
-        }
-        const causesImmediateClose = [
-            VALID_CHAR_CROSS_REFERENCE_MARKERS,
-            VALID_CHAR_FOOTNOTE_MARKERS,
-        ].some((arr) => arr.has(markerTrimNoSlash(t.text)));
-        if (causesImmediateClose) {
-            ctx.charStack.pop();
-            ctx.charStack.push(markerTrimNoSlash(t.text));
-        }
-    } else {
-        // end marker or implicit close
-        ctx.charStack.pop();
-        if (ctx.noteParent) {
-            const expected = markerTrimNoSlash(t.text)
-                .replace("*", "")
-                .replace("\\", "");
-            // ctx.noteParent.marker should already be set here
-            if (expected === ctx.noteParent.marker) {
-                // push to parent and then nullify
-                if (!ctx.noteParent.content) ctx.noteParent.content = [];
-                ctx.noteParent.content.push(t);
-                ctx.idsToFilterOut.push(t.id);
-                ctx.noteParent = null;
-            }
-        }
+  if (type === TokenMap.marker) {
+    if (VALID_CHAR_MARKERS.has(markerTrimNoSlash(t.text))) {
+      ctx.charStack.push(markerTrimNoSlash(t.text));
     }
+    const causesImmediateClose = [
+      VALID_CHAR_CROSS_REFERENCE_MARKERS,
+      VALID_CHAR_FOOTNOTE_MARKERS,
+    ].some((arr) => arr.has(markerTrimNoSlash(t.text)));
+    if (causesImmediateClose) {
+      ctx.charStack.pop();
+      ctx.charStack.push(markerTrimNoSlash(t.text));
+    }
+  } else {
+    // end marker or implicit close
+    ctx.charStack.pop();
+    if (ctx.noteParent) {
+      const expected = markerTrimNoSlash(t.text)
+        .replace("*", "")
+        .replace("\\", "");
+      // ctx.noteParent.marker should already be set here
+      if (expected === ctx.noteParent.marker) {
+        // push to parent and then nullify
+        if (!ctx.noteParent.content) ctx.noteParent.content = [];
+        ctx.noteParent.content.push(t);
+        ctx.idsToFilterOut.push(t.id);
+        ctx.noteParent = null;
+      }
+    }
+  }
 }
 
 export function checkUpdateNoteParent<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!t || t.tokenType !== TokenMap.marker) return;
-    if (VALID_NOTE_MARKERS.has(markerTrimNoSlash(t.text))) {
-        ctx.noteParent = t;
-    }
+  const t = ctx.currentToken;
+  if (!t || t.tokenType !== TokenMap.marker) return;
+  if (VALID_NOTE_MARKERS.has(markerTrimNoSlash(t.text))) {
+    ctx.noteParent = t;
+  }
 }
 
 export function pushAttrPairToLastMarker<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!t || t.tokenType !== TokenMap.attributePair || !ctx.lastMarker) return;
-    const match = t.text.match(attributeRegex);
-    if (!match) return;
-    const [, key, value] = match;
-    if (!ctx.lastMarker.attributes) ctx.lastMarker.attributes = {};
-    ctx.lastMarker.attributes[key] = value;
+  const t = ctx.currentToken;
+  if (!t || t.tokenType !== TokenMap.attributePair || !ctx.lastMarker) return;
+  const match = t.text.match(attributeRegex);
+  if (!match) return;
+  const [, key, value] = match;
+  if (!ctx.lastMarker.attributes) ctx.lastMarker.attributes = {};
+  ctx.lastMarker.attributes[key] = value;
 }
 
 export function addParentTokenContextInfo<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!t) return;
-    if (ctx.currentParaMarker && !t.isParaMarker) {
-        t.inPara = ctx.currentParaMarker;
-    }
-    if (ctx.charStack.length) {
-        t.inChars = [...ctx.charStack];
-    }
+  const t = ctx.currentToken;
+  if (!t) return;
+  if (ctx.currentParaMarker && !t.isParaMarker) {
+    t.inPara = ctx.currentParaMarker;
+  }
+  if (ctx.charStack.length) {
+    t.inChars = [...ctx.charStack];
+  }
 }
 
 export function checkIfShouldNestInNoteParent<T extends LintableToken>(
-    ctx: ParseContext<T>,
+  ctx: ParseContext<T>
 ) {
-    const t = ctx.currentToken;
-    if (!ctx.noteParent || !t) return;
-    if (ctx.noteParent === t) return;
-    if (!ctx.noteParent.content) ctx.noteParent.content = [];
-    ctx.noteParent.content.push(t);
-    ctx.idsToFilterOut.push(t.id);
+  const t = ctx.currentToken;
+  if (!ctx.noteParent || !t) return;
+  if (ctx.noteParent === t) return;
+  if (!ctx.noteParent.content) ctx.noteParent.content = [];
+  ctx.noteParent.content.push(t);
+  ctx.idsToFilterOut.push(t.id);
 }

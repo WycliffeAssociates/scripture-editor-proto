@@ -1,11 +1,13 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useDebouncedCallback } from "@mantine/hooks";
 import {
+    $addUpdateTag,
     COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
+    SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import { useEffect, useRef } from "react";
 import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
@@ -21,9 +23,14 @@ import {
     lockImutableMarkersOnType,
 } from "@/app/domain/editor/listeners/lockImmutableMarkers";
 import {
+    adjustSidsAsNeededOnTextTokens,
+    mergeAdjacentTextNodesOfSameType,
+} from "@/app/domain/editor/listeners/maintainMetadata";
+import {
     inverseTextNodeTransform,
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers";
+import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 export function USFMPlugin() {
@@ -32,6 +39,7 @@ export function USFMPlugin() {
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
+    const lintDebounceMs = 200;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
         console.count(`debouncedLint`);
@@ -56,7 +64,7 @@ export function USFMPlugin() {
             lint.setMessage(merged);
         }
         // console.timeEnd("lint");
-    }, 600);
+    }, lintDebounceMs);
 
     useEffect(() => {
         if (mode === EditorModes.SOURCE) {
@@ -71,6 +79,7 @@ export function USFMPlugin() {
                 return;
             }
             console.count("wysiPreview");
+
             toggleShowOnToggleableNodes({
                 editor,
                 editorState,
@@ -96,6 +105,16 @@ export function USFMPlugin() {
                 inverseTextNodeTransform(arg);
             },
         );
+        const maintainMetadata = editor.registerNodeTransform(
+            USFMTextNode,
+            (node) => {
+                mergeAdjacentTextNodesOfSameType(node);
+                adjustSidsAsNeededOnTextTokens(node);
+            },
+        );
+        // keep the editor one flat list of tokens under one para parent
+        const redirectParaInsertionToLineBreakUnregister =
+            redirectParaInsertionToLineBreak(editor);
 
         const lints = editor.registerUpdateListener(
             ({ editorState, tags: _tags }) => {
@@ -125,6 +144,8 @@ export function USFMPlugin() {
         return () => {
             wysiPreview();
             unregisterTransformWhileTyping();
+            maintainMetadata();
+            redirectParaInsertionToLineBreakUnregister();
             lints();
             keyDownUnregister();
             pasteCommand();

@@ -3,7 +3,7 @@ import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import { parseSid } from "@/core/data/bible/bible";
-import type { LintError } from "@/core/domain/usfm/lint";
+import type { LintError } from "@/core/data/usfm/lint";
 
 type Props = {
     wrapperClassNames?: string;
@@ -21,9 +21,11 @@ export function LintPopover({ wrapperClassNames }: Props) {
             <Popover
                 opened={lintPopoverIsOpen}
                 onDismiss={() => setLintPopoverIsOpen(false)}
-                position="bottom-end"
+                position="bottom-start"
                 shadow="md"
                 withArrow
+                withinPortal={false}
+                width={400}
             >
                 <Popover.Target>
                     <Button
@@ -91,11 +93,15 @@ function LintMessageItem({
     }
 
     return (
-        <li>
+        <li className="w-full whitespace-normal break-words">
             <Button
                 variant="subtle"
                 color="gray"
                 fullWidth
+                justify="start"
+                content="start"
+                h="max-content"
+                lh="1.4"
                 onClick={() => {
                     const sidParsed = parseSid(msg.sid);
                     if (!sidParsed) return;
@@ -118,9 +124,8 @@ function LintMessageItem({
                         }, 100);
                     }
                 }}
-                className=""
             >
-                <span className="flex flex-col items-start text-left">
+                <span className="flex flex-col items-start text-start wrap-break-word whitespace-break-spaces ">
                     <span className="font-semibold">{msg.sid}</span>
                     <span>{msg.message}</span>
                 </span>

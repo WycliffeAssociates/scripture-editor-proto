@@ -4,6 +4,7 @@ import {
     type LexicalEditor,
     type SerializedEditorState,
     type SerializedLexicalNode,
+    SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import { useEffect, useMemo, useRef } from "react";
 import { useEffectOnce } from "react-use";
@@ -13,20 +14,26 @@ import {
     type EditorMarkersViewState,
     EditorMarkersViewStates,
     USFM_TEXT_NODE_TYPE,
+    UsfmTokenTypes,
 } from "@/app/data/editor";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
 import { type Settings, settingsDefaults } from "@/app/data/settings";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
+import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
     isSerializedToggleMutableUSFMTextNode,
     isSerializedToggleShowUSFMTextNode,
+    isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import type { USFMNestedEditorNodeJSON } from "../../domain/editor/nodes/USFMNestedEditorNode";
+import type { LintableToken } from "@/core/data/usfm/lint";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
+export type LintableTokenLike = LintableToken & {
+    lexicalKey?: string;
+};
 
 type Props = {
     // projectPath: string,
@@ -109,12 +116,22 @@ export const useWorkspaceActions = ({
               );
         const chapterState = chapterContent || targetFile?.chapters[chapter];
         if (!chapterState) return;
-        editor.setEditorState(
-            editor.parseEditorState(chapterState.lexicalState),
+        editor.update(
+            () => {
+                editor.setEditorState(
+                    editor.parseEditorState(chapterState.lexicalState),
+                );
+            },
             {
-                tag: HISTORY_MERGE_TAG,
+                tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
             },
         );
+        // editor.setEditorState(
+        //     editor.parseEditorState(chapterState.lexicalState),
+        //     {
+        //         tag: HISTORY_MERGE_TAG,
+        //     },
+        // );
         editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
         //  editor.setEditorState(workingFiles.find(file => file.path === file)?.chapters[chapter].lexicalState);
     }
@@ -417,7 +434,7 @@ export const useWorkspaceActions = ({
 
     function getFlatFileTokens(
         currentEditorState: SerializedEditorState,
-    ): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+    ): Array<LintableTokenLike> {
         return getFlattenedFileTokens(
             pickedFile,
             currentEditorState,
@@ -510,7 +527,7 @@ function adjustSerializedLexicalNodes(
 
 function getFlattenedEditorStateAsParseTokens(
     serializedEditorState: SerializedEditorState,
-): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+): Array<LintableTokenLike> {
     const root = serializedEditorState.root;
     const firstChild = root.children?.[0];
     if (!isSerializedElementNode(firstChild)) return [];
@@ -518,11 +535,20 @@ function getFlattenedEditorStateAsParseTokens(
     // Recursive helper to descend through nested structures
     function collectTokens(
         nodes: SerializedLexicalNode[],
-    ): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
-        const tokens = [];
+    ): Array<LintableTokenLike> {
+        const tokens: Array<LintableTokenLike> = [];
 
         for (const node of nodes) {
-            if (node.type === USFM_TEXT_NODE_TYPE) {
+            if (node.type === "linebreak") {
+                // we want to honor user linebreaks, and they are parsed in original, but we don't want to entirely overwrite the built in linebreak class with a custom node, so just represent the linebreak here as a serialized textNode:
+                tokens.push({
+                    tokenType: UsfmTokenTypes.verticalWhitespace,
+                    text: "\n",
+                    id: "",
+                });
+                continue;
+            }
+            if (isSerializedUSFMTextNode(node)) {
                 tokens.push(node);
                 continue;
             }
@@ -539,9 +565,7 @@ function getFlattenedEditorStateAsParseTokens(
             }
         }
 
-        return tokens as Array<
-            SerializedUSFMTextNode | USFMNestedEditorNodeJSON
-        >;
+        return tokens;
     }
 
     return collectTokens(firstChild.children ?? []);
@@ -551,10 +575,10 @@ export function getFlattenedFileTokens(
     pickedFile: ParsedFile | null,
     currentEditorState: SerializedEditorState,
     currentChapter: number,
-): Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> {
+): Array<LintableTokenLike> {
     if (!pickedFile) return [];
 
-    const tokens: Array<SerializedUSFMTextNode | USFMNestedEditorNodeJSON> = [];
+    const tokens: Array<LintableTokenLike> = [];
 
     for (const chapter of pickedFile.chapters) {
         // Use the live editor state for the current chapter

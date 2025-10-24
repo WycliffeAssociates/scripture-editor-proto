@@ -23,7 +23,7 @@ export const useReferenceProject = ({
         enabled: !!referenceProjectPath,
     });
     const referenceFile = useMemo(() => {
-        return referenceProjectQuery.data?.find(
+        return referenceProjectQuery.data?.parsedFiles.find(
             (f) => f.bibleIdentifier === pickedFileIdentifier,
         );
     }, [referenceProjectQuery.data, pickedFileIdentifier]);

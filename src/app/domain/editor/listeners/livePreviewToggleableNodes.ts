@@ -1,146 +1,200 @@
-import { $dfs, $reverseDfs } from "@lexical/utils";
+import {$dfs, $reverseDfs} from "@lexical/utils";
 import {
-    $getNodeByKey,
-    $getRoot,
-    $getSelection,
-    $isRangeSelection,
-    type EditorState,
-    HISTORY_MERGE_TAG,
-    type LexicalEditor,
-    type LexicalNode,
-    type NodeKey,
+  $addUpdateTag,
+  $getNodeByKey,
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  $setSelection,
+  type EditorState,
+  HISTORY_MERGE_TAG,
+  type LexicalEditor,
+  type LexicalNode,
+  type NodeKey,
+  type RangeSelection,
+  SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import {
-    type EditorMarkersMutableState,
-    EditorMarkersMutableStates,
-    type EditorMarkersViewState,
-    EditorMarkersViewStates,
-    TOKEN_TYPES_CAN_TOGGLE_HIDE,
+  type EditorMarkersMutableState,
+  EditorMarkersMutableStates,
+  type EditorMarkersViewState,
+  EditorMarkersViewStates,
+  TOKEN_TYPES_CAN_TOGGLE_HIDE,
 } from "@/app/data/editor";
-import { $isUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
+import {$isUSFMElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
 import {
-    $isUSFMTextNode,
-    type USFMTextNode,
+  $isUSFMTextNode,
+  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 
 type toggleShowOnToggleableNodesArgs = {
-    editor: LexicalEditor;
-    editorState: EditorState;
-    markersViewState: EditorMarkersViewState;
-    currentActive: Set<NodeKey>;
-    setCurrentActive: (activeNodes: Set<NodeKey>) => void;
-    markersMutableState: EditorMarkersMutableState;
+  editor: LexicalEditor;
+  editorState: EditorState;
+  markersViewState: EditorMarkersViewState;
+  currentActive: Set<NodeKey>;
+  setCurrentActive: (activeNodes: Set<NodeKey>) => void;
+  markersMutableState: EditorMarkersMutableState;
 };
 
 export function toggleShowOnToggleableNodes({
-    editor,
-    editorState,
-    markersViewState,
-    currentActive,
-    setCurrentActive,
-    markersMutableState,
+  editor,
+  editorState,
+  markersViewState,
+  currentActive,
+  setCurrentActive,
+  markersMutableState,
 }: toggleShowOnToggleableNodesArgs) {
-    if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
-        return;
+  if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
+    return;
+  }
+  let toDeactivate: NodeKey[] = [];
+  let toActivate: NodeKey[] = [];
+  let currentSelection: RangeSelection | null = null;
+  editorState.read(() => {
+    const selection = $getSelection();
+    if (!selection || !$isRangeSelection(selection)) return;
+    currentSelection = selection;
+    const newActive = new Set<NodeKey>();
+    const selNodes = selection.getNodes();
+
+    for (const node of selNodes) {
+      const conditionals = findRelevantConditionals(node);
+      if (conditionals) {
+        for (const conditional of conditionals) {
+          newActive.add(conditional.getKey());
+        }
+      }
     }
-    let toDeactivate: NodeKey[] = [];
-    let toActivate: NodeKey[] = [];
 
-    editorState.read(() => {
-        const selection = $getSelection();
-        if (!selection || !$isRangeSelection(selection)) return;
-
-        const newActive = new Set<NodeKey>();
-        const selNodes = selection.getNodes();
-
-        for (const node of selNodes) {
-            const conditionals = findRelevantConditionals(node);
-            if (conditionals) {
-                for (const conditional of conditionals) {
-                    newActive.add(conditional.getKey());
-                }
-            }
-        }
-
-        const prevActive = currentActive;
-        toDeactivate = [...prevActive].filter((k) => !newActive.has(k));
-        toActivate = [...newActive].filter((k) => !prevActive.has(k));
-        if (toDeactivate.length > 0 || toActivate.length > 0) {
-            setCurrentActive(newActive);
-        } else {
-            toDeactivate = [];
-            toActivate = [];
-        }
-    });
+    const prevActive = currentActive;
+    toDeactivate = [...prevActive].filter((k) => !newActive.has(k));
+    toActivate = [...newActive].filter((k) => !prevActive.has(k));
     if (toDeactivate.length > 0 || toActivate.length > 0) {
-        editor.update(
-            () => {
-                for (const key of toDeactivate) {
-                    const node = $getNodeByKey(key);
-                    if ($isUSFMTextNode(node)) {
-                        node.setShow(false);
-                        node.setMutable(false);
-                    }
-                }
-                for (const key of toActivate) {
-                    const node = $getNodeByKey(key);
-                    if ($isUSFMTextNode(node)) {
-                        node.setShow(true);
-                        if (
-                            markersMutableState ===
-                            EditorMarkersMutableStates.MUTABLE
-                        ) {
-                            node.setMutable(true);
-                        }
-                    }
-                }
-            },
-            { tag: HISTORY_MERGE_TAG },
-        );
+      setCurrentActive(newActive);
+    } else {
+      toDeactivate = [];
+      toActivate = [];
     }
+  });
+  if (toDeactivate.length > 0 || toActivate.length > 0) {
+    editor.update(
+      () => {
+        for (const key of toDeactivate) {
+          const node = $getNodeByKey(key);
+          if ($isUSFMTextNode(node)) {
+            node.setShow(false);
+            node.setMutable(false);
+          }
+        }
+        for (const key of toActivate) {
+          const node = $getNodeByKey(key);
+          if ($isUSFMTextNode(node)) {
+            node.setShow(true);
+            if (markersMutableState === EditorMarkersMutableStates.MUTABLE) {
+              node.setMutable(true);
+            }
+          }
+        }
+      },
+      {
+        tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
+      }
+    );
+  }
 }
 
 /**
  * FINDS ALL NODES WITHIN THIS ACTIVE SID TO SHOW/HIDE
  */
 function findRelevantConditionals(node: LexicalNode): USFMTextNode[] | null {
-    // given a node: find the nearest sid backwards;
-    // collect all sids that have a tokenType of tokenTypesToHideByDefault between this node and that one (inclusive);
-    if (!$isUSFMTextNode(node)) return null;
-    const thisSid = node.getSid();
-    if (!thisSid) return null;
-    const root = $getRoot();
-    const _endNode: USFMTextNode | null = null;
-    const collected: USFMTextNode[] = [];
-    for (const prevNode of $reverseDfs(node, root)) {
-        if ($isUSFMTextNode(prevNode.node)) {
-            const tokenType = prevNode.node.getTokenType();
-            const sid = prevNode.node.getSid();
-            if (sid && sid !== thisSid) break;
-            if (TOKEN_TYPES_CAN_TOGGLE_HIDE.has(tokenType)) {
-                collected.push(prevNode.node);
-            }
+  if (!$isUSFMTextNode(node)) return null;
 
-            // in the event that we happen to this node happens to be char in a USFMElementNode, also check for all it's children:
-            const parent = prevNode.node.getParent();
-            if (!parent || !$isUSFMElementNode(parent)) {
-                continue;
-            }
-            const lastChild = parent.getLastChild();
-            if (!lastChild) continue;
-            const children = $dfs(parent, lastChild);
-            for (const child of children) {
-                if ($isUSFMTextNode(child.node)) {
-                    const tokenType = child.node.getTokenType();
-                    const sid = child.node.getSid();
-                    if (sid && sid !== thisSid) break;
-                    if (TOKEN_TYPES_CAN_TOGGLE_HIDE.has(tokenType)) {
-                        collected.push(child.node);
-                    }
-                }
-            }
-        }
+  const thisSid = node.getSid();
+  if (!thisSid) return null;
+
+  const collected: USFMTextNode[] = [];
+
+  // --- Backward phase
+  collected.push(...collectBackwardToggleable(node, thisSid));
+
+  // --- Forward phase if we're inside inChars
+  const inChars = node.getInChars();
+  if (inChars.length > 0) {
+    collected.push(...collectForwardForInChars(node, thisSid, inChars));
+  }
+
+  return collected;
+}
+
+// --- helpers
+
+function collectBackwardToggleable(
+  node: USFMTextNode,
+  sid: string
+): USFMTextNode[] {
+  const root = $getRoot();
+  const collected: USFMTextNode[] = [];
+
+  for (const prevNode of $reverseDfs(node, root)) {
+    if (!$isUSFMTextNode(prevNode.node)) continue;
+
+    const tType = prevNode.node.getTokenType();
+    const s = prevNode.node.getSid();
+    if (s && s !== sid) break;
+
+    if (TOKEN_TYPES_CAN_TOGGLE_HIDE.has(tType)) collected.push(prevNode.node);
+
+    const parent = prevNode.node.getParent();
+    if (!parent || !$isUSFMElementNode(parent)) continue;
+
+    const lastChild = parent.getLastChild();
+    if (!lastChild) continue;
+
+    for (const child of $dfs(parent, lastChild)) {
+      if (!$isUSFMTextNode(child.node)) continue;
+
+      const ctType = child.node.getTokenType();
+      const cs = child.node.getSid();
+      if (cs && cs !== sid) break;
+
+      if (TOKEN_TYPES_CAN_TOGGLE_HIDE.has(ctType)) collected.push(child.node);
     }
+  }
 
-    return collected;
+  return collected;
+}
+
+function collectForwardForInChars(
+  node: USFMTextNode,
+  sid: string,
+  inChars: string[]
+): USFMTextNode[] {
+  const root = $getRoot();
+  const collected: USFMTextNode[] = [];
+  const seenEnds = new Set<string>();
+
+  for (const nextNode of $dfs(node, root)) {
+    if (!$isUSFMTextNode(nextNode.node)) continue;
+
+    const tType = nextNode.node.getTokenType();
+    const s = nextNode.node.getSid();
+    if (s && s !== sid) break;
+
+    if (TOKEN_TYPES_CAN_TOGGLE_HIDE.has(tType)) collected.push(nextNode.node);
+
+    for (const charName of inChars) {
+      if (isEndMarkerForChar(nextNode.node, charName)) {
+        seenEnds.add(charName);
+        if (seenEnds.size === inChars.length) return collected;
+      }
+    }
+  }
+
+  return collected;
+}
+
+function isEndMarkerForChar(node: USFMTextNode, charName: string) {
+  if (node.getTokenType() !== "endMarker") return false;
+  const markerText = node.getTextContent().replace("\\", "").replace("*", "");
+  return markerText === charName;
 }

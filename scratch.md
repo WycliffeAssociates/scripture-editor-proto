@@ -155,17 +155,19 @@ so on the obj we can just set lintErrors, (also keep a running list elsehwere fo
 TOMORROW: 
 fix linting bugs against kng nt
 use linebreak plugin so we never use paras. Always one level flat: 
+
 upgrade markers back to markers after downgrading if the textNode matches marker + space
+push para markers forwards in sid instead of back?
 fix footnotes
 context menu
 localization
 tool tips
 reverse find (from source text)
 insert X for top 8-10 markers that can call from type or from context menu action
-Make nesteds work like top editor in terms of context menu and stuff? 
+Make nesteds work like top editor in terms of context menu and stuff?  (I think already work for modes being that we recursively updated, but the usfm plugin isnt' inserted in that composer )
 node selection jumps 2 when wysi preview on
 allow enter key at the very edge of locked node?
-sync reference panels with main editor
+sync reference panels with main editor (i.e. scroll to sid)
 more lint rules? 
 Start writing tests?
 Start refining ui? 
