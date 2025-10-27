@@ -4,6 +4,7 @@ import {
   $getNodeByKey,
   $getRoot,
   $getSelection,
+  $isLineBreakNode,
   $isRangeSelection,
   $setSelection,
   type EditorState,
@@ -136,6 +137,8 @@ function collectBackwardToggleable(
   const collected: USFMTextNode[] = [];
 
   for (const prevNode of $reverseDfs(node, root)) {
+    // don't cross line breaks.
+    if ($isLineBreakNode(prevNode.node)) break;
     if (!$isUSFMTextNode(prevNode.node)) continue;
 
     const tType = prevNode.node.getTokenType();

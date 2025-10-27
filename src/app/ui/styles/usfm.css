@@ -49,36 +49,6 @@ body:not(.source-mode) {
     /* pointer-events: none; */
   }
 
-  .markers-hidden
-    :where(
-      [data-marker="q1"],
-      [data-in-para="q1"]:not([data-token-type="numberRange"])
-    ) {
-    margin-inline-start: 0.5rem; /* or your preferred smaller indentation */
-  }
-  .markers-hidden
-    :where(
-      [data-marker="q2"],
-      [data-in-para="q2"]:not([data-token-type="numberRange"])
-    ) {
-    margin-inline-start: 1rem;
-  }
-
-  .markers-shown
-    :where(
-      br + [data-marker="q1"],
-      br + [data-in-para="q1"]:not([data-token-type="numberRange"])
-    ) {
-    margin-inline-start: 1rem;
-  }
-  .markers-shown
-    :where(
-      br + [data-marker="q2"],
-      br + [data-in-para="q2"]:not([data-token-type="numberRange"])
-    ) {
-    margin-inline-start: 2rem;
-  }
-
   :where(
       [data-marker="q"],
       [data-in-para="q"],
@@ -101,21 +71,15 @@ body:not(.source-mode) {
     /* pointer-events: none !important; */
   }
 
-  [data-marker-view-state="never"] [data-marker] + br {
-    display: none;
+  [data-marker-view-state="never"] [data-marker] + br,
+  [data-marker-view-state="never"] [data-marker] {
+    display: none !important;
   }
-  /* .isParaMarker[data-token-type="text"] {
+
+  .isParaMarker:has(+ [data-marker]) {
     display: block;
-  } */
-  /* [data-token-type="text"] + .isParaMarker {
-    display: block;
-  } */
-  /* .isParaMarker
-    + [data-token-type="text"]:has(
-      + :where([data-marker="p"], [data-marker="m"], [data-marker="s5"])
-    ) {
-    margin-block-end: 0.5rem;
-  } */
+    width: max-content;
+  }
 }
 
 .lint-error {

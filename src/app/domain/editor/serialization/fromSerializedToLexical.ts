@@ -117,7 +117,7 @@ function normalizeToken(t: ParsedToken): ParsedToken {
           ...t,
           marker: "id",
           tokenType: "marker",
-          text: t.text.replace("id", ""),
+          type: "marker",
           id: t.id,
         }
       : t;

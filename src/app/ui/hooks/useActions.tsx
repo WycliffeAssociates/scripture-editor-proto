@@ -395,13 +395,13 @@ export const useWorkspaceActions = ({
                         });
                     },
                 );
-                chapter.lexicalState.root.children = rootChildren;
                 if (
                     chapter.chapNumber === currentChapter &&
                     file.bibleIdentifier === currentFileBibleIdentifier
                 ) {
                     thisChapterUpdated = chapter;
                 }
+                chapter.lexicalState.root.children = rootChildren;
             });
         });
         if (thisChapterUpdated) {

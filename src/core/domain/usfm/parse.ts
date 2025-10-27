@@ -11,7 +11,7 @@ export const parseUSFMfile = <T extends LintableToken>(
   const r = parseTokens({tokens, partialContext: partialParseCtx});
 
   const organized = organizeByChapters(r.tokens);
-  // if (text.startsWith("\\id ROM")) {
+  // if (text.startsWith("\\id MRK")) {
   //   debugger;
   // }
   return {usfm: organized, lintErrors: r.errorMessages};

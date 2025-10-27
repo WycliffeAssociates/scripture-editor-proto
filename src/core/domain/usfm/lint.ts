@@ -251,7 +251,16 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
     // if there token following isn't text, but is a note, good chance this is intentionally empty and noted
     return;
   }
-  if (nextToken.tokenType !== TokenMap.text || !nextToken.text?.trim()) {
+  const nextIsText =
+    nextToken.tokenType === TokenMap.text && nextToken.text?.trim().length;
+  //   in a number cases such as en ulb, there are sections such as \v 21 + footnote indicating that some ancient mss don't have this verse
+  const nextIsNote =
+    ctx.twoFromCurrent?.tokenType === TokenMap.marker &&
+    VALID_NOTE_MARKERS.has(markerTrimNoSlash(ctx.twoFromCurrent?.text ?? ""));
+  const thirdIsNote =
+    ctx.twoFromCurrent?.tokenType === TokenMap.marker &&
+    VALID_NOTE_MARKERS.has(markerTrimNoSlash(ctx.twoFromCurrent?.text ?? ""));
+  if (!nextIsText && !nextIsNote && !thirdIsNote) {
     const err = {
       message: `Expected verse content after \\v`,
       sid: ctx.currentToken?.sid ?? "unknown location",
@@ -273,6 +282,7 @@ export const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
   }
 
   if (ALL_USFM_MARKERS.has(markerTrimNoSlash(ctx.currentToken.text))) return;
+  debugger;
   const err = {
     message: `Unknown marker ${ctx.currentToken.text}`,
     sid: ctx.currentToken?.sid ?? "unknown location",

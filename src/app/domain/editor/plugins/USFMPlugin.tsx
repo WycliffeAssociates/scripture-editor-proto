@@ -25,6 +25,7 @@ import {
 import {
     adjustSidsAsNeededOnTextTokens,
     mergeAdjacentTextNodesOfSameType,
+    trySplitOutMarkersFromError,
 } from "@/app/domain/editor/listeners/maintainMetadata";
 import {
     inverseTextNodeTransform,
@@ -109,6 +110,7 @@ export function USFMPlugin() {
             USFMTextNode,
             (node) => {
                 mergeAdjacentTextNodesOfSameType(node);
+                trySplitOutMarkersFromError(node);
                 adjustSidsAsNeededOnTextTokens(node);
             },
         );

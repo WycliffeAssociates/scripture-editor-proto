@@ -21,6 +21,7 @@ import {
     // ToolTipPlugin,
 } from "@/app/domain/editor/plugins/ToolTipPlugin";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin";
+import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import { guidGenerator } from "@/core/data/utils/generic";
 
@@ -80,6 +81,7 @@ export function MainEditor() {
               currentEditorState={currentEditorState}
             /> */}
                 <USFMPlugin />
+                <UsfmStylesPlugin />
                 <NodeContextMenuPlugin
                     items={[
                         {

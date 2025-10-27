@@ -24,9 +24,15 @@ export const EditorMarkersViewStates = {
 
 export const UsfmTokenTypes: Pick<
   typeof TokenMap,
-  "marker" | "text" | "numberRange" | "verticalWhitespace" | "error"
+  | "marker"
+  | "text"
+  | "numberRange"
+  | "verticalWhitespace"
+  | "error"
+  | "endMarker"
 > = {
   marker: "marker",
+  endMarker: "endMarker",
   text: "text",
   numberRange: "numberRange",
   verticalWhitespace: "nl",

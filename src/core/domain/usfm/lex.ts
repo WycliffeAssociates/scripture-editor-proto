@@ -7,6 +7,7 @@ const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
 export const markerTrimNoSlash = (text: string) =>
   markerWithoutBackslash(text.trim());
 const textRegex = /(?:[^\n\\|]|\\u[0-9A-Fa-f]{4}|(?<=.)\\\\)+/u;
+export const markerRegex = /\\[a-z\d]+\s+/u;
 // const textRegex = /(?:[^\n|]|\\u[0-9A-Fa-f]{4})+/u;
 const wsRegex = /[ \t]+/u;
 const nlRegex = /\r?\n/u;
@@ -45,7 +46,7 @@ const lexer = moo.states({
     endMarker: /\\\S*\*/u,
     implicitClose: "\\*",
     marker: {
-      match: /\\[a-z-\d]+/u,
+      match: markerRegex,
       //   match: /\\\S+/u,
       value(x) {
         return markerWithoutBackslash(x);

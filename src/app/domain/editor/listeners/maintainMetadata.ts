@@ -12,6 +12,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import {sidState} from "@/app/domain/editor/states";
 import {parseSid} from "@/core/data/bible/bible";
+import {markerRegex, markerTrimNoSlash} from "@/core/domain/usfm/lex";
 
 export function mergeAdjacentTextNodesOfSameType(node: USFMTextNode) {
   const next = node.getNextSibling();
@@ -41,6 +42,24 @@ export function mergeAdjacentTextNodesOfSameType(node: USFMTextNode) {
   ) {
     prev.setTextContent(prev.getTextContent() + node.getTextContent());
     node.remove();
+  }
+}
+export function trySplitOutMarkersFromError(node: USFMTextNode) {
+  if (node.getTokenType() !== UsfmTokenTypes.error) return;
+  //   debugger;
+  const textContent = node.getTextContent();
+  //   if the textContent matches a markerRegex at start, we should split it there into a marker + text:
+  const match = textContent.match(markerRegex);
+  if (match) {
+    // call textNode.splitText(match.index)
+    const [left, right] = node.splitText(match[0].length);
+    if ($isUSFMTextNode(left)) {
+      left.setTokenType(UsfmTokenTypes.marker);
+      left.setMarker(markerTrimNoSlash(match[0]));
+    }
+    if ($isUSFMTextNode(right)) {
+      right.setTokenType(UsfmTokenTypes.text);
+    }
   }
 }
 

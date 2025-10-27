@@ -88,7 +88,7 @@ export function prepareTokens<T extends LintableToken>(
   lexFn: (src: string) => Token[]
 ): Array<T & Token> {
   const tokens = lexFn(text) as Array<T & Token>;
-  // if (text.startsWith("\\id PSA")) {
+  // if (text.startsWith("\\id MRK")) {
   //   debugger;
   // }
   for (let i = 0; i < tokens.length; i++) {
