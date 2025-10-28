@@ -58,8 +58,9 @@ export class ProjectRepository implements IProjectRepository {
         try {
             const userDataDir = await this.directoryProvider.getUserDataDirectory();
             const projectsDir = await userDataDir.getDirectoryHandle("projects");
-            debugger
+            console.log("Projects Directory", projectsDir.name)
             for await (const [name, handle] of projectsDir.entries()) {
+                console.log("Entry: ", name, await handle.getAbsolutePath());
                 if (handle.kind === "directory") {
                     try {
                         const directoryHandle = handle as IDirectoryHandle;

@@ -49,8 +49,8 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
             const contents = await file.text();
             const metadata = JSON.parse(contents);
 
-            const defaultLanguageTag = metadata.languages?.default?.tag || "und";
-            const defaultLanguageName = metadata.languages?.[defaultLanguageTag]?.name?.en || "Undefined";
+            const defaultLanguageTag = metadata.languages?.default?.tag || "en";
+            const defaultLanguageName = metadata.languages?.[defaultLanguageTag]?.name?.en || "English";
             const defaultLanguageDirection = metadata.languages?.[defaultLanguageTag]?.direction === "rtl" ? LanguageDirection.RTL : LanguageDirection.LTR;
 
             const md5Service = this.md5Service;

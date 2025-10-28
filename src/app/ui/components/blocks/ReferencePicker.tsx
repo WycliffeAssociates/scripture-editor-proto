@@ -28,7 +28,7 @@ export function ReferencePicker() {
   const {currentFile, currentChapter, workingFiles, pickedFile} = project;
 
   // --- derived state
-  const currentBook = pickedFile?.bibleIdentifier ?? "Select";
+  const currentBook = pickedFile?.bookCode ?? "Select";
   const currentDisplay =
     currentChapter >= 0 ? `${currentBook} ${currentChapter}` : currentBook;
 
@@ -41,7 +41,7 @@ export function ReferencePicker() {
 
     // match one, a bible id matched fuzzily from above
     let file = workingFiles.find(
-      (f) => f.bibleIdentifier?.toLowerCase() === ref.book.toLowerCase()
+      (f) => f.bookCode?.toLowerCase() === ref.book.toLowerCase()
     );
     const uniqueStartsWith = workingFiles.filter((f) =>
       f.title?.toLocaleLowerCase().startsWith(search.toLocaleLowerCase())
@@ -111,7 +111,7 @@ export function ReferencePicker() {
           {workingFiles.map((file) => {
             const fileTitle =
               file.title ||
-              file.bibleIdentifier ||
+              file.bookCode ||
               file.path.split("/").pop() ||
               "Unknown";
 
