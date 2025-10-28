@@ -39,10 +39,9 @@ export function parsedUsfmTokensToJsonLexicalNode(
   };
 }
 function serializeToken(
-  t: ParsedToken,
+  token: ParsedToken,
   languageDirection: "ltr" | "rtl"
 ): USFMNodeJSON {
-  const token = normalizeToken(t);
   if (nestedEditorMarkers.has(token.marker ?? "")) {
     return getSerializedNestedEditorNode({
       token,
@@ -108,18 +107,4 @@ function serializeToken(
       : [],
     // maybe set isMutable and show from parse if remembering settings? Right now we just adjust once we've rendered the stuff. NOt sure
   });
-}
-
-function normalizeToken(t: ParsedToken): ParsedToken {
-  const token =
-    t.tokenType === "idMarker"
-      ? {
-          ...t,
-          marker: "id",
-          tokenType: "marker",
-          type: "marker",
-          id: t.id,
-        }
-      : t;
-  return token;
 }

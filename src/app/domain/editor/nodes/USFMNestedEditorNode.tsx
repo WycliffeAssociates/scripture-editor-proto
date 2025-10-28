@@ -11,9 +11,9 @@ import type {
 import { DecoratorNode } from "lexical";
 import type { USFMNodeJSON } from "@/app/data/editor";
 import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor";
+import type { LintError } from "@/core/data/usfm/lint";
 import type { ParsedToken } from "@/core/data/usfm/parse";
-import { arraysEqualByKey } from "@/core/data/utils/generic";
-import type { LintError } from "@/core/domain/usfm/lint";
+import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 export const nestedEditorMarkers = new Set(["f", "x"]); // expandable later
@@ -34,6 +34,8 @@ export type USFMNestedEditorNodeJSON = Spread<
         inPara?: string;
         inChars?: string[];
         attributes?: Record<string, string>;
+        randomRenderKey?: string;
+        isOpen?: boolean;
     },
     SerializedLexicalNode
 >;
@@ -49,6 +51,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     __attributes: Record<string, string>;
     __editorState: SerializedEditorState;
     __lintErrors?: LintError[];
+    __randomRenderKey: string;
+    __isOpen: boolean;
 
     constructor(
         text: string,
@@ -61,6 +65,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         level?: string,
         inPara?: string,
         attributes: Record<string, string> = {},
+        randomRenderKey?: string,
+        isOpen?: boolean,
         key?: NodeKey,
     ) {
         super(key);
@@ -74,6 +80,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         this.__attributes = attributes;
         this.__editorState = editorState;
         this.__lintErrors = lintErrors;
+        this.__randomRenderKey = randomRenderKey || guidGenerator();
+        this.__isOpen = isOpen || false;
     }
 
     static getType(): string {
@@ -86,6 +94,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     getSid(): string | undefined {
         return this.__sid;
     }
+    getId(): string {
+        return this.__id;
+    }
     getLintErrors(): LintError[] | undefined {
         return this.__lintErrors;
     }
@@ -94,6 +105,14 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     }
     setLintErrors(lintErrors: LintError[]) {
         this.getWritable().__lintErrors = lintErrors;
+    }
+    setRandomRenderKey() {
+        this.getWritable().__randomRenderKey = guidGenerator();
+    }
+    setIsOpen(mainEditor: LexicalEditor, isOpen: boolean) {
+        mainEditor.update(() => {
+            this.getWritable().__isOpen = isOpen;
+        });
     }
     lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
         const current = this.__lintErrors;
@@ -114,6 +133,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
             node.__level,
             node.__inPara,
             node.__attributes,
+            node.__randomRenderKey,
+            node.__isOpen,
             node.__key,
         );
     }
@@ -123,10 +144,16 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         return el;
     }
     updateDOM(
-        _prevNode: unknown,
+        prevNode: USFMNestedEditorNode,
         _dom: HTMLElement,
         _config: EditorConfig,
     ): boolean {
+        if (prevNode.__randomRenderKey !== this.__randomRenderKey) {
+            return true;
+        }
+        if (prevNode.__isOpen !== this.__isOpen) {
+            return true;
+        }
         return false;
     }
     isInline(): boolean {
@@ -149,6 +176,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
             inPara: this.__inPara,
             attributes: this.__attributes,
             editorState: this.__editorState,
+            randomRenderKey: this.__randomRenderKey,
+            isOpen: this.__isOpen,
         };
     }
 
@@ -164,6 +193,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
             json.level,
             json.inPara,
             json.attributes ?? {},
+            json.randomRenderKey,
+            json.isOpen,
         );
     }
 
@@ -185,6 +216,10 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
                         this.getWritable().__editorState = newState;
                     });
                 }}
+                setIsOpen={(mainEditor: LexicalEditor, isOpen: boolean) => {
+                    this.setIsOpen(mainEditor, isOpen);
+                }}
+                isOpen={this.__isOpen}
             />
         );
     }

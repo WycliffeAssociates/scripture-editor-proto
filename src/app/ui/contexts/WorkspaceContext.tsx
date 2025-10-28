@@ -7,6 +7,10 @@ import {
     type UseActionsHook,
     useWorkspaceActions,
 } from "@/app/ui/hooks/useActions";
+import {
+    type UseDynamicStylesheetHook,
+    useDynamicStylesheet,
+} from "@/app/ui/hooks/useDynamicStyles";
 import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint";
 import {
     type ReferenceProjectHook,
@@ -32,6 +36,7 @@ interface WorkSpaceContextType {
     referenceProject: ReferenceProjectHook;
     search: UseSearchReturn;
     lint: UseLintReturn;
+    cssStyleSheet: UseDynamicStylesheetHook;
 }
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
     undefined,
@@ -61,7 +66,7 @@ export const ProjectProvider = ({
     const [workingFiles, setWorkingFiles] =
         useState<ParsedFile[]>(projectFiles);
     const { settingsManager, directoryProvider } = useRouter().options.context;
-
+    const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(settingsManager, workingFiles);
     const actions = useWorkspaceActions({
         editorRef,
@@ -74,6 +79,7 @@ export const ProjectProvider = ({
         workingFiles,
         setWorkingFiles,
         pickedFile: project.pickedFile,
+        updateStyleSheet: cssStyleSheet.updateStyleSheet,
     });
     const referenceProject = useReferenceProject({
         directoryProvider,
@@ -110,6 +116,7 @@ export const ProjectProvider = ({
                 referenceProject,
                 search,
                 lint,
+                cssStyleSheet,
             }}
         >
             {children}

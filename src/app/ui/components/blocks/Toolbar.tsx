@@ -122,6 +122,14 @@ export function Toolbar() {
                 ]}
             />
             <SearchInput />
+            <button
+                type="button"
+                onClick={() => {
+                    location.href = location.href;
+                }}
+            >
+                reload
+            </button>
         </Group>
     );
 }

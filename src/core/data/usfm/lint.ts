@@ -5,6 +5,7 @@ export const LintErrorKeys = {
   duplicateVerseNumber: "duplicateVerseNumber",
   inconsistentChapterLabel: "inconsistentChapterLabel",
   isUnknownMarker: "isUnknownMarker",
+  isUnknownCloseMarker: "isUnknownCloseMarker",
   noteNotClosed: "noteNotClosed",
   numberRangeAfterChapterMarker: "numberRangeAfterChapterMarker",
   verseContentNotEmpty: "verseContentNotEmpty",
@@ -12,6 +13,8 @@ export const LintErrorKeys = {
   verseRangeExpectedAfterVerseMarker: "verseRangeExpectedAfterVerseMarker",
   verseTextFollowsVerseRange: "verseTextFollowsVerseRange",
   invalidNumberRange: "invalidNumberRange",
+  numberRangeNotPreceededByMarkerExpectingNumberRange:
+    "numberRangeNotPreceededByMarkerExpectingNumberRange",
   unknownToken: "unknownToken",
 } as const;
 

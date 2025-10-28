@@ -7,7 +7,7 @@ const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
 export const markerTrimNoSlash = (text: string) =>
   markerWithoutBackslash(text.trim());
 const textRegex = /(?:[^\n\\|]|\\u[0-9A-Fa-f]{4}|(?<=.)\\\\)+/u;
-export const markerRegex = /\\[a-z\d]+\s+/u;
+export const markerRegex = /\\[a-z-\d]+(?=\s+)/u;
 // const textRegex = /(?:[^\n|]|\\u[0-9A-Fa-f]{4})+/u;
 const wsRegex = /[ \t]+/u;
 const nlRegex = /\r?\n/u;
@@ -35,29 +35,49 @@ const lexer = moo.states({
     // An attribute key-value pair.
     attrPair: /[a-zA-Z0-9\-_]+="(?:\\.|[^"\\])*"/u,
 
+    // we need to spell out a few markers specifically in order to pop into others states, such as expectingBookCode / numberRage
     idMarker: {
       match: /\\id\b/u,
       lineBreaks: true,
-      push: "expectingBookCode",
-      value(x) {
-        return markerWithoutBackslash(x);
-      },
+      next: "expectingBookCode",
+    },
+    // chapter + verse expect a number after:
+    chapterMarker: {
+      match: /\\c\b/u,
+      next: "expectingNumberRange",
+    },
+    chapterAltOpen: {
+      match: /\\ca/u,
+      next: "expectingNumberRange",
+    },
+    chapterPublished: {
+      match: /\\cp/u,
+      next: "expectingNumberRange",
+    },
+    verseMarker: {
+      match: /\\v\b/u,
+      next: "expectingNumberRange",
+    },
+    verseAltOpen: {
+      match: /\\va/u,
+      next: "expectingNumberRange",
+    },
+    versePublished: {
+      match: /\\vp/u,
+      next: "expectingNumberRange",
     },
     endMarker: /\\\S*\*/u,
     implicitClose: "\\*",
     marker: {
       match: markerRegex,
       //   match: /\\\S+/u,
-      value(x) {
-        return markerWithoutBackslash(x);
-      },
     },
     // this is a much simpler version of numberRange that only is bridghe with dash
-    numberRange: {
-      match: /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u,
-      // we push to specific so that a line line such as:\v 28 8,600 males have been counted aged one month old and older to perform the duties of the sanctuary. doesn't parse as numberRange + numberRange
-      push: "specific",
-    },
+    // numberRange: {
+    //   match: /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u,
+    // we push to specific so that a line line such as:\v 28 8,600 males have been counted aged one month old and older to perform the duties of the sanctuary. doesn't parse as numberRange + numberRange
+    //   push: "specific",
+    // },
     // the USFM site number range is more complex and allows for letters and other characters
     // numberRange: /[1-9][0-9]*[\p{L}\p{Mn}]*(?:[-,][0-9]+[\p{L}\p{Mn}]*)*/u,
 
@@ -72,7 +92,7 @@ const lexer = moo.states({
     },
   },
   expectingBookCode: {
-    bookCode: {match: /[A-Z1-9]{3}/u, pop: 1},
+    bookCode: {match: /[A-Z1-9]{3}/u, next: "main"},
     ws: wsRegex,
     nl: {
       match: nlRegex,
@@ -80,11 +100,15 @@ const lexer = moo.states({
       value() {
         return "\n";
       },
-      pop: 1,
+      next: "main",
     },
   },
-  specific: {
-    text: {match: textRegex, lineBreaks: true, pop: 1},
+  expectingNumberRange: {
+    numberRange: {
+      match: /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u,
+      next: "specific",
+    },
+
     ws: wsRegex,
     nl: {
       match: nlRegex,
@@ -92,7 +116,21 @@ const lexer = moo.states({
       value() {
         return "\n";
       },
-      pop: 1,
+      next: "specific",
+    },
+    // if numberRange Doesn't match first, fall back to text and go to main
+    text: {match: textRegex, lineBreaks: true, next: "main"},
+  },
+  specific: {
+    text: {match: textRegex, lineBreaks: true, next: "main"},
+    ws: wsRegex,
+    nl: {
+      match: nlRegex,
+      lineBreaks: true,
+      value() {
+        return "\n";
+      },
+      next: "main",
     },
   },
 });

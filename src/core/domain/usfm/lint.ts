@@ -4,7 +4,11 @@ import {
   LintErrorKeys,
   lintErrorToUniqueKey,
 } from "@/core/data/usfm/lint";
-import {ALL_USFM_MARKERS, VALID_NOTE_MARKERS} from "@/core/data/usfm/tokens";
+import {
+  ALL_MARKERS_CAN_CLOSE_EXPLICIT,
+  ALL_USFM_MARKERS,
+  VALID_NOTE_MARKERS,
+} from "@/core/data/usfm/tokens";
 import {markerTrimNoSlash, TokenMap} from "@/core/domain/usfm/lex";
 import type {ParseContext} from "@/core/domain/usfm/tokenParsers";
 
@@ -13,10 +17,12 @@ export function lint<T extends LintableToken>(ctx: ParseContext<T>) {
   lintChapterLabels(ctx);
   lintVerseContentNotEmpty(ctx);
   lintTextFollowsVerseRange(ctx);
+  lintNumRangePreceededByTokenExpectingNum(ctx);
   lintVerseRanges(ctx);
   lintCheckForDuplicateChapNum(ctx);
   lintIsUnknownMarker(ctx);
-  lintAddErrorsToLexedUnknownMarker(ctx);
+  lintIsUnkownCloseToken(ctx);
+  lintAddErrorsToUnknownTokenFromLexer(ctx);
 }
 
 export type LintOrParseFxn<T extends LintableToken> = (
@@ -30,7 +36,7 @@ export const lintChapterLabels: LintOrParseFxn<LintableToken> = (
   if (!token?.text || !ctx.nextToken) return;
 
   const isMarker = token.tokenType === TokenMap.marker;
-  const isClMarker = markerTrimNoSlash(token.text) === "cl";
+  const isClMarker = token.marker === "cl";
   if (!isMarker || !isClMarker) return;
   let nextText = ctx.nextToken?.text?.trim();
   if (!nextText) return;
@@ -56,7 +62,7 @@ export const checkForVerseRangeAfterVerseMarker: LintOrParseFxn<
 > = (ctx: ParseContext<LintableToken>) => {
   const token = ctx.currentToken;
   if (!token?.marker) return;
-  const isVerseRangeMarker = markerTrimNoSlash(token.text) === "v";
+  const isVerseRangeMarker = token.marker === "v";
   const nextMarkerType = ctx.nextToken?.tokenType;
   if (isVerseRangeMarker && nextMarkerType !== TokenMap.numberRange) {
     const text = ctx.currentToken?.text;
@@ -68,8 +74,6 @@ export const checkForVerseRangeAfterVerseMarker: LintOrParseFxn<
       nodeId: token.id,
     };
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
   }
 };
 
@@ -77,8 +81,8 @@ export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
   ctx: ParseContext<LintableToken>
 ) => {
   const token = ctx.currentToken;
-  if (!token?.text) return;
-  const marker = markerTrimNoSlash(token?.text);
+  if (!token?.marker) return;
+  const marker = token.marker;
   if (!marker) return;
   if (marker !== "c") return;
   const nextMarkerType = ctx.nextToken?.tokenType;
@@ -90,8 +94,6 @@ export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
       nodeId: token.id,
     };
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
     return;
   }
   const nextVal = ctx.nextToken?.text.trim() ?? "";
@@ -105,8 +107,6 @@ export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
       nodeId: token.id,
     };
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
   }
   const expected = prevChapSaw ? parseInt(prevChapSaw, 10) + 1 : 1;
   if (nextVal !== expected.toString()) {
@@ -117,8 +117,6 @@ export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
       nodeId: token.id,
     };
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
   }
   ctx.lintChapters.seen.add(nextVal);
   ctx.lintChapters.list.push(nextVal);
@@ -130,7 +128,7 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
   const token = ctx.currentToken;
   if (!token?.text) return;
   if (token.tokenType !== TokenMap.numberRange) return;
-  if (markerTrimNoSlash(ctx.prevToken?.text ?? "") !== "v") return;
+  if (!ctx.prevToken?.marker || ctx.prevToken.marker !== "v") return;
 
   const curChapter = ctx.mutCurChap;
   if (!curChapter) return;
@@ -171,8 +169,6 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     };
 
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
 
     for (const seenTok of seenTokensForAny) {
       const already = seenTok.lintErrors?.some(
@@ -199,8 +195,6 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
       nodeId: token.id,
     };
     ctx.errorMessages.push(err);
-    token.lintErrors ??= [];
-    token.lintErrors.push(err);
   }
 
   // --- Record state
@@ -219,7 +213,7 @@ export const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
   // when in text and prev was verse
   if (ctx.currentToken?.tokenType !== TokenMap.text) return;
   if (!ctx.prevToken) return;
-  if (markerTrimNoSlash(ctx.prevToken.text ?? "") !== "v") return;
+  if (!ctx.prevToken.marker || ctx.prevToken.marker !== "v") return;
   if (!ctx.currentToken.text?.trim()) {
     const err = {
       message: `Verse content expected after \\v and range ${ctx.prevToken.text}`,
@@ -228,8 +222,6 @@ export const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
       nodeId: ctx.currentToken?.id,
     };
     ctx.errorMessages.push(err);
-    ctx.currentToken.lintErrors ??= [];
-    ctx.currentToken.lintErrors.push(err);
   }
 };
 
@@ -246,7 +238,7 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
   if (!nextToken) return;
   if (
     nextToken.tokenType === TokenMap.marker &&
-    VALID_NOTE_MARKERS.has(markerTrimNoSlash(nextToken.text))
+    VALID_NOTE_MARKERS.has(nextToken.marker ?? "")
   ) {
     // if there token following isn't text, but is a note, good chance this is intentionally empty and noted
     return;
@@ -256,10 +248,10 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
   //   in a number cases such as en ulb, there are sections such as \v 21 + footnote indicating that some ancient mss don't have this verse
   const nextIsNote =
     ctx.twoFromCurrent?.tokenType === TokenMap.marker &&
-    VALID_NOTE_MARKERS.has(markerTrimNoSlash(ctx.twoFromCurrent?.text ?? ""));
+    VALID_NOTE_MARKERS.has(ctx.twoFromCurrent?.marker ?? "");
   const thirdIsNote =
     ctx.twoFromCurrent?.tokenType === TokenMap.marker &&
-    VALID_NOTE_MARKERS.has(markerTrimNoSlash(ctx.twoFromCurrent?.text ?? ""));
+    VALID_NOTE_MARKERS.has(ctx.twoFromCurrent?.marker ?? "");
   if (!nextIsText && !nextIsNote && !thirdIsNote) {
     const err = {
       message: `Expected verse content after \\v`,
@@ -268,8 +260,6 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
       nodeId: ctx.currentToken?.id,
     };
     ctx.errorMessages.push(err);
-    ctx.currentToken.lintErrors ??= [];
-    ctx.currentToken.lintErrors.push(err);
   }
 };
 
@@ -281,8 +271,7 @@ export const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
     return;
   }
 
-  if (ALL_USFM_MARKERS.has(markerTrimNoSlash(ctx.currentToken.text))) return;
-  debugger;
+  if (ALL_USFM_MARKERS.has(ctx.currentToken.marker ?? "")) return;
   const err = {
     message: `Unknown marker ${ctx.currentToken.text}`,
     sid: ctx.currentToken?.sid ?? "unknown location",
@@ -290,8 +279,44 @@ export const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
     nodeId: ctx.currentToken.id,
   };
   ctx.errorMessages.push(err);
-  ctx.currentToken.lintErrors ??= [];
-  ctx.currentToken.lintErrors.push(err);
+};
+
+export const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
+  ctx: ParseContext<LintableToken>
+) => {
+  if (!ctx.currentToken) return;
+  if (ctx.currentToken.tokenType !== TokenMap.endMarker) {
+    return;
+  }
+
+  if (ALL_MARKERS_CAN_CLOSE_EXPLICIT.has(ctx.currentToken.text.trim())) return;
+  const err = {
+    message: `Unknown closing marker ${ctx.currentToken.text}`,
+    sid: ctx.currentToken?.sid ?? "unknown location",
+    msgKey: LintErrorKeys.isUnknownCloseMarker,
+    nodeId: ctx.currentToken.id,
+  };
+  ctx.errorMessages.push(err);
+};
+
+export const lintNumRangePreceededByTokenExpectingNum: LintOrParseFxn<
+  LintableToken
+> = (ctx: ParseContext<LintableToken>) => {
+  if (!ctx.currentToken) return;
+  if (ctx.currentToken.tokenType !== TokenMap.numberRange) return;
+  const prevToken = ctx.prevToken;
+  if (!prevToken) return;
+  const markedExpectingNumberRange = ["v", "vp", "va", "c", "ca", "cp"];
+  if (prevToken.tokenType === TokenMap.marker) return;
+  const marker = prevToken.marker ?? "";
+  if (markedExpectingNumberRange.includes(marker)) return;
+  const err = {
+    message: `Number range not preceeded by marker that takes a number such as v`,
+    sid: ctx.currentToken?.sid ?? "unknown location",
+    msgKey: LintErrorKeys.numberRangeNotPreceededByMarkerExpectingNumberRange,
+    nodeId: ctx.currentToken.id,
+  };
+  ctx.errorMessages.push(err);
 };
 
 export const nearbyTokenText: LintOrParseFxn<LintableToken> = (
@@ -341,13 +366,11 @@ export function finalizeChapterLabelLint<T extends LintableToken>(
         nodeId: token.id,
       };
       ctx.errorMessages.push(err);
-      token.lintErrors ??= [];
-      token.lintErrors.push(err);
     }
   }
 }
 
-export const lintAddErrorsToLexedUnknownMarker: LintOrParseFxn<
+export const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<
   LintableToken
 > = (ctx: ParseContext<LintableToken>) => {
   if (!ctx.currentToken) return;
@@ -362,6 +385,4 @@ export const lintAddErrorsToLexedUnknownMarker: LintOrParseFxn<
     nodeId: ctx.currentToken.id,
   };
   ctx.errorMessages.push(err);
-  ctx.currentToken.lintErrors ??= [];
-  ctx.currentToken.lintErrors.push(err);
 };

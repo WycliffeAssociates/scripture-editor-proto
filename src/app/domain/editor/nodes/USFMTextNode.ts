@@ -89,7 +89,7 @@ export class USFMTextNode extends TextNode {
       id: this.getId(),
       show: this.getShow(),
       isMutable: this.getMutable(),
-      lintErrors: [], // we don't want to serialize lint errors
+      lintErrors: [], //todo: decide do we want to serialize lint errors
       sid: this.getSid(),
       inPara: this.getInPara(),
       inChars: this.getInChars(),
@@ -379,19 +379,20 @@ export function isSerializedPlainTextUSFMTextNode(
 }
 
 /* CREATES */
+export type USFMTextNodeMetadata = {
+  id: string;
+  sid?: string;
+  inPara: string;
+  inChars?: string[];
+  tokenType?: string;
+  show?: boolean;
+  marker?: string;
+  lintErrors?: LintError[];
+  isMutable?: boolean;
+};
 export function $createUSFMTextNode(
   text: string,
-  metadata: {
-    id: string;
-    sid?: string;
-    inPara: string;
-    inChars?: string[];
-    tokenType?: string;
-    show?: boolean;
-    marker?: string;
-    lintErrors?: LintError[];
-    isMutable?: boolean;
-  }
+  metadata: USFMTextNodeMetadata
 ): USFMTextNode {
   const node = $create(USFMTextNode).setTextContent(text);
   const writable = node.getWritable();

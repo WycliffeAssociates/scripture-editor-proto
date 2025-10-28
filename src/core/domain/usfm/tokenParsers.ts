@@ -54,7 +54,9 @@ export function initParseContext<T extends LintableToken>(
   const bookCode =
     partialCtx?.bookCode ||
     parseTokens.find((t) => t.tokenType === TokenMap.bookCode)?.text?.trim();
-  if (!bookCode) throw new Error("No book code found");
+  if (!bookCode) {
+    throw new Error("No book code found");
+  }
   return {
     parseTokens,
     bookCode,
@@ -143,9 +145,8 @@ export function checkAndSetIfLastMarker<T extends LintableToken>(
 ) {
   const t = ctx.currentToken;
   if (!t) return;
-  if (t.tokenType === TokenMap.marker || t.tokenType === TokenMap.idMarker) {
+  if (t.tokenType === TokenMap.marker) {
     ctx.lastMarker = t;
-    t.marker = markerTrimNoSlash(t.text);
   }
 }
 
@@ -153,14 +154,14 @@ export function manageSid<T extends LintableToken>(ctx: ParseContext<T>) {
   const t = ctx.currentToken;
   const n = ctx.nextToken;
   if (
-    (t?.tokenType === TokenMap.marker || t?.tokenType === TokenMap.idMarker) &&
+    t?.tokenType === TokenMap.marker &&
     n?.tokenType === TokenMap.numberRange
   ) {
-    if (markerTrimNoSlash(t.text) === "c") {
+    if (t.marker === "c") {
       ctx.mutCurChap = n.text;
       ctx.mutCurVerse = null;
       ctx.currentParaMarker = null;
-    } else if (markerTrimNoSlash(t.text) === "v") {
+    } else if (t.marker === "v") {
       ctx.mutCurVerse = n.text;
     }
   }
@@ -170,10 +171,7 @@ export function manageSid<T extends LintableToken>(ctx: ParseContext<T>) {
       `${ctx.bookCode} ${ctx.mutCurChap}:${ctx.mutCurVerse}`.trim();
   } else if (ctx.mutCurChap) {
     ctx.mutCurSid = `${ctx.bookCode} ${ctx.mutCurChap}`.trim();
-  } else if (
-    ctx.bookCode &&
-    (t?.tokenType === TokenMap.marker || t?.tokenType === TokenMap.idMarker)
-  ) {
+  } else if (ctx.bookCode && t?.tokenType === TokenMap.marker) {
     ctx.mutCurSid = `${ctx.bookCode}-${t.text}`.trim();
   }
 
@@ -225,10 +223,9 @@ export function checkIfValidParaMarker<T extends LintableToken>(
 ) {
   const t = ctx.currentToken;
   const isValidPara =
-    t?.tokenType === TokenMap.marker &&
-    isValidParaMarker(markerTrimNoSlash(t.text));
+    t?.tokenType === TokenMap.marker && isValidParaMarker(t.marker ?? "");
   if (!isValidPara || !t) return;
-  ctx.currentParaMarker = markerTrimNoSlash(t.text);
+  ctx.currentParaMarker = t.marker ?? "";
   t.isParaMarker = true;
 }
 
@@ -244,26 +241,23 @@ export function checkCharStack<T extends LintableToken>(ctx: ParseContext<T>) {
   if (!typesToProcess.includes(type)) return;
 
   if (type === TokenMap.marker) {
-    if (VALID_CHAR_MARKERS.has(markerTrimNoSlash(t.text))) {
-      ctx.charStack.push(markerTrimNoSlash(t.text));
+    if (VALID_CHAR_MARKERS.has(t.marker ?? "")) {
+      ctx.charStack.push(t.marker ?? "");
     }
     const causesImmediateClose = [
       VALID_CHAR_CROSS_REFERENCE_MARKERS,
       VALID_CHAR_FOOTNOTE_MARKERS,
-    ].some((arr) => arr.has(markerTrimNoSlash(t.text)));
+    ].some((arr) => arr.has(t.marker ?? ""));
     if (causesImmediateClose) {
       ctx.charStack.pop();
-      ctx.charStack.push(markerTrimNoSlash(t.text));
+      ctx.charStack.push(t.marker ?? "");
     }
   } else {
     // end marker or implicit close
     ctx.charStack.pop();
     if (ctx.noteParent) {
-      const expected = markerTrimNoSlash(t.text)
-        .replace("*", "")
-        .replace("\\", "");
-      // ctx.noteParent.marker should already be set here
-      if (expected === ctx.noteParent.marker) {
+      // ctx.noteParent.marker should already be set here, and we are checking for the closing marker
+      if (t.text.trim() === `\\${ctx.noteParent.marker}*`) {
         // push to parent and then nullify
         if (!ctx.noteParent.content) ctx.noteParent.content = [];
         ctx.noteParent.content.push(t);
@@ -279,7 +273,7 @@ export function checkUpdateNoteParent<T extends LintableToken>(
 ) {
   const t = ctx.currentToken;
   if (!t || t.tokenType !== TokenMap.marker) return;
-  if (VALID_NOTE_MARKERS.has(markerTrimNoSlash(t.text))) {
+  if (VALID_NOTE_MARKERS.has(t.marker ?? "")) {
     ctx.noteParent = t;
   }
 }

@@ -13,7 +13,6 @@ import {
   type LexicalNode,
   type NodeKey,
   type RangeSelection,
-  SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import {
   type EditorMarkersMutableState,
@@ -98,7 +97,7 @@ export function toggleShowOnToggleableNodes({
         }
       },
       {
-        tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
+        tag: [HISTORY_MERGE_TAG],
       }
     );
   }

@@ -9,6 +9,7 @@ body:not(.source-mode) {
   [data-token-type="marker"] {
     display: inline-block;
     align-items: center;
+    color: var(--color-green-500);
   }
 
   [data-usfm-type="para"] {

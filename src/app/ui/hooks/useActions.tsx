@@ -4,7 +4,6 @@ import {
     type LexicalEditor,
     type SerializedEditorState,
     type SerializedLexicalNode,
-    SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import { useEffect, useMemo, useRef } from "react";
 import { useEffectOnce } from "react-use";
@@ -28,6 +27,7 @@ import {
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
 import type { LintableToken } from "@/core/data/usfm/lint";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
@@ -47,6 +47,7 @@ type Props = {
     workingFiles: ParsedFile[];
     setWorkingFiles: (files: ParsedFile[]) => void;
     pickedFile: ParsedFile | null;
+    updateStyleSheet: (css: string) => void;
 };
 export const useWorkspaceActions = ({
     workingFiles,
@@ -59,6 +60,7 @@ export const useWorkspaceActions = ({
     appSettings,
     updateAppSettings,
     pickedFile,
+    updateStyleSheet,
 }: Props) => {
     // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
     const workingFilesRef = useRef(workingFiles);
@@ -123,7 +125,7 @@ export const useWorkspaceActions = ({
                 );
             },
             {
-                tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
+                tag: [HISTORY_MERGE_TAG],
             },
         );
         // editor.setEditorState(
@@ -179,6 +181,14 @@ export const useWorkspaceActions = ({
         if (editorContainer) {
             editorContainer.scrollTop = 0;
         }
+        // setTimeout(() => {
+        queueMicrotask(() => {
+            const styles = getPoetryStylesAsCssStyleSheet(
+                appSettings.markersViewState,
+            );
+            styles && updateStyleSheet(styles);
+        });
+        // }, 100);
         return chapterState;
     }
 
@@ -333,7 +343,11 @@ export const useWorkspaceActions = ({
             markersMutableState: "mutable",
             markersViewState: EditorMarkersViewStates.ALWAYS,
         });
-        document.body.classList.add("source-mode");
+        updateDomClassListWithMarkerViewState({
+            viewState: EditorMarkersViewStates.ALWAYS,
+            mutableState: "mutable",
+            isSourceMode: true,
+        });
     }
     // wsyi has some submodes, ie we can wysi with markers always visible, or never visible, or only when editing; never visible will lock the markers as well: always or
     type adjustWysiModeArgs = {
@@ -363,15 +377,6 @@ export const useWorkspaceActions = ({
                 ? // if never view markers, then never mutable
                   EditorMarkersMutableStates.IMMUTABLE
                 : args.markersMutableState || appSettings.markersMutableState;
-        const root = document.querySelector("#root") as HTMLElement;
-        if (root) {
-            root.dataset.markerViewState = markerViewState;
-            root.dataset.markersMutableState = markersMutableState;
-        }
-        // show false, mutable false:
-        // let adjustedFiles: ParsedFile[];
-        // default hide = if never view markers or when editing, else then show them
-
         const hide =
             markerViewState === EditorMarkersViewStates.NEVER ||
             markerViewState === EditorMarkersViewStates.WHEN_EDITING;
@@ -417,19 +422,11 @@ export const useWorkspaceActions = ({
             markersMutableState: markersMutableState,
             mode: "wysiwyg",
         });
-
-        document.body.classList.remove("source-mode");
-        // set the marker visibility
-        if (
-            markerViewState === EditorMarkersViewStates.NEVER ||
-            markerViewState === EditorMarkersViewStates.WHEN_EDITING
-        ) {
-            document.body.firstElementChild?.classList.add("markers-hidden");
-            document.body.firstElementChild?.classList.remove("markers-shown");
-        } else {
-            document.body.firstElementChild?.classList.remove("markers-hidden");
-            document.body.firstElementChild?.classList.add("markers-shown");
-        }
+        updateDomClassListWithMarkerViewState({
+            viewState: markerViewState,
+            mutableState: markersMutableState,
+            isSourceMode: false,
+        });
     }
 
     function getFlatFileTokens(
@@ -594,4 +591,43 @@ export function getFlattenedFileTokens(
     }
 
     return tokens;
+}
+
+type UpdateDomClassListWithMarkerViewStateArgs = {
+    viewState: EditorMarkersViewState;
+    mutableState: EditorMarkersMutableState;
+    isSourceMode: boolean;
+};
+function updateDomClassListWithMarkerViewState({
+    viewState,
+    mutableState,
+    isSourceMode,
+}: UpdateDomClassListWithMarkerViewStateArgs) {
+    if (isSourceMode) {
+        document.body.classList.add("source-mode");
+    } else {
+        document.body.classList.remove("source-mode");
+        const root = document.querySelector("#root") as HTMLElement | null;
+        if (root) {
+            root.dataset.markerViewState = viewState;
+            root.dataset.markersMutableState = mutableState;
+        }
+
+        const body = document.body;
+        const appRoot = body.firstElementChild;
+
+        if (appRoot) {
+            // set the marker visibility
+            if (
+                viewState === EditorMarkersViewStates.NEVER ||
+                viewState === EditorMarkersViewStates.WHEN_EDITING
+            ) {
+                appRoot.classList.add("markers-hidden");
+                appRoot.classList.remove("markers-shown");
+            } else {
+                appRoot.classList.remove("markers-hidden");
+                appRoot.classList.add("markers-shown");
+            }
+        }
+    }
 }

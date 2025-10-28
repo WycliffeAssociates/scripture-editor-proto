@@ -128,6 +128,17 @@ const VALID_MILESTONE_MARKERS = new Set([
   "qt-e",
 ]);
 
+export const ALL_MARKERS_CAN_CLOSE_EXPLICIT = [
+  ...VALID_NOTE_MARKERS,
+  ...VALID_CHAR_FOOTNOTE_MARKERS,
+  ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
+  ...VALID_CHAR_MARKERS,
+  ...VALID_MILESTONE_MARKERS,
+].reduce((acc, marker) => {
+  acc.add(`\\${marker}*`);
+  return acc;
+}, new Set<string>());
+
 export const VALID_PARA_MARKERS = new Set([
   // Identification
   "ide",

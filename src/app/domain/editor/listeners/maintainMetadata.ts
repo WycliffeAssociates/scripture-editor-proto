@@ -46,7 +46,7 @@ export function mergeAdjacentTextNodesOfSameType(node: USFMTextNode) {
 }
 export function trySplitOutMarkersFromError(node: USFMTextNode) {
   if (node.getTokenType() !== UsfmTokenTypes.error) return;
-  //   debugger;
+  //   ;
   const textContent = node.getTextContent();
   //   if the textContent matches a markerRegex at start, we should split it there into a marker + text:
   const match = textContent.match(markerRegex);

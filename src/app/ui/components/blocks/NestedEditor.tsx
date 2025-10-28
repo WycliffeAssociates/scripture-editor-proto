@@ -30,6 +30,8 @@ type Props = {
     ) => void;
     id: string;
     lintErrors?: LintError[];
+    isOpen: boolean;
+    setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
 };
 
 export function NestedEditor({
@@ -38,9 +40,11 @@ export function NestedEditor({
     onChange,
     id,
     lintErrors = [],
+    isOpen,
+    setIsOpen,
 }: Props) {
-    const nestedRef = useRef<LexicalEditor>(null);
-    const [isOpen, setIsOpen] = useState(false);
+    const nestedEditorRef = useRef<LexicalEditor>(null);
+    const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
     const [mainEditor] = useLexicalComposerContext();
     // const [hasOpened, setHasOpened] = useState(false);
     const [inProgressEditsJson, setInProgressEditsJson] =
@@ -58,7 +62,7 @@ export function NestedEditor({
     };
 
     const handleSave = useCallback(() => {
-        const editor = nestedRef.current;
+        const editor = nestedEditorRef.current;
         if (!editor) return;
         const state = editor.getEditorState();
         const json = state.toJSON();
@@ -69,28 +73,40 @@ export function NestedEditor({
 
     const handleClose = useCallback(() => {
         handleSave();
-    }, [handleSave]);
+        setIsOpen(mainEditor, false);
+    }, [handleSave, mainEditor, setIsOpen]);
 
     // useEffect(() => {
     //     if (!isOpen) return;
-    //     let cancelled = false;
 
-    //     const tryInit = () => {
-    //         const editor = nestedRef.current;
-    //         const domEl = document.querySelector(`[data-id="${id}"]`);
-    //         debugger;
-    //         if (editor && domEl) {
-    //             const parsed = editor.parseEditorState(initialEditorState);
-    //             editor.setEditorState(parsed, { tag: "history-merge" });
-    //         } else if (!cancelled) {
-    //             requestAnimationFrame(tryInit);
-    //         }
-    //     };
-    //     tryInit();
-    //     return () => {
-    //         cancelled = true;
-    //     };
-    // }, [isOpen, initialEditorState]);
+    // }, [isOpen]);
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+
+        const tryInit = () => {
+            const root = document.getElementById("root") as HTMLDivElement;
+            const editorWrapper = editorWrapperDomElRef.current;
+            if (editorWrapper && root) {
+                Object.entries(root.dataset).forEach(([key, value]) => {
+                    editorWrapper.dataset[key] = value;
+                });
+                editorWrapper.classList = root.classList.toString();
+            }
+            const editor = nestedEditorRef.current;
+            const domEl = document.querySelector(`[data-id="${id}"]`);
+            if (editor && domEl) {
+                const parsed = editor.parseEditorState(initialEditorState);
+                editor.setEditorState(parsed, { tag: "history-merge" });
+            } else if (!cancelled) {
+                requestAnimationFrame(tryInit);
+            }
+        };
+        tryInit();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, initialEditorState, id]);
 
     const hasErrors = lintErrors.length > 0;
     const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";
@@ -101,13 +117,13 @@ export function NestedEditor({
         <Popover
             defaultOpened={isOpen}
             onChange={(c) => {
-                setIsOpen(c);
+                setIsOpen(mainEditor, c);
             }}
             position="bottom"
             shadow="md"
             width={500}
             onEnterTransitionEnd={() => {
-                const editor = nestedRef.current;
+                const editor = nestedEditorRef.current;
                 const domEl = document.querySelector(`[data-id="${id}"]`);
                 if (editor && inProgressEditsJson && domEl) {
                     editor.setEditorState(
@@ -116,6 +132,16 @@ export function NestedEditor({
                             tag: "history-merge",
                         },
                     );
+                }
+
+                // theese are rendered in a portal outside of the body, so mimic the #root attributes and classList on to it:
+                const root = document.getElementById("root") as HTMLDivElement;
+                const editorWrapper = editorWrapperDomElRef.current;
+                if (editorWrapper && root) {
+                    Object.entries(root.dataset).forEach(([key, value]) => {
+                        editorWrapper.dataset[key] = value;
+                    });
+                    editorWrapper.classList = root.classList.toString();
                 }
             }}
         >
@@ -126,7 +152,7 @@ export function NestedEditor({
                     size="xs"
                     p="0"
                     onClick={() => {
-                        setIsOpen(!isOpen);
+                        setIsOpen(mainEditor, !isOpen);
                     }}
                     data-opened={isOpen}
                     data-id={id}
@@ -140,7 +166,7 @@ export function NestedEditor({
             </Popover.Target>
 
             <Popover.Dropdown p="xs" className="">
-                <div className="space-y-2">
+                <div className="space-y-2" ref={editorWrapperDomElRef}>
                     <LexicalComposer initialConfig={nestedConfig}>
                         <RichTextPlugin
                             ErrorBoundary={LexicalErrorBoundary}
@@ -157,12 +183,12 @@ export function NestedEditor({
                             }
                         />
                         <HistoryPlugin />
-                        <OnChangePlugin
-                            onChange={(editorState) =>
-                                onChange(editorState.toJSON(), mainEditor)
-                            }
-                        />
-                        <EditorRefPlugin editorRef={nestedRef} />
+                        {/* <OnChangePlugin
+                            onChange={(editorState) => {
+                                onChange(editorState.toJSON(), mainEditor);
+                            }}
+                        /> */}
+                        <EditorRefPlugin editorRef={nestedEditorRef} />
                     </LexicalComposer>
 
                     <Group justify="flex-end" gap="xs">

@@ -1,7 +1,9 @@
 import {$reverseDfsIterator} from "@lexical/utils";
 import {
+  $createLineBreakNode,
   $getRoot,
   $getSelection,
+  $isLineBreakNode,
   $isRangeSelection,
   type LexicalEditor,
   type LexicalNode,
@@ -19,9 +21,15 @@ import {
   $createUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
+  type USFMTextNodeMetadata,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import {type ParsedReference, parseSid} from "@/core/data/bible/bible";
-import {ALL_USFM_MARKERS} from "@/core/data/usfm/tokens";
+import {
+  ALL_USFM_MARKERS,
+  VALID_CHAR_MARKERS,
+  VALID_NOTE_MARKERS,
+  VALID_PARA_MARKERS,
+} from "@/core/data/usfm/tokens";
 import {guidGenerator} from "@/core/data/utils/generic";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
@@ -59,13 +67,15 @@ export function textNodeTransform({
   const isStartOfLine = markerMatch !== null;
   if (!isValidMarker) return;
 
-  const insertArg = {
+  const insertType = mapMarkerToInsertionType(marker);
+  const baseArgs: BaseInsertArgs = {
     anchorNode: node,
     marker,
     isStartOfLine,
     markersMutableState,
     markersViewState,
   };
+
   // todo: markers can basically be of type
   /* 
     simple: marker + space
@@ -75,13 +85,17 @@ export function textNodeTransform({
 
     there are rules for others as well, i.e. a para marker shouldn't be inline; Can start a line, but must be preceeded by a newline, so for those, if in middle, we split text + insert nl + para marker + rest of split text? 
     */
-  switch (marker) {
-    case "v": {
-      return $handleVerseInsert(insertArg);
-    }
-    default: {
-      break;
-    }
+  switch (insertType) {
+    case InsertionTypes.verse:
+      return $insertVerse(baseArgs);
+    case InsertionTypes.chapter:
+      return $insertChapter(baseArgs);
+    case InsertionTypes.para:
+      return $insertPara(baseArgs);
+    case InsertionTypes.char:
+      return $insertChar(baseArgs);
+    case InsertionTypes.note:
+      return $insertNote(baseArgs);
   }
 }
 
@@ -177,6 +191,402 @@ function $handleVerseInsert({
   }
 }
 
+function $insertVerse(args: BaseInsertArgs): void {
+  const {
+    anchorNode,
+    marker,
+    isStartOfLine,
+    markersMutableState,
+    markersViewState,
+  } = args;
+
+  const context = $getInsertionContext(anchorNode);
+  const prevVerseEnd = context.prevSidInfo?.verseEnd ?? 1;
+
+  // Create nodes
+  const markerNode = $createMarkerNode(marker, context, args);
+  const verseRangeNode = $createContextTextNode(
+    ` ${prevVerseEnd + 1}`,
+    context,
+    UsfmTokenTypes.numberRange,
+    {isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE}
+  );
+  const blankTextNode = $createContextTextNode(" ", context);
+
+  const selection = $getSelection();
+  const offset = $isRangeSelection(selection)
+    ? selection.anchor.offset
+    : anchorNode.getTextContentSize();
+
+  if (!isStartOfLine) {
+    // Mid-line insertion
+    const [left, right] = anchorNode.splitText(offset);
+    const woMarker = `${left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -markerNode.getTextContentSize())} `;
+    left?.setTextContent(woMarker);
+
+    if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+
+    left.insertAfter(markerNode);
+    markerNode.insertAfter(verseRangeNode);
+    right?.setTextContent(`\u00A0${right.getTextContent()}`);
+
+    if (!selection || !$isRangeSelection(selection)) return;
+    if (!right) {
+      verseRangeNode.selectEnd();
+    } else {
+      right.selectStart();
+    }
+  } else {
+    // Start of line insertion
+    const sibling = anchorNode.getNextSibling();
+    anchorNode.replace(markerNode);
+
+    const alreadyHasVerseRangeSibling =
+      sibling &&
+      $isUSFMTextNode(sibling) &&
+      sibling.getTokenType() === UsfmTokenTypes.numberRange;
+
+    if (!alreadyHasVerseRangeSibling) {
+      markerNode.insertAfter(verseRangeNode);
+      verseRangeNode.insertAfter(blankTextNode);
+      blankTextNode.select();
+    } else {
+      sibling?.selectStart();
+    }
+  }
+}
+
+// ============================================================================
+// Chapter Insertion
+// ============================================================================
+
+function $insertChapter(args: BaseInsertArgs): void {
+  const {anchorNode, marker, isStartOfLine, markersMutableState} = args;
+
+  const context = $getInsertionContext(anchorNode);
+  const nextChapter = (context.prevSidInfo?.chapter ?? 0) + 1;
+
+  // Create nodes
+  const markerNode = $createMarkerNode(marker, context, args);
+  const chapterRangeNode = $createContextTextNode(
+    ` ${nextChapter}`,
+    context,
+    UsfmTokenTypes.numberRange,
+    {isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE}
+  );
+  const blankTextNode = $createContextTextNode(" ", context);
+
+  if (!isStartOfLine) {
+    // Chapter must be at start of line - split and insert linebreak
+    const selection = $getSelection();
+    const offset = $isRangeSelection(selection)
+      ? selection.anchor.offset
+      : anchorNode.getTextContentSize();
+
+    const [left, right] = anchorNode.splitText(offset);
+    const woMarker = left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -markerNode.getTextContentSize());
+    left?.setTextContent(woMarker);
+
+    // Insert linebreak
+    const lineBreakNode = $createLineBreakNode();
+    left.insertAfter(lineBreakNode);
+    lineBreakNode.insertAfter(markerNode);
+
+    if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+  } else {
+    // Ensure linebreak before
+    $ensureLineBreakBefore(anchorNode);
+    anchorNode.replace(markerNode);
+  }
+
+  // Always add chapter number and blank text
+  markerNode.insertAfter(chapterRangeNode);
+  chapterRangeNode.insertAfter(blankTextNode);
+  blankTextNode.select();
+}
+
+// ============================================================================
+// Para Insertion
+// ============================================================================
+
+function $insertPara(args: BaseInsertArgs): void {
+  const {anchorNode, marker, isStartOfLine} = args;
+
+  const context = $getInsertionContext(anchorNode);
+  const markerNode = $createMarkerNode(marker, context, args);
+
+  if (!isStartOfLine) {
+    // Para should be at start of line - split and insert linebreak
+    const selection = $getSelection();
+    const offset = $isRangeSelection(selection)
+      ? selection.anchor.offset
+      : anchorNode.getTextContentSize();
+
+    const [left, right] = anchorNode.splitText(offset);
+    const woMarker = left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -markerNode.getTextContentSize());
+    left?.setTextContent(woMarker);
+
+    const lineBreakNode = $createLineBreakNode();
+    left.insertAfter(lineBreakNode);
+    lineBreakNode.insertAfter(markerNode);
+
+    if ($isUSFMTextNode(right)) {
+      right.setSid(context.newSid);
+      right.selectStart();
+    } else {
+      // No sibling - create empty text node
+      const blankTextNode = $createContextTextNode(" ", context);
+      markerNode.insertAfter(blankTextNode);
+      blankTextNode.select();
+    }
+  } else {
+    $ensureLineBreakBefore(anchorNode);
+    const nextSibling = anchorNode.getNextSibling();
+    anchorNode.replace(markerNode);
+
+    if (nextSibling && $isUSFMTextNode(nextSibling)) {
+      nextSibling.selectStart();
+    } else {
+      // No suitable sibling - create empty text node
+      const blankTextNode = $createContextTextNode(" ", context);
+      markerNode.insertAfter(blankTextNode);
+      blankTextNode.select();
+    }
+  }
+}
+
+// ============================================================================
+// Char Insertion (wraps selection)
+// ============================================================================
+
+// todo: buggy / inf loop. fix
+function $insertChar(args: BaseInsertArgs): void {
+  const {anchorNode, marker} = args;
+
+  const context = $getInsertionContext(anchorNode);
+  const selection = $getSelection();
+
+  if (!$isRangeSelection(selection)) return;
+
+  const openingMarker = $createMarkerNode(marker, context, args);
+  const closingMarker = $createMarkerNode(`${marker}*`, context, args);
+
+  if (selection.isCollapsed()) {
+    // No selection - insert empty char markers with space between
+    const emptyTextNode = $createContextTextNode(" ", context);
+
+    anchorNode.insertBefore(openingMarker);
+    openingMarker.insertAfter(emptyTextNode);
+    emptyTextNode.insertAfter(closingMarker);
+    emptyTextNode.select();
+  } else {
+    // Wrap selection
+    const {anchor, focus} = selection;
+    const isBackward = selection.isBackward();
+
+    const startOffset = isBackward ? focus.offset : anchor.offset;
+    const endOffset = isBackward ? anchor.offset : focus.offset;
+
+    // Split at selection boundaries
+    const [before, middle] = anchorNode.splitText(startOffset);
+    const [selected, after] = (middle || before).splitText(
+      endOffset - startOffset
+    );
+
+    // Insert markers around selection
+    selected.insertBefore(openingMarker);
+    selected.insertAfter(closingMarker);
+
+    // Update SIDs
+    if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
+    if ($isUSFMTextNode(after)) after.setSid(context.newSid);
+
+    // Restore selection
+    selected.select();
+  }
+}
+
+// ============================================================================
+// Note Insertion (placeholder - similar to char)
+// ============================================================================
+
+function $insertNote(args: BaseInsertArgs): void {
+  const {anchorNode, marker} = args;
+
+  const context = $getInsertionContext(anchorNode);
+  const selection = $getSelection();
+
+  if (!$isRangeSelection(selection)) return;
+
+  // Notes often use implicit closure (e.g., \f...\f*)
+  const openingMarker = $createMarkerNode(marker, context, args);
+  const closingMarker = $createMarkerNode(`${marker}*`, context, args);
+
+  if (selection.isCollapsed()) {
+    const emptyTextNode = $createContextTextNode(" ", context);
+
+    anchorNode.insertBefore(openingMarker);
+    openingMarker.insertAfter(emptyTextNode);
+    emptyTextNode.insertAfter(closingMarker);
+    emptyTextNode.select();
+  } else {
+    // Similar to char wrapping
+    const {anchor, focus} = selection;
+    const isBackward = selection.isBackward();
+
+    const startOffset = isBackward ? focus.offset : anchor.offset;
+    const endOffset = isBackward ? anchor.offset : focus.offset;
+
+    const [before, middle] = anchorNode.splitText(startOffset);
+    const [selected, after] = (middle || before).splitText(
+      endOffset - startOffset
+    );
+
+    selected.insertBefore(openingMarker);
+    selected.insertAfter(closingMarker);
+
+    if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
+    if ($isUSFMTextNode(after)) after.setSid(context.newSid);
+
+    selected.select();
+  }
+}
+
+const InsertionTypes = {
+  chapter: "chapter",
+  verse: "verse",
+  para: "para",
+  char: "char",
+  note: "note",
+} as const;
+
+type InsertionType = (typeof InsertionTypes)[keyof typeof InsertionTypes];
+
+type BaseInsertArgs = {
+  anchorNode: USFMTextNode;
+  marker: string;
+  isStartOfLine: boolean;
+  markersMutableState: EditorMarkersMutableState;
+  markersViewState: EditorMarkersViewState;
+};
+
+type InsertContext = {
+  nearestParaMarker: string;
+  prevSidInfo: {
+    book: string;
+    chapter: number;
+    verseEnd: number;
+  } | null;
+  newSid: string;
+};
+
+// ============================================================================
+// Shared Context & Node Creation
+// ============================================================================
+
+/**
+ * Gets common context needed for all marker insertions
+ */
+function $getInsertionContext(anchorNode: USFMTextNode): InsertContext {
+  const {nearestParaMarker, prevSidInfo} =
+    findContextForVerseInsert(anchorNode);
+
+  const prevVerseEnd = prevSidInfo?.verseEnd ?? 1;
+  const newSid = `${prevSidInfo?.book} ${prevSidInfo?.chapter}:${
+    prevVerseEnd + 1
+  }`;
+
+  return {
+    nearestParaMarker: nearestParaMarker ?? "",
+    prevSidInfo,
+    newSid,
+  };
+}
+
+/**
+ * Creates a USFM marker node with common properties
+ */
+function $createMarkerNode(
+  marker: string,
+  context: InsertContext,
+  args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">
+): USFMTextNode {
+  return $createUSFMTextNode(`\\${marker}`, {
+    id: guidGenerator(),
+    inPara: context.nearestParaMarker,
+    tokenType: UsfmTokenTypes.marker,
+    marker,
+    sid: context.newSid,
+    isMutable: args.markersMutableState === EditorMarkersMutableStates.MUTABLE,
+    show:
+      args.markersViewState === EditorMarkersViewStates.ALWAYS ||
+      args.markersViewState === EditorMarkersViewStates.WHEN_EDITING,
+  });
+}
+
+/**
+ * Creates a text node with common properties
+ */
+function $createContextTextNode(
+  text: string,
+  context: InsertContext,
+  tokenType: string = UsfmTokenTypes.text,
+  extraProps?: Partial<USFMTextNodeMetadata>
+): USFMTextNode {
+  return $createUSFMTextNode(text, {
+    id: guidGenerator(),
+    inPara: context.nearestParaMarker,
+    tokenType,
+    sid: context.newSid,
+    ...extraProps,
+  });
+}
+
+/**
+ * Ensures a linebreak precedes the given node
+ */
+function $ensureLineBreakBefore(node: USFMTextNode): void {
+  const prevSibling = node.getPreviousSibling();
+  const isLineBreak = prevSibling && $isLineBreakNode(prevSibling);
+
+  if (!isLineBreak) {
+    const lineBreakNode = $createLineBreakNode();
+    node.insertBefore(lineBreakNode);
+  }
+}
+
+// ============================================================================
+// Insertion Type Mapping
+// ============================================================================
+
+function mapMarkerToInsertionType(marker: string): InsertionType {
+  if (marker === "v") {
+    return InsertionTypes.verse;
+  }
+  if (marker === "c") {
+    return InsertionTypes.chapter;
+  }
+  if (VALID_PARA_MARKERS.has(marker)) {
+    return InsertionTypes.para;
+  }
+  if (VALID_CHAR_MARKERS.has(marker)) {
+    return InsertionTypes.char;
+  }
+  if (VALID_NOTE_MARKERS.has(marker)) {
+    return InsertionTypes.note;
+  }
+  return InsertionTypes.para; // default fallback
+}
+
 function findContextForVerseInsert(anchorNode: LexicalNode): {
   nearestParaMarker: string | null;
   prevSidInfo: ParsedReference | null;
@@ -184,6 +594,7 @@ function findContextForVerseInsert(anchorNode: LexicalNode): {
   let nearestParaMarker: string | null = null;
   let prevSidInfo: ParsedReference | null = null;
 
+  //   todo: what if this is verse one? or at start of blank chap. We could just I guess return a default #, but that could be annoying to delete as opposed ot knowing the pickedBook andChapter
   for (const {node} of $reverseDfsIterator(anchorNode, $getRoot())) {
     if ($isUSFMTextNode(node)) {
       const tokenType = node.getTokenType();

@@ -49,7 +49,7 @@ export const removeVerticalWhiteSpaceInVerses: LintOrParseFxn<LintableToken> = (
   if (
     nextToken?.tokenType === TokenMap.verticalWhitespace &&
     twoFromCurrent?.tokenType === TokenMap.marker &&
-    markerTrimNoSlash(twoFromCurrent.text) === "v"
+    twoFromCurrent.marker === "v"
   ) {
     // remove the vertical whitespace
     idsToFilterOut.push(nextToken.id);
@@ -89,12 +89,54 @@ export function prepareTokens<T extends LintableToken>(
 ): Array<T & Token> {
   const tokens = lexFn(text) as Array<T & Token>;
   // if (text.startsWith("\\id MRK")) {
-  //   debugger;
+  //   ;
   // }
   for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    tok.id = String(i);
-    tok.tokenType = tok.type || "unknown type";
+    prepareLexedToken(tokens[i], i);
   }
   return tokens;
+}
+export function preparedAlreadyGivenTokens<T extends LintableToken>(
+  tokens: T[]
+) {
+  for (let i = 0; i < tokens.length; i++) {
+    prepareLexedToken(tokens[i], i);
+  }
+}
+
+function prepareLexedToken<T extends Token | LintableToken>(
+  token: T,
+  i: number
+): asserts token is T & LintableToken {
+  const markersToUnify = new Set([
+    "idMarker",
+    "chapterMarker",
+    "verseMarker",
+    "chapterAltOpen",
+    "verseAltOpen",
+    "chapterPublished",
+    "versePublished",
+  ]);
+
+  // figure out the type string from either field
+  let typeToUse: string = "";
+  // order matters here. if already has tokenType computed, ie from lexical side on lint, use that.
+  if ("tokenType" in token) {
+    typeToUse = token.tokenType ?? "";
+  } else if ("type" in token) {
+    typeToUse = token.type ?? "";
+  }
+
+  const normalizedType = markersToUnify.has(typeToUse)
+    ? TokenMap.marker
+    : typeToUse;
+
+  // use id already on token if present, else the loop index
+  (token as LintableToken).id ??= String(i);
+  (token as LintableToken).tokenType = normalizedType;
+
+  // assign marker if applicable
+  if (normalizedType === TokenMap.marker) {
+    (token as LintableToken).marker = markerTrimNoSlash(token.text);
+  }
 }

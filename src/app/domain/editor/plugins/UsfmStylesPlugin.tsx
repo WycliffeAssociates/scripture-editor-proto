@@ -1,6 +1,8 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useMutationObserver } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
+import type { EditorMarkersViewState } from "@/app/data/editor";
+import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
 
 export function UsfmStylesPlugin() {
     const elsWithStylesApplied = useRef<HTMLElement[]>([]);
@@ -29,7 +31,6 @@ export function UsfmStylesPlugin() {
                 .forEach((mutation) => {
                     console.time("usfmStylesPluginMutation");
                     console.log("usfmStylesPluginMutation", mutation);
-                    let newDyamicStyles: string = ``;
                     const el = mutation.target as HTMLElement;
                     const viewState = el.getAttribute("data-marker-view-state");
 
@@ -38,64 +39,12 @@ export function UsfmStylesPlugin() {
                         return;
                     }
                     markerViewStateRef.current = viewState || "";
-                    const container = document.querySelector(
-                        '[data-js="editor-container"] p',
+                    const styles = getPoetryStylesAsCssStyleSheet(
+                        viewState as EditorMarkersViewState,
                     );
-                    if (container) {
-                        const children = container.children;
-                        const brSegments: HTMLElement[][] = Array.from(
-                            children,
-                        ).reduce((acc, child) => {
-                            if (child.tagName === "BR") {
-                                acc.push([] as HTMLElement[]);
-                            } else {
-                                acc.at(-1)?.push(child as HTMLElement);
-                            }
-                            return acc;
-                        }, [] as HTMLElement[][]);
-
-                        brSegments.forEach((segment) => {
-                            //  find the first element of data-show='true' and has a data-in-para of q, q1, q2, q3, q4
-                            const firstVisible =
-                                viewState === "never"
-                                    ? getFirstPoetryMarkerWithDataShow(segment)
-                                    : getFirstPoetryMarkerInBrSegment(segment);
-                            if (firstVisible) {
-                                const dataPoetry =
-                                    firstVisible.getAttribute("data-in-para") ||
-                                    firstVisible.getAttribute("data-marker");
-                                if (dataPoetry) {
-                                    let amount: string;
-                                    switch (dataPoetry) {
-                                        case "q1":
-                                        case "q":
-                                            amount = "8px";
-                                            break;
-                                        case "q2":
-                                            amount = "32px";
-                                            break;
-                                        case "q3":
-                                            amount = "48px";
-                                            break;
-                                        case "q4":
-                                            amount = "64px";
-                                            break;
-                                        default:
-                                            amount = "0";
-                                    }
-                                    newDyamicStyles += `[data-id="${firstVisible.getAttribute("data-id")}"] { margin-inline-start: ${amount}; }\n`;
-                                    // firstVisible.style.marginInlineStart =
-                                    //     amount;
-
-                                    // elsWithStylesApplied.current.push(
-                                    //     firstVisible,
-                                    // );
-                                }
-                            }
-                        });
+                    if (styles) {
+                        dynamicCssStyleSheet.replaceSync(styles);
                     }
-                    console.timeEnd("usfmStylesPluginMutation");
-                    dynamicCssStyleSheet.replaceSync(newDyamicStyles);
                 });
         });
         observer.observe(targetNode, config);

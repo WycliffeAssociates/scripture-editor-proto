@@ -7,7 +7,6 @@ import {
     type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
-    SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import { useEffect, useRef } from "react";
 import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
@@ -40,7 +39,7 @@ export function USFMPlugin() {
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
-    const lintDebounceMs = 200;
+    const lintDebounceMs = 100;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
         console.count(`debouncedLint`);

@@ -6,11 +6,11 @@ import {
   HISTORY_MERGE_TAG,
   type LexicalEditor,
   type SerializedEditorState,
-  SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import {UsfmTokenTypes} from "@/app/data/editor";
 import {
   $isUSFMNestedEditorNode,
+  isSerializedUSFMNestedEditorNode,
   type USFMNestedEditorNode,
   type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
@@ -18,10 +18,12 @@ import {
   $createUSFMTextNode,
   $isUSFMTextNode,
   $isVerseRangeTextNode,
+  isSerializedUSFMTextNode,
   type SerializedUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import type {LintableTokenLike} from "@/app/ui/hooks/useActions";
+import type {LintError} from "@/core/data/usfm/lint";
 import {guidGenerator} from "@/core/data/utils/generic";
 import {lintExistingUsfmTokens} from "@/core/domain/usfm/parse";
 import {initParseContext} from "@/core/domain/usfm/tokenParsers";
@@ -40,64 +42,129 @@ export function lintAll(
   const flatFileTokens = getFlatFileTokens(editorState.toJSON());
   const ctx = initParseContext(flatFileTokens);
   const lintErrors = lintExistingUsfmTokens(flatFileTokens, ctx);
-  const withErrorsInThisBook = ctx.parseTokens.filter(
-    (t) => t.lintErrors?.length && t.lexicalKey
-  );
-
-  if (withErrorsInThisBook.length) {
-    const updateFxns: (() => void)[] = [];
-    editor.read(() => {
-      withErrorsInThisBook.forEach((t) => {
-        const nodeOfThisKey = $getNodeByKey(t.lexicalKey ?? "") as
-          | USFMNestedEditorNode
-          | USFMTextNode;
-        // if no node, probably belongs to differnt chapter in this book.  noop
-        if (!nodeOfThisKey) return;
-        const needsUpdate = nodeOfThisKey?.lintErrorsDoNeedUpdate(
-          t.lintErrors ?? []
-        );
-        if (needsUpdate) {
-          updateFxns.push(() =>
-            nodeOfThisKey.setLintErrors(t.lintErrors ?? [])
-          );
-        }
+  const withErrorsInThisBook = ctx.errorMessages.reduce((acc, curr) => {
+    if (!curr.nodeId) return acc;
+    acc[curr.nodeId] ??= [];
+    acc[curr.nodeId].push(curr);
+    return acc;
+  }, {} as Record<string, LintError[]>);
+  const updateFxns: (() => void)[] = [];
+  // ;
+  dfsEditorStateForLint({
+    editor,
+    editorState,
+    updatesToMainEditor: updateFxns,
+    withErrorsInThisBook,
+  });
+  if (updateFxns.length) {
+    editor.update(() => {
+      updateFxns.forEach((fxn) => {
+        fxn();
       });
     });
-    if (updateFxns.length) {
-      editor.update(
-        () => {
-          console.log("lintAll update");
-          updateFxns.forEach((fxn) => {
-            fxn();
-          });
-        },
-        {
-          skipTransforms: true,
-          tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
-        }
-      );
-    }
-  } else {
-    // if there are any lint errors in the currentEditorState, we need to remove them:
-    const nodesWithErrors: Array<USFMTextNode | USFMNestedEditorNode> = [];
-    editorState.read(() => {
-      for (const entry of $dfs($getRoot())) {
-        const isApplicableNode =
-          $isUSFMTextNode(entry.node) || $isUSFMNestedEditorNode(entry.node);
-        if (isApplicableNode && entry.node?.getLintErrors()?.length) {
-          nodesWithErrors.push(entry.node);
-        }
-      }
-    });
-    if (nodesWithErrors.length) {
-      editor.update(() => {
-        nodesWithErrors.forEach((node) => {
-          node.setLintErrors([]);
-        });
-      });
-    }
   }
   return lintErrors;
+}
+
+type DfsEditorStateForLintArgs = {
+  editor: LexicalEditor;
+  editorState: EditorState;
+  updatesToMainEditor: Array<() => void>;
+  withErrorsInThisBook: Record<string, LintError[]>;
+};
+export function dfsEditorStateForLint({
+  editor,
+  editorState,
+  updatesToMainEditor,
+  withErrorsInThisBook,
+}: DfsEditorStateForLintArgs) {
+  editorState.read(() => {
+    for (const dfsNode of $dfs()) {
+      const node = dfsNode.node;
+      const isUsfmTextNode = $isUSFMTextNode(node);
+      const isNestedEditorNode = $isUSFMNestedEditorNode(node);
+      if (!isUsfmTextNode && !isNestedEditorNode) continue;
+
+      const currentErrors = node.getLintErrors() ?? [];
+      const matchInMap = withErrorsInThisBook[node.getId()];
+      // clear if had errors but now does
+      if (currentErrors.length && !matchInMap) {
+        updatesToMainEditor.push(() => node.setLintErrors([]));
+      }
+      if (matchInMap?.length) {
+        // update if needed
+        const needsUpdate = node.lintErrorsDoNeedUpdate(matchInMap);
+        if (needsUpdate) {
+          updatesToMainEditor.push(() => node.setLintErrors(matchInMap));
+        }
+      }
+      if ($isUSFMNestedEditorNode(node)) {
+        const serialized = node.getLatestEditorState();
+        const updated = lintNestedSerializedState(
+          editor,
+          serialized,
+          withErrorsInThisBook
+        );
+        if (updated.changed) {
+          updatesToMainEditor.push(() => {
+            const writable = node.getWritable();
+            writable.__editorState = updated.newState;
+            writable.setRandomRenderKey();
+          });
+        }
+      }
+    }
+  });
+}
+function dfs(node: any, map: Record<string, any>) {
+  if (!node) return;
+  if (node?.id) {
+    map[node.id] = node;
+  }
+  if (node.children?.length) {
+    for (const child of node.children) dfs(child, map);
+  }
+}
+function lintNestedSerializedState(
+  editor: LexicalEditor,
+  state: SerializedEditorState,
+  withErrorsInThisBook: Record<string, LintError[]>
+): {changed: boolean; newState: SerializedEditorState} {
+  const cloned = structuredClone(state);
+  const parsed = editor.parseEditorState(state);
+
+  const clonedMap: Record<string, any> = {};
+  dfs(cloned.root, clonedMap);
+
+  let nestedNeedsUpdate = false;
+  parsed.read(() => {
+    for (const dfsNode of $dfs()) {
+      const node = dfsNode.node;
+      const isUsfmTextNode = $isUSFMTextNode(node);
+      const isNestedEditorNode = $isUSFMNestedEditorNode(node);
+      if (!isUsfmTextNode && !isNestedEditorNode) continue;
+
+      const currentErrors = node.getLintErrors() ?? [];
+      const matchInMap = withErrorsInThisBook[node.getId()];
+      const serializedVersion = clonedMap[
+        node.getId()
+      ] as SerializedUSFMTextNode;
+      // clear if had errors but now does
+      if (currentErrors.length && !matchInMap) {
+        nestedNeedsUpdate = true;
+        serializedVersion.lintErrors = [];
+      }
+      if (matchInMap?.length) {
+        // update if needed
+        const needsUpdate = node.lintErrorsDoNeedUpdate(matchInMap);
+        if (needsUpdate) {
+          nestedNeedsUpdate = true;
+          serializedVersion.lintErrors = matchInMap;
+        }
+      }
+    }
+  });
+  return {changed: nestedNeedsUpdate, newState: cloned};
 }
 
 export function ensurePlainTextNodeAlwaysFollowsVerseRange({
@@ -135,7 +202,7 @@ export function ensurePlainTextNodeAlwaysFollowsVerseRange({
     },
     {
       skipTransforms: true,
-      tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
+      tag: [HISTORY_MERGE_TAG],
     }
   );
 }
@@ -170,7 +237,7 @@ export function ensureVerseRangeAlwaysFollowsVerseMarker({
       });
     },
     {
-      tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG],
+      tag: [HISTORY_MERGE_TAG],
     }
   );
 }
