@@ -1,50 +1,44 @@
-// biome-ignore lint/style/useImportType: <explanation>
+import { useState } from "react";
+import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible";
+import { dedupeErrorMessagesList, type LintError } from "@/core/data/usfm/lint";
 
-import type {NodeKey} from "lexical";
-import {useState} from "react";
-export type LintMessage = {
-  nodeKey: NodeKey;
-  sid: string;
-  message: Message;
-};
 export type UseLintReturn = ReturnType<typeof useLint>;
-export function useLint() {
-  const [messages, setMessage] = useState<LintMessage[]>([]);
+type UseLintProps = {
+    initialLintErrors: LintError[];
+    currentChapter: number;
+    currentBibleBookId: string;
+};
+export function useLint({
+    initialLintErrors,
+    currentChapter,
+    currentBibleBookId,
+}: UseLintProps) {
+    // todo: like initial files data, this is that semi anti pattern of change in props won't sync without reload or an effect, but right now we just hard reload on project change
+    const [messages, setMessage] = useState<LintError[]>(initialLintErrors);
 
-  return {
-    messages,
-    setMessage,
-    lintMessages,
-  };
+    function mergeInNewErrorsFromChapter(errors: LintError[]) {
+        console.log({ newErrors: errors });
+        const filtered = messages.filter((m) => {
+            const sidParsed = parseSid(m.sid);
+            if (!sidParsed) return true;
+            return (
+                sidParsed.chapter !== currentChapter ||
+                sidParsed.book !== currentBibleBookId
+            );
+        });
+        const merged = [...filtered, ...errors];
+
+        const ensureDeduped = sortListBySidCanonical(
+            dedupeErrorMessagesList(merged),
+        );
+
+        setMessage(ensureDeduped);
+        return ensureDeduped;
+    }
+
+    return {
+        messages,
+        setMessage,
+        mergeInNewErrorsFromChapter,
+    };
 }
-
-export const verseRangeMessages = {
-  vrEmpty: {
-    message: "This verse range is empty",
-    className: "lint-verseRangeEmpty",
-  },
-  vrMalformed: {
-    message: "This verse range is malformed",
-    className: "lint-verseRangeMalformed",
-  },
-  vrDuplicate: {
-    message: "This verse range is a duplicate of another",
-    className: "lint-verseRangeDuplicate",
-  },
-  vrOutOfOrder: {
-    message: "This verse range is out of order from the previous verse range",
-    className: "lint-verseRangeOutOfOrder",
-  },
-} as const;
-
-export const lintMessages = {
-  ...verseRangeMessages,
-} as const;
-
-type Message = (typeof lintMessages)[keyof typeof lintMessages]["message"];
-export const classNameToMsgMap: Map<string, Message> = Object.entries(
-  lintMessages
-).reduce((acc, [key, value]) => {
-  acc.set(value.className, value.message);
-  return acc;
-}, new Map<string, Message>());

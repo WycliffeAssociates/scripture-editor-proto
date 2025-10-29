@@ -2,6 +2,7 @@
 
 import { createState } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor";
+import type { LintError } from "@/core/domain/usfm/parse";
 
 /**
  * Defines the NodeState for 'id'. It's a unique identifier for the node.
@@ -24,9 +25,16 @@ const inParaState = createState("inPara", {
     parse: (value) => (typeof value === "string" ? value : ""),
 });
 
+const inCharsState = createState("inChars", {
+    parse: (value) =>
+        typeof value === "object" && Array.isArray(value)
+            ? (value as Array<string>)
+            : ([] as Array<string>),
+});
+
 /**
  * Defines the NodeState for 'tokenType'. It categorizes the node's purpose.
- * Examples: 'text', 'marker', 'verseRange'
+ * Examples: 'text', 'marker', 'numberRange'
  */
 const tokenTypeState = createState("tokenType", {
     parse: (value) => (typeof value === "string" ? value : UsfmTokenTypes.text),
@@ -48,17 +56,20 @@ const showState = createState("show", {
 const isMutableState = createState("isMutable", {
     parse: (value) => (typeof value === "boolean" ? value : true),
 });
-const classNameState = createState("classNames", {
+const lintErrorsState = createState("lintErrors", {
     parse: (value) =>
-        typeof value === "object" && value !== null ? value : {},
+        typeof value === "object" && Array.isArray(value)
+            ? (value as Array<LintError>)
+            : ([] as Array<LintError>),
 });
 export {
     idState,
     sidState,
     inParaState,
+    inCharsState,
     tokenTypeState,
     markerState,
     showState,
     isMutableState,
-    classNameState,
+    lintErrorsState,
 };

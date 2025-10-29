@@ -1,25 +1,30 @@
 import moo from "moo";
 
 const isUnicodeEscape = (type: string) => type.startsWith("\\u");
-const isMarker = (text: string) =>
-  text.startsWith("\\") && !isUnicodeEscape(text);
+export const isMarker = (text: string) =>
+  text.match(/^\\[a-z\d]+/u) && !isUnicodeEscape(text);
 const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
-
+export const markerTrimNoSlash = (text: string) =>
+  markerWithoutBackslash(text.trim());
+const textRegex = /(?:[^\n\\|]|\\u[0-9A-Fa-f]{4}|(?<=.)\\\\)+/u;
+export const markerRegex = /\\[a-z-\d]+(?=\s+)/u;
+// const textRegex = /(?:[^\n|]|\\u[0-9A-Fa-f]{4})+/u;
+const wsRegex = /[ \t]+/u;
+const nlRegex = /\r?\n/u;
+// lex rules order is important. more specific rules should come before less specific rules;
 const lexer = moo.states({
   main: {
-    // --- 1. Whitespace (Handled first, but not skipped) ---
     nl: {
-      match: /\r?\n/u,
+      match: nlRegex,
       lineBreaks: true,
       value() {
-        // ie a single new line
         return "\n";
       },
     },
     ws: {
-      match: /[ \t]+/u,
+      match: wsRegex,
       value(v) {
-        // A single instance of whatever whitespace was found
+        // A single instance of whatever whitespace was foun
         return v[0] || " ";
       },
     },
@@ -30,41 +35,103 @@ const lexer = moo.states({
     // An attribute key-value pair.
     attrPair: /[a-zA-Z0-9\-_]+="(?:\\.|[^"\\])*"/u,
 
+    // we need to spell out a few markers specifically in order to pop into others states, such as expectingBookCode / numberRage
     idMarker: {
       match: /\\id\b/u,
       lineBreaks: true,
-      push: "specific",
-      value(x) {
-        return markerWithoutBackslash(x);
-      },
+      next: "expectingBookCode",
+    },
+    // chapter + verse expect a number after:
+    chapterMarker: {
+      match: /\\c\b/u,
+      next: "expectingNumberRange",
+    },
+    chapterAltOpen: {
+      match: /\\ca/u,
+      next: "expectingNumberRange",
+    },
+    chapterPublished: {
+      match: /\\cp/u,
+      next: "expectingNumberRange",
+    },
+    verseMarker: {
+      match: /\\v\b/u,
+      next: "expectingNumberRange",
+    },
+    verseAltOpen: {
+      match: /\\va/u,
+      next: "expectingNumberRange",
+    },
+    versePublished: {
+      match: /\\vp/u,
+      next: "expectingNumberRange",
     },
     endMarker: /\\\S*\*/u,
     implicitClose: "\\*",
     marker: {
-      match: /\\\S+/u,
-      value(x) {
-        return markerWithoutBackslash(x);
-      },
+      match: markerRegex,
+      //   match: /\\\S+/u,
     },
+    // this is a much simpler version of numberRange that only is bridghe with dash
+    // numberRange: {
+    //   match: /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u,
+    // we push to specific so that a line line such as:\v 28 8,600 males have been counted aged one month old and older to perform the duties of the sanctuary. doesn't parse as numberRange + numberRange
+    //   push: "specific",
+    // },
+    // the USFM site number range is more complex and allows for letters and other characters
+    // numberRange: /[1-9][0-9]*[\p{L}\p{Mn}]*(?:[-,][0-9]+[\p{L}\p{Mn}]*)*/u,
 
-    // A number that could also be text
-    verseRange: /[1-9][0-9]*[\p{L}\p{Mn}]*(?:[-,][0-9]+[\p{L}\p{Mn}]*)*/u,
-    // --- 7. Content and Error Tokens (The Final Fallbacks) ---
-    // Unambiguous Text: CANNOT start with `\`, `|`, or a digit.
-    // This resolves the conflict with markers and numbers.
-    text: {match: /(?:[^\n\\|]|\\u[0-9A-Fa-f]{4})+/u, lineBreaks: true},
+    text: {match: textRegex, lineBreaks: true},
 
     // Error token: If none of the above match, consume everything until the next `\` or newline.
     // This is a "catch-all" for malformed content.
     // This should be the VERY LAST rule in your object.
     error: {
-      match: /\\[^\\]+/u,
+      match: /.+/u,
       error: true,
     },
   },
+  expectingBookCode: {
+    bookCode: {match: /[A-Z1-9]{3}/u, next: "main"},
+    ws: wsRegex,
+    nl: {
+      match: nlRegex,
+      lineBreaks: true,
+      value() {
+        return "\n";
+      },
+      next: "main",
+    },
+  },
+  expectingNumberRange: {
+    numberRange: {
+      match: /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u,
+      next: "specific",
+    },
+
+    ws: wsRegex,
+    nl: {
+      match: nlRegex,
+      lineBreaks: true,
+      value() {
+        return "\n";
+      },
+      next: "specific",
+    },
+    // if numberRange Doesn't match first, fall back to text and go to main
+    text: {match: textRegex, lineBreaks: true, next: "main"},
+  },
   specific: {
-    bookCode: {match: /[A-Z1-9]{3}/u, pop: 1},
-    ws: /[ \t]+/u,
+    text: {match: textRegex, lineBreaks: true, next: "main"},
+    ws: wsRegex,
+    nl: {
+      match: nlRegex,
+      lineBreaks: true,
+      value() {
+        return "\n";
+      },
+      next: "main",
+    },
   },
 });
 export type TokenName =
@@ -73,10 +140,11 @@ export type TokenName =
   | "pipe"
   | "attrPair"
   | "idMarker"
+  | "bookCode"
   | "endMarker"
   | "implicitClose"
   | "marker"
-  | "verseRange"
+  | "numberRange"
   | "text"
   | "error";
 export interface TokenNameSubset extends Set<TokenName> {}
@@ -87,10 +155,11 @@ export const TokenMap = {
   pipe: "pipe",
   attributePair: "attrPair",
   idMarker: "idMarker",
+  bookCode: "bookCode",
   endMarker: "endMarker",
   implicitClose: "implicitClose",
   marker: "marker",
-  verseRange: "verseRange",
+  numberRange: "numberRange",
   text: "text",
   error: "error",
 } as const;

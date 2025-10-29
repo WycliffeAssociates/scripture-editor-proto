@@ -1,29 +1,29 @@
-import React, {createContext, ReactNode, useContext} from "react";
-import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider.ts";
-import {IProjectRepository} from "@/core/persistence/ProjectRepository.ts";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {ProjectRepository} from "@/core/persistence/repositories/ProjectRepository.ts";
+import type React from "react";
+import { createContext, type ReactNode, useContext } from "react";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
+import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 
 interface PersistenceContextType {
     directoryProvider: IDirectoryProvider;
-    projectRepository: IProjectRepository,
+    projectRepository: IProjectRepository;
     md5Service: IMd5Service;
 }
 
-const PersistenceContext = createContext<PersistenceContextType | undefined>(undefined);
+const PersistenceContext = createContext<PersistenceContextType | undefined>(
+    undefined,
+);
 
 export const PersistenceProvider: React.FC<{
     children: ReactNode;
     directoryProvider: IDirectoryProvider;
-    md5Service: IMd5Service
-}> = (
-    {
-        children,
+    md5Service: IMd5Service;
+}> = ({ children, directoryProvider, md5Service }) => {
+    const projectRepository = new ProjectRepository(
         directoryProvider,
         md5Service,
-    }
-) => {
-    const projectRepository = new ProjectRepository(directoryProvider, md5Service);
+    );
 
     const contextValue: PersistenceContextType = {
         directoryProvider,
@@ -41,7 +41,9 @@ export const PersistenceProvider: React.FC<{
 export const usePersistence = (): PersistenceContextType => {
     const context = useContext(PersistenceContext);
     if (context === undefined) {
-        throw new Error("usePersistence must be used within a PersistenceProvider");
+        throw new Error(
+            "usePersistence must be used within a PersistenceProvider",
+        );
     }
     return context;
 };

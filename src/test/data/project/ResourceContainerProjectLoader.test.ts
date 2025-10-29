@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {IFileWriter} from "@/core/io/IFileWriter.ts";
@@ -6,6 +7,12 @@ import { parse, stringify } from 'yaml';
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
+=======
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
+import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+>>>>>>> wk-editor
 
 // Mock implementations for dependencies
 const mockFileWriter: IFileWriter = {
@@ -33,6 +40,7 @@ class MockDirectoryHandle implements IDirectoryHandle {
         }
     }
 
+<<<<<<< HEAD
     getDirectoryHandle = vi.fn((name: string, options?: { create?: boolean }) => {
         const newPath = `${this.path}/${name}`;
         if (options?.create) {
@@ -56,6 +64,25 @@ class MockDirectoryHandle implements IDirectoryHandle {
         }
         return Promise.reject(new Error("File not found"));
     });
+=======
+    getDirectoryHandle = vi.fn((_name: string) =>
+        Promise.reject(new Error("Not implemented for this test")),
+    );
+    getFileHandle = vi.fn(
+        (fileName: string, options?: { create?: boolean }) => {
+            if (this.files.has(fileName)) {
+                return Promise.resolve(
+                    new MockFileHandle(fileName, this.files.get(fileName)!),
+                );
+            } else if (options?.create) {
+                const newFileHandle = new MockFileHandle(fileName, "");
+                this.files.set(fileName, ""); // Add to internal map
+                return Promise.resolve(newFileHandle);
+            }
+            return Promise.reject(new Error("File not found"));
+        },
+    );
+>>>>>>> wk-editor
     entries = vi.fn(() => (async function* () {})());
     values = vi.fn(() => (async function* () {})());
     keys = vi.fn(() => (async function* () {})());
@@ -63,11 +90,15 @@ class MockDirectoryHandle implements IDirectoryHandle {
     resolve = vi.fn(() => Promise.resolve(null));
     isSameEntry = vi.fn((other: IPathHandle) => Promise.resolve(this.path === other.path));
     [Symbol.asyncIterator] = vi.fn(() => (async function* () {})());
+<<<<<<< HEAD
     getParent = vi.fn(() => Promise.resolve(new MockDirectoryHandle("parent", `${this.path}/..`)));
     asFileHandle = vi.fn(() => null);
     asDirectoryHandle = vi.fn(() => this);
     getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
 };
+=======
+}
+>>>>>>> wk-editor
 
 // Helper mock for IFileHandle
 class MockFileHandle implements IFileHandle {
@@ -84,6 +115,7 @@ class MockFileHandle implements IFileHandle {
         this._content = content;
     }
 
+<<<<<<< HEAD
     getFile = vi.fn(() => Promise.resolve(new MockFile(this.name, this._content)));
     createWritable = vi.fn(() => {
         const self = this; // Capture the MockFileHandle instance
@@ -103,6 +135,23 @@ class MockFileHandle implements IFileHandle {
     createWriter = vi.fn(() => this.createWritable().then(ws => ws.getWriter()));
     [Symbol.asyncDispose] = vi.fn(() => Promise.resolve());
 
+=======
+    getFile = vi.fn(() =>
+        Promise.resolve(new MockFile(this.name, this.content)),
+    );
+    createWritable = vi.fn(
+        () =>
+            Promise.resolve({
+                write: vi.fn((data: string) => {
+                    this.content = data;
+                    return Promise.resolve();
+                }),
+                close: vi.fn(() => Promise.resolve()),
+                abort: vi.fn(() => Promise.resolve()),
+            }) as unknown as FileSystemWritableFileStream,
+    );
+    isSameEntry = vi.fn(() => Promise.resolve(false));
+>>>>>>> wk-editor
 }
 
 // Helper mock for File
@@ -127,17 +176,32 @@ class MockFile implements File {
     stream = vi.fn(() => ({}) as ReadableStream<Uint8Array>);
 }
 
-describe('ResourceContainerProjectLoader', () => {
+describe("ResourceContainerProjectLoader", () => {
     let loader: ResourceContainerProjectLoader;
     let mockProjectDir: MockDirectoryHandle;
     const MOCK_PROJECT_NAME = "My Test Resource Project";
     const MOCK_PROJECT_ID = "test-rc-id";
 
     const sampleManifestYaml = {
+<<<<<<< HEAD
         dublin_core: {
             identifier: MOCK_PROJECT_ID,
             title: MOCK_PROJECT_NAME,
             language: { identifier: "en", title: "English", direction: "ltr" },
+=======
+        projects: {
+            [MOCK_PROJECT_ID]: {
+                projectMeta: {
+                    name: MOCK_PROJECT_NAME,
+                    target_language: {
+                        tag: "en",
+                        name: "English",
+                        direction: "ltr",
+                    },
+                },
+                resources: [],
+            },
+>>>>>>> wk-editor
         },
         projects: [
         ],
@@ -151,11 +215,25 @@ describe('ResourceContainerProjectLoader', () => {
         loader = new ResourceContainerProjectLoader();
     });
 
+<<<<<<< HEAD
     test('loadProject should load a project from manifest.yaml', async () => {
         // Setup manifest specifically for this test
         mockProjectDir.files.set(ResourceContainerProjectLoader.MANIFEST_FILENAME, new MockFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME, `/${MOCK_PROJECT_ID}/${ResourceContainerProjectLoader.MANIFEST_FILENAME}`, stringify(sampleManifestYaml)));
 
         const project = await loader.loadProject(mockProjectDir, mockFileWriter);
+=======
+    test("loadProject should load a project from manifest.yaml", async () => {
+        mockProjectDir.files.set(
+            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            JSON.stringify(sampleManifestYaml),
+        );
+
+        const project = await loader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+            mockMd5Service,
+        );
+>>>>>>> wk-editor
 
         expect(project).not.toBeNull();
         expect(project?.id).toBe(MOCK_PROJECT_ID);
@@ -165,6 +243,7 @@ describe('ResourceContainerProjectLoader', () => {
         // This assertion can be added here if needed, but for now, focus on core functionality.
     });
 
+<<<<<<< HEAD
     test('loadProject should return null if manifest.yaml does not exist', async () => {
         // No manifest.yaml set up here, so it should return null
         const project = await loader.loadProject(mockProjectDir, mockFileWriter);
@@ -175,15 +254,37 @@ describe('ResourceContainerProjectLoader', () => {
         // Setup manifest specifically for this test
         mockProjectDir.files.set(ResourceContainerProjectLoader.MANIFEST_FILENAME, new MockFileHandle(ResourceContainerProjectLoader.MANIFEST_FILENAME, `/${MOCK_PROJECT_ID}/${ResourceContainerProjectLoader.MANIFEST_FILENAME}`, stringify(sampleManifestYaml)));
         const project = await loader.loadProject(mockProjectDir, mockFileWriter);
+=======
+    test("loadProject should return null if manifest.yaml does not exist", async () => {
+        const project = await loader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+            mockMd5Service,
+        );
+        expect(project).toBeNull();
+    });
+
+    test("addBook should add a new USFM file and update manifest.yaml", async () => {
+        mockProjectDir.files.set(
+            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            JSON.stringify(sampleManifestYaml),
+        );
+        const project = await loader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+            mockMd5Service,
+        );
+>>>>>>> wk-editor
         expect(project).not.toBeNull();
 
         const bookCode = "MAT";
         const localizedBookTitle = "Matthew";
         const bookContents = "\\id MAT \\c 1 \\v 1 In the beginning...";
 
-        await project!.addBook(bookCode, localizedBookTitle, bookContents);
+        await project?.addBook(bookCode, localizedBookTitle, bookContents);
 
         const expectedFilename = "41-MAT.usfm";
+<<<<<<< HEAD
         const fileHandle = mockProjectDir.files.get(expectedFilename)!;
         const file = await fileHandle.getFile();
         const content = await file.text();
@@ -221,12 +322,62 @@ describe('ResourceContainerProjectLoader', () => {
         mockProjectDir.files.set(existingFilename, new MockFileHandle(existingFilename, `/${MOCK_PROJECT_ID}/${existingFilename}`, oldContent));
 
         const project = await loader.loadProject(mockProjectDir, mockFileWriter);
+=======
+        expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
+            expectedFilename,
+            bookContents,
+        );
+
+        const updatedManifest = JSON.parse(
+            mockProjectDir.files.get(
+                ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            )!,
+        );
+        const resources = updatedManifest.projects[MOCK_PROJECT_ID].resources;
+        expect(resources).toHaveLength(1);
+        expect(resources[0].identifier).toBe("mat");
+        expect(resources[0].name).toBe(localizedBookTitle);
+        expect(resources[0].path).toBe(expectedFilename);
+    });
+
+    test("addBook should not overwrite an existing file (as resource in manifest)", async () => {
+        const existingResources = [
+            {
+                identifier: "mat",
+                name: "Matthew",
+                format: "usfm",
+                path: "41-MAT.usfm",
+            },
+        ];
+        const manifestWithExistingBook = {
+            projects: {
+                [MOCK_PROJECT_ID]: {
+                    projectMeta:
+                        sampleManifestYaml.projects[MOCK_PROJECT_ID]
+                            .projectMeta,
+                    resources: existingResources,
+                },
+            },
+        };
+        mockProjectDir.files.set(
+            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            JSON.stringify(manifestWithExistingBook),
+        );
+        mockProjectDir.files.set("41-MAT.usfm", "original content");
+
+        const project = await loader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+            mockMd5Service,
+        );
+>>>>>>> wk-editor
         expect(project).not.toBeNull();
 
         const bookCode = "MAT";
         const newLocalizedBookTitle = "New Matthew Title";
         const newBookContents = "\\id MAT \\c 1 \\v 1 New content here...";
 
+<<<<<<< HEAD
         await project!.addBook(bookCode, newLocalizedBookTitle, newBookContents);
 
         // Assert that the file content was overwritten
@@ -254,12 +405,47 @@ describe('ResourceContainerProjectLoader', () => {
         mockProjectDir.files.set(existingFilename, new MockFileHandle(existingFilename, `/${MOCK_PROJECT_ID}/${existingFilename}`, oldContent));
 
         const project = await loader.loadProject(mockProjectDir, mockFileWriter);
+=======
+        await project?.addBook(bookCode, "Matthew", bookContents);
+
+        expect(mockFileWriter.writeFile).not.toHaveBeenCalledWith(
+            "41-MAT.usfm",
+            bookContents,
+        );
+        // Verify manifest wasn't changed for this book
+        const updatedManifest = JSON.parse(
+            mockProjectDir.files.get(
+                ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            )!,
+        );
+        expect(
+            updatedManifest.projects[MOCK_PROJECT_ID].resources,
+        ).toHaveLength(1);
+        expect(
+            updatedManifest.projects[MOCK_PROJECT_ID].resources[0].name,
+        ).toBe("Matthew");
+    });
+
+    test("addBook should not overwrite an existing file (as physical file)", async () => {
+        mockProjectDir.files.set(
+            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            JSON.stringify(sampleManifestYaml),
+        );
+        mockProjectDir.files.set("41-MAT.usfm", "original content");
+
+        const project = await loader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+            mockMd5Service,
+        );
+>>>>>>> wk-editor
         expect(project).not.toBeNull();
 
         const bookCode = "MAT";
         const newLocalizedBookTitle = "Matthew";
         const newBookContents = "new content for existing file";
 
+<<<<<<< HEAD
         await project!.addBook(bookCode, newLocalizedBookTitle, newBookContents);
 
         // Assert that the file content was overwritten
@@ -335,5 +521,13 @@ describe('ResourceContainerProjectLoader', () => {
 
         const retrievedContent = await project!.getBook(bookCode);
         expect(retrievedContent).toBeNull();
+=======
+        await project?.addBook(bookCode, "Matthew", bookContents);
+
+        expect(mockFileWriter.writeFile).not.toHaveBeenCalledWith(
+            "41-MAT.usfm",
+            bookContents,
+        );
+>>>>>>> wk-editor
     });
 });

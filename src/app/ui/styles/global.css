@@ -8,3 +8,12 @@
   --mantine-color-error: var(--mantine-color-danger-7);
   --mantine-color-placeholder: var(--mantine-color-gray-6); */
 }
+* {
+  transition-behavior: allow-discrete;
+}
+::highlight(matched-search) {
+  background-color: yellow;
+}
+body {
+  line-height: 1.7;
+}

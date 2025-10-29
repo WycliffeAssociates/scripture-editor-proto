@@ -173,7 +173,12 @@ const BOOK_ALIASES: Record<string, string[]> = {
 export function matchBook(input: string): string | null {
   const normalized = input.toLowerCase().replace(/\s+/g, "");
   for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
-    if (aliases.some((alias) => normalized.startsWith(alias))) {
+    if (
+      aliases.some(
+        (alias) =>
+          normalized.startsWith(alias) || normalized === id.toLowerCase()
+      )
+    ) {
       return id;
     }
   }
@@ -241,15 +246,60 @@ export function parseSid(sid: string): ParsedReference | null {
   };
 }
 
-// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
+type MakeSidPart = {
+  bookId: string;
+  chapter: number;
+  verseStart?: number;
+  verseEnd?: number;
+};
+export function makeSid({bookId, chapter, verseStart, verseEnd}: MakeSidPart) {
+  if (!verseStart || !verseEnd) {
+    return `${bookId.toUpperCase()} ${chapter}`;
+  }
+  if (verseStart === verseEnd) {
+    return `${bookId.toUpperCase()} ${chapter}:${verseStart}`;
+  }
+  return `${bookId.toUpperCase()} ${chapter}:${verseStart}-${verseEnd}`;
+}
 
+// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
 export function parseReference(input: string) {
   const normalized = input.toLowerCase().replace(/\s+/g, "");
   const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);
   if (!match) return null;
   const [, rawBook, rawChap] = match;
   const bookId = matchBook(rawBook);
-  return bookId
-    ? {book: bookId, chapter: rawChap ? Number(rawChap) : null}
-    : null;
+  return {
+    knownBookId: bookId,
+    bookMatch: rawBook,
+    chapter: rawChap ? Number(rawChap) : null,
+  };
+}
+
+export function sortListBySidCanonical<T extends {sid: string}>(list: T[]) {
+  return list.sort((a, b) => {
+    const aParsed = parseSid(a.sid);
+    const bParsed = parseSid(b.sid);
+    if (!aParsed || !bParsed) {
+      return 0;
+    }
+    // first sort by bible book id
+    const aBookIdx = BIBLE_ORDER_MAP.get(aParsed.book);
+    const bBookIdx = BIBLE_ORDER_MAP.get(bParsed.book);
+    if (aBookIdx === undefined || bBookIdx === undefined) {
+      return 0;
+    }
+    if (aBookIdx !== bBookIdx) {
+      return aBookIdx - bBookIdx;
+    }
+    // then sort by chapter
+    if (aParsed.chapter !== bParsed.chapter) {
+      return aParsed.chapter - bParsed.chapter;
+    }
+    // then sort by verse
+    if (aParsed.verseStart !== bParsed.verseStart) {
+      return aParsed.verseStart - bParsed.verseStart;
+    }
+    return 0;
+  });
 }

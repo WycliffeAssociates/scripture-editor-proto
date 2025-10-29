@@ -136,3 +136,39 @@ Scaffold from git:
 
 So we if kept history on a per file per chapter basis, we could keep undo/redo working on per each; For now it's all or nothing or rough; 
 
+
+
+Todo:
+make all ops against json shape
+from json shape, for live editor instance moments, pass by keys and if an update is actually needed. Need to measure perf on getting json for each node though: 
+Nested editors, get all of that type, and then pass those in as well: I,e, for each editor (main, and then nested), dispatch custom event?
+
+for lexing:
+maybe no id? 2 pass: Lint since we already have to touch every token. Flags for "in-markers' can apply to chars to, especially since they inline. 
+
+Maybe change className to just be static string:
+
+Overall we want message scoped to nodes / serialized objects: 
+so on the obj we can just set lintErrors, (also keep a running list elsehwere for diplay) and then we can in serializeToken, pass those in, and then during keystroke lints, we just assumed all classNames returned from lint is correct; Deterministic alphabetic string, and if not equal just call set.  Perhaps in an ideal world we use css highlight instead of mutating the dom, but not supported in firefox atm. 
+
+
+TOMORROW: 
+fix linting bugs against kng nt
+use linebreak plugin so we never use paras. Always one level flat: 
+node selection jumps 2 when wysi preview on
+allow enter key at the very edge of locked node?
+
+
+insert X for top 8-10 markers that can call from type or from context menu action. Or basically the wysiwyg transforms based on expects num, expects space, is paired etc; 
+
+Make nesteds work like top editor in terms of context menu and stuff?  (I think already work for modes being that we recursively updated, but the usfm plugin isnt' inserted in that composer, ie no wysi type.  )
+upgrade markers back to markers after downgrading if the textNode matches marker + space
+context menu
+sync reference panels with main editor (i.e. scroll to sid)
+reverse find (from source text)
+tool tips
+localization
+more lint rules? 
+push para markers forwards in sid instead of back?
+Start writing tests?
+Start refining ui? 

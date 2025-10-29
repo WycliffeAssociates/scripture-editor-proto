@@ -1,118 +1,42 @@
-import {Button, Popover} from "@mantine/core";
-import {$getNodeByKey, HISTORY_MERGE_TAG} from "lexical";
-import {useRef, useState} from "react";
-import {MainEditor} from "@/app/ui/components/blocks/Editor";
-import {Toolbar} from "@/app/ui/components/blocks/Toolbar";
-import {useWorkspaceContext} from "@/app/ui/contexts/WorkspaceContext";
+import { MainEditor } from "@/app/ui/components/blocks/Editor";
+import { LintPopover } from "@/app/ui/components/blocks/LintPopover";
+import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor";
+import { SearchPanel } from "@/app/ui/components/blocks/Search";
+import { Toolbar } from "@/app/ui/components/blocks/Toolbar";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+import styles from "@/app/ui/styles/modules/Projectview.module.css";
 
 export function ProjectView() {
-  const {search, lint, editorRef} = useWorkspaceContext();
-  const hasMessages = lint.messages.length > 0;
-  const prevSelected = useRef<HTMLElement | null>(null);
-  const [lintPopoverIsOpen, setLintPopoverIsOpen] = useState(false);
-  return (
-    <div className="grid grid-rows-[auto_1fr] h-screen ">
-      <nav>
-        <Toolbar />
-      </nav>
-      <div className="flex h-full overflow-y-auto">
-        {search.results.length > 0 && (
-          <ul className="w-1/3 bg-gray-100 gap-2 flex flex-col max-h-[calc(100vh-5rem)] overflow-y-auto px-2">
-            {search.results.map((result) => (
-              <li
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    search.pickSearchResult(result);
-                  }
-                }}
-                className="text-xs flex flex-col gap-1"
-                key={result.sid}
-                onClick={() => search.pickSearchResult(result)}
+    const { actions: _actions } = useWorkspaceContext();
+    return (
+        <div className={styles.appLayout}>
+            <nav>
+                <Toolbar />
+            </nav>
+            <div className={styles.contentGrid}>
+                <SearchPanel />
+                <main className={styles.mainContent}>
+                    <div className={styles.editorWrapper}>
+                        <LintPopover wrapperClassNames="absolute top-4 right-4 z-50" />
+                        {/* <Group gap="xs" justify="between">
+              <Button
+                disabled={actions.prevChapter.hasPrev}
+                onClick={actions.prevChapter.go}
               >
-                <span className="font-bold">{result.sid}</span>
-                {result.text}
-              </li>
-            ))}
-          </ul>
-        )}
-        <main className="h-full overflow-y-auto max-w-prose mx-auto relative">
-          {hasMessages && (
-            <div className="absolute top-4 right-4 z-50">
-              <Popover
-                opened={lintPopoverIsOpen}
-                onDismiss={() => setLintPopoverIsOpen(false)}
-                position="bottom-end"
-                shadow="md"
-                withArrow
+                {actions.prevChapter.display}
+              </Button>
+              <Button
+                disabled={!actions.nextChapter.hasNext}
+                onClick={actions.nextChapter.go}
               >
-                <Popover.Target>
-                  <Button
-                    onClick={() => setLintPopoverIsOpen(!lintPopoverIsOpen)}
-                    size="xs"
-                    variant="filled"
-                    color="red"
-                    className="z-50"
-                  >
-                    {lint.messages.length} Lint issue
-                    {lint.messages.length > 1 ? "s" : ""}
-                  </Button>
-                </Popover.Target>
-
-                <Popover.Dropdown className="max-h-64 overflow-y-auto">
-                  <ul className="space-y-2 text-sm flex flex-col items-start">
-                    {lint.messages.map((msg) => (
-                      <li key={msg.nodeKey}>
-                        <Button
-                          variant="subtle"
-                          color="gray"
-                          fullWidth
-                          onClick={() => {
-                            editorRef.current?.read(() => {
-                              const editor = editorRef.current;
-                              if (!editor) return;
-                              const el = editor.getElementByKey(msg.nodeKey);
-                              editor.update(
-                                () => {
-                                  const node = $getNodeByKey(msg.nodeKey);
-                                  node?.selectEnd();
-                                },
-                                {
-                                  tag: [HISTORY_MERGE_TAG],
-                                  skipTransforms: true,
-                                }
-                              );
-                              if (el) {
-                                if (prevSelected.current) {
-                                  prevSelected.current.classList.remove(
-                                    "selected"
-                                  );
-                                }
-                                prevSelected.current = el;
-                                el.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                });
-                                el.classList.add("selected");
-                              }
-                            });
-                          }}
-                          className=""
-                        >
-                          <span className="flex flex-col items-start text-left">
-                            <span className="font-semibold">{msg.sid}</span>
-                            <span>{msg.message}</span>
-                          </span>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </Popover.Dropdown>
-              </Popover>
+                {actions.nextChapter.display}
+              </Button>
+            </Group> */}
+                        <MainEditor />
+                    </div>
+                </main>
+                <ReferenceEditor />
             </div>
-          )}
-          <MainEditor />
-        </main>
-      </div>
-    </div>
-  );
+        </div>
+    );
 }

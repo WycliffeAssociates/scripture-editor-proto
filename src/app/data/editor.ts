@@ -1,4 +1,8 @@
-import type {SerializedLineBreakNode} from "lexical";
+import {
+  HISTORIC_TAG,
+  HISTORY_MERGE_TAG,
+  type SerializedLineBreakNode,
+} from "lexical";
 import type {USFMElementNodeJSON} from "@/app/domain/editor/nodes/USFMElementNode";
 import type {USFMNestedEditorNodeJSON} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import type {SerializedUSFMTextNode} from "@/app/domain/editor/nodes/USFMTextNode";
@@ -24,11 +28,24 @@ export const EditorMarkersViewStates = {
 
 export const UsfmTokenTypes: Pick<
   typeof TokenMap,
-  "marker" | "text" | "verseRange"
+  | "marker"
+  | "text"
+  | "numberRange"
+  | "verticalWhitespace"
+  | "error"
+  | "endMarker"
 > = {
   marker: "marker",
+  endMarker: "endMarker",
   text: "text",
-  verseRange: "verseRange",
+  numberRange: "numberRange",
+  verticalWhitespace: "nl",
+  error: "error",
+};
+export const EDITOR_TAGS_USED = {
+  programaticIgnore: "programatic-ignore",
+  historyMerge: HISTORY_MERGE_TAG,
+  historic: HISTORIC_TAG,
 };
 
 export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
@@ -39,7 +56,7 @@ export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
   TokenMap.endMarker,
   TokenMap.implicitClose,
   TokenMap.marker,
-  TokenMap.verseRange,
+  TokenMap.numberRange,
 ]);
 // type more loosel for includions checks
 export const TOKEN_TYPES_CAN_TOGGLE_HIDE = new Set<string>([

@@ -1,9 +1,10 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+=import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {ScriptureBurritoProjectLoader} from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
-import {ResourceContainerProjectLoader} from "@/core/domain/project/ResourceContainerProjectLoader.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
 import {ProjectLoader} from "@/core/domain/project/ProjectLoader.ts";
+import {ResourceContainerProjectLoader} from "@/core/domain/project/ResourceContainerProjectLoader.ts";
+import {ScriptureBurritoProjectLoader} from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
+import type { IFileWriter } from '@/core/io/IFileWriter';
+import {Project} from "@/core/persistence/ProjectRepository.ts";
 
 
 // Mock implementations for dependencies

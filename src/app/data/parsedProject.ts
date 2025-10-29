@@ -1,4 +1,4 @@
-import {SerializedEditorState, SerializedLexicalNode} from "lexical";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 
 export type ProjectFile = {
   title: string;
@@ -9,11 +9,11 @@ export type ProjectFile = {
   path: string;
 };
 export type ParsedChapter = {
-  lexicalState: SerializedEditorState<SerializedLexicalNode>;
-  dirty: boolean;
-  chapNumber: number;
+    lexicalState: SerializedEditorState<SerializedLexicalNode>;
+    dirty: boolean;
+    chapNumber: number;
 };
 
 export type ParsedFile = ProjectFile & {
-  chapters: Array<ParsedChapter>;
+    chapters: Array<ParsedChapter>;
 };

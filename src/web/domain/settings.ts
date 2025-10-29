@@ -1,4 +1,4 @@
-import { SettingsManager } from "@/app/data/settings";
+import type { SettingsManager } from "@/app/data/settings";
 import {
     createBaseLocalStorageSettingsManager,
     getSettingsLocalStorage,

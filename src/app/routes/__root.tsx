@@ -1,7 +1,11 @@
-import {createRootRouteWithContext, Outlet, useRouter,} from "@tanstack/react-router";
-import {useEffectOnce} from "react-use";
-import type {RouterContext} from "@/app/entrypoint";
-import { TanStackRouterDevtools} from "@tanstack/react-router-devtools";
+import {
+    createRootRouteWithContext,
+    Outlet,
+    useRouter,
+} from "@tanstack/react-router";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { useEffectOnce } from "react-use";
+import type { RouterContext } from "@/app/entrypoint";
 
 const RootLayout = () => {
     const router = useRouter();
@@ -41,7 +45,7 @@ const RootLayout = () => {
             <div className="">
                 <Outlet />
             </div>
-             <TanStackRouterDevtools />
+            <TanStackRouterDevtools />
         </>
     );
 };
@@ -49,12 +53,10 @@ const RootLayout = () => {
 const rootRoute = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
     loader: async ({ context, route }) => {
-
         const { directoryProvider, projectRepository } = context;
-        const projects = await projectRepository.listProjects()
+        const projects = await projectRepository.listProjects();
 
         return { projects };
     },
 });
 export const Route = rootRoute;
-

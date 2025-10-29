@@ -1,12 +1,12 @@
 import {appDataDir, appLocalDataDir, homeDir, join} from "@tauri-apps/api/path";
 import {mkdir, open} from "@tauri-apps/plugin-fs";
 import {platform} from "@tauri-apps/plugin-os";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle";
+import type {IFileHandle} from "@/core/io/IFileHandle";
+import type {IPathHandle} from "@/core/io/IPathHandle";
 import type {
   IDirectoryProvider,
   ResourceMetadata,
-  IPathHandle,
-  IDirectoryHandle,
-  IFileHandle
 } from "@/core/persistence/DirectoryProvider";
 import {TauriDirectoryHandle} from "@/tauri/io/TauriDirectoryHandle.ts";
 import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
@@ -36,9 +36,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     return new TauriDirectoryHandle(this.userHome, this.getHandle.bind(this));
   }
 
-  async getUserDataDirectory(
-    appendedPath?: string
-  ): Promise<IDirectoryHandle> {
+  async getUserDataDirectory(appendedPath?: string): Promise<IDirectoryHandle> {
     let root = this.userHome;
     const osName = platform();
     if (!["ios", "android"].includes(osName)) {
@@ -51,9 +49,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     return new TauriDirectoryHandle(path, this.getHandle.bind(this));
   }
 
-  async getAppDataDirectory(
-    appendedPath?: string
-  ): Promise<IDirectoryHandle> {
+  async getAppDataDirectory(appendedPath?: string): Promise<IDirectoryHandle> {
     const path = appendedPath
       ? await join(await appLocalDataDir(), appendedPath)
       : await appLocalDataDir();
@@ -96,7 +92,10 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
       await fileHandle.getFile();
       return fileHandle;
     } catch (e) {
-      const dirHandle = new TauriDirectoryHandle(path, this.getHandle.bind(this));
+      const dirHandle = new TauriDirectoryHandle(
+        path,
+        this.getHandle.bind(this)
+      );
       try {
         await dirHandle.entries().next(); // Attempt to read directory to check existence
         return dirHandle;
@@ -125,10 +124,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     return file.getFile();
   }
 
-  async createTempFile(
-    prefix: string,
-    suffix?: string
-  ): Promise<IFileHandle> {
+  async createTempFile(prefix: string, suffix?: string): Promise<IFileHandle> {
     const path = await join(
       this.userHome,
       this.appName,
@@ -147,7 +143,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
       await tempDir.removeEntry(name, {recursive: true});
     }
   }
-
   async openInFileManager(path: string): Promise<void> {
     await open(path);
   }

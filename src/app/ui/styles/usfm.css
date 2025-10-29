@@ -6,9 +6,11 @@ body:not(.source-mode) {
     padding: 0 2px;
   }
 
-  [data-token-type="marker"] {
-    display: inline-block;
+  [data-token-type="marker"],
+  [data-token-type="endMarker"] {
+    /* display: inline-block; */
     align-items: center;
+    color: var(--color-green-500);
   }
 
   [data-usfm-type="para"] {
@@ -16,7 +18,7 @@ body:not(.source-mode) {
   }
   .chapter-number,
   [data-marker="c"],
-  [data-marker="c"] + [data-token-type="verseRange"] {
+  [data-marker="c"] + [data-token-type="numberRange"] {
     font-size: 2em;
     font-weight: bold;
     text-align: center;
@@ -33,36 +35,70 @@ body:not(.source-mode) {
     font-family: var(--font-serif);
   }
 
-  [data-show="false"] {
-    display: none;
-  }
   [data-show="true"] {
-    display: inline;
+    visibility: visible;
+    pointer-events: auto;
   }
   [data-is-mutable="false"] {
     opacity: 0.5 !important;
-    pointer-events: none;
+    /* pointer-events: none; */
+  }
+  [data-show="false"] {
+    /* display: none; */
+    opacity: 0 !important;
+    /* visibility: hidden; */
+    /* position: absolute; */
+    /* pointer-events: none; */
+  }
+  [data-show="false"].isCharMarker,
+  [data-show="false"].isCharCloseMarker {
+    width: 0;
+    display: inline-block;
+    line-height: 0;
+  }
+  [data-show="true"].isCharMarker,
+  [data-show="true"].isCharCloseMarker {
+    width: auto;
+    display: inline;
+    line-height: inherit;
   }
 
-  [data-marker="q1"],
-  [data-in-para="q1"],
-  [data-marker="q"],
-  [data-in-para="q"] {
+  :where(
+      [data-marker="q"],
+      [data-in-para="q"],
+      [data-marker="q1"],
+      [data-in-para="q1"],
+      [data-marker="q2"],
+      [data-in-para="q2"],
+      [data-marker="q3"],
+      [data-in-para="q3"],
+      [data-marker="q4"],
+      [data-in-para="q4"]
+    ) {
     font-style: italic;
-    margin-inline-start: 0.5em;
   }
-  [data-marker="q2"],
-  [data-in-para="q2"]:not([data-token-type="verseRange"]) {
-    font-style: italic;
-    margin-inline-start: 1.25em;
+  [data-marker="b"] {
+    display: block !important;
   }
-  /* [data-token-type="text"]:empty {
-    content: "_";
-  } */
+  [data-marker="b"][data-show="false"] {
+    opacity: 0 !important;
+    /* pointer-events: none !important; */
+  }
+
+  [data-marker-view-state="never"] [data-marker] + br,
+  [data-marker-view-state="never"] [data-marker] {
+    display: none !important;
+  }
+
+  .isParaMarker:has(+ [data-marker]) {
+    display: block;
+    width: max-content;
+  }
 }
 
 .lint-error {
-  background: var(--color-red-700);
+  background: var(--color-red-800);
+  padding: 1px;
   color: var(--color-red-50);
   border-radius: 2px;
 }
@@ -80,3 +116,9 @@ body:not(.source-mode) {
   color: var(--color-pink-50);
   border-radius: 2px;
 } */
+.nested-editor {
+  display: inline-flex;
+}
+.nested-editor:has(+ .isParaMarker)::after {
+  content: "";
+}

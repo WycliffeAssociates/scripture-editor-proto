@@ -1,27 +1,42 @@
+import type {LintableToken} from "@/core/data/usfm/lint";
 import {lexUsfm} from "@/core/domain/usfm/lex";
 import {
-  adjustEndingParaMarkerSids,
-  calcSidsAndParaFlags,
-  mergeHorizontalWhitespaceToAdjacent,
-  nestCharsAndAssignAttributes,
   organizeByChapters,
-} from "@/core/domain/usfm/parse-utils";
-export const parseUSFMfile = (text: string) => {
-  const tokens = lexUsfm(text);
-  mergeHorizontalWhitespaceToAdjacent(tokens);
-  const withSids = calcSidsAndParaFlags(tokens);
-  adjustEndingParaMarkerSids(withSids);
-  const nestedAndAttrAssigned = nestCharsAndAssignAttributes(withSids);
-  const organized = organizeByChapters(nestedAndAttrAssigned);
-  return organized;
+  preparedAlreadyGivenTokens,
+  prepareTokens,
+} from "@/core/domain/usfm/parseUtils";
+import {type ParseContext, parseTokens} from "./tokenParsers";
+
+export const parseUSFMfile = <T extends LintableToken>(
+  text: string,
+  partialParseCtx: Partial<ParseContext<T>> = {}
+) => {
+  const tokens = prepareTokens<T>(text, lexUsfm);
+  const r = parseTokens({tokens, partialContext: partialParseCtx});
+
+  const organized = organizeByChapters(r.tokens);
+  // if (text.startsWith("\\id MRK")) {
+  //   ;
+  // }
+  return {usfm: organized, lintErrors: r.errorMessages};
 };
 
-export const parseUSFMChapter = (chapter: string, bookCode: string) => {
-  const tokens = lexUsfm(chapter);
-  mergeHorizontalWhitespaceToAdjacent(tokens);
-  const withSids = calcSidsAndParaFlags(tokens, bookCode);
-  adjustEndingParaMarkerSids(withSids);
-  const nestedAndAttrAssigned = nestCharsAndAssignAttributes(withSids);
-  const organized = organizeByChapters(nestedAndAttrAssigned);
-  return organized;
+export const parseUSFMChapter = <T extends LintableToken>(
+  chapter: string,
+  bookCode: string
+) => {
+  const tokens = prepareTokens<T>(chapter, lexUsfm);
+  const r = parseTokens({tokens, partialContext: {bookCode}});
+  const organized = organizeByChapters(r.tokens);
+  return {usfm: organized, lintErrors: r.errorMessages};
+};
+
+export const lintExistingUsfmTokens = <T extends LintableToken>(
+  tokens: T[],
+  partialContext: Partial<ParseContext<T>> = {}
+) => {
+  // todo: run a prepare pass on these to make sure marker is trimmed and all?
+  preparedAlreadyGivenTokens(tokens);
+  const r = parseTokens({tokens, partialContext});
+  return r.errorMessages;
 };
