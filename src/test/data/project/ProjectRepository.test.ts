@@ -275,7 +275,6 @@ describe('ProjectRepository', () => {
             ...MOCK_PROJECT_1,
             projectDir: expect.any(MockDirectoryHandle),
             fileWriter: expect.any(FileWriter), // Check if FileWriter is instantiated
-            md5Service: mockMd5Service,
         });
         expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(undefined);
     });

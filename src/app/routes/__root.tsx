@@ -1,29 +1,23 @@
-import {
-    createRootRouteWithContext,
-    Outlet,
-    redirect,
-    useParams,
-    useRouter,
-} from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useEffectOnce } from "react-use";
-import type { RouterContext } from "@/app/entrypoint";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider";
+import {createRootRouteWithContext, Outlet, useRouter,} from "@tanstack/react-router";
+import {useEffectOnce} from "react-use";
+import type {RouterContext} from "@/app/entrypoint";
+import { TanStackRouterDevtools} from "@tanstack/react-router-devtools";
 
 const RootLayout = () => {
     const router = useRouter();
     const { settingsManager } = router.options.context;
 
-    useEffectOnce(() => {
-        const { lastProjectPath, restoreToLastProjectOnLaunch } =
-            settingsManager.getSettings();
-        if (restoreToLastProjectOnLaunch && lastProjectPath) {
-            router.navigate({
-                to: `/$project`,
-                params: { project: lastProjectPath },
-            });
-        }
-    });
+    // useEffectOnce(() => {
+    //     const { lastProjectPath, restoreToLastProjectOnLaunch } = settingsManager.getSettings();
+    //     if (restoreToLastProjectOnLaunch && lastProjectPath) {
+    //         const projectName = lastProjectPath.split("/")[lastProjectPath.length - 1];
+    //         router.navigate({
+    //             to: `/$project`,
+    //             params: { project: projectName },
+    //         });
+    //     }
+    // });
+
     return (
         <>
             {/* <div className="p-2 flex gap-2">
@@ -47,28 +41,20 @@ const RootLayout = () => {
             <div className="">
                 <Outlet />
             </div>
-            {/* <TanStackRouterDevtools /> */}
+             <TanStackRouterDevtools />
         </>
     );
 };
+
 const rootRoute = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
     loader: async ({ context, route }) => {
-        const { directoryProvider } = context;
-        const projects = await getProjects(directoryProvider);
+
+        const { directoryProvider, projectRepository } = context;
+        const projects = await projectRepository.listProjects()
+
         return { projects };
     },
 });
 export const Route = rootRoute;
 
-async function getProjects(directoryProvider: IDirectoryProvider) {
-    const appDataDir = await directoryProvider.getUserDataDirectory();
-    const projects: { path: string; name: string }[] = [];
-    for await (const [name, handle] of appDataDir.entries()) {
-        if (handle.kind === "directory") {
-            // @ts-ignore todo: fix this
-            projects.push({ path: handle.path, name });
-        }
-    }
-    return projects;
-}

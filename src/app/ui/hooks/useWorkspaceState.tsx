@@ -25,7 +25,7 @@ export const useWorkspaceState = (
   );
   const [currentFile, setCurrentFile] = useState(
     getSavedIfPrefersRestore("lastBookIdentifier") ||
-      allFiles[0].bibleIdentifier
+      allFiles[0].bookCode
   );
   const [currentChapter, setCurrentChapter] = useState(
     getSavedIfPrefersRestore("lastChapterNumber") || 0
@@ -52,7 +52,7 @@ export const useWorkspaceState = (
     // at edge of book so need to get next book first chapter
     if (currentChapter === pickedFile?.chapters.length - 1) {
       const nextFile = allFiles.find(
-        (file) => file.bibleIdentifier === pickedFile?.nextBookId
+        (file) => file.bookCode === pickedFile?.nextBookId
       );
       return nextFile?.chapters[0];
     }
@@ -64,7 +64,7 @@ export const useWorkspaceState = (
     // at edge of book so need to get next book first chapter
     if (currentChapter === 0) {
       const prevFile = allFiles.find(
-        (file) => file.bibleIdentifier === pickedFile?.prevBookId
+        (file) => file.bookCode === pickedFile?.prevBookId
       );
       return prevFile?.chapters[prevFile?.chapters.length - 1];
     }

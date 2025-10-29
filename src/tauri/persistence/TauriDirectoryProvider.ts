@@ -115,11 +115,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     const fileHandle = await this.getHandle(filePath);
     const file = fileHandle.asFileHandle();
     if (!file) throw new Error("Path is not a file: " + filePath);
-    const stream = await file.createWritable();
-    console.log("file writer created: " + filePath);
-    const writer = stream.getWriter();
-    console.log("file writer ready: " + filePath);
-    return writer;
+    return file.createWriter();
   }
 
   async newFileReader(filePath: string): Promise<File> {

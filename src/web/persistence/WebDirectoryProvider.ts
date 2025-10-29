@@ -108,8 +108,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         const fileHandle = await this.getHandle(filePath);
         const file = fileHandle.asFileHandle();
         if (!file) throw new Error("Path is not a file: " + filePath);
-        const stream = await file.createWritable();
-        return stream.getWriter();
+        return file.createWriter();
     }
 
     async newFileReader(filePath: string) {

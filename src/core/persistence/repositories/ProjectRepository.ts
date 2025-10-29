@@ -4,13 +4,20 @@ import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {IFileWriter} from "@/core/io/IFileWriter.ts";
 import {FileWriter} from "@/core/io/DefaultFileWriter.ts";
 import {ProjectLoader} from "@/core/domain/project/ProjectLoader.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
 
 
 export class ProjectRepository implements IProjectRepository {
+
+    private projectLoader: IProjectLoader
+
     constructor(
         private directoryProvider: IDirectoryProvider,
-        private md5Service: IMd5Service
-    ) {}
+        md5Service: IMd5Service
+    ) {
+       this.projectLoader = new ProjectLoader(md5Service)
+    }
 
     private createFileWriter(projectDir: FileSystemDirectoryHandle): IFileWriter {
         return new FileWriter(this.directoryProvider, projectDir);
@@ -33,8 +40,7 @@ export class ProjectRepository implements IProjectRepository {
             const projectDir = await projectsRootDir.getDirectoryHandle(projectId, { create: true });
 
             const fileWriter = this.createFileWriter(projectDir);
-            const projectLoader = new ProjectLoader(); // Instantiate ProjectLoader here
-            const project = await projectLoader.loadProject(projectDir, fileWriter, this.md5Service);
+            const project = await this.projectLoader.loadProject(projectDir, fileWriter);
 
             if (project) {
                 // The Project object now has its fileWriter and projectDir correctly set
@@ -52,14 +58,18 @@ export class ProjectRepository implements IProjectRepository {
         try {
             const userDataDir = await this.directoryProvider.getUserDataDirectory();
             const projectsDir = await userDataDir.getDirectoryHandle("projects");
+            console.log("Projects Directory", projectsDir.name)
             for await (const [name, handle] of projectsDir.entries()) {
+                console.log("Entry: ", name, await handle.getAbsolutePath());
                 if (handle.kind === "directory") {
                     try {
-                        const directoryHandle = handle as FileSystemDirectoryHandle; // Explicit cast after type guard
-                        const projectFile = await directoryHandle.getFileHandle("project.json");
-                        const file = await projectFile.getFile();
-                        const contents = await file.text();
-                        projects.push(JSON.parse(contents));
+                        const directoryHandle = handle as IDirectoryHandle;
+                        const project = await this.projectLoader.loadProject(directoryHandle, new FileWriter(this.directoryProvider, directoryHandle))
+                        if (project) {
+                            projects.push(project);
+                        } else {
+                            throw new Error()
+                        }
                     } catch (error) {
                         console.warn(`Could not load project from directory ${name}:`, error);
                     }

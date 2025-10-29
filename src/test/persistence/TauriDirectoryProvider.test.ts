@@ -72,6 +72,7 @@ vi.mock('@/tauri/io/TauriFileHandle.ts', () => ({
                 getWriter: vi.fn(() => ({
                     write: vi.fn(() => Promise.resolve()),
                     close: vi.fn(() => Promise.resolve()),
+                    releaseLock: vi.fn(() => Promise.resolve()), // Add releaseLock
                 })),
             })),
         };

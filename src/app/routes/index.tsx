@@ -5,6 +5,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {Route as projectRoute} from "./$project";
+import {Project} from "@/core/persistence/ProjectRepository.ts";
 // import { Route as ProjectRoute } from '@/app/routes/projects/$projectId.edit';
 
 export const Route = createFileRoute("/")({
@@ -19,14 +20,17 @@ function Index() {
     <div>
       <h1>Projects</h1>
       <ul>
-        {projects?.map((project) => (
-          <Link
-            key={project.path}
+        {projects?.map((project: Project) =>
+            (
+            <Link
+            key={project.projectDir.path}
             to={projectRoute.id}
-            params={{project: project.path}}
+
+            params={{project: project.projectDir.name}}
             onClick={() => {
+                console.log("Clicked on Project", project.id);
               settingsManager.update({
-                lastProjectPath: project.path,
+                lastProjectPath: project.projectDir.path,
               });
             }}
           >

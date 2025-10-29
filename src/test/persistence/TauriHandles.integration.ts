@@ -398,4 +398,26 @@ describe('TauriDirectoryHandle Integration Tests (LIVE FS I/O)', () => {
         const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
         expect(await rootHandle.getAbsolutePath()).toBe(testRootPath);
     });
+
+    test('getFileHandle should resolve relative paths with ./ correctly', async () => {
+        const rootHandle = new TauriDirectoryHandle(testRootPath, tauriDirectoryProvider.getHandle.bind(tauriDirectoryProvider));
+        const fileName = 'relative_file.txt';
+        const relativePath = `./${fileName}`;
+        const expectedAbsolutePath = await join(testRootPath, fileName);
+
+        const fileHandle = await rootHandle.getFileHandle(relativePath, { create: true });
+
+        expect(fileHandle).toBeInstanceOf(TauriFileHandle);
+        expect(fileHandle.name).toBe(fileName);
+        expect(fileHandle.path).toBe(expectedAbsolutePath);
+
+        // Further test: write and read content
+        const writer = await fileHandle.createWriter();
+        const content = "Content from relative path file";
+        await writer.write(content);
+        await writer.close();
+
+        const readContent = await readTextFile(expectedAbsolutePath);
+        expect(readContent).toBe(content);
+    });
 });

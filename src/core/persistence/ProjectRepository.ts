@@ -2,7 +2,7 @@ import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
 import {ProjectFile} from "@/app/data/parsedProject.ts";
 import {ProjectMetadata} from "@/core/domain/project/project.ts";
 import {IFileWriter} from "@/core/io/IFileWriter.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 
 
 /**
@@ -44,11 +44,8 @@ export interface Project {
     name: string;
     files: ProjectFile[];
     metadata: ProjectMetadata;
-    projectDir: IPathHandle;
+    projectDir: IDirectoryHandle;
     fileWriter: IFileWriter;
-    manifestYaml?: any; // To hold parsed manifest data for updates (for Resource Container projects)
-    metadataJson?: any; // To hold parsed metadata data for updates (for Scripture Burrito projects)
-    md5Service: IMd5Service; // MD5 service for checksums, passed to addBook and internal operations
     /**
      * @method addBook
      * @description Adds a USFM file (book) to the project. This method is intelligent about project type
@@ -60,4 +57,11 @@ export interface Project {
      * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
      */
     addBook(bookCode: string, localizedBookTitle?: string, contents?: string): Promise<void>;
+    /**
+     * @method getBook
+     * @description Retrieves the content of a specific book from the project.
+     * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
+     * @returns A Promise that resolves to the content of the book as a string, or null if the book is not found.
+     */
+    getBook(bookCode: string): Promise<string | null>;
 }

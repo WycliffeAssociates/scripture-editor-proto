@@ -5,12 +5,14 @@ import {App} from "@/app/entrypoint";
 import {TauriGitProvider} from "@/tauri/domain/git/tauriGitProvider";
 import {createTauriSettingsManager} from "@/tauri/domain/settings/settings";
 import {TauriDirectoryProvider} from "@/tauri/persistence/TauriDirectoryProvider";
+import {TauriMd5Service} from "@/tauri/domain/md5/TauriMd5Service.ts";
 
 // instantiante services
 const settingsManager = createTauriSettingsManager();
 const directoryProvider = await TauriDirectoryProvider.create(
   "scripture-editor"
 );
+const md5Service = new TauriMd5Service();
 const gitProvider = new TauriGitProvider(directoryProvider);
 
 // react entry stuff
@@ -24,6 +26,7 @@ root.render(
       settingsManager={settingsManager}
       gitProvider={gitProvider}
       directoryProvider={directoryProvider}
+      md5Service={md5Service}
     />
   </StrictMode>
 );

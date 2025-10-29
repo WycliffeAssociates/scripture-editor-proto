@@ -33,6 +33,11 @@ export class WebFileHandle implements IFileHandle {
         return this.handle.createWritable(options);
     }
 
+    async createWriter(): Promise<WritableStreamDefaultWriter<any>> {
+        const writable = await this.createWritable();
+        return writable.getWriter();
+    }
+
     async write(
         data: FileSystemWriteChunkType,
         opts?: { keepExistingData?: boolean },

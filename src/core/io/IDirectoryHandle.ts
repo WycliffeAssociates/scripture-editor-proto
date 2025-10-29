@@ -1,7 +1,7 @@
 import {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 
-interface _IDirectoryHandle extends IPathHandle {
+export interface _IDirectoryHandle extends IPathHandle {
     getDirectoryHandle(name: string, options?: FileSystemGetDirectoryOptions): Promise<IDirectoryHandle>;
 
     getFileHandle(name: string, options?: FileSystemGetFileOptions): Promise<IFileHandle>;

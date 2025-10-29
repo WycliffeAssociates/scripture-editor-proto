@@ -68,7 +68,7 @@ export const ProjectProvider = ({
   });
   const referenceProject = useReferenceProject({
     directoryProvider,
-    pickedFileIdentifier: project.pickedFile.bibleIdentifier,
+    pickedFileIdentifier: project.pickedFile.bookCode,
     pickedChapterNumber: project.pickedChapter.chapNumber,
   });
   const search = useProjectSearch({
