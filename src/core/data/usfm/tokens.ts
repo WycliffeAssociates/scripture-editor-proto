@@ -127,17 +127,34 @@ const VALID_MILESTONE_MARKERS = new Set([
   "qt-s",
   "qt-e",
 ]);
-
-export const ALL_MARKERS_CAN_CLOSE_EXPLICIT = [
+export const ALL_CHAR_MARKERS = new Set([
   ...VALID_NOTE_MARKERS,
   ...VALID_CHAR_FOOTNOTE_MARKERS,
   ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
   ...VALID_CHAR_MARKERS,
   ...VALID_MILESTONE_MARKERS,
-].reduce((acc, marker) => {
-  acc.add(`\\${marker}*`);
-  return acc;
-}, new Set<string>());
+]);
+export const All_EXPLICT_CHAR_CLOSE_MARKERS = [...ALL_CHAR_MARKERS].reduce(
+  (acc, marker) => {
+    acc.add(`\\${marker}*`);
+    return acc;
+  },
+  new Set<string>()
+);
+export const NON_NOTE_CHAR_OPEN_MARKERS = new Set([
+  ...VALID_CHAR_MARKERS,
+  ...VALID_MILESTONE_MARKERS,
+]);
+export const NON_NOTE_CHAR_CLOSE_MARKERS = new Set(
+  [...NON_NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`)
+);
+export const NOTE_CHAR_OPEN_MARKERS = new Set([
+  ...VALID_CHAR_FOOTNOTE_MARKERS,
+  ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
+]);
+export const NOTE_CHAR_CLOSE_MARKERS = new Set(
+  [...NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`)
+);
 
 export const VALID_PARA_MARKERS = new Set([
   // Identification

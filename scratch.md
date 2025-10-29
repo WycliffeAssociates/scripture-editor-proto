@@ -160,15 +160,15 @@ allow enter key at the very edge of locked node?
 
 
 insert X for top 8-10 markers that can call from type or from context menu action. Or basically the wysiwyg transforms based on expects num, expects space, is paired etc; 
+
 Make nesteds work like top editor in terms of context menu and stuff?  (I think already work for modes being that we recursively updated, but the usfm plugin isnt' inserted in that composer, ie no wysi type.  )
 upgrade markers back to markers after downgrading if the textNode matches marker + space
-push para markers forwards in sid instead of back?
-fix footnotes
 context menu
-localization
-tool tips
-reverse find (from source text)
 sync reference panels with main editor (i.e. scroll to sid)
+reverse find (from source text)
+tool tips
+localization
 more lint rules? 
+push para markers forwards in sid instead of back?
 Start writing tests?
 Start refining ui? 

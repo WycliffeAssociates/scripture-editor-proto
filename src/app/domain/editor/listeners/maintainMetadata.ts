@@ -1,74 +1,81 @@
-import {$dfs, $reverseDfs} from "@lexical/utils";
+import {$dfs, $dfsIterator, $reverseDfsIterator} from "@lexical/utils";
 import {
   $getRoot,
   $setState,
   type LexicalEditor,
   type LexicalNode,
 } from "lexical";
-import {UsfmTokenTypes} from "@/app/data/editor";
+import {EDITOR_TAGS_USED, UsfmTokenTypes} from "@/app/data/editor";
+import type {MainDocumentStrutureFxn} from "@/app/domain/editor/listeners/maintainDocumentStructure";
 import {
   $isUSFMTextNode,
   USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import {sidState} from "@/app/domain/editor/states";
 import {parseSid} from "@/core/data/bible/bible";
-import {markerRegex, markerTrimNoSlash} from "@/core/domain/usfm/lex";
 
-export function mergeAdjacentTextNodesOfSameType(node: USFMTextNode) {
-  const next = node.getNextSibling();
-  if (!next) return;
-  const tokenTypesToMerge: string[] = [
-    UsfmTokenTypes.text,
-    UsfmTokenTypes.error,
-  ];
-  if (
-    $isUSFMTextNode(next) &&
-    next.getSid() === node.getSid() &&
-    tokenTypesToMerge.includes(next.getTokenType()) &&
-    tokenTypesToMerge.includes(node.getTokenType())
-  ) {
-    node.setTextContent(node.getTextContent() + next.getTextContent());
-    next.remove();
-  }
+// metadata should be able to only run as a node transform since selection change shouldn't
+export function maintainDocumentMetaData(
+  //   editorState: EditorState,
+  //   editor: LexicalEditor
+  node: USFMTextNode,
+  editor: LexicalEditor
+) {
+  const updates: Array<{
+    dbgLabel: string;
+    update: () => void;
+  }> = [];
+  //   console.time("maintainDocumentMetaData");
+  const tokenType = node.getTokenType();
+  const args = {
+    node,
+    tokenType,
+    updates,
+  };
+  adjustSidsAsNeededOnTextTokens(args);
+  maintainInPara(args);
+  //   editorState.read(() => {
+  //     const root = $getRoot();
+  //     root.getAllTextNodes().forEach((node) => {
+  //       if (!$isUSFMTextNode(node)) return;
+  //       const tokenType = node.getTokenType();
+  //       const args = {
+  //         node,
+  //         tokenType,
+  //         updates,
+  //       };
+  //       adjustSidsAsNeededOnTextTokens(args);
+  //       maintainInPara(args);
+  //     });
+  //   });
 
-  // Optionally merge backward too, if user inserted in middle
-  const prev = node.getPreviousSibling();
-  if (
-    prev &&
-    $isUSFMTextNode(prev) &&
-    prev.getSid() === node.getSid() &&
-    tokenTypesToMerge.includes(prev.getTokenType()) &&
-    tokenTypesToMerge.includes(node.getTokenType())
-  ) {
-    prev.setTextContent(prev.getTextContent() + node.getTextContent());
-    node.remove();
+  if (updates.length) {
+    editor.update(
+      () => {
+        updates.forEach((update) => {
+          update.update();
+        });
+      },
+      {
+        tag: [
+          EDITOR_TAGS_USED.historyMerge,
+          EDITOR_TAGS_USED.programaticIgnore,
+        ],
+      }
+    );
   }
+  //   console.timeEnd("maintainDocumentMetaData");
 }
-export function trySplitOutMarkersFromError(node: USFMTextNode) {
-  if (node.getTokenType() !== UsfmTokenTypes.error) return;
-  //   ;
-  const textContent = node.getTextContent();
-  //   if the textContent matches a markerRegex at start, we should split it there into a marker + text:
-  const match = textContent.match(markerRegex);
-  if (match) {
-    // call textNode.splitText(match.index)
-    const [left, right] = node.splitText(match[0].length);
-    if ($isUSFMTextNode(left)) {
-      left.setTokenType(UsfmTokenTypes.marker);
-      left.setMarker(markerTrimNoSlash(match[0]));
-    }
-    if ($isUSFMTextNode(right)) {
-      right.setTokenType(UsfmTokenTypes.text);
-    }
-  }
-}
 
-export function adjustSidsAsNeededOnTextTokens(node: USFMTextNode) {
-  const nodeTokenType = node.getTokenType();
+const adjustSidsAsNeededOnTextTokens: MainDocumentStrutureFxn = ({
+  node,
+  tokenType,
+  updates,
+}) => {
   const root = $getRoot();
   const last = root.getLastChild();
   if (!last) return;
-  if (nodeTokenType === UsfmTokenTypes.numberRange) {
+  if (tokenType === UsfmTokenTypes.numberRange) {
     // recalc and change everything until next numberRange
     const curSid = node.getSid().trim();
     const pendingSid = node.getTextContent().trim();
@@ -85,7 +92,13 @@ export function adjustSidsAsNeededOnTextTokens(node: USFMTextNode) {
       $isUSFMTextNode(prevMarker) &&
       prevMarker.getTokenType() === UsfmTokenTypes.marker
     ) {
-      prevMarker.setSid(newSid);
+      const update = () => {
+        prevMarker.setSid(newSid);
+      };
+      updates.push({
+        dbgLabel: "adjustSidsAsNeededOnTextTokens",
+        update,
+      });
     }
     if (!nextVerseRangeNode) return;
 
@@ -97,16 +110,27 @@ export function adjustSidsAsNeededOnTextTokens(node: USFMTextNode) {
         $isUSFMTextNode(textNode.node) &&
         textNode.node.getSid().trim() !== newSid
       ) {
-        textNode.node.setSid(newSid);
+        const n = textNode.node; //satisfy t
+        updates.push({
+          dbgLabel: "adjustSidsAsNeededOnTextTokens",
+          update: () => {
+            n.setSid(newSid);
+          },
+        });
       } else {
-        $setState(textNode.node, sidState, newSid);
+        updates.push({
+          dbgLabel: "adjustSidsAsNeededOnTextTokens",
+          update: () => {
+            $setState(textNode.node, sidState, newSid);
+          },
+        });
       }
     }
   }
-  if (nodeTokenType === UsfmTokenTypes.text) {
+  if (tokenType === UsfmTokenTypes.text) {
     // make sure this node token type matches nearest previous numberRange (trimmed)
     let prevVerseRange: USFMTextNode | null = null;
-    for (const prevNode of $reverseDfs(node, root)) {
+    for (const prevNode of $reverseDfsIterator(node, root)) {
       if (
         $isUSFMTextNode(prevNode.node) &&
         prevNode.node.getTokenType() === UsfmTokenTypes.numberRange
@@ -120,16 +144,56 @@ export function adjustSidsAsNeededOnTextTokens(node: USFMTextNode) {
     const prevVerseRangeSid = prevVerseRange.getSid().trim();
     const curSid = node.getSid().trim();
     if (curSid === prevVerseRangeSid) return;
-    node.setSid(prevVerseRangeSid);
+    updates.push({
+      dbgLabel: "adjustSidsAsNeededOnTextTokens",
+      update: () => {
+        node.setSid(prevVerseRangeSid);
+      },
+    });
   }
-}
+};
 
+const maintainInPara: MainDocumentStrutureFxn = ({
+  node,
+  tokenType,
+  updates,
+}) => {
+  //   a marker should have the same inPara as it's prev sibling until
+  // \p \v 1 text \v 2 more \q differrent:
+  // a node (such as word 'different') should have inPara of prevNode.marker since prevNode is a marker. else, it should have inPara of prevNode.inPara; a marker itself has an InPara of it's own marker;
+  if (tokenType === UsfmTokenTypes.marker) {
+    const currentInPara = node.getInPara();
+    const marker = node.getMarker();
+    if (!marker) return;
+    if (currentInPara === marker) return;
+    updates.push({
+      dbgLabel: "maintainInPara",
+      update: () => {
+        node.setInPara(marker);
+      },
+    });
+  } else {
+    const currentInPara = node.getInPara();
+    const prevNode = node.getPreviousSibling();
+    if (!$isUSFMTextNode(prevNode)) return;
+    const prevInPara = prevNode.getInPara();
+    if (currentInPara === prevInPara) return;
+    updates.push({
+      dbgLabel: "maintainInPara",
+      update: () => {
+        node.setInPara(prevInPara);
+      },
+    });
+  }
+};
+
+// util
 function findNextVerseRangeNode(
   node: USFMTextNode,
   lastNode: LexicalNode
 ): USFMTextNode | null {
   let next: USFMTextNode | null = null;
-  for (const nextNode of $dfs(node, lastNode)) {
+  for (const nextNode of $dfsIterator(node, lastNode)) {
     if (
       $isUSFMTextNode(nextNode.node) &&
       nextNode.node.getTokenType() === UsfmTokenTypes.numberRange &&

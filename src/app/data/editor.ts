@@ -1,4 +1,8 @@
-import type {SerializedLineBreakNode} from "lexical";
+import {
+  HISTORIC_TAG,
+  HISTORY_MERGE_TAG,
+  type SerializedLineBreakNode,
+} from "lexical";
 import type {USFMElementNodeJSON} from "@/app/domain/editor/nodes/USFMElementNode";
 import type {USFMNestedEditorNodeJSON} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import type {SerializedUSFMTextNode} from "@/app/domain/editor/nodes/USFMTextNode";
@@ -37,6 +41,11 @@ export const UsfmTokenTypes: Pick<
   numberRange: "numberRange",
   verticalWhitespace: "nl",
   error: "error",
+};
+export const EDITOR_TAGS_USED = {
+  programaticIgnore: "programatic-ignore",
+  historyMerge: HISTORY_MERGE_TAG,
+  historic: HISTORIC_TAG,
 };
 
 export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;

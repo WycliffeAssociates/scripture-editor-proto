@@ -28,8 +28,12 @@ import {
   sidState,
   tokenTypeState,
 } from "@/app/domain/editor/states";
-import {isValidParaMarker} from "@/core/data/usfm/tokens";
-import type {LintError} from "@/core/domain/usfm/lint";
+import type {LintError} from "@/core/data/usfm/lint";
+import {
+  ALL_CHAR_MARKERS,
+  All_EXPLICT_CHAR_CLOSE_MARKERS,
+  isValidParaMarker,
+} from "@/core/data/usfm/tokens";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
@@ -220,8 +224,16 @@ export class USFMTextNode extends TextNode {
     inChars.forEach((c) => {
       element.classList.add(`inChar-${c}`);
     });
-    if (states.marker && isValidParaMarker(states.marker)) {
-      element.classList.add("isParaMarker");
+    if (states.marker) {
+      if (isValidParaMarker(states.marker)) {
+        element.classList.add("isParaMarker");
+      }
+      if (ALL_CHAR_MARKERS.has(states.marker)) {
+        element.classList.add("isCharMarker");
+      }
+    }
+    if (states.tokenType === UsfmTokenTypes.endMarker) {
+      element.classList.add("isCharCloseMarker");
     }
     return element;
   }

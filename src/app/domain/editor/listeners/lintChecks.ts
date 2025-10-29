@@ -1,30 +1,17 @@
 import {$dfs} from "@lexical/utils";
 import {
-  $getNodeByKey,
-  $getRoot,
   type EditorState,
-  HISTORY_MERGE_TAG,
   type LexicalEditor,
   type SerializedEditorState,
 } from "lexical";
-import {UsfmTokenTypes} from "@/app/data/editor";
+import {EDITOR_TAGS_USED} from "@/app/data/editor";
+import {$isUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
-  $isUSFMNestedEditorNode,
-  isSerializedUSFMNestedEditorNode,
-  type USFMNestedEditorNode,
-  type USFMNestedEditorNodeJSON,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
-import {
-  $createUSFMTextNode,
   $isUSFMTextNode,
-  $isVerseRangeTextNode,
-  isSerializedUSFMTextNode,
   type SerializedUSFMTextNode,
-  type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import type {LintableTokenLike} from "@/app/ui/hooks/useActions";
 import type {LintError} from "@/core/data/usfm/lint";
-import {guidGenerator} from "@/core/data/utils/generic";
 import {lintExistingUsfmTokens} from "@/core/domain/usfm/parse";
 import {initParseContext} from "@/core/domain/usfm/tokenParsers";
 
@@ -57,11 +44,19 @@ export function lintAll(
     withErrorsInThisBook,
   });
   if (updateFxns.length) {
-    editor.update(() => {
-      updateFxns.forEach((fxn) => {
-        fxn();
-      });
-    });
+    editor.update(
+      () => {
+        updateFxns.forEach((fxn) => {
+          fxn();
+        });
+      },
+      {
+        tag: [
+          EDITOR_TAGS_USED.historyMerge,
+          EDITOR_TAGS_USED.programaticIgnore,
+        ],
+      }
+    );
   }
   return lintErrors;
 }
@@ -165,79 +160,4 @@ function lintNestedSerializedState(
     }
   });
   return {changed: nestedNeedsUpdate, newState: cloned};
-}
-
-export function ensurePlainTextNodeAlwaysFollowsVerseRange({
-  editorState,
-  editor,
-}: LintVersesArgs) {
-  const updates: Array<() => void> = [];
-  editorState.read(() => {
-    const root = $getRoot();
-    root.getAllTextNodes().forEach((node) => {
-      if (!$isVerseRangeTextNode(node)) return;
-      const next = node.getNextSibling();
-      if (
-        !next ||
-        !$isUSFMTextNode(next) ||
-        next.getTokenType() !== UsfmTokenTypes.text
-      ) {
-        updates.push(() => {
-          const emptySibling = $createUSFMTextNode(" ", {
-            id: guidGenerator(),
-            sid: node.getSid().trim(),
-            inPara: node.getInPara(),
-            tokenType: UsfmTokenTypes.text,
-          });
-          node.insertAfter(emptySibling);
-        });
-      }
-    });
-  });
-  editor.update(
-    () => {
-      updates.forEach((update) => {
-        update();
-      });
-    },
-    {
-      skipTransforms: true,
-      tag: [HISTORY_MERGE_TAG],
-    }
-  );
-}
-export function ensureVerseRangeAlwaysFollowsVerseMarker({
-  editorState,
-  editor,
-}: LintVersesArgs) {
-  const updates: Array<() => void> = [];
-  editorState.read(() => {
-    const root = $getRoot();
-    root.getAllTextNodes().forEach((node) => {
-      if (!$isUSFMTextNode(node)) return;
-      const hasVerseMarker = node.getMarker() === "v";
-      if (!hasVerseMarker) return;
-      const next = node.getNextSibling();
-      if ($isVerseRangeTextNode(next)) return;
-      updates.push(() => {
-        const emptySibling = $createUSFMTextNode(" ", {
-          id: guidGenerator(),
-          sid: node.getSid().trim(),
-          inPara: node.getInPara(),
-          tokenType: UsfmTokenTypes.numberRange,
-        });
-        node.insertAfter(emptySibling);
-      });
-    });
-  });
-  editor.update(
-    () => {
-      updates.forEach((update) => {
-        update();
-      });
-    },
-    {
-      tag: [HISTORY_MERGE_TAG],
-    }
-  );
 }

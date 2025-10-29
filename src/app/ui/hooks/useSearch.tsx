@@ -147,7 +147,7 @@ export function useProjectSearch({
             const editor = editorRef.current;
             if (!editor) return;
 
-            editor.update(() => {
+            editor.read(() => {
                 const root = $getRoot();
                 const searchMatches: MatchInNode[] = [];
 
@@ -233,7 +233,7 @@ export function useProjectSearch({
         const nextIndex = (currentMatchIndex + 1) % currentMatches.length;
         setCurrentMatchIndex(nextIndex);
 
-        editor.update(() => {
+        editor.read(() => {
             highlightAndScrollToMatch(currentMatches[nextIndex], editor);
         });
     }
@@ -250,7 +250,7 @@ export function useProjectSearch({
                 : currentMatchIndex - 1;
         setCurrentMatchIndex(prevIndex);
 
-        editor.update(() => {
+        editor.read(() => {
             highlightAndScrollToMatch(currentMatches[prevIndex], editor);
         });
     }

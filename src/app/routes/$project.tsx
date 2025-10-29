@@ -9,7 +9,7 @@ import {
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible";
 import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
-import type { LintError } from "@/core/domain/usfm/lint";
+import type { LintError } from "@/core/data/usfm/lint";
 import { parseUSFMfile } from "@/core/domain/usfm/parse";
 
 export const Route = createFileRoute("/$project")({

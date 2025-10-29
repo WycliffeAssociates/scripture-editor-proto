@@ -8,6 +8,7 @@ import {
 import { useEffect, useMemo, useRef } from "react";
 import { useEffectOnce } from "react-use";
 import {
+    EDITOR_TAGS_USED,
     type EditorMarkersMutableState,
     EditorMarkersMutableStates,
     type EditorMarkersViewState,
@@ -125,7 +126,10 @@ export const useWorkspaceActions = ({
                 );
             },
             {
-                tag: [HISTORY_MERGE_TAG],
+                tag: [
+                    EDITOR_TAGS_USED.historyMerge,
+                    EDITOR_TAGS_USED.programaticIgnore,
+                ],
             },
         );
         // editor.setEditorState(

@@ -60,7 +60,6 @@ export function textNodeTransform({
   const markerMatch = text.match(markerTokenMatchLineStartSpaceReq); // example: \v , \c , \q
   const inMidMatch = text.match(markerTokenMatchLineMid);
   if (!markerMatch && !inMidMatch) return;
-
   const marker = markerMatch?.[1] || inMidMatch?.[1];
   if (!marker) return;
   const isValidMarker = ALL_USFM_MARKERS.has(marker);
@@ -204,14 +203,26 @@ function $insertVerse(args: BaseInsertArgs): void {
   const prevVerseEnd = context.prevSidInfo?.verseEnd ?? 1;
 
   // Create nodes
-  const markerNode = $createMarkerNode(marker, context, args);
-  const verseRangeNode = $createContextTextNode(
-    ` ${prevVerseEnd + 1}`,
+  const markerNode = $createMarkerNode({
+    marker,
     context,
-    UsfmTokenTypes.numberRange,
-    {isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE}
-  );
-  const blankTextNode = $createContextTextNode(" ", context);
+    args,
+    tokenType: UsfmTokenTypes.marker,
+    sid: context.newSid,
+  });
+  const verseRangeNode = $createContextTextNode({
+    text: ` ${prevVerseEnd + 1}`,
+    context,
+    tokenType: UsfmTokenTypes.numberRange,
+    extraProps: {
+      isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
+    },
+  });
+  const blankTextNode = $createContextTextNode({
+    text: " ",
+    context,
+    tokenType: UsfmTokenTypes.text,
+  });
 
   const selection = $getSelection();
   const offset = $isRangeSelection(selection)
@@ -262,7 +273,7 @@ function $insertVerse(args: BaseInsertArgs): void {
 // ============================================================================
 // Chapter Insertion
 // ============================================================================
-
+// todo: we actually shouldn't allow inserting chapters since we break on as a ux division of edit per chapter
 function $insertChapter(args: BaseInsertArgs): void {
   const {anchorNode, marker, isStartOfLine, markersMutableState} = args;
 
@@ -270,14 +281,26 @@ function $insertChapter(args: BaseInsertArgs): void {
   const nextChapter = (context.prevSidInfo?.chapter ?? 0) + 1;
 
   // Create nodes
-  const markerNode = $createMarkerNode(marker, context, args);
-  const chapterRangeNode = $createContextTextNode(
-    ` ${nextChapter}`,
+  const markerNode = $createMarkerNode({
+    marker,
     context,
-    UsfmTokenTypes.numberRange,
-    {isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE}
-  );
-  const blankTextNode = $createContextTextNode(" ", context);
+    args,
+    tokenType: UsfmTokenTypes.marker,
+    sid: context.currentSidAsString,
+  });
+  const chapterRangeNode = $createContextTextNode({
+    text: ` ${nextChapter}`,
+    context,
+    tokenType: UsfmTokenTypes.numberRange,
+    extraProps: {
+      isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
+    },
+  });
+  const blankTextNode = $createContextTextNode({
+    text: " ",
+    context,
+    tokenType: UsfmTokenTypes.text,
+  });
 
   if (!isStartOfLine) {
     // Chapter must be at start of line - split and insert linebreak
@@ -319,7 +342,13 @@ function $insertPara(args: BaseInsertArgs): void {
   const {anchorNode, marker, isStartOfLine} = args;
 
   const context = $getInsertionContext(anchorNode);
-  const markerNode = $createMarkerNode(marker, context, args);
+  const markerNode = $createMarkerNode({
+    marker,
+    context,
+    args,
+    tokenType: UsfmTokenTypes.marker,
+    sid: context.currentSidAsString,
+  });
 
   if (!isStartOfLine) {
     // Para should be at start of line - split and insert linebreak
@@ -344,7 +373,12 @@ function $insertPara(args: BaseInsertArgs): void {
       right.selectStart();
     } else {
       // No sibling - create empty text node
-      const blankTextNode = $createContextTextNode(" ", context);
+      const blankTextNode = $createContextTextNode({
+        text: " ",
+        context,
+        tokenType: UsfmTokenTypes.text,
+        extraProps: {inPara: marker},
+      });
       markerNode.insertAfter(blankTextNode);
       blankTextNode.select();
     }
@@ -357,7 +391,12 @@ function $insertPara(args: BaseInsertArgs): void {
       nextSibling.selectStart();
     } else {
       // No suitable sibling - create empty text node
-      const blankTextNode = $createContextTextNode(" ", context);
+      const blankTextNode = $createContextTextNode({
+        text: " ",
+        context,
+        tokenType: UsfmTokenTypes.text,
+        extraProps: {inPara: marker},
+      });
       markerNode.insertAfter(blankTextNode);
       blankTextNode.select();
     }
@@ -370,24 +409,69 @@ function $insertPara(args: BaseInsertArgs): void {
 
 // todo: buggy / inf loop. fix
 function $insertChar(args: BaseInsertArgs): void {
-  const {anchorNode, marker} = args;
+  const {anchorNode, marker, isStartOfLine} = args;
 
   const context = $getInsertionContext(anchorNode);
   const selection = $getSelection();
 
   if (!$isRangeSelection(selection)) return;
-
-  const openingMarker = $createMarkerNode(marker, context, args);
-  const closingMarker = $createMarkerNode(`${marker}*`, context, args);
+  const common = {
+    marker,
+    context,
+    args,
+    tokenType: UsfmTokenTypes.marker,
+    inCharMarkers: [marker],
+    sid: context.currentSidAsString,
+  };
+  const openingMarker = $createMarkerNode(common);
+  const closingMarker = $createMarkerNode({
+    ...common,
+    marker: `${marker}`,
+    tokenType: UsfmTokenTypes.endMarker,
+  });
 
   if (selection.isCollapsed()) {
     // No selection - insert empty char markers with space between
-    const emptyTextNode = $createContextTextNode(" ", context);
+    const emptyTextNode = $createContextTextNode({
+      text: " ",
+      context,
+      tokenType: UsfmTokenTypes.text,
+      extraProps: {inChars: [marker]},
+    });
 
-    anchorNode.insertBefore(openingMarker);
-    openingMarker.insertAfter(emptyTextNode);
-    emptyTextNode.insertAfter(closingMarker);
-    emptyTextNode.select();
+    const offset = selection.anchor.offset;
+
+    if (!isStartOfLine) {
+      // Mid-line: remove marker from text, split, and insert
+      const [left, right] = anchorNode.splitText(offset);
+      const woMarker = `${left
+        .getTextContent()
+        .trimEnd()
+        .slice(0, -openingMarker.getTextContentSize())} `;
+      left?.setTextContent(woMarker);
+
+      if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+
+      left.insertAfter(openingMarker);
+      openingMarker.insertAfter(emptyTextNode);
+      emptyTextNode.insertAfter(closingMarker);
+
+      right?.setTextContent(`\u00A0${right.getTextContent()}`);
+      emptyTextNode.select();
+    } else {
+      // Start of line: replace anchor node
+      const sibling = anchorNode.getNextSibling();
+      anchorNode.replace(openingMarker);
+
+      openingMarker.insertAfter(emptyTextNode);
+      emptyTextNode.insertAfter(closingMarker);
+
+      if (sibling && $isUSFMTextNode(sibling)) {
+        sibling.setSid(context.newSid);
+      }
+
+      emptyTextNode.select();
+    }
   } else {
     // Wrap selection
     const {anchor, focus} = selection;
@@ -396,22 +480,45 @@ function $insertChar(args: BaseInsertArgs): void {
     const startOffset = isBackward ? focus.offset : anchor.offset;
     const endOffset = isBackward ? anchor.offset : focus.offset;
 
-    // Split at selection boundaries
-    const [before, middle] = anchorNode.splitText(startOffset);
-    const [selected, after] = (middle || before).splitText(
-      endOffset - startOffset
-    );
+    // First, remove the marker text from the beginning
+    const textContent = anchorNode.getTextContent();
+    const markerPattern = new RegExp(`\\\\${marker}\\s*`);
+    const markerMatch = textContent.match(markerPattern);
 
-    // Insert markers around selection
-    selected.insertBefore(openingMarker);
-    selected.insertAfter(closingMarker);
+    if (markerMatch) {
+      const markerLength = markerMatch[0].length;
+      const cleanedText =
+        textContent.slice(0, markerMatch.index) +
+        textContent.slice(markerMatch.index! + markerLength);
+      anchorNode.setTextContent(cleanedText);
 
-    // Update SIDs
-    if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
-    if ($isUSFMTextNode(after)) after.setSid(context.newSid);
+      // Adjust offsets since we removed the marker
+      const adjustedStart =
+        startOffset > markerMatch.index!
+          ? Math.max(markerMatch.index!, startOffset - markerLength)
+          : startOffset;
+      const adjustedEnd =
+        endOffset > markerMatch.index!
+          ? Math.max(markerMatch.index!, endOffset - markerLength)
+          : endOffset;
 
-    // Restore selection
-    selected.select();
+      // Split at adjusted selection boundaries
+      const [before, middle] = anchorNode.splitText(adjustedStart);
+      const [selected, after] = (middle || before).splitText(
+        adjustedEnd - adjustedStart
+      );
+
+      // Insert markers around selection
+      selected.insertBefore(openingMarker);
+      selected.insertAfter(closingMarker);
+
+      // Update SIDs
+      if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
+      if ($isUSFMTextNode(after)) after.setSid(context.newSid);
+
+      // Restore selection
+      selected.select();
+    }
   }
 }
 
@@ -428,11 +535,23 @@ function $insertNote(args: BaseInsertArgs): void {
   if (!$isRangeSelection(selection)) return;
 
   // Notes often use implicit closure (e.g., \f...\f*)
-  const openingMarker = $createMarkerNode(marker, context, args);
-  const closingMarker = $createMarkerNode(`${marker}*`, context, args);
+  const common = {args, context, marker, sid: context.currentSidAsString};
+  const openingMarker = $createMarkerNode({
+    ...common,
+    tokenType: UsfmTokenTypes.marker,
+  });
+  const closingMarker = $createMarkerNode({
+    ...common,
+    marker: `${marker}*`,
+    tokenType: UsfmTokenTypes.endMarker,
+  });
 
   if (selection.isCollapsed()) {
-    const emptyTextNode = $createContextTextNode(" ", context);
+    const emptyTextNode = $createContextTextNode({
+      text: " ",
+      context,
+      tokenType: UsfmTokenTypes.text,
+    });
 
     anchorNode.insertBefore(openingMarker);
     openingMarker.insertAfter(emptyTextNode);
@@ -481,11 +600,8 @@ type BaseInsertArgs = {
 
 type InsertContext = {
   nearestParaMarker: string;
-  prevSidInfo: {
-    book: string;
-    chapter: number;
-    verseEnd: number;
-  } | null;
+  prevSidInfo: ParsedReference | null;
+  currentSidAsString: string;
   newSid: string;
 };
 
@@ -508,6 +624,7 @@ function $getInsertionContext(anchorNode: USFMTextNode): InsertContext {
   return {
     nearestParaMarker: nearestParaMarker ?? "",
     prevSidInfo,
+    currentSidAsString: prevSidInfo?.toSidString() ?? "",
     newSid,
   };
 }
@@ -515,17 +632,29 @@ function $getInsertionContext(anchorNode: USFMTextNode): InsertContext {
 /**
  * Creates a USFM marker node with common properties
  */
-function $createMarkerNode(
-  marker: string,
-  context: InsertContext,
-  args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">
-): USFMTextNode {
+type CreatMarkerNodeArgs = {
+  marker: string;
+  context: InsertContext;
+  tokenType: (typeof UsfmTokenTypes)[keyof typeof UsfmTokenTypes];
+  sid: string;
+  inCharMarkers?: string[];
+  args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">;
+};
+function $createMarkerNode({
+  marker,
+  context,
+  args,
+  tokenType,
+  sid,
+  inCharMarkers,
+}: CreatMarkerNodeArgs): USFMTextNode {
   return $createUSFMTextNode(`\\${marker}`, {
     id: guidGenerator(),
     inPara: context.nearestParaMarker,
-    tokenType: UsfmTokenTypes.marker,
+    tokenType: tokenType,
     marker,
-    sid: context.newSid,
+    sid,
+    inChars: inCharMarkers,
     isMutable: args.markersMutableState === EditorMarkersMutableStates.MUTABLE,
     show:
       args.markersViewState === EditorMarkersViewStates.ALWAYS ||
@@ -536,16 +665,22 @@ function $createMarkerNode(
 /**
  * Creates a text node with common properties
  */
-function $createContextTextNode(
-  text: string,
-  context: InsertContext,
-  tokenType: string = UsfmTokenTypes.text,
-  extraProps?: Partial<USFMTextNodeMetadata>
-): USFMTextNode {
+type CreateContextTextNodeArgs = {
+  text: string;
+  context: InsertContext;
+  tokenType: (typeof UsfmTokenTypes)[keyof typeof UsfmTokenTypes];
+  extraProps?: Partial<USFMTextNodeMetadata>;
+};
+function $createContextTextNode({
+  text,
+  context,
+  tokenType,
+  extraProps,
+}: CreateContextTextNodeArgs): USFMTextNode {
   return $createUSFMTextNode(text, {
     id: guidGenerator(),
     inPara: context.nearestParaMarker,
-    tokenType,
+    tokenType: tokenType,
     sid: context.newSid,
     ...extraProps,
   });
@@ -646,34 +781,4 @@ export function inverseTextNodeTransform({
     node.replace(replacement);
     replacement.select();
   }
-
-  // if (nodeTokenType === UsfmTokenTypes.numberRange) {
-  //   // ;
-  //   // if it's no longer a valid verse range, keep it, but flag it as invalid
-  //   const isValid = content.match(verseRangeValidRegex);
-  //   const currentClassNames = node.getClassNames();
-  //   const shouldBeInvalid = !isValid;
-  //   const hasInvalidClass = currentClassNames.includes("verseRangeInvalid");
-
-  //   if (shouldBeInvalid === hasInvalidClass) return;
-  //   editor.update(
-  //     () => {
-  //       node.setClassName("verseRangeInvalid", shouldBeInvalid);
-  //       node.selectEnd();
-  //     },
-  //     {
-  //       tag: [HISTORY_MERGE_TAG, "programatic"],
-  //       // immediately flush this change
-  //       discrete: true,
-  //     }
-  //   );
-  //   // const replacement = $createUSFMTextNode(textNode.getTextContent(), {
-  //   //   id: textNode.getId(),
-  //   //   sid: textNode.getSid(),
-  //   //   inPara: textNode.getInPara(),
-  //   //   tokenType: validTokenTypes.text,
-  //   // });
-  //   // textNode.replace(replacement);
-  //   // replacement.select();
-  // }
 }

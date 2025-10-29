@@ -53,21 +53,3 @@ export function UsfmStylesPlugin() {
 
     return null;
 }
-
-function getFirstPoetryMarkerInBrSegment(segment: HTMLElement[]) {
-    return segment.find(
-        (el) =>
-            el.getAttribute("data-in-para")?.startsWith("q") ||
-            el.getAttribute("data-marker")?.startsWith("q"),
-    );
-}
-
-function getFirstPoetryMarkerWithDataShow(segment: HTMLElement[]) {
-    return segment.find(
-        (el) =>
-            // markers are what get's hidden, so skip them
-            !el.getAttribute("data-marker") &&
-            (el.getAttribute("data-in-para")?.startsWith("q") ||
-                el.getAttribute("data-marker")?.startsWith("q")),
-    );
-}

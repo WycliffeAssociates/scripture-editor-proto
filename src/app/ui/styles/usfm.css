@@ -6,8 +6,9 @@ body:not(.source-mode) {
     padding: 0 2px;
   }
 
-  [data-token-type="marker"] {
-    display: inline-block;
+  [data-token-type="marker"],
+  [data-token-type="endMarker"] {
+    /* display: inline-block; */
     align-items: center;
     color: var(--color-green-500);
   }
@@ -48,6 +49,18 @@ body:not(.source-mode) {
     /* visibility: hidden; */
     /* position: absolute; */
     /* pointer-events: none; */
+  }
+  [data-show="false"].isCharMarker,
+  [data-show="false"].isCharCloseMarker {
+    width: 0;
+    display: inline-block;
+    line-height: 0;
+  }
+  [data-show="true"].isCharMarker,
+  [data-show="true"].isCharCloseMarker {
+    width: auto;
+    display: inline;
+    line-height: inherit;
   }
 
   :where(

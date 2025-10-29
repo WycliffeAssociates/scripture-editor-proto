@@ -25,6 +25,8 @@ export function getPoetryStylesAsCssStyleSheet(
         ? getFirstPoetryMarkerWithDataShow(segment)
         : getFirstPoetryMarkerInBrSegment(segment);
     if (firstVisible) {
+      const isNumberRange =
+        firstVisible.getAttribute("data-token-type") === "numberRange";
       const dataPoetry =
         firstVisible.getAttribute("data-in-para") ||
         firstVisible.getAttribute("data-marker");
@@ -47,9 +49,14 @@ export function getPoetryStylesAsCssStyleSheet(
           default:
             amount = "0";
         }
-        styles += `[data-id="${firstVisible.getAttribute(
+        let line = `[data-id="${firstVisible.getAttribute(
           "data-id"
-        )}"] { margin-inline-start: ${amount}; }\n`;
+        )}"] { padding-inline-start: ${amount}; ${
+          isNumberRange
+            ? `margin-inline-start: -${firstVisible.textContent?.length}ch`
+            : ""
+        } }\n`;
+        styles += line;
       }
     }
   });

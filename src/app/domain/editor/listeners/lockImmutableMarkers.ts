@@ -8,6 +8,7 @@ import {
   PASTE_COMMAND,
 } from "lexical";
 import {
+  EDITOR_TAGS_USED,
   type EditorMarkersMutableState,
   EditorMarkersMutableStates,
 } from "@/app/data/editor";
@@ -50,31 +51,40 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
         // Copy to clipboard manually
         event.clipboardData?.setData("text/plain", cutText);
         // Mutate the editor
-        editor.update(() => {
-          const startEnd = selection.getStartEndPoints();
-          if (!startEnd) {
-            return;
-          }
-          const [start, end] = startEnd;
-
-          for (const node of unlockedNodes) {
-            const text = node.getTextContent();
-
-            const startOffset = node === start.getNode() ? start.offset : 0;
-            const endOffset = node === end.getNode() ? end.offset : text.length;
-
-            const before = text.slice(0, startOffset);
-            const after = text.slice(endOffset);
-
-            // If entire node is selected, just remove it
-            if (before === "" && after === "") {
-              node.remove();
-            } else {
-              node.setTextContent(before + after);
+        editor.update(
+          () => {
+            const startEnd = selection.getStartEndPoints();
+            if (!startEnd) {
+              return;
             }
+            const [start, end] = startEnd;
+
+            for (const node of unlockedNodes) {
+              const text = node.getTextContent();
+
+              const startOffset = node === start.getNode() ? start.offset : 0;
+              const endOffset =
+                node === end.getNode() ? end.offset : text.length;
+
+              const before = text.slice(0, startOffset);
+              const after = text.slice(endOffset);
+
+              // If entire node is selected, just remove it
+              if (before === "" && after === "") {
+                node.remove();
+              } else {
+                node.setTextContent(before + after);
+              }
+            }
+            nodes[0].selectEnd();
+          },
+          {
+            tag: [
+              EDITOR_TAGS_USED.historyMerge,
+              EDITOR_TAGS_USED.programaticIgnore,
+            ],
           }
-          nodes[0].selectEnd();
-        });
+        );
         return true;
       }
       return false;
@@ -178,60 +188,65 @@ export function lockImutableMarkersOnType({
   if (isDestructive) {
     // with modifiers, we need to account for a bit more:
     // if crossing locked boundaries but deleting, computing all unlocked ranges and call delete on each
-    editor.update(() => {
-      // if collapsed, check for modifiers to copy normal behavior of delete to previous word boundary or line:
-      if (hasModKey) {
-        // delete from current offset back to previous line boundary
-        // if (!$isUSFMTextNode(anchorNode)) return;
-        const anchorOffset = selection.anchor.offset;
-        const focusOffset = selection.focus.offset;
-        if (nodes.length === 1 && $isUSFMTextNode(anchorNode)) {
-          const furthest = Math.max(anchorOffset, focusOffset);
-          const after = anchorNode.getTextContent().slice(furthest);
-          anchorNode.setTextContent(after);
-          // move the cursor to the start of the node:
-          anchorNode.selectStart();
-          // for one node selected, just take the furthest spot and clear back
-          return; //only one node to handle in collapsed;
-        } else {
-          // since wepan multiple nodes, the earliest node get cleared
-          const nodeToClear = isBackward
-            ? selection.focus.getNode()
-            : selection.anchor.getNode();
-          if ($isUSFMTextNode(nodeToClear)) {
-            nodeToClear.setTextContent("");
+    editor.update(
+      () => {
+        // if collapsed, check for modifiers to copy normal behavior of delete to previous word boundary or line:
+        if (hasModKey) {
+          // delete from current offset back to previous line boundary
+          // if (!$isUSFMTextNode(anchorNode)) return;
+          const anchorOffset = selection.anchor.offset;
+          const focusOffset = selection.focus.offset;
+          if (nodes.length === 1 && $isUSFMTextNode(anchorNode)) {
+            const furthest = Math.max(anchorOffset, focusOffset);
+            const after = anchorNode.getTextContent().slice(furthest);
+            anchorNode.setTextContent(after);
+            // move the cursor to the start of the node:
+            anchorNode.selectStart();
+            // for one node selected, just take the furthest spot and clear back
+            return; //only one node to handle in collapsed;
+          } else {
+            // since wepan multiple nodes, the earliest node get cleared
+            const nodeToClear = isBackward
+              ? selection.focus.getNode()
+              : selection.anchor.getNode();
+            if ($isUSFMTextNode(nodeToClear)) {
+              nodeToClear.setTextContent("");
+            }
           }
         }
-      }
 
-      const startEnd = selection.getStartEndPoints();
-      if (!startEnd) {
-        return;
-      }
-      let [start, end] = startEnd;
-      if (isBackward) {
-        [start, end] = [end, start];
-      }
-      const filteredNodes = nodes
-        .filter((node) => $isUSFMTextNode(node) && node.getMutable() === true)
-        .map((node) => node as USFMTextNode);
+        const startEnd = selection.getStartEndPoints();
+        if (!startEnd) {
+          return;
+        }
+        let [start, end] = startEnd;
+        if (isBackward) {
+          [start, end] = [end, start];
+        }
+        const filteredNodes = nodes
+          .filter((node) => $isUSFMTextNode(node) && node.getMutable() === true)
+          .map((node) => node as USFMTextNode);
 
-      if (filteredNodes.length === 0) {
-        return true;
+        if (filteredNodes.length === 0) {
+          return true;
+        }
+        for (const node of filteredNodes) {
+          const textContent = node.getTextContent();
+          const startOffset = node === start.getNode() ? start.offset : 0;
+          const endOffset =
+            node === end.getNode() ? end.offset : textContent.length;
+          const before = textContent.slice(0, startOffset);
+          const after = textContent.slice(endOffset);
+          const newContent = `${before}${after}`;
+          node.setTextContent(newContent);
+          // node.selectEnd();
+        }
+        filteredNodes[0].selectEnd();
+      },
+      {
+        tag: [EDITOR_TAGS_USED.programaticIgnore],
       }
-      for (const node of filteredNodes) {
-        const textContent = node.getTextContent();
-        const startOffset = node === start.getNode() ? start.offset : 0;
-        const endOffset =
-          node === end.getNode() ? end.offset : textContent.length;
-        const before = textContent.slice(0, startOffset);
-        const after = textContent.slice(endOffset);
-        const newContent = `${before}${after}`;
-        node.setTextContent(newContent);
-        // node.selectEnd();
-      }
-      filteredNodes[0].selectEnd();
-    });
+    );
   }
   return true;
 }

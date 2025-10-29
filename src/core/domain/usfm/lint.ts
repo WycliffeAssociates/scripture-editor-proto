@@ -5,8 +5,8 @@ import {
   lintErrorToUniqueKey,
 } from "@/core/data/usfm/lint";
 import {
-  ALL_MARKERS_CAN_CLOSE_EXPLICIT,
   ALL_USFM_MARKERS,
+  All_EXPLICT_CHAR_CLOSE_MARKERS,
   VALID_NOTE_MARKERS,
 } from "@/core/data/usfm/tokens";
 import {markerTrimNoSlash, TokenMap} from "@/core/domain/usfm/lex";
@@ -289,7 +289,7 @@ export const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
     return;
   }
 
-  if (ALL_MARKERS_CAN_CLOSE_EXPLICIT.has(ctx.currentToken.text.trim())) return;
+  if (All_EXPLICT_CHAR_CLOSE_MARKERS.has(ctx.currentToken.text.trim())) return;
   const err = {
     message: `Unknown closing marker ${ctx.currentToken.text}`,
     sid: ctx.currentToken?.sid ?? "unknown location",

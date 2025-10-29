@@ -139,4 +139,9 @@ function prepareLexedToken<T extends Token | LintableToken>(
   if (normalizedType === TokenMap.marker) {
     (token as LintableToken).marker = markerTrimNoSlash(token.text);
   }
+  if (normalizedType === TokenMap.endMarker) {
+    (token as LintableToken).marker = markerTrimNoSlash(
+      token.text.replace("*", "")
+    );
+  }
 }

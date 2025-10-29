@@ -9,23 +9,20 @@ import {
     type NodeKey,
 } from "lexical";
 import { useEffect, useRef } from "react";
-import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
 import {
-    ensurePlainTextNodeAlwaysFollowsVerseRange,
-    ensureVerseRangeAlwaysFollowsVerseMarker,
-    lintAll,
-} from "@/app/domain/editor/listeners/lintChecks";
+    EDITOR_TAGS_USED,
+    EditorMarkersViewStates,
+    EditorModes,
+} from "@/app/data/editor";
+import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
 import {
     lockImmutableMarkersOnCut,
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
 } from "@/app/domain/editor/listeners/lockImmutableMarkers";
-import {
-    adjustSidsAsNeededOnTextTokens,
-    mergeAdjacentTextNodesOfSameType,
-    trySplitOutMarkersFromError,
-} from "@/app/domain/editor/listeners/maintainMetadata";
+import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure";
+import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -45,8 +42,7 @@ export function USFMPlugin() {
         console.count(`debouncedLint`);
         // console.time("lint");
         // const messages = lintVerseRangeReferences({editorState, editor});
-        ensureVerseRangeAlwaysFollowsVerseMarker({ editorState, editor });
-        ensurePlainTextNodeAlwaysFollowsVerseRange({ editorState, editor });
+
         const errMessages = lintAll(
             { editorState, editor },
             actions.getFlatFileTokens,
@@ -74,23 +70,30 @@ export function USFMPlugin() {
         }
         // update listeners, not a transform due to needing to run on selection changes
         // Get notified when Lexical commits an update to the DOM.
-        const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
-            if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
-                return;
-            }
-            console.count("wysiPreview");
-
-            toggleShowOnToggleableNodes({
-                editor,
-                editorState,
-                markersViewState,
-                currentActive: markersInPreview.current,
-                markersMutableState,
-                setCurrentActive: (activeNodes) => {
-                    markersInPreview.current = activeNodes;
-                },
-            });
-        });
+        const wysiPreview = editor.registerUpdateListener(
+            ({ editorState, tags }) => {
+                if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
+                    return;
+                }
+                toggleShowOnToggleableNodes({
+                    editor,
+                    editorState,
+                    markersViewState,
+                    currentActive: markersInPreview.current,
+                    markersMutableState,
+                    setCurrentActive: (activeNodes) => {
+                        markersInPreview.current = activeNodes;
+                    },
+                });
+            },
+        );
+        const maintainMetadata = editor.registerNodeTransform(
+            USFMTextNode,
+            (node) => {
+                maintainDocumentStructure(node, editor);
+                maintainDocumentMetaData(node, editor);
+            },
+        );
         const unregisterTransformWhileTyping = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {
@@ -105,14 +108,7 @@ export function USFMPlugin() {
                 inverseTextNodeTransform(arg);
             },
         );
-        const maintainMetadata = editor.registerNodeTransform(
-            USFMTextNode,
-            (node) => {
-                mergeAdjacentTextNodesOfSameType(node);
-                trySplitOutMarkersFromError(node);
-                adjustSidsAsNeededOnTextTokens(node);
-            },
-        );
+
         // keep the editor one flat list of tokens under one para parent
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);

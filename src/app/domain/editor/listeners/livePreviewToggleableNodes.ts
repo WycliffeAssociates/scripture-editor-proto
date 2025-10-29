@@ -1,4 +1,4 @@
-import {$dfs, $reverseDfs} from "@lexical/utils";
+import {$dfs, $reverseDfs, $reverseDfsIterator} from "@lexical/utils";
 import {
   $addUpdateTag,
   $getNodeByKey,
@@ -20,6 +20,7 @@ import {
   type EditorMarkersViewState,
   EditorMarkersViewStates,
   TOKEN_TYPES_CAN_TOGGLE_HIDE,
+  UsfmTokenTypes,
 } from "@/app/data/editor";
 import {$isUSFMElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
 import {
@@ -111,7 +112,6 @@ function findRelevantConditionals(node: LexicalNode): USFMTextNode[] | null {
 
   const thisSid = node.getSid();
   if (!thisSid) return null;
-
   const collected: USFMTextNode[] = [];
 
   // --- Backward phase
@@ -135,7 +135,7 @@ function collectBackwardToggleable(
   const root = $getRoot();
   const collected: USFMTextNode[] = [];
 
-  for (const prevNode of $reverseDfs(node, root)) {
+  for (const prevNode of $reverseDfsIterator(node, root)) {
     // don't cross line breaks.
     if ($isLineBreakNode(prevNode.node)) break;
     if (!$isUSFMTextNode(prevNode.node)) continue;
@@ -196,7 +196,7 @@ function collectForwardForInChars(
 }
 
 function isEndMarkerForChar(node: USFMTextNode, charName: string) {
-  if (node.getTokenType() !== "endMarker") return false;
+  if (node.getTokenType() !== UsfmTokenTypes.endMarker) return false;
   const markerText = node.getTextContent().replace("\\", "").replace("*", "");
   return markerText === charName;
 }
