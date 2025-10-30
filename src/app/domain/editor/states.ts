@@ -1,35 +1,35 @@
 // --- NodeState Definitions ---
 
-import { createState } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor";
-import type { LintError } from "@/core/domain/usfm/parse";
+import {createState} from "lexical";
+import {UsfmTokenTypes} from "@/app/data/editor";
+import type {LintError} from "@/core/data/usfm/lint";
 
 /**
  * Defines the NodeState for 'id'. It's a unique identifier for the node.
  */
 const idState = createState("id", {
-    parse: (value) => (typeof value === "string" ? value : ""),
+  parse: (value) => (typeof value === "string" ? value : ""),
 });
 
 /**
  * Defines the NodeState for 'sid'. It represents the Scripture ID (e.g., 'GEN 1:1').
  */
 const sidState = createState("sid", {
-    parse: (value) => (typeof value === "string" ? value : ""),
+  parse: (value) => (typeof value === "string" ? value : ""),
 });
 
 /**
  * Defines the NodeState for 'inPara'. It stores the USFM paragraph marker (e.g., 'p', 'q1').
  */
 const inParaState = createState("inPara", {
-    parse: (value) => (typeof value === "string" ? value : ""),
+  parse: (value) => (typeof value === "string" ? value : ""),
 });
 
 const inCharsState = createState("inChars", {
-    parse: (value) =>
-        typeof value === "object" && Array.isArray(value)
-            ? (value as Array<string>)
-            : ([] as Array<string>),
+  parse: (value) =>
+    typeof value === "object" && Array.isArray(value)
+      ? (value as Array<string>)
+      : ([] as Array<string>),
 });
 
 /**
@@ -37,39 +37,39 @@ const inCharsState = createState("inChars", {
  * Examples: 'text', 'marker', 'numberRange'
  */
 const tokenTypeState = createState("tokenType", {
-    parse: (value) => (typeof value === "string" ? value : UsfmTokenTypes.text),
+  parse: (value) => (typeof value === "string" ? value : UsfmTokenTypes.text),
 });
 
 /**
  * Defines the NodeState for 'marker'. It holds the associated USFM marker if any (e.g., 'v', 'wj').
  */
 const markerState = createState("marker", {
-    parse: (value) => (typeof value === "string" ? value : undefined),
+  parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
 /**
  * Defines the NodeState for 'show'. It controls the node's visibility.
  */
 const showState = createState("show", {
-    parse: (value) => (typeof value === "boolean" ? value : true),
+  parse: (value) => (typeof value === "boolean" ? value : true),
 });
 const isMutableState = createState("isMutable", {
-    parse: (value) => (typeof value === "boolean" ? value : true),
+  parse: (value) => (typeof value === "boolean" ? value : true),
 });
 const lintErrorsState = createState("lintErrors", {
-    parse: (value) =>
-        typeof value === "object" && Array.isArray(value)
-            ? (value as Array<LintError>)
-            : ([] as Array<LintError>),
+  parse: (value) =>
+    typeof value === "object" && Array.isArray(value)
+      ? (value as Array<LintError>)
+      : ([] as Array<LintError>),
 });
 export {
-    idState,
-    sidState,
-    inParaState,
-    inCharsState,
-    tokenTypeState,
-    markerState,
-    showState,
-    isMutableState,
-    lintErrorsState,
+  idState,
+  sidState,
+  inParaState,
+  inCharsState,
+  tokenTypeState,
+  markerState,
+  showState,
+  isMutableState,
+  lintErrorsState,
 };

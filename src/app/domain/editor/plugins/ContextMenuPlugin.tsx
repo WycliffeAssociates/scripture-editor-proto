@@ -1,8 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $dfs, $reverseDfs } from "@lexical/utils";
+import { $reverseDfs } from "@lexical/utils";
 import {
     Group,
-    Menu,
     Paper,
     Portal,
     rem,
@@ -14,13 +13,11 @@ import { useClickOutside } from "@mantine/hooks";
 import {
     $getSelection,
     $isRangeSelection,
-    $isTextNode,
     COMMAND_PRIORITY_HIGH,
     KEY_DOWN_COMMAND,
     type LexicalEditor,
 } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { $isUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
 
 export type ContextMenuItem = {
@@ -70,7 +67,7 @@ export function NodeContextMenuPlugin({ items }: Props) {
             const nativeSel = window.getSelection();
             if (!nativeSel || nativeSel.rangeCount === 0) return;
 
-            let range = nativeSel.getRangeAt(0);
+            const range = nativeSel.getRangeAt(0);
             let rect = range.getBoundingClientRect();
 
             // If the current rect is collapsed/empty, look backwards for something with bounds

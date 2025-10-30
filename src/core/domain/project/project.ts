@@ -5,14 +5,6 @@ export type ProjectFile = {
     path: string;
 };
 
-export interface Project {
-    id: string;
-    name: string;
-    files: ProjectFile[];
-    path: string;
-    metadata: ProjectMetadata;
-}
-
 export interface ProjectMetadata {
     name: string;
     id: string;

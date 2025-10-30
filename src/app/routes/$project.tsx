@@ -1,17 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parse } from "yaml";
-import { ParsedFile } from "@/app/data/parsedProject";
-import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/serialize";
+import type { ParsedFile } from "@/app/data/parsedProject";
+import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical";
+
 import { ProjectView } from "@/app/ui/components/views/ProjectView";
 import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext";
 import {
     getBookSlug,
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible";
+import type { LintError } from "@/core/data/usfm/lint";
 import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
 import { parseUSFMfile } from "@/core/domain/usfm/parse";
-import { IDirectoryProvider } from "@/core/persistence/DirectoryProvider";
-import { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
 export const Route = createFileRoute("/$project")({
     component: RouteComponent,
@@ -20,21 +20,27 @@ export const Route = createFileRoute("/$project")({
     loader: async ({ context, params }) => {
         console.time("total time");
         // start here would prefer to wrap into a single abstraction
-        const { directoryProvider, projectRepository } = context;
+        const { projectRepository } = context;
         const { project } = params;
-        const { parsedFiles, allInitialLintErrors } =
-            await projectParamToParsedFiles(projectRepository, project);
-        return { projectFiles: parsedFiles };
+        const result = await projectParamToParsedFiles(
+            projectRepository,
+            project,
+        );
+        const { parsedFiles, allInitialLintErrors } = result || {
+            parsedFiles: [],
+            allInitialLintErrors: [],
+        };
+        return { projectFiles: parsedFiles, allInitialLintErrors };
     },
 });
 
 function RouteComponent() {
-    const { parsedFiles, allInitialLintErrors } = Route.useLoaderData();
+    const { projectFiles, allInitialLintErrors } = Route.useLoaderData();
     const { project } = Route.useParams();
     return (
         <ProjectProvider
             currentProjectRoute={project}
-            projectFiles={parsedFiles}
+            projectFiles={projectFiles}
             allInitialLintErrors={allInitialLintErrors}
         >
             <ProjectView />
@@ -47,10 +53,11 @@ export async function projectParamToParsedFiles(
     projectRepository: IProjectRepository,
     project: string | undefined,
 ) {
-    if (project === "undefined") return [];
-    if (!project) return [];
+    if (project === "undefined") return;
+    if (!project) return;
 
     const loadedProject = await projectRepository.loadProject(project);
+    if (!loadedProject) return;
     const language = loadedProject.metadata.language;
     const entries: Array<{
         code: string;
@@ -59,9 +66,10 @@ export async function projectParamToParsedFiles(
     }> = [];
 
     for (const bookName of Object.keys(canonicalBookMap)) {
-        const bookContent = loadedProject?.getBook(bookName);
+        const bookContent = loadedProject.getBook(bookName);
         if (entries && bookContent) {
             const text = await bookContent;
+            if (!text) continue;
             entries.push({
                 code: bookName,
                 name: bookName,
@@ -72,8 +80,11 @@ export async function projectParamToParsedFiles(
     const sorted = sortUsfmFilesByCanonicalOrder(entries);
     // end here would prefer to wrap into a single abstraction
     // Next function call as parsing and going to lexicla state is separate is fine
+    const allInitialLintErrors: LintError[] = [];
+
     const parsed: ParsedFile[] = sorted.map((book, i) => {
-        const parsed = parseUSFMfile(book.text);
+        const { usfm, lintErrors } = parseUSFMfile(book.text);
+        allInitialLintErrors.push(...lintErrors);
         return {
             nextBookId:
                 i === sorted.length - 1
@@ -82,7 +93,7 @@ export async function projectParamToParsedFiles(
             prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.name),
             title: book.name,
             bookCode: getBookSlug(book.name),
-            chapters: Object.entries(parsed).map(([chapter, tokens]) => ({
+            chapters: Object.entries(usfm).map(([chapter, tokens]) => ({
                 lexicalState: parsedUsfmTokensToJsonLexicalNode(
                     tokens,
                     language.direction,
@@ -94,5 +105,5 @@ export async function projectParamToParsedFiles(
     });
     console.timeEnd("parse");
     console.timeEnd("total time");
-    return parsed;
+    return { parsedFiles: parsed, allInitialLintErrors };
 }

@@ -1,15 +1,15 @@
 import {stringify} from "yaml";
 import {canonicalBookMap} from "@/core/domain/project/bookMapping.ts";
-import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
+import type {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
 import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {
   parseResourceContainer,
-  ResourceContainer,
-  ResourceContainerProject,
+  type ResourceContainer,
+  type ResourceContainerProject,
 } from "@/core/domain/project/resourceContainer/resourceContainer.ts";
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileWriter} from "@/core/io/IFileWriter.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import type {IFileWriter} from "@/core/io/IFileWriter.ts";
+import type {Project} from "@/core/persistence/ProjectRepository.ts";
 
 /**
  * @class ResourceContainerProjectLoader
@@ -21,7 +21,8 @@ import {Project} from "@/core/persistence/ProjectRepository.ts";
 export class ResourceContainerProjectLoader implements IProjectLoader {
   static readonly MANIFEST_FILENAME = "manifest.yaml";
 
-  constructor() {}
+  // not used atm
+  // constructor() {}
 
   /**
    * @method loadProject
@@ -121,13 +122,14 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
           }
 
           // Get or create the file handle for the book using the final determined relative path
-          const bookFileHandle = await directoryHandle.getFileHandle(
-            finalRelativeFilePath,
-            {create: true}
-          );
-          const writer = await bookFileHandle.createWriter();
-          await writer.write(contents);
-          await writer.close();
+          // const bookFileHandle = await directoryHandle.getFileHandle(
+          //     finalRelativeFilePath,
+          //     { create: true },
+          // );
+          // const writer = await bookFileHandle.createWriter();
+          // await writer.write(contents);
+          // await writer.close();
+          await fileWriter.writeFile(finalRelativeFilePath, contents);
           console.log(`File ${finalRelativeFilePath} written/overwritten.`);
 
           // Update manifest.yaml with the final relative file path
@@ -155,13 +157,18 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
 
           // Write updated manifest back
           const updatedManifestString = stringify(parsedManifest);
-          const manifestFileHandle = await projectDir.getFileHandle(
+          //   const manifestFileHandle = await projectDir.getFileHandle(
+          //     ResourceContainerProjectLoader.MANIFEST_FILENAME,
+          //     {create: true}
+          //   );
+          //   const manifestWriter = await manifestFileHandle.createWriter();
+          await fileWriter.writeFile(
             ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            {create: true}
+            updatedManifestString
           );
-          const manifestWriter = await manifestFileHandle.createWriter();
-          await manifestWriter.write(updatedManifestString);
-          await manifestWriter.close();
+
+          //   await manifestWriter.write(updatedManifestString);
+          //   await manifestWriter.close();
           console.log(
             `Manifest ${ResourceContainerProjectLoader.MANIFEST_FILENAME} updated.`
           );
@@ -188,7 +195,7 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
           );
 
           let bookPath: string;
-          if (bookInManifest && bookInManifest.path) {
+          if (bookInManifest?.path) {
             bookPath = bookInManifest.path;
           } else {
             bookPath = `${book.num}-${book.code}.usfm`; // Default path if not in manifest or path is missing

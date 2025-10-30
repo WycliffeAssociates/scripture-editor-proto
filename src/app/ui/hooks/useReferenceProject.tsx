@@ -1,32 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { projectParamToParsedFiles } from "@/app/routes/$project";
-import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
-import type { Project } from "@/core/domain/project/project";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository";
 
 export type ReferenceProjectHook = ReturnType<typeof useReferenceProject>;
 
 type Props = {
-    directoryProvider: IDirectoryProvider;
+    projectRepository: IProjectRepository;
     pickedFileIdentifier: string;
     pickedChapterNumber: number;
 };
 export const useReferenceProject = ({
-    directoryProvider,
+    projectRepository,
     pickedFileIdentifier,
     pickedChapterNumber,
 }: Props) => {
     // todo: change to project
-    const [referenceProjectPath, setReferenceProjectPath] = useState<string>();
+    const [referenceProjectId, setReferenceProjectId] = useState<string>();
     const referenceProjectQuery = useQuery({
-        queryKey: ["projectFiles", referenceProjectPath],
+        queryKey: ["projectFiles", referenceProjectId],
         queryFn: () =>
-            projectParamToParsedFiles(directoryProvider, referenceProjectPath),
-        enabled: !!referenceProjectPath,
+            projectParamToParsedFiles(projectRepository, referenceProjectId),
+        enabled: !!referenceProjectId,
     });
     const referenceFile = useMemo(() => {
         return referenceProjectQuery.data?.parsedFiles.find(
-            (f) => f.bibleIdentifier === pickedFileIdentifier,
+            (f) => f.bookCode === pickedFileIdentifier,
         );
     }, [referenceProjectQuery.data, pickedFileIdentifier]);
     const referenceChapter = useMemo(() => {
@@ -37,8 +36,8 @@ export const useReferenceProject = ({
         referenceQuery: referenceProjectQuery,
         referenceFile,
         referenceChapter,
-        setReferenceProjectPath,
-        referenceProjectPath,
+        setReferenceProjectId,
+        referenceProjectId,
     };
 };
 

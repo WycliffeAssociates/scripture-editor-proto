@@ -1,8 +1,9 @@
 import {$dfs} from "@lexical/utils";
-import {
-  type EditorState,
-  type LexicalEditor,
-  type SerializedEditorState,
+import type {
+  EditorState,
+  LexicalEditor,
+  SerializedEditorState,
+  SerializedLexicalNode,
 } from "lexical";
 import {EDITOR_TAGS_USED} from "@/app/data/editor";
 import {$isUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
@@ -111,13 +112,17 @@ export function dfsEditorStateForLint({
     }
   });
 }
-function dfs(node: any, map: Record<string, any>) {
+type dfsNode = SerializedLexicalNode & {
+  id?: string;
+  children?: SerializedLexicalNode[];
+};
+function dfs(node: dfsNode, map: Record<string, dfsNode>) {
   if (!node) return;
   if (node?.id) {
     map[node.id] = node;
   }
   if (node.children?.length) {
-    for (const child of node.children) dfs(child, map);
+    for (const child of node.children) dfs(child as dfsNode, map);
   }
 }
 function lintNestedSerializedState(
@@ -128,8 +133,8 @@ function lintNestedSerializedState(
   const cloned = structuredClone(state);
   const parsed = editor.parseEditorState(state);
 
-  const clonedMap: Record<string, any> = {};
-  dfs(cloned.root, clonedMap);
+  const clonedMap: Record<string, dfsNode> = {};
+  dfs(cloned.root as dfsNode, clonedMap);
 
   let nestedNeedsUpdate = false;
   parsed.read(() => {

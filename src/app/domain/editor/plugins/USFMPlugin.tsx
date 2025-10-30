@@ -1,19 +1,14 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useDebouncedCallback } from "@mantine/hooks";
 import {
-    $addUpdateTag,
-    COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
 } from "lexical";
+
 import { useEffect, useRef } from "react";
-import {
-    EDITOR_TAGS_USED,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor";
+import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
 import {
@@ -70,23 +65,21 @@ export function USFMPlugin() {
         }
         // update listeners, not a transform due to needing to run on selection changes
         // Get notified when Lexical commits an update to the DOM.
-        const wysiPreview = editor.registerUpdateListener(
-            ({ editorState, tags }) => {
-                if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
-                    return;
-                }
-                toggleShowOnToggleableNodes({
-                    editor,
-                    editorState,
-                    markersViewState,
-                    currentActive: markersInPreview.current,
-                    markersMutableState,
-                    setCurrentActive: (activeNodes) => {
-                        markersInPreview.current = activeNodes;
-                    },
-                });
-            },
-        );
+        const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
+            if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
+                return;
+            }
+            toggleShowOnToggleableNodes({
+                editor,
+                editorState,
+                markersViewState,
+                currentActive: markersInPreview.current,
+                markersMutableState,
+                setCurrentActive: (activeNodes) => {
+                    markersInPreview.current = activeNodes;
+                },
+            });
+        });
         const maintainMetadata = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {

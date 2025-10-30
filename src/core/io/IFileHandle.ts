@@ -1,11 +1,13 @@
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
 interface _IFileHandle extends IPathHandle {
     getFile(options?: FileSystemGetFileOptions): Promise<File>;
 
-    createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream>;
+    createWritable(
+        options?: FileSystemCreateWritableOptions,
+    ): Promise<FileSystemWritableFileStream>;
 
-    createWriter(): Promise<WritableStreamDefaultWriter<any>>;
+    createWriter(): Promise<WritableStreamDefaultWriter>;
 
     [Symbol.asyncDispose](): Promise<void>;
 }

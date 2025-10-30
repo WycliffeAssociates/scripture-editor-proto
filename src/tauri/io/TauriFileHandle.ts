@@ -1,10 +1,10 @@
 import {dirname} from "@tauri-apps/api/path";
 import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import type {IFileHandle} from "@/core/io/IFileHandle.ts";
+import type {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {normalize} from "@/tauri/io/PathUtils.ts";
-import {TauriWritableFileStreamWriter} from "@/tauri/io/TauriWritableFileStreamWriter.ts";
+import type {TauriWritableFileStreamWriter} from "@/tauri/io/TauriWritableFileStreamWriter.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
@@ -29,7 +29,7 @@ export class TauriFileHandle implements IFileHandle {
 
   async getFile(): Promise<File> {
     const text = await readTextFile(this.path).catch((e) => {
-      const msg = String((e as any)?.message || "");
+      const msg = String((e as Error)?.message || "");
       if (/not found|no such file|does not exist/i.test(msg)) {
         return "";
       }
@@ -72,12 +72,14 @@ export class TauriFileHandle implements IFileHandle {
       buffer = nb;
     };
 
-    const toUint8 = async (data: any): Promise<Uint8Array> => {
+    const toUint8 = async (
+      data: string | Blob | ArrayBuffer | ArrayBufferView
+    ): Promise<Uint8Array> => {
       // ... (your existing toUint8 function)
       if (typeof data === "string") return new TextEncoder().encode(data);
       if (data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
       if (data instanceof ArrayBuffer) return new Uint8Array(data);
-      if (ArrayBuffer.isView(data)) return new Uint8Array((data as any).buffer);
+      if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer);
       return new TextEncoder().encode(String(data));
     };
 
@@ -88,18 +90,19 @@ export class TauriFileHandle implements IFileHandle {
 
     // This object is now the sink for the WritableStream
     const sink = {
-      async write(chunkOrOp: any) {
+      async write(chunkOrOp: FileSystemWriteChunkType) {
         // Your existing write logic, adapted to be in the sink's write method
-        if (chunkOrOp && typeof chunkOrOp === "object" && "type" in chunkOrOp) {
-          const op: {
-            type: string;
-            position?: number;
-            data?: any;
-            size?: number;
-          } = chunkOrOp;
+        const isWriteParams =
+          !!chunkOrOp && typeof chunkOrOp === "object" && "type" in chunkOrOp;
+        const isBlob = chunkOrOp instanceof Blob;
+        if (isWriteParams && !isBlob) {
+          const op = chunkOrOp;
+
           switch (op.type) {
             case "write": {
-              const bytes = await toUint8(op.data);
+              const data = op.data;
+              if (!data) return;
+              const bytes = await toUint8(data);
               const writePos =
                 typeof op.position === "number" ? op.position : position;
               ensureCapacity(writePos + bytes.length);
@@ -131,12 +134,17 @@ export class TauriFileHandle implements IFileHandle {
               throw new DOMException("Unsupported write op type");
           }
           return;
+        } else {
+          const op = chunkOrOp as
+            | string
+            | ArrayBuffer
+            | Blob
+            | ArrayBufferView<ArrayBufferLike>;
+          const bytes = await toUint8(op);
+          ensureCapacity(position + bytes.length);
+          buffer.set(bytes, position);
+          position += bytes.length;
         }
-
-        const bytes = await toUint8(chunkOrOp);
-        ensureCapacity(position + bytes.length);
-        buffer.set(bytes, position);
-        position += bytes.length;
       },
 
       async close() {
@@ -153,7 +161,7 @@ export class TauriFileHandle implements IFileHandle {
     const nativeStream = new WritableStream(sink);
 
     // Helper function to send operation/data to the sink via the underlying native stream's writer.
-    const writeOp = async (op: any) => {
+    const writeOp = async (op: FileSystemWriteChunkType) => {
       // Acquire a writer to send the chunk, then immediately release the lock
       const writer = nativeStream.getWriter();
       try {
@@ -195,6 +203,7 @@ export class TauriFileHandle implements IFileHandle {
       },
 
       // Methods delegated or wrapped
+      // biome-ignore lint/suspicious/noExplicitAny: <native lib.dom.ts uses any here>
       abort: (reason?: any) => nativeStream.abort(reason),
       close: () => nativeStream.close(),
       getWriter: getCustomWriter,
@@ -202,10 +211,17 @@ export class TauriFileHandle implements IFileHandle {
       // Custom FileSystemWritableFileStream methods (using the writeOp helper)
       seek: (position: number) => writeOp({type: "seek", position}),
       truncate: (size: number) => writeOp({type: "truncate", size}),
-      write: (data: any, position?: number) => {
+      write: (data: FileSystemWriteChunkType, position?: number) => {
         // If position is provided, it's a structured write operation
         if (typeof position === "number") {
-          return writeOp({type: "write", position, data});
+          if (
+            typeof data === "string" ||
+            data instanceof Blob ||
+            ArrayBuffer.isView(data)
+          ) {
+            return writeOp({type: "write", position, data});
+          }
+          throw new TypeError("Invalid data type for positioned write");
         }
         // Otherwise, it's a standard WritableStream write (uses current internal position)
         return writeOp(data);
@@ -213,7 +229,7 @@ export class TauriFileHandle implements IFileHandle {
     } as FileSystemWritableFileStream;
   }
 
-  async createWriter(): Promise<WritableStreamDefaultWriter<any>> {
+  async createWriter(): Promise<WritableStreamDefaultWriter> {
     const writableStream = await this.createWritable();
     return writableStream.getWriter();
   }

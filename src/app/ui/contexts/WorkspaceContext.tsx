@@ -25,7 +25,7 @@ import {
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState";
 import type { LintError } from "@/core/data/usfm/lint";
-import type { Project } from "@/core/domain/project/project";
+import type { Project } from "@/core/persistence/ProjectRepository";
 
 interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -66,7 +66,7 @@ export const ProjectProvider = ({
     const { projects } = useLoaderData({ from: "__root__" });
     const [workingFiles, setWorkingFiles] =
         useState<ParsedFile[]>(projectFiles);
-    const { settingsManager, directoryProvider } = useRouter().options.context;
+    const { settingsManager, projectRepository } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(settingsManager, workingFiles);
     const actions = useWorkspaceActions({
@@ -83,8 +83,8 @@ export const ProjectProvider = ({
         updateStyleSheet: cssStyleSheet.updateStyleSheet,
     });
     const referenceProject = useReferenceProject({
-        directoryProvider,
-        pickedFileIdentifier: project.pickedFile.bibleIdentifier,
+        projectRepository: projectRepository,
+        pickedFileIdentifier: project.pickedFile.bookCode,
         pickedChapterNumber: project.pickedChapter.chapNumber,
     });
     const search = useProjectSearch({

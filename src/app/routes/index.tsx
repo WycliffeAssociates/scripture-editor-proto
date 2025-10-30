@@ -4,7 +4,7 @@ import {
     useLoaderData,
     useRouter,
 } from "@tanstack/react-router";
-import { Project } from "@/core/persistence/ProjectRepository.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { Route as projectRoute } from "./$project";
 // import { Route as ProjectRoute } from '@/app/routes/projects/$projectId.edit';
 
@@ -19,7 +19,7 @@ function Index() {
     return (
         <div>
             <h1>Projects</h1>
-            <ul>
+            <ul className="flex flex-col gap-2">
                 {projects?.map((project: Project) => (
                     <Link
                         key={project.projectDir.path}

@@ -1,6 +1,6 @@
 // Custom Interfaces
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileHandle} from "@/core/io/IFileHandle.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileHandle } from "@/core/io/IFileHandle.ts";
 
 export interface IPathHandle extends FileSystemHandle {
     readonly kind: "directory" | "file";
@@ -16,6 +16,6 @@ export interface IPathHandle extends FileSystemHandle {
     asFileHandle(): IFileHandle | null;
 
     asDirectoryHandle(): IDirectoryHandle | null;
-    
+
     getAbsolutePath(): Promise<string>;
 }

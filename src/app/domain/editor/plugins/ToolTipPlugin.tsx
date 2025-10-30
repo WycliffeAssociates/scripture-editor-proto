@@ -22,7 +22,7 @@ export function MarkerTooltip() {
             }
         }
 
-        function onMouseOut(e: MouseEvent) {
+        function onMouseOut(_e: MouseEvent) {
             if (hoverTimeout.current) {
                 clearTimeout(hoverTimeout.current);
                 hoverTimeout.current = null;

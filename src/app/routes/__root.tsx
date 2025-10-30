@@ -1,16 +1,8 @@
-import {
-    createRootRouteWithContext,
-    Outlet,
-    useRouter,
-} from "@tanstack/react-router";
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { useEffectOnce } from "react-use";
 import type { RouterContext } from "@/app/entrypoint";
 
 const RootLayout = () => {
-    const router = useRouter();
-    const { settingsManager } = router.options.context;
-
     // useEffectOnce(() => {
     //     const { lastProjectPath, restoreToLastProjectOnLaunch } = settingsManager.getSettings();
     //     if (restoreToLastProjectOnLaunch && lastProjectPath) {
@@ -52,8 +44,8 @@ const RootLayout = () => {
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
-    loader: async ({ context, route }) => {
-        const { directoryProvider, projectRepository } = context;
+    loader: async ({ context }) => {
+        const { projectRepository } = context;
         const projects = await projectRepository.listProjects();
 
         return { projects };

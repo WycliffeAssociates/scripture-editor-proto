@@ -7,9 +7,9 @@ import {
   remove,
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import type {IFileHandle} from "@/core/io/IFileHandle.ts";
+import type {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {normalize} from "@/tauri/io/PathUtils.ts";
 import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
 
@@ -58,7 +58,7 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
   async removeEntry(name: string, opts?: {recursive?: boolean}): Promise<void> {
     const targetPath = await join(this.path, name);
     await remove(targetPath, {recursive: !!opts?.recursive}).catch((e) => {
-      const msg = String((e as any)?.message || "");
+      const msg = String((e as Error)?.message || "");
       if (!/not found|no such file|does not exist/i.test(msg)) throw e;
     });
   }

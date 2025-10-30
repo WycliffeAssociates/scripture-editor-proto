@@ -1,15 +1,22 @@
 import {beforeEach, describe, expect, test, vi} from "vitest";
-import {IMd5Service} from "@/core/domain/md5/IMd5Service";
+import type {IMd5Service} from "@/core/domain/md5/IMd5Service";
 import {LanguageDirection} from "@/core/domain/project/project";
 import {FileWriter} from "@/core/io/DefaultFileWriter";
-import {IFileWriter} from "@/core/io/IFileWriter";
-import {IDirectoryProvider} from "@/core/persistence/DirectoryProvider";
-import {Project} from "@/core/persistence/ProjectRepository";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle";
+import type {IFileHandle} from "@/core/io/IFileHandle";
+import type {IFileWriter} from "@/core/io/IFileWriter";
+import type {IPathHandle} from "@/core/io/IPathHandle";
+import type {IDirectoryProvider} from "@/core/persistence/DirectoryProvider";
+import type {Project} from "@/core/persistence/ProjectRepository";
 import {ProjectRepository} from "@/core/persistence/repositories/ProjectRepository";
+import {MockFileHandle} from "@/test/shared/mock";
 
 // Mock implementations for dependencies
+let inMemoryFiles: Map<string, string> = new Map();
 const mockFileWriter: IFileWriter = {
-  writeFile: vi.fn(() => Promise.resolve()),
+  writeFile: vi.fn(async (filename: string, content: string) => {
+    inMemoryFiles.set(filename, content);
+  }),
 };
 
 const mockMd5Service: IMd5Service = {
@@ -33,7 +40,7 @@ const MOCK_PROJECT_1: Project = {
       direction: LanguageDirection.LTR,
     },
   },
-  projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
+  projectDir: {} as IDirectoryHandle, // Mock or actual handle
   fileWriter: mockFileWriter,
   manifestYaml: undefined,
   metadataJson: undefined,
@@ -56,7 +63,7 @@ const MOCK_PROJECT_2: Project = {
       direction: LanguageDirection.LTR,
     },
   },
-  projectDir: {} as FileSystemDirectoryHandle, // Mock or actual handle
+  projectDir: {} as IDirectoryHandle, // Mock or actual handle
   fileWriter: mockFileWriter,
   manifestYaml: undefined,
   metadataJson: undefined,
@@ -64,12 +71,13 @@ const MOCK_PROJECT_2: Project = {
   addBook: vi.fn(),
 };
 
-// Mock for FileSystemDirectoryHandle-like behavior
-class MockDirectoryHandle implements FileSystemDirectoryHandle {
+class MockDirectoryHandle implements IDirectoryHandle {
   kind: "directory" = "directory";
   name: string;
   path: string; // Keep for internal mock logic, not Project interface
   private entriesMap: Map<string, MockDirectoryHandle | MockFileHandle>;
+  isDir: boolean = true;
+  isFile: boolean = false;
 
   constructor(path: string, initialEntries: Record<string, any> = {}) {
     this.path = path;
@@ -102,7 +110,7 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
   async getDirectoryHandle(
     name: string,
     options?: {create?: boolean}
-  ): Promise<FileSystemDirectoryHandle> {
+  ): Promise<IDirectoryHandle> {
     const fullPath = `${this.path}/${name}`;
     let handle = this.entriesMap.get(name);
     if (!handle || handle.kind !== "directory") {
@@ -113,13 +121,13 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
         throw new Error(`Directory not found: ${fullPath}`);
       }
     }
-    return handle as FileSystemDirectoryHandle;
+    return handle as IDirectoryHandle;
   }
 
   async getFileHandle(
     name: string,
     options?: {create?: boolean}
-  ): Promise<FileSystemFileHandle> {
+  ): Promise<IFileHandle> {
     const fullPath = `${this.path}/${name}`;
     let handle = this.entriesMap.get(name);
     if (!handle || handle.kind !== "file") {
@@ -130,15 +138,22 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
         throw new Error(`File not found: ${fullPath}`);
       }
     }
-    return handle as FileSystemFileHandle;
+    return handle as IFileHandle;
   }
+  getParent = vi.fn(() => Promise.resolve(new MockDirectoryHandle("/")));
+  asFileHandle = vi.fn(() => null);
+  asDirectoryHandle = vi.fn(() => this);
+  getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
 
-  async *entries(): FileSystemDirectoryHandleAsyncIterator<
-    [string, FileSystemHandle]
-  > {
-    for (const entry of this.entriesMap.entries()) {
-      yield entry;
-    }
+  entries(): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]> {
+    const self = this;
+    return (async function* (): FileSystemDirectoryHandleAsyncIterator<
+      [string, IPathHandle]
+    > {
+      for (const [name, handle] of self.entriesMap.entries()) {
+        yield [name, handle]; // handle must implement IPathHandle
+      }
+    })();
   }
 
   async removeEntry(name: string): Promise<void> {
@@ -152,8 +167,13 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
     for (const key of this.entriesMap.keys()) yield key;
   }
 
-  async *values(): FileSystemDirectoryHandleAsyncIterator<FileSystemHandle> {
-    for (const value of this.entriesMap.values()) yield value;
+  values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
+    const self = this;
+    return (async function* (): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
+      for (const handle of self.entriesMap.values()) {
+        yield handle; // each handle must implement IPathHandle
+      }
+    })();
   }
 
   async resolve(_other: FileSystemHandle): Promise<string[] | null> {
@@ -165,76 +185,13 @@ class MockDirectoryHandle implements FileSystemDirectoryHandle {
     return (this as any)?.path === (other as any)?.path;
   }
 
-  [Symbol.asyncIterator]() {
+  [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
+    [string, IPathHandle]
+  > {
     return this.entries();
   }
-}
 
-class MockFileHandle implements FileSystemFileHandle {
-  kind: "file" = "file";
-  name: string;
-  path: string; // Keep for internal mock logic
-  private content: string;
-
-  constructor(path: string, initialContent: string = "") {
-    this.path = path;
-    this.name = path.split("/").pop() || "";
-    this.content = initialContent;
-  }
-
-  async getFile(): Promise<File> {
-    return new MockFile(this.name, this.content);
-  }
-
-  async createWritable(): Promise<FileSystemWritableFileStream> {
-    const writer = new MockWritableStreamDefaultWriter();
-    writer.write = vi.fn((data: string) => {
-      this.content = data;
-      return Promise.resolve();
-    });
-    return writer as unknown as FileSystemWritableFileStream;
-  }
-
-  async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-    return (other as any)?.path === this.path;
-  }
-}
-
-class MockFile implements File {
-  name: string;
-  private content: string;
-  readonly lastModified: number = Date.now();
-  readonly size: number;
-  readonly type: string = "text/plain";
-  readonly webkitRelativePath: string = "";
-
-  constructor(name: string, content: string) {
-    this.name = name;
-    this.content = content;
-    this.size = content.length;
-  }
-
-  async text(): Promise<string> {
-    return this.content;
-  }
-  async bytes(): Promise<Uint8Array> {
-    return new Uint8Array();
-  }
-  arrayBuffer(): Promise<ArrayBuffer> {
-    throw new Error("Method not implemented.");
-  }
-  slice(_start?: number, _end?: number, _contentType?: string): Blob {
-    throw new Error("Method not implemented.");
-  }
-  stream(): ReadableStream<Uint8Array> {
-    throw new Error("Method not implemented.");
-  }
-}
-
-class MockWritableStreamDefaultWriter {
-  write: (data: string) => Promise<void> = vi.fn(() => Promise.resolve());
-  close: () => Promise<void> = vi.fn(() => Promise.resolve());
-  abort: (reason?: any) => Promise<void> = vi.fn(() => Promise.resolve());
+  [Symbol.asyncDispose] = vi.fn(() => Promise.resolve());
 }
 
 // Mock IDirectoryProvider
@@ -252,6 +209,10 @@ const mockDirectoryProvider: IDirectoryProvider = {
   createTempFile: vi.fn(),
   cleanTempDirectory: vi.fn(),
   openInFileManager: vi.fn(),
+  //   getDirectoryHandle, getHandle, resolveHandle
+  getDirectoryHandle: vi.fn(),
+  getHandle: vi.fn(),
+  resolveHandle: vi.fn(),
   databaseDirectory: Promise.resolve(
     new MockDirectoryHandle(`${MOCK_USER_DATA_DIR}/database`)
   ),
@@ -271,6 +232,7 @@ describe("ProjectRepository", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    inMemoryFiles = new Map();
     projectRepository = new ProjectRepository(
       mockDirectoryProvider,
       mockMd5Service
@@ -317,7 +279,9 @@ describe("ProjectRepository", () => {
       mockDirectoryProvider,
       "getUserDataDirectory"
     ).mockResolvedValueOnce(
-      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {projects: projectsDirMock})
+      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
+        projects: projectsDirMock,
+      })
     );
 
     const loadedProject = await projectRepository.loadProject(
@@ -376,7 +340,9 @@ describe("ProjectRepository", () => {
       mockDirectoryProvider,
       "getUserDataDirectory"
     ).mockResolvedValueOnce(
-      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {projects: projectsDirMock})
+      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
+        projects: projectsDirMock,
+      })
     );
 
     const listedProjects = await projectRepository.listProjects();

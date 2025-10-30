@@ -37,7 +37,6 @@ type Props = {
 type SearchResult = {
     sid: string;
     text: string;
-    filePath: string;
     bibleIdentifier: string;
     chapNum: number;
     parsedSid: ParsedReference | null;
@@ -71,7 +70,7 @@ export function useProjectSearch({
     const [matchCase, setMatchCase] = useState(false);
 
     const currentChapterSid = makeSid({
-        bookId: pickedFile.bibleIdentifier,
+        bookId: pickedFile.bookCode,
         chapter: pickedChapter.chapNumber,
     });
 
@@ -107,8 +106,7 @@ export function useProjectSearch({
                         allResults.push({
                             sid,
                             text,
-                            filePath: file.path,
-                            bibleIdentifier: file.bibleIdentifier,
+                            bibleIdentifier: file.bookCode,
                             chapNum: chapter.chapNumber,
                             parsedSid: parseSid(sid),
                             isCaseMismatch:
@@ -285,7 +283,7 @@ export function useProjectSearch({
         // Find next result in same chapter/file
         const nextInChapter = updatedResults.find(
             (r) =>
-                r.filePath === pickedResult.filePath &&
+                r.bibleIdentifier === pickedResult.bibleIdentifier &&
                 r.chapNum === pickedResult.chapNum &&
                 r.parsedSid &&
                 pickedResult.parsedSid &&
@@ -321,7 +319,7 @@ export function useProjectSearch({
         const updatedResults = results.filter(
             (r) =>
                 !(
-                    r.filePath === pickedResult.filePath &&
+                    r.bibleIdentifier === pickedResult.bibleIdentifier &&
                     r.chapNum === pickedResult.chapNum
                 ),
         );

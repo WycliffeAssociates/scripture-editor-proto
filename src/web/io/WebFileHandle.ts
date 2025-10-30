@@ -1,6 +1,6 @@
-import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IPathHandle} from "@/core/io/IPathHandle.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileHandle } from "@/core/io/IFileHandle.ts";
+import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
@@ -14,7 +14,11 @@ export class WebFileHandle implements IFileHandle {
 
     private readonly resolveHandle: ResolveHandle;
 
-    constructor(handle: FileSystemFileHandle, path: string, resolveHandle: ResolveHandle) {
+    constructor(
+        handle: FileSystemFileHandle,
+        path: string,
+        resolveHandle: ResolveHandle,
+    ) {
         this.handle = handle;
         this.path = path;
         this.name = handle.name; // Delegate name from the native handle
@@ -33,7 +37,7 @@ export class WebFileHandle implements IFileHandle {
         return this.handle.createWritable(options);
     }
 
-    async createWriter(): Promise<WritableStreamDefaultWriter<any>> {
+    async createWriter(): Promise<WritableStreamDefaultWriter> {
         const writable = await this.createWritable();
         return writable.getWriter();
     }
@@ -50,9 +54,9 @@ export class WebFileHandle implements IFileHandle {
     async getParent(): Promise<IDirectoryHandle> {
         const parentPath = this.path.substring(0, this.path.lastIndexOf("/"));
         if (parentPath === "") {
-            return await this.resolveHandle("/") as IDirectoryHandle;
+            return (await this.resolveHandle("/")) as IDirectoryHandle;
         }
-        return await this.resolveHandle(parentPath) as IDirectoryHandle;
+        return (await this.resolveHandle(parentPath)) as IDirectoryHandle;
     }
 
     asFileHandle(): IFileHandle | null {

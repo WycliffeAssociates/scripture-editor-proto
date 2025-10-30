@@ -36,7 +36,7 @@ const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
 const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+$/;
 const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\s/;
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
-const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
+// const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
 
 type TextNodeTransformParams = {
   node: USFMTextNode;
@@ -47,7 +47,6 @@ type TextNodeTransformParams = {
 };
 export function textNodeTransform({
   node,
-  editor,
   editorMode,
   markersMutableState,
   markersViewState,
@@ -98,106 +97,100 @@ export function textNodeTransform({
   }
 }
 
-type HandleVerseInsert = {
-  anchorNode: USFMTextNode;
-  marker: string;
-  isStartOfLine: boolean;
-  markersMutableState: EditorMarkersMutableState;
-  markersViewState: EditorMarkersViewState;
-};
-function $handleVerseInsert({
-  anchorNode,
-  marker,
-  isStartOfLine,
-  markersMutableState,
-  markersViewState,
-}: HandleVerseInsert) {
-  // --- 1. Get context ---
-  const {nearestParaMarker, prevSidInfo} =
-    findContextForVerseInsert(anchorNode);
+// type HandleVerseInsert = {
+//   anchorNode: USFMTextNode;
+//   marker: string;
+//   isStartOfLine: boolean;
+//   markersMutableState: EditorMarkersMutableState;
+//   markersViewState: EditorMarkersViewState;
+// };
+// function _$handleVerseInsert({
+//   anchorNode,
+//   marker,
+//   isStartOfLine,
+//   markersMutableState,
+//   markersViewState,
+// }: HandleVerseInsert) {
+//   // --- 1. Get context ---
+//   const {nearestParaMarker, prevSidInfo} =
+//     findContextForVerseInsert(anchorNode);
 
-  // --- 2. Compute new SID ---
-  const prevVerseEnd = prevSidInfo?.verseEnd ?? 1;
-  const newSid = `${prevSidInfo?.book} ${prevSidInfo?.chapter}:${
-    prevVerseEnd + 1
-  }`;
+//   // --- 2. Compute new SID ---
+//   const prevVerseEnd = prevSidInfo?.verseEnd ?? 1;
+//   const newSid = `${prevSidInfo?.book} ${prevSidInfo?.chapter}:${
+//     prevVerseEnd + 1
+//   }`;
 
-  // --- 3. Create new nodes ---
-  const markerNode = $createUSFMTextNode(`\\${marker}`, {
-    id: guidGenerator(),
-    inPara: nearestParaMarker ?? "",
-    tokenType: UsfmTokenTypes.marker,
-    marker,
-    sid: newSid,
-    isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
-    show:
-      markersViewState === EditorMarkersViewStates.ALWAYS ||
-      markersViewState === EditorMarkersViewStates.WHEN_EDITING,
-  });
+//   // --- 3. Create new nodes ---
+//   const markerNode = $createUSFMTextNode(`\\${marker}`, {
+//     id: guidGenerator(),
+//     inPara: nearestParaMarker ?? "",
+//     tokenType: UsfmTokenTypes.marker,
+//     marker,
+//     sid: newSid,
+//     isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
+//     show:
+//       markersViewState === EditorMarkersViewStates.ALWAYS ||
+//       markersViewState === EditorMarkersViewStates.WHEN_EDITING,
+//   });
 
-  const verseRangeNode = $createUSFMTextNode(` ${prevVerseEnd + 1}`, {
-    id: guidGenerator(),
-    inPara: nearestParaMarker ?? "",
-    tokenType: UsfmTokenTypes.numberRange,
-    sid: newSid,
-    isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
-  });
+//   const verseRangeNode = $createUSFMTextNode(` ${prevVerseEnd + 1}`, {
+//     id: guidGenerator(),
+//     inPara: nearestParaMarker ?? "",
+//     tokenType: UsfmTokenTypes.numberRange,
+//     sid: newSid,
+//     isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
+//   });
 
-  const blankTextNode = $createUSFMTextNode(" ", {
-    id: guidGenerator(),
-    inPara: nearestParaMarker ?? "",
-    tokenType: UsfmTokenTypes.text,
-    sid: newSid,
-  });
+//   const blankTextNode = $createUSFMTextNode(" ", {
+//     id: guidGenerator(),
+//     inPara: nearestParaMarker ?? "",
+//     tokenType: UsfmTokenTypes.text,
+//     sid: newSid,
+//   });
 
-  // --- 4. Determine split or replacement ---
-  const selection = $getSelection();
-  const offset = $isRangeSelection(selection)
-    ? selection.anchor.offset
-    : anchorNode.getTextContentSize();
-  if (!isStartOfLine) {
-    const [left, right] = anchorNode.splitText(offset);
-    // take out the marker but leave the trailing space
-    const woMarker = `${left
-      .getTextContent()
-      .trimEnd()
-      .slice(0, -markerNode.getTextContentSize())} `;
-    left?.setTextContent(woMarker);
-    if ($isUSFMTextNode(right)) right.setSid(newSid);
-    left.insertAfter(markerNode);
-    markerNode.insertAfter(verseRangeNode);
-    // todo: extract the unicode constant here to named reusable const
-    right?.setTextContent(`\u00A0${right.getTextContent()}`);
-    right?.selectStart();
-    if (!selection || !$isRangeSelection(selection)) return;
-    if (!right) {
-      verseRangeNode.selectEnd();
-    }
-  } else {
-    const sibling = anchorNode.getNextSibling();
-    anchorNode.replace(markerNode);
-    const alreadyHasVerseRangeSibling =
-      sibling &&
-      $isUSFMTextNode(sibling) &&
-      sibling.getTokenType() === UsfmTokenTypes.numberRange;
-    if (!alreadyHasVerseRangeSibling) {
-      markerNode.insertAfter(verseRangeNode);
-      verseRangeNode.insertAfter(blankTextNode);
-      blankTextNode.select();
-    } else {
-      sibling?.selectStart();
-    }
-  }
-}
+//   // --- 4. Determine split or replacement ---
+//   const selection = $getSelection();
+//   const offset = $isRangeSelection(selection)
+//     ? selection.anchor.offset
+//     : anchorNode.getTextContentSize();
+//   if (!isStartOfLine) {
+//     const [left, right] = anchorNode.splitText(offset);
+//     // take out the marker but leave the trailing space
+//     const woMarker = `${left
+//       .getTextContent()
+//       .trimEnd()
+//       .slice(0, -markerNode.getTextContentSize())} `;
+//     left?.setTextContent(woMarker);
+//     if ($isUSFMTextNode(right)) right.setSid(newSid);
+//     left.insertAfter(markerNode);
+//     markerNode.insertAfter(verseRangeNode);
+//     // todo: extract the unicode constant here to named reusable const
+//     right?.setTextContent(`\u00A0${right.getTextContent()}`);
+//     right?.selectStart();
+//     if (!selection || !$isRangeSelection(selection)) return;
+//     if (!right) {
+//       verseRangeNode.selectEnd();
+//     }
+//   } else {
+//     const sibling = anchorNode.getNextSibling();
+//     anchorNode.replace(markerNode);
+//     const alreadyHasVerseRangeSibling =
+//       sibling &&
+//       $isUSFMTextNode(sibling) &&
+//       sibling.getTokenType() === UsfmTokenTypes.numberRange;
+//     if (!alreadyHasVerseRangeSibling) {
+//       markerNode.insertAfter(verseRangeNode);
+//       verseRangeNode.insertAfter(blankTextNode);
+//       blankTextNode.select();
+//     } else {
+//       sibling?.selectStart();
+//     }
+//   }
+// }
 
 function $insertVerse(args: BaseInsertArgs): void {
-  const {
-    anchorNode,
-    marker,
-    isStartOfLine,
-    markersMutableState,
-    markersViewState,
-  } = args;
+  const {anchorNode, marker, isStartOfLine, markersMutableState} = args;
 
   const context = $getInsertionContext(anchorNode);
   const prevVerseEnd = context.prevSidInfo?.verseEnd ?? 1;
@@ -485,21 +478,21 @@ function $insertChar(args: BaseInsertArgs): void {
     const markerPattern = new RegExp(`\\\\${marker}\\s*`);
     const markerMatch = textContent.match(markerPattern);
 
-    if (markerMatch) {
+    if (markerMatch && markerMatch.index !== undefined) {
       const markerLength = markerMatch[0].length;
       const cleanedText =
         textContent.slice(0, markerMatch.index) +
-        textContent.slice(markerMatch.index! + markerLength);
+        textContent.slice(markerMatch.index + markerLength);
       anchorNode.setTextContent(cleanedText);
 
       // Adjust offsets since we removed the marker
       const adjustedStart =
-        startOffset > markerMatch.index!
-          ? Math.max(markerMatch.index!, startOffset - markerLength)
+        startOffset > markerMatch.index
+          ? Math.max(markerMatch.index, startOffset - markerLength)
           : startOffset;
       const adjustedEnd =
-        endOffset > markerMatch.index!
-          ? Math.max(markerMatch.index!, endOffset - markerLength)
+        endOffset > markerMatch.index
+          ? Math.max(markerMatch.index, endOffset - markerLength)
           : endOffset;
 
       // Split at adjusted selection boundaries
@@ -753,13 +746,7 @@ function findContextForVerseInsert(anchorNode: LexicalNode): {
   return {nearestParaMarker, prevSidInfo};
 }
 
-export function inverseTextNodeTransform({
-  editor,
-  editorMode,
-  markersMutableState,
-  markersViewState,
-  node,
-}: TextNodeTransformParams) {
+export function inverseTextNodeTransform({node}: TextNodeTransformParams) {
   const undoableNodeTypes = [UsfmTokenTypes.marker, UsfmTokenTypes.numberRange];
   const nodeTokenType = node.getTokenType();
   // @ts-expect-error: set includsion dhceck.

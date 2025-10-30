@@ -1,17 +1,18 @@
-import {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
+import type {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
+import type {IProjectLoader} from "@/core/domain/project/IProjectLoader.ts";
 import {LanguageDirection} from "@/core/domain/project/project.ts";
 import {
   createBurritoIngredient,
   generateUsfmFilename,
   updateBurritoMetadata,
 } from "@/core/domain/project/scriptureBurritoHelpers.ts";
-import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileWriter} from "@/core/io/IFileWriter.ts";
-import {Project} from "@/core/persistence/ProjectRepository.ts";
+import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
+import type {IFileWriter} from "@/core/io/IFileWriter.ts";
+import type {Project} from "@/core/persistence/ProjectRepository.ts";
 
 // Define a specific interface for Scripture Burrito Projects to include metadataJson
-interface ScriptureBurritoProject extends Project {
+export interface ScriptureBurritoProject extends Project {
+  // biome-ignore lint/suspicious/noExplicitAny: <json really can be any shape>
   metadataJson: any;
   md5Service: IMd5Service;
 }
@@ -115,7 +116,9 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                 `Project directory ${project.projectDir.path} is not a directory.`
               );
             }
-            await directoryHandle.getFileHandle(filePath, {create: false});
+            await directoryHandle.getFileHandle(filePath, {
+              create: false,
+            });
             console.warn(
               `Book ${filename} already exists as a file. Not adding.`
             );
@@ -126,7 +129,7 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
 
           await fileWriter.writeFile(filePath, contents);
 
-          const ingredientData = createBurritoIngredient(
+          const ingredientData = await createBurritoIngredient(
             filePath,
             contents,
             md5Service,
