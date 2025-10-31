@@ -2,7 +2,8 @@ import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { IProjectLoader } from "@/core/domain/project/IProjectLoader.ts";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import { ScriptureBurritoProjectLoader } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
-import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
@@ -19,9 +20,19 @@ export class ProjectLoader implements IProjectLoader {
      * @constructor
      * @description Creates an instance of ProjectLoader, initializing its internal loader implementations.
      */
-    constructor() {
-        this.resourceContainerLoader = new ResourceContainerProjectLoader();
-        this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader();
+    /**
+     * @constructor
+     * @description Creates an instance of ProjectLoader, initializing its internal loader implementations.
+     */
+    constructor(
+        md5Service: IMd5Service,
+        rcLoader: ResourceContainerProjectLoader = new ResourceContainerProjectLoader(),
+        sbLoader: ScriptureBurritoProjectLoader = new ScriptureBurritoProjectLoader(
+            md5Service,
+        ),
+    ) {
+        this.resourceContainerLoader = rcLoader;
+        this.scriptureBurritoLoader = sbLoader;
     }
 
     /**
@@ -33,28 +44,28 @@ export class ProjectLoader implements IProjectLoader {
      *              If neither is found, or both fail, it returns null.
      * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
-     * @param md5Service - An IMd5Service instance for calculating MD5 checksums.
      * @returns A Promise that resolves to the loaded Project object, or null if no project can be loaded.
      */
     async loadProject(
-        projectDir: FileSystemDirectoryHandle,
+        projectDir: IDirectoryHandle,
         fileWriter: IFileWriter,
-        md5Service: IMd5Service,
     ): Promise<Project | null> {
+        // const hasMetadataJson = await this.checkFileExists(projectDir, ScriptureBurritoProjectLoader.METADATA_FILENAME);
+        // const hasManifestYaml = await this.checkFileExists(projectDir, ResourceContainerProjectLoader.MANIFEST_FILENAME);
+
         const hasMetadataJson = await this.checkFileExists(
             projectDir,
-            ScriptureBurritoProjectLoader.METADATA_FILENAME,
+            "metadata.json",
         );
         const hasManifestYaml = await this.checkFileExists(
             projectDir,
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+            "manifest.yaml",
         );
 
         if (hasMetadataJson) {
             const project = await this.scriptureBurritoLoader.loadProject(
                 projectDir,
                 fileWriter,
-                md5Service,
             );
             if (project) return project;
         }
@@ -63,7 +74,6 @@ export class ProjectLoader implements IProjectLoader {
             const project = await this.resourceContainerLoader.loadProject(
                 projectDir,
                 fileWriter,
-                md5Service,
             );
             if (project) return project;
         }
@@ -84,10 +94,12 @@ export class ProjectLoader implements IProjectLoader {
         fileName: string,
     ): Promise<boolean> {
         try {
-            await dir.getFileHandle(fileName);
-            return true;
-        } catch (_error) {
+            const handle = await dir.getFileHandle(fileName);
+            if (handle != null && handle !== undefined) return true;
+        } catch (error) {
+            console.error(`Error checking file existence: ${error}`);
             return false;
         }
+        return false;
     }
 }

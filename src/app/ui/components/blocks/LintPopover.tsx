@@ -107,7 +107,7 @@ function LintMessageItem({
                     if (!sidParsed) return;
                     // if (sidParsed.)
                     // if same book and chap as current, scroll, else gonna have to set content and scroll:
-                    const currentBook = project.pickedFile.bibleIdentifier;
+                    const currentBook = project.pickedFile.bookCode;
                     const currentChapter = project.pickedChapter.chapNumber;
                     if (
                         sidParsed.book === currentBook &&

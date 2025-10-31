@@ -10,28 +10,36 @@ import type { SettingsManager } from "@/app/data/settings";
 import { routeTree } from "@/app/generated/routeTree.gen";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry";
 import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme";
-import type { IDirectoryProvider } from "@/core/data/persistence/DirectoryProvider";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider";
 import type { IGitProvider } from "@/core/persistence/git/GitProvider";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
+import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 
 type EntryPointProps = {
     settingsManager: SettingsManager;
     gitProvider: IGitProvider;
     directoryProvider: IDirectoryProvider;
+    md5Service: IMd5Service;
 };
 
 // Create a client for React Query
 const queryClient = new QueryClient();
+
 export interface RouterContext {
     queryClient: QueryClient; //for if wanting to manage tanstack query in route loader,
     settingsManager: SettingsManager;
     gitProvider: IGitProvider;
     directoryProvider: IDirectoryProvider;
+    projectRepository: IProjectRepository;
 }
+
 // wrapping this let's us get it's type as ReturnType to declaration merge, whilse just receiving service deps as props to app
 const wrapCreateRouter = (
     settingsManager: SettingsManager,
     gitProvider: IGitProvider,
     directoryProvider: IDirectoryProvider,
+    projectRepository: IProjectRepository,
 ) => {
     const router = createRouter({
         routeTree,
@@ -40,6 +48,7 @@ const wrapCreateRouter = (
             queryClient,
             gitProvider,
             directoryProvider,
+            projectRepository,
         },
     });
     return router;
@@ -50,16 +59,24 @@ declare module "@tanstack/react-router" {
         router: ReturnType<typeof wrapCreateRouter>;
     }
 }
+
 export function App({
     settingsManager,
     gitProvider,
     directoryProvider,
+    md5Service,
 }: EntryPointProps) {
+    const projectRepository = new ProjectRepository(
+        directoryProvider,
+        md5Service,
+    );
+
     // Create a router
     const router = wrapCreateRouter(
         settingsManager,
         gitProvider,
         directoryProvider,
+        projectRepository,
     );
 
     return (

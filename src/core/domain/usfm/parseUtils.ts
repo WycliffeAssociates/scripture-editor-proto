@@ -1,147 +1,148 @@
-import type {Token} from "moo";
-import type {LintableToken} from "@/core/data/usfm/lint";
-import {createParsedToken} from "@/core/data/usfm/parse";
+import type { Token } from "moo";
+import type { LintableToken } from "@/core/data/usfm/lint";
+import { createParsedToken } from "@/core/data/usfm/parse";
 import {
-  markerTrimNoSlash,
-  TokenMap,
-  type TokenName,
-  type TokenNameSubset,
+    markerTrimNoSlash,
+    TokenMap,
+    type TokenName,
+    type TokenNameSubset,
 } from "@/core/domain/usfm/lex";
-import type {LintOrParseFxn} from "@/core/domain/usfm/lint";
-import type {ParseContext} from "@/core/domain/usfm/tokenParsers";
+import type { LintOrParseFxn } from "@/core/domain/usfm/lint";
+import type { ParseContext } from "@/core/domain/usfm/tokenParsers";
 
 export const mergeHorizontalWhitespaceToAdjacent = (
-  tokens: LintableToken[]
+    tokens: LintableToken[],
 ): LintableToken[] => {
-  const wsTypes: TokenNameSubset = new Set([TokenMap.horizontalWhitespace]);
-  const avoidPushingPrevTo: TokenNameSubset = new Set([
-    TokenMap.endMarker,
-    TokenMap.implicitClose,
-  ]);
+    const wsTypes: TokenNameSubset = new Set([TokenMap.horizontalWhitespace]);
+    const avoidPushingPrevTo: TokenNameSubset = new Set([
+        TokenMap.endMarker,
+        TokenMap.implicitClose,
+    ]);
 
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t?.tokenType && wsTypes.has(t.tokenType as TokenName)) {
-      const prev = tokens[i - 1];
-      const next = tokens[i + 1];
-      if (!prev) continue;
-      if (avoidPushingPrevTo.has(prev.tokenType as TokenName) && next) {
-        next.text = `${t.text}${next.text}`;
-      } else {
-        prev.text += t.text;
-      }
-      tokens.splice(i, 1);
-      i--;
+    for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t?.tokenType && wsTypes.has(t.tokenType as TokenName)) {
+            const prev = tokens[i - 1];
+            const next = tokens[i + 1];
+            if (!prev) continue;
+            if (avoidPushingPrevTo.has(prev.tokenType as TokenName) && next) {
+                next.text = `${t.text}${next.text}`;
+            } else {
+                prev.text += t.text;
+            }
+            tokens.splice(i, 1);
+            i--;
+        }
     }
-  }
-  return tokens;
+    return tokens;
 };
 
 export const removeVerticalWhiteSpaceInVerses: LintOrParseFxn<LintableToken> = (
-  ctx: ParseContext<LintableToken>
+    ctx: ParseContext<LintableToken>,
 ) => {
-  const {currentToken, nextToken, twoFromCurrent, idsToFilterOut} = ctx;
-  if (currentToken?.tokenType !== TokenMap.marker) return;
-  if (!nextToken || nextToken.tokenType !== TokenMap.verticalWhitespace) return;
-  if (!twoFromCurrent || twoFromCurrent.tokenType !== TokenMap.marker) return;
+    const { currentToken, nextToken, twoFromCurrent, idsToFilterOut } = ctx;
+    if (currentToken?.tokenType !== TokenMap.marker) return;
+    if (!nextToken || nextToken.tokenType !== TokenMap.verticalWhitespace)
+        return;
+    if (!twoFromCurrent || twoFromCurrent.tokenType !== TokenMap.marker) return;
 
-  // this pattern: \v {#} text BR \v {#}
-  if (
-    nextToken?.tokenType === TokenMap.verticalWhitespace &&
-    twoFromCurrent?.tokenType === TokenMap.marker &&
-    twoFromCurrent.marker === "v"
-  ) {
-    // remove the vertical whitespace
-    idsToFilterOut.push(nextToken.id);
-  }
+    // this pattern: \v {#} text BR \v {#}
+    if (
+        nextToken?.tokenType === TokenMap.verticalWhitespace &&
+        twoFromCurrent?.tokenType === TokenMap.marker &&
+        twoFromCurrent.marker === "v"
+    ) {
+        // remove the vertical whitespace
+        idsToFilterOut.push(nextToken.id);
+    }
 };
 
 export const organizeByChapters = <T extends LintableToken>(
-  parsedTokens: T[]
+    parsedTokens: T[],
 ) => {
-  const chapMatch = /\w{3}\s+(\d{1,3})/;
-  const processed = parsedTokens.reduce(
-    (acc, token) => {
-      const chapterMatch = token?.sid?.match(chapMatch);
+    const chapMatch = /\w{3}\s+(\d{1,3})/;
+    const processed = parsedTokens.reduce(
+        (acc, token) => {
+            const chapterMatch = token?.sid?.match(chapMatch);
 
-      const chap = chapterMatch?.[1];
-      if (chap && chap !== acc.curIdx.toString()) {
-        acc.curIdx = parseInt(chap, 10);
-        acc.chapters[acc.curIdx] = [];
-      }
+            const chap = chapterMatch?.[1];
+            if (chap && chap !== acc.curIdx.toString()) {
+                acc.curIdx = parseInt(chap, 10);
+                acc.chapters[acc.curIdx] = [];
+            }
 
-      acc.chapters[acc.curIdx].push(createParsedToken<T>(token));
-      return acc;
-    },
-    {
-      curIdx: 0,
-      chapters: {
-        0: [],
-      } as Record<number, T[]>,
-    }
-  );
-  return processed.chapters;
+            acc.chapters[acc.curIdx].push(createParsedToken<T>(token));
+            return acc;
+        },
+        {
+            curIdx: 0,
+            chapters: {
+                0: [],
+            } as Record<number, T[]>,
+        },
+    );
+    return processed.chapters;
 };
 
 export function prepareTokens<T extends LintableToken>(
-  text: string,
-  lexFn: (src: string) => Token[]
+    text: string,
+    lexFn: (src: string) => Token[],
 ): Array<T & Token> {
-  const tokens = lexFn(text) as Array<T & Token>;
-  // if (text.startsWith("\\id MRK")) {
-  //   ;
-  // }
-  for (let i = 0; i < tokens.length; i++) {
-    prepareLexedToken(tokens[i], i);
-  }
-  return tokens;
+    const tokens = lexFn(text) as Array<T & Token>;
+    // if (text.startsWith("\\id MRK")) {
+    //   ;
+    // }
+    for (let i = 0; i < tokens.length; i++) {
+        prepareLexedToken(tokens[i], i);
+    }
+    return tokens;
 }
 export function preparedAlreadyGivenTokens<T extends LintableToken>(
-  tokens: T[]
+    tokens: T[],
 ) {
-  for (let i = 0; i < tokens.length; i++) {
-    prepareLexedToken(tokens[i], i);
-  }
+    for (let i = 0; i < tokens.length; i++) {
+        prepareLexedToken(tokens[i], i);
+    }
 }
 
 function prepareLexedToken<T extends Token | LintableToken>(
-  token: T,
-  i: number
+    token: T,
+    i: number,
 ): asserts token is T & LintableToken {
-  const markersToUnify = new Set([
-    "idMarker",
-    "chapterMarker",
-    "verseMarker",
-    "chapterAltOpen",
-    "verseAltOpen",
-    "chapterPublished",
-    "versePublished",
-  ]);
+    const markersToUnify = new Set([
+        "idMarker",
+        "chapterMarker",
+        "verseMarker",
+        "chapterAltOpen",
+        "verseAltOpen",
+        "chapterPublished",
+        "versePublished",
+    ]);
 
-  // figure out the type string from either field
-  let typeToUse: string = "";
-  // order matters here. if already has tokenType computed, ie from lexical side on lint, use that.
-  if ("tokenType" in token) {
-    typeToUse = token.tokenType ?? "";
-  } else if ("type" in token) {
-    typeToUse = token.type ?? "";
-  }
+    // figure out the type string from either field
+    let typeToUse: string = "";
+    // order matters here. if already has tokenType computed, ie from lexical side on lint, use that.
+    if ("tokenType" in token) {
+        typeToUse = token.tokenType ?? "";
+    } else if ("type" in token) {
+        typeToUse = token.type ?? "";
+    }
 
-  const normalizedType = markersToUnify.has(typeToUse)
-    ? TokenMap.marker
-    : typeToUse;
+    const normalizedType = markersToUnify.has(typeToUse)
+        ? TokenMap.marker
+        : typeToUse;
 
-  // use id already on token if present, else the loop index
-  (token as LintableToken).id ??= String(i);
-  (token as LintableToken).tokenType = normalizedType;
+    // use id already on token if present, else the loop index
+    (token as LintableToken).id ??= String(i);
+    (token as LintableToken).tokenType = normalizedType;
 
-  // assign marker if applicable
-  if (normalizedType === TokenMap.marker) {
-    (token as LintableToken).marker = markerTrimNoSlash(token.text);
-  }
-  if (normalizedType === TokenMap.endMarker) {
-    (token as LintableToken).marker = markerTrimNoSlash(
-      token.text.replace("*", "")
-    );
-  }
+    // assign marker if applicable
+    if (normalizedType === TokenMap.marker) {
+        (token as LintableToken).marker = markerTrimNoSlash(token.text);
+    }
+    if (normalizedType === TokenMap.endMarker) {
+        (token as LintableToken).marker = markerTrimNoSlash(
+            token.text.replace("*", ""),
+        );
+    }
 }

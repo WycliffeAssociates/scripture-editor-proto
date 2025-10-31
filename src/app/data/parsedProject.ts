@@ -2,12 +2,11 @@ import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 
 export type ProjectFile = {
     title: string;
-    localizedTitle: string | undefined;
-    bibleIdentifier: string;
+    bookCode: string;
     nextBookId: string | null;
     prevBookId: string | null;
     sort?: number;
-    path: string;
+    // path: string;
 };
 export type ParsedChapter = {
     lexicalState: SerializedEditorState<SerializedLexicalNode>;

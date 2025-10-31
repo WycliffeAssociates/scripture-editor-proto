@@ -26,7 +26,8 @@ import { guidGenerator } from "@/core/data/utils/generic";
 export function ReferenceEditor() {
     const { referenceProject } = useWorkspaceContext();
     const nestedEditorRef = useRef<LexicalEditor>(null);
-    const { referenceQuery, referenceProjectPath } = referenceProject;
+    const { referenceQuery, referenceProjectId: referenceProjectPath } =
+        referenceProject;
     const { referenceChapter } = referenceProject;
     // if (!referenceProjectPath) {
     //   return <div>Select a reference project</div>;

@@ -170,5 +170,5 @@ tool tips
 localization
 more lint rules? 
 push para markers forwards in sid instead of back?
-Start writing tests?
+Start writing tests for editor?
 Start refining ui? 

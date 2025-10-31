@@ -1,4 +1,11 @@
 // this is the tauri entrypoint, and any tauri / rust specific code should be passed into app is props through here: IE App is generic and takes service interfaces:
+import { StrictMode } from "react";
+import ReactDOM from "react-dom/client";
+import { App } from "@/app/entrypoint";
+import { TauriGitProvider } from "@/tauri/domain/git/tauriGitProvider";
+import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
+import { createTauriSettingsManager } from "@/tauri/domain/settings/settings";
+import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider";
 
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
@@ -11,6 +18,7 @@ import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvid
 const settingsManager = createTauriSettingsManager();
 const directoryProvider =
     await TauriDirectoryProvider.create("scripture-editor");
+const md5Service = new TauriMd5Service();
 const gitProvider = new TauriGitProvider(directoryProvider);
 
 // // react entry stuff
@@ -23,8 +31,8 @@ root.render(
         <App
             settingsManager={settingsManager}
             gitProvider={gitProvider}
-            // @ts-expect-error
             directoryProvider={directoryProvider}
+            md5Service={md5Service}
         />
     </StrictMode>,
 );

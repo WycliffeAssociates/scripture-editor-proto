@@ -1,11 +1,10 @@
 import {
     CLEAR_HISTORY_COMMAND,
-    HISTORY_MERGE_TAG,
     type LexicalEditor,
     type SerializedEditorState,
     type SerializedLexicalNode,
 } from "lexical";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useEffectOnce } from "react-use";
 import {
     EDITOR_TAGS_USED,
@@ -19,7 +18,6 @@ import {
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
 import { type Settings, settingsDefaults } from "@/app/data/settings";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
     isSerializedToggleMutableUSFMTextNode,
@@ -85,7 +83,7 @@ export const useWorkspaceActions = ({
         doSetWorkingFiles = true,
     }: UpdateChapterLexicalArgs) {
         const file = workingFilesRef.current.find(
-            (file) => file.bibleIdentifier === fileBibleIdentifier,
+            (file) => file.bookCode === fileBibleIdentifier,
         );
         if (!file) return;
         file.chapters[chap].lexicalState = newLexical;
@@ -114,9 +112,7 @@ export const useWorkspaceActions = ({
         if (!editor) return;
         const targetFile = chapterContent
             ? null
-            : workingFiles?.find(
-                  (f) => f.bibleIdentifier === fileBibleIdentifier,
-              );
+            : workingFiles?.find((f) => f.bookCode === fileBibleIdentifier);
         const chapterState = chapterContent || targetFile?.chapters[chapter];
         if (!chapterState) return;
         editor.update(
@@ -148,7 +144,7 @@ export const useWorkspaceActions = ({
         // THEN SET THE NEW CONTENT
         const filesToUse = dirtySaved || workingFiles;
         const targetFile = filesToUse?.find(
-            (f) => f.bibleIdentifier === fileBibleIdentifier,
+            (f) => f.bookCode === fileBibleIdentifier,
         );
         let chapterToSave = chapter;
         if (!targetFile) return;
@@ -196,88 +192,18 @@ export const useWorkspaceActions = ({
         return chapterState;
     }
 
-    const nextChapter = useMemo(() => {
-        if (!pickedFile || (!currentChapter && currentChapter !== 0))
-            return {
-                hasNext: false,
-                go: () => {},
-            };
-        if (currentChapter === pickedFile?.chapters.length - 1) {
-            const nextBookId = pickedFile.nextBookId;
-            const nextBook = workingFiles.find(
-                (file) => file.bibleIdentifier === nextBookId,
-            );
-            const firstChap = 0;
-            const title =
-                nextBook?.localizedTitle ||
-                nextBook?.title ||
-                nextBook?.bibleIdentifier;
-            return {
-                hasNext: true,
-                display: `${title} ${firstChap}`,
-                go: () =>
-                    switchBookOrChapter(
-                        nextBookId || pickedFile.bibleIdentifier,
-                        firstChap,
-                    ),
-            };
-        } else {
-            return {
-                hasNext: true,
-                display: `${currentChapter + 1}`,
-                go: () =>
-                    switchBookOrChapter(
-                        pickedFile.bibleIdentifier,
-                        currentChapter + 1,
-                    ),
-            };
-        }
-    }, [pickedFile, currentChapter, switchBookOrChapter, workingFiles]);
-
-    const prevChapter = useMemo(() => {
-        if (!pickedFile || (!currentChapter && currentChapter !== 0))
-            return {
-                hasPrev: false,
-                go: () => {},
-            };
-        if (currentChapter === 0) {
-            const prevBookId = pickedFile.prevBookId;
-            const prevBook = workingFiles.find(
-                (file) => file.bibleIdentifier === prevBookId,
-            );
-            if (!prevBook || !prevBook.chapters?.length)
-                return {
-                    hasPrev: false,
-                    prevBookName: null,
-                    prevChapNum: null,
-                    go: () => {},
-                };
-            const lastChap = prevBook?.chapters?.length - 1;
-            const title =
-                prevBook?.localizedTitle ||
-                prevBook?.title ||
-                prevBook?.bibleIdentifier;
-            return {
-                hasPrev: true,
-                display: `${title} ${lastChap}`,
-                go: () =>
-                    switchBookOrChapter(
-                        prevBookId || pickedFile.bibleIdentifier,
-                        lastChap,
-                    ),
-            };
-        } else {
-            return {
-                hasPrev: true,
-                display: `${currentChapter - 1}`,
-                go: () =>
-                    switchBookOrChapter(
-                        pickedFile.bibleIdentifier,
-                        currentChapter - 1,
-                    ),
-            };
-        }
-    }, [pickedFile, currentChapter, switchBookOrChapter, workingFiles]);
+    const nextChapter = determineNextChapter(
+        pickedFile,
+        currentChapter,
+        workingFiles,
+        switchBookOrChapter,
+    );
+    const prevChapter = determinePrevChapter(
+        pickedFile,
+        currentChapter,
+        workingFiles,
+        switchBookOrChapter,
+    );
 
     function saveCurrentDirtyLexical({
         doSetWorkingFiles = true,
@@ -327,7 +253,7 @@ export const useWorkspaceActions = ({
                 chapter.lexicalState.root.children = rootChildren;
                 if (
                     chapter.chapNumber === currentChapter &&
-                    file.bibleIdentifier === currentFileBibleIdentifier
+                    file.bookCode === currentFileBibleIdentifier
                 ) {
                     thisChapterUpdated = chapter;
                 }
@@ -406,7 +332,7 @@ export const useWorkspaceActions = ({
                 );
                 if (
                     chapter.chapNumber === currentChapter &&
-                    file.bibleIdentifier === currentFileBibleIdentifier
+                    file.bookCode === currentFileBibleIdentifier
                 ) {
                     thisChapterUpdated = chapter;
                 }
@@ -447,7 +373,7 @@ export const useWorkspaceActions = ({
             return file.chapters.flatMap((chapter) => {
                 const editorState =
                     chapter.chapNumber === currentChapter &&
-                    file.bibleIdentifier === currentFileBibleIdentifier
+                    file.bookCode === currentFileBibleIdentifier
                         ? currentEditorState
                         : chapter.lexicalState;
                 return getFlattenedFileTokens(
@@ -633,5 +559,86 @@ function updateDomClassListWithMarkerViewState({
                 appRoot.classList.add("markers-shown");
             }
         }
+    }
+}
+
+function determineNextChapter(
+    pickedFile: ParsedFile | null,
+    currentChapter: number,
+    workingFiles: ParsedFile[],
+    switchBookOrChapter: (bookCode: string, chapter: number) => void,
+) {
+    if (!pickedFile || (!currentChapter && currentChapter !== 0))
+        return {
+            hasNext: false,
+            go: () => {},
+        };
+    if (currentChapter === pickedFile?.chapters.length - 1) {
+        const nextBookId = pickedFile.nextBookId;
+        const nextBook = workingFiles.find(
+            (file) => file.bookCode === nextBookId,
+        );
+        const firstChap = 0;
+        const title = nextBook?.title || nextBook?.bookCode;
+        return {
+            hasNext: true,
+            display: `${title} ${firstChap}`,
+            go: () =>
+                switchBookOrChapter(
+                    nextBookId || pickedFile.bookCode,
+                    firstChap,
+                ),
+        };
+    } else {
+        return {
+            hasNext: true,
+            display: `${currentChapter + 1}`,
+            go: () =>
+                switchBookOrChapter(pickedFile.bookCode, currentChapter + 1),
+        };
+    }
+}
+
+function determinePrevChapter(
+    pickedFile: ParsedFile | null,
+    currentChapter: number,
+    workingFiles: ParsedFile[],
+    switchBookOrChapter: (bookCode: string, chapter: number) => void,
+) {
+    if (!pickedFile || (!currentChapter && currentChapter !== 0))
+        return {
+            hasPrev: false,
+            go: () => {},
+        };
+    if (currentChapter === 0) {
+        const prevBookId = pickedFile.prevBookId;
+        const prevBook = workingFiles.find(
+            (file) => file.bookCode === prevBookId,
+        );
+        if (!prevBook || !prevBook.chapters?.length)
+            return {
+                hasPrev: false,
+                prevBookName: null,
+                prevChapNum: null,
+                go: () => {},
+            };
+        const lastChap = prevBook?.chapters?.length - 1;
+        const title = prevBook?.title || prevBook?.bookCode;
+        return {
+            hasPrev: true,
+            display: `${title} ${lastChap}`,
+            go: () =>
+                switchBookOrChapter(
+                    prevBookId || pickedFile.bookCode,
+                    lastChap,
+                ),
+        };
+    } else {
+        return {
+            hasPrev: true,
+            display: `${currentChapter - 1}`,
+            go: () =>
+                switchBookOrChapter(pickedFile.bookCode, currentChapter - 1),
+        };
     }
 }

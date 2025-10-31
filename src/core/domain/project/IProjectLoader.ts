@@ -1,5 +1,5 @@
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import type { IFileWriter } from "@/core/persistence/IFileWriter.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 /**
@@ -11,14 +11,12 @@ export interface IProjectLoader {
     /**
      * @method loadProject
      * @description Loads a project from the specified directory handle.
-     * @param projectDir - The FileSystemDirectoryHandle representing the project's root directory.
+     * @param projectDir - The IPathHandle representing the project's root directory.
      * @param fileWriter - An IFileWriter instance for writing files within the project directory.
-     * @param md5Service - An IMd5Service instance for calculating MD5 checksums.
      * @returns A Promise that resolves to the loaded Project object, or null if the project cannot be loaded.
      */
     loadProject(
-        projectDir: FileSystemDirectoryHandle,
+        projectDir: IDirectoryHandle,
         fileWriter: IFileWriter,
-        md5Service: IMd5Service,
     ): Promise<Project | null>;
 }

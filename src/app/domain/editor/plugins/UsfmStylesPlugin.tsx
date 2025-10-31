@@ -1,11 +1,8 @@
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useMutationObserver } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
 import type { EditorMarkersViewState } from "@/app/data/editor";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
 
 export function UsfmStylesPlugin() {
-    const elsWithStylesApplied = useRef<HTMLElement[]>([]);
     const markerViewStateRef = useRef<string>("");
     const dynamicCssStyleSheet = new CSSStyleSheet();
     document.adoptedStyleSheets = [
@@ -49,7 +46,7 @@ export function UsfmStylesPlugin() {
         });
         observer.observe(targetNode, config);
         return () => observer.disconnect();
-    }, [dynamicCssStyleSheet.replaceSync]);
+    }, [dynamicCssStyleSheet]);
 
     return null;
 }

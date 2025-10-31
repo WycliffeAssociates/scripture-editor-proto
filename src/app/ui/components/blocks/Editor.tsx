@@ -8,7 +8,6 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
-import { Text } from "lucide-react";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {

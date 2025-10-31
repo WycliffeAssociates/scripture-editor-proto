@@ -26,7 +26,7 @@ export const useWorkspaceState = (
     const [currentFileBibleIdentifier, setCurrentFileBibleIdentifier] =
         useState(
             getSavedIfPrefersRestore("lastBookIdentifier") ||
-                allFiles[0].bibleIdentifier,
+                allFiles[0].bookCode,
         );
     const [currentChapter, setCurrentChapter] = useState(
         getSavedIfPrefersRestore("lastChapterNumber") || 0,
@@ -47,7 +47,7 @@ export const useWorkspaceState = (
     const pickedFile = useMemo(
         () =>
             allFiles.find(
-                (file) => file.bibleIdentifier === currentFileBibleIdentifier,
+                (file) => file.bookCode === currentFileBibleIdentifier,
             ) || allFiles[0],
         [allFiles, currentFileBibleIdentifier],
     );

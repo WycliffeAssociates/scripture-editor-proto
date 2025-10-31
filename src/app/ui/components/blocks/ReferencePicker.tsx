@@ -29,7 +29,7 @@ export function ReferencePicker() {
     } = project;
 
     // --- derived state
-    const currentBook = pickedFile?.bibleIdentifier ?? "Select";
+    const currentBook = pickedFile?.bookCode ?? "Select";
     const currentDisplay =
         currentChapter >= 0 ? `${currentBook} ${currentChapter}` : currentBook;
 
@@ -44,14 +44,14 @@ export function ReferencePicker() {
         let file = ref.knownBookId
             ? workingFiles.find(
                   (f) =>
-                      f.bibleIdentifier?.toLowerCase() ===
+                      f.bookCode?.toLowerCase() ===
                       ref.knownBookId?.toLowerCase(),
               )
             : undefined;
         // match 2, a unique startsWith, whhich actuall takes priority from fuzzy in that we overwrite file here if we find
         const uniqueStartsWith = workingFiles.filter(
             (f) =>
-                f.localizedTitle
+                f.title
                     ?.toLocaleLowerCase()
                     .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
                 f.title
@@ -63,7 +63,7 @@ export function ReferencePicker() {
         }
         if (file) {
             actions.switchBookOrChapter(
-                file.bibleIdentifier,
+                file.bookCode,
                 ref.chapter ?? currentChapter ?? 1,
             );
             // setSearch("");
@@ -75,7 +75,7 @@ export function ReferencePicker() {
         if (!ref) return workingFiles;
         return workingFiles.filter(
             (f) =>
-                f.localizedTitle
+                f.title
                     ?.toLocaleLowerCase()
                     .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
                 f.title
@@ -133,19 +133,14 @@ export function ReferencePicker() {
                     }}
                 >
                     {uniqueFilesStartsWith.map((file) => {
-                        const fileTitle =
-                            file.localizedTitle ||
-                            file.title ||
-                            file.bibleIdentifier ||
-                            file.path.split("/").pop() ||
-                            "Unknown";
+                        const fileTitle = file.title || file.bookCode;
 
                         return (
-                            <Accordion.Item key={file.path} value={fileTitle}>
+                            <Accordion.Item key={file.title} value={fileTitle}>
                                 <Accordion.Control
                                     className={
                                         currentFileBibleIdentifier ===
-                                        file.bibleIdentifier
+                                        file.bookCode
                                             ? referencePickerCss.activeBook
                                             : undefined
                                     }
@@ -178,7 +173,7 @@ export function ReferencePicker() {
                                                         size="lg"
                                                         onClick={() =>
                                                             actions.switchBookOrChapter(
-                                                                file.bibleIdentifier,
+                                                                file.bookCode,
                                                                 chap,
                                                             )
                                                         }

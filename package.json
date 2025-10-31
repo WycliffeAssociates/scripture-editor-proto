@@ -15,7 +15,7 @@
     "lingui": "lingui",
     "lingui-extract": "lingui extract",
     "lingui-compile": "lingui compile --typescript",
-    "format": "biome check --write .",
+    "format": "biome check --write --unsafe .",
     "test": "vitest",
     "test:unit": "vitest run --exclude 'src/**/*.integration.ts'",
     "test:integration": "TAURI_TEST_INTEGRATION=true vitest run --exclude 'src/**/*.test.ts'",

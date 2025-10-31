@@ -125,7 +125,7 @@ export function Toolbar() {
             <button
                 type="button"
                 onClick={() => {
-                    location.href = location.href;
+                    location.href = `${location.href}`;
                 }}
             >
                 reload
@@ -139,15 +139,15 @@ function ProjectList() {
     const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
     const router = useRouter();
     const currentProject = allProjects.find(
-        (p) => p.path === currentProjectRoute,
+        (p) => p.id === currentProjectRoute,
     );
-    const navigateToNewProject = (projectPath: string) => {
+    const navigateToNewProject = (projectId: string) => {
         project.updateAppSettings({
-            lastProjectPath: projectPath,
+            lastProjectPath: projectId,
         });
         router.navigate({
             to: `/$project`,
-            params: { project: projectPath },
+            params: { project: projectId },
             reloadDocument: true,
         });
         // update project settings to this project
@@ -168,8 +168,8 @@ function ProjectList() {
             <Menu.Dropdown>
                 {allProjects.map((project) => (
                     <Menu.Item
-                        key={project.path}
-                        onClick={() => navigateToNewProject(project.path)}
+                        key={project.id}
+                        onClick={() => navigateToNewProject(project.id)}
                     >
                         {project.name}
                     </Menu.Item>
@@ -187,9 +187,8 @@ function ProjectList() {
 function ReferenceProjectList() {
     const { allProjects, referenceProject } = useWorkspaceContext();
     const selected =
-        allProjects.find(
-            (p) => p.path === referenceProject?.referenceProjectPath,
-        )?.name ?? "Select Reference Project";
+        allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
+            ?.name ?? "Select Reference Project";
 
     return (
         <Menu shadow="md" width={220}>
@@ -204,18 +203,16 @@ function ReferenceProjectList() {
             <Menu.Dropdown>
                 <Menu.Item
                     onClick={() =>
-                        referenceProject.setReferenceProjectPath(undefined)
+                        referenceProject.setReferenceProjectId(undefined)
                     }
                 >
                     Clear Reference Project
                 </Menu.Item>
                 {allProjects.map((project) => (
                     <Menu.Item
-                        key={project.path}
+                        key={project.id}
                         onClick={() =>
-                            referenceProject.setReferenceProjectPath(
-                                project.path,
-                            )
+                            referenceProject.setReferenceProjectId(project.id)
                         }
                     >
                         {project.name}
@@ -224,65 +221,6 @@ function ReferenceProjectList() {
             </Menu.Dropdown>
         </Menu>
     );
-}
-
-/* ---------------- Search ---------------- */
-function _SearchBar() {
-    // const {
-    //   projectSearchTerm,
-    //   setProjectSearchTerm,
-    //   projectSearchOptions,
-    //   setProjectSearchOptions,
-    // } = useProjectContext();
-    const [_opened, _setOpened] = useState(false);
-
-    // return (
-    //   <Group gap="xs" align="center">
-    //     <TextInput
-    //       leftSection={<Search size={14} />}
-    //       placeholder="Search..."
-    //       value={projectSearchTerm}
-    //       onChange={(e) => setProjectSearchTerm(e.currentTarget.value)}
-    //       styles={{input: {width: 180}}}
-    //     />
-    //     <Popover
-    //       opened={opened}
-    //       onChange={setOpened}
-    //       width={180}
-    //       position="bottom-end"
-    //     >
-    //       <Popover.Target>
-    //         <ActionIcon variant="subtle" onClick={() => setOpened((v) => !v)}>
-    //           <Settings2 size={16} />
-    //         </ActionIcon>
-    //       </Popover.Target>
-    //       <Popover.Dropdown>
-    //         <Stack gap="xs">
-    //           <Checkbox
-    //             label="Case sensitive"
-    //             checked={projectSearchOptions.caseSensitive}
-    //             onChange={(e) =>
-    //               setProjectSearchOptions({
-    //                 ...projectSearchOptions,
-    //                 caseSensitive: e.currentTarget.checked,
-    //               })
-    //             }
-    //           />
-    //           <Checkbox
-    //             label="Whole word"
-    //             checked={projectSearchOptions.wholeWord}
-    //             onChange={(e) =>
-    //               setProjectSearchOptions({
-    //                 ...projectSearchOptions,
-    //                 wholeWord: e.currentTarget.checked,
-    //               })
-    //             }
-    //           />
-    //         </Stack>
-    //       </Popover.Dropdown>
-    //     </Popover>
-    //   </Group>
-    // );
 }
 
 /* ---------------- Font Size Adjust ---------------- */
