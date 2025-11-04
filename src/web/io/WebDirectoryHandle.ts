@@ -132,20 +132,20 @@ export class WebDirectoryHandle implements IDirectoryHandle {
     }
 
     async containsFile(name: string): Promise<boolean> {
-        try {
-            await this.handle.getFileHandle(name);
-            return true;
-        } catch (e) {
-            return false;
+        for await (const [entryName, handle] of this.entries()) {
+            if (entryName === name && handle.kind === "file") {
+                return true;
+            }
         }
+        return false;
     }
 
     async containsDir(name: string): Promise<boolean> {
-        try {
-            await this.handle.getDirectoryHandle(name);
-            return true;
-        } catch (e) {
-            return false;
+        for await (const [entryName, handle] of this.entries()) {
+            if (entryName === name && handle.kind === "directory") {
+                return true;
+            }
         }
+        return false;
     }
 }
