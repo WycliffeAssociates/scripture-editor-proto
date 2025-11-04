@@ -7,13 +7,6 @@ import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings";
 import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider";
 
-import { StrictMode } from "react";
-import ReactDOM from "react-dom/client";
-import { App } from "@/app/entrypoint";
-import { TauriGitProvider } from "@/tauri/domain/git/tauriGitProvider";
-import { createTauriSettingsManager } from "@/tauri/domain/settings/settings";
-import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider";
-
 // // instantiante services
 const settingsManager = createTauriSettingsManager();
 const directoryProvider =

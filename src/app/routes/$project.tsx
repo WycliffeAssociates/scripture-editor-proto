@@ -26,22 +26,30 @@ export const Route = createFileRoute("/$project")({
             projectRepository,
             project,
         );
-        const { parsedFiles, allInitialLintErrors } = result || {
+        const { parsedFiles, allInitialLintErrors, loadedProject } = result || {
             parsedFiles: [],
             allInitialLintErrors: [],
+            loadedProject: null,
         };
-        return { projectFiles: parsedFiles, allInitialLintErrors };
+        return {
+            projectFiles: parsedFiles,
+            allInitialLintErrors,
+            loadedProject,
+        };
     },
 });
 
 function RouteComponent() {
-    const { projectFiles, allInitialLintErrors } = Route.useLoaderData();
+    const { projectFiles, allInitialLintErrors, loadedProject } =
+        Route.useLoaderData();
     const { project } = Route.useParams();
+    if (!loadedProject) return <div>Project not found</div>;
     return (
         <ProjectProvider
             currentProjectRoute={project}
             projectFiles={projectFiles}
             allInitialLintErrors={allInitialLintErrors}
+            loadedProject={loadedProject}
         >
             <ProjectView />
         </ProjectProvider>
@@ -55,7 +63,6 @@ export async function projectParamToParsedFiles(
 ) {
     if (project === "undefined") return;
     if (!project) return;
-
     const loadedProject = await projectRepository.loadProject(project);
     if (!loadedProject) return;
     const language = loadedProject.metadata.language;
@@ -93,17 +100,21 @@ export async function projectParamToParsedFiles(
             prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.name),
             title: book.name,
             bookCode: getBookSlug(book.name),
-            chapters: Object.entries(usfm).map(([chapter, tokens]) => ({
-                lexicalState: parsedUsfmTokensToJsonLexicalNode(
+            chapters: Object.entries(usfm).map(([chapter, tokens]) => {
+                const initialState = parsedUsfmTokensToJsonLexicalNode(
                     tokens,
                     language.direction,
-                ),
-                chapNumber: Number(chapter),
-                dirty: false,
-            })),
+                );
+                return {
+                    lexicalState: initialState,
+                    loadedLexicalState: initialState,
+                    chapNumber: Number(chapter),
+                    dirty: false,
+                };
+            }),
         };
     });
     console.timeEnd("parse");
     console.timeEnd("total time");
-    return { parsedFiles: parsed, allInitialLintErrors };
+    return { parsedFiles: parsed, allInitialLintErrors, loadedProject };
 }

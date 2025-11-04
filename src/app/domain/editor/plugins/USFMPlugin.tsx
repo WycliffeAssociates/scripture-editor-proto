@@ -31,10 +31,9 @@ export function USFMPlugin() {
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
-    const lintDebounceMs = 100;
+    const lintDebounceMs = 300;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
-        console.count(`debouncedLint`);
         // console.time("lint");
         // const messages = lintVerseRangeReferences({editorState, editor});
 
@@ -54,7 +53,6 @@ export function USFMPlugin() {
         } else {
             lint.setMessage(merged);
         }
-        // console.timeEnd("lint");
     }, lintDebounceMs);
 
     useEffect(() => {

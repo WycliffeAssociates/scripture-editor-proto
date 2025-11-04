@@ -1,5 +1,4 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { RouterContext } from "@/app/entrypoint";
 
 const RootLayout = () => {
@@ -37,7 +36,7 @@ const RootLayout = () => {
             <div className="">
                 <Outlet />
             </div>
-            <TanStackRouterDevtools />
+            {/* <TanStackRouterDevtools /> */}
         </>
     );
 };

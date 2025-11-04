@@ -32,13 +32,6 @@ const inCharsState = createState("inChars", {
       : ([] as Array<string>),
 });
 
-const inCharsState = createState("inChars", {
-    parse: (value) =>
-        typeof value === "object" && Array.isArray(value)
-            ? (value as Array<string>)
-            : ([] as Array<string>),
-});
-
 /**
  * Defines the NodeState for 'tokenType'. It categorizes the node's purpose.
  * Examples: 'text', 'marker', 'numberRange'

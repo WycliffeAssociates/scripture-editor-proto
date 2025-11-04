@@ -172,3 +172,10 @@ more lint rules?
 push para markers forwards in sid instead of back?
 Start writing tests for editor?
 Start refining ui? 
+
+Psalm \d marker and stuff should be included as part of a sid:0? 
+
+
+
+today:
+= Save (auto + review)

@@ -50,14 +50,14 @@ body:not(.source-mode) {
     /* position: absolute; */
     /* pointer-events: none; */
   }
-  [data-show="false"].isCharMarker,
+  /* [data-show="false"].isCharMarker,
   [data-show="false"].isCharCloseMarker {
     width: 0;
     display: inline-block;
     line-height: 0;
-  }
-  [data-show="true"].isCharMarker,
-  [data-show="true"].isCharCloseMarker {
+  } */
+  [data-show="true"][data-token-type="marker"],
+  [data-show="true"][data-token-type="endMarker"] {
     width: auto;
     display: inline;
     line-height: inherit;
@@ -77,9 +77,9 @@ body:not(.source-mode) {
     ) {
     font-style: italic;
   }
-  [data-marker="b"] {
+  /* [data-marker="b"] {
     display: block !important;
-  }
+  } */
   [data-marker="b"][data-show="false"] {
     opacity: 0 !important;
     /* pointer-events: none !important; */
@@ -90,10 +90,10 @@ body:not(.source-mode) {
     display: none !important;
   }
 
-  .isParaMarker:has(+ [data-marker]) {
+  /* .isParaMarker:has(+ [data-marker]) {
     display: block;
     width: max-content;
-  }
+  } */
 }
 
 .lint-error {

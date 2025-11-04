@@ -28,7 +28,7 @@ function Index() {
                         onClick={() => {
                             console.log("Clicked on Project", project.id);
                             settingsManager.update({
-                                lastProjectPath: project.projectDir.path,
+                                lastProjectPath: project.projectDir.name,
                             });
                         }}
                     >

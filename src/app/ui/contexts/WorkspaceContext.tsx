@@ -17,6 +17,10 @@ import {
     useReferenceProject,
 } from "@/app/ui/hooks/useReferenceProject";
 import {
+    type UseProjectDiffsReturn,
+    useProjectDiffs,
+} from "@/app/ui/hooks/useSave";
+import {
     type UseSearchReturn,
     useProjectSearch,
 } from "@/app/ui/hooks/useSearch";
@@ -38,6 +42,7 @@ interface WorkSpaceContextType {
     search: UseSearchReturn;
     lint: UseLintReturn;
     cssStyleSheet: UseDynamicStylesheetHook;
+    saveDiff: UseProjectDiffsReturn;
 }
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
     undefined,
@@ -55,11 +60,13 @@ type ProjectProviderProps = {
     projectFiles: ParsedFile[];
     allInitialLintErrors: LintError[];
     children: React.ReactNode;
+    loadedProject: Project;
 };
 export const ProjectProvider = ({
     currentProjectRoute,
     projectFiles,
     allInitialLintErrors,
+    loadedProject,
     children,
 }: ProjectProviderProps) => {
     const editorRef = useRef<LexicalEditor | null>(null);
@@ -71,6 +78,7 @@ export const ProjectProvider = ({
     const project = useWorkspaceState(settingsManager, workingFiles);
     const actions = useWorkspaceActions({
         editorRef,
+        loadedProject,
         currentChapter: project.currentChapter,
         currentFileBibleIdentifier: project.currentFileBibleIdentifier,
         setCurrentChapter: project.setCurrentChapter,
@@ -100,6 +108,9 @@ export const ProjectProvider = ({
         currentChapter: project.currentChapter,
         currentBibleBookId: project.currentFileBibleIdentifier,
     });
+    const saveDiff = useProjectDiffs({
+        workingFiles,
+    });
 
     // sync props to state: Be sure all dirty work is saved before navigating away or closing app
     useEffect(() => {
@@ -118,6 +129,7 @@ export const ProjectProvider = ({
                 search,
                 lint,
                 cssStyleSheet,
+                saveDiff,
             }}
         >
             {children}

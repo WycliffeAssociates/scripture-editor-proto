@@ -17,6 +17,7 @@ import {
     type EditorMarkersViewState,
     EditorMarkersViewStates,
 } from "@/app/data/editor";
+import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
 // import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
@@ -26,7 +27,8 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import { EditorMarkersMutableStates } from "../../../data/editor";
 
 export function Toolbar() {
-    const { actions, project } = useWorkspaceContext();
+    const { actions, project, saveDiff } = useWorkspaceContext();
+
     // const {} = useProjectContext();
 
     // function seeUsfm() {
@@ -130,6 +132,16 @@ export function Toolbar() {
             >
                 reload
             </button>
+            {/* <button
+                type="button"
+                onClick={() => {
+                    debugger;
+                    console.log(actions.toSave);
+                }}
+            >
+                Save
+            </button> */}
+            <SaveAndReviewChanges />
         </Group>
     );
 }
@@ -139,7 +151,7 @@ function ProjectList() {
     const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
     const router = useRouter();
     const currentProject = allProjects.find(
-        (p) => p.id === currentProjectRoute,
+        (p) => p.projectDir.name === currentProjectRoute,
     );
     const navigateToNewProject = (projectId: string) => {
         project.updateAppSettings({
@@ -168,8 +180,10 @@ function ProjectList() {
             <Menu.Dropdown>
                 {allProjects.map((project) => (
                     <Menu.Item
-                        key={project.id}
-                        onClick={() => navigateToNewProject(project.id)}
+                        key={project.projectDir.path}
+                        onClick={() =>
+                            navigateToNewProject(project.projectDir.name)
+                        }
                     >
                         {project.name}
                     </Menu.Item>

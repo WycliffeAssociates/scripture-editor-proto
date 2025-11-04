@@ -16,7 +16,7 @@ import {
     UsfmTokenTypes,
 } from "@/app/data/editor";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import { type Settings, settingsDefaults } from "@/app/data/settings";
+import type { Settings } from "@/app/data/settings";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
 import type { LintableToken } from "@/core/data/usfm/lint";
+import type { Project } from "@/core/persistence/ProjectRepository";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 export type LintableTokenLike = LintableToken & {
@@ -37,6 +38,7 @@ export type LintableTokenLike = LintableToken & {
 type Props = {
     // projectPath: string,
     editorRef: React.RefObject<LexicalEditor | null>;
+    loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setCurrentFileBibleIdentifier: (file: string) => void;
@@ -50,6 +52,7 @@ type Props = {
 };
 export const useWorkspaceActions = ({
     workingFiles,
+    loadedProject,
     setWorkingFiles,
     editorRef,
     currentFileBibleIdentifier,
@@ -69,6 +72,12 @@ export const useWorkspaceActions = ({
         // won't fire needlesslely when workingFiles is already set to the value of workingFilesRef.current; only if props changes
         workingFilesRef.current = workingFiles;
     }, [workingFiles]);
+
+    // console.time("toSave as usfm string");
+    // const toSave = useMemo(() => {
+    //     return getSidUsfmMap(workingFiles, (chap) => chap.lexicalState);
+    // }, [workingFiles]);
+    // console.timeEnd("toSave as usfm string");
 
     type UpdateChapterLexicalArgs = {
         fileBibleIdentifier: string;
@@ -390,19 +399,20 @@ export const useWorkspaceActions = ({
         // yes, this readjusting state we just rendered, but perf is not bad, and it let's us just keep the logic here instead of in dependency code for lexical, so nodes uust always render a default, and we can adjust to saved preferences real quick before this first showing of content.
         if (appSettings.mode === "source") {
             toggleToSourceMode({ isInitialLoad: true });
-        } else if (
-            appSettings.markersMutableState !==
-                settingsDefaults.markersMutableState ||
-            appSettings.markersViewState !== settingsDefaults.markersViewState
-        ) {
-            adjustWysiwygMode({
-                markersMutableState: appSettings.markersMutableState,
-                markersViewState: appSettings.markersViewState,
-                duringLoad: true,
-            });
-        } else {
-            setEditorContent(currentFileBibleIdentifier, currentChapter);
         }
+        // else if (
+        //     appSettings.markersMutableState !==
+        //         settingsDefaults.markersMutableState ||
+        //     appSettings.markersViewState !== settingsDefaults.markersViewState
+        // ) {
+        adjustWysiwygMode({
+            markersMutableState: appSettings.markersMutableState,
+            markersViewState: appSettings.markersViewState,
+            duringLoad: true,
+        });
+        // } else {
+        //     setEditorContent(currentFileBibleIdentifier, currentChapter);
+        // }
     });
 
     return {
