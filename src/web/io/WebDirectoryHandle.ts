@@ -130,4 +130,22 @@ export class WebDirectoryHandle implements IDirectoryHandle {
     [Symbol.asyncDispose](): Promise<void> {
         return Promise.resolve(void 0);
     }
+
+    async containsFile(name: string): Promise<boolean> {
+        try {
+            await this.handle.getFileHandle(name);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async containsDir(name: string): Promise<boolean> {
+        try {
+            await this.handle.getDirectoryHandle(name);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
 }

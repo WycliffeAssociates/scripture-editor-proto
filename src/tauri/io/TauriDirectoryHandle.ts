@@ -6,6 +6,7 @@ import {
   readTextFile,
   remove,
   writeTextFile,
+  exists,
 } from "@tauri-apps/plugin-fs";
 import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import type {IFileHandle} from "@/core/io/IFileHandle.ts";
@@ -130,5 +131,15 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
 
   async getAbsolutePath(): Promise<string> {
     return this.path;
+  }
+
+  async containsFile(name: string): Promise<boolean> {
+    const filePath = await join(this.path, name);
+    return await exists(filePath);
+  }
+
+  async containsDir(name: string): Promise<boolean> {
+    const dirPath = await join(this.path, name);
+    return await exists(dirPath);
   }
 }
