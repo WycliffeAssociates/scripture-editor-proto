@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { Route as projectRoute } from "./$project";
+import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
 // import { Route as ProjectRoute } from '@/app/routes/projects/$projectId.edit';
 
 export const Route = createFileRoute("/")({
@@ -14,6 +15,12 @@ export const Route = createFileRoute("/")({
 
 // ls the app data dir and show as projects
 function Index() {
+    function handleDownload(url: string) {
+        console.log("Download", url);
+
+        const res = await fetch(url);
+        const data = await res.arrayBuffer();
+    }
     const { projects } = useLoaderData({ from: "__root__" });
     const { settingsManager } = useRouter().options.context;
     return (
@@ -36,6 +43,12 @@ function Index() {
                     </Link>
                 ))}
             </ul>
+
+            <br/>
+            <h1>Find a Repo</h1>
+            <RepoDownload onDownload={handleDownload} isDownloadDisabled={false}>
+
+            </RepoDownload>
         </div>
     );
 }
