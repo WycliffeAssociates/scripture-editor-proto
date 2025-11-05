@@ -2,6 +2,7 @@ import {
     Button,
     Center,
     Grid,
+    Group,
     Loader,
     Modal,
     Paper,
@@ -9,17 +10,18 @@ import {
     Text,
 } from "@mantine/core";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import type { ProjectDiff } from "./hooks/useProjectDiffs"; // Adjust import path
+import type { ProjectDiff } from "@/app/ui/hooks/useSave";
 
 // Props for the new custom diff item
 type DiffItemProps = {
     diff: ProjectDiff;
+    revertDiff: (diffToRevert: ProjectDiff) => void;
 };
 
 /**
  * Renders a custom side-by-side view for a single SID change.
  */
-function DiffItem({ diff }: DiffItemProps) {
+function DiffItem({ diff, revertDiff }: DiffItemProps) {
     const isAddition = diff.original === null;
     const isDeletion = diff.current === null;
 
@@ -44,9 +46,14 @@ function DiffItem({ diff }: DiffItemProps) {
             </Text>
             <Grid gutter="md" style={{ padding: "12px" }}>
                 <Grid.Col span={6}>
-                    <Text size="xs" tt="uppercase" fw={700}>
-                        Original
-                    </Text>
+                    <Group fw={700}>
+                        <Text tt="uppercase" size="xs">
+                            Original
+                        </Text>
+                        <button type="button" onClick={() => revertDiff(diff)}>
+                            Revert
+                        </button>
+                    </Group>
                     <Paper
                         withBorder
                         p="xs"
@@ -75,7 +82,7 @@ function DiffItem({ diff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.original}
+                                {diff.original.text}
                             </pre>
                         )}
                     </Paper>
@@ -112,7 +119,7 @@ function DiffItem({ diff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.current}
+                                {diff.current.text}
                             </pre>
                         )}
                     </Paper>
@@ -127,6 +134,7 @@ type DiffViewerModalProps = {
     onClose: () => void;
     diffs: ProjectDiff[] | null;
     isCalculating: boolean;
+    revertDiff: (diffToRevert: ProjectDiff) => void;
 };
 
 /**
@@ -137,6 +145,7 @@ function DiffViewerModal({
     onClose,
     diffs,
     isCalculating,
+    revertDiff,
 }: DiffViewerModalProps) {
     const hasChanges = diffs && diffs.length > 0;
 
@@ -164,7 +173,11 @@ function DiffViewerModal({
                 {!isCalculating && hasChanges && (
                     <div>
                         {diffs.map((diff) => (
-                            <DiffItem key={diff.sid} diff={diff} />
+                            <DiffItem
+                                key={diff.sid}
+                                diff={diff}
+                                revertDiff={revertDiff}
+                            />
                         ))}
                     </div>
                 )}
@@ -187,7 +200,8 @@ export function SaveAndReviewChanges() {
                 isOpen={saveDiff.openDiffModal}
                 onClose={saveDiff.closeModal}
                 diffs={saveDiff.diffs}
-                isCalculating={saveDiff.isCalculating}
+                isCalculating={false}
+                revertDiff={saveDiff.handleRevert}
             />
 
             <Button onClick={saveDiff.toggleDiffModal}>Review & Save</Button>

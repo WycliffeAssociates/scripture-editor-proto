@@ -173,9 +173,58 @@ push para markers forwards in sid instead of back?
 Start writing tests for editor?
 Start refining ui? 
 
-Psalm \d marker and stuff should be included as part of a sid:0? 
+Psalm \d marker and stuff should be included as part of a sid:0?  
 
 
 
 today:
 = Save (auto + review)
+
+
+Flow: 
+1. Store originalFileSidMap as ref: Won't change until we actually write to disk. 
+2. Store currentSidUsfmMap as mut ref as well. Initial val = originalFileSidMap
+3. Calc an intial stateful value of diffs to keep prepopulated (to known whether to block unload): 
+4. When we mutate currentWorkingFiles in useActions (i.e save current dirty lexical) (contain all mutation to that ref in this one file), then we update the currentSidUsfmMapRef in only that file / chap:
+5. We want the ability to then only recalc diffs for that file / chap and update the stateful diffs value: 
+6. Clicking a "revert change" in the modal should then traverse the serialized workingFiles to do the update. If the update happened in the current file / chap, we also need to do an editor.update and set content as that serialized lexical state we just recomputed. Becuase we just adjusted the workingFiles there, we'd need to update that section of the currentSidUsfmMap and calc diffs again for that file / chap
+
+\v1 one
+\v2 two
+\v3 three
+\v4 four
+
+\v1 one
+[deleted]
+[deleted]
+\v4 four
+
+and then:
+\v1 one
+\v2 two
+\v3 three
+\v4 four
+
+\v1 one
+[deleted]
+[deleted]
+\v4 four
+
+_________
+\v1 one
+\v2 two
+
+\v1 one and two merged in
+
+
+
+
+Revert means:
+- Take somethign from current working files and:
+- IF 
+  - was additions: (filter out all those nodes) in workingFiles
+  - was removals: 
+    - those nodes won't be in workingFiles. That sid wont' be in working files. But if we knew it's previous sibling node, we could push it in back in the right place, even if the sid itself is out of order (i.e. a 2, 34), that 34 still knows prev sibling was 2. 
+  - was simply a change:
+    - For each node in workingFiles of that sid, remove them from workingFiles, and insert old in their place
+  

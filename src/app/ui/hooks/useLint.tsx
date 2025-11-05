@@ -31,8 +31,24 @@ export function useLint({
         const ensureDeduped = sortListBySidCanonical(
             dedupeErrorMessagesList(merged),
         );
-
-        setMessage(ensureDeduped);
+        if (!ensureDeduped.length && messages.length) {
+            // sett if we actually need to clear the messages:
+            const allMessagesInDom = document.querySelectorAll(".lint-error");
+            if (allMessagesInDom.length === 0) {
+                setMessage([]);
+            }
+            return [];
+        } else {
+            const isDifferent = ensureDeduped.some((m) => {
+                const existing = messages.find(
+                    (e) => e.sid === m.sid && e.msgKey === m.msgKey,
+                );
+                return !existing;
+            });
+            if (isDifferent) {
+                setMessage(ensureDeduped);
+            }
+        }
         return ensureDeduped;
     }
 

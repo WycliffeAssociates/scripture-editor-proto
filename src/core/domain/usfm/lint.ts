@@ -242,6 +242,10 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
   if (ctx.currentToken.tokenType !== TokenMap.numberRange) return;
   const sidParsed = parseSid(ctx.currentToken.sid ?? "");
   if (!sidParsed || sidParsed.isBookChapOnly) return;
+  if (sidParsed.chapter === 0 || sidParsed.verseStart === 0) {
+    // don't lint special sid token values for content prior to actual verse Sids
+    return;
+  }
 
   const nextToken = ctx.nextToken;
   if (!nextToken) return;

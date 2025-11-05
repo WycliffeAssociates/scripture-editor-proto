@@ -18,7 +18,6 @@ import {
   isSerializedPlainTextUSFMTextNode,
   isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import {parseSid} from "@/core/data/bible/bible";
 
 export function $serializedLexicalToUsfm(editor: LexicalEditor) {
   return editor.getEditorState().read(() => {
@@ -66,128 +65,193 @@ function serializeNestedEditorState(
   return nestedVal;
 }
 
-/**
- * Configuration for the serialization process.
- */
-type SerializeOptions = {
-  // The desired output format.
-  mode: "usfmString" | "sidUsfmMap" | "sidTextMap";
-  // If true, nested editors (e.g., footnotes) are skipped.
-  ignoreFootnotes?: boolean;
-  // In 'sidTextMap' mode, if true, converts line breaks to spaces.
-  lineBreakToSpace?: boolean;
-  includeVerseSidsOnly?: boolean;
-};
+//================================================================================
+// Function 1: Serialize to a single USFM string
+//================================================================================
 
 /**
- * Internal state used during the recursive traversal.
+ * Serializes an array of Lexical nodes into a single, flat USFM string.
+ * @param nodes - The array of serialized nodes from an editor state.
+ * @returns A single string representing the complete USFM document.
  */
-type TraversalState = {
-  // Tracks the last seen Scripture ID to correctly associate content.
+export function serializeToUsfmString(nodes: SerializedLexicalNode[]): string {
+  const accumulator = {str: ""};
+  traverseForUsfmString(nodes, accumulator);
+  return accumulator.str;
+}
+
+function traverseForUsfmString(
+  nodes: SerializedLexicalNode[],
+  accumulator: {str: string}
+): void {
+  for (const node of nodes) {
+    if (node.type === "linebreak") {
+      accumulator.str += "\n";
+      continue;
+    }
+
+    if (isSerializedUSFMTextNode(node)) {
+      accumulator.str += node.text;
+      continue;
+    }
+
+    if (isSerializedUSFMNestedEditorNode(node)) {
+      // Handle nested content like footnotes by recursively processing them.
+      accumulator.str += `\\${node.marker} `;
+      traverseForUsfmString(node.editorState.root.children, accumulator);
+      accumulator.str += `\\${node.marker}*`;
+      continue;
+    }
+
+    if (isSerializedElementNode(node) && node.children) {
+      traverseForUsfmString(node.children, accumulator);
+    }
+  }
+}
+
+//================================================================================
+// Function 2: Serialize to a map of SID -> Plain Text
+//================================================================================
+
+type SidTextMapOptions = {
+  ignoreFootnotes?: boolean;
+  lineBreakToSpace?: boolean;
+};
+
+type SidTextMapState = {
   lastSid?: string;
 };
 
 /**
- * The core recursive engine for processing an array of serialized nodes.
- * @param nodes - The array of nodes to process.
- * @param options - The configuration determining the output format and behavior.
- * @param accumulator - The object being built (either a string or a Record).
- * @param state - The internal state for the traversal (e.g., lastSid).
+ * Serializes nodes into a map where each key is a Scripture ID (e.g., "MAT 1:1")
+ * and the value is ONLY the plain text content, with all markers stripped out.
+ * @param nodes - The array of serialized nodes.
+ * @param options - Configuration options for the output.
+ * @returns A Record mapping SIDs to their plain text content.
  */
-export function processSerializedNodes<
-  T extends Record<string, string> | {str: string}
->(
+export function serializeToSidTextMap(
   nodes: SerializedLexicalNode[],
-  options: SerializeOptions,
-  accumulator: T,
-  state: TraversalState = {}
-): T {
+  options: SidTextMapOptions = {}
+): Record<string, string> {
+  const accumulator: Record<string, string> = {};
+  const state: SidTextMapState = {};
+  traverseForSidTextMap(nodes, options, accumulator, state);
+  return accumulator;
+}
+
+function traverseForSidTextMap(
+  nodes: SerializedLexicalNode[],
+  options: SidTextMapOptions,
+  accumulator: Record<string, string>,
+  state: SidTextMapState
+): void {
   for (const node of nodes) {
-    // --- Handle Line Breaks ---
     if (node.type === "linebreak") {
-      if (options.mode === "usfmString") {
-        (accumulator as {str: string}).str += "\n";
-      } else if (state.lastSid) {
-        const map = accumulator as Record<string, string>;
+      if (state.lastSid) {
         const content = options.lineBreakToSpace ? " " : "\n";
-        // Avoid adding multiple spaces
-        if (content === " " && map[state.lastSid]?.endsWith(" ")) continue;
-        map[state.lastSid] = (map[state.lastSid] || "") + content;
+        if (content !== " " || !accumulator[state.lastSid]?.endsWith(" ")) {
+          accumulator[state.lastSid] =
+            (accumulator[state.lastSid] || "") + content;
+        }
       }
       continue;
     }
 
-    // --- Handle USFM Text Nodes (Markers, Text, Verses) ---
-    if (isSerializedUSFMTextNode(node) && node.sid) {
-      let textToAppend = "";
-      // in text only mode, filter out book/chapter/metadata only sids
-      if (options.mode === "sidTextMap") {
-        const sidParsed = parseSid(node.sid);
-        // in verse only, filter out usfm
-        if (options.includeVerseSidsOnly) {
-          const doAdd = sidParsed && !sidParsed.isBookChapOnly;
-          if (isSerializedPlainTextUSFMTextNode(node) && doAdd) {
-            textToAppend = node.text.trimStart();
-          }
-        } else {
-          textToAppend = node.text;
-        }
-      } else {
-        // In USFM modes, include all content from the node.
-        textToAppend = node.text;
-      }
-
-      if (textToAppend) {
-        if (options.mode === "usfmString") {
-          (accumulator as {str: string}).str += textToAppend;
-        } else if (node.sid) {
-          const map = accumulator as Record<string, string>;
-          map[node.sid] = (map[node.sid] || "") + textToAppend;
-          state.lastSid = node.sid;
-        }
-      }
+    if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
+      // Only include plain text nodes, effectively stripping markers.
+      accumulator[node.sid] = (accumulator[node.sid] || "") + node.text;
+      state.lastSid = node.sid;
+      continue;
     }
 
-    // --- Handle Nested Editors (Footnotes, Cross-references) ---
     if (isSerializedUSFMNestedEditorNode(node)) {
-      if (options.mode === "usfmString") {
-        accumulator.str += `\\${node.marker} `;
-        processSerializedNodes(
+      if (!options.ignoreFootnotes) {
+        // If not ignoring, process the content but not the markers.
+        traverseForSidTextMap(
           node.editorState.root.children,
           options,
           accumulator,
           state
         );
-        accumulator.str += `\\${node.marker}*`;
-        return accumulator;
-      } else if (options.mode === "sidTextMap") {
-        // usfmTextMap or sidTextMap
-        if (options.ignoreFootnotes && state.lastSid) {
-          // insert a space to separate the text from ellided footnote
-          (accumulator as Record<string, string>)[state.lastSid] = `${
-            (accumulator as Record<string, string>)[state.lastSid] || ""
-          } `;
-        }
-      } else if (options.mode === "sidUsfmMap" && state.lastSid) {
-        (accumulator as Record<string, string>)[
-          state.lastSid
-        ] = `\\${node.marker} `;
-        processSerializedNodes(
-          node.editorState.root.children,
-          options,
-          accumulator,
-          state
-        );
-        (accumulator as Record<string, string>)[
-          state.lastSid
-        ] += `\\${node.marker}*`;
-        return accumulator;
       }
+      continue;
     }
-    // --- Handle Element Nodes (e.g., 'paragraph') by recursing through children ---
+
     if (isSerializedElementNode(node) && node.children) {
-      processSerializedNodes(node.children, options, accumulator, state);
+      traverseForSidTextMap(node.children, options, accumulator, state);
     }
   }
-  return accumulator;
+}
+
+//================================================================================
+// Function 3: Build the rich, contextual map for reversion (CORRECTED)
+//================================================================================
+
+export type SidContent = {
+  nodes: SerializedLexicalNode[];
+  parentChapterNodeList: SerializedLexicalNode[];
+  startIndexInParent: number;
+  previousSid: string | null;
+  text: string; // The full USFM text for this block, for diffing
+};
+
+export type SidContentMap = Record<string, SidContent>;
+
+/**
+ * Processes a single chapter's node list into a rich, contextual map (SidContentMap)
+ * ideal for performing state reversions. This version correctly handles ALL node types.
+ * @param chapterNodeList - The `root.children` array from a chapter's lexical state.
+ */
+export function buildSidContentMapForChapter(
+  chapterNodeList: SerializedLexicalNode[],
+  _map?: SidContentMap
+): SidContentMap {
+  const map: SidContentMap = _map || {};
+  let currentSid: string | null = null;
+  let previousSid: string | null = null;
+
+  for (let i = 0; i < chapterNodeList.length; i++) {
+    const node = chapterNodeList[i];
+
+    // Condition to check if this node marks the beginning of a NEW SID block.
+    if (isSerializedUSFMTextNode(node) && node.sid && node.sid !== currentSid) {
+      previousSid = currentSid; // The one we just finished is the anchor for this new one.
+      currentSid = node.sid;
+
+      map[currentSid] = {
+        nodes: [],
+        text: "",
+        parentChapterNodeList: chapterNodeList,
+        startIndexInParent: i,
+        previousSid: previousSid,
+      };
+    }
+
+    // Associate the current node with the active SID block.
+    // This is the crucial logic that prevents dropping SID-less nodes.
+    if (currentSid) {
+      map[currentSid].nodes.push(node);
+
+      // Accumulate a simple text representation for diffing purposes.
+      // This can be expanded if footnotes need to be handled differently.
+      if (node.type === "linebreak") {
+        map[currentSid].text += "\n";
+      } else if (isSerializedUSFMTextNode(node)) {
+        map[currentSid].text += node.text ?? "";
+      } else if (isSerializedUSFMNestedEditorNode(node)) {
+        // For simplicity in diffing, represent the entire footnote block.
+        const nestedText = serializeToUsfmString(
+          node.editorState.root.children
+        );
+        map[
+          currentSid
+        ].text += `\\${node.marker} ${nestedText} \\${node.marker}*`;
+      }
+    }
+    if (isSerializedElementNode(node) && node.children) {
+      buildSidContentMapForChapter(node.children, map);
+    }
+  }
+
+  return map;
 }

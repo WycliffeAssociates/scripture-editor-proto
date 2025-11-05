@@ -20,11 +20,7 @@ import {
 
 type Props = {
     workingFiles: ParsedFile[];
-    saveCurrentDirtyLexical: ({
-        doSetWorkingFiles,
-    }: {
-        doSetWorkingFiles?: boolean;
-    }) => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
     switchBookOrChapter: (
         file: string,
         chapter: number,
@@ -85,9 +81,7 @@ export function useProjectSearch({
         CSS.highlights.clear();
 
         // This is a mutable ref returned here with latest. Don't mutate right now
-        const filesToSearch =
-            saveCurrentDirtyLexical({ doSetWorkingFiles: true }) ||
-            workingFiles;
+        const filesToSearch = saveCurrentDirtyLexical() || workingFiles;
         const allResults: SearchResult[] = [];
 
         for (const file of filesToSearch) {

@@ -5,9 +5,16 @@ import {
   type LexicalEditor,
   type LexicalNode,
 } from "lexical";
-import {EDITOR_TAGS_USED, UsfmTokenTypes} from "@/app/data/editor";
+import {
+  EDITOR_TAGS_USED,
+  EditorMarkersMutableStates,
+  EditorMarkersViewStates,
+  UsfmTokenTypes,
+} from "@/app/data/editor";
 import type {MainDocumentStrutureFxn} from "@/app/domain/editor/listeners/maintainDocumentStructure";
 import {
+  $isLockableUSFMTextNode,
+  $isToggleableUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -36,6 +43,7 @@ export function maintainDocumentMetaData(
   };
   adjustSidsAsNeededOnTextTokens(args);
   maintainInPara(args);
+  monitorMutabilityAndVisibility(args);
   //   editorState.read(() => {
   //     const root = $getRoot();
   //     root.getAllTextNodes().forEach((node) => {
@@ -196,6 +204,59 @@ const maintainInPara: MainDocumentStrutureFxn = ({
         node.setInPara(prevInPara);
       },
     });
+  }
+};
+
+const monitorMutabilityAndVisibility: MainDocumentStrutureFxn = ({
+  node,
+  tokenType,
+  updates,
+}) => {
+  const rootDomEl = document.getElementById("root");
+  if (!rootDomEl) return;
+  const isMutable = node.getMutable();
+  const isVisible = node.getShow();
+  const viewState = rootDomEl?.getAttribute("data-view-state");
+  const mutabilityState = rootDomEl?.getAttribute("data-mutability-state");
+  if (mutabilityState === EditorMarkersMutableStates.MUTABLE) {
+    if (!isMutable && $isLockableUSFMTextNode(node)) {
+      updates.push({
+        dbgLabel: "monitorMutabilityAndVisibility",
+        update: () => {
+          node.setMutable(true);
+        },
+      });
+    }
+  } else if (mutabilityState === EditorMarkersMutableStates.IMMUTABLE) {
+    if (isMutable && $isLockableUSFMTextNode(node)) {
+      updates.push({
+        dbgLabel: "monitorMutabilityAndVisibility",
+        update: () => {
+          node.setMutable(false);
+        },
+      });
+    }
+  }
+
+  if (viewState === EditorMarkersViewStates.NEVER) {
+    if (isVisible && $isToggleableUSFMTextNode(node)) {
+      updates.push({
+        dbgLabel: "monitorMutabilityAndVisibility",
+        update: () => {
+          node.setShow(false);
+        },
+      });
+    }
+  }
+  if (viewState === EditorMarkersViewStates.ALWAYS) {
+    if (!isVisible && $isToggleableUSFMTextNode(node)) {
+      updates.push({
+        dbgLabel: "monitorMutabilityAndVisibility",
+        update: () => {
+          node.setShow(true);
+        },
+      });
+    }
   }
 };
 

@@ -43,16 +43,7 @@ export function USFMPlugin() {
         );
 
         // console.log(messages);
-        const merged = lint.mergeInNewErrorsFromChapter(errMessages);
-        if (!merged.length) {
-            // sett if we actually need to clear the messages:
-            const allMessagesInDom = document.querySelectorAll(".lint-error");
-            if (allMessagesInDom.length === 0) {
-                lint.setMessage([]);
-            }
-        } else {
-            lint.setMessage(merged);
-        }
+        lint.mergeInNewErrorsFromChapter(errMessages);
     }, lintDebounceMs);
 
     useEffect(() => {
@@ -78,6 +69,7 @@ export function USFMPlugin() {
                 },
             });
         });
+        // todo: I think we might just want to try to do these as debounced change Listeners. I know there is potential for waterfall, but like, I kinda think we need to dfs the whole tree to ensure accurate sids on nodes positionally. Cause having accurate sids affects diffs
         const maintainMetadata = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {

@@ -4,7 +4,6 @@ import {
     type SerializedEditorState,
     type SerializedLexicalNode,
 } from "lexical";
-import { useEffect, useRef } from "react";
 import { useEffectOnce } from "react-use";
 import {
     EDITOR_TAGS_USED,
@@ -26,7 +25,6 @@ import {
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
 import type { LintableToken } from "@/core/data/usfm/lint";
 import type { Project } from "@/core/persistence/ProjectRepository";
 
@@ -38,6 +36,7 @@ export type LintableTokenLike = LintableToken & {
 type Props = {
     // projectPath: string,
     editorRef: React.RefObject<LexicalEditor | null>;
+    mutWorkingFilesRef: ParsedFile[];
     loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -45,15 +44,15 @@ type Props = {
     setCurrentChapter: (chapter: number) => void;
     appSettings: Settings;
     updateAppSettings: (newSettings: Partial<Settings>) => void;
-    workingFiles: ParsedFile[];
-    setWorkingFiles: (files: ParsedFile[]) => void;
+    // workingFiles: ParsedFile[];
+    // setWorkingFiles: (files: ParsedFile[]) => void;
     pickedFile: ParsedFile | null;
-    updateStyleSheet: (css: string) => void;
 };
 export const useWorkspaceActions = ({
-    workingFiles,
+    // workingFiles,
+    mutWorkingFilesRef,
     loadedProject,
-    setWorkingFiles,
+    // setWorkingFiles,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -62,45 +61,30 @@ export const useWorkspaceActions = ({
     appSettings,
     updateAppSettings,
     pickedFile,
-    updateStyleSheet,
 }: Props) => {
-    // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
-    const workingFilesRef = useRef(workingFiles);
-
-    // keep ref in sync when React commits new state
-    useEffect(() => {
-        // won't fire needlesslely when workingFiles is already set to the value of workingFilesRef.current; only if props changes
-        workingFilesRef.current = workingFiles;
-    }, [workingFiles]);
-
-    // console.time("toSave as usfm string");
-    // const toSave = useMemo(() => {
-    //     return getSidUsfmMap(workingFiles, (chap) => chap.lexicalState);
-    // }, [workingFiles]);
-    // console.timeEnd("toSave as usfm string");
-
     type UpdateChapterLexicalArgs = {
         fileBibleIdentifier: string;
         chap: number;
         newLexical: SerializedEditorState;
-        doSetWorkingFiles?: boolean;
+        // doSetWorkingFiles?: boolean;
     };
     function updateChapterLexical({
         fileBibleIdentifier,
         chap,
         newLexical,
-        doSetWorkingFiles = true,
+        // doSetWorkingFiles = true,
     }: UpdateChapterLexicalArgs) {
-        const file = workingFilesRef.current.find(
+        const file = mutWorkingFilesRef.find(
             (file) => file.bookCode === fileBibleIdentifier,
         );
         if (!file) return;
         file.chapters[chap].lexicalState = newLexical;
         file.chapters[chap].dirty = true;
-        if (doSetWorkingFiles) {
-            setWorkingFiles(workingFilesRef.current);
-        }
-        return workingFilesRef.current;
+        // if (doSetWorkingFiles) {
+        //     setWorkingFiles(mutWorkingFilesRef);
+        // }
+        // updateDiffMapForChapter(file.bookCode, chap);
+        return mutWorkingFilesRef;
         // return setWorkingFiles(
         //   produce(workingFiles, (draft) => {
         //     const file = draft.find((file) => file.path === filePath);
@@ -121,7 +105,9 @@ export const useWorkspaceActions = ({
         if (!editor) return;
         const targetFile = chapterContent
             ? null
-            : workingFiles?.find((f) => f.bookCode === fileBibleIdentifier);
+            : mutWorkingFilesRef.find(
+                  (f) => f.bookCode === fileBibleIdentifier,
+              );
         const chapterState = chapterContent || targetFile?.chapters[chapter];
         if (!chapterState) return;
         editor.update(
@@ -149,9 +135,10 @@ export const useWorkspaceActions = ({
 
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
         // FIRST SAVE THE CURRENT DIRTY STATE
-        const dirtySaved = saveCurrentDirtyLexical({ doSetWorkingFiles: true });
+        // const dirtySaved = saveCurrentDirtyLexical({ doSetWorkingFiles: true });
+        const dirtySaved = saveCurrentDirtyLexical();
         // THEN SET THE NEW CONTENT
-        const filesToUse = dirtySaved || workingFiles;
+        const filesToUse = dirtySaved || mutWorkingFilesRef;
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,
         );
@@ -190,35 +177,24 @@ export const useWorkspaceActions = ({
         if (editorContainer) {
             editorContainer.scrollTop = 0;
         }
-        // setTimeout(() => {
-        queueMicrotask(() => {
-            const styles = getPoetryStylesAsCssStyleSheet(
-                appSettings.markersViewState,
-            );
-            styles && updateStyleSheet(styles);
-        });
-        // }, 100);
+
         return chapterState;
     }
 
     const nextChapter = determineNextChapter(
         pickedFile,
         currentChapter,
-        workingFiles,
+        mutWorkingFilesRef,
         switchBookOrChapter,
     );
     const prevChapter = determinePrevChapter(
         pickedFile,
         currentChapter,
-        workingFiles,
+        mutWorkingFilesRef,
         switchBookOrChapter,
     );
 
-    function saveCurrentDirtyLexical({
-        doSetWorkingFiles = true,
-    }: {
-        doSetWorkingFiles?: boolean;
-    }): ParsedFile[] | undefined {
+    function saveCurrentDirtyLexical(): ParsedFile[] | undefined {
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -229,7 +205,6 @@ export const useWorkspaceActions = ({
                 fileBibleIdentifier: currentFileBibleIdentifier,
                 chap: currentChapter,
                 newLexical: currentJson,
-                doSetWorkingFiles,
             });
         }
     }
@@ -244,10 +219,11 @@ export const useWorkspaceActions = ({
         // save dirty, but don't set state yet; We will when finished mutating what's in memory: InProgress returned from saveCurrentDirtyLexical is already a mutable clone
         const inProgress = isInitialLoad
             ? undefined
-            : saveCurrentDirtyLexical({ doSetWorkingFiles: false });
+            : saveCurrentDirtyLexical();
+        // : saveCurrentDirtyLexical({ doSetWorkingFiles: false });
 
         // update lexical state to show State = true for all + immutable = false for everything:
-        const filesToUse = inProgress || workingFilesRef.current;
+        const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ParsedChapter | undefined;
         filesToUse.forEach((file) => {
             file.chapters.forEach((chapter) => {
@@ -276,7 +252,7 @@ export const useWorkspaceActions = ({
                 thisChapterUpdated,
             );
         }
-        setWorkingFiles(filesToUse);
+        // setWorkingFiles(filesToUse);
         updateAppSettings({
             mode: "source",
             markersMutableState: "mutable",
@@ -307,7 +283,8 @@ export const useWorkspaceActions = ({
 
         const inProgress = args.duringLoad
             ? undefined
-            : saveCurrentDirtyLexical({ doSetWorkingFiles: false });
+            : saveCurrentDirtyLexical();
+        // : saveCurrentDirtyLexical({ doSetWorkingFiles: false });
 
         const markerViewState =
             args.markersViewState || appSettings.markersViewState;
@@ -325,7 +302,7 @@ export const useWorkspaceActions = ({
                 ? EditorMarkersMutableStates.IMMUTABLE
                 : markersMutableState;
 
-        const filesToUse = inProgress || workingFilesRef.current;
+        const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ParsedChapter | undefined;
         filesToUse.forEach((file) => {
             file.chapters.forEach((chapter) => {
@@ -355,7 +332,7 @@ export const useWorkspaceActions = ({
                 thisChapterUpdated,
             );
         }
-        setWorkingFiles(filesToUse);
+        // setWorkingFiles(filesToUse);
         updateAppSettings({
             markersViewState: markerViewState,
             markersMutableState: markersMutableState,
@@ -378,7 +355,7 @@ export const useWorkspaceActions = ({
         );
     }
     function getProjectAsFlatTokens(currentEditorState: SerializedEditorState) {
-        return workingFilesRef.current.flatMap((file) => {
+        return mutWorkingFilesRef.flatMap((file) => {
             return file.chapters.flatMap((chapter) => {
                 const editorState =
                     chapter.chapNumber === currentChapter &&
@@ -414,7 +391,7 @@ export const useWorkspaceActions = ({
         //     setEditorContent(currentFileBibleIdentifier, currentChapter);
         // }
     });
-
+    // HOOK RETURN
     return {
         updateChapterLexical,
         switchBookOrChapter,
