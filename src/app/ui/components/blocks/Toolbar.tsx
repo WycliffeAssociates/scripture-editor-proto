@@ -135,7 +135,7 @@ export function Toolbar() {
             {/* <button
                 type="button"
                 onClick={() => {
-                    debugger;
+                    ;
                     console.log(actions.toSave);
                 }}
             >

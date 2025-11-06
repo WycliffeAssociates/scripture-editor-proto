@@ -126,8 +126,9 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
   if (token.tokenType !== TokenMap.numberRange) return;
   if (!ctx.prevToken?.marker || ctx.prevToken.marker !== "v") return;
 
-  const curChapter = ctx.mutCurChap;
+  const curChapter = parseSid(token.sid ?? "")?.chapter;
   if (!curChapter) return;
+  const stringChap = String(curChapter);
 
   const value = token.text.trim();
   // verify if valid number range
@@ -148,14 +149,14 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
   const end = endStr ? parseInt(endStr, 10) : start;
 
   // --- Ensure per-chapter map
-  if (!ctx.lintVerseNums.byChapter.has(curChapter)) {
-    ctx.lintVerseNums.byChapter.set(curChapter, {
+  if (!ctx.lintVerseNums.byChapter.has(stringChap)) {
+    ctx.lintVerseNums.byChapter.set(stringChap, {
       seen: new Map<string, LintableToken[]>(),
       last: 0,
     });
   }
 
-  const chapterState = ctx.lintVerseNums.byChapter.get(curChapter);
+  const chapterState = ctx.lintVerseNums.byChapter.get(stringChap);
   if (!chapterState) return;
   const prevLast = chapterState.last ?? 0;
 

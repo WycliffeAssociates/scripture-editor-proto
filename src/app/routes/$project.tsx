@@ -65,6 +65,7 @@ export async function projectParamToParsedFiles(
     if (!project) return;
     const loadedProject = await projectRepository.loadProject(project);
     if (!loadedProject) return;
+    console.time("total load time");
     const language = loadedProject.metadata.language;
     const entries: Array<{
         code: string;
@@ -89,9 +90,12 @@ export async function projectParamToParsedFiles(
     // Next function call as parsing and going to lexicla state is separate is fine
     const allInitialLintErrors: LintError[] = [];
 
+    console.time("parseAll");
     const parsed: ParsedFile[] = sorted.map((book, i) => {
+        // console.time(`${book.name} parse`);
         const { usfm, lintErrors } = parseUSFMfile(book.text);
         allInitialLintErrors.push(...lintErrors);
+        // console.timeEnd(`${book.name} parse`);
         return {
             nextBookId:
                 i === sorted.length - 1
@@ -114,7 +118,7 @@ export async function projectParamToParsedFiles(
             }),
         };
     });
-    console.timeEnd("parse");
-    console.timeEnd("total time");
+    console.timeEnd("parseAll");
+    console.timeEnd("total load time");
     return { parsedFiles: parsed, allInitialLintErrors, loadedProject };
 }

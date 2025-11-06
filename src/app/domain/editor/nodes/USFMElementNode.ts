@@ -1,18 +1,18 @@
 import type {
-    EditorConfig,
-    LexicalNode,
-    SerializedElementNode,
-    SerializedLexicalNode,
+  EditorConfig,
+  LexicalNode,
+  SerializedElementNode,
+  SerializedLexicalNode,
 } from "lexical";
 import {
-    $create,
-    $getState,
-    $getStateChange,
-    $setState,
-    ElementNode,
-    TextNode,
+  $create,
+  $getState,
+  $getStateChange,
+  $setState,
+  ElementNode,
+  TextNode,
 } from "lexical";
-import { USFM_ELEMENT_NODE_TYPE, type USFMNodeJSON } from "@/app/data/editor";
+import {USFM_ELEMENT_NODE_TYPE, type USFMNodeJSON} from "@/app/data/editor";
 import {
   idState,
   inParaState,
@@ -20,17 +20,17 @@ import {
   sidState,
   tokenTypeState,
 } from "@/app/domain/editor/states";
-import type { ParsedToken } from "@/core/data/usfm/parse";
+import type {ParsedToken} from "@/core/data/usfm/parse";
 
 export type USFMElementNodeJSON = SerializedElementNode & {
-    type: typeof USFM_ELEMENT_NODE_TYPE;
-    id: string;
-    tokenType: string;
-    marker?: string;
-    inPara?: string;
-    sid?: string;
-    // attributes?: Record<string, string>;
-    version: 1;
+  type: typeof USFM_ELEMENT_NODE_TYPE;
+  id: string;
+  tokenType: string;
+  marker?: string;
+  inPara?: string;
+  sid?: string;
+  // attributes?: Record<string, string>;
+  version: 1;
 };
 
 export class USFMElementNode extends ElementNode {
@@ -67,60 +67,50 @@ export class USFMElementNode extends ElementNode {
     };
   }
 
-    // getters and setters
-    // --- Getters ---
-    getId(): string {
-        return $getState(this.getLatest(), idState);
-    }
+  // getters and setters
+  // --- Getters ---
+  getId(): string {
+    return $getState(this.getLatest(), idState);
+  }
 
   getSid(): string {
     return $getState(this.getLatest(), sidState);
   }
 
-    getTokenType(): string {
-        return $getState(this.getLatest(), tokenTypeState);
-    }
+  getTokenType(): string {
+    return $getState(this.getLatest(), tokenTypeState);
+  }
 
-    getMarker(): string | undefined {
-        return $getState(this.getLatest(), markerState);
-    }
-    getAllStates(): {
-        id: string;
-        tokenType: string;
-        sid?: string;
-        inPara?: string;
-        marker?: string;
-    } {
-        return {
-            id: this.getId(),
-            tokenType: this.getTokenType(),
-            sid: this.getSid(),
-            inPara: this.getInPara(),
-            marker: this.getMarker(),
-        };
-    }
+  getMarker(): string | undefined {
+    return $getState(this.getLatest(), markerState);
+  }
+  getAllStates(): {
+    id: string;
+    tokenType: string;
+    sid?: string;
+    inPara?: string;
+    marker?: string;
+  } {
+    return {
+      id: this.getId(),
+      tokenType: this.getTokenType(),
+      sid: this.getSid(),
+      inPara: this.getInPara(),
+      marker: this.getMarker(),
+    };
+  }
 
-    // --- Setters ---
+  // --- Setters ---
 
-    setId(id: string): this {
-        $setState(this.getWritable(), idState, id);
-        return this;
-    }
-
-    setSid(sid: string): this {
-        $setState(this.getWritable(), sidState, sid);
-        return this;
-    }
+  setId(id: string): this {
+    $setState(this.getWritable(), idState, id);
+    return this;
+  }
 
   setSid(sid: string): this {
     $setState(this.getWritable(), sidState, sid);
     return this;
   }
-
-    setMarker(marker: string | undefined): this {
-        $setState(this.getWritable(), markerState, marker);
-        return this;
-    }
 
   setTokenType(tokenType: string): this {
     $setState(this.getWritable(), tokenTypeState, tokenType);
@@ -130,6 +120,9 @@ export class USFMElementNode extends ElementNode {
   setMarker(marker: string | undefined): this {
     $setState(this.getWritable(), markerState, marker);
     return this;
+  }
+  getInPara(): string | undefined {
+    return $getState(this.getLatest(), inParaState);
   }
 
   createDOM(_config: EditorConfig) {
@@ -171,21 +164,21 @@ export class USFMElementNode extends ElementNode {
 
 /* type guards */
 export function $isUSFMElementNode(node: LexicalNode): node is USFMElementNode {
-    return node.getType() === USFM_ELEMENT_NODE_TYPE;
+  return node.getType() === USFM_ELEMENT_NODE_TYPE;
 }
 export function isSerializedElementNode(
-    node: SerializedLexicalNode,
+  node: SerializedLexicalNode
 ): node is SerializedElementNode {
-    return node.type === USFM_ELEMENT_NODE_TYPE || node.type === "paragraph";
+  return node.type === USFM_ELEMENT_NODE_TYPE || node.type === "paragraph";
 }
 
 // creates
 export function $createUSFMElementNode(opts?: {
-    id: string;
-    marker?: string;
-    inPara?: string;
-    sid?: string;
-    attributes?: Record<string, string>;
+  id: string;
+  marker?: string;
+  inPara?: string;
+  sid?: string;
+  attributes?: Record<string, string>;
 }): USFMElementNode {
   const node = $create(USFMElementNode);
   const writable = node.getWritable();
@@ -199,9 +192,9 @@ export function $createUSFMElementNode(opts?: {
 }
 
 export function createSerializedUSFMElementNode(
-    opts: ParsedToken,
-    direction: "ltr" | "rtl",
-    children: USFMNodeJSON[],
+  opts: ParsedToken,
+  direction: "ltr" | "rtl",
+  children: USFMNodeJSON[]
 ): USFMElementNodeJSON {
   return {
     type: USFM_ELEMENT_NODE_TYPE,

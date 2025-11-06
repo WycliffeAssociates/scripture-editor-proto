@@ -8,9 +8,60 @@ import {
     Paper,
     ScrollArea,
     Text,
+    useMantineTheme,
 } from "@mantine/core";
+import type { Change } from "diff";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import type { ProjectDiff } from "@/app/ui/hooks/useSave";
+
+// --- NEW HELPER COMPONENT ---
+type HighlightedDiffProps = {
+    changes: Change[];
+    viewType: "original" | "current";
+};
+
+/**
+ * Renders an array of Change objects with additions/removals highlighted.
+ */
+function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
+    const theme = useMantineTheme();
+
+    const styles = {
+        added: {
+            backgroundColor: theme.colors.green[4],
+            fontWeight: "bold",
+        },
+        removed: {
+            backgroundColor: theme.colors.red[4],
+            fontWeight: "bold",
+        },
+    };
+
+    return (
+        <pre
+            style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit" }}
+        >
+            {changes.map((change, index) => {
+                let style = {};
+                if (change.added && viewType === "current") {
+                    style = styles.added;
+                } else if (change.removed && viewType === "original") {
+                    style = styles.removed;
+                } else if (change.added || change.removed) {
+                    // Don't render additions on the "Original" side or removals on the "Current" side
+                    return null;
+                }
+
+                return (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: <only id we have>
+                    <span key={index} style={style}>
+                        {change.value}
+                    </span>
+                );
+            })}
+        </pre>
+    );
+}
 
 // Props for the new custom diff item
 type DiffItemProps = {
@@ -21,9 +72,10 @@ type DiffItemProps = {
 /**
  * Renders a custom side-by-side view for a single SID change.
  */
-function DiffItem({ diff, revertDiff }: DiffItemProps) {
+export function DiffItem({ diff, revertDiff }: DiffItemProps) {
     const isAddition = diff.original === null;
     const isDeletion = diff.current === null;
+    const isModification = !isAddition && !isDeletion;
 
     return (
         <div
@@ -44,27 +96,33 @@ function DiffItem({ diff, revertDiff }: DiffItemProps) {
             >
                 {diff.sid}
             </Text>
+
             <Grid gutter="md" style={{ padding: "12px" }}>
+                {/* --- ORIGINAL (LEFT) COLUMN --- */}
                 <Grid.Col span={6}>
-                    <Group fw={700}>
-                        <Text tt="uppercase" size="xs">
+                    <Group justify="space-between" mb="xs">
+                        <Text tt="uppercase" size="xs" fw={700}>
                             Original
                         </Text>
-                        <button type="button" onClick={() => revertDiff(diff)}>
+                        <Button
+                            variant="outline"
+                            size="compact-xs"
+                            onClick={() => revertDiff(diff)}
+                        >
                             Revert
-                        </button>
+                        </Button>
                     </Group>
                     <Paper
                         withBorder
                         p="xs"
-                        mt="xs"
                         style={{
-                            backgroundColor: isDeletion ? "#fff5f5" : "#f8f9fa",
+                            backgroundColor: isDeletion ? "#fff5f5" : "#f8f9fa", // Red background for deletions
                             minHeight: "40px",
                         }}
                     >
-                        {isAddition ? (
+                        {isAddition && (
                             <Text
+                                c="dimmed"
                                 ta="center"
                                 size="sm"
                                 style={{
@@ -74,7 +132,8 @@ function DiffItem({ diff, revertDiff }: DiffItemProps) {
                             >
                                 (New verse)
                             </Text>
-                        ) : (
+                        )}
+                        {isDeletion && (
                             <pre
                                 style={{
                                     margin: 0,
@@ -82,26 +141,34 @@ function DiffItem({ diff, revertDiff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.original.text}
+                                {diff.original?.text}
                             </pre>
+                        )}
+                        {isModification && diff.wordDiff && (
+                            <HighlightedDiffText
+                                changes={diff.wordDiff}
+                                viewType="original"
+                            />
                         )}
                     </Paper>
                 </Grid.Col>
+
+                {/* --- CURRENT (RIGHT) COLUMN --- */}
                 <Grid.Col span={6}>
-                    <Text size="xs" tt="uppercase" fw={700}>
+                    <Text tt="uppercase" size="xs" fw={700} mb="xs">
                         Current
                     </Text>
                     <Paper
                         withBorder
                         p="xs"
-                        mt="xs"
                         style={{
-                            backgroundColor: isAddition ? "#e6fcf5" : "#f8f9fa",
+                            backgroundColor: isAddition ? "#e6fcf5" : "#f8f9fa", // Green background for additions
                             minHeight: "40px",
                         }}
                     >
-                        {isDeletion ? (
+                        {isDeletion && (
                             <Text
+                                c="dimmed"
                                 ta="center"
                                 size="sm"
                                 style={{
@@ -111,7 +178,8 @@ function DiffItem({ diff, revertDiff }: DiffItemProps) {
                             >
                                 (Verse deleted)
                             </Text>
-                        ) : (
+                        )}
+                        {isAddition && (
                             <pre
                                 style={{
                                     margin: 0,
@@ -119,8 +187,14 @@ function DiffItem({ diff, revertDiff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.current.text}
+                                {diff.current?.text}
                             </pre>
+                        )}
+                        {isModification && diff.wordDiff && (
+                            <HighlightedDiffText
+                                changes={diff.wordDiff}
+                                viewType="current"
+                            />
                         )}
                     </Paper>
                 </Grid.Col>

@@ -6,7 +6,7 @@ import {
   LineBreakNode,
   type SerializedLexicalNode,
 } from "lexical";
-import {USFM_TEXT_NODE_TYPE} from "@/app/data/editor";
+import {USFM_TEXT_NODE_TYPE, UsfmTokenTypes} from "@/app/data/editor";
 import {isSerializedElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
 import {
   $isUSFMNestedEditorNode,
@@ -192,7 +192,10 @@ export type SidContent = {
   parentChapterNodeList: SerializedLexicalNode[];
   startIndexInParent: number;
   previousSid: string | null;
-  text: string; // The full USFM text for this block, for diffing
+  /** The full USFM text for this block, including all markers. */
+  usfmText: string;
+  /** ONLY the plain, user-visible text content for this block. */
+  plainText: string;
 };
 
 export type SidContentMap = Record<string, SidContent>;
@@ -220,7 +223,8 @@ export function buildSidContentMapForChapter(
 
       map[currentSid] = {
         nodes: [],
-        text: "",
+        usfmText: "",
+        plainText: "",
         parentChapterNodeList: chapterNodeList,
         startIndexInParent: i,
         previousSid: previousSid,
@@ -235,9 +239,16 @@ export function buildSidContentMapForChapter(
       // Accumulate a simple text representation for diffing purposes.
       // This can be expanded if footnotes need to be handled differently.
       if (node.type === "linebreak") {
-        map[currentSid].text += "\n";
+        map[currentSid].usfmText += "\n";
+        map[currentSid].plainText += "\n";
       } else if (isSerializedUSFMTextNode(node)) {
-        map[currentSid].text += node.text ?? "";
+        if (
+          node.tokenType === UsfmTokenTypes.text ||
+          node.tokenType === UsfmTokenTypes.numberRange
+        ) {
+          map[currentSid].plainText += node.text ?? "";
+        }
+        map[currentSid].usfmText += node.text ?? "";
       } else if (isSerializedUSFMNestedEditorNode(node)) {
         // For simplicity in diffing, represent the entire footnote block.
         const nestedText = serializeToUsfmString(
@@ -245,7 +256,8 @@ export function buildSidContentMapForChapter(
         );
         map[
           currentSid
-        ].text += `\\${node.marker} ${nestedText} \\${node.marker}*`;
+        ].usfmText += `\\${node.marker} ${nestedText} \\${node.marker}*`;
+        map[currentSid].plainText += nestedText;
       }
     }
     if (isSerializedElementNode(node) && node.children) {

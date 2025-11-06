@@ -22,9 +22,6 @@ export type ParseContext<T extends LintableToken> = {
   parseTokens: T[];
   bookCode: string;
   chapterLabel: string | null;
-  mutCurChap: string;
-  mutCurSid: string | null;
-  mutCurVerse: string | null;
   lastMarker: T | null;
   idsToFilterOut: string[];
   currentParaMarker: string | null;
@@ -59,9 +56,6 @@ export function initParseContext<T extends LintableToken>(
     parseTokens,
     bookCode,
     chapterLabel: null,
-    mutCurChap: "0", //start at 0 for introductory material
-    mutCurSid: null,
-    mutCurVerse: null, //start at 0 for material in a chapter prior to a verse marker
     lastMarker: null,
     idsToFilterOut: [],
     currentParaMarker: null,
@@ -106,7 +100,6 @@ export function parseTokens<T extends LintableToken>(
 
     [
       checkAndSetIfLastMarker,
-      manageSid,
       checkIfValidParaMarker,
       // checkForHangingNoteStacks needs to come after checkIfValidParaMarker
       checkForHangingNoteStacks,
@@ -148,36 +141,6 @@ export function checkAndSetIfLastMarker<T extends LintableToken>(
   }
 }
 
-export function manageSid<T extends LintableToken>(ctx: ParseContext<T>) {
-  const t = ctx.currentToken;
-  const n = ctx.nextToken;
-  if (
-    t?.tokenType === TokenMap.marker &&
-    n?.tokenType === TokenMap.numberRange
-  ) {
-    if (t.marker === "c") {
-      ctx.mutCurChap = n.text;
-      ctx.mutCurVerse = "0";
-      ctx.currentParaMarker = null;
-    } else if (t.marker === "v") {
-      ctx.mutCurVerse = n.text;
-    }
-  }
-
-  if (ctx.mutCurVerse) {
-    ctx.mutCurSid =
-      `${ctx.bookCode} ${ctx.mutCurChap}:${ctx.mutCurVerse}`.trim();
-  } else if (ctx.mutCurChap) {
-    ctx.mutCurSid = `${ctx.bookCode} ${ctx.mutCurChap}`.trim();
-  } else if (ctx.bookCode && t?.tokenType === TokenMap.marker) {
-    ctx.mutCurSid = `${ctx.bookCode}-${t.text}`.trim();
-  }
-
-  if (t && ctx.mutCurSid) {
-    t.sid = ctx.mutCurSid;
-  }
-}
-
 export function checkForHangingNoteStacks<T extends LintableToken>(
   ctx: ParseContext<T>
 ) {
@@ -187,8 +150,8 @@ export function checkForHangingNoteStacks<T extends LintableToken>(
     if (ctx.charStack.length || ctx.noteParent) {
       if (ctx.charStack.length) {
         const err = {
-          message: `Character marker ${ctx.charStack[0]} left at opening of new paragraph at ${ctx.mutCurSid}`,
-          sid: ctx.mutCurSid ?? "",
+          message: `Character marker ${ctx.charStack[0]} left at opening of new paragraph at ${t.sid}`,
+          sid: t.sid ?? "",
           msgKey: LintErrorKeys.charNotClosed,
           nodeId: t.id,
         };
@@ -199,8 +162,8 @@ export function checkForHangingNoteStacks<T extends LintableToken>(
       }
       if (ctx.noteParent) {
         const err = {
-          message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${ctx.mutCurSid}`,
-          sid: ctx.mutCurSid ?? "",
+          message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${t.sid}`,
+          sid: t.sid ?? "",
           msgKey: LintErrorKeys.noteNotClosed,
           nodeId: ctx.noteParent.id,
         };
@@ -220,8 +183,12 @@ export function checkIfValidParaMarker<T extends LintableToken>(
   ctx: ParseContext<T>
 ) {
   const t = ctx.currentToken;
+  if (t?.marker === "c") {
+    ctx.currentParaMarker = null;
+  }
   const isValidPara =
     t?.tokenType === TokenMap.marker && isValidParaMarker(t.marker ?? "");
+
   if (!isValidPara || !t) return;
   ctx.currentParaMarker = t.marker ?? "";
   t.isParaMarker = true;
@@ -293,7 +260,7 @@ export function addParentTokenContextInfo<T extends LintableToken>(
 ) {
   const t = ctx.currentToken;
   if (!t) return;
-  if (ctx.currentParaMarker && !t.isParaMarker) {
+  if (ctx.currentParaMarker) {
     t.inPara = ctx.currentParaMarker;
   }
   if (ctx.charStack.length) {

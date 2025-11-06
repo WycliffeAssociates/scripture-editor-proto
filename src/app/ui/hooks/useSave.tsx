@@ -1,5 +1,6 @@
 // hooks/useProjectDiffs.ts
 
+import { type Change, diffWordsWithSpace } from "diff";
 import type {
     LexicalEditor,
     SerializedEditorState,
@@ -7,6 +8,7 @@ import type {
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useEffectOnce } from "react-use";
+import { UsfmTokenTypes } from "@/app/data/editor";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -98,7 +100,6 @@ export function useProjectDiffs({
         }
         // 1. Directly mutate the 'workingFilesRef' source of truth via the references
         //    held in the diff object.
-        debugger;
         console.time("mutateWorkingFilesRefRevertChange");
         mutateWorkingFilesRefRevertChange(
             diffToRevert,
@@ -237,9 +238,13 @@ function updateMutSidContentMap(
 
 export type ProjectDiff = {
     sid: string;
-    original: SidContent;
-    current: SidContent;
+    original: SidContent | null;
+    current: SidContent | null;
+    wordDiff?: Change[];
+    usfmText?: string;
+    plainText?: string;
 };
+
 export type DiffMap = Record<string, ProjectDiff>;
 function* createDiffGenerator(
     originalMap: SidContentMap,
@@ -254,7 +259,7 @@ function* createDiffGenerator(
         const original = originalMap[sid] ?? null;
         const current = currentMap[sid] ?? null;
 
-        if (original?.text !== current?.text) {
+        if (original?.usfmText !== current?.usfmText) {
             yield { sid, original, current };
         }
     }
@@ -282,6 +287,7 @@ function calculateInitialDiffs(
  * @param bookCode The book code of the chapter that changed.
  * @param chapterNum The number of the chapter that changed.
  */
+// todo: finish with ai gem later and test;
 function updateDiffsForChapter(
     diffMap: DiffMap,
     originalMap: SidContentMap,
@@ -309,23 +315,81 @@ function updateDiffsForChapter(
         const original = originalMap[sid] ?? null;
         const current = currentMap[sid] ?? null;
 
-        const hasDifference = original?.text !== current?.text;
+        const hasUsfmDifference = original?.usfmText !== current?.usfmText;
+        const hasPlainTextDifference =
+            original?.plainText !== current?.plainText;
 
-        if (hasDifference) {
-            // If there's a difference, add or update it in the map.
-            diffMap[sid] = { sid, original, current };
-        } else {
-            // If there's NO difference, ensure it's removed from the map.
-            // This correctly handles cases where a user reverts a change.
+        if (!hasUsfmDifference && !hasPlainTextDifference) {
             delete diffMap[sid];
+            continue;
         }
+
+        let originalTextToUse: string;
+        let currentTextToUse: string;
+        if (hasUsfmDifference) {
+            originalTextToUse = original?.usfmText ?? "";
+            currentTextToUse = current?.usfmText ?? "";
+        } else {
+            originalTextToUse = original?.plainText ?? "";
+            currentTextToUse = current?.plainText ?? "";
+        }
+        const diff: ProjectDiff = {
+            sid,
+            original,
+            current,
+            usfmText: original?.usfmText,
+            plainText: original?.plainText,
+        };
+        if (original && current) {
+            diff.wordDiff = diffWordsWithSpace(
+                originalTextToUse,
+                currentTextToUse,
+            );
+        }
+        // Store the fully enriched object in the map.
+        diffMap[sid] = diff;
     }
     // step 3; if diffMap has any keys left not in chapterSids, delete them
-    for (const sid in diffMap) {
-        if (!chapterSids.has(sid)) {
-            delete diffMap[sid];
+    Object.keys(diffMap).forEach((sidKey) => {
+        if (sidKey.startsWith(chapterPrefix) && !chapterSids.has(sidKey)) {
+            delete diffMap[sidKey];
+        }
+    });
+}
+
+/**
+ * A new helper to analyze a SidContent block. It separates the user-visible text
+ * from a "signature" of the structural USFM markers.
+ * @param sidContent The SidContent object to analyze.
+ * @returns An object with the plain text and a structural signature string.
+ */
+function extractDiffComponents(sidContent: SidContent | null): {
+    plainText: string;
+    structureSignature: string;
+} {
+    if (!sidContent) {
+        return { plainText: "", structureSignature: "" };
+    }
+
+    let plainText = "";
+    let structureSignature = "";
+
+    for (const node of sidContent.nodes) {
+        if (
+            isSerializedUSFMTextNode(node) &&
+            (node.tokenType === UsfmTokenTypes.text ||
+                node.tokenType === UsfmTokenTypes.numberRange)
+        ) {
+            // This is plain text content.
+            plainText += node.text;
+        } else if (isSerializedUSFMTextNode(node)) {
+            // This is a structural node (marker, linebreak, etc.).
+            // We append its text content to the signature.
+            structureSignature += node.text ?? "";
         }
     }
+
+    return { plainText, structureSignature };
 }
 
 /**

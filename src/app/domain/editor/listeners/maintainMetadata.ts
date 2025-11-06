@@ -1,63 +1,66 @@
-import {$dfs, $dfsIterator, $reverseDfsIterator} from "@lexical/utils";
-import {
-  $getRoot,
-  $setState,
-  type LexicalEditor,
-  type LexicalNode,
-} from "lexical";
+import {$dfsIterator} from "@lexical/utils";
+import type {EditorState, LexicalEditor} from "lexical";
 import {
   EDITOR_TAGS_USED,
   EditorMarkersMutableStates,
   EditorMarkersViewStates,
   UsfmTokenTypes,
 } from "@/app/data/editor";
-import type {MainDocumentStrutureFxn} from "@/app/domain/editor/listeners/maintainDocumentStructure";
+import type {
+  DocStructureFxnArgs,
+  MainDocumentStrutureFxn,
+} from "@/app/domain/editor/listeners/maintainDocumentStructure";
+import {$isUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   $isLockableUSFMTextNode,
   $isToggleableUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
-import {sidState} from "@/app/domain/editor/states";
 import {parseSid} from "@/core/data/bible/bible";
 import {isValidParaMarker} from "@/core/data/usfm/tokens";
-import {markerTrimNoSlash} from "@/core/domain/usfm/lex";
+import {markerTrimNoSlash, numRangeRe} from "@/core/domain/usfm/lex";
+import {
+  getMutSidVals,
+  LOOKAHEAD_MARKERS,
+  type MutSidVals,
+} from "@/core/domain/usfm/parseUtils";
 
 // metadata should be able to only run as a node transform since selection change shouldn't
 export function maintainDocumentMetaData(
-  //   editorState: EditorState,
-  //   editor: LexicalEditor
-  node: USFMTextNode,
-  editor: LexicalEditor
+  editorState: EditorState,
+  editor: LexicalEditor,
+  bookCode: string
 ) {
   const updates: Array<{
     dbgLabel: string;
+    dbgDetail?: string;
     update: () => void;
   }> = [];
-  //   console.time("maintainDocumentMetaData");
-  const tokenType = node.getTokenType();
-  const args = {
-    node,
-    tokenType,
-    updates,
+  const sidArgs = {
+    ...getMutSidVals(bookCode),
+    // no id
+    mutCurVerse: {val: "0"} as {val: string | null},
+    nodeIdsCalculated: new Set<string>(),
+    bookCode,
   };
-  adjustSidsAsNeededOnTextTokens(args);
-  maintainInPara(args);
-  monitorMutabilityAndVisibility(args);
-  //   editorState.read(() => {
-  //     const root = $getRoot();
-  //     root.getAllTextNodes().forEach((node) => {
-  //       if (!$isUSFMTextNode(node)) return;
-  //       const tokenType = node.getTokenType();
-  //       const args = {
-  //         node,
-  //         tokenType,
-  //         updates,
-  //       };
-  //       adjustSidsAsNeededOnTextTokens(args);
-  //       maintainInPara(args);
-  //     });
-  //   });
+  editorState.read(() => {
+    const allNodes = [...$dfsIterator()];
+    for (const dfsNode of allNodes) {
+      const node = dfsNode.node;
+      //   can check other node types above if we want
+      if (!$isUSFMTextNode(node)) continue;
+      const tokenType = node.getTokenType();
+      const args = {
+        node,
+        tokenType,
+        updates,
+      };
+      adjustSidsAsNeededOnTextTokens(args, sidArgs);
+      maintainInPara(args);
+      monitorMutabilityAndVisibility(args);
+    }
+  });
 
   if (updates.length) {
     editor.update(
@@ -77,91 +80,107 @@ export function maintainDocumentMetaData(
   //   console.timeEnd("maintainDocumentMetaData");
 }
 
-const adjustSidsAsNeededOnTextTokens: MainDocumentStrutureFxn = ({
-  node,
-  tokenType,
-  updates,
-}) => {
-  const root = $getRoot();
-  const last = root.getLastChild();
-  if (!last) return;
-  if (tokenType === UsfmTokenTypes.numberRange) {
-    // recalc and change everything until next numberRange
-    const curSid = node.getSid().trim();
-    const pendingSid = node.getTextContent().trim();
-    const currentSidGroup = parseSid(curSid);
-    if (!currentSidGroup) return;
-    // const [_whole, bookCode, chapter, numberRange] = currentSidGroup;
-    const {book, chapter, verseStart, verseEnd: _verseEnd} = currentSidGroup;
-    if (!book || !chapter || !verseStart) return;
-    const newSid = `${book} ${chapter}:${pendingSid}`;
-    if (newSid === curSid) return;
-    const nextVerseRangeNode = findNextVerseRangeNode(node, last);
-    const prevMarker = node.getPreviousSibling();
-    if (
-      $isUSFMTextNode(prevMarker) &&
-      prevMarker.getTokenType() === UsfmTokenTypes.marker
-    ) {
-      const update = () => {
-        prevMarker.setSid(newSid);
-      };
-      updates.push({
-        dbgLabel: "adjustSidsAsNeededOnTextTokens",
-        update,
-      });
-    }
-    if (!nextVerseRangeNode) return;
-
-    const textNodesInBetween = $dfs(node, nextVerseRangeNode);
-    // set the numberRange node sid and all in between
-    nextVerseRangeNode.setSid(newSid);
-    for (const textNode of textNodesInBetween) {
-      if (
-        $isUSFMTextNode(textNode.node) &&
-        textNode.node.getSid().trim() !== newSid
-      ) {
-        const n = textNode.node; //satisfy t
-        updates.push({
-          dbgLabel: "adjustSidsAsNeededOnTextTokens",
-          update: () => {
-            n.setSid(newSid);
-          },
-        });
-      } else {
-        updates.push({
-          dbgLabel: "adjustSidsAsNeededOnTextTokens",
-          update: () => {
-            $setState(textNode.node, sidState, newSid);
-          },
-        });
-      }
-    }
+function adjustSidsAsNeededOnTextTokens(
+  args: DocStructureFxnArgs,
+  sidArgs: MutSidVals & {
+    nodeIdsCalculated: Set<string>;
+    bookCode: string;
   }
-  if (tokenType === UsfmTokenTypes.text) {
-    // make sure this node token type matches nearest previous numberRange (trimmed)
-    let prevVerseRange: USFMTextNode | null = null;
-    for (const prevNode of $reverseDfsIterator(node, root)) {
-      if (
-        $isUSFMTextNode(prevNode.node) &&
-        prevNode.node.getTokenType() === UsfmTokenTypes.numberRange
-      ) {
-        prevVerseRange = prevNode.node;
-        break;
-      }
-    }
-    if (!prevVerseRange) return;
-    // sid not text content, due to that sid should be updated when that node is updated
-    const prevVerseRangeSid = prevVerseRange.getSid().trim();
-    const curSid = node.getSid().trim();
-    if (curSid === prevVerseRangeSid) return;
+) {
+  const {node, tokenType, updates} = args;
+
+  if (sidArgs.nodeIdsCalculated.has(node.getId())) return;
+  sidArgs.nodeIdsCalculated.add(node.getId());
+
+  // if it's not marker, and not already assigned, assign current sid if different
+  if (tokenType !== UsfmTokenTypes.marker && !node.getSid()) {
+    const current = node.getSid();
+    if (current === sidArgs.mutCurSid.val) return;
+    // get the primitive non reference back out since we are passing to a closure, else if reading the value in the closure it will be whatever latest of shared mut var is
+    const val = sidArgs.mutCurSid.val;
     updates.push({
       dbgLabel: "adjustSidsAsNeededOnTextTokens",
+      dbgDetail: `Id: ${node.getId()} Current sid: ${node.getSid()} Expected sid: ${val}`,
       update: () => {
-        node.setSid(prevVerseRangeSid);
+        node.setSid(val);
       },
     });
+    return;
   }
-};
+  const isChapterMarker =
+    tokenType === UsfmTokenTypes.marker && node.getMarker() === "c";
+  if (isChapterMarker) {
+    // no ws in lexical editor as special token, so nextSib should be num:
+    const nextSib = node.getNextSibling();
+    if (!$isUSFMTextNode(nextSib)) return;
+    if (nextSib.getTokenType() !== UsfmTokenTypes.numberRange) return;
+    const nextSibText = nextSib.getTextContent().trim();
+    const nextSibNumRange = parseSid(`${sidArgs.bookCode} ${nextSibText}`);
+    if (!nextSibNumRange) return;
+    sidArgs.mutCurChap.val = String(nextSibNumRange.chapter);
+    sidArgs.mutCurVerse.val = "0";
+    const parsedNumRange = parseSid(
+      `${sidArgs.bookCode} ${sidArgs.mutCurChap.val}:${sidArgs.mutCurVerse.val}`
+    );
+    if (!parsedNumRange) return;
+    sidArgs.mutCurSid.val = parsedNumRange.toSidString();
+    if (sidArgs.mutCurSid.val.trim() === node.getSid().trim()) return;
+    // get the primitive non reference back out since we are passing to a closure, else if reading the value in the closure it will be whatever latest of shared mut var is
+    const val = sidArgs.mutCurSid.val;
+    updates.push({
+      dbgLabel: "adjustSidsAsNeededOnTextTokens",
+      dbgDetail: `Id: ${node.getId()} Current sid: ${node.getSid()} Expected sid: ${val}`,
+      update: () => {
+        node.setSid(val);
+      },
+    });
+    return;
+  }
+  const isVerseMarker =
+    tokenType === UsfmTokenTypes.marker && node.getMarker() === "v";
+  if (isVerseMarker) {
+    // no special ws in eidotr so next should be numRange
+    const nextSib = node.getNextSibling();
+    if (!$isUSFMTextNode(nextSib)) return;
+    if (nextSib.getTokenType() !== UsfmTokenTypes.numberRange) return;
+    const nextSibText = nextSib.getTextContent().trim();
+    const nextSibNumRange = parseSid(
+      `${sidArgs.bookCode} ${sidArgs.mutCurChap.val}:${nextSibText}`
+    );
+    if (!nextSibNumRange) return;
+    sidArgs.mutCurVerse.val = String(nextSibNumRange.verseStart);
+    sidArgs.mutCurSid.val = nextSibNumRange.toSidString();
+    if (sidArgs.mutCurSid.val.trim() === node.getSid().trim()) return;
+    // get the primitive non reference back out since we are passing to a closure, else if reading the value in the closure it will be whatever latest of shared mut var is
+    const val = sidArgs.mutCurSid.val;
+    updates.push({
+      dbgLabel: "adjustSidsAsNeededOnTextTokens",
+      dbgDetail: `Id: ${node.getId()} Current sid: ${node.getSid()} Expected sid: ${val}`,
+      update: () => {
+        node.setSid(val);
+      },
+    });
+    return;
+  }
+  // most markers and tokens read sid backwards, so if not a look ahead marker, assign current sid
+  if (!LOOKAHEAD_MARKERS.has(node.getMarker() ?? "")) {
+    const current = node.getSid().trim();
+    if (current === sidArgs.mutCurSid.val) return;
+    // get the primitive non reference back out since we are passing to a closure, else if reading the value in the closure it will be whatever latest of shared mut var is
+    const val = sidArgs.mutCurSid.val;
+    updates.push({
+      dbgLabel: "adjustSidsAsNeededOnTextTokens",
+      dbgDetail: `Id: ${node.getId()} Current sid: ${node.getSid()} Expected sid: ${val}`,
+      update: () => {
+        node.setSid(val);
+      },
+    });
+    return;
+  }
+
+  // if we get here, we have a look ahead marker, so we need to walk forward until we hit a boundary condition
+  $assignSidsUntilBoundaryConditionForLexical(args, sidArgs);
+}
 
 const maintainInPara: MainDocumentStrutureFxn = ({
   node,
@@ -216,8 +235,8 @@ const monitorMutabilityAndVisibility: MainDocumentStrutureFxn = ({
   if (!rootDomEl) return;
   const isMutable = node.getMutable();
   const isVisible = node.getShow();
-  const viewState = rootDomEl?.getAttribute("data-view-state");
-  const mutabilityState = rootDomEl?.getAttribute("data-mutability-state");
+  const viewState = rootDomEl?.dataset.markerViewState;
+  const mutabilityState = rootDomEl?.dataset.markersMutableState;
   if (mutabilityState === EditorMarkersMutableStates.MUTABLE) {
     if (!isMutable && $isLockableUSFMTextNode(node)) {
       updates.push({
@@ -261,20 +280,83 @@ const monitorMutabilityAndVisibility: MainDocumentStrutureFxn = ({
 };
 
 // util
-function findNextVerseRangeNode(
-  node: USFMTextNode,
-  lastNode: LexicalNode
-): USFMTextNode | null {
-  let next: USFMTextNode | null = null;
-  for (const nextNode of $dfsIterator(node, lastNode)) {
+function $assignSidsUntilBoundaryConditionForLexical(
+  args: Parameters<typeof adjustSidsAsNeededOnTextTokens>[0],
+  sidArgs: Parameters<typeof adjustSidsAsNeededOnTextTokens>[1]
+) {
+  const {node, tokenType, updates} = args;
+  // just to be sure
+  if (tokenType !== UsfmTokenTypes.marker) return;
+
+  const collectedTokens: USFMTextNode[] = [];
+  // no loop index, so just while on the nextSibling until breaking boundary conditons;
+  let nextSibling = node.getNextSibling();
+  if (!$isUSFMTextNode(nextSibling)) return;
+  collectedTokens.push(nextSibling);
+  sidArgs.nodeIdsCalculated.add(node.getId());
+
+  while (nextSibling) {
+    if (!$isUSFMTextNode(nextSibling) || !$isUSFMNestedEditorNode(nextSibling))
+      break;
+    const nextTokenMarker = nextSibling.getMarker();
+    // never read past chapter, which should be impossible in a chapter in lexical, but for consistency
+    if (nextTokenMarker === "c") break;
+
+    // don't read past plain text
     if (
-      $isUSFMTextNode(nextNode.node) &&
-      nextNode.node.getTokenType() === UsfmTokenTypes.numberRange &&
-      nextNode.node.getKey() !== node.getKey()
+      nextSibling.getTokenType() === UsfmTokenTypes.text &&
+      !nextSibling.getTextContent().trim().length
     ) {
-      next = nextNode.node;
       break;
     }
+
+    // don't read past markers that don't read forward such as a \cl, which semantically makes sense to read back towards what's likely a nearest c
+    if (
+      nextSibling.getTokenType() === UsfmTokenTypes.marker &&
+      !LOOKAHEAD_MARKERS.has(nextTokenMarker ?? "")
+    ) {
+      break;
+    }
+
+    // if we read past a v marker, break after checking the next token to ensure it's a number range
+    if (nextTokenMarker === "v") {
+      const candidateNumRangeToken = nextSibling.getNextSibling();
+      if (!$isUSFMTextNode(candidateNumRangeToken)) break;
+      if (candidateNumRangeToken.getTokenType() !== UsfmTokenTypes.numberRange)
+        break;
+      const candidateNumRangeText = candidateNumRangeToken
+        .getTextContent()
+        .trim();
+      if (!candidateNumRangeText || !numRangeRe.test(candidateNumRangeText))
+        break;
+      // if we get here, it's a v marker + valid num range, so we know their sid can be added to the forwarded walk
+      collectedTokens.push(candidateNumRangeToken);
+      sidArgs.mutCurVerse.val = candidateNumRangeText;
+      const possibleNewSid = parseSid(
+        `${sidArgs.bookCode} ${sidArgs.mutCurChap.val}:${sidArgs.mutCurVerse.val}`
+      );
+      if (!possibleNewSid) break;
+      sidArgs.mutCurSid.val = possibleNewSid.toSidString();
+      // no further processing after handling v
+      break;
+    }
+    // continue while loop til break
+    collectedTokens.push(nextSibling);
+    nextSibling = nextSibling.getNextSibling();
   }
-  return next;
+  if (collectedTokens.length === 0) return;
+  collectedTokens.forEach((token) => {
+    sidArgs.nodeIdsCalculated.add(token.getId());
+    const current = token.getSid();
+    if (current === sidArgs.mutCurSid.val) return;
+    // get the primitive non reference back out since we are passing to a closure, else if reading the value in the closure it will be whatever latest of shared mut var is
+    const val = sidArgs.mutCurSid.val;
+    updates.push({
+      dbgLabel: "assignSidsUntilBoundaryConditionForLexical",
+      dbgDetail: `Id: ${token.getId()} Current sid: ${token.getSid()} Expected sid: ${val}`,
+      update: () => {
+        token.setSid(val);
+      },
+    });
+  });
 }

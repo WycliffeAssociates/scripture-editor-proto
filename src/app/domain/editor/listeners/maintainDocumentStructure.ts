@@ -1,5 +1,10 @@
 import {$dfsIterator} from "@lexical/utils";
-import {$getRoot, $isLineBreakNode, type LexicalEditor} from "lexical";
+import {
+  $getRoot,
+  $isLineBreakNode,
+  type EditorState,
+  type LexicalEditor,
+} from "lexical";
 import {EDITOR_TAGS_USED, UsfmTokenTypes} from "@/app/data/editor";
 import {$isUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
@@ -12,46 +17,46 @@ import {ALL_CHAR_MARKERS, CHAPTER_VERSE_MARKERS} from "@/core/data/usfm/tokens";
 import {guidGenerator} from "@/core/data/utils/generic";
 import {markerRegex, markerTrimNoSlash} from "@/core/domain/usfm/lex";
 
-export type MainDocumentStrutureFxn = (args: {
+export type DocStructureFxnArgs = {
   node: USFMTextNode;
   tokenType: string;
-  updates: Array<{dbgLabel: string; update: () => void}>;
-}) => void;
+  updates: Array<{dbgLabel: string; dbgDetail?: string; update: () => void}>;
+};
+export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
 
 // only works on 1 main editor
 // This function is concnered with making sure the eidtor doesn't get into weird states where you can add text between a marker or after averse number cause you deleted it all. It also keeps the document flat by merging adjacent text nodes of the same type.
 export function maintainDocumentStructure(
-  // editorState: EditorState,
-  // editor: LexicalEditor
-  node: USFMTextNode,
+  editorState: EditorState,
   editor: LexicalEditor
 ) {
   const updates: Array<{
     dbgLabel: string;
     update: () => void;
   }> = [];
-  // console.time("maintainDocumentStructure");
-  // editorState.read(() => {
-  //   const root = $getRoot();
-  //   root.getAllTextNodes().forEach((node) => {
-  //     if (!$isUSFMTextNode(node)) return;
-  const tokenType = node.getTokenType();
-  const args = {
-    node,
-    tokenType,
-    updates,
-  };
-  mergeAdjacentTextNodesOfSameType(args);
-  editCharOpenAndCloseTogether(args);
-  ensureNumberRangeAlwaysFollowsMarkerExpectingNum(args);
-  ensurePlainTextNodeAlwaysFollowsNumberRange(args);
-  ensureCharOpensHaveEditableNextSibling(args);
-  ensureCharCloseHasEditableNextSibling(args);
-  trySplitOutMarkersFromKnownErrorTokens(args);
-  ensureNodesSandwichedBetweenSameSidHasThatSid(args);
-  removeEmptyNumberRangeNotPrecededByMarker(args);
-  // });
-  // });
+
+  editorState.read(() => {
+    for (const dfsNode of $dfsIterator()) {
+      const node = dfsNode.node;
+      //   can check other node types above if we need
+      if (!$isUSFMTextNode(node)) continue;
+      const tokenType = node.getTokenType();
+      const args = {
+        node,
+        tokenType,
+        updates,
+      };
+      mergeAdjacentTextNodesOfSameType(args);
+      editCharOpenAndCloseTogether(args);
+      ensureNumberRangeAlwaysFollowsMarkerExpectingNum(args);
+      ensurePlainTextNodeAlwaysFollowsNumberRange(args);
+      ensureCharOpensHaveEditableNextSibling(args);
+      ensureCharCloseHasEditableNextSibling(args);
+      trySplitOutMarkersFromKnownErrorTokens(args);
+      //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
+      removeEmptyNumberRangeNotPrecededByMarker(args);
+    }
+  });
   if (updates.length) {
     console.log(`maintain documnet structure updates ${updates.length}`);
     editor.update(() => {
@@ -198,6 +203,16 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
 }) => {
   if (!$isVerseRangeTextNode(node)) return;
   const next = node.getNextSibling();
+  const prev = node.getPreviousSibling();
+  if (
+    prev &&
+    $isUSFMTextNode(prev) &&
+    prev.getTokenType() === UsfmTokenTypes.marker &&
+    prev.getMarker() === "c"
+  ) {
+    // chapters numbers ranges don't need the plain text node following
+    return;
+  }
   if (
     !next ||
     !$isUSFMTextNode(next) ||
@@ -225,25 +240,25 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
     });
   }
 };
-const ensureNodesSandwichedBetweenSameSidHasThatSid: MainDocumentStrutureFxn =
-  ({node, tokenType, updates}) => {
-    if (!$isUSFMTextNode(node)) return;
-    const prevNode = node.getPreviousSibling();
-    const nextNode = node.getNextSibling();
-    if (!$isUSFMTextNode(prevNode) || !$isUSFMTextNode(nextNode)) return;
-    const prevSid = prevNode.getSid();
-    const nextSid = nextNode.getSid();
-    const thisSid = node.getSid();
-    if (prevSid !== nextSid) return;
-    if (prevSid === thisSid) return;
-    const update = () => {
-      node.setSid(prevSid);
-    };
-    updates.push({
-      dbgLabel: "ensureNodesSandwichedBetweenSameSidHasThatSid",
-      update,
-    });
-  };
+// const ensureNodesSandwichedBetweenSameSidHasThatSid: MainDocumentStrutureFxn =
+//   ({node, tokenType, updates}) => {
+//     if (!$isUSFMTextNode(node)) return;
+//     const prevNode = node.getPreviousSibling();
+//     const nextNode = node.getNextSibling();
+//     if (!$isUSFMTextNode(prevNode) || !$isUSFMTextNode(nextNode)) return;
+//     const prevSid = prevNode.getSid();
+//     const nextSid = nextNode.getSid();
+//     const thisSid = node.getSid();
+//     if (prevSid !== nextSid) return;
+//     if (prevSid === thisSid) return;
+//     const update = () => {
+//       node.setSid(prevSid);
+//     };
+//     updates.push({
+//       dbgLabel: "ensureNodesSandwichedBetweenSameSidHasThatSid",
+//       update,
+//     });
+//   };
 
 const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
   node,

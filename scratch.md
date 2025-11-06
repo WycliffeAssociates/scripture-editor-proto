@@ -228,3 +228,17 @@ Revert means:
   - was simply a change:
     - For each node in workingFiles of that sid, remove them from workingFiles, and insert old in their place
   
+
+  sids:
+  Before the first chapter marker, is intro material and should be
+  GEN:0
+
+  Once a chapter marker is there, but prior to first marker, should be:
+  GEN:c# 0
+
+  Once a verse if found, it should be
+  GEN:c#v#
+
+  Reading visually we can tell that the most logical grouping of sids is to read a subset of valid paragraphing marks forward I think. 
+
+  Don't cross \c boundaries for para markers: 
