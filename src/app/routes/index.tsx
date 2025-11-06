@@ -10,6 +10,9 @@ import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
 import { Route as projectRoute } from "./$project";
 import JSZip from "jszip";
+import {WacsRepoImporter} from "@/core/domain/project/import/WacsRepoImporter.ts";
+import {ProjectDirectoryImporter} from "@/core/domain/project/import/ProjectDirectoryImporter.ts";
+import {ProjectFileImporter} from "@/core/domain/project/import/ProjectFileImporter.ts";
 
 export const Route = createFileRoute("/")({
     component: Index,
@@ -27,6 +30,11 @@ export const Route = createFileRoute("/")({
 function Index() {
 
     const {directoryProvider } = Route.useLoaderData();
+
+    async function handleDownload2(url: string): Promise<void> {
+        const importer = new WacsRepoImporter(directoryProvider);
+        await importer.import(url);
+    }
 
     async function handleDownload(url: string) {
         console.log("Download", url);
@@ -184,6 +192,84 @@ function Index() {
         }
 
     }
+
+    async function handleOpenDirectory() {
+        console.log("Opening directory directory...");
+        // Check if the File System Access API is supported
+        if ('showDirectoryPicker' in window) {
+            try {
+                // Show the directory picker and wait for the user to select a directory
+                const directoryHandle = await window.showDirectoryPicker({
+                    // Optional: specify 'readwrite' mode if you need to modify files/directories
+                    mode: 'readwrite'
+                });
+
+                console.log('Successfully received a FileSystemDirectoryHandle:');
+                console.log(directoryHandle);
+
+                // --- You can now work with the directory handle ---
+                // Example: List the contents of the directory
+                for await (const entry of directoryHandle.values()) {
+                    console.log(`Entry: ${entry.name} (Kind: ${entry.kind})`);
+                }
+
+                const importer = new ProjectDirectoryImporter(directoryProvider);
+                await importer.importDirectory(directoryHandle);
+                return directoryHandle;
+            } catch (err) {
+                // Handle the case where the user cancels the picker
+                if (err.name === 'AbortError') {
+                    console.log('Directory selection cancelled by the user.');
+                } else {
+                    console.error('Error opening directory picker:', err);
+                }
+            }
+        } else {
+            // Fallback for browsers that don't support the API
+            alert('The File System Access API is not supported in this browser.');
+            // You could use a traditional <input type="file" webkitdirectory> as a fallback
+        }
+    }
+
+    async function handleOpenFile() {
+        if ('showOpenFilePicker' in window) {
+            try {
+                const handles = await window.showOpenFilePicker({
+                    multiple: false,
+
+                    // 🚨 Configure the file types here 🚨
+                    types: [{
+                        description: 'ZIP Archive Files',
+                        accept: {
+                            'application/zip': ['.zip'] // Specifies the MIME type and file extension
+                        }
+                    }],
+
+                    mode: 'readwrite'
+                });
+
+                const zipFileHandle = handles[0];
+                
+                const importer = new ProjectFileImporter(directoryProvider);
+                await importer.importFile(zipFileHandle);
+                console.log('Selected ZIP File Handle:', zipFileHandle);
+
+                // You can now proceed to read or process the ZIP file
+                return zipFileHandle;
+
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    console.log('File selection cancelled by the user.');
+                } else {
+                    console.error('Error opening file picker:', err);
+                }
+            }
+        } else {
+            alert('The File System Access API is not supported in this browser.');
+        }
+        return null;
+    }
+
     const { projects } = useLoaderData({ from: "__root__" });
     const { settingsManager } = useRouter().options.context;
     return (
@@ -194,7 +280,7 @@ function Index() {
                     <Link
                         key={project.projectDir.path}
                         to={projectRoute.id}
-                        params={{ project: project.projectDir.name }}
+                        params={{project: project.projectDir.name}}
                         onClick={() => {
                             console.log("Clicked on Project", project.id);
                             settingsManager.update({
@@ -209,9 +295,12 @@ function Index() {
 
             <br/>
             <h1>Find a Repo</h1>
-            <RepoDownload onDownload={handleDownload} isDownloadDisabled={false}>
-
+            <RepoDownload onDownload={handleDownload2} isDownloadDisabled={false}>
             </RepoDownload>
+
+            <button onClick={handleOpenDirectory}>Open Directory</button>
+            <br/>
+            <button onClick={handleOpenFile}>Open File</button>
         </div>
     );
 }

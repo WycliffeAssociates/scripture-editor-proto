@@ -203,7 +203,12 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         let dir: FileSystemDirectoryHandle = this.root;
         let path = "";
         for (const part of parts) {
-            dir = await dir.getDirectoryHandle(part, { create: true });
+            try {
+                dir = await dir.getDirectoryHandle(part, {create: true});
+            } catch (e) {
+                console.log(e);
+                console.log("Error trying to make a directory handle from parts:", parts)
+            }
             path += `/${part}`;
         }
         return new WebDirectoryHandle(dir, path, this.getHandle.bind(this));

@@ -1,145 +1,146 @@
 import {dirname, join} from "@tauri-apps/api/path";
-import {
-  type DirEntry,
-  mkdir,
-  readDir,
-  readTextFile,
-  remove,
-  writeTextFile,
-  exists,
-} from "@tauri-apps/plugin-fs";
 import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import type {IFileHandle} from "@/core/io/IFileHandle.ts";
 import type {IPathHandle} from "@/core/io/IPathHandle.ts";
 import {normalize} from "@/tauri/io/PathUtils.ts";
 import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
 
+import {type DirEntry, mkdir, readDir, readTextFile, remove, writeTextFile,} from "@tauri-apps/plugin-fs";
+
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
 export class TauriDirectoryHandle implements IDirectoryHandle {
-  kind: "directory" = "directory";
-  name: string;
-  path: string;
-  isDir: boolean = true;
-  isFile: boolean = false;
+    kind: "directory" = "directory";
+    name: string;
+    path: string;
+    isDir: boolean = true;
+    isFile: boolean = false;
 
-  private readonly resolveHandle: ResolveHandle;
+    private readonly resolveHandle: ResolveHandle;
 
-  constructor(path: string, resolveHandle: ResolveHandle) {
-    this.path = normalize(path);
-    this.name = this.path.split("/").pop() || this.path;
-    this.resolveHandle = resolveHandle;
-  }
-
-  async getDirectoryHandle(
-    name: string,
-    opts?: {create?: boolean}
-  ): Promise<IDirectoryHandle> {
-    const dirPath = await join(this.path, name);
-    if (opts?.create) await mkdir(dirPath, {recursive: true});
-    return new TauriDirectoryHandle(dirPath, this.resolveHandle);
-  }
-
-  async getFileHandle(
-    name: string,
-    opts?: {create?: boolean}
-  ): Promise<IFileHandle> {
-    const filePath = await join(this.path, name);
-    if (opts?.create) {
-      await mkdir(this.path, {recursive: true});
-      try {
-        await readTextFile(filePath);
-      } catch {
-        await writeTextFile(filePath, "");
-      }
+    constructor(path: string, resolveHandle: ResolveHandle) {
+        this.path = normalize(path);
+        this.name = this.path.split("/").pop() || this.path;
+        this.resolveHandle = resolveHandle;
     }
-    return new TauriFileHandle(filePath, this.resolveHandle);
-  }
 
-  async removeEntry(name: string, opts?: {recursive?: boolean}): Promise<void> {
-    const targetPath = await join(this.path, name);
-    await remove(targetPath, {recursive: !!opts?.recursive}).catch((e) => {
-      const msg = String((e as Error)?.message || "");
-      if (!/not found|no such file|does not exist/i.test(msg)) throw e;
-    });
-  }
-
-  async *entries(): FileSystemDirectoryHandleAsyncIterator<
-    [string, IPathHandle]
-  > {
-    const items: DirEntry[] = await readDir(this.path).catch(() => []);
-    for (const item of items) {
-      const childPath = await join(this.path, item.name);
-      if (item.isDirectory) {
-        yield [
-          item.name,
-          new TauriDirectoryHandle(childPath, this.resolveHandle),
-        ];
-      } else {
-        yield [item.name, new TauriFileHandle(childPath, this.resolveHandle)];
-      }
+    async getDirectoryHandle(
+        name: string,
+        opts?: { create?: boolean }
+    ): Promise<IDirectoryHandle> {
+        const dirPath = await join(this.path, name);
+        if (opts?.create) await mkdir(dirPath, {recursive: true});
+        return new TauriDirectoryHandle(dirPath, this.resolveHandle);
     }
-  }
 
-  async *keys(): FileSystemDirectoryHandleAsyncIterator<string> {
-    for await (const [name] of this.entries()) yield name;
-  }
+    async getFileHandle(
+        name: string,
+        opts?: { create?: boolean }
+    ): Promise<IFileHandle> {
+        const filePath = await join(this.path, name);
+        if (opts?.create) {
+            await mkdir(this.path, {recursive: true});
+            try {
+                await readTextFile(filePath);
+            } catch {
+                await writeTextFile(filePath, "");
+            }
+        }
+        return new TauriFileHandle(filePath, this.resolveHandle);
+    }
 
-  async *values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
-    for await (const [, handle] of this.entries()) yield handle;
-  }
+    async removeEntry(name: string, opts?: { recursive?: boolean }): Promise<void> {
+        const targetPath = await join(this.path, name);
+        await remove(targetPath, {recursive: !!opts?.recursive}).catch((e) => {
+            const msg = String((e as Error)?.message || "");
+            if (!/not found|no such file|does not exist/i.test(msg)) throw e;
+        });
+    }
 
-  [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
-    [string, IPathHandle]
-  > {
-    return this.entries();
-  }
+    async* entries(): FileSystemDirectoryHandleAsyncIterator<
+        [string, IPathHandle]
+    > {
+        const items: DirEntry[] = await readDir(this.path).catch(() => []);
+        for (const item of items) {
+            const childPath = await join(this.path, item.name);
+            if (item.isDirectory) {
+                yield [
+                    item.name,
+                    new TauriDirectoryHandle(childPath, this.resolveHandle),
+                ];
+            } else {
+                yield [item.name, new TauriFileHandle(childPath, this.resolveHandle)];
+            }
+        }
+    }
 
-  [Symbol.asyncDispose]() {
-    return Promise.resolve(void 0);
-  }
+    async* keys(): FileSystemDirectoryHandleAsyncIterator<string> {
+        for await (const [name] of this.entries()) yield name;
+    }
 
-  async resolve(other: FileSystemHandle): Promise<string[] | null> {
-    const otherPath = (other as IPathHandle)?.path;
-    if (!otherPath || typeof otherPath !== "string") return null;
-    const base = normalize(this.path);
-    const cmp = normalize(otherPath);
+    async* values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
+        for await (const [, handle] of this.entries()) yield handle;
+    }
 
-    if (base === cmp) return [];
-    const baseWithSlash = base.endsWith("/") ? base : `${base}/`;
-    if (!cmp.startsWith(baseWithSlash)) return null;
+    [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
+        [string, IPathHandle]
+    > {
+        return this.entries();
+    }
 
-    return cmp.slice(baseWithSlash.length).split("/").filter(Boolean);
-  }
+    [Symbol.asyncDispose]() {
+        return Promise.resolve(void 0);
+    }
 
-  async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-    return (other as IPathHandle)?.path === this.path;
-  }
+    async resolve(other: FileSystemHandle): Promise<string[] | null> {
+        const otherPath = (other as IPathHandle)?.path;
+        if (!otherPath || typeof otherPath !== "string") return null;
+        const base = normalize(this.path);
+        const cmp = normalize(otherPath);
 
-  async getParent(): Promise<IDirectoryHandle> {
-    const parentPath = await dirname(this.path);
-    return (await this.resolveHandle(parentPath)) as IDirectoryHandle;
-  }
+        if (base === cmp) return [];
+        const baseWithSlash = base.endsWith("/") ? base : `${base}/`;
+        if (!cmp.startsWith(baseWithSlash)) return null;
 
-  asFileHandle(): IFileHandle | null {
-    return null;
-  }
+        return cmp.slice(baseWithSlash.length).split("/").filter(Boolean);
+    }
 
-  asDirectoryHandle(): IDirectoryHandle | null {
-    return this;
-  }
+    async isSameEntry(other: FileSystemHandle): Promise<boolean> {
+        return (other as IPathHandle)?.path === this.path;
+    }
 
-  async getAbsolutePath(): Promise<string> {
-    return this.path;
-  }
+    async getParent(): Promise<IDirectoryHandle> {
+        const parentPath = await dirname(this.path);
+        return (await this.resolveHandle(parentPath)) as IDirectoryHandle;
+    }
 
-  async containsFile(name: string): Promise<boolean> {
-    const filePath = await join(this.path, name);
-    return await exists(filePath);
-  }
+    asFileHandle(): IFileHandle | null {
+        return null;
+    }
 
-  async containsDir(name: string): Promise<boolean> {
-    const dirPath = await join(this.path, name);
-    return await exists(dirPath);
-  }
+    asDirectoryHandle(): IDirectoryHandle | null {
+        return this;
+    }
+
+    async getAbsolutePath(): Promise<string> {
+        return this.path;
+    }
+
+    async containsFile(name: string): Promise<boolean> {
+        for await (const [entryName, handle] of this.entries()) {
+            if (entryName === name && handle.kind === "file") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    async containsDir(name: string): Promise<boolean> {
+        for await (const [entryName, handle] of this.entries()) {
+            if (entryName === name && handle.kind === "directory") {
+                return true;
+            }
+        }
+        return false;
+    }
 }
