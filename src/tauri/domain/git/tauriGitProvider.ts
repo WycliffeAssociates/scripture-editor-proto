@@ -12,7 +12,7 @@ export class TauriGitProvider implements IGitProvider {
     }
 
     async cloneRepository(url: string): Promise<undefined | Error> {
-        const basePath = await this.directoryProvider.getUserDataDirectory();
+        const basePath = await this.directoryProvider.getAppPublicDirectory();
         const args = {
             url,
             path: basePath.path,

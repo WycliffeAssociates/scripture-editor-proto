@@ -1,4 +1,3 @@
-import {Importer} from "@/core/domain/project/import/Importer.ts";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import JSZip from "jszip";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
@@ -18,10 +17,9 @@ interface ExtractionResult {
  * It extracts the contents to a temporary location, resolves naming conflicts,
  * copies to the permanent projects directory, and cleans up the temporary files.
  */
-export class ProjectFileImporter implements Importer {
+export class ProjectFileImporter {
     private readonly directoryProvider: IDirectoryProvider;
-    // Defines the base path where final projects are stored
-    private readonly projectsBaseDirName = "scripture-editor/projects";
+
 
     constructor(directoryProvider: IDirectoryProvider) {
         this.directoryProvider = directoryProvider;
@@ -34,7 +32,7 @@ export class ProjectFileImporter implements Importer {
      * @returns A promise that resolves to true if the import was successful, false otherwise.
      */
     public async importFile(zipFileHandle: IFileHandle): Promise<boolean> {
-        const projectsDir = await this.directoryProvider.getAppDataDirectory(this.projectsBaseDirName);
+        const projectsDir = await this.directoryProvider.projectsDirectory;
         const tempDirectory = await this.directoryProvider.tempDirectory;
 
         let tempExtractionDir: IDirectoryHandle | null = null;

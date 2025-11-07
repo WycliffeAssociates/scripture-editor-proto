@@ -19,8 +19,6 @@ interface ExtractionResult {
  */
 export class WacsRepoImporter implements Importer {
     private readonly directoryProvider: IDirectoryProvider;
-    // Defines the base path where final projects are stored
-    private readonly projectsBaseDirName = "scripture-editor/projects";
 
     constructor(directoryProvider: IDirectoryProvider) {
         this.directoryProvider = directoryProvider;
@@ -33,7 +31,7 @@ export class WacsRepoImporter implements Importer {
      */
     public async import(url: string): Promise<boolean> {
         debugger
-        const projectsDir = await this.directoryProvider.getAppDataDirectory(this.projectsBaseDirName);
+        const projectsDir = await this.directoryProvider.projectsDirectory
         const tempDirectory = await this.directoryProvider.tempDirectory;
 
         let tempExtractionDir: IDirectoryHandle | null = null;

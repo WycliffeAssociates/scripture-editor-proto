@@ -49,7 +49,7 @@ export class ProjectDirectoryImporter implements Importer {
      * @returns A promise that resolves to true if the import was successful, false otherwise.
      */
     public async importDirectory(sourceDir: IDirectoryHandle): Promise<boolean> {
-        const projectsDir = await this.directoryProvider.getAppDataDirectory(this.projectsBaseDirName);
+        const projectsDir = await this.directoryProvider.getAppPrivateDirectory(this.projectsBaseDirName);
         const sourceEntryName = sourceDir.name;
 
         try {

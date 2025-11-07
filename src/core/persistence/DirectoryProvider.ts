@@ -4,8 +4,8 @@ import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
 export interface IDirectoryProvider {
     // Directory access
-    getUserDataDirectory(appendedPath?: string): Promise<IDirectoryHandle>;
-    getAppDataDirectory(appendedPath?: string): Promise<IDirectoryHandle>;
+    getAppPublicDirectory(appendedPath?: string): Promise<IDirectoryHandle>;
+    getAppPrivateDirectory(appendedPath?: string): Promise<IDirectoryHandle>;
 
     getDirectoryHandle(path: string): Promise<IDirectoryHandle>;
 
@@ -26,6 +26,7 @@ export interface IDirectoryProvider {
 
     // Predefined directories
     readonly databaseDirectory: Promise<IDirectoryHandle>;
+    readonly projectsDirectory: Promise<IDirectoryHandle>;
     readonly logsDirectory: Promise<IDirectoryHandle>;
     readonly cacheDirectory: Promise<IDirectoryHandle>;
     readonly tempDirectory: Promise<IDirectoryHandle>;

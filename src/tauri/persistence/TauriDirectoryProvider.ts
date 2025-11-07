@@ -47,7 +47,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         );
     }
 
-    async getUserDataDirectory(
+    async getAppPublicDirectory(
         appendedPath?: string,
     ): Promise<IDirectoryHandle> {
         let root = this.userHome;
@@ -58,18 +58,18 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
         const path = appendedPath ? await join(root, appendedPath) : root;
         await mkdir(path, { recursive: true });
-        console.log(`User data directory: ${path}`);
+        console.log(`App public data directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
 
-    async getAppDataDirectory(
+    async getAppPrivateDirectory(
         appendedPath?: string,
     ): Promise<IDirectoryHandle> {
         const path = appendedPath
             ? await join(await appLocalDataDir(), appendedPath)
             : await appLocalDataDir();
         await mkdir(path, { recursive: true });
-        console.log(`App data directory: ${path}`);
+        console.log(`App private data directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
 
@@ -79,7 +79,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         bookSlug: string,
     ): Promise<IDirectoryHandle> {
         const targetCreator = target?.creator ?? ".";
-        const baseDir = await this.getUserDataDirectory();
+        const baseDir = await this.getAppPublicDirectory();
         const path = await join(
             baseDir.path,
             targetCreator,
@@ -93,6 +93,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         console.log(`Project directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
+
     async getDirectoryHandle(
         path: string,
         opts?: { create?: boolean },
@@ -161,7 +162,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     }
 
     async cleanTempDirectory(): Promise<void> {
-        const tempDir = await this.getAppDataDirectory("temp");
+        const tempDir = await this.getAppPrivateDirectory("temp");
         for await (const [name] of tempDir.entries()) {
             await tempDir.removeEntry(name, { recursive: true });
         }
@@ -171,19 +172,23 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     }
 
     get databaseDirectory(): Promise<IDirectoryHandle> {
-        return this.getAppDataDirectory("database");
+        return this.getAppPrivateDirectory("database");
+    }
+
+    get projectsDirectory(): Promise<IDirectoryHandle> {
+        return this.getAppPublicDirectory("projects");
     }
 
     get logsDirectory(): Promise<IDirectoryHandle> {
-        return this.getAppDataDirectory("logs");
+        return this.getAppPrivateDirectory("logs");
     }
 
     get cacheDirectory(): Promise<IDirectoryHandle> {
-        return this.getAppDataDirectory("cache");
+        return this.getAppPrivateDirectory("cache");
     }
 
     get tempDirectory(): Promise<IDirectoryHandle> {
-        return this.getAppDataDirectory("temp");
+        return this.getAppPrivateDirectory("temp");
     }
     resolveHandle(path: string): Promise<IPathHandle> {
         return this.getHandle(path);

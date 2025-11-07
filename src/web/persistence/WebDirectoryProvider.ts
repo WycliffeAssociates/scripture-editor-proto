@@ -16,7 +16,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         return new WebDirectoryProvider(root);
     }
 
-    async getUserDataDirectory(
+    async getAppPublicDirectory(
         appendedPath?: string,
     ): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(
@@ -25,7 +25,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         return dir;
     }
 
-    async getAppDataDirectory(
+    async getAppPrivateDirectory(
         appendedPath?: string,
     ): Promise<IDirectoryHandle> {
         const dir = await this.ensurePath(
@@ -100,33 +100,6 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         return dir;
     }
 
-    async getProjectSourceDirectory(
-        source: ResourceMetadata,
-        target: ResourceMetadata | null,
-        bookSlug: string,
-    ): Promise<IDirectoryHandle> {
-        return this.getProjectDirectory(source, target, bookSlug);
-    }
-
-    async getSourceContainerDirectory(
-        metadata: ResourceMetadata,
-    ): Promise<IDirectoryHandle> {
-        const dir = await this.ensurePath(["containers", metadata.creator]);
-        return dir;
-    }
-
-    async getDerivedContainerDirectory(
-        metadata: ResourceMetadata,
-        source: ResourceMetadata,
-    ): Promise<IDirectoryHandle> {
-        const dir = await this.ensurePath([
-            "derived",
-            metadata.creator,
-            source.identifier,
-        ]);
-        return dir;
-    }
-
     async newFileWriter(filePath: string) {
         const fileHandle = await this.getHandle(filePath);
         const file = fileHandle.asFileHandle();
@@ -172,18 +145,6 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     get databaseDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["database"]);
     }
-    get resourceContainerDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["rc"]);
-    }
-    get internalSourceRCDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["rc", "src"]);
-    }
-    get userProfileImageDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["users", "images"]);
-    }
-    get versificationDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["versification"]);
-    }
     get logsDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["logs"]);
     }
@@ -192,6 +153,9 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     }
     get tempDirectory(): Promise<IDirectoryHandle> {
         return this.ensureDirHandle(["temp"]);
+    }
+    get projectsDirectory(): Promise<IDirectoryHandle> {
+        return this.ensureDirHandle(["projects"]);
     }
 
     // --- Helpers ---

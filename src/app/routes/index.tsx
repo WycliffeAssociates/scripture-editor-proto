@@ -1,14 +1,9 @@
-import {
-    createFileRoute,
-    Link,
-    useLoaderData,
-    useRouter,
-} from "@tanstack/react-router";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import {createFileRoute, Link, useLoaderData, useRouter,} from "@tanstack/react-router";
+import type {Project} from "@/core/persistence/ProjectRepository.ts";
 import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import {IFileHandle} from "@/core/io/IFileHandle.ts";
-import { Route as projectRoute } from "./$project";
+import {Route as projectRoute} from "./$project";
 import JSZip from "jszip";
 import {WacsRepoImporter} from "@/core/domain/project/import/WacsRepoImporter.ts";
 import {ProjectDirectoryImporter} from "@/core/domain/project/import/ProjectDirectoryImporter.ts";
@@ -18,18 +13,18 @@ export const Route = createFileRoute("/")({
     component: Index,
     pendingComponent: () => <div>Loading...</div>,
     pendingMs: 100,
-    loader: async ({ context }) => {
+    loader: async ({context}) => {
         console.time("total time");
         // start here would prefer to wrap into a single abstraction
-        const { directoryProvider } = context;
-        return { directoryProvider: directoryProvider };
+        const {directoryProvider} = context;
+        return {directoryProvider: directoryProvider};
     },
 });
 
 // ls the app data dir and show as projects
 function Index() {
 
-    const {directoryProvider } = Route.useLoaderData();
+    const {directoryProvider} = Route.useLoaderData();
 
     async function handleDownload2(url: string): Promise<void> {
         const importer = new WacsRepoImporter(directoryProvider);
@@ -48,11 +43,11 @@ function Index() {
         // Create a unique temporary directory for this extraction
         const tempDirectory = await directoryProvider.tempDirectory;
         const tempExtractionDirName = `${projectName}-extract-${Date.now()}`;
-        const tempExtractionDir = await tempDirectory.getDirectoryHandle(tempExtractionDirName, { create: true });
+        const tempExtractionDir = await tempDirectory.getDirectoryHandle(tempExtractionDirName, {create: true});
 
         // Save the downloaded zip data to a temporary file
         const tempZipFileName = `${projectName}.zip`;
-        const tempZipFileHandle = await tempExtractionDir.getFileHandle(tempZipFileName, { create: true });
+        const tempZipFileHandle = await tempExtractionDir.getFileHandle(tempZipFileName, {create: true});
         const tempZipWriter = await tempZipFileHandle.createWriter();
         await tempZipWriter.write(data);
         await tempZipWriter.close();
@@ -83,7 +78,7 @@ function Index() {
                 const intermediateDirs = entryDirPath.split("/");
                 let tempSubDir = tempExtractionDir;
                 for (const dirPart of intermediateDirs) {
-                    tempSubDir = await tempSubDir.getDirectoryHandle(dirPart, { create: true });
+                    tempSubDir = await tempSubDir.getDirectoryHandle(dirPart, {create: true});
                 }
                 currentExtractionTargetDir = tempSubDir;
             }
@@ -92,7 +87,7 @@ function Index() {
             if (file.dir) {
                 if (entryName) {
                     try {
-                        await currentExtractionTargetDir.getDirectoryHandle(entryName, { create: true });
+                        await currentExtractionTargetDir.getDirectoryHandle(entryName, {create: true});
                     } catch (error) {
                         console.error(`Error creating temporary directory ${currentExtractionTargetDir.path}/${entryName}:`, error);
                     }
@@ -100,7 +95,7 @@ function Index() {
             } else if (entryName) {
                 try {
                     const content = await file.async('arraybuffer');
-                    const handle = await currentExtractionTargetDir.getFileHandle(entryName, { create: true });
+                    const handle = await currentExtractionTargetDir.getFileHandle(entryName, {create: true});
                     const writer = await handle.createWriter();
                     await writer.write(content);
                     await writer.close();
@@ -117,12 +112,12 @@ function Index() {
         // Find the top-level entry in the extracted temporary directory
         let topLevelEntries = [];
         for await (const [name, handle] of tempExtractionDir.entries()) {
-            topLevelEntries.push({ name, handle });
+            topLevelEntries.push({name, handle});
         }
 
         if (topLevelEntries.length === 0) {
             console.error("No content extracted from zip.");
-            await tempDirectory.removeEntry(tempExtractionDirName, { recursive: true });
+            await tempDirectory.removeEntry(tempExtractionDirName, {recursive: true});
             return; // No content, nothing to copy
         } else if (topLevelEntries.length > 1) {
             console.warn("Zip contains multiple top-level entries. Copying only the first one found as the project directory.");
@@ -146,7 +141,7 @@ function Index() {
         }
 
         // Create the final project directory in the projectsDir with a unique name
-        currentProjectDir = await projectsDir.getDirectoryHandle(uniqueProjectDirName, { create: true });
+        currentProjectDir = await projectsDir.getDirectoryHandle(uniqueProjectDirName, {create: true});
         console.log(`Final project directory created: ${currentProjectDir.path}`);
 
         // --- Phase 3: Copy Extracted Content to Final projectsDir Location ---
@@ -155,11 +150,11 @@ function Index() {
         async function copyDirectoryContents(sourceDir: IDirectoryHandle, destinationDir: IDirectoryHandle) {
             for await (const [name, handle] of sourceDir.entries()) {
                 if (handle.isDir) {
-                    const newDestDir = await destinationDir.getDirectoryHandle(name, { create: true });
+                    const newDestDir = await destinationDir.getDirectoryHandle(name, {create: true});
                     await copyDirectoryContents(handle as IDirectoryHandle, newDestDir);
                 } else if (handle.isFile) {
                     const sourceFileHandle = handle as IFileHandle;
-                    const destFileHandle = await destinationDir.getFileHandle(name, { create: true });
+                    const destFileHandle = await destinationDir.getFileHandle(name, {create: true});
                     const content = await sourceFileHandle.getFile().then((f: File) => f.arrayBuffer());
                     const writer = await destFileHandle.createWriter();
                     await writer.write(content);
@@ -174,7 +169,7 @@ function Index() {
         } else if (extractedTopLevelItem.handle.isFile) {
             // If the top-level item is a file, copy it directly into the new project directory
             const sourceFileHandle = extractedTopLevelItem.handle as IFileHandle;
-            const destFileHandle = await currentProjectDir.getFileHandle(sourceFileHandle.name, { create: true });
+            const destFileHandle = await currentProjectDir.getFileHandle(sourceFileHandle.name, {create: true});
             const content = await sourceFileHandle.getFile().then((f: File) => f.arrayBuffer());
             const writer = await destFileHandle.createWriter();
             await writer.write(content);
@@ -184,8 +179,8 @@ function Index() {
 
         // --- Phase 4: Cleanup ---
         try {
-            await tempDirectory.removeEntry(tempExtractionDirName, { recursive: true });
-            await tempDirectory.removeEntry(tempZipFileName, { recursive: true });
+            await tempDirectory.removeEntry(tempExtractionDirName, {recursive: true});
+            await tempDirectory.removeEntry(tempZipFileName, {recursive: true});
             console.log("Temporary files and directories cleaned up.");
         } catch (e) {
             console.error("Error during cleanup of temporary files:", e);
@@ -249,7 +244,7 @@ function Index() {
                 });
 
                 const zipFileHandle = handles[0];
-                
+
                 const importer = new ProjectFileImporter(directoryProvider);
                 await importer.importFile(zipFileHandle);
                 console.log('Selected ZIP File Handle:', zipFileHandle);
@@ -270,8 +265,8 @@ function Index() {
         return null;
     }
 
-    const { projects } = useLoaderData({ from: "__root__" });
-    const { settingsManager } = useRouter().options.context;
+    const {projects} = useLoaderData({from: "__root__"});
+    const {settingsManager} = useRouter().options.context;
     return (
         <div>
             <h1>Projects</h1>
