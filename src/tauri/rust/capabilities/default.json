@@ -15,7 +15,7 @@
             "allow": [
                 { "path": "$APPLOCALDATA/**" },
                 { "path": "$APPDATA/**" },
-                { "path": "$HOME/com.willkelly.tauri-app/**" }
+                { "path": "$HOME/btt-refiner-proto/**" }
             ]
         },
         "opener:allow-open-path",
