@@ -17,7 +17,6 @@ import {Importer} from "@/core/domain/project/import/Importer.ts";
 export class ProjectDirectoryImporter implements Importer {
     private readonly directoryProvider: IDirectoryProvider;
     // Defines the base path where final projects are stored
-    private readonly projectsBaseDirName = "scripture-editor/projects";
 
     constructor(directoryProvider: IDirectoryProvider) {
         this.directoryProvider = directoryProvider;
@@ -49,7 +48,7 @@ export class ProjectDirectoryImporter implements Importer {
      * @returns A promise that resolves to true if the import was successful, false otherwise.
      */
     public async importDirectory(sourceDir: IDirectoryHandle): Promise<boolean> {
-        const projectsDir = await this.directoryProvider.getAppPrivateDirectory(this.projectsBaseDirName);
+        const projectsDir = await this.directoryProvider.projectsDirectory;
         const sourceEntryName = sourceDir.name;
 
         let tempProjectDir: IDirectoryHandle | null = null;
