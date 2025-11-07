@@ -33,9 +33,7 @@ export class WacsRepoImporter implements Importer {
         const projectsDir = await this.directoryProvider.projectsDirectory
         const tempDirectory = await this.directoryProvider.tempDirectory;
 
-
         console.log("project directory: " + projectsDir.path);
-        debugger
 
         let tempExtractionDir: IDirectoryHandle | null = null;
         let extractedTopLevelItem: IPathHandle | null = null;

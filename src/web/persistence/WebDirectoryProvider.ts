@@ -22,7 +22,6 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         const dir = await this.ensurePath(
             appendedPath ? ["userData", appendedPath] : ["userData"],
         );
-        debugger
         return dir;
     }
 

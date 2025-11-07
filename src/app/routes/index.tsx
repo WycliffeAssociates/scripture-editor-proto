@@ -99,7 +99,6 @@ function Index() {
         await writer.close();
         console.log(`[handleOpenFile] Content written to temporary file: ${tempFileHandle.name}`);
 
-        debugger
         const importer = new ProjectFileImporter(directoryProvider);
         await importer.importFile(tempFileHandle);
         console.log('Selected ZIP File Handle:', tempFileHandle);
