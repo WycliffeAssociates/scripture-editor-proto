@@ -6,15 +6,17 @@ import {
   LineBreakNode,
   type SerializedLexicalNode,
 } from "lexical";
-import {USFM_TEXT_NODE_TYPE, UsfmTokenTypes} from "@/app/data/editor";
+import {USFM_TEXT_NODE_TYPE} from "@/app/data/editor";
 import {isSerializedElementNode} from "@/app/domain/editor/nodes/USFMElementNode";
 import {
   $isUSFMNestedEditorNode,
   isSerializedUSFMNestedEditorNode,
   type USFMNestedEditorNode,
+  type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   $isUSFMTextNode,
+  isSerializedNumberOrPlainTextUSFMTextNode,
   isSerializedPlainTextUSFMTextNode,
   isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -186,84 +188,339 @@ function traverseForSidTextMap(
 //================================================================================
 // Function 3: Build the rich, contextual map for reversion (CORRECTED)
 //================================================================================
-
 export type SidContent = {
+  /** The nodes that make up the content of this block. For a verse, it's the top-level
+   *  nodes. For a footnote, it's the nodes INSIDE the footnote's editorState. */
   nodes: SerializedLexicalNode[];
+
+  /** The parent array that `nodes` belongs to. This is the array to splice for
+   *  INTERNAL content changes. */
   parentChapterNodeList: SerializedLexicalNode[];
+
+  /** The starting index of the first node of this block within its parent list. */
   startIndexInParent: number;
+
+  /** The unique key of the immediately preceding block, used as a revert anchor. */
   previousSid: string | null;
-  /** The full USFM text for this block, including all markers. */
-  usfmText: string;
+
+  /** The original, semantic SID for this block (e.g., "GEN 9:2"). */
+  semanticSid: string;
+
+  /** A UI-friendly version of the SID, especially for nested content. */
+  displaySid: string;
+
+  /** A "signature" of the structural USFM markers. */
+  usfmStructure: string;
+
   /** ONLY the plain, user-visible text content for this block. */
-  plainText: string;
+  plainTextStructure: string;
+
+  /** The full USFM text for this block, including all markers. */
+  fullText: string;
+
+  /** If this is a nested block (like a footnote), this is the wrapper node itself. */
+  wrapperNode?: USFMNestedEditorNodeJSON;
+
+  /** The parent list of the wrapper node (i.e., the chapter's root.children). */
+  wrapperParentList?: SerializedLexicalNode[];
+
+  /** The index of the wrapper node within its parent list. */
+  wrapperStartIndex?: number;
+
+  /** A zero-based index representing the order in which this block was found in the document. */
+  foundOrder: number;
 };
 
-export type SidContentMap = Record<string, SidContent>;
+export type SidContentMap = Record<string, SidContent>; // The key is the unique, mangled SID.
+
+//==================================================================
+// 2. Helper Functions
+//===============================================================
 
 /**
- * Processes a single chapter's node list into a rich, contextual map (SidContentMap)
- * ideal for performing state reversions. This version correctly handles ALL node types.
- * @param chapterNodeList - The `root.children` array from a chapter's lexical state.
+ * Extracts the different text components from a single serialized node.
+ */
+function getTextComponentsFromNode(node: SerializedLexicalNode): {
+  usfm: string;
+  plain: string;
+  full: string;
+} {
+  const text = (node as any).text ?? (node.type === "linebreak" ? "\n" : "");
+  if (node.type === "linebreak") {
+    return {usfm: "\n", plain: "\n", full: "\n"};
+  }
+  if (isSerializedNumberOrPlainTextUSFMTextNode(node)) {
+    return {usfm: "", plain: text, full: text};
+  }
+  if (isSerializedUSFMTextNode(node)) {
+    return {usfm: text, plain: "", full: text};
+  }
+  // Generic elements have no direct text value.
+  return {usfm: "", plain: "", full: ""};
+}
+
+/**
+ * Extracts and serializes the text components from an array of nodes,
+ * optionally wrapping them with USFM markers (for footnotes).
+ */
+function extractTextComponents(
+  nodes: SerializedLexicalNode[],
+  marker?: string
+): {usfmStructure: string; plainTextStructure: string; fullText: string} {
+  let usfmStructure = marker ? `\\${marker} ` : "";
+  let plainTextStructure = "";
+  let fullText = marker ? `\\${marker} ` : "";
+
+  function traverse(nodeList: SerializedLexicalNode[]) {
+    for (const node of nodeList) {
+      const components = getTextComponentsFromNode(node);
+      usfmStructure += components.usfm;
+      plainTextStructure += components.plain;
+      fullText += components.full;
+      if (isSerializedElementNode(node) && node.children) {
+        traverse(node.children);
+      }
+    }
+  }
+
+  traverse(nodes);
+
+  if (marker) {
+    const close = `\\${marker}*`;
+    usfmStructure += close;
+    fullText += close;
+  }
+
+  return {usfmStructure, plainTextStructure, fullText};
+}
+
+/**
+ * Processes a chapter's node list into a rich, contextual SidContentMap.
+ * This is the definitive, single-pass, non-recursive implementation that correctly handles
+ * duplicate SIDs, interruptions by nested content (e.g., footnotes), and makes
+ * every semantic block independently revertable.
+ *
+ * @param chapterNodeList The `root.children` array from a chapter's lexical state.
  */
 export function buildSidContentMapForChapter(
   chapterNodeList: SerializedLexicalNode[],
   _map?: SidContentMap
 ): SidContentMap {
   const map: SidContentMap = _map || {};
-  let currentSid: string | null = null;
-  let previousSid: string | null = null;
+
+  // --- State Management for the Single Pass ---
+  let activeVerseKey: string | null = null;
+  let previousBlockKey: string | null = null;
+  const duplicateSidCounters = new Map<string, number>();
+  const footnoteCounters = new Map<string, number>();
+  // The new counter for ordering.
+  let blockCounter = 0;
 
   for (let i = 0; i < chapterNodeList.length; i++) {
     const node = chapterNodeList[i];
 
-    // Condition to check if this node marks the beginning of a NEW SID block.
-    if (isSerializedUSFMTextNode(node) && node.sid && node.sid !== currentSid) {
-      previousSid = currentSid; // The one we just finished is the anchor for this new one.
-      currentSid = node.sid;
+    // --- Case 1: Handle Footnotes (as new, distinct blocks) ---
+    if (isSerializedUSFMNestedEditorNode(node)) {
+      const parentSid = activeVerseKey
+        ? map[activeVerseKey].semanticSid
+        : "ORPHAN_NOTE";
+      const footnoteCount = (footnoteCounters.get(parentSid) || 0) + 1;
+      footnoteCounters.set(parentSid, footnoteCount);
+      const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
+      const footnoteChildren = node.editorState.root.children;
 
-      map[currentSid] = {
-        nodes: [],
-        usfmText: "",
-        plainText: "",
-        parentChapterNodeList: chapterNodeList,
-        startIndexInParent: i,
-        previousSid: previousSid,
+      map[footnoteKey] = {
+        nodes: footnoteChildren,
+        parentChapterNodeList: footnoteChildren,
+        startIndexInParent: 0,
+        previousSid: previousBlockKey,
+        semanticSid: parentSid,
+        displaySid: `${parentSid} (${node.marker} note)`,
+        ...extractTextComponents(footnoteChildren, node.marker),
+        wrapperNode: node,
+        wrapperParentList: chapterNodeList,
+        wrapperStartIndex: i,
+        foundOrder: blockCounter,
       };
+
+      previousBlockKey = footnoteKey;
+      blockCounter++;
+      continue;
     }
 
-    // Associate the current node with the active SID block.
-    // This is the crucial logic that prevents dropping SID-less nodes.
-    if (currentSid) {
-      map[currentSid].nodes.push(node);
-
-      // Accumulate a simple text representation for diffing purposes.
-      // This can be expanded if footnotes need to be handled differently.
-      if (node.type === "linebreak") {
-        map[currentSid].usfmText += "\n";
-        map[currentSid].plainText += "\n";
-      } else if (isSerializedUSFMTextNode(node)) {
-        if (
-          node.tokenType === UsfmTokenTypes.text ||
-          node.tokenType === UsfmTokenTypes.numberRange
-        ) {
-          map[currentSid].plainText += node.text ?? "";
+    // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
+    if (isSerializedUSFMTextNode(node) && node.sid) {
+      const semanticSid = node.sid;
+      if (!activeVerseKey || map[activeVerseKey].semanticSid !== semanticSid) {
+        let uniqueKey: string = semanticSid;
+        if (map[uniqueKey]) {
+          const count = (duplicateSidCounters.get(semanticSid) || 0) + 1;
+          duplicateSidCounters.set(semanticSid, count);
+          uniqueKey = `${semanticSid}_dup_${count}`;
         }
-        map[currentSid].usfmText += node.text ?? "";
-      } else if (isSerializedUSFMNestedEditorNode(node)) {
-        // For simplicity in diffing, represent the entire footnote block.
-        const nestedText = serializeToUsfmString(
-          node.editorState.root.children
-        );
-        map[
-          currentSid
-        ].usfmText += `\\${node.marker} ${nestedText} \\${node.marker}*`;
-        map[currentSid].plainText += nestedText;
+        activeVerseKey = uniqueKey;
+
+        map[activeVerseKey] = {
+          nodes: [],
+          parentChapterNodeList: chapterNodeList,
+          startIndexInParent: i,
+          previousSid: previousBlockKey,
+          semanticSid: semanticSid,
+          displaySid: semanticSid,
+          usfmStructure: "",
+          plainTextStructure: "",
+          fullText: "",
+          foundOrder: blockCounter,
+        };
+        blockCounter++;
+        previousBlockKey = activeVerseKey;
       }
+
+      const block = map[activeVerseKey];
+      block.nodes.push(node);
+      const {usfm, plain, full} = getTextComponentsFromNode(node);
+      block.usfmStructure += usfm;
+      block.plainTextStructure += plain;
+      block.fullText += full;
+      continue;
     }
     if (isSerializedElementNode(node) && node.children) {
-      buildSidContentMapForChapter(node.children, map);
+      return buildSidContentMapForChapter(node.children, map);
+    }
+
+    // --- Case 3: Handle Follower Nodes (e.g., Line Breaks) ---
+    // A follower node always belongs to the active VERSE, not an interrupting footnote.
+    if (activeVerseKey) {
+      const block = map[activeVerseKey];
+      block.nodes.push(node);
+      const {usfm, plain, full} = getTextComponentsFromNode(node);
+      block.usfmStructure += usfm;
+      block.plainTextStructure += plain;
+      block.fullText += full;
     }
   }
-
   return map;
 }
+
+/**
+ * Processes a single chapter's node list into a rich, contextual map (SidContentMap)
+ * ideal for performing state reversions. This version correctly handles ALL node types.
+ * @param chapterNodeList - The `root.children` array from a chapter's lexical state.
+ */
+// export function buildSidContentMapForChapter(
+//   chapterNodeList: SerializedLexicalNode[],
+//   _map?: SidContentMap,
+//   _recursiveSid?: string,
+//   _prevMapKey?: string,
+// ): SidContentMap {
+//   const map: SidContentMap = _map || {};
+//   let currentMapKey: string | null = null; // This will be our unique key.
+//   let previousMapKey: string | null = _prevMapKey || null;
+
+//   // State to track and handle duplicates.
+//   const seenSids = new Set<string>();
+//   const duplicateCounters = new Map<string, number>();
+
+//   for (let i = 0; i < chapterNodeList.length; i++) {
+//     const node = chapterNodeList[i];
+
+//     if (isSerializedUSFMTextNode(node) && node.sid) {
+//       const semanticSid = _recursiveSid || node.sid;
+
+//       // Condition to check if this node marks the beginning of a NEW block.
+//       // This is true if it's the first SID we've seen, or if the SID changes.
+//       if (
+//         !currentMapKey ||
+//         (map[currentMapKey] && map[currentMapKey].semanticSid !== semanticSid)
+//       ) {
+//         previousMapKey = currentMapKey;
+
+//         let uniqueKey: string = semanticSid;
+
+//         // --- DUPLICATE HANDLING LOGIC ---
+//         // if previous was a note, then we don't want to count it as a duplicate to support use case of \v 1 stuff \f note \f* end verse.
+//         if (seenSids.has(semanticSid) && !previousMapKey?.includes("note")) {
+//           // We've seen this SID before, it's a duplicate.
+//           const count = (duplicateCounters.get(semanticSid) || 0) + 1;
+//           duplicateCounters.set(semanticSid, count);
+//           uniqueKey = `${semanticSid}_dup_${count}`; // Create the mangled key.
+//         } else {
+//           // First time seeing this SID.
+//           seenSids.add(semanticSid);
+//         }
+
+//         currentMapKey = uniqueKey;
+
+//         map[currentMapKey] = {
+//           nodes: [],
+//           parentChapterNodeList: chapterNodeList,
+//           startIndexInParent: i,
+//           previousSid: previousMapKey, // Use the previous unique key as the anchor
+//           semanticSid: semanticSid, // Store the original, clean SID
+//           usfmStructure: "",
+//           plainTextStructure: "",
+//           fullText: "",
+//         };
+//       }
+//     }
+
+//     // Associate the current node with the active SID block using its unique key.
+//     if (currentMapKey) {
+//       map[currentMapKey].nodes.push(node);
+
+//       // Accumulate a simple text representation for diffing purposes.
+//       // This can be expanded if footnotes need to be handled differently.
+//       if (node.type === "linebreak") {
+//         map[currentMapKey].fullText += "\n";
+//         map[currentMapKey].plainTextStructure += "\n";
+//       } else if (isSerializedUSFMTextNode(node)) {
+//         const isForUsfm = TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.tokenType ?? "");
+//         const isForPlainText =
+//           node.tokenType === UsfmTokenTypes.numberRange ||
+//           node.tokenType === UsfmTokenTypes.text;
+//         if (isForPlainText) {
+//           map[currentMapKey].plainTextStructure += node.text ?? "";
+//         } else if (isForUsfm) {
+//           map[currentMapKey].usfmStructure += node.text ?? "";
+//         }
+//         // regardles add to full text
+//         map[currentMapKey].fullText += node.text ?? "";
+//       } else if (isSerializedUSFMNestedEditorNode(node)) {
+//         // sid should be the same on each node in there, so the plainText will fill out. We have this one manual step here of putting the open and close markers in the usfmStructure and full text though:
+//         const nestedOpen = `\\${node.marker}`;
+//         if (!node.sid) {
+//           console.error("Missing SID on nested node");
+//           break
+//         }
+//         previousMapKey = currentMapKey;
+//         currentMapKey = `${currentMapKey}_note_${i}`;
+//         map[currentMapKey] = {
+//           nodes: [],
+//           parentChapterNodeList: chapterNodeList,
+//           startIndexInParent: i,
+//           previousSid: previousMapKey, // Use the previous unique key as the anchor
+//           semanticSid: node.sid, // Store the original, clean SID
+//           usfmStructure: "",
+//           plainTextStructure: "",
+//           fullText: "",
+//         };
+//         map[currentMapKey].usfmStructure += nestedOpen;
+//         map[currentMapKey].fullText += nestedOpen;
+//         ;
+//         buildSidContentMapForChapter(
+//           node.editorState.root.children,
+//           map,
+//           currentMapKey,
+//         );
+//         const nestedClose = `\\${node.marker}*`;
+//         map[currentMapKey].usfmStructure += nestedClose;
+//         map[currentMapKey].fullText += nestedClose;
+//       }
+//     }
+//     // only a contaienr (root paragraph element for example), just recurse in
+//     if (isSerializedElementNode(node) && node.children) {
+//       buildSidContentMapForChapter(node.children, map, _recursiveSid);
+//     }
+//   }
+//   return map;
+// }

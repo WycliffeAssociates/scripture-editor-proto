@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useDebouncedCallback, useThrottledCallback } from "@mantine/hooks";
 import {
+    COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     type EditorState,
     KEY_DOWN_COMMAND,
@@ -12,6 +13,7 @@ import {
     EditorMarkersViewStates,
     EditorModes,
 } from "@/app/data/editor";
+import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
 import {
@@ -164,6 +166,17 @@ export function USFMPlugin() {
             },
             COMMAND_PRIORITY_NORMAL,
         );
+        const moveToAdjacentNodesWhenSeemsAppropriateUnregister =
+            editor.registerCommand(
+                KEY_DOWN_COMMAND,
+                (event: KeyboardEvent) => {
+                    return moveToAdjacentNodesWhenSeemsAppropriate(
+                        editor,
+                        event,
+                    );
+                },
+                COMMAND_PRIORITY_HIGH,
+            );
         const pasteCommand = lockImmutableMarkersOnPaste(editor);
         const lockImmutablesOnCut = lockImmutableMarkersOnCut(editor);
 
@@ -174,6 +187,7 @@ export function USFMPlugin() {
             redirectParaInsertionToLineBreakUnregister();
             lints();
             keyDownUnregister();
+            moveToAdjacentNodesWhenSeemsAppropriateUnregister();
             pasteCommand();
             lockImmutablesOnCut();
         };

@@ -83,6 +83,14 @@ export const ProjectProvider = ({
         settingsManager,
         mutWorkingFilesRef.current,
     );
+    const saveDiff = useProjectDiffs({
+        mutWorkingFilesRef: mutWorkingFilesRef.current,
+        // setWorkingFiles,
+        editorRef: editorRef,
+        pickedFile: project.pickedFile,
+        pickedChapter: project.pickedChapter,
+        // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
+    });
 
     const actions = useWorkspaceActions({
         editorRef,
@@ -97,15 +105,10 @@ export const ProjectProvider = ({
         // setWorkingFiles,
         pickedFile: project.pickedFile,
         mutWorkingFilesRef: mutWorkingFilesRef.current,
+        toggleDiffModal: saveDiff.toggleDiffModal,
+        updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
     });
-    const saveDiff = useProjectDiffs({
-        mutWorkingFilesRef: mutWorkingFilesRef.current,
-        // setWorkingFiles,
-        editorRef: editorRef,
-        pickedFile: project.pickedFile,
-        pickedChapter: project.pickedChapter,
-        saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
-    });
+
     const referenceProject = useReferenceProject({
         projectRepository: projectRepository,
         pickedFileIdentifier: project.pickedFile.bookCode,

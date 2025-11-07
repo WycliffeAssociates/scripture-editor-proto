@@ -341,6 +341,23 @@ export function $isToggleableUSFMTextNode(
     TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.getTokenType() ?? "")
   );
 }
+export function isSerializedToggleableUSFMTextNode(
+  node: SerializedLexicalNode
+): node is SerializedUSFMTextNode {
+  return (
+    isSerializedUSFMTextNode(node) &&
+    TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.tokenType ?? "")
+  );
+}
+export function isSerializedNumberOrPlainTextUSFMTextNode(
+  node: SerializedLexicalNode
+): node is SerializedUSFMTextNode {
+  return (
+    isSerializedUSFMTextNode(node) &&
+    (node.tokenType === UsfmTokenTypes.numberRange ||
+      node.tokenType === UsfmTokenTypes.text)
+  );
+}
 export function $isLockableUSFMTextNode(node: LexicalNode | null | undefined) {
   return (
     node instanceof USFMTextNode &&

@@ -1,6 +1,6 @@
 // hooks/useProjectDiffs.ts
 
-import { type Change, diffWordsWithSpace } from "diff";
+import { type Change, diffArrays, diffWordsWithSpace } from "diff";
 import type {
     LexicalEditor,
     SerializedEditorState,
@@ -8,7 +8,6 @@ import type {
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useEffectOnce } from "react-use";
-import { UsfmTokenTypes } from "@/app/data/editor";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -17,7 +16,7 @@ import {
     type SidContent,
     type SidContentMap,
 } from "@/app/domain/editor/serialization/lexicalToUsfm";
-import { makeSid, parseSid } from "@/core/data/bible/bible";
+import { parseSid } from "@/core/data/bible/bible";
 
 // Import types from react-diff-view
 
@@ -27,25 +26,32 @@ type UseProjectDiffsProps = {
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ParsedFile | null;
     pickedChapter: ParsedChapter | null;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
 };
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
-
+type BookCode = string;
+type ChapterNum = string;
+type Sid = string;
+type FileChapScopedSids = Record<
+    BookCode,
+    Record<ChapterNum, Record<Sid, SidContent>>
+>;
 export function useProjectDiffs({
     mutWorkingFilesRef,
     editorRef,
     pickedFile,
     pickedChapter,
-    saveCurrentDirtyLexical,
     // setWorkingFiles,
 }: UseProjectDiffsProps) {
     const [diffMap, setDiffMap] = useState<DiffMap>({});
     const [openDiffModal, setOpenDiffModal] = useState(false);
     // const [isCalculating, setIsCalculating] = useState(false);
     // lie to ts a moment ot make life nicer below
-    const currentSidMap = useRef(null) as unknown as { current: SidContentMap };
+
+    const currentSidMap = useRef(null) as unknown as {
+        current: FileChapScopedSids;
+    };
     const originalSidMapRef = useRef(null) as unknown as {
-        current: SidContentMap;
+        current: FileChapScopedSids;
     };
 
     // This block ensures the map is created only once.
@@ -93,7 +99,7 @@ export function useProjectDiffs({
     // todo: reverting deletions not working see above todo first?  Todo, if reversion not working well or bugy, jut make it a preview with go to sid, and editing in place taken. Need to get actually writing to file working. Take workingFileMut and pass to get string serialize function and write. And save on open of modal.
     const handleRevert = (diffToRevert: ProjectDiff) => {
         console.time("handleRevert");
-        const sidParsed = parseSid(diffToRevert.sid);
+        const sidParsed = parseSid(diffToRevert.semanticSid);
         if (!sidParsed) {
             console.error("Invalid SID in diffToRevert");
             return;
@@ -144,7 +150,7 @@ export function useProjectDiffs({
         return Object.values(diffMap);
     }, [diffMap]);
 
-    function toggleDiffModal() {
+    function toggleDiffModal(saveCurrentDirtyLexical: () => void) {
         if (openDiffModal) {
             setOpenDiffModal(false);
         } else {
@@ -190,19 +196,27 @@ export function useProjectDiffs({
 export function getProjectSidContentMap(
     workingFiles: ParsedFile[],
     getLexicalState: (chap: ParsedChapter) => SerializedEditorState,
-): SidContentMap {
-    const projectMap: SidContentMap = {};
+): FileChapScopedSids {
+    const projectMap: FileChapScopedSids = {};
     console.time("getProjectSidContentMap");
     // 1. Iterate through each file
     for (const file of workingFiles) {
+        projectMap[file.bookCode] = {};
         // 2. Iterate through each chapter in the file
         for (const chapter of file.chapters) {
             const lexicalState = getLexicalState(chapter);
             const chapterMap = getSidContentMapForChapter(lexicalState);
+            projectMap[file.bookCode][chapter.chapNumber] = chapterMap;
+            // if (file.bookCode === "GEN" && chapter.chapNumber === 1) {
+            //     ;
+            // }
 
             // 4. Merge this chapter's map into the single, project-wide map
             // Using Object.assign is a clean and performant way to do this.
-            Object.assign(projectMap, chapterMap);
+            Object.assign(
+                projectMap[file.bookCode][chapter.chapNumber],
+                chapterMap,
+            );
         }
     }
     console.timeEnd("getProjectSidContentMap");
@@ -215,68 +229,421 @@ function getSidContentMapForChapter(
     return buildSidContentMapForChapter(chapterNodeList);
 }
 function updateMutSidContentMap(
-    currentMap: SidContentMap,
-    mapToMergeIn: SidContentMap,
+    currentMap: FileChapScopedSids,
+    mapToMergeIn: FileChapScopedSids,
     bookCode: string,
     chapterNum: number,
 ) {
-    const currentApplicableKeys = Object.keys(currentMap).filter((key) =>
-        key.startsWith(`${makeSid({ bookId: bookCode, chapter: chapterNum })}`),
-    );
+    const currentApplicableKeys = currentMap[bookCode][String(chapterNum)];
+    const mergeInKeys = mapToMergeIn[bookCode][String(chapterNum)];
     const allKeys = new Set([
-        ...currentApplicableKeys,
-        ...Object.keys(mapToMergeIn),
+        ...Object.keys(currentApplicableKeys),
+        ...Object.keys(mergeInKeys),
     ]);
     for (const key of allKeys) {
-        if (mapToMergeIn[key]) {
-            currentMap[key] = mapToMergeIn[key];
+        if (mergeInKeys[key]) {
+            currentMap[bookCode][String(chapterNum)][key] = mergeInKeys[key];
         } else {
-            delete currentMap[key];
+            delete currentMap[bookCode][String(chapterNum)][key];
         }
     }
 }
 
+//================================================================================
+// 1. Updated Type Definitions
+//================================================================================
+
 export type ProjectDiff = {
-    sid: string;
+    /** The unique key for this block (e.g., "GEN 1:2" or "GEN 1:2_dup_1") */
+    uniqueKey: string;
+
+    /** The clean, semantic SID for display purposes. */
+    semanticSid: string;
+
+    /** The status of the change, determined by positional diffing. */
+    status: "added" | "deleted" | "modified";
+
     original: SidContent | null;
     current: SidContent | null;
     wordDiff?: Change[];
-    usfmText?: string;
-    plainText?: string;
+    originalDisplayText: string;
+    currentDisplayText: string;
+    bookCode: string;
+    chapterNum: number;
 };
 
-export type DiffMap = Record<string, ProjectDiff>;
-function* createDiffGenerator(
-    originalMap: SidContentMap,
-    currentMap: SidContentMap,
-): Generator<ProjectDiff> {
-    const allSids = new Set([
+export type DiffMap = Record<string, ProjectDiff>; // The key is the uniqueKey
+
+//================================================================================
+// 2. Core Diffing Functions (Refactored for Positional Awareness)
+//================================================================================
+
+/**
+ * Creates a rich, detailed ProjectDiff object by comparing an original and current SidContent.
+ * This is the single source of truth for building a diff.
+ *
+ * @param uniqueKey The unique key for this block (e.g., "GEN 1:2_dup_1").
+ * @param original The original SidContent object, or null.
+ * @param current The current SidContent object, or null.
+ * @param status The positional status of the change.
+ * @returns A fully enriched ProjectDiff object.
+ */
+function buildRichDiff(
+    uniqueKey: string,
+    original: SidContent | null,
+    current: SidContent | null,
+    status: "added" | "deleted" | "modified",
+    bookCode: string,
+    chapterNum: number,
+): ProjectDiff {
+    const semanticSid = original?.semanticSid ?? current?.semanticSid;
+    if (!semanticSid) {
+        console.error("No semantic SID found for diff");
+        throw new Error("No semantic SID found for diff");
+    }
+    const structureHasChanged =
+        original?.usfmStructure !== current?.usfmStructure;
+
+    const originalDisplayText = structureHasChanged
+        ? (original?.fullText ?? "")
+        : (original?.plainTextStructure ?? "");
+    const currentDisplayText = structureHasChanged
+        ? (current?.fullText ?? "")
+        : (current?.plainTextStructure ?? "");
+
+    let wordDiff: Change[] | undefined;
+    if (status === "modified") {
+        wordDiff = diffWordsWithSpace(originalDisplayText, currentDisplayText);
+    }
+
+    return {
+        uniqueKey,
+        semanticSid,
+        status,
+        original,
+        current,
+        wordDiff,
+        originalDisplayText,
+        currentDisplayText,
+        bookCode,
+        chapterNum,
+    };
+}
+
+/**
+ * Extracts an ordered sequence of unique block keys for a specific chapter from a SidContentMap.
+ */
+function getChapterKeySequence(chapterMap: SidContentMap): string[] {
+    // 1. Get an array of [key, value] pairs from the map.
+    const entries = Object.entries(chapterMap);
+
+    // 2. Sort the entries based on the `foundOrder` of the value (the SidContent object).
+    entries.sort(([, a], [, b]) => a.foundOrder - b.foundOrder);
+
+    // 3. Map the sorted entries back to just their keys.
+    return entries.map(([key]) => key);
+}
+
+/**
+ * Calculates a semantically and positionally correct diff for a single chapter
+ * using a Longest Common Subsequence (LCS) algorithm.
+ *
+ * @param originalChapterMap The SidContentMap for the original chapter state.
+ * @param currentChapterMap The SidContentMap for the current chapter state.
+ * @returns A DiffMap containing all additions, deletions, and modifications for the chapter.
+ */
+function calculatePositionalDiffsForChapter(
+    originalChapterMap: SidContentMap,
+    currentChapterMap: SidContentMap,
+    bookCode: string,
+    chapNum: number,
+): DiffMap {
+    const chapterDiffs: DiffMap = {};
+
+    const originalSequence = getChapterKeySequence(originalChapterMap);
+    const currentSequence = getChapterKeySequence(currentChapterMap);
+    const sequenceChanges = diffArrays(originalSequence, currentSequence);
+
+    for (const change of sequenceChanges) {
+        if (change.added) {
+            for (const uniqueKey of change.value) {
+                if (chapterDiffs[uniqueKey]) {
+                    // This block was already added or modified as a  known change
+                    continue;
+                }
+                const cur = currentChapterMap[uniqueKey];
+                if (!cur) {
+                    throw new Error(
+                        `Missing current content for key: ${uniqueKey}`,
+                    );
+                }
+                chapterDiffs[uniqueKey] = buildRichDiff(
+                    uniqueKey,
+                    null,
+                    cur,
+                    "added",
+                    bookCode,
+                    chapNum,
+                );
+            }
+        } else if (change.removed) {
+            for (const uniqueKey of change.value) {
+                if (chapterDiffs[uniqueKey]) {
+                    // This block was already added or modified as a  known change
+                    continue;
+                }
+                const original = originalChapterMap[uniqueKey];
+                if (!original) {
+                    throw new Error(
+                        `Missing original content for key: ${uniqueKey}`,
+                    );
+                }
+                chapterDiffs[uniqueKey] = buildRichDiff(
+                    uniqueKey,
+                    original,
+                    null,
+                    "deleted",
+                    bookCode,
+                    chapNum,
+                );
+            }
+        } else {
+            // Common (unmoved) blocks
+            for (const uniqueKey of change.value) {
+                const original = originalChapterMap[uniqueKey];
+                if (!original) {
+                    throw new Error(
+                        `Missing original content for key: ${uniqueKey}`,
+                    );
+                }
+                const current = currentChapterMap[uniqueKey];
+                if (!current) {
+                    throw new Error(
+                        `Missing current content for key: ${uniqueKey}`,
+                    );
+                }
+
+                if (original.fullText !== current.fullText) {
+                    chapterDiffs[uniqueKey] = buildRichDiff(
+                        uniqueKey,
+                        original,
+                        current,
+                        "modified",
+                        bookCode,
+                        chapNum,
+                    );
+                }
+            }
+        }
+    }
+    return chapterDiffs;
+}
+
+//================================================================================
+// 3. Orchestrator Functions (Adapted for the Nested Structure)
+//================================================================================
+
+/**
+ * Performs a full comparison of the original and current project maps to generate
+ * the initial, complete DiffMap, running chapter by chapter.
+ */
+function calculateInitialDiffs(
+    originalMap: FileChapScopedSids,
+    currentMap: FileChapScopedSids,
+): DiffMap {
+    const initialDiffMap: DiffMap = {};
+    const allBookCodes = new Set([
         ...Object.keys(originalMap),
         ...Object.keys(currentMap),
     ]);
 
-    for (const sid of allSids) {
-        const original = originalMap[sid] ?? null;
-        const current = currentMap[sid] ?? null;
+    for (const bookCode of allBookCodes) {
+        const originalChapters = originalMap[bookCode] ?? {};
+        const currentChapters = currentMap[bookCode] ?? {};
+        const allChapterNums = new Set([
+            ...Object.keys(originalChapters),
+            ...Object.keys(currentChapters),
+        ]);
 
-        if (original?.usfmText !== current?.usfmText) {
-            yield { sid, original, current };
+        for (const chapNum of allChapterNums) {
+            const originalChapterMap = originalChapters[chapNum] ?? {};
+            const currentChapterMap = currentChapters[chapNum] ?? {};
+            const chapterChanges = calculatePositionalDiffsForChapter(
+                originalChapterMap,
+                currentChapterMap,
+                bookCode,
+                Number(chapNum),
+            );
+            Object.assign(initialDiffMap, chapterChanges);
         }
     }
-}
-function calculateInitialDiffs(
-    originalMap: SidContentMap,
-    currentMap: SidContentMap,
-): DiffMap {
-    const diffGenerator = createDiffGenerator(originalMap, currentMap);
-    const initialDiffMap: DiffMap = {};
-
-    for (const diff of diffGenerator) {
-        initialDiffMap[diff.sid] = diff;
-    }
-
     return initialDiffMap;
 }
+
+/**
+ * Surgically updates a project-wide DiffMap by recalculating and replacing the
+ * diffs for only a single chapter.
+ */
+function updateChapterInDiffMap({
+    bookCode,
+    chapterNum,
+    currentDiffMap,
+    mutWorkingFiles,
+    currentWorkingFilesSidMap,
+    originalSidMap,
+}: {
+    bookCode: string;
+    chapterNum: number;
+    currentDiffMap: DiffMap;
+    mutWorkingFiles: ParsedFile[];
+    currentWorkingFilesSidMap: FileChapScopedSids;
+    originalSidMap: FileChapScopedSids;
+}): DiffMap {
+    console.time("updateChapterInDiffMap");
+    const newDiffMap = { ...currentDiffMap };
+    // Step 1: Update the current SidContentMap for the changed chapter.
+    const chapToUpdate = mutWorkingFiles
+        .find((file) => file.bookCode === bookCode)
+        ?.chapters.find((chap) => chap.chapNumber === chapterNum);
+    if (!chapToUpdate) {
+        console.error("Invalid chapter in updateChapterInDiffMap");
+        return newDiffMap;
+    }
+    const newChapterMap = getSidContentMapForChapter(chapToUpdate.lexicalState);
+    const asFileScopes = { [bookCode]: { [chapterNum]: newChapterMap } };
+    updateMutSidContentMap(
+        currentWorkingFilesSidMap,
+        asFileScopes,
+        bookCode,
+        chapterNum,
+    );
+
+    // Step 3: Calculate the new, positionally-aware diffs for this chapter.
+    const originalChapterMap = originalSidMap[bookCode]?.[chapterNum] ?? {};
+    const currentChapterMap =
+        currentWorkingFilesSidMap[bookCode]?.[chapterNum] ?? {};
+    const chapterChanges = calculatePositionalDiffsForChapter(
+        originalChapterMap,
+        currentChapterMap,
+        bookCode,
+        chapterNum,
+    );
+
+    // Clear out any old diffs for this chapter from our copy before setting new
+    for (const key in newDiffMap) {
+        const sidParsed = parseSid(key);
+        if (sidParsed?.book === bookCode && sidParsed?.chapter === chapterNum) {
+            delete newDiffMap[key];
+        }
+    }
+
+    // Step 4: Merge the new diffs back into the main map copy.
+    Object.assign(newDiffMap, chapterChanges);
+
+    console.timeEnd("updateChapterInDiffMap");
+    return newDiffMap;
+}
+
+// export function* createDiffGenerator(
+//     originalMap: SidContentMap,
+//     currentMap: SidContentMap,
+// ): Generator<ProjectDiff> {
+//     const allSids = new Set([
+//         ...Object.keys(originalMap),
+//         ...Object.keys(currentMap),
+//     ]);
+
+//     for (const sid of allSids) {
+//         const original = originalMap[sid] ?? null;
+//         const current = currentMap[sid] ?? null;
+
+//         // Delegate all the complex logic to the new helper function.
+//         const diff = buildRichDiff(sid, original, current);
+
+//         // Only yield if a difference was actually found.
+//         if (diff) {
+//             yield diff;
+//         }
+//     }
+// }
+// function calculateInitialDiffs(
+//     originalMap: FileChapScopedSids,
+//     currentMap: FileChapScopedSids,
+// ): DiffMap {
+//     const flatOriginal = Object.entries(originalMap).reduce(
+//         (acc, [_book, chapters]) => {
+//             Object.entries(chapters).forEach(([_chapter, sids]) => {
+//                 Object.entries(sids).forEach(([sid, content]) => {
+//                     acc[sid] = content;
+//                 });
+//             });
+//             return acc;
+//         },
+//         {} as SidContentMap,
+//     );
+//     const flatCurrent = Object.entries(currentMap).reduce(
+//         (acc, [_book, chapters]) => {
+//             Object.entries(chapters).forEach(([_chapter, sids]) => {
+//                 Object.entries(sids).forEach(([sid, content]) => {
+//                     acc[sid] = content;
+//                 });
+//             });
+//             return acc;
+//         },
+//         {} as SidContentMap,
+//     );
+//     const diffGenerator = createDiffGenerator(flatOriginal, flatCurrent);
+//     const initialDiffMap: DiffMap = {};
+
+//     for (const diff of diffGenerator) {
+//         initialDiffMap[diff.sid] = diff;
+//     }
+
+//     return initialDiffMap;
+// }
+
+// function buildDiff(
+//     sid: string,
+//     original: SidContent,
+//     current: SidContent,
+// ): ProjectDiff | null {
+//     // If the full text is identical, there's no difference. This is the fastest exit.
+//     if (original?.fullText === current?.fullText) {
+//         return null;
+//     }
+//     // --- Step 2: Analyze the Change and Determine Display Text ---
+//     const structureHasChanged =
+//         original?.usfmStructure !== current?.usfmStructure;
+
+//     let originalDisplayText: string;
+//     let currentDisplayText: string;
+//     if (structureHasChanged) {
+//         // If markers, linebreaks, or footnotes changed, we must show the full USFM.
+//         originalDisplayText = original?.fullText ?? "";
+//         currentDisplayText = current?.fullText ?? "";
+//     } else {
+//         // If only the text content changed, we can show the cleaner, plain text view.
+//         originalDisplayText = original?.plainTextStructure ?? "";
+//         currentDisplayText = current?.plainTextStructure ?? "";
+//     }
+//     const diff: ProjectDiff = {
+//         sid,
+//         original,
+//         current,
+//         originalDisplayText,
+//         currentDisplayText,
+//     };
+//     // --- Step 3: Build the Final Object ---
+//     // Only calculate wordDiff if it's a modification.
+//     if (original && current) {
+//         diff.wordDiff = diffWordsWithSpace(
+//             originalDisplayText,
+//             currentDisplayText,
+//         );
+//     }
+//     return diff;
+// }
+
 /**
  * Surgically updates an existing DiffMap by re-calculating the differences for
  * only a single chapter. This function MUTATES the `diffMap` for performance.
@@ -288,108 +655,58 @@ function calculateInitialDiffs(
  * @param chapterNum The number of the chapter that changed.
  */
 // todo: finish with ai gem later and test;
-function updateDiffsForChapter(
-    diffMap: DiffMap,
-    originalMap: SidContentMap,
-    currentMap: SidContentMap,
-    bookCode: string,
-    chapterNum: number,
-): void {
-    const chapterPrefix = makeSid({ bookId: bookCode, chapter: chapterNum });
+// function updateDiffsForChapter(
+//     diffMap: DiffMap,
+//     originalMap: FileChapScopedSids,
+//     currentMap: FileChapScopedSids,
+//     bookCode: string,
+//     chapterNum: number,
+// ): void {
+//     const originalApplicableSids = Object.keys(
+//         originalMap[bookCode][String(chapterNum)],
+//     );
+//     const currentApplicableSids = Object.keys(
+//         currentMap[bookCode][String(chapterNum)],
+//     );
+//     const chapterSids = new Set([
+//         ...originalApplicableSids,
+//         ...currentApplicableSids,
+//     ]);
 
-    // Step 1: Find all SIDs relevant to this chapter from BOTH original and current states.
-    const chapterSids = new Set<string>();
-    for (const sid in originalMap) {
-        if (sid.startsWith(chapterPrefix)) {
-            chapterSids.add(sid);
-        }
-    }
-    for (const sid in currentMap) {
-        if (sid.startsWith(chapterPrefix)) {
-            chapterSids.add(sid);
-        }
-    }
+//     // Step 2: Iterate through the relevant SIDs and update the main diffMap.
+//     for (const sid of chapterSids) {
+//         const original = originalMap[bookCode][String(chapterNum)][sid] ?? null;
+//         const current = currentMap[bookCode][String(chapterNum)][sid] ?? null;
+//         const diff = buildDiff(sid, original, current);
+//         if (diff) {
+//             diffMap[sid] = diff;
+//         } else {
+//             delete diffMap[sid];
+//         }
+//     }
+//     // step 3; if diffMap has any keys left not in chapterSids, delete them
+//     Object.keys(diffMap).forEach((sidKey) => {
+//         const sidParsed = parseSid(sidKey);
+//         if (sidParsed?.chapter === chapterNum && !chapterSids.has(sidKey)) {
+//             delete diffMap[sidKey];
+//         }
+//     });
+// }
 
-    // Step 2: Iterate through the relevant SIDs and update the main diffMap.
-    for (const sid of chapterSids) {
-        const original = originalMap[sid] ?? null;
-        const current = currentMap[sid] ?? null;
-
-        const hasUsfmDifference = original?.usfmText !== current?.usfmText;
-        const hasPlainTextDifference =
-            original?.plainText !== current?.plainText;
-
-        if (!hasUsfmDifference && !hasPlainTextDifference) {
-            delete diffMap[sid];
-            continue;
-        }
-
-        let originalTextToUse: string;
-        let currentTextToUse: string;
-        if (hasUsfmDifference) {
-            originalTextToUse = original?.usfmText ?? "";
-            currentTextToUse = current?.usfmText ?? "";
-        } else {
-            originalTextToUse = original?.plainText ?? "";
-            currentTextToUse = current?.plainText ?? "";
-        }
-        const diff: ProjectDiff = {
-            sid,
-            original,
-            current,
-            usfmText: original?.usfmText,
-            plainText: original?.plainText,
-        };
-        if (original && current) {
-            diff.wordDiff = diffWordsWithSpace(
-                originalTextToUse,
-                currentTextToUse,
-            );
-        }
-        // Store the fully enriched object in the map.
-        diffMap[sid] = diff;
-    }
-    // step 3; if diffMap has any keys left not in chapterSids, delete them
-    Object.keys(diffMap).forEach((sidKey) => {
-        if (sidKey.startsWith(chapterPrefix) && !chapterSids.has(sidKey)) {
-            delete diffMap[sidKey];
-        }
-    });
-}
+//================================================================================
+// 4. Revert Logic (Updated to work with the Nested SID Map)
+//================================================================================
 
 /**
- * A new helper to analyze a SidContent block. It separates the user-visible text
- * from a "signature" of the structural USFM markers.
- * @param sidContent The SidContent object to analyze.
- * @returns An object with the plain text and a structural signature string.
+ * Helper to find a SID's content from the nested project map.
  */
-function extractDiffComponents(sidContent: SidContent | null): {
-    plainText: string;
-    structureSignature: string;
-} {
-    if (!sidContent) {
-        return { plainText: "", structureSignature: "" };
-    }
-
-    let plainText = "";
-    let structureSignature = "";
-
-    for (const node of sidContent.nodes) {
-        if (
-            isSerializedUSFMTextNode(node) &&
-            (node.tokenType === UsfmTokenTypes.text ||
-                node.tokenType === UsfmTokenTypes.numberRange)
-        ) {
-            // This is plain text content.
-            plainText += node.text;
-        } else if (isSerializedUSFMTextNode(node)) {
-            // This is a structural node (marker, linebreak, etc.).
-            // We append its text content to the signature.
-            structureSignature += node.text ?? "";
-        }
-    }
-
-    return { plainText, structureSignature };
+function findSidInProjectMap(
+    map: FileChapScopedSids,
+    sid: string,
+): SidContent | null {
+    const parsed = parseSid(sid);
+    if (!parsed) return null;
+    return map[parsed.book]?.[parsed.chapter]?.[sid] ?? null;
 }
 
 /**
@@ -441,28 +758,27 @@ function findEndOfSidBlockIndex(
     return endOfBlockIndex;
 }
 
+/**
+ * Reverts a single change by directly mutating the serialized lexical state.
+ */
 function mutateWorkingFilesRefRevertChange(
     diff: ProjectDiff,
     mutWorkingFilesRef: ParsedFile[],
-    originalSidMap: SidContentMap,
+    originalSidMap: FileChapScopedSids, // Now takes the nested map
 ) {
     const isAddition = diff.original === null;
     const isDeletion = diff.current === null;
 
-    // --- Case 1: Reverting an ADDITION (Action: Delete current nodes) ---
     if (isAddition && diff.current) {
         const { parentChapterNodeList, startIndexInParent, nodes } =
             diff.current;
-
-        // Remove the added nodes from the parent array.
         parentChapterNodeList.splice(startIndexInParent, nodes.length);
         return;
     }
 
-    // --- Case 2: Reverting a DELETION (ROBUST IMPLEMENTATION) ---
     if (isDeletion && diff.original) {
         const { nodes: originalNodes } = diff.original;
-        const sidParsed = parseSid(diff.sid);
+        const sidParsed = parseSid(diff.semanticSid);
         if (!sidParsed) return;
 
         const targetChapter = mutWorkingFilesRef
@@ -474,38 +790,32 @@ function mutateWorkingFilesRefRevertChange(
         if (!isSerializedElementNode(topPara)) return;
         const targetNodeList = topPara.children;
 
-        // --- Find the Stable Anchor ---
-        let insertionIndex = 0; // Default to start of chapter
-        let anchorSidToSearch = diff.original.previousSid; // Start with the immediate predecessor
+        let insertionIndex = 0;
+        let anchorSidToSearch = diff.original.previousSid;
 
         while (anchorSidToSearch) {
-            // Try to find the anchor in the CURRENT document state
             const anchorNodeIndex = findEndOfSidBlockIndex(
                 targetNodeList,
                 anchorSidToSearch,
             );
-
             if (anchorNodeIndex !== -1) {
-                // SUCCESS: We found a stable anchor that still exists.
                 insertionIndex = anchorNodeIndex + 1;
-                break; // Exit the loop
+                break;
             } else {
-                // FAILURE: This anchor was also deleted. Trace back further.
-                // Use the originalSidMap to find the *next* predecessor in the original chain.
-                const previousBlockInChain = originalSidMap[anchorSidToSearch];
+                // Use the new helper to look up the previous block in the nested map.
+                const previousBlockInChain = findSidInProjectMap(
+                    originalSidMap,
+                    anchorSidToSearch,
+                );
                 anchorSidToSearch = previousBlockInChain
                     ? previousBlockInChain.previousSid
                     : null;
             }
         }
-        // If the loop finishes without breaking, no anchor was found, and insertionIndex remains 0.
-
-        // Insert the original nodes at the determined stable position.
         targetNodeList.splice(insertionIndex, 0, ...originalNodes);
         return;
     }
 
-    // --- Case 3: Reverting a MODIFICATION (Action: Replace current with original) ---
     if (diff.current && diff.original) {
         const {
             parentChapterNodeList,
@@ -513,8 +823,6 @@ function mutateWorkingFilesRefRevertChange(
             nodes: currentNodes,
         } = diff.current;
         const { nodes: originalNodes } = diff.original;
-
-        // Perform an atomic replace operation at the exact same starting index.
         parentChapterNodeList.splice(
             startIndexInParent,
             currentNodes.length,
@@ -523,48 +831,42 @@ function mutateWorkingFilesRefRevertChange(
         return;
     }
 }
-type UpdateDiffMapArgs = {
-    bookCode: string;
-    chapterNum: number;
-    currentDiffMap: DiffMap;
-    mutWorkingFiles: ParsedFile[];
-    currentWorkingFilesSidMap: SidContentMap;
-    originalSidMap: SidContentMap;
-};
-function updateChapterInDiffMap({
-    bookCode,
-    chapterNum,
-    currentDiffMap,
-    mutWorkingFiles,
-    currentWorkingFilesSidMap,
-    originalSidMap,
-}: UpdateDiffMapArgs) {
-    console.time("updateDiffMapForChapter");
-    // To work with React state, we create a copy before mutating.
-    const newDiffMap = { ...currentDiffMap };
-    const chapToUpdate = mutWorkingFiles
-        .find((file) => file.bookCode === bookCode)
-        ?.chapters.find((chap) => chap.chapNumber === chapterNum);
-    if (!chapToUpdate) {
-        console.error("Invalid chapter in diffToRevert");
-        return;
-    }
-    const newMapPiece = getSidContentMapForChapter(chapToUpdate.lexicalState);
-    // get the new sid content map for this chapter first. Mutates the currentSidMap to latest
-    updateMutSidContentMap(
-        currentWorkingFilesSidMap,
-        newMapPiece,
-        bookCode,
-        chapterNum,
-    );
-    // now for that chapter, calc if there are any diffs
-    updateDiffsForChapter(
-        newDiffMap,
-        originalSidMap,
-        currentWorkingFilesSidMap,
-        bookCode,
-        chapterNum,
-    );
-    console.timeEnd("updateDiffMapForChapter");
-    return newDiffMap;
-}
+
+// function updateChapterInDiffMap({
+//     bookCode,
+//     chapterNum,
+//     currentDiffMap,
+//     mutWorkingFiles,
+//     currentWorkingFilesSidMap,
+//     originalSidMap,
+// }: UpdateDiffMapArgs) {
+//     console.time("updateDiffMapForChapter");
+//     // To work with React state, we create a copy before mutating.
+//     const newDiffMap = { ...currentDiffMap };
+//     const chapToUpdate = mutWorkingFiles
+//         .find((file) => file.bookCode === bookCode)
+//         ?.chapters.find((chap) => chap.chapNumber === chapterNum);
+//     if (!chapToUpdate) {
+//         console.error("Invalid chapter in diffToRevert");
+//         return;
+//     }
+//     const newMapPiece = getSidContentMapForChapter(chapToUpdate.lexicalState);
+//     const asFileScopes = { [bookCode]: { [chapterNum]: newMapPiece } };
+//     // get the new sid content map for this chapter first. Mutates the currentSidMap to latest
+//     updateMutSidContentMap(
+//         currentWorkingFilesSidMap,
+//         asFileScopes,
+//         bookCode,
+//         chapterNum,
+//     );
+//     // now for that chapter, calc if there are any diffs
+//     updateDiffsForChapter(
+//         newDiffMap,
+//         originalSidMap,
+//         currentWorkingFilesSidMap,
+//         bookCode,
+//         chapterNum,
+//     );
+//     console.timeEnd("updateDiffMapForChapter");
+//     return newDiffMap;
+// }

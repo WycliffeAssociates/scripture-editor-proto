@@ -67,12 +67,19 @@ function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
 type DiffItemProps = {
     diff: ProjectDiff;
     revertDiff: (diffToRevert: ProjectDiff) => void;
+    switchBookOrChapter: (fileBibleIdentifier: string, chapter: number) => void;
+    toggleDiffModal: () => void;
 };
 
 /**
  * Renders a custom side-by-side view for a single SID change.
  */
-export function DiffItem({ diff, revertDiff }: DiffItemProps) {
+export function DiffItem({
+    diff,
+    revertDiff,
+    switchBookOrChapter,
+    toggleDiffModal,
+}: DiffItemProps) {
     const isAddition = diff.original === null;
     const isDeletion = diff.current === null;
     const isModification = !isAddition && !isDeletion;
@@ -94,7 +101,7 @@ export function DiffItem({ diff, revertDiff }: DiffItemProps) {
                     borderBottom: "1px solid #dee2e6",
                 }}
             >
-                {diff.sid}
+                {diff.semanticSid}
             </Text>
 
             <Grid gutter="md" style={{ padding: "12px" }}>
@@ -104,13 +111,53 @@ export function DiffItem({ diff, revertDiff }: DiffItemProps) {
                         <Text tt="uppercase" size="xs" fw={700}>
                             Original
                         </Text>
-                        <Button
-                            variant="outline"
-                            size="compact-xs"
-                            onClick={() => revertDiff(diff)}
-                        >
-                            Revert
-                        </Button>
+                        <Group>
+                            <Button
+                                variant="outline"
+                                size="compact-xs"
+                                onClick={() => {
+                                    switchBookOrChapter(
+                                        diff.bookCode,
+                                        diff.chapterNum,
+                                    );
+                                    toggleDiffModal();
+                                    // debugger;
+                                    setTimeout(() => {
+                                        const domEls =
+                                            document.querySelectorAll(
+                                                `[data-sid="${diff.semanticSid}"]`,
+                                            ) as HTMLElement[];
+                                        const first = domEls[0];
+                                        if (domEls.length > 0) {
+                                            domEls.forEach((el) => {
+                                                el.style.backgroundColor =
+                                                    "yellow";
+                                            });
+                                        }
+                                        first?.scrollIntoView({
+                                            behavior: "smooth",
+                                        });
+                                        setTimeout(() => {
+                                            if (domEls.length > 0) {
+                                                domEls.forEach((el) => {
+                                                    el.style.backgroundColor =
+                                                        "";
+                                                });
+                                            }
+                                        }, 2000);
+                                    }, 500);
+                                }}
+                            >
+                                Switch to this chapter
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="compact-xs"
+                                onClick={() => revertDiff(diff)}
+                            >
+                                Revert
+                            </Button>
+                        </Group>
                     </Group>
                     <Paper
                         withBorder
@@ -141,7 +188,7 @@ export function DiffItem({ diff, revertDiff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.original?.text}
+                                {diff.originalDisplayText}
                             </pre>
                         )}
                         {isModification && diff.wordDiff && (
@@ -187,7 +234,7 @@ export function DiffItem({ diff, revertDiff }: DiffItemProps) {
                                     fontFamily: "inherit",
                                 }}
                             >
-                                {diff.current?.text}
+                                {diff.currentDisplayText}
                             </pre>
                         )}
                         {isModification && diff.wordDiff && (
@@ -222,6 +269,7 @@ function DiffViewerModal({
     revertDiff,
 }: DiffViewerModalProps) {
     const hasChanges = diffs && diffs.length > 0;
+    const { actions } = useWorkspaceContext();
 
     return (
         <Modal
@@ -248,9 +296,13 @@ function DiffViewerModal({
                     <div>
                         {diffs.map((diff) => (
                             <DiffItem
-                                key={diff.sid}
+                                key={diff.semanticSid}
                                 diff={diff}
                                 revertDiff={revertDiff}
+                                switchBookOrChapter={
+                                    actions.switchBookOrChapter
+                                }
+                                toggleDiffModal={actions.toggleDiffModal}
                             />
                         ))}
                     </div>
@@ -267,7 +319,7 @@ function DiffViewerModal({
  * Example parent component demonstrating the usage of the hook and modal.
  */
 export function SaveAndReviewChanges() {
-    const { saveDiff } = useWorkspaceContext();
+    const { saveDiff, actions } = useWorkspaceContext();
     return (
         <>
             <DiffViewerModal
@@ -278,7 +330,7 @@ export function SaveAndReviewChanges() {
                 revertDiff={saveDiff.handleRevert}
             />
 
-            <Button onClick={saveDiff.toggleDiffModal}>Review & Save</Button>
+            <Button onClick={actions.toggleDiffModal}>Review & Save</Button>
         </>
     );
 }

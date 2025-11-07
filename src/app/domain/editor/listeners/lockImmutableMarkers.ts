@@ -298,7 +298,7 @@ function isKnownCommonKeyCombo(event: KeyboardEvent): boolean {
   const selectAllKeyCombo = event.metaKey && event.key === "a";
   return undoKeyCombo || redoKeyCombo || selectAllKeyCombo;
 }
-function $getSelectionInfo() {
+export function $getSelectionInfo() {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return false;
   const nodes = selection.getNodes();

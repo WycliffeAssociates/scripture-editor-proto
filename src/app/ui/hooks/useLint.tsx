@@ -17,7 +17,7 @@ export function useLint({
     const [messages, setMessage] = useState<LintError[]>(initialLintErrors);
 
     function mergeInNewErrorsFromChapter(errors: LintError[]) {
-        console.log({ newErrors: errors });
+        console.log(errors);
         const filtered = messages.filter((m) => {
             const sidParsed = parseSid(m.sid);
             if (!sidParsed) return true;
@@ -39,12 +39,14 @@ export function useLint({
             }
             return [];
         } else {
-            const isDifferent = ensureDeduped.some((m) => {
-                const existing = messages.find(
-                    (e) => e.sid === m.sid && e.msgKey === m.msgKey,
-                );
-                return !existing;
-            });
+            const isDifferent =
+                messages.length !== ensureDeduped.length ||
+                ensureDeduped.some((m) => {
+                    const existing = messages.find(
+                        (e) => e.sid === m.sid && e.msgKey === m.msgKey,
+                    );
+                    return !existing;
+                });
             if (isDifferent) {
                 setMessage(ensureDeduped);
             }

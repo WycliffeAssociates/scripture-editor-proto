@@ -47,6 +47,8 @@ type Props = {
     // workingFiles: ParsedFile[];
     // setWorkingFiles: (files: ParsedFile[]) => void;
     pickedFile: ParsedFile | null;
+    toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
+    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
 };
 export const useWorkspaceActions = ({
     // workingFiles,
@@ -61,6 +63,8 @@ export const useWorkspaceActions = ({
     appSettings,
     updateAppSettings,
     pickedFile,
+    toggleDiffModal: toggleDiffModalCallback,
+    updateDiffMapForChapter,
 }: Props) => {
     type UpdateChapterLexicalArgs = {
         fileBibleIdentifier: string;
@@ -83,7 +87,7 @@ export const useWorkspaceActions = ({
         // if (doSetWorkingFiles) {
         //     setWorkingFiles(mutWorkingFilesRef);
         // }
-        // updateDiffMapForChapter(file.bookCode, chap);
+        updateDiffMapForChapter(file.bookCode, chap);
         return mutWorkingFilesRef;
         // return setWorkingFiles(
         //   produce(workingFiles, (draft) => {
@@ -391,6 +395,9 @@ export const useWorkspaceActions = ({
         //     setEditorContent(currentFileBibleIdentifier, currentChapter);
         // }
     });
+    function toggleDiffModal() {
+        return toggleDiffModalCallback(saveCurrentDirtyLexical);
+    }
     // HOOK RETURN
     return {
         updateChapterLexical,
@@ -402,6 +409,7 @@ export const useWorkspaceActions = ({
         getProjectAsFlatTokens,
         nextChapter,
         prevChapter,
+        toggleDiffModal,
     };
 };
 

@@ -16,6 +16,7 @@ import type { ParsedToken } from "@/core/data/usfm/parse";
 import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
+
 export const nestedEditorMarkers = new Set(["f", "x"]); // expandable later
 
 export type USFMNestedEditorNodeJSON = Spread<
@@ -96,6 +97,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     }
     getId(): string {
         return this.__id;
+    }
+    getTokenType(): string {
+        return this.__tokenType;
     }
     getLintErrors(): LintError[] | undefined {
         return this.__lintErrors;

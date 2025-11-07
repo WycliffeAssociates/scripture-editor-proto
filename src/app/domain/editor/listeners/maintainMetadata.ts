@@ -1,5 +1,5 @@
 import {$dfsIterator} from "@lexical/utils";
-import type {EditorState, LexicalEditor} from "lexical";
+import {$isLineBreakNode, type EditorState, type LexicalEditor} from "lexical";
 import {
   EDITOR_TAGS_USED,
   EditorMarkersMutableStates,
@@ -10,7 +10,10 @@ import type {
   DocStructureFxnArgs,
   MainDocumentStrutureFxn,
 } from "@/app/domain/editor/listeners/maintainDocumentStructure";
-import {$isUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import {
+  $isUSFMNestedEditorNode,
+  type USFMNestedEditorNode,
+} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   $isLockableUSFMTextNode,
   $isToggleableUSFMTextNode,
@@ -287,17 +290,18 @@ function $assignSidsUntilBoundaryConditionForLexical(
   const {node, tokenType, updates} = args;
   // just to be sure
   if (tokenType !== UsfmTokenTypes.marker) return;
-
-  const collectedTokens: USFMTextNode[] = [];
+  const collectedTokens: Array<USFMTextNode | USFMNestedEditorNode> = [node];
   // no loop index, so just while on the nextSibling until breaking boundary conditons;
   let nextSibling = node.getNextSibling();
-  if (!$isUSFMTextNode(nextSibling)) return;
-  collectedTokens.push(nextSibling);
-  sidArgs.nodeIdsCalculated.add(node.getId());
-
   while (nextSibling) {
-    if (!$isUSFMTextNode(nextSibling) || !$isUSFMNestedEditorNode(nextSibling))
+    // don't push to collectedSids cause we don't want to assign sids to linebreaks, but don't break on them either
+    if ($isLineBreakNode(nextSibling)) {
+      nextSibling = nextSibling.getNextSibling();
+      continue;
+    }
+    if (!$isUSFMTextNode(nextSibling) && !$isUSFMNestedEditorNode(nextSibling))
       break;
+    collectedTokens.push(nextSibling);
     const nextTokenMarker = nextSibling.getMarker();
     // never read past chapter, which should be impossible in a chapter in lexical, but for consistency
     if (nextTokenMarker === "c") break;
