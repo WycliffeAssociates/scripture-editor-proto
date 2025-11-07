@@ -36,7 +36,7 @@ function Index() {
 
         const res = await fetch(url);
         const data = await res.arrayBuffer();
-        const projectsDir: IDirectoryHandle = await directoryProvider.getAppDataDirectory("scripture-editor/projects");
+        const projectsDir: IDirectoryHandle = await directoryProvider.projectsDirectory;
         const filename = url.split("/").slice(-1)[0];
         let projectName = filename.split(".")[0];
 
