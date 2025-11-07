@@ -94,18 +94,30 @@ export class WebDirectoryHandle implements IDirectoryHandle {
         name: string,
         opts?: { create?: boolean },
     ): Promise<IDirectoryHandle> {
-        const child = await this.handle.getDirectoryHandle(name, opts);
-        const newPath = webPathJoin(this.path, name);
-        return new WebDirectoryHandle(child, newPath, this.resolveHandle);
+        const targetAbsolutePath = webPathResolve(this.path, name);
+        const targetBasename = webPathBasename(targetAbsolutePath);
+        const targetParentAbsolutePath = webPathResolve(targetAbsolutePath, '..');
+
+        const nativeParentHandle = await this._getOrCreateNativeDirectoryHandle(targetParentAbsolutePath, opts?.create || false);
+
+        const childNativeHandle = await nativeParentHandle.getDirectoryHandle(targetBasename, opts);
+
+        return new WebDirectoryHandle(childNativeHandle, targetAbsolutePath, this.resolveHandle);
     }
 
     async getFileHandle(
         name: string,
         opts?: { create?: boolean },
     ): Promise<IFileHandle> {
-        const file = await this.handle.getFileHandle(name, opts);
-        const newPath = webPathJoin(this.path, name);
-        return new WebFileHandle(file, newPath, this.resolveHandle);
+        const targetAbsolutePath = webPathResolve(this.path, name);
+        const targetBasename = webPathBasename(targetAbsolutePath);
+        const targetParentAbsolutePath = webPathResolve(targetAbsolutePath, '..');
+
+        const nativeParentHandle = await this._getOrCreateNativeDirectoryHandle(targetParentAbsolutePath, opts?.create || false);
+
+        const fileNativeHandle = await nativeParentHandle.getFileHandle(targetBasename, opts);
+
+        return new WebFileHandle(fileNativeHandle, targetAbsolutePath, this.resolveHandle);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }) {
@@ -202,5 +214,41 @@ export class WebDirectoryHandle implements IDirectoryHandle {
             }
         }
         return false;
+    }
+
+    /**
+     * @private
+     * Helper to get or create a native FileSystemDirectoryHandle by absolute path.
+     * It traverses the native handle hierarchy from the root.
+     */
+    private async _getOrCreateNativeDirectoryHandle(
+        absolutePath: string,
+        createIfNotFound: boolean,
+    ): Promise<FileSystemDirectoryHandle> {
+        const parts = absolutePath.split("/").filter(Boolean);
+        let currentNativeHandle: FileSystemDirectoryHandle = this.handle;
+
+        // Special case for root path when starting from a non-root handle:
+        // We need to get the actual root native handle first if the target path is absolute
+        // and our current `this.handle` is not the root.
+        if (absolutePath.startsWith("/") && this.path !== "/") {
+            const rootIHandle = await this.resolveHandle("/");
+            currentNativeHandle = (rootIHandle as WebDirectoryHandle).handle;
+        }
+
+        for (const part of parts) {
+            try {
+                currentNativeHandle = await currentNativeHandle.getDirectoryHandle(part, { create: createIfNotFound });
+            } catch (e) {
+                if (createIfNotFound) {
+                    // If we're trying to create, and it failed, re-throw.
+                    throw e;
+                } else {
+                    // If not creating, and it failed (e.g., dir not found), re-throw.
+                    throw e;
+                }
+            }
+        }
+        return currentNativeHandle;
     }
 }
