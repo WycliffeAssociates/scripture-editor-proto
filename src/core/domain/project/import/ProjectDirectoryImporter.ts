@@ -52,12 +52,22 @@ export class ProjectDirectoryImporter implements Importer {
         const projectsDir = await this.directoryProvider.getAppPrivateDirectory(this.projectsBaseDirName);
         const sourceEntryName = sourceDir.name;
 
+        let tempProjectDir: IDirectoryHandle | null = null;
+
         try {
             // 1. Resolve name conflicts and create the final project directory
             const finalProjectDir = await this.resolveProjectDirectory(sourceEntryName, projectsDir);
 
-            // 2. Copy content from source handle to final destination
-            await this.copyContentToFinalDestination(sourceDir, finalProjectDir);
+            // NEW STEP: Create a temporary directory and copy the source content there first
+            const tempDir = await this.directoryProvider.tempDirectory;
+            const tempProjectDirName = `${sourceEntryName}-import-${Date.now()}`;
+            tempProjectDir = await tempDir.getDirectoryHandle(tempProjectDirName, { create: true });
+
+            await this.copyDirectoryContents(sourceDir, tempProjectDir);
+            console.log(`[DirectoryProjectImporter] Copied source to temporary directory: ${tempProjectDir.path}`);
+
+            // 2. Copy content from temp to final destination
+            await this.copyContentToFinalDestination(tempProjectDir, finalProjectDir);
 
             console.log(`[DirectoryProjectImporter] Project imported successfully to: ${finalProjectDir.path}`);
             return true;
@@ -65,6 +75,11 @@ export class ProjectDirectoryImporter implements Importer {
         } catch (error) {
             console.error("[DirectoryProjectImporter] Import failed:", error);
             return false;
+        } finally {
+            // 3. Cleanup temporary resources
+            if (tempProjectDir) {
+                await this.cleanup(tempProjectDir);
+            }
         }
     }
 
@@ -118,6 +133,8 @@ export class ProjectDirectoryImporter implements Importer {
             } else if (handle.isFile) {
                 const sourceFileHandle = handle as IFileHandle;
                 await this.copyFile(sourceFileHandle, destinationDir, name);
+            } else if (handle.isDir === undefined && handle.isFile === undefined) {
+                 console.warn(`[DirectoryProjectImporter] Skipping unknown handle type: ${name} (kind: ${handle.kind})`);
             }
         }
     }
@@ -140,6 +157,20 @@ export class ProjectDirectoryImporter implements Importer {
             console.log(`[DirectoryProjectImporter] Wrote file: ${destFileHandle.path}`);
         } catch (error) {
             console.error(`[DirectoryProjectImporter] Error copying file ${sourceFileHandle.name}:`, error);
+        }
+    }
+
+    /**
+     * Cleans up the temporary extraction directory.
+     * @param tempExtractionDir The temporary directory handle to remove.
+     */
+    private async cleanup(tempExtractionDir: IDirectoryHandle): Promise<void> {
+        try {
+            const tempDirectory = await this.directoryProvider.tempDirectory;
+            await tempDirectory.removeEntry(tempExtractionDir.name, { recursive: true });
+            console.log("[DirectoryProjectImporter] Temporary files and directories cleaned up.");
+        } catch (e) {
+            console.error("[DirectoryProjectImporter] Error during cleanup of temporary files:", e);
         }
     }
 }

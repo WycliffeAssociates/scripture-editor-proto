@@ -2,9 +2,7 @@ import {createFileRoute, Link, useLoaderData, useRouter,} from "@tanstack/react-
 import type {Project} from "@/core/persistence/ProjectRepository.ts";
 import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
 import {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import {IFileHandle} from "@/core/io/IFileHandle.ts";
 import {Route as projectRoute} from "./$project";
-import JSZip from "jszip";
 import {WacsRepoImporter} from "@/core/domain/project/import/WacsRepoImporter.ts";
 import {ProjectDirectoryImporter} from "@/core/domain/project/import/ProjectDirectoryImporter.ts";
 import {ProjectFileImporter} from "@/core/domain/project/import/ProjectFileImporter.ts";
@@ -21,6 +19,12 @@ export const Route = createFileRoute("/")({
     },
 });
 
+declare module "react" {
+    interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
+        webkitdirectory?: string;
+    }
+}
+
 // ls the app data dir and show as projects
 function Index() {
 
@@ -31,238 +35,77 @@ function Index() {
         await importer.import(url);
     }
 
-    async function handleDownload(url: string) {
-        console.log("Download", url);
+    async function handleOpenDirectory(event: React.ChangeEvent<HTMLInputElement>) {
+        console.log("Opening directory...");
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+            console.log("No directory selected.");
+            return;
+        }
 
-        const res = await fetch(url);
-        const data = await res.arrayBuffer();
-        const projectsDir: IDirectoryHandle = await directoryProvider.projectsDirectory;
-        const filename = url.split("/").slice(-1)[0];
-        let projectName = filename.split(".")[0];
-
-        // Create a unique temporary directory for this extraction
         const tempDirectory = await directoryProvider.tempDirectory;
-        const tempExtractionDirName = `${projectName}-extract-${Date.now()}`;
-        const tempExtractionDir = await tempDirectory.getDirectoryHandle(tempExtractionDirName, {create: true});
+        const tempDirName = `dir-import-${Date.now()}`;
+        const tempProjectDir = await tempDirectory.getDirectoryHandle(tempDirName, {create: true});
 
-        // Save the downloaded zip data to a temporary file
-        const tempZipFileName = `${projectName}.zip`;
-        const tempZipFileHandle = await tempExtractionDir.getFileHandle(tempZipFileName, {create: true});
-        const tempZipWriter = await tempZipFileHandle.createWriter();
-        await tempZipWriter.write(data);
-        await tempZipWriter.close();
-        console.log(`Downloaded zip saved to ${tempZipFileHandle.path}`);
+        // Copy selected directory contents to the temporary directory
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const relativePath = file.webkitRelativePath.split('/').slice(1).join('/'); // Get path relative to the selected directory
+            const filePathParts = relativePath.split('/');
+            const fileName = filePathParts.pop();
+            const dirPath = filePathParts.join('/');
 
-        const zip = new JSZip();
-        // Load zip from the temporary file's content
-        const loadedZip = await zip.loadAsync(data);
-
-        // Prepare for the actual project directory in app data
-        let currentProjectDir: IDirectoryHandle | null = null; // Will be set after conflict resolution
-
-        // Loop through each file in the ZIP and extract to the temporary extraction directory
-        for (const fileName of Object.keys(loadedZip.files)) {
-            const file = loadedZip.files[fileName];
-
-            // Skip if it's the root directory of the zip or an empty directory name
-            if (fileName.endsWith("/") && fileName.split("/").filter(Boolean).length === 0) continue;
-
-            const entryPathParts = fileName.split("/").filter(Boolean);
-            const entryName = entryPathParts.pop(); // The actual file or directory name
-            const entryDirPath = entryPathParts.join("/"); // The parent directory path within the zip
-
-            let currentExtractionTargetDir: IDirectoryHandle = tempExtractionDir;
-
-            // Create intermediate directories within the temporary extraction directory
-            if (entryDirPath) {
-                const intermediateDirs = entryDirPath.split("/");
-                let tempSubDir = tempExtractionDir;
+            let currentDirHandle: IDirectoryHandle = tempProjectDir;
+            if (dirPath) {
+                const intermediateDirs = dirPath.split('/');
                 for (const dirPart of intermediateDirs) {
-                    tempSubDir = await tempSubDir.getDirectoryHandle(dirPart, {create: true});
-                }
-                currentExtractionTargetDir = tempSubDir;
-            }
-
-            // Handle directories and files
-            if (file.dir) {
-                if (entryName) {
-                    try {
-                        await currentExtractionTargetDir.getDirectoryHandle(entryName, {create: true});
-                    } catch (error) {
-                        console.error(`Error creating temporary directory ${currentExtractionTargetDir.path}/${entryName}:`, error);
-                    }
-                }
-            } else if (entryName) {
-                try {
-                    const content = await file.async('arraybuffer');
-                    const handle = await currentExtractionTargetDir.getFileHandle(entryName, {create: true});
-                    const writer = await handle.createWriter();
-                    await writer.write(content);
-                    await writer.close();
-                    console.log("Wrote", handle.path);
-                } catch (error) {
-                    console.error(`Error writing temporary file ${currentExtractionTargetDir.path}/${entryName}:`, error);
+                    currentDirHandle = await currentDirHandle.getDirectoryHandle(dirPart, {create: true});
                 }
             }
-        }
-        console.log("Extraction to temporary directory complete.");
 
-        // --- Phase 2: Identify Top-Level Extracted Content and Handle Naming Conflicts ---
-
-        // Find the top-level entry in the extracted temporary directory
-        let topLevelEntries = [];
-        for await (const [name, handle] of tempExtractionDir.entries()) {
-            topLevelEntries.push({name, handle});
+            if (fileName) {
+                const fileHandle = await currentDirHandle.getFileHandle(fileName, {create: true});
+                const writer = await fileHandle.createWriter();
+                await writer.write(await file.arrayBuffer());
+                await writer.close();
+            }
         }
 
-        if (topLevelEntries.length === 0) {
-            console.error("No content extracted from zip.");
-            await tempDirectory.removeEntry(tempExtractionDirName, {recursive: true});
-            return; // No content, nothing to copy
-        } else if (topLevelEntries.length > 1) {
-            console.warn("Zip contains multiple top-level entries. Copying only the first one found as the project directory.");
+        const importer = new ProjectDirectoryImporter(directoryProvider);
+        await importer.importDirectory(tempProjectDir);
+        // Clean up the temporary directory after import
+        await tempDirectory.removeEntry(tempDirName, {recursive: true});
+    }
+
+    async function handleOpenFile(event: React.ChangeEvent<HTMLInputElement>) {
+        console.log("Opening file...");
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+            console.log("No file selected.");
+            return;
         }
+        const file = files[0];
+        console.log(`[handleOpenFile] Selected file name: ${file.name}, size: ${file.size} bytes`);
 
-        const extractedTopLevelItem = topLevelEntries[0];
-        let targetProjectDirName = extractedTopLevelItem.name;
-        let counter = 0;
-        let uniqueProjectDirName = targetProjectDirName;
+        const tempDirectory = await directoryProvider.tempDirectory;
+        const tempFileName = `${Date.now()}-${file.name}`;
+        const tempFileHandle = await tempDirectory.getFileHandle(tempFileName, {create: true});
 
-        // Resolve naming conflicts
-        console.log(uniqueProjectDirName);
-        let containsDir = await projectsDir.containsDir(uniqueProjectDirName);
+        const content = await file.arrayBuffer();
+        console.log(`[handleOpenFile] Read ArrayBuffer content size: ${content.byteLength} bytes`);
+
+        const writer = await tempFileHandle.createWriter();
+        await writer.write(content);
+        await writer.close();
+        console.log(`[handleOpenFile] Content written to temporary file: ${tempFileHandle.name}`);
+
         debugger
-        while (containsDir === true) {
-            console.log("Directory already exists: " + containsDir);
-            counter++;
-            uniqueProjectDirName = `${targetProjectDirName} (${counter})`;
-            containsDir = await projectsDir.containsDir(uniqueProjectDirName);
+        const importer = new ProjectFileImporter(directoryProvider);
+        await importer.importFile(tempFileHandle);
+        console.log('Selected ZIP File Handle:', tempFileHandle);
 
-        }
-
-        // Create the final project directory in the projectsDir with a unique name
-        currentProjectDir = await projectsDir.getDirectoryHandle(uniqueProjectDirName, {create: true});
-        console.log(`Final project directory created: ${currentProjectDir.path}`);
-
-        // --- Phase 3: Copy Extracted Content to Final projectsDir Location ---
-
-        // Helper to recursively copy directory contents
-        async function copyDirectoryContents(sourceDir: IDirectoryHandle, destinationDir: IDirectoryHandle) {
-            for await (const [name, handle] of sourceDir.entries()) {
-                if (handle.isDir) {
-                    const newDestDir = await destinationDir.getDirectoryHandle(name, {create: true});
-                    await copyDirectoryContents(handle as IDirectoryHandle, newDestDir);
-                } else if (handle.isFile) {
-                    const sourceFileHandle = handle as IFileHandle;
-                    const destFileHandle = await destinationDir.getFileHandle(name, {create: true});
-                    const content = await sourceFileHandle.getFile().then((f: File) => f.arrayBuffer());
-                    const writer = await destFileHandle.createWriter();
-                    await writer.write(content);
-                    await writer.close();
-                }
-            }
-        }
-
-        // Start copying from the top-level extracted item to the final project directory
-        if (extractedTopLevelItem.handle.isDir) {
-            await copyDirectoryContents(extractedTopLevelItem.handle as IDirectoryHandle, currentProjectDir);
-        } else if (extractedTopLevelItem.handle.isFile) {
-            // If the top-level item is a file, copy it directly into the new project directory
-            const sourceFileHandle = extractedTopLevelItem.handle as IFileHandle;
-            const destFileHandle = await currentProjectDir.getFileHandle(sourceFileHandle.name, {create: true});
-            const content = await sourceFileHandle.getFile().then((f: File) => f.arrayBuffer());
-            const writer = await destFileHandle.createWriter();
-            await writer.write(content);
-            await writer.close();
-        }
-        console.log("Copy to final project directory complete.");
-
-        // --- Phase 4: Cleanup ---
-        try {
-            await tempDirectory.removeEntry(tempExtractionDirName, {recursive: true});
-            await tempDirectory.removeEntry(tempZipFileName, {recursive: true});
-            console.log("Temporary files and directories cleaned up.");
-        } catch (e) {
-            console.error("Error during cleanup of temporary files:", e);
-        }
-
-    }
-
-    async function handleOpenDirectory() {
-        console.log("Opening directory directory...");
-        // Check if the File System Access API is supported
-        if ('showDirectoryPicker' in window) {
-            try {
-                // Show the directory picker and wait for the user to select a directory
-                const directoryHandle = await window.showDirectoryPicker({
-                    // Optional: specify 'readwrite' mode if you need to modify files/directories
-                    mode: 'readwrite'
-                });
-
-                console.log('Successfully received a FileSystemDirectoryHandle:');
-                console.log(directoryHandle);
-
-                // --- You can now work with the directory handle ---
-                // Example: List the contents of the directory
-                for await (const entry of directoryHandle.values()) {
-                    console.log(`Entry: ${entry.name} (Kind: ${entry.kind})`);
-                }
-
-                const importer = new ProjectDirectoryImporter(directoryProvider);
-                await importer.importDirectory(directoryHandle);
-                return directoryHandle;
-            } catch (err) {
-                // Handle the case where the user cancels the picker
-                if (err.name === 'AbortError') {
-                    console.log('Directory selection cancelled by the user.');
-                } else {
-                    console.error('Error opening directory picker:', err);
-                }
-            }
-        } else {
-            // Fallback for browsers that don't support the API
-            alert('The File System Access API is not supported in this browser.');
-            // You could use a traditional <input type="file" webkitdirectory> as a fallback
-        }
-    }
-
-    async function handleOpenFile() {
-        if ('showOpenFilePicker' in window) {
-            try {
-                const handles = await window.showOpenFilePicker({
-                    multiple: false,
-
-                    // 🚨 Configure the file types here 🚨
-                    types: [{
-                        description: 'ZIP Archive Files',
-                        accept: {
-                            'application/zip': ['.zip'] // Specifies the MIME type and file extension
-                        }
-                    }],
-
-                    mode: 'readwrite'
-                });
-
-                const zipFileHandle = handles[0];
-
-                const importer = new ProjectFileImporter(directoryProvider);
-                await importer.importFile(zipFileHandle);
-                console.log('Selected ZIP File Handle:', zipFileHandle);
-
-                // You can now proceed to read or process the ZIP file
-                return zipFileHandle;
-
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    console.log('File selection cancelled by the user.');
-                } else {
-                    console.error('Error opening file picker:', err);
-                }
-            }
-        } else {
-            alert('The File System Access API is not supported in this browser.');
-        }
-        return null;
+        // Clean up the temporary file after import
+        await tempDirectory.removeEntry(tempFileName, {recursive: false});
     }
 
     const {projects} = useLoaderData({from: "__root__"});
@@ -293,9 +136,20 @@ function Index() {
             <RepoDownload onDownload={handleDownload2} isDownloadDisabled={false}>
             </RepoDownload>
 
-            <button onClick={handleOpenDirectory}>Open Directory</button>
-            <br/>
-            <button onClick={handleOpenFile}>Open File</button>
+            <div>
+                <input type="file" id="file-picker" name="fileList" webkitdirectory="true" multiple onChange={handleOpenDirectory}
+                />
+            </div>
+
+            <div>
+                <label htmlFor="file-input">Select File (ZIP): </label>
+                <input
+                    id="file-input"
+                    type="file"
+                    accept=".zip"
+                    onChange={handleOpenFile}
+                />
+            </div>
         </div>
     );
 }

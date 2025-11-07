@@ -40,6 +40,7 @@ export class ProjectFileImporter {
         try {
             // 1. Resolve the ZIP file handle and read its data
             const data = await zipFileHandle.getFile().then((f: File) => f.arrayBuffer());
+            console.log(`[ProjectFileImporter] Read ZIP file from handle, content size: ${data.byteLength} bytes`);
 
             // 2. Extract content to a temporary location
             const extractionResult = await this.extractZipToTemp(zipFileHandle.name, data, tempDirectory);
@@ -59,7 +60,7 @@ export class ProjectFileImporter {
             return false;
         } finally {
             // 5. Cleanup temporary resources (extraction directory and the original staged ZIP file)
-            await this.cleanup(tempExtractionDir, zipFileHandle);
+            // await this.cleanup(tempExtractionDir, zipFileHandle);
         }
     }
 
