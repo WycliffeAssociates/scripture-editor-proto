@@ -22,6 +22,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         const dir = await this.ensurePath(
             appendedPath ? ["userData", appendedPath] : ["userData"],
         );
+        debugger
         return dir;
     }
 
@@ -143,19 +144,19 @@ export class WebDirectoryProvider implements IDirectoryProvider {
 
     // --- Predefined directories (lazy) ---
     get databaseDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["database"]);
+        return this.ensureDirHandle(["appData", "database"]);
     }
     get logsDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["logs"]);
+        return this.ensureDirHandle(["appData", "logs"]);
     }
     get cacheDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["cache"]);
+        return this.ensureDirHandle(["appData", "cache"]);
     }
     get tempDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["temp"]);
+        return this.ensureDirHandle(["appData", "temp"]);
     }
     get projectsDirectory(): Promise<IDirectoryHandle> {
-        return this.ensureDirHandle(["projects"]);
+        return this.ensureDirHandle(["userData", "projects"]);
     }
 
     // --- Helpers ---

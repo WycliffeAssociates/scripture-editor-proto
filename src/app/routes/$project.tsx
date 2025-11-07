@@ -18,6 +18,7 @@ export const Route = createFileRoute("/$project")({
     pendingComponent: () => <div>Loading...</div>,
     pendingMs: 100,
     loader: async ({ context, params }) => {
+        debugger
         console.time("total time");
         // start here would prefer to wrap into a single abstraction
         const { projectRepository } = context;
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/$project")({
             projectRepository,
             project,
         );
+
         const { parsedFiles, allInitialLintErrors } = result || {
             parsedFiles: [],
             allInitialLintErrors: [],

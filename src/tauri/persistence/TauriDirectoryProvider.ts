@@ -190,6 +190,7 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     get tempDirectory(): Promise<IDirectoryHandle> {
         return this.getAppPrivateDirectory("temp");
     }
+
     resolveHandle(path: string): Promise<IPathHandle> {
         return this.getHandle(path);
     }

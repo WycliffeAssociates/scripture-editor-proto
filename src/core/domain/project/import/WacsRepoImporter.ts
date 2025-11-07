@@ -30,9 +30,12 @@ export class WacsRepoImporter implements Importer {
      * @returns A promise that resolves to true if the import was successful, false otherwise.
      */
     public async import(url: string): Promise<boolean> {
-        debugger
         const projectsDir = await this.directoryProvider.projectsDirectory
         const tempDirectory = await this.directoryProvider.tempDirectory;
+
+
+        console.log("project directory: " + projectsDir.path);
+        debugger
 
         let tempExtractionDir: IDirectoryHandle | null = null;
         let extractedTopLevelItem: IPathHandle | null = null;

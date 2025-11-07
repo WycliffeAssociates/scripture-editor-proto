@@ -5,6 +5,70 @@ import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
+// Utility function to join path segments in a web-compatible way
+function webPathJoin(...parts: string[]): string {
+    const normalizedParts = parts.map(part => part.split("/")).flat();
+    const stack: string[] = [];
+
+    for (const part of normalizedParts) {
+        if (!part || part === ".") {
+            continue;
+        } else if (part === "..") {
+            if (stack.length > 0 && stack[stack.length - 1] !== "..") {
+                stack.pop();
+            } else {
+                stack.push(part);
+            }
+        } else {
+            stack.push(part);
+        }
+    }
+    // Ensure absolute path if the original first part was absolute
+    const prefix = parts[0].startsWith("/") ? "/" : "";
+    return prefix + stack.join("/");
+}
+
+// Utility function to resolve a path, similar to Node.js path.resolve
+function webPathResolve(...paths: string[]): string {
+    let resolvedPath = "";
+    let absolute = false;
+
+    for (let i = paths.length - 1; i >= -1; i--) {
+        let path = (i >= 0) ? paths[i] : "/";
+
+        if (path.length === 0) {
+            continue;
+        }
+
+        resolvedPath = path + "/" + resolvedPath;
+        absolute = path.charAt(0) === "/";
+
+        if (absolute) {
+            break;
+        }
+    }
+
+    resolvedPath = resolvedPath.split("/\\/").join("/");
+    const resolvedParts: string[] = [];
+
+    resolvedPath.split("/").forEach(part => {
+        if (part === ".." && resolvedParts.length > 0 && resolvedParts[resolvedParts.length - 1] !== "..") {
+            resolvedParts.pop();
+        } else if (part !== "." && part !== "") {
+            resolvedParts.push(part);
+        }
+    });
+
+    resolvedPath = resolvedParts.join("/");
+    return (absolute ? "/" : "") + resolvedPath;
+}
+
+// Utility function to get the basename of a path
+function webPathBasename(path: string): string {
+    const parts = path.split("/").filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : "";
+}
+
 export class WebDirectoryHandle implements IDirectoryHandle {
     kind: "directory" = "directory";
     name: string;
@@ -31,13 +95,8 @@ export class WebDirectoryHandle implements IDirectoryHandle {
         opts?: { create?: boolean },
     ): Promise<IDirectoryHandle> {
         const child = await this.handle.getDirectoryHandle(name, opts);
-        let pattern = "";
-        if (this.path.endsWith("/")) {
-            pattern = `${this.path}${name}`;
-        } else {
-            pattern = `${this.path}/${name}`;
-        }
-        return new WebDirectoryHandle(child, pattern, this.resolveHandle);
+        const newPath = webPathJoin(this.path, name);
+        return new WebDirectoryHandle(child, newPath, this.resolveHandle);
     }
 
     async getFileHandle(
@@ -45,13 +104,8 @@ export class WebDirectoryHandle implements IDirectoryHandle {
         opts?: { create?: boolean },
     ): Promise<IFileHandle> {
         const file = await this.handle.getFileHandle(name, opts);
-        let pattern = "";
-        if (this.path.endsWith("/")) {
-            pattern = `${this.path}${name}`;
-        } else {
-            pattern = `${this.path}/${name}`;
-        }
-        return new WebFileHandle(file, pattern, this.resolveHandle);
+        const newPath = webPathJoin(this.path, name);
+        return new WebFileHandle(file, newPath, this.resolveHandle);
     }
 
     async removeEntry(name: string, opts?: { recursive?: boolean }) {
@@ -70,12 +124,13 @@ export class WebDirectoryHandle implements IDirectoryHandle {
         [string, IPathHandle]
     > {
         for await (const [name, handle] of this.handle.entries()) {
+            const entryPath = webPathJoin(this.path, name);
             if (handle.kind === "directory") {
                 yield [
                     name,
                     new WebDirectoryHandle(
                         handle as FileSystemDirectoryHandle,
-                        `${this.path}/${name}`,
+                        entryPath,
                         this.resolveHandle,
                     ),
                 ];
@@ -84,7 +139,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
                     name,
                     new WebFileHandle(
                         handle as FileSystemFileHandle,
-                        `${this.path}/${name}`,
+                        entryPath,
                         this.resolveHandle,
                     ),
                 ];
@@ -93,7 +148,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
     }
 
     async getParent(): Promise<IDirectoryHandle> {
-        const parentPath = this.path.substring(0, this.path.lastIndexOf("/"));
+        const parentPath = webPathJoin(this.path, "..");
         if (parentPath === "") {
             return (await this.resolveHandle("/")) as IDirectoryHandle;
         }
