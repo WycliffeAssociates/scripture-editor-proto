@@ -291,7 +291,7 @@ describe("TauriDirectoryProvider", () => {
   // --- Test 1: Get User Data Directory ---
   test("getUserDataDirectory creates the correct path on Windows/Linux", async () => {
     const appendedPath = "settings";
-    const userDataDir = await provider.getUserDataDirectory(appendedPath);
+    const userDataDir = await provider.getAppPublicDirectory(appendedPath);
 
     const expectedPath = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}/${appendedPath}`;
 
@@ -301,7 +301,7 @@ describe("TauriDirectoryProvider", () => {
 
   // --- Test 2 & 3: File Write/Read ---
   test("newFileWriter and newFileReader call file handlers correctly", async () => {
-    const userDataDir = await provider.getUserDataDirectory("settings");
+    const userDataDir = await provider.getAppPublicDirectory("settings");
     const testFilePath = await join(userDataDir.path, "test_file.txt");
 
     // Test 2 (Write)
@@ -331,7 +331,7 @@ describe("TauriDirectoryProvider", () => {
   // --- Test 4: Get App Data Directory ---
   test("getAppDataDirectory uses appLocalDataDir", async () => {
     const appendedPath = "db";
-    const appDataDir = await provider.getAppDataDirectory(appendedPath);
+    const appDataDir = await provider.getAppPrivateDirectory(appendedPath);
 
     const expectedPath = `${MOCK_APP_LOCAL_DATA}/${appendedPath}`;
 

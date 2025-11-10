@@ -26,6 +26,10 @@ export interface _IDirectoryHandle extends IPathHandle {
 
   values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle>;
 
+  containsFile(name: string): Promise<boolean>;
+
+  containsDir(name: string): Promise<boolean>;
+
   [Symbol.asyncDispose](): Promise<void>;
 }
 

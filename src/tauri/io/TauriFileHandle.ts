@@ -1,5 +1,5 @@
 import {dirname} from "@tauri-apps/api/path";
-import {readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
+import {readFile, writeFile, BaseDirectory} from "@tauri-apps/plugin-fs";
 import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
 import type {IFileHandle} from "@/core/io/IFileHandle.ts";
 import type {IPathHandle} from "@/core/io/IPathHandle.ts";
@@ -28,14 +28,16 @@ export class TauriFileHandle implements IFileHandle {
   }
 
   async getFile(): Promise<File> {
-    const text = await readTextFile(this.path).catch((e) => {
+    try {
+      const arrayBuffer = await readFile(this.path, { baseDir: BaseDirectory.AppData });
+      return new File([arrayBuffer], this.name);
+    } catch (e) {
       const msg = String((e as Error)?.message || "");
       if (/not found|no such file|does not exist/i.test(msg)) {
-        return "";
+        return new File([], this.name);
       }
       throw e;
-    });
-    return new File([text], this.name);
+    }
   }
 
   async createWritable(
@@ -50,8 +52,8 @@ export class TauriFileHandle implements IFileHandle {
     if (keepExistingData) {
       // Load existing file content and set position to end (matching the user's requirement for existing tests).
       try {
-        const existingText = await readTextFile(this.path);
-        buffer = new TextEncoder().encode(existingText);
+        const arrayBuffer = await readFile(this.path, { baseDir: BaseDirectory.AppData });
+        buffer = new Uint8Array(arrayBuffer);
         // Set the initial position to the end of the file content for easy appending.
         position = buffer.length;
       } catch (_e) {
@@ -75,17 +77,16 @@ export class TauriFileHandle implements IFileHandle {
     const toUint8 = async (
       data: string | Blob | ArrayBuffer | ArrayBufferView
     ): Promise<Uint8Array> => {
-      // ... (your existing toUint8 function)
       if (typeof data === "string") return new TextEncoder().encode(data);
       if (data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
       if (data instanceof ArrayBuffer) return new Uint8Array(data);
       if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer);
+      // Fallback for unknown types: treat as string (less ideal for binary data)
       return new TextEncoder().encode(String(data));
     };
 
     const commit = async () => {
-      const text = new TextDecoder().decode(buffer);
-      await writeTextFile(this.path, text);
+      await writeFile(this.path, buffer, { baseDir: BaseDirectory.AppData });
     };
 
     // This object is now the sink for the WritableStream

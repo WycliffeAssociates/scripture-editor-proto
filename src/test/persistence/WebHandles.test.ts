@@ -397,6 +397,192 @@ describe("WebDirectoryHandle", () => {
         );
         expect(wrapper.asDirectoryHandle()).toBe(wrapper);
     });
+
+    test("getDirectoryHandle for current directory returns itself", async () => {
+        const level1 = await mockRootDirectory.getDirectoryHandle("level1", { create: true });
+        const level1Wrapper = new WebDirectoryHandle(
+            level1,
+            "/level1",
+            mockResolveHandle,
+        );
+
+        const currentDirHandle = await level1Wrapper.getDirectoryHandle(".");
+        expect(currentDirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(currentDirHandle.path).toBe("/level1");
+        expect(currentDirHandle.name).toBe("level1");
+    });
+
+    test("getDirectoryHandle for parent directory returns parent", async () => {
+        const level1 = await mockRootDirectory.getDirectoryHandle("level1", { create: true });
+        const level2 = await level1.getDirectoryHandle("level2", { create: true });
+        const level2Wrapper = new WebDirectoryHandle(
+            level2,
+            "/level1/level2",
+            mockResolveHandle,
+        );
+
+        const parentDirHandle = await level2Wrapper.getDirectoryHandle("..");
+        expect(parentDirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(parentDirHandle.path).toBe("/level1");
+        expect(parentDirHandle.name).toBe("level1");
+    });
+
+    test("getFileHandle for file in parent directory ('../file.txt')", async () => {
+        const level1 = await mockRootDirectory.getDirectoryHandle("level1", { create: true });
+        const level2 = await level1.getDirectoryHandle("level2", { create: true });
+        const level2Wrapper = new WebDirectoryHandle(
+            level2,
+            "/level1/level2",
+            mockResolveHandle,
+        );
+
+        const siblingFileHandle = await level2Wrapper.getFileHandle("../sibling.txt", { create: true });
+        expect(siblingFileHandle).toBeInstanceOf(WebFileHandle);
+        expect(siblingFileHandle.path).toBe("/level1/sibling.txt");
+        expect(siblingFileHandle.name).toBe("sibling.txt");
+
+        // Verify it was created in the native parent directory
+        const level1Native = await mockRootDirectory.getDirectoryHandle("level1");
+        await level1Native.getFileHandle("sibling.txt"); // Should not throw if exists
+    });
+
+    test("getDirectoryHandle for mixed relative path ('./../anotherDir')", async () => {
+        const level1 = await mockRootDirectory.getDirectoryHandle("level1", { create: true });
+        const level2 = await level1.getDirectoryHandle("level2", { create: true });
+        const level2Wrapper = new WebDirectoryHandle(
+            level2,
+            "/level1/level2",
+            mockResolveHandle,
+        );
+
+        const anotherDirHandle = await level2Wrapper.getDirectoryHandle("./../anotherDir", { create: true });
+        expect(anotherDirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(anotherDirHandle.path).toBe("/level1/anotherDir");
+        expect(anotherDirHandle.name).toBe("anotherDir");
+
+        // Verify native structure
+        const level1Native = await mockRootDirectory.getDirectoryHandle("level1");
+        await level1Native.getDirectoryHandle("anotherDir"); // Should not throw if exists
+    });
+
+    test("getDirectoryHandle with absolute path from nested directory creates at root", async () => {
+        await mockRootDirectory.getDirectoryHandle("nested", { create: true });
+        const nestedWrapper = new WebDirectoryHandle(
+            await mockRootDirectory.getDirectoryHandle("nested"),
+            "/nested",
+            mockResolveHandle,
+        );
+
+        const absoluteDirHandle = await nestedWrapper.getDirectoryHandle("/newAbsoluteDir", { create: true });
+        expect(absoluteDirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(absoluteDirHandle.path).toBe("/newAbsoluteDir");
+        expect(absoluteDirHandle.name).toBe("newAbsoluteDir");
+
+        // Verify it's at the root natively
+        await mockRootDirectory.getDirectoryHandle("newAbsoluteDir");
+        // Ensure the original nested directory still exists
+        await mockRootDirectory.getDirectoryHandle("nested");
+    });
+
+    test("getFileHandle with absolute path from nested directory creates at root", async () => {
+        await mockRootDirectory.getDirectoryHandle("nested", { create: true });
+        const nestedWrapper = new WebDirectoryHandle(
+            await mockRootDirectory.getDirectoryHandle("nested"),
+            "/nested",
+            mockResolveHandle,
+        );
+
+        const absoluteFileHandle = await nestedWrapper.getFileHandle("/newAbsoluteFile.txt", { create: true });
+        expect(absoluteFileHandle).toBeInstanceOf(WebFileHandle);
+        expect(absoluteFileHandle.path).toBe("/newAbsoluteFile.txt");
+        expect(absoluteFileHandle.name).toBe("newAbsoluteFile.txt");
+
+        // Verify it's at the root natively
+        await mockRootDirectory.getFileHandle("newAbsoluteFile.txt");
+        // Ensure the original nested directory still exists
+        await mockRootDirectory.getDirectoryHandle("nested");
+    });
+
+    test("getDirectoryHandle with path containing consecutive slashes is normalized", async () => {
+        const rootWrapper = new WebDirectoryHandle(
+            mockRootDirectory,
+            "/",
+            mockResolveHandle,
+        );
+        const dirHandle = await rootWrapper.getDirectoryHandle("//test//dir//", { create: true });
+        expect(dirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(dirHandle.path).toBe("/test/dir");
+        expect(dirHandle.name).toBe("dir");
+
+        const testDir = await mockRootDirectory.getDirectoryHandle("test");
+        await testDir.getDirectoryHandle("dir");
+    });
+
+    test("getFileHandle handles deep relative parent paths (e.g., ../../../)", async () => {
+        // Setup: /a/b/c/ structure
+        const a = await mockRootDirectory.getDirectoryHandle("a", { create: true });
+        const b = await a.getDirectoryHandle("b", { create: true });
+        const c = await b.getDirectoryHandle("c", { create: true });
+
+        // Create a wrapper for /a/b/c
+        const cWrapper = new WebDirectoryHandle(
+            c,
+            "/a/b/c",
+            mockResolveHandle,
+        );
+
+        // Try to create a directory from /a/b/c using a deep relative path
+        const newDirRelativePath = "../../../d/newDir";
+        const newDirHandle = await cWrapper.getDirectoryHandle(newDirRelativePath, { create: true });
+
+        expect(newDirHandle).toBeInstanceOf(WebDirectoryHandle);
+        expect(newDirHandle.path).toBe("/d/newDir");
+        expect(newDirHandle.name).toBe("newDir");
+
+        // Verify the native structure was created correctly
+        const rootDir = mockRootDirectory; // The mock root handle
+        const dDir = await rootDir.getDirectoryHandle("d");
+        const finalDir = await dDir.getDirectoryHandle("newDir");
+        expect(finalDir).toBeInstanceOf(MockFileSystemDirectoryHandle);
+
+        // Clean up: verify root.removeEntry is called correctly
+        await rootDir.removeEntry("a", { recursive: true });
+        await rootDir.removeEntry("d", { recursive: true });
+        // expect(mockRootDirectory.entriesMap.size).toBe(0);
+    });
+
+    test("getFileHandle handles deep relative parent paths (e.g., ../../../)", async () => {
+        // Setup: /x/y/z/ structure
+        const x = await mockRootDirectory.getDirectoryHandle("x", { create: true });
+        const y = await x.getDirectoryHandle("y", { create: true });
+        const z = await y.getDirectoryHandle("z", { create: true });
+
+        // Create a wrapper for /x/y/z
+        const zWrapper = new WebDirectoryHandle(
+            z,
+            "/x/y/z",
+            mockResolveHandle,
+        );
+
+        // Try to create a file from /x/y/z using a deep relative path
+        const newFileRelativePath = "../../../e/newFile.txt";
+        const newFileHandle = await zWrapper.getFileHandle(newFileRelativePath, { create: true });
+
+        expect(newFileHandle).toBeInstanceOf(WebFileHandle);
+        expect(newFileHandle.path).toBe("/e/newFile.txt");
+        expect(newFileHandle.name).toBe("newFile.txt");
+
+        // Verify the native structure was created correctly
+        const rootDir = mockRootDirectory; // The mock root handle
+        const eDir = await rootDir.getDirectoryHandle("e");
+        const finalFile = await eDir.getFileHandle("newFile.txt");
+        expect(finalFile).toBeInstanceOf(MockFileSystemFileHandle);
+
+        // Clean up
+        await rootDir.removeEntry("x", { recursive: true });
+        await rootDir.removeEntry("e", { recursive: true });
+        // expect(mockRootDirectory.entriesMap.size).toBe(0);
+    });
 });
 
 describe("WebFileHandle", () => {

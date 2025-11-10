@@ -21,16 +21,13 @@ export class ProjectRepository implements IProjectRepository {
     }
 
     private createFileWriter(
-        projectDir: FileSystemDirectoryHandle,
+        projectDir: IDirectoryHandle,
     ): IFileWriter {
         return new FileWriter(this.directoryProvider, projectDir);
     }
 
     async saveProject(project: Project): Promise<void> {
-        const userDataDir = await this.directoryProvider.getUserDataDirectory();
-        const projectsDir = await userDataDir.getDirectoryHandle("projects", {
-            create: true,
-        });
+        const projectsDir = await this.directoryProvider.projectsDirectory;
         const projectDir = await projectsDir.getDirectoryHandle(project.id, {
             create: true,
         });
@@ -44,14 +41,7 @@ export class ProjectRepository implements IProjectRepository {
 
     async loadProject(projectId: string): Promise<Project | null> {
         try {
-            const userDataDir =
-                await this.directoryProvider.getUserDataDirectory();
-            const projectsRootDir = await userDataDir.getDirectoryHandle(
-                "projects",
-                {
-                    create: true,
-                },
-            );
+            const projectsRootDir = await this.directoryProvider.projectsDirectory;
             const projectDir = await projectsRootDir.getDirectoryHandle(
                 projectId,
                 {
@@ -79,10 +69,8 @@ export class ProjectRepository implements IProjectRepository {
     async listProjects(): Promise<Project[]> {
         const projects: Project[] = [];
         try {
-            const userDataDir =
-                await this.directoryProvider.getUserDataDirectory();
-            const projectsDir =
-                await userDataDir.getDirectoryHandle("projects");
+            const projectsDir = await this.directoryProvider.projectsDirectory;
+
             console.log("Projects Directory", projectsDir.name);
             for await (const [name, handle] of projectsDir.entries()) {
                 console.log("Entry: ", name, await handle.getAbsolutePath());

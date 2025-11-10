@@ -196,13 +196,13 @@ class MockDirectoryHandle implements IDirectoryHandle {
 
 // Mock IDirectoryProvider
 const mockDirectoryProvider: IDirectoryProvider = {
-  getUserDataDirectory: vi.fn(async (appendedPath?: string) => {
+  getAppPublicDirectory: vi.fn(async (appendedPath?: string) => {
     const path = appendedPath
       ? `${MOCK_USER_DATA_DIR}/${appendedPath}`
       : MOCK_USER_DATA_DIR;
     return new MockDirectoryHandle(path);
   }),
-  getAppDataDirectory: vi.fn(),
+  getAppPrivateDirectory: vi.fn(),
   getProjectDirectory: vi.fn(),
   newFileWriter: vi.fn(),
   newFileReader: vi.fn(),
@@ -243,12 +243,12 @@ describe("ProjectRepository", () => {
     const projectToSave = {...MOCK_PROJECT_1};
     await projectRepository.saveProject(projectToSave);
 
-    expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
       undefined
     );
 
     // Simulate the directory structure being built and file being written
-    const userDataDir = await mockDirectoryProvider.getUserDataDirectory();
+    const userDataDir = await mockDirectoryProvider.getAppPublicDirectory();
     const projectsDir = await userDataDir.getDirectoryHandle("projects");
     const projectDir = await projectsDir.getDirectoryHandle(MOCK_PROJECT_ID_1);
     const projectFile = await projectDir.getFileHandle("project.json");
@@ -277,7 +277,7 @@ describe("ProjectRepository", () => {
     // Temporarily override getUserDataDirectory to return the pre-populated structure
     vi.spyOn(
       mockDirectoryProvider,
-      "getUserDataDirectory"
+      "getAppPublicDirectory"
     ).mockResolvedValueOnce(
       new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
         projects: projectsDirMock,
@@ -294,7 +294,7 @@ describe("ProjectRepository", () => {
       projectDir: expect.any(MockDirectoryHandle),
       fileWriter: expect.any(FileWriter), // Check if FileWriter is instantiated
     });
-    expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
       undefined
     );
   });
@@ -303,7 +303,7 @@ describe("ProjectRepository", () => {
     // Setup a mock directory with no projects
     vi.spyOn(
       mockDirectoryProvider,
-      "getUserDataDirectory"
+      "getAppPublicDirectory"
     ).mockResolvedValueOnce(new MockDirectoryHandle(MOCK_USER_DATA_DIR));
 
     const loadedProject = await projectRepository.loadProject(
@@ -338,7 +338,7 @@ describe("ProjectRepository", () => {
 
     vi.spyOn(
       mockDirectoryProvider,
-      "getUserDataDirectory"
+      "getAppPublicDirectory"
     ).mockResolvedValueOnce(
       new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
         projects: projectsDirMock,
@@ -364,7 +364,7 @@ describe("ProjectRepository", () => {
         }),
       ])
     );
-    expect(mockDirectoryProvider.getUserDataDirectory).toHaveBeenCalledWith(
+    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
       undefined
     );
   });
@@ -372,7 +372,7 @@ describe("ProjectRepository", () => {
   test("listProjects should return an empty array if no projects exist", async () => {
     vi.spyOn(
       mockDirectoryProvider,
-      "getUserDataDirectory"
+      "getAppPublicDirectory"
     ).mockResolvedValueOnce(new MockDirectoryHandle(MOCK_USER_DATA_DIR));
 
     const listedProjects = await projectRepository.listProjects();

@@ -26,6 +26,7 @@ export const Route = createFileRoute("/$project")({
             projectRepository,
             project,
         );
+
         const { parsedFiles, allInitialLintErrors } = result || {
             parsedFiles: [],
             allInitialLintErrors: [],
