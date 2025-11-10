@@ -129,7 +129,7 @@ export class ProjectFileImporter {
     console.log("[FileProjectImporter] ZIP data loaded by JSZip.");
 
     // Loop through each file in the ZIP and extract to the temporary extraction directory
-    for (const fileName of Object.keys(loadedZip.files)) {
+    for (const fileName of Object.keys(loadedZip)) {
       const file = loadedZip[fileName];
 
       // Skip empty root folder entry (e.g., zip structure like "project/")
