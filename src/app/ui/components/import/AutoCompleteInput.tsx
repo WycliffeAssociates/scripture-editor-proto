@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // The core item structure remains the same
 export interface AutocompleteItem {
@@ -28,6 +29,7 @@ export interface AutocompleteInputProps {
     // Solid's Accessor<string | undefined> -> string | undefined
     errorMessage?: string;
     showOnFocus?: boolean;
+    isDisabled?: boolean;
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
@@ -37,22 +39,15 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
     // Solid's createSignal(props.searchTerm()) becomes React's state initialized from a prop
     const [inputValue, setInputValue] = useState(props.searchTerm);
 
-    // --- SolidJS createEffect Conversions ---
-
-    // 1. Solid Effect: Syncing inputValue with external searchTerm prop
-    // createEffect(() => { if (props.searchTerm() !== inputValue()) { setInputValue(props.searchTerm()); } });
-    // This is handled by a React useEffect that runs when props.searchTerm changes.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <  // Only update if the external searchTerm is different from the internal input state>
     useEffect(() => {
-        // Only update if the external searchTerm is different from the internal input state
         if (props.searchTerm !== inputValue) {
             setInputValue(props.searchTerm);
         }
     }, [props.searchTerm]); // Dependency array ensures it only runs when props.searchTerm changes
 
-    // 2. Solid Effect: Resetting highlightedIndex on results or searchTerm change
-    // createEffect(() => { props.results(); props.searchTerm(); setHighlightedIndex(-1); });
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <  // Runs when results or searchTerm change to reset the highlighting>
     useEffect(() => {
-        // Runs when results or searchTerm change to reset the highlighting
         setHighlightedIndex(-1);
     }, [props.results, props.searchTerm]); // Dependencies on props.results and props.searchTerm
 
@@ -72,7 +67,9 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
         if (e.key === "ArrowDown") {
             e.preventDefault();
             // Using functional state update is the same pattern in React
-            setHighlightedIndex((prev) => Math.min(prev + 1, results.length - 1));
+            setHighlightedIndex((prev) =>
+                Math.min(prev + 1, results.length - 1),
+            );
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setHighlightedIndex((prev) => Math.max(prev - 1, 0));
@@ -99,10 +96,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
     const handleFocus = () => {
         const resultsLength = props.results?.length || 0;
         // Check if showOnFocus is true OR if there is input, AND there are results.
-        if (
-            (props.showOnFocus || inputValue.length > 0) &&
-            resultsLength > 0
-        ) {
+        if ((props.showOnFocus || inputValue.length > 0) && resultsLength > 0) {
             setShowDropdown(true);
         }
     };
@@ -117,17 +111,20 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
         );
     }, [showDropdown, props.results, props.isLoading, props.isError]);
 
-
     // --- Render Logic ---
 
     return (
         // SolidJS's class="" becomes React's className=""
         <div className="relative w-full mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label
+                htmlFor="autoCompleteInput"
+                className="block text-gray-700 text-sm font-bold mb-2"
+            >
                 {props.label}
             </label>
             <div className="relative">
                 <input
+                    id={"autoCompleteInput"}
                     type="text"
                     className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                     placeholder={props.placeholder}
@@ -140,10 +137,8 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                     onFocus={handleFocus}
                 />
 
-                {/* Solid's <Show when={props.selectedItem()}> becomes React's conditional rendering with && */}
                 {props.selectedItem && (
                     <div className="flex items-center mt-2 p-2 bg-gray-100 rounded">
-                        {/* Inline checks are for props.selectedItem being non-null/non-undefined */}
                         {props.showAvatar && props.selectedItem.avatar_url && (
                             <img
                                 src={props.selectedItem.avatar_url}
@@ -153,7 +148,6 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                         )}
                         <span className="font-medium text-gray-800">
                             {props.selectedItem.name}
-                            {/* The logic for showing the type is replicated */}
                             {props.selectedItem.type &&
                                 props.selectedItem.type !== "repo" && (
                                     <span className="ml-2 text-sm text-gray-500">
@@ -162,6 +156,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                                 )}
                         </span>
                         <button
+                            type="button"
                             onClick={() => props.onSelect(null)}
                             className="ml-auto text-red-500 hover:text-red-700 text-sm"
                             aria-label="Clear selection"
@@ -171,34 +166,29 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                     </div>
                 )}
 
-                {/* Loading State */}
-                {/* Solid's <Show when={props.isLoading?.()}> becomes React's conditional rendering */}
                 {props.isLoading && (
                     <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg mt-1 p-2 text-gray-600">
                         Loading...
                     </div>
                 )}
 
-                {/* Error State */}
                 {props.isError && (
                     <div className="absolute z-10 w-full bg-red-100 border border-red-400 text-red-700 rounded-b-lg shadow-lg mt-1 p-2">
-                        Error: {props.errorMessage || "Failed to fetch suggestions."}
+                        Error:{" "}
+                        {props.errorMessage || "Failed to fetch suggestions."}
                     </div>
                 )}
 
-                {/* Results Dropdown */}
-                {/* Solid's <Show when={...}> with a complex condition is converted to a pre-calculated variable or direct conditional */}
                 {shouldShowResultsDropdown && (
                     <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-48 overflow-y-auto mt-1">
-                        {/* Solid's <For each={...}> becomes React's map function */}
-                        {props.results!.map((item, index) => (
+                        {props.results?.map((item, index) => (
                             <li
-                                key={item.id} // React requires a unique key for list items
-                                // Solid's classList becomes a combination of template strings or the 'clsx'/'classnames' pattern
+                                key={item.id}
                                 className={`px-4 py-2 cursor-pointer hover:bg-blue-100 ${
-                                    highlightedIndex === index ? "bg-blue-200" : ""
+                                    highlightedIndex === index
+                                        ? "bg-blue-200"
+                                        : ""
                                 }`}
-                                // Solid's onMouseDown is fine in React
                                 onMouseDown={() => props.onSelect(item)}
                             >
                                 <div className="flex items-center">

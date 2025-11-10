@@ -17,6 +17,7 @@ import {
     type EditorMarkersViewState,
     EditorMarkersViewStates,
 } from "@/app/data/editor";
+import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
 // import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
@@ -27,6 +28,7 @@ import { EditorMarkersMutableStates } from "../../../data/editor";
 
 export function Toolbar() {
     const { actions, project } = useWorkspaceContext();
+
     // const {} = useProjectContext();
 
     // function seeUsfm() {
@@ -122,14 +124,7 @@ export function Toolbar() {
                 ]}
             />
             <SearchInput />
-            <button
-                type="button"
-                onClick={() => {
-                    location.href = `${location.href}`;
-                }}
-            >
-                reload
-            </button>
+            <SaveAndReviewChanges />
         </Group>
     );
 }
@@ -139,7 +134,7 @@ function ProjectList() {
     const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
     const router = useRouter();
     const currentProject = allProjects.find(
-        (p) => p.id === currentProjectRoute,
+        (p) => p.projectDir.name === currentProjectRoute,
     );
     const navigateToNewProject = (projectId: string) => {
         project.updateAppSettings({
@@ -168,8 +163,10 @@ function ProjectList() {
             <Menu.Dropdown>
                 {allProjects.map((project) => (
                     <Menu.Item
-                        key={project.id}
-                        onClick={() => navigateToNewProject(project.id)}
+                        key={project.projectDir.path}
+                        onClick={() =>
+                            navigateToNewProject(project.projectDir.name)
+                        }
                     >
                         {project.name}
                     </Menu.Item>
@@ -212,7 +209,9 @@ function ReferenceProjectList() {
                     <Menu.Item
                         key={project.id}
                         onClick={() =>
-                            referenceProject.setReferenceProjectId(project.id)
+                            referenceProject.setReferenceProjectId(
+                                project.projectDir.name,
+                            )
                         }
                     >
                         {project.name}

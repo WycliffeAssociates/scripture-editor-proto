@@ -16,7 +16,7 @@ import { parseReference } from "@/core/data/bible/bible";
 
 export function ReferencePicker() {
     const [search, setSearch] = useState("");
-    const [debouncedSearch] = useDebouncedValue(search, 50);
+    const [debouncedSearch] = useDebouncedValue(search, 200);
 
     const [open, setOpen] = useState(false);
     const theme = useMantineTheme();

@@ -26,14 +26,16 @@ import {
 import {type ParsedReference, parseSid} from "@/core/data/bible/bible";
 import {
   ALL_USFM_MARKERS,
+  CHAPTER_VERSE_MARKERS,
   VALID_CHAR_MARKERS,
   VALID_NOTE_MARKERS,
   VALID_PARA_MARKERS,
 } from "@/core/data/usfm/tokens";
 import {guidGenerator} from "@/core/data/utils/generic";
+import {numRangeAtTokenStartWithWsRe} from "@/core/domain/usfm/lex";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
-const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+$/;
+const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+/;
 const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\s/;
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
 // const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
@@ -55,15 +57,37 @@ export function textNodeTransform({
   if (editorMode === EditorModes.SOURCE) return;
   const text = node.getTextContent();
   const tokenType = node.getTokenType();
+  const selection = $getSelection();
   if (tokenType !== UsfmTokenTypes.text) return;
+
+  // The transform should only fire when the user is actively typing,
+  // which is best represented by a collapsed cursor (not a range selection).
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+    return;
+  }
+
+  // This transform runs for a specific `node`. We must ensure the cursor
+  // is actually inside THIS node before proceeding.
+  if (selection.anchor.key !== node.getKey()) {
+    return;
+  }
+  const cursorOffset = selection.anchor.offset;
+  const charBeforeCursorOffset = text.charAt(cursorOffset - 1);
+  if (charBeforeCursorOffset !== " ") return;
+
   const markerMatch = text.match(markerTokenMatchLineStartSpaceReq); // example: \v , \c , \q
+  // const isHandledVerseRangeNode = verseNumberTransform(node);
+  // if (isHandledVerseRangeNode) return;
+
   const inMidMatch = text.match(markerTokenMatchLineMid);
   if (!markerMatch && !inMidMatch) return;
   const marker = markerMatch?.[1] || inMidMatch?.[1];
   if (!marker) return;
   const isValidMarker = ALL_USFM_MARKERS.has(marker);
-  const isStartOfLine = markerMatch !== null;
+  const restOfText = text.slice(markerMatch?.[0].length ?? 0);
+  const isStartOfLine = restOfText === "";
   if (!isValidMarker) return;
+  // if we're collapsed, event though there's a space, wait til our cursor is in the space
 
   const insertType = mapMarkerToInsertionType(marker);
   const baseArgs: BaseInsertArgs = {
@@ -71,6 +95,7 @@ export function textNodeTransform({
     marker,
     isStartOfLine,
     markersMutableState,
+    restOfText,
     markersViewState,
   };
 
@@ -332,7 +357,7 @@ function $insertChapter(args: BaseInsertArgs): void {
 // ============================================================================
 
 function $insertPara(args: BaseInsertArgs): void {
-  const {anchorNode, marker, isStartOfLine} = args;
+  const {anchorNode, marker, isStartOfLine, restOfText} = args;
 
   const context = $getInsertionContext(anchorNode);
   const markerNode = $createMarkerNode({
@@ -350,16 +375,23 @@ function $insertPara(args: BaseInsertArgs): void {
       ? selection.anchor.offset
       : anchorNode.getTextContentSize();
 
-    const [left, right] = anchorNode.splitText(offset);
-    const woMarker = left
-      .getTextContent()
-      .trimEnd()
-      .slice(0, -markerNode.getTextContentSize());
-    left?.setTextContent(woMarker);
+    const [left, right] = anchorNode.splitText(offset) as [
+      USFMTextNode,
+      USFMTextNode
+    ];
+    left.replace(markerNode);
+    right.setInPara(marker);
+    // left.set
+    // const woMarker = left
+    //   .getTextContent()
+    //   .trimEnd()
+    //   .slice(0, -markerNode.getTextContentSize());
+    // left?.setTextContent(woMarker);
 
-    const lineBreakNode = $createLineBreakNode();
-    left.insertAfter(lineBreakNode);
-    lineBreakNode.insertAfter(markerNode);
+    // const lineBreakNode = $createLineBreakNode();
+    // left.insertAfter(lineBreakNode);
+    // lineBreakNode.insertAfter(markerNode);
+    $ensureLineBreakBefore(markerNode);
 
     if ($isUSFMTextNode(right)) {
       right.setSid(context.newSid);
@@ -377,10 +409,12 @@ function $insertPara(args: BaseInsertArgs): void {
     }
   } else {
     $ensureLineBreakBefore(anchorNode);
+
     const nextSibling = anchorNode.getNextSibling();
+    // anchorNode.setTextContent(restOfText || " ");
     anchorNode.replace(markerNode);
 
-    if (nextSibling && $isUSFMTextNode(nextSibling)) {
+    if ($isUSFMTextNode(nextSibling)) {
       nextSibling.selectStart();
     } else {
       // No suitable sibling - create empty text node
@@ -400,7 +434,6 @@ function $insertPara(args: BaseInsertArgs): void {
 // Char Insertion (wraps selection)
 // ============================================================================
 
-// todo: buggy / inf loop. fix
 function $insertChar(args: BaseInsertArgs): void {
   const {anchorNode, marker, isStartOfLine} = args;
 
@@ -589,6 +622,7 @@ type BaseInsertArgs = {
   isStartOfLine: boolean;
   markersMutableState: EditorMarkersMutableState;
   markersViewState: EditorMarkersViewState;
+  restOfText: string;
 };
 
 type InsertContext = {
@@ -767,5 +801,83 @@ export function inverseTextNodeTransform({node}: TextNodeTransformParams) {
     });
     node.replace(replacement);
     replacement.select();
+  }
+  if (nodeTokenType === UsfmTokenTypes.numberRange) {
+    // const isValid = numRangeAtTokenStartWithWsRe.test(content);
+    // if (isValid) return;
+    // const replacement = $createUSFMTextNode(node.getTextContent().trimEnd(), {
+    //   id: node.getId(),
+    //   sid: node.getSid(),
+    //   inPara: node.getInPara(),
+    //   tokenType: UsfmTokenTypes.text,
+    // });
+    // node.replace(replacement);
+    // replacement.select();
+  }
+}
+
+function verseNumberTransform(node: USFMTextNode): boolean {
+  // 1. --- Initial Guard Clauses ---
+  // Only operate on plain text nodes.
+  if (node.getTokenType() !== UsfmTokenTypes.text) {
+    return false;
+  }
+
+  // Ensure the node is still part of the active editor state.
+  if (!node.isAttached()) {
+    return false;
+  }
+
+  // Get the previous sibling to check if it's a verse marker.
+  const prevSibling = node.getPreviousSibling();
+
+  // The sibling must exist and be a USFM marker node of the correct type.
+  if (
+    !$isUSFMTextNode(prevSibling) ||
+    prevSibling.getTokenType() !== UsfmTokenTypes.marker ||
+    !CHAPTER_VERSE_MARKERS.has(prevSibling.getMarker() ?? "")
+  ) {
+    return false;
+  }
+
+  // 2. --- Regex Matching and Logic ---
+  const textContent = node.getTextContent();
+  const match = textContent.match(numRangeAtTokenStartWithWsRe);
+
+  // If there's no match, there's nothing to do.
+  if (match === null) {
+    return false;
+  }
+
+  const numberRangeText = match[0]; // The full matched string, e.g., " 7-8"
+  const restOfText = textContent.substring(numberRangeText.length);
+
+  // 3. --- Node Creation and DOM Manipulation ---
+
+  // Get the properties from the previous marker to ensure context is maintained.
+  const newSid = prevSibling.getSid();
+  const inPara = prevSibling.getInPara();
+
+  // If the entire text was a number range, just convert the existing node.
+  if (restOfText === "") {
+    node.setTokenType(UsfmTokenTypes.numberRange);
+    return true;
+  } else {
+    // Otherwise, split the node.
+    // Update the current node to contain the rest of the text.
+    node.setTextContent(restOfText);
+
+    // Create a new node for the number range.
+    const numberRangeNode = $createUSFMTextNode(numberRangeText, {
+      id: guidGenerator(), // Assuming you have a GUID generator
+      tokenType: UsfmTokenTypes.numberRange,
+      sid: newSid,
+      inPara: inPara,
+      isMutable: true, // Or based on your editor state
+    });
+
+    // Insert the new number range node before the updated text node.
+    node.insertBefore(numberRangeNode);
+    return true;
   }
 }

@@ -10,6 +10,7 @@ import {
 } from "@/core/data/bible/bible";
 import type { LintError } from "@/core/data/usfm/lint";
 import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
+import { generateUsfmFilename } from "@/core/domain/project/scriptureBurritoHelpers";
 import { parseUSFMfile } from "@/core/domain/usfm/parse";
 import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
@@ -26,23 +27,30 @@ export const Route = createFileRoute("/$project")({
             projectRepository,
             project,
         );
-
-        const { parsedFiles, allInitialLintErrors } = result || {
+        const { parsedFiles, allInitialLintErrors, loadedProject } = result || {
             parsedFiles: [],
             allInitialLintErrors: [],
+            loadedProject: null,
         };
-        return { projectFiles: parsedFiles, allInitialLintErrors };
+        return {
+            projectFiles: parsedFiles,
+            allInitialLintErrors,
+            loadedProject,
+        };
     },
 });
 
 function RouteComponent() {
-    const { projectFiles, allInitialLintErrors } = Route.useLoaderData();
+    const { projectFiles, allInitialLintErrors, loadedProject } =
+        Route.useLoaderData();
     const { project } = Route.useParams();
+    if (!loadedProject) return <div>Project not found</div>;
     return (
         <ProjectProvider
             currentProjectRoute={project}
             projectFiles={projectFiles}
             allInitialLintErrors={allInitialLintErrors}
+            loadedProject={loadedProject}
         >
             <ProjectView />
         </ProjectProvider>
@@ -56,16 +64,17 @@ export async function projectParamToParsedFiles(
 ) {
     if (project === "undefined") return;
     if (!project) return;
-
     const loadedProject = await projectRepository.loadProject(project);
+
     if (!loadedProject) return;
+    console.time("total load time");
     const language = loadedProject.metadata.language;
     const entries: Array<{
         code: string;
         text: string;
         name: string;
+        path: string;
     }> = [];
-
     for (const bookName of Object.keys(canonicalBookMap)) {
         const bookContent = loadedProject.getBook(bookName);
         if (entries && bookContent) {
@@ -75,6 +84,7 @@ export async function projectParamToParsedFiles(
                 code: bookName,
                 name: bookName,
                 text: text,
+                path: `${loadedProject.projectDir.path}/${generateUsfmFilename(bookName)}`,
             });
         }
     }
@@ -83,10 +93,14 @@ export async function projectParamToParsedFiles(
     // Next function call as parsing and going to lexicla state is separate is fine
     const allInitialLintErrors: LintError[] = [];
 
+    console.time("parseAll");
     const parsed: ParsedFile[] = sorted.map((book, i) => {
+        // console.time(`${book.name} parse`);
         const { usfm, lintErrors } = parseUSFMfile(book.text);
         allInitialLintErrors.push(...lintErrors);
+        // console.timeEnd(`${book.name} parse`);
         return {
+            path: book.path,
             nextBookId:
                 i === sorted.length - 1
                     ? null
@@ -94,17 +108,21 @@ export async function projectParamToParsedFiles(
             prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.name),
             title: book.name,
             bookCode: getBookSlug(book.name),
-            chapters: Object.entries(usfm).map(([chapter, tokens]) => ({
-                lexicalState: parsedUsfmTokensToJsonLexicalNode(
+            chapters: Object.entries(usfm).map(([chapter, tokens]) => {
+                const initialState = parsedUsfmTokensToJsonLexicalNode(
                     tokens,
                     language.direction,
-                ),
-                chapNumber: Number(chapter),
-                dirty: false,
-            })),
+                );
+                return {
+                    lexicalState: initialState,
+                    loadedLexicalState: initialState,
+                    chapNumber: Number(chapter),
+                    dirty: false,
+                };
+            }),
         };
     });
-    console.timeEnd("parse");
-    console.timeEnd("total time");
-    return { parsedFiles: parsed, allInitialLintErrors };
+    console.timeEnd("parseAll");
+    console.timeEnd("total load time");
+    return { parsedFiles: parsed, allInitialLintErrors, loadedProject };
 }

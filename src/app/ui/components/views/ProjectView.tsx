@@ -7,7 +7,7 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import styles from "@/app/ui/styles/modules/Projectview.module.css";
 
 export function ProjectView() {
-    const { actions: _actions } = useWorkspaceContext();
+    const { actions } = useWorkspaceContext();
     return (
         <div className={styles.appLayout}>
             <nav>
@@ -17,22 +17,34 @@ export function ProjectView() {
                 <SearchPanel />
                 <main className={styles.mainContent}>
                     <div className={styles.editorWrapper}>
-                        <LintPopover wrapperClassNames="absolute top-4 right-4 z-50" />
-                        {/* <Group gap="xs" justify="between">
-              <Button
-                disabled={actions.prevChapter.hasPrev}
-                onClick={actions.prevChapter.go}
-              >
-                {actions.prevChapter.display}
-              </Button>
-              <Button
-                disabled={!actions.nextChapter.hasNext}
-                onClick={actions.nextChapter.go}
-              >
-                {actions.nextChapter.display}
-              </Button>
-            </Group> */}
-                        <MainEditor />
+                        {actions.prevChapter.hasPrev && (
+                            <button
+                                type="button"
+                                disabled={!actions.prevChapter.hasPrev}
+                                onClick={actions.prevChapter.go}
+                                className={styles.editorNavButton}
+                            >
+                                <span className="w-full">
+                                    {actions.prevChapter.display}
+                                </span>
+                            </button>
+                        )}
+                        <div className={styles.editor}>
+                            <LintPopover wrapperClassNames="absolute top-4 right-4 z-50" />
+                            <MainEditor />
+                        </div>
+                        {actions.nextChapter.hasNext && (
+                            <button
+                                type="button"
+                                disabled={!actions.nextChapter.hasNext}
+                                onClick={actions.nextChapter.go}
+                                className={styles.editorNavButton}
+                            >
+                                <span className="w-full">
+                                    {actions.nextChapter.display}
+                                </span>
+                            </button>
+                        )}
                     </div>
                 </main>
                 <ReferenceEditor />

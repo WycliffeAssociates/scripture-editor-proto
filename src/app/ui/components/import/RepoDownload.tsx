@@ -1,13 +1,19 @@
+import { useDebouncedState } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchUserOrOrgRepos, fetchUsersAndOrgs } from "@/core/persistence/git/giteaApi.ts";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import AutocompleteInput, {
+    type AutocompleteItem,
+} from "@/app/ui/components/import/AutoCompleteInput";
+import {
+    fetchUserOrOrgRepos,
+    fetchUsersAndOrgs,
+} from "@/core/persistence/git/giteaApi";
 import type {
     GiteaOrganization,
     GiteaRepository,
     GiteaUser,
-} from "@/core/persistence/git/types.ts";
-import { debounce } from "@/core/data/utils/generic.ts";
-import AutocompleteInput, { type AutocompleteItem } from "@/app/ui/components/import/AutocompleteInput.tsx";
+} from "@/core/persistence/git/types";
 
 // Define the component's props interface
 interface RepoDownloadProps {
@@ -17,50 +23,25 @@ interface RepoDownloadProps {
 
 const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
     // State for the user/organization search
-    const [orgUserSearchTerm, setOrgUserSearchTerm] = useState("");
-    const [debouncedOrgUserSearchTerm, setDebouncedOrgUserSearchTerm] =
-        useState("");
+    const [orgUserSearchTerm, setOrgUserSearchTerm] = useDebouncedState(
+        "",
+        500,
+    );
     const [selectedOrgUser, setSelectedOrgUser] = useState<
         GiteaUser | GiteaOrganization | null
     >(null);
 
     // State for the repository search
-    const [repoSearchTerm, setRepoSearchTerm] = useState("");
-    const [debouncedRepoSearchTerm, setDebouncedRepoSearchTerm] = useState("");
+    const [repoSearchTerm, setRepoSearchTerm] = useDebouncedState("", 500);
     const [selectedRepo, setSelectedRepo] = useState<GiteaRepository | null>(
         null,
     );
 
-    // Debounce the search terms to prevent excessive API calls
-    useEffect(() => {
-        const debouncedFn = debounce((term: string) => {
-            setDebouncedOrgUserSearchTerm(term);
-        }, 100);
-        debouncedFn(orgUserSearchTerm);
-        return () => {
-            if (debouncedFn.cancel != undefined)
-                return debouncedFn.cancel(); // Cleanup on unmount or dependency change
-            else return () => {}
-        }
-    }, [orgUserSearchTerm]);
-
-    useEffect(() => {
-        const debouncedFn = debounce((term: string) => {
-            setDebouncedRepoSearchTerm(term);
-        }, 100);
-        debouncedFn(repoSearchTerm);
-        return () => {
-            if (debouncedFn.cancel != undefined)
-                return debouncedFn.cancel(); // Cleanup on unmount or dependency change
-            else return () => {}
-        }
-    }, [repoSearchTerm]);
-
     // Query for users/organizations using TanStack Query
     const orgUserQuery = useQuery({
-        queryKey: ["giteaUsersOrgs", debouncedOrgUserSearchTerm],
-        queryFn: () => fetchUsersAndOrgs(debouncedOrgUserSearchTerm),
-        enabled: debouncedOrgUserSearchTerm.length > 0,
+        queryKey: ["giteaUsersOrgs", orgUserSearchTerm],
+        queryFn: () => fetchUsersAndOrgs(orgUserSearchTerm),
+        enabled: orgUserSearchTerm.length > 0,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });
@@ -90,8 +71,15 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         queryKey: ["giteaRepos", selectedOrgUser?.id, selectedOrgUserName],
         queryFn: () => {
             if (!selectedOrgUser) return Promise.resolve([]);
-            const type = "login" in selectedOrgUser ? "user" : "organization";
-            const name = selectedOrgUser.login || selectedOrgUser.username;
+            let name: string;
+            let type: "user" | "organization";
+            if ("login" in selectedOrgUser) {
+                name = selectedOrgUser.login;
+                type = "user";
+            } else {
+                name = selectedOrgUser.username;
+                type = "organization";
+            }
             return fetchUserOrOrgRepos(type, name);
         },
         enabled: !!selectedOrgUser,
@@ -115,9 +103,20 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         return [];
     }, [reposQuery.isSuccess, reposQuery.data, repoSearchTerm]);
 
+    const handleClearOrgUser = useCallback(() => {
+        setSelectedOrgUser(null);
+        setOrgUserSearchTerm("");
+        setRepoSearchTerm("");
+        setSelectedRepo(null);
+    }, [setOrgUserSearchTerm, setRepoSearchTerm]);
+
     // Event handlers for state changes
     const handleSelectOrgUser = useCallback(
-        (item: AutocompleteItem) => {
+        (item: AutocompleteItem | null) => {
+            if (!item) {
+                handleClearOrgUser();
+                return;
+            }
             const originalItem = orgUserQuery.data?.find(
                 (ou) => ("login" in ou ? ou.login : ou.username) === item.name,
             );
@@ -128,20 +127,25 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
                 setSelectedRepo(null);
             }
         },
-        [orgUserQuery.data],
+        [
+            orgUserQuery.data,
+            setOrgUserSearchTerm,
+            setRepoSearchTerm,
+            handleClearOrgUser,
+        ],
     );
 
-    const handleClearOrgUser = useCallback(() => {
-        setSelectedOrgUser(null);
-        setOrgUserSearchTerm("");
-        setDebouncedOrgUserSearchTerm("");
-        setRepoSearchTerm("");
-        setDebouncedRepoSearchTerm("");
+    const handleClearRepo = useCallback(() => {
         setSelectedRepo(null);
-    }, []);
+        setRepoSearchTerm("");
+    }, [setRepoSearchTerm]);
 
     const handleSelectRepo = useCallback(
-        (item: AutocompleteItem) => {
+        (item: AutocompleteItem | null) => {
+            if (!item) {
+                handleClearRepo();
+                return;
+            }
             const originalRepo = reposQuery.data?.find(
                 (repo) => repo.name === item.name,
             );
@@ -150,55 +154,59 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
                 setRepoSearchTerm(item.name);
             }
         },
-        [reposQuery.data],
+        [reposQuery.data, setRepoSearchTerm, handleClearRepo],
     );
-
-    const handleClearRepo = useCallback(() => {
-        setSelectedRepo(null);
-        setRepoSearchTerm("");
-    }, []);
 
     // Modified function to call the onDownload prop with the zip URL
     const handleDownload = useCallback(() => {
         if (selectedRepo) {
             // Construct the URL based on the Gitea API documentation
             // This is a placeholder for the base URL; in a real app, this would be a config variable
+            // todo: make env var
             const giteaBaseUrl = "https://content.bibletranslationtools.org";
             const ownerName =
-                selectedRepo.owner.login || selectedRepo.owner.username;
+                "login" in selectedRepo.owner
+                    ? selectedRepo.owner.login
+                    : selectedRepo.owner.username;
             const zipUrl = `${giteaBaseUrl}/api/v1/repos/${ownerName}/${selectedRepo.name}/archive/master.zip`;
             // Call the prop function with the constructed URL
             props.onDownload(zipUrl);
         }
-    }, [selectedRepo, props.onDownload]);
+    }, [
+        selectedRepo,
+        props.onDownload, // Call the prop function with the constructed URL
+        props,
+    ]);
 
     // Memoized data for the AutocompleteInput components
-    const selectedOrgUserAutocompleteItem = useMemo(() => {
-        if (selectedOrgUser) {
-            return {
-                id: selectedOrgUser.id,
-                name:
-                    "login" in selectedOrgUser
-                        ? selectedOrgUser.login
-                        : selectedOrgUser.username,
-                avatar_url: selectedOrgUser.avatar_url,
-                type: "login" in selectedOrgUser ? "user" : "organization",
-            };
-        }
-        return null;
-    }, [selectedOrgUser]);
+    const selectedOrgUserAutocompleteItem: AutocompleteItem | null =
+        useMemo(() => {
+            if (selectedOrgUser) {
+                return {
+                    id: selectedOrgUser.id,
+                    name:
+                        "login" in selectedOrgUser
+                            ? selectedOrgUser.login
+                            : selectedOrgUser.username,
+                    avatar_url: selectedOrgUser.avatar_url,
+                    type: "login" in selectedOrgUser ? "user" : "organization",
+                };
+            }
+            return null;
+        }, [selectedOrgUser]);
 
-    const selectedRepoAutocompleteItem = useMemo(() => {
-        if (selectedRepo) {
-            return {
-                id: selectedRepo.id,
-                name: selectedRepo.name,
-                avatar_url: selectedRepo.owner.avatar_url,
-                type: "repo",
-            };
-        }
-        return null;
-    }, [selectedRepo]);
+    const selectedRepoAutocompleteItem: AutocompleteItem | null =
+        useMemo(() => {
+            if (selectedRepo) {
+                return {
+                    id: selectedRepo.id,
+                    name: selectedRepo.name,
+                    avatar_url: selectedRepo.owner.avatar_url,
+                    type: "repo",
+                };
+            }
+            return null;
+        }, [selectedRepo]);
 
     return (
         <div>
@@ -210,7 +218,6 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
                 setSearchTerm={setOrgUserSearchTerm}
                 results={orgUserResults}
                 onSelect={handleSelectOrgUser}
-                onClear={handleClearOrgUser} // Added clear handler for completeness
                 selectedItem={selectedOrgUserAutocompleteItem}
                 showAvatar={true}
                 isLoading={orgUserQuery.isFetching}
@@ -225,14 +232,12 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
                 setSearchTerm={setRepoSearchTerm}
                 results={filteredRepoResults}
                 onSelect={handleSelectRepo}
-                onClear={handleClearRepo} // Added clear handler for completeness
                 selectedItem={selectedRepoAutocompleteItem}
                 showAvatar={true}
                 isLoading={reposQuery.isFetching}
                 isError={reposQuery.isError}
                 errorMessage={reposQuery.error?.message}
                 showOnFocus={true}
-                isDisabled={!selectedOrgUser} // Disable if no user/org is selected
             />
 
             <button

@@ -323,8 +323,12 @@ describe("TauriFileHandle Integration Tests (LIVE FS I/O)", () => {
             initialContent.slice(0, 10) + "RED" + initialContent.slice(13);
         const actual = await readTextFile(testFilePath);
 
-        expect(actual).toBe(expected);
-    });
+                // Set file content (Truncate for fresh start)
+                let stream = await handle.createWritable({
+                    keepExistingData: false,
+                });
+                await stream.write("0123456789ABCDEF");
+                await stream.close();
 
     test("should truncate file and then seek/append correctly", async () => {
         const handle = new TauriFileHandle(

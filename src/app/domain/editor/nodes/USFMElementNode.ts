@@ -77,10 +77,6 @@ export class USFMElementNode extends ElementNode {
     return $getState(this.getLatest(), sidState);
   }
 
-  getInPara(): string {
-    return $getState(this.getLatest(), inParaState);
-  }
-
   getTokenType(): string {
     return $getState(this.getLatest(), tokenTypeState);
   }
@@ -116,11 +112,6 @@ export class USFMElementNode extends ElementNode {
     return this;
   }
 
-  setInPara(inPara: string): this {
-    $setState(this.getWritable(), inParaState, inPara);
-    return this;
-  }
-
   setTokenType(tokenType: string): this {
     $setState(this.getWritable(), tokenTypeState, tokenType);
     return this;
@@ -129,6 +120,9 @@ export class USFMElementNode extends ElementNode {
   setMarker(marker: string | undefined): this {
     $setState(this.getWritable(), markerState, marker);
     return this;
+  }
+  getInPara(): string | undefined {
+    return $getState(this.getLatest(), inParaState);
   }
 
   createDOM(_config: EditorConfig) {

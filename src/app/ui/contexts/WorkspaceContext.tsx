@@ -1,6 +1,6 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import type { ParsedFile } from "@/app/data/parsedProject";
 import type { SettingsManager } from "@/app/data/settings";
 import {
@@ -16,6 +16,10 @@ import {
     type ReferenceProjectHook,
     useReferenceProject,
 } from "@/app/ui/hooks/useReferenceProject";
+import {
+    type UseProjectDiffsReturn,
+    useProjectDiffs,
+} from "@/app/ui/hooks/useSave";
 import {
     type UseSearchReturn,
     useProjectSearch,
@@ -38,6 +42,7 @@ interface WorkSpaceContextType {
     search: UseSearchReturn;
     lint: UseLintReturn;
     cssStyleSheet: UseDynamicStylesheetHook;
+    saveDiff: UseProjectDiffsReturn;
 }
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
     undefined,
@@ -55,40 +60,61 @@ type ProjectProviderProps = {
     projectFiles: ParsedFile[];
     allInitialLintErrors: LintError[];
     children: React.ReactNode;
+    loadedProject: Project;
 };
 export const ProjectProvider = ({
     currentProjectRoute,
     projectFiles,
     allInitialLintErrors,
+    loadedProject,
     children,
 }: ProjectProviderProps) => {
     const editorRef = useRef<LexicalEditor | null>(null);
     const { projects } = useLoaderData({ from: "__root__" });
-    const [workingFiles, setWorkingFiles] =
-        useState<ParsedFile[]>(projectFiles);
+    // const [workingFiles, setWorkingFiles] =
+    // useState<ParsedFile[]>(projectFiles);
+
+    // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
+    const mutWorkingFilesRef = useRef(projectFiles);
+
     const { settingsManager, projectRepository } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
-    const project = useWorkspaceState(settingsManager, workingFiles);
+    const project = useWorkspaceState(
+        settingsManager,
+        mutWorkingFilesRef.current,
+    );
+    const saveDiff = useProjectDiffs({
+        mutWorkingFilesRef: mutWorkingFilesRef.current,
+        // setWorkingFiles,
+        editorRef: editorRef,
+        pickedFile: project.pickedFile,
+        pickedChapter: project.pickedChapter,
+        // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
+    });
     const actions = useWorkspaceActions({
         editorRef,
+        loadedProject,
         currentChapter: project.currentChapter,
         currentFileBibleIdentifier: project.currentFileBibleIdentifier,
         setCurrentChapter: project.setCurrentChapter,
         setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
         updateAppSettings: project.updateAppSettings,
         appSettings: project.appSettings,
-        workingFiles,
-        setWorkingFiles,
+        // workingFiles,
+        // setWorkingFiles,
         pickedFile: project.pickedFile,
-        updateStyleSheet: cssStyleSheet.updateStyleSheet,
+        mutWorkingFilesRef: mutWorkingFilesRef.current,
+        toggleDiffModal: saveDiff.toggleDiffModal,
+        updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
     });
+
     const referenceProject = useReferenceProject({
         projectRepository: projectRepository,
         pickedFileIdentifier: project.pickedFile.bookCode,
         pickedChapterNumber: project.pickedChapter.chapNumber,
     });
     const search = useProjectSearch({
-        workingFiles,
+        workingFiles: mutWorkingFilesRef.current,
         saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
@@ -103,8 +129,14 @@ export const ProjectProvider = ({
 
     // sync props to state: Be sure all dirty work is saved before navigating away or closing app
     useEffect(() => {
-        setWorkingFiles(projectFiles);
+        mutWorkingFilesRef.current = projectFiles;
     }, [projectFiles]);
+
+    // keep ref in sync when React commits new state
+    // useEffect(() => {
+    //     // won't fire needlesslely when workingFiles is already set to the value of workingFilesRef.current; only if props changes
+    //     mutWorkingFilesRef.current = workingFiles;
+    // }, [workingFiles]);
     return (
         <WorkspaceContext.Provider
             value={{
@@ -118,6 +150,7 @@ export const ProjectProvider = ({
                 search,
                 lint,
                 cssStyleSheet,
+                saveDiff,
             }}
         >
             {children}

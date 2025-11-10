@@ -7,14 +7,14 @@ import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings";
 import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider";
 
-// instantiante services
+// // instantiante services
 const settingsManager = createTauriSettingsManager();
 const directoryProvider =
     await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
 const gitProvider = new TauriGitProvider(directoryProvider);
 
-// react entry stuff
+// // react entry stuff
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);

@@ -1,14 +1,19 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useDebouncedCallback } from "@mantine/hooks";
+import { useDebouncedCallback, useThrottledCallback } from "@mantine/hooks";
 import {
+    COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
 } from "lexical";
-
 import { useEffect, useRef } from "react";
-import { EditorMarkersViewStates, EditorModes } from "@/app/data/editor";
+import {
+    EDITOR_TAGS_USED,
+    EditorMarkersViewStates,
+    EditorModes,
+} from "@/app/data/editor";
+import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
 import {
@@ -22,19 +27,20 @@ import {
     inverseTextNodeTransform,
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers";
+import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
-    const { project, actions, lint } = useWorkspaceContext();
+    const { project, actions, lint, referenceProject } = useWorkspaceContext();
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
-    const lintDebounceMs = 100;
+    const lintDebounceMs = 300;
+    const sixtyFPS = 16;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
-        console.count(`debouncedLint`);
         // console.time("lint");
         // const messages = lintVerseRangeReferences({editorState, editor});
 
@@ -44,18 +50,27 @@ export function USFMPlugin() {
         );
 
         // console.log(messages);
-        const merged = lint.mergeInNewErrorsFromChapter(errMessages);
-        if (!merged.length) {
-            // sett if we actually need to clear the messages:
-            const allMessagesInDom = document.querySelectorAll(".lint-error");
-            if (allMessagesInDom.length === 0) {
-                lint.setMessage([]);
-            }
-        } else {
-            lint.setMessage(merged);
-        }
-        // console.timeEnd("lint");
+        lint.mergeInNewErrorsFromChapter(errMessages);
     }, lintDebounceMs);
+
+    const throttledEditorChangeListener = useThrottledCallback(
+        (editorState: EditorState) => {
+            return editorState.read(() => {
+                console.time("throttledEditorChangeListener");
+                maintainDocumentStructure(editorState, editor);
+                maintainDocumentMetaData(
+                    editorState,
+                    editor,
+                    project.pickedFile.bookCode,
+                );
+                console.timeEnd("throttledEditorChangeListener");
+                // for (const dfsNode of $dfs()) {
+                // }
+                // console.timeEnd("throttledEditorChangeListener");
+            });
+        },
+        sixtyFPS,
+    );
 
     useEffect(() => {
         if (mode === EditorModes.SOURCE) {
@@ -63,6 +78,32 @@ export function USFMPlugin() {
             // NOOOP NO EFFECTS IN THIS MODE
             return;
         }
+        const maintainMetadata = editor.registerUpdateListener(
+            ({
+                editorState,
+                dirtyElements,
+                dirtyLeaves,
+                prevEditorState,
+                tags,
+            }) => {
+                const wasOnlySelChange =
+                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
+                if (
+                    wasOnlySelChange &&
+                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
+                ) {
+                    return;
+                }
+                if (prevEditorState.isEmpty()) {
+                    return;
+                }
+                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+                    return;
+                }
+                return throttledEditorChangeListener(editorState);
+            },
+        );
+
         // update listeners, not a transform due to needing to run on selection changes
         // Get notified when Lexical commits an update to the DOM.
         const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
@@ -80,13 +121,14 @@ export function USFMPlugin() {
                 },
             });
         });
-        const maintainMetadata = editor.registerNodeTransform(
-            USFMTextNode,
-            (node) => {
-                maintainDocumentStructure(node, editor);
-                maintainDocumentMetaData(node, editor);
-            },
-        );
+        // todo: I think we might just want to try to do these as debounced change Listeners. I know there is potential for waterfall, but like, I kinda think we need to dfs the whole tree to ensure accurate sids on nodes positionally. Cause having accurate sids affects diffs
+        // const maintainMetadata = editor.registerNodeTransform(
+        //     USFMTextNode,
+        //     (node) => {
+        //         maintainDocumentStructure(node, editor);
+        //         maintainDocumentMetaData(node, editor);
+        //     },
+        // );
         const unregisterTransformWhileTyping = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {
@@ -128,20 +170,48 @@ export function USFMPlugin() {
             },
             COMMAND_PRIORITY_NORMAL,
         );
+        const moveToAdjacentNodesWhenSeemsAppropriateUnregister =
+            editor.registerCommand(
+                KEY_DOWN_COMMAND,
+                (event: KeyboardEvent) => {
+                    return moveToAdjacentNodesWhenSeemsAppropriate(
+                        editor,
+                        event,
+                    );
+                },
+                COMMAND_PRIORITY_HIGH,
+            );
         const pasteCommand = lockImmutableMarkersOnPaste(editor);
         const lockImmutablesOnCut = lockImmutableMarkersOnCut(editor);
 
-        return () => {
+        const syncRefScrollUnregister = syncReferencePaneSid(
+            editor,
+            referenceProject?.referenceProjectId,
+        );
+
+        const cleanup = () => {
             wysiPreview();
             unregisterTransformWhileTyping();
             maintainMetadata();
             redirectParaInsertionToLineBreakUnregister();
             lints();
             keyDownUnregister();
+            moveToAdjacentNodesWhenSeemsAppropriateUnregister();
             pasteCommand();
             lockImmutablesOnCut();
+            syncRefScrollUnregister();
         };
-    }, [mode, markersViewState, editor, markersMutableState, debouncedLint]);
+
+        return cleanup;
+    }, [
+        mode,
+        markersViewState,
+        editor,
+        markersMutableState,
+        debouncedLint,
+        throttledEditorChangeListener,
+        referenceProject?.referenceProjectId,
+    ]);
 
     return null;
 }

@@ -38,12 +38,12 @@
             "correctness": {
                 "noUnusedImports": {
                     "level": "warn",
-                    "fix": "safe",
+                    "fix": "none",
                     "options": {}
                 },
                 "noUnusedFunctionParameters": {
                     "level": "warn",
-                    "fix": "safe",
+                    "fix": "none",
                     "options": {}
                 }
             }
