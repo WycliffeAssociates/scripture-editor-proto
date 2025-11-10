@@ -10,7 +10,7 @@ body:not(.source-mode) {
   [data-token-type="endMarker"] {
     /* display: inline-block; */
     align-items: center;
-    color: var(--color-green-500);
+    color: var(--color-blue-700);
   }
 
   [data-usfm-type="para"] {
@@ -64,17 +64,17 @@ body:not(.source-mode) {
   }
 
   :where(
-      [data-marker="q"],
-      [data-in-para="q"],
-      [data-marker="q1"],
-      [data-in-para="q1"],
-      [data-marker="q2"],
-      [data-in-para="q2"],
-      [data-marker="q3"],
-      [data-in-para="q3"],
-      [data-marker="q4"],
-      [data-in-para="q4"]
-    ) {
+    [data-marker="q"],
+    [data-in-para="q"],
+    [data-marker="q1"],
+    [data-in-para="q1"],
+    [data-marker="q2"],
+    [data-in-para="q2"],
+    [data-marker="q3"],
+    [data-in-para="q3"],
+    [data-marker="q4"],
+    [data-in-para="q4"]
+  ) {
     font-style: italic;
   }
   /* [data-marker="b"] {
