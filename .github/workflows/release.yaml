@@ -67,20 +67,16 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Initialize Android project if missing
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          if [ ! -d src-tauri/gen/android ]; then
-            pnpm tauri android init -y
-          fi
-
-      - name: Debug path
-        run: |
-          pwd
-          ls -a
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Initialize Android project if missing
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          if [ ! -d src/tauri/gen/android ]; then
+            pnpm tauri android init -y
+          fi
 
       - name: Build + Release
         uses: tauri-apps/tauri-action@mobile
