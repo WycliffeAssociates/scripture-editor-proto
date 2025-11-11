@@ -77,6 +77,33 @@ jobs:
           if [ ! -d src/tauri/rust/gen/android ]; then
             pnpm tauri android init
           fi
+          
+          # The tauri-action implicitly sets up the NDK, we just need to find the bin directory.
+          # We assume ANDROID_SDK_ROOT is set by the setup-android action.
+          
+          if [ -z "$ANDROID_NDK_ROOT" ]; then
+            # Try to find the NDK bin directory under the SDK root
+            NDK_TOOLCHAIN_DIR=$(find $ANDROID_SDK_ROOT/ndk -type d -name "linux-x86_64" | head -n 1)/bin
+          else
+            # Use the explicit NDK path
+            NDK_TOOLCHAIN_DIR="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          fi
+
+          echo "NDK Toolchain Directory: $NDK_TOOLCHAIN_DIR"
+          
+          if [ -d "$NDK_TOOLCHAIN_DIR" ]; then
+            # Create Symlinks for the missing tools (ar and ranlib are most common)
+            echo "Creating symlinks to resolve 'ranlib not found' error..."
+            ln -sf "$NDK_TOOLCHAIN_DIR/llvm-ar" "$NDK_TOOLCHAIN_DIR/aarch64-linux-android-ar"
+            ln -sf "$NDK_TOOLCHAIN_DIR/llvm-ranlib" "$NDK_TOOLCHAIN_DIR/aarch64-linux-android-ranlib"
+          
+            # Also add the toolchain dir to PATH to ensure they are discoverable
+            echo "Adding toolchain to PATH."
+            echo "$NDK_TOOLCHAIN_DIR" >> $GITHUB_PATH
+          else
+            echo "Error: NDK toolchain directory not found at the expected location."
+            exit 1
+          fi
 
       - name: Build + Release
         uses: tauri-apps/tauri-action@mobile
