@@ -21,12 +21,16 @@ import {
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
 } from "@/app/domain/editor/listeners/lockImmutableMarkers";
-import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure";
+import {
+    maintainDocumentStructure,
+    maintainDocumentStructureDebounced,
+} from "@/app/domain/editor/listeners/maintainDocumentStructure";
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers";
+
 import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
@@ -39,6 +43,7 @@ export function USFMPlugin() {
     const markersInPreview = useRef(new Set<NodeKey>());
     const lintDebounceMs = 300;
     const sixtyFPS = 16;
+    const structuralUpdateDebounceMs = 1000;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
         // console.time("lint");
@@ -52,6 +57,17 @@ export function USFMPlugin() {
         // console.log(messages);
         lint.mergeInNewErrorsFromChapter(errMessages);
     }, lintDebounceMs);
+
+    const debouncedStructuralUpdates = useDebouncedCallback(
+        (editorState: EditorState) => {
+            return editorState.read(() => {
+                console.time("debouncedStructuralUpdates");
+                maintainDocumentStructureDebounced(editorState, editor);
+                console.timeEnd("debouncedStructuralUpdates");
+            });
+        },
+        structuralUpdateDebounceMs,
+    );
 
     const throttledEditorChangeListener = useThrottledCallback(
         (editorState: EditorState) => {
@@ -101,6 +117,31 @@ export function USFMPlugin() {
                     return;
                 }
                 return throttledEditorChangeListener(editorState);
+            },
+        );
+        const debouncedMaintainMetadata = editor.registerUpdateListener(
+            ({
+                editorState,
+                dirtyElements,
+                dirtyLeaves,
+                prevEditorState,
+                tags,
+            }) => {
+                const wasOnlySelChange =
+                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
+                if (
+                    wasOnlySelChange &&
+                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
+                ) {
+                    return;
+                }
+                if (prevEditorState.isEmpty()) {
+                    return;
+                }
+                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+                    return;
+                }
+                return debouncedStructuralUpdates(editorState);
             },
         );
 
@@ -193,6 +234,7 @@ export function USFMPlugin() {
             wysiPreview();
             unregisterTransformWhileTyping();
             maintainMetadata();
+            debouncedMaintainMetadata();
             redirectParaInsertionToLineBreakUnregister();
             lints();
             keyDownUnregister();
@@ -211,6 +253,7 @@ export function USFMPlugin() {
         debouncedLint,
         throttledEditorChangeListener,
         referenceProject?.referenceProjectId,
+        debouncedStructuralUpdates,
     ]);
 
     return null;

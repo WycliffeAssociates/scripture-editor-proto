@@ -36,7 +36,10 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
   if (!isAtEndBoundary) return false;
 
   // --- Scenario 1: Inside a 'marker' node ---
-  if (anchorNode.getTokenType() === UsfmTokenTypes.marker) {
+  if (
+    anchorNode.getTokenType() === UsfmTokenTypes.marker ||
+    anchorNode.getTokenType() === UsfmTokenTypes.endMarker
+  ) {
     const nextSibling = anchorNode.getNextSibling();
     if (nextSibling && $isUSFMTextNode(nextSibling)) {
       // Move the caret to the very beginning of the next node.
@@ -45,7 +48,14 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
       event.stopPropagation();
       editor.update(() => {
         console.log("selecting next sibling");
-        nextSibling.selectEnd();
+        if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {
+          nextSibling.selectEnd();
+        } else {
+          if (!nextSibling.getTextContent().startsWith(" ")) {
+            nextSibling.setTextContent(` ${nextSibling.getTextContent()}`);
+          }
+          nextSibling.select(1, 1);
+        }
       });
     }
   }

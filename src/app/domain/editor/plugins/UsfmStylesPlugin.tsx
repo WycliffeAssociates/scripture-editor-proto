@@ -11,7 +11,7 @@ export function UsfmStylesPlugin() {
     // The core logic for updating styles is wrapped in a throttled callback.
     // The wait time of 200ms can be adjusted based on your needs.
     const throttledUpdateStyles = useThrottledCallback(() => {
-        console.time("usfmStylesPluginMutation");
+        // console.time("usfmStylesPluginMutation");
 
         const rootEl = document.getElementById("root");
         const viewState = rootEl?.getAttribute(
@@ -27,8 +27,8 @@ export function UsfmStylesPlugin() {
             prevStyles.current = styles;
         }
 
-        console.timeEnd("usfmStylesPluginMutation");
-    }, 300);
+        // console.timeEnd("usfmStylesPluginMutation");
+    }, 200);
 
     useEffect(() => {
         // Adopt the stylesheet for the document.
@@ -38,7 +38,7 @@ export function UsfmStylesPlugin() {
         ];
 
         // The target node is the editor container.
-        const targetNode = document.querySelector("#root") as HTMLElement;
+        const targetNode = document.querySelector("body") as HTMLElement;
 
         if (!targetNode) {
             return;

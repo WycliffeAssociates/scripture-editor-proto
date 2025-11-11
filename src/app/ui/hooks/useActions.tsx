@@ -457,6 +457,7 @@ function getFlattenedEditorStateAsParseTokens(
     // Recursive helper to descend through nested structures
     function collectTokens(
         nodes: SerializedLexicalNode[],
+        _lastSid: string,
     ): Array<LintableTokenLike> {
         const tokens: Array<LintableTokenLike> = [];
 
@@ -467,30 +468,33 @@ function getFlattenedEditorStateAsParseTokens(
                     tokenType: UsfmTokenTypes.verticalWhitespace,
                     text: "\n",
                     id: "",
+                    sid: _lastSid,
                 });
                 continue;
             }
             if (isSerializedUSFMTextNode(node)) {
                 tokens.push(node);
+                if (node.sid) _lastSid = node.sid;
                 continue;
             }
 
             if (isSerializedElementNode(node)) {
-                tokens.push(...collectTokens(node.children ?? []));
+                tokens.push(...collectTokens(node.children ?? [], _lastSid));
                 continue;
             }
 
             if (isSerializedUSFMNestedEditorNode(node)) {
                 const nestedChildren = node.editorState?.root?.children ?? [];
+                if (node.sid) _lastSid = node.sid;
                 // the node itself has the opening marker
-                tokens.push(node, ...collectTokens(nestedChildren));
+                tokens.push(node, ...collectTokens(nestedChildren, _lastSid));
             }
         }
 
         return tokens;
     }
 
-    return collectTokens(firstChild.children ?? []);
+    return collectTokens(firstChild.children ?? [], "");
 }
 
 export function getFlattenedFileTokens(

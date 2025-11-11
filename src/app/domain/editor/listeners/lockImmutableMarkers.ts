@@ -12,10 +12,12 @@ import {
   EditorMarkersMutableStates,
 } from "@/app/data/editor";
 import {
+  $createUSFMTextNode,
   $isLockedUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode";
+import {guidGenerator} from "@/core/data/utils/generic";
 
 export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
   return editor.registerCommand(
@@ -78,10 +80,7 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
             nodes[0].selectEnd();
           },
           {
-            tag: [
-              EDITOR_TAGS_USED.historyMerge,
-              EDITOR_TAGS_USED.programaticIgnore,
-            ],
+            tag: [],
           }
         );
         return true;
@@ -96,6 +95,7 @@ export function lockImmutableMarkersOnPaste(editor: LexicalEditor) {
   return editor.registerCommand(
     PASTE_COMMAND,
     (_event: ClipboardEvent) => {
+      console.log("PASTE COMMAND CATCHED");
       const selectionInfo = $getSelectionInfo();
       if (!selectionInfo) return false;
       if (selectionInfo.crossesLockedNodes) {
@@ -103,33 +103,31 @@ export function lockImmutableMarkersOnPaste(editor: LexicalEditor) {
         console.log("Prevented paste in locked USFMTextNode or node is hidden");
         return true;
       }
+      if (!selectionInfo.isCollapsed) {
+        return false;
+      }
 
-      // Handle custom paste logic
-      // todo: split out elsewhere to highlier level paste listener with subtasks such as this one. This stuff is really for nested container elements like chars
-      // editor.update(() => {
-      //   const clipboardText = event.clipboardData?.getData("text/plain");
-      //   if (!clipboardText) return;
-
-      //   const {selection, anchorNode} = selectionInfo;
-      //   if (!$isUSFMTextNode(anchorNode)) return;
-      //   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
-
-      //   const [_leftPart, rightPart] = anchorNode.splitText(
-      //     selection.anchor.offset
-      //   );
-      //   const pastedNode = $createUSFMTextNode(clipboardText, {
-      //     id: guidGenerator(),
-      //     sid: anchorNode.getSid(),
-      //     inPara: anchorNode.getInPara(),
-      //     tokenType: "text",
+      const anchorNode = selectionInfo.anchorNode;
+      // if in an usfm text anchore node, split, insert
+      // if ($isUSFMTextNode(anchorNode)) {
+      //   editor.update(() => {
+      //     const anchorOffset = selectionInfo.anchorOffset;
+      //     const [left, right] = anchorNode.splitText(anchorOffset);
+      //     const pasteText = _event?.clipboardData?.getData("text/plain") || "";
+      //     console.log("Pasting text:", pasteText);
+      //     const newNode = $createUSFMTextNode(pasteText, {
+      //       id: guidGenerator(),
+      //       sid: anchorNode.getSid(),
+      //       inPara: anchorNode.getInPara(),
+      //     });
+      //     left.insertAfter(newNode);
+      //     newNode.selectEnd();
       //   });
-
-      //   _leftPart.insertAfter(pastedNode);
-      //   pastedNode.selectEnd();
-      //   if (rightPart.getTextContent() === "") rightPart.remove();
-      // });
-
+      //   return true;
+      // }
       return false;
+
+      // return false;
     },
     COMMAND_PRIORITY_HIGH // Use high priority to run before the default handler
   );
@@ -150,7 +148,10 @@ export function lockImutableMarkersOnType({
   // only handle destructive key touches
   // true = to stop propagation. false = cont
   // inue
-  if (isNonEditingKey(event) || isKnownCommonKeyCombo(event)) return false;
+
+  if (isNonEditingKey(event) || isKnownCommonKeyCombo(event)) {
+    return false;
+  }
   const hasAltKey = event.altKey;
   const hasModKey = event.metaKey || event.ctrlKey;
   const selectionInfo = $getSelectionInfo();
@@ -165,6 +166,7 @@ export function lockImutableMarkersOnType({
     isAtEndBoundary,
     isAtStartBoundary,
   } = selectionInfo;
+
   // no modifiers, if we don't cross locked nodes, do nothing
   if (!crossesLockedNodes && !hasAltKey && !hasModKey) return false;
 
@@ -212,16 +214,18 @@ export function lockImutableMarkersOnType({
       () => {
         // if collapsed, check for modifiers to copy normal behavior of delete to previous word boundary or line:
         if (hasModKey) {
-          // delete from current offset back to previous line boundary
+          // delete from current offset back to previous line boundary or locked node
           // if (!$isUSFMTextNode(anchorNode)) return;
           const anchorOffset = selection.anchor.offset;
           const focusOffset = selection.focus.offset;
           if (nodes.length === 1 && $isUSFMTextNode(anchorNode)) {
             const furthest = Math.max(anchorOffset, focusOffset);
             const after = anchorNode.getTextContent().slice(furthest);
-            anchorNode.setTextContent(after);
-            // move the cursor to the start of the node:
-            anchorNode.selectStart();
+            if (!$isLockedUSFMTextNode(anchorNode)) {
+              anchorNode.setTextContent(after);
+              // move the cursor to the start of the node:
+              anchorNode.selectStart();
+            }
             // for one node selected, just take the furthest spot and clear back
             return; //only one node to handle in collapsed;
           } else {
@@ -229,7 +233,10 @@ export function lockImutableMarkersOnType({
             const nodeToClear = isBackward
               ? selection.focus.getNode()
               : selection.anchor.getNode();
-            if ($isUSFMTextNode(nodeToClear)) {
+            if (
+              $isUSFMTextNode(nodeToClear) &&
+              !$isLockedUSFMTextNode(nodeToClear)
+            ) {
               nodeToClear.setTextContent("");
             }
           }
@@ -264,7 +271,7 @@ export function lockImutableMarkersOnType({
         filteredNodes[0].selectEnd();
       },
       {
-        tag: [EDITOR_TAGS_USED.programaticIgnore],
+        tag: [],
       }
     );
   }
@@ -296,8 +303,14 @@ function isKnownCommonKeyCombo(event: KeyboardEvent): boolean {
   const undoKeyCombo = event.metaKey && event.key === "z";
   const redoKeyCombo = event.metaKey && event.key === "y";
   const selectAllKeyCombo = event.metaKey && event.key === "a";
-  return undoKeyCombo || redoKeyCombo || selectAllKeyCombo;
+  const cut = event.metaKey && event.key === "x";
+  const copy = event.metaKey && event.key === "c";
+  const paste = event.metaKey && event.key === "v";
+  return (
+    undoKeyCombo || redoKeyCombo || selectAllKeyCombo || cut || copy || paste
+  );
 }
+
 export function $getSelectionInfo() {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return false;

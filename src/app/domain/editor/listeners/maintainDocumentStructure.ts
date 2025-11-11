@@ -1,4 +1,4 @@
-import {$dfsIterator} from "@lexical/utils";
+import {$dfsIterator, type DFSNode} from "@lexical/utils";
 import {
   $getRoot,
   $isLineBreakNode,
@@ -36,7 +36,8 @@ export function maintainDocumentStructure(
   }> = [];
 
   editorState.read(() => {
-    for (const dfsNode of $dfsIterator()) {
+    const allNodes = [...$dfsIterator()];
+    for (const dfsNode of allNodes) {
       const node = dfsNode.node;
       //   can check other node types above if we need
       if (!$isUSFMTextNode(node)) continue;
@@ -46,7 +47,6 @@ export function maintainDocumentStructure(
         tokenType,
         updates,
       };
-      mergeAdjacentTextNodesOfSameType(args);
       editCharOpenAndCloseTogether(args);
       ensureNumberRangeAlwaysFollowsMarkerExpectingNum(args);
       ensurePlainTextNodeAlwaysFollowsNumberRange(args);
@@ -56,9 +56,52 @@ export function maintainDocumentStructure(
       //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
       removeEmptyNumberRangeNotPrecededByMarker(args);
     }
+    // mergeAdjacentTextNodesOfSameType({
+    //   allNodes,
+    //   updates,
+    // });
   });
   if (updates.length) {
     console.log(`maintain documnet structure updates ${updates.length}`);
+    editor.update(() => {
+      updates.forEach(
+        (update) => {
+          update.update();
+        },
+        {
+          tag: [
+            EDITOR_TAGS_USED.historyMerge,
+            EDITOR_TAGS_USED.programaticIgnore,
+          ],
+          skipTransforms: true,
+        }
+      );
+    });
+  }
+  // console.timeEnd("maintainDocumentStructure");
+}
+
+// This function shouldn't be run often. It's just to keep the dom size down by merging similar nodes and anythign else that isn't frame rate sensitive.
+export function maintainDocumentStructureDebounced(
+  editorState: EditorState,
+  editor: LexicalEditor
+) {
+  const updates: Array<{
+    dbgLabel: string;
+    update: () => void;
+  }> = [];
+
+  editorState.read(() => {
+    const allNodes = [...$dfsIterator()];
+    mergeAdjacentTextNodesOfSameType({
+      allNodes,
+      updates,
+    });
+  });
+  if (updates.length) {
+    console.log(
+      `maintain documnet structure debounced updates ${updates.length}`
+    );
     editor.update(() => {
       updates.forEach(
         (update) => {
@@ -287,27 +330,62 @@ const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
   }
 };
 
-const mergeAdjacentTextNodesOfSameType: MainDocumentStrutureFxn = ({
-  node,
+const mergeAdjacentTextNodesOfSameType = ({
+  allNodes,
   updates,
+}: {
+  allNodes: Array<DFSNode>;
+  updates: Array<{
+    dbgLabel: string;
+    dbgDetail?: string;
+    update: () => void;
+  }>;
 }) => {
-  const next = node.getNextSibling();
-  if (!next) return;
-  const tokenTypesToMerge: string[] = [
+  const tokenTypesToMerge: Array<string> = [
     UsfmTokenTypes.text,
     UsfmTokenTypes.error,
   ];
-  if (
-    $isUSFMTextNode(next) &&
-    next.getSid() === node.getSid() &&
-    tokenTypesToMerge.includes(next.getTokenType()) &&
-    tokenTypesToMerge.includes(node.getTokenType())
-  ) {
+
+  const allTextNodes: Array<USFMTextNode> = allNodes
+    .map((dfsNode) => dfsNode.node)
+    .filter(
+      (n) => $isUSFMTextNode(n) && tokenTypesToMerge.includes(n.getTokenType())
+    ) as Array<USFMTextNode>;
+  // Group consecutive nodes with same sid + tokenType
+  const groups: USFMTextNode[][] = [];
+  let currentGroup: USFMTextNode[] = [];
+
+  for (let i = 0; i < allTextNodes.length; i++) {
+    const node = allTextNodes[i];
+    const prev = allTextNodes[i - 1];
+
+    const shouldMergeWithPrev =
+      i > 0 &&
+      prev.getNextSibling() === node && // consecutive in the tree
+      prev.getSid() === node.getSid() &&
+      prev.getTokenType() === node.getTokenType();
+
+    if (shouldMergeWithPrev) {
+      currentGroup.push(node);
+    } else {
+      if (currentGroup.length > 0) groups.push(currentGroup);
+      currentGroup = [node];
+    }
+  }
+  if (currentGroup.length > 0) groups.push(currentGroup);
+
+  // Now reduce each group down to one node
+  for (const group of groups) {
+    if (group.length <= 1) continue;
+    const [first, ...rest] = group;
     updates.push({
-      dbgLabel: "mergeAdjacentTextNodesOfSameType",
+      dbgLabel: "mergeAdjacentTextNodesOfSameTypeBatch",
       update: () => {
-        node.setTextContent(node.getTextContent() + next.getTextContent());
-        next.remove();
+        const mergedText = group.map((n) => n.getTextContent()).join("");
+        first.setTextContent(mergedText);
+        rest.forEach((n) => {
+          n.remove();
+        });
       },
     });
   }

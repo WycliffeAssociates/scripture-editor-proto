@@ -24,6 +24,7 @@ import {
     type EditorMarkersViewState,
     EditorMarkersViewStates,
     EditorModes,
+    UsfmTokenTypes,
 } from "@/app/data/editor";
 import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers";
 import {

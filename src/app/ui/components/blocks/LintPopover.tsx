@@ -35,8 +35,8 @@ export function LintPopover({ wrapperClassNames }: Props) {
                         color="red"
                         className="z-50"
                     >
-                        {lint.messages.length} Lint issue
-                        {lint.messages.length > 1 ? "s" : ""}
+                        {lint.messages.length} Issues
+                        {/* {lint.messages.length > 1 ? "s" : ""} */}
                     </Button>
                 </Popover.Target>
 

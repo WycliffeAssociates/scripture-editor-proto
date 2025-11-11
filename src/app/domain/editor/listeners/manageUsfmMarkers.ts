@@ -17,6 +17,7 @@ import {
   EditorModes,
   UsfmTokenTypes,
 } from "@/app/data/editor";
+import {$createUSFMNestedEditorNode} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
 import {
   $createUSFMTextNode,
   $isUSFMTextNode,
@@ -27,6 +28,7 @@ import {type ParsedReference, parseSid} from "@/core/data/bible/bible";
 import {
   ALL_USFM_MARKERS,
   CHAPTER_VERSE_MARKERS,
+  isValidParaMarker,
   VALID_CHAR_MARKERS,
   VALID_NOTE_MARKERS,
   VALID_PARA_MARKERS,
@@ -35,8 +37,9 @@ import {guidGenerator} from "@/core/data/utils/generic";
 import {numRangeAtTokenStartWithWsRe} from "@/core/domain/usfm/lex";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
-const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\s+/;
-const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\s/;
+const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\*?\s+/;
+const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\*?\s/;
+
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
 // const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;
 
@@ -58,22 +61,52 @@ export function textNodeTransform({
   const text = node.getTextContent();
   const tokenType = node.getTokenType();
   const selection = $getSelection();
-  if (tokenType !== UsfmTokenTypes.text) return;
+
+  if (
+    tokenType !== UsfmTokenTypes.text &&
+    tokenType !== UsfmTokenTypes.marker &&
+    tokenType !== UsfmTokenTypes.endMarker
+  )
+    return;
 
   // The transform should only fire when the user is actively typing,
   // which is best represented by a collapsed cursor (not a range selection).
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
     return;
   }
+  const anchorNode = selection.anchor.getNode();
 
   // This transform runs for a specific `node`. We must ensure the cursor
   // is actually inside THIS node before proceeding.
   if (selection.anchor.key !== node.getKey()) {
     return;
   }
-  const cursorOffset = selection.anchor.offset;
-  const charBeforeCursorOffset = text.charAt(cursorOffset - 1);
-  if (charBeforeCursorOffset !== " ") return;
+  const isAlreadyMarker = tokenType === UsfmTokenTypes.marker;
+  const isAlreadyEndMarker = tokenType === UsfmTokenTypes.endMarker;
+  if ((isAlreadyMarker || isAlreadyEndMarker) && $isUSFMTextNode(anchorNode)) {
+    // if there is more than one \\, trim start, split on space index;
+    const numSlashes = text.split("\\").length;
+    if (numSlashes > 2) {
+      const spaceIndex = text.trimStart().indexOf(" ");
+      const [left, right] = anchorNode.splitText(spaceIndex);
+      const markerOrEnd = isAlreadyMarker
+        ? UsfmTokenTypes.marker
+        : UsfmTokenTypes.endMarker;
+      if ($isUSFMTextNode(left)) {
+        const currentTokenTypeLeft = left.getTokenType();
+        if (isAlreadyMarker && currentTokenTypeLeft !== markerOrEnd) {
+          left.setTokenType(markerOrEnd);
+        }
+      }
+      if ($isUSFMTextNode(right)) {
+        const currentTokenTypeRight = right.getTokenType();
+        if (isAlreadyEndMarker && currentTokenTypeRight !== markerOrEnd) {
+          right.setTokenType(markerOrEnd);
+        }
+      }
+    }
+    return;
+  }
 
   const markerMatch = text.match(markerTokenMatchLineStartSpaceReq); // example: \v , \c , \q
   // const isHandledVerseRangeNode = verseNumberTransform(node);
@@ -83,15 +116,31 @@ export function textNodeTransform({
   if (!markerMatch && !inMidMatch) return;
   const marker = markerMatch?.[1] || inMidMatch?.[1];
   if (!marker) return;
+  const isEndMarker =
+    !!markerMatch?.[0].includes("*") || !!inMidMatch?.[0].includes("*");
   const isValidMarker = ALL_USFM_MARKERS.has(marker);
   const restOfText = text.slice(markerMatch?.[0].length ?? 0);
-  const isStartOfLine = restOfText === "";
+  const anchorOffset = selection.anchor.offset;
+  const isStartOfLine =
+    selection.anchor.type === "text"
+      ? anchorOffset === anchorNode.getTextContentSize() &&
+        anchorOffset === markerMatch?.[0].length
+      : false;
+
+  let anchorOffsetToUse = anchorOffset;
+  if (inMidMatch && inMidMatch.index !== undefined) {
+    anchorOffsetToUse = inMidMatch.index + inMidMatch[0].trimEnd().length;
+  } else if (markerMatch && markerMatch.index !== undefined) {
+    anchorOffsetToUse = markerMatch.index + markerMatch[0].trimEnd().length;
+  }
+  // const isVeryEndOfLine = anchorOffset === anchorNode.getTextContentSize();
   if (!isValidMarker) return;
   // if we're collapsed, event though there's a space, wait til our cursor is in the space
 
-  const insertType = mapMarkerToInsertionType(marker);
+  const insertType = mapMarkerToInsertionType(marker, isEndMarker);
   const baseArgs: BaseInsertArgs = {
     anchorNode: node,
+    anchorOffsetToUse,
     marker,
     isStartOfLine,
     markersMutableState,
@@ -111,6 +160,7 @@ export function textNodeTransform({
   switch (insertType) {
     case InsertionTypes.verse:
       return $insertVerse(baseArgs);
+    // todo: decide on enable?
     case InsertionTypes.chapter:
       return $insertChapter(baseArgs);
     case InsertionTypes.para:
@@ -119,100 +169,49 @@ export function textNodeTransform({
       return $insertChar(baseArgs);
     case InsertionTypes.note:
       return $insertNote(baseArgs);
+    case InsertionTypes.endMarker:
+      return $insertEndMarker(baseArgs);
   }
 }
 
-// type HandleVerseInsert = {
-//   anchorNode: USFMTextNode;
-//   marker: string;
-//   isStartOfLine: boolean;
-//   markersMutableState: EditorMarkersMutableState;
-//   markersViewState: EditorMarkersViewState;
-// };
-// function _$handleVerseInsert({
-//   anchorNode,
-//   marker,
-//   isStartOfLine,
-//   markersMutableState,
-//   markersViewState,
-// }: HandleVerseInsert) {
-//   // --- 1. Get context ---
-//   const {nearestParaMarker, prevSidInfo} =
-//     findContextForVerseInsert(anchorNode);
+function $insertEndMarker(args: BaseInsertArgs): void {
+  const {anchorNode, marker, isStartOfLine} = args;
 
-//   // --- 2. Compute new SID ---
-//   const prevVerseEnd = prevSidInfo?.verseEnd ?? 1;
-//   const newSid = `${prevSidInfo?.book} ${prevSidInfo?.chapter}:${
-//     prevVerseEnd + 1
-//   }`;
+  const context = $getInsertionContext(anchorNode);
 
-//   // --- 3. Create new nodes ---
-//   const markerNode = $createUSFMTextNode(`\\${marker}`, {
-//     id: guidGenerator(),
-//     inPara: nearestParaMarker ?? "",
-//     tokenType: UsfmTokenTypes.marker,
-//     marker,
-//     sid: newSid,
-//     isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
-//     show:
-//       markersViewState === EditorMarkersViewStates.ALWAYS ||
-//       markersViewState === EditorMarkersViewStates.WHEN_EDITING,
-//   });
+  // Create nodes
+  const markerNode = $createMarkerNode({
+    marker,
+    context,
+    args,
+    tokenType: UsfmTokenTypes.endMarker,
+    sid: anchorNode.getSid(),
+    isEndMarker: true,
+  });
 
-//   const verseRangeNode = $createUSFMTextNode(` ${prevVerseEnd + 1}`, {
-//     id: guidGenerator(),
-//     inPara: nearestParaMarker ?? "",
-//     tokenType: UsfmTokenTypes.numberRange,
-//     sid: newSid,
-//     isMutable: markersMutableState === EditorMarkersMutableStates.MUTABLE,
-//   });
+  if (!isStartOfLine) {
+    const [left, right] = anchorNode.splitText(args.anchorOffsetToUse);
+    const woMarker = `${left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -markerNode.getTextContentSize())}`;
+    left?.setTextContent(woMarker);
+    if ($isUSFMTextNode(right) && right.getSid() !== anchorNode.getSid()) {
+      right.setSid(anchorNode.getSid());
+    }
 
-//   const blankTextNode = $createUSFMTextNode(" ", {
-//     id: guidGenerator(),
-//     inPara: nearestParaMarker ?? "",
-//     tokenType: UsfmTokenTypes.text,
-//     sid: newSid,
-//   });
-
-//   // --- 4. Determine split or replacement ---
-//   const selection = $getSelection();
-//   const offset = $isRangeSelection(selection)
-//     ? selection.anchor.offset
-//     : anchorNode.getTextContentSize();
-//   if (!isStartOfLine) {
-//     const [left, right] = anchorNode.splitText(offset);
-//     // take out the marker but leave the trailing space
-//     const woMarker = `${left
-//       .getTextContent()
-//       .trimEnd()
-//       .slice(0, -markerNode.getTextContentSize())} `;
-//     left?.setTextContent(woMarker);
-//     if ($isUSFMTextNode(right)) right.setSid(newSid);
-//     left.insertAfter(markerNode);
-//     markerNode.insertAfter(verseRangeNode);
-//     // todo: extract the unicode constant here to named reusable const
-//     right?.setTextContent(`\u00A0${right.getTextContent()}`);
-//     right?.selectStart();
-//     if (!selection || !$isRangeSelection(selection)) return;
-//     if (!right) {
-//       verseRangeNode.selectEnd();
-//     }
-//   } else {
-//     const sibling = anchorNode.getNextSibling();
-//     anchorNode.replace(markerNode);
-//     const alreadyHasVerseRangeSibling =
-//       sibling &&
-//       $isUSFMTextNode(sibling) &&
-//       sibling.getTokenType() === UsfmTokenTypes.numberRange;
-//     if (!alreadyHasVerseRangeSibling) {
-//       markerNode.insertAfter(verseRangeNode);
-//       verseRangeNode.insertAfter(blankTextNode);
-//       blankTextNode.select();
-//     } else {
-//       sibling?.selectStart();
-//     }
-//   }
-// }
+    left.insertAfter(markerNode);
+    right?.setTextContent(` ${right.getTextContent().trimStart()}`);
+    if (!right) {
+      markerNode.selectEnd();
+    } else {
+      right.selectStart();
+    }
+  } else {
+    anchorNode.replace(markerNode);
+    markerNode.selectEnd();
+  }
+}
 
 function $insertVerse(args: BaseInsertArgs): void {
   const {anchorNode, marker, isStartOfLine, markersMutableState} = args;
@@ -242,27 +241,20 @@ function $insertVerse(args: BaseInsertArgs): void {
     tokenType: UsfmTokenTypes.text,
   });
 
-  const selection = $getSelection();
-  const offset = $isRangeSelection(selection)
-    ? selection.anchor.offset
-    : anchorNode.getTextContentSize();
-
   if (!isStartOfLine) {
     // Mid-line insertion
-    const [left, right] = anchorNode.splitText(offset);
+    const [left, right] = anchorNode.splitText(args.anchorOffsetToUse);
     const woMarker = `${left
       .getTextContent()
       .trimEnd()
-      .slice(0, -markerNode.getTextContentSize())} `;
+      .slice(0, -markerNode.getTextContentSize())}`;
     left?.setTextContent(woMarker);
-
     if ($isUSFMTextNode(right)) right.setSid(context.newSid);
 
     left.insertAfter(markerNode);
     markerNode.insertAfter(verseRangeNode);
-    right?.setTextContent(`\u00A0${right.getTextContent()}`);
+    right?.setTextContent(` ${right.getTextContent().trimStart()}`);
 
-    if (!selection || !$isRangeSelection(selection)) return;
     if (!right) {
       verseRangeNode.selectEnd();
     } else {
@@ -322,12 +314,7 @@ function $insertChapter(args: BaseInsertArgs): void {
 
   if (!isStartOfLine) {
     // Chapter must be at start of line - split and insert linebreak
-    const selection = $getSelection();
-    const offset = $isRangeSelection(selection)
-      ? selection.anchor.offset
-      : anchorNode.getTextContentSize();
-
-    const [left, right] = anchorNode.splitText(offset);
+    const [left, right] = anchorNode.splitText(args.anchorOffsetToUse);
     const woMarker = left
       .getTextContent()
       .trimEnd()
@@ -370,34 +357,29 @@ function $insertPara(args: BaseInsertArgs): void {
 
   if (!isStartOfLine) {
     // Para should be at start of line - split and insert linebreak
-    const selection = $getSelection();
-    const offset = $isRangeSelection(selection)
-      ? selection.anchor.offset
-      : anchorNode.getTextContentSize();
-
-    const [left, right] = anchorNode.splitText(offset) as [
+    const [left, right] = anchorNode.splitText(args.anchorOffsetToUse) as [
       USFMTextNode,
-      USFMTextNode
+      USFMTextNode,
     ];
-    left.replace(markerNode);
-    right.setInPara(marker);
-    // left.set
-    // const woMarker = left
-    //   .getTextContent()
-    //   .trimEnd()
-    //   .slice(0, -markerNode.getTextContentSize());
-    // left?.setTextContent(woMarker);
-
-    // const lineBreakNode = $createLineBreakNode();
-    // left.insertAfter(lineBreakNode);
-    // lineBreakNode.insertAfter(markerNode);
+    const woMarker = `${left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -markerNode.getTextContentSize())}`;
+    left?.setTextContent(woMarker);
+    left.insertAfter(markerNode);
+    // left.replace(markerNode);
+    right?.setTextContent(` ${right.getTextContent().trimStart()}`);
     $ensureLineBreakBefore(markerNode);
 
     if ($isUSFMTextNode(right)) {
       right.setSid(context.newSid);
+      right.setInPara(marker);
       right.selectStart();
+    }
+    const nextSibling = anchorNode.getNextSibling();
+    if (nextSibling && $isUSFMTextNode(nextSibling)) {
+      nextSibling.selectStart();
     } else {
-      // No sibling - create empty text node
       const blankTextNode = $createContextTextNode({
         text: " ",
         context,
@@ -405,7 +387,7 @@ function $insertPara(args: BaseInsertArgs): void {
         extraProps: {inPara: marker},
       });
       markerNode.insertAfter(blankTextNode);
-      blankTextNode.select();
+      blankTextNode.selectStart();
     }
   } else {
     $ensureLineBreakBefore(anchorNode);
@@ -469,7 +451,12 @@ function $insertChar(args: BaseInsertArgs): void {
 
     if (!isStartOfLine) {
       // Mid-line: remove marker from text, split, and insert
-      const [left, right] = anchorNode.splitText(offset);
+      const letterAtOffset = anchorNode.getTextContent().charAt(offset);
+      const trueOffset =
+        letterAtOffset === "\\"
+          ? offset + openingMarker.getTextContentSize()
+          : offset;
+      const [left, right] = anchorNode.splitText(trueOffset);
       const woMarker = `${left
         .getTextContent()
         .trimEnd()
@@ -553,7 +540,7 @@ function $insertChar(args: BaseInsertArgs): void {
 // ============================================================================
 
 function $insertNote(args: BaseInsertArgs): void {
-  const {anchorNode, marker} = args;
+  const {anchorNode, marker, isStartOfLine} = args;
 
   const context = $getInsertionContext(anchorNode);
   const selection = $getSelection();
@@ -562,47 +549,35 @@ function $insertNote(args: BaseInsertArgs): void {
 
   // Notes often use implicit closure (e.g., \f...\f*)
   const common = {args, context, marker, sid: context.currentSidAsString};
-  const openingMarker = $createMarkerNode({
-    ...common,
-    tokenType: UsfmTokenTypes.marker,
+  const noteNode = $createUSFMNestedEditorNode({
+    text: `\\${marker}`,
+    marker,
+    id: guidGenerator(),
+    usfmType: marker,
+    // todo: pass down args from plugin
+    languageDirection: "ltr",
+    sid: context.currentSidAsString,
+    lintErrors: [],
+    isOpen: true,
   });
-  const closingMarker = $createMarkerNode({
-    ...common,
-    marker: `${marker}*`,
-    tokenType: UsfmTokenTypes.endMarker,
-  });
+  const offset = $isRangeSelection(selection)
+    ? selection.anchor.offset
+    : anchorNode.getTextContentSize();
 
-  if (selection.isCollapsed()) {
-    const emptyTextNode = $createContextTextNode({
-      text: " ",
-      context,
-      tokenType: UsfmTokenTypes.text,
-    });
-
-    anchorNode.insertBefore(openingMarker);
-    openingMarker.insertAfter(emptyTextNode);
-    emptyTextNode.insertAfter(closingMarker);
-    emptyTextNode.select();
+  if (!isStartOfLine) {
+    const letterAtOffset = anchorNode.getTextContent().charAt(offset);
+    const trueOffset =
+      letterAtOffset === "\\" ? offset + noteNode.getTextContentSize() : offset;
+    const [left, right] = anchorNode.splitText(trueOffset);
+    const woMarker = `${left
+      .getTextContent()
+      .trimEnd()
+      .slice(0, -noteNode.getTextContentSize())}`;
+    left?.setTextContent(woMarker);
+    left.insertAfter(noteNode);
+    right?.setTextContent(` ${right.getTextContent().trimStart()}`);
   } else {
-    // Similar to char wrapping
-    const {anchor, focus} = selection;
-    const isBackward = selection.isBackward();
-
-    const startOffset = isBackward ? focus.offset : anchor.offset;
-    const endOffset = isBackward ? anchor.offset : focus.offset;
-
-    const [before, middle] = anchorNode.splitText(startOffset);
-    const [selected, after] = (middle || before).splitText(
-      endOffset - startOffset
-    );
-
-    selected.insertBefore(openingMarker);
-    selected.insertAfter(closingMarker);
-
-    if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
-    if ($isUSFMTextNode(after)) after.setSid(context.newSid);
-
-    selected.select();
+    anchorNode.replace(noteNode);
   }
 }
 
@@ -612,12 +587,14 @@ const InsertionTypes = {
   para: "para",
   char: "char",
   note: "note",
+  endMarker: "endMarker",
 } as const;
 
 type InsertionType = (typeof InsertionTypes)[keyof typeof InsertionTypes];
 
 type BaseInsertArgs = {
   anchorNode: USFMTextNode;
+  anchorOffsetToUse: number;
   marker: string;
   isStartOfLine: boolean;
   markersMutableState: EditorMarkersMutableState;
@@ -666,16 +643,19 @@ type CreatMarkerNodeArgs = {
   sid: string;
   inCharMarkers?: string[];
   args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">;
+  isEndMarker?: boolean;
 };
-function $createMarkerNode({
+export function $createMarkerNode({
   marker,
   context,
   args,
   tokenType,
   sid,
   inCharMarkers,
+  isEndMarker,
 }: CreatMarkerNodeArgs): USFMTextNode {
-  return $createUSFMTextNode(`\\${marker}`, {
+  const markerText = isEndMarker ? `\\${marker}*` : `\\${marker}`;
+  return $createUSFMTextNode(markerText, {
     id: guidGenerator(),
     inPara: context.nearestParaMarker,
     tokenType: tokenType,
@@ -730,7 +710,13 @@ function $ensureLineBreakBefore(node: USFMTextNode): void {
 // Insertion Type Mapping
 // ============================================================================
 
-function mapMarkerToInsertionType(marker: string): InsertionType {
+function mapMarkerToInsertionType(
+  marker: string,
+  isEndMarker: boolean
+): InsertionType {
+  if (isEndMarker) {
+    return InsertionTypes.endMarker;
+  }
   if (marker === "v") {
     return InsertionTypes.verse;
   }
@@ -767,7 +753,7 @@ function findContextForVerseInsert(anchorNode: LexicalNode): {
 
       if (!nearestParaMarker && tokenType === UsfmTokenTypes.marker) {
         const marker = node.getMarker() ?? "";
-        if (ALL_USFM_MARKERS.has(marker)) {
+        if (isValidParaMarker(marker)) {
           nearestParaMarker = marker;
         }
       }

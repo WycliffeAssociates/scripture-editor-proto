@@ -30,12 +30,15 @@ export function lintAll(
   const flatFileTokens = getFlatFileTokens(editorState.toJSON());
   const ctx = initParseContext(flatFileTokens);
   const lintErrors = lintExistingUsfmTokens(flatFileTokens, ctx);
-  const withErrorsInThisBook = ctx.errorMessages.reduce((acc, curr) => {
-    if (!curr.nodeId) return acc;
-    acc[curr.nodeId] ??= [];
-    acc[curr.nodeId].push(curr);
-    return acc;
-  }, {} as Record<string, LintError[]>);
+  const withErrorsInThisBook = ctx.errorMessages.reduce(
+    (acc, curr) => {
+      if (!curr.nodeId) return acc;
+      acc[curr.nodeId] ??= [];
+      acc[curr.nodeId].push(curr);
+      return acc;
+    },
+    {} as Record<string, LintError[]>
+  );
   const updateFxns: (() => void)[] = [];
   // ;
   dfsEditorStateForLint({

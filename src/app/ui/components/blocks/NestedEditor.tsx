@@ -7,17 +7,31 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { Button, Group, Popover } from "@mantine/core";
 import {
+    $getRoot,
     type LexicalEditor,
     LineBreakNode,
+    type NodeKey,
     ParagraphNode,
     type SerializedEditorState,
     type SerializedLexicalNode,
+    TextNode,
 } from "lexical";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { EditorMarkersViewStates } from "@/app/data/editor";
+import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
+import {
+    inverseTextNodeTransform,
+    textNodeTransform,
+} from "@/app/domain/editor/listeners/manageUsfmMarkers";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
+import {
+    $createUSFMTextNode,
+    USFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
 import type { LintError } from "@/core/data/usfm/lint";
+import { guidGenerator } from "@/core/data/utils/generic";
 
 type Props = {
     outerMarker: string;
@@ -43,8 +57,12 @@ export function NestedEditor({
 }: Props) {
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
+    const markersInPreview = useRef(new Set<NodeKey>());
+    const { project } = useWorkspaceContext();
+    const { appSettings } = project;
+    const { markersMutableState, markersViewState, mode } = appSettings;
     const [mainEditor] = useLexicalComposerContext();
-    // const [hasOpened, setHasOpened] = useState(false);
+    const [hasOpened, setHasOpened] = useState(false);
     const [inProgressEditsJson, setInProgressEditsJson] =
         useState<SerializedEditorState<SerializedLexicalNode> | null>(
             initialEditorState,
@@ -53,7 +71,25 @@ export function NestedEditor({
     const nestedConfig = {
         namespace: `nested-${outerMarker}-${id}`,
         editable: true,
-        nodes: [ParagraphNode, LineBreakNode, USFMTextNode, USFMElementNode],
+        nodes: [
+            USFMElementNode,
+            USFMTextNode,
+            {
+                replace: TextNode,
+                with: (node: TextNode) => {
+                    return $createUSFMTextNode(node.getTextContent(), {
+                        id: guidGenerator(),
+                        sid: "",
+                        inPara: "",
+                    });
+                },
+                withKlass: USFMTextNode,
+            },
+            // only one, default container for chap
+            ParagraphNode,
+            // USFMDecoratorNode,
+            LineBreakNode,
+        ],
         onError(error: Error) {
             console.error("Nested editor error:", error);
         },
@@ -96,6 +132,13 @@ export function NestedEditor({
             if (editor && domEl) {
                 const parsed = editor.parseEditorState(initialEditorState);
                 editor.setEditorState(parsed, { tag: "history-merge" });
+                setHasOpened(true);
+                editor.update(() => {
+                    // when it open select the end of the first textNode:
+                    const root = $getRoot();
+                    const firstChild = root.getAllTextNodes()[0];
+                    firstChild.selectEnd();
+                });
             } else if (!cancelled) {
                 requestAnimationFrame(tryInit);
             }
@@ -106,11 +149,75 @@ export function NestedEditor({
         };
     }, [isOpen, initialEditorState, id]);
 
+    useEffect(() => {
+        if (!hasOpened) return;
+        const editor = nestedEditorRef.current;
+        if (!editor) return;
+        const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
+            if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
+                return;
+            }
+            toggleShowOnToggleableNodes({
+                editor,
+                editorState,
+                markersViewState,
+                currentActive: markersInPreview.current,
+                markersMutableState,
+                setCurrentActive: (activeNodes) => {
+                    markersInPreview.current = activeNodes;
+                },
+            });
+        });
+
+        const unregisterTransformWhileTyping = editor.registerNodeTransform(
+            USFMTextNode,
+            (node) => {
+                const arg = {
+                    node,
+                    editor,
+                    editorMode: mode,
+                    markersMutableState,
+                    markersViewState,
+                };
+                textNodeTransform(arg);
+                inverseTextNodeTransform(arg);
+            },
+        );
+
+        return () => {
+            wysiPreview();
+            unregisterTransformWhileTyping();
+        };
+    }, [markersViewState, markersMutableState, hasOpened, mode]);
+
     const hasErrors = lintErrors.length > 0;
     const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";
     const errorTitle =
         lintErrors.map((e) => e.message).join("; ") || "Open nested editor";
 
+    // function applyInProgressEdits() {
+    //     const editor = nestedEditorRef.current;
+    //     const domEl = document.querySelector(`[data-id="${id}"]`);
+    //     if (editor && inProgressEditsJson && domEl) {
+    //         editor.setEditorState(
+    //             editor.parseEditorState(inProgressEditsJson),
+    //             {
+    //                 tag: "history-merge",
+    //             },
+    //         );
+    //     }
+    //     setHasOpened(true);
+    // }
+    // function mimicRootAttributes() {
+    //     const root = document.getElementById("root") as HTMLDivElement;
+    //     const editorWrapper = editorWrapperDomElRef.current;
+    //     if (editorWrapper && root) {
+    //         Object.entries(root.dataset).forEach(([key, value]) => {
+    //             editorWrapper.dataset[key] = value;
+    //         });
+    //         editorWrapper.classList = root.classList.toString();
+    //     }
+    // }
     return (
         <Popover
             defaultOpened={isOpen}
@@ -120,28 +227,11 @@ export function NestedEditor({
             position="bottom"
             shadow="md"
             width={500}
-            onEnterTransitionEnd={() => {
-                const editor = nestedEditorRef.current;
-                const domEl = document.querySelector(`[data-id="${id}"]`);
-                if (editor && inProgressEditsJson && domEl) {
-                    editor.setEditorState(
-                        editor.parseEditorState(inProgressEditsJson),
-                        {
-                            tag: "history-merge",
-                        },
-                    );
-                }
-
-                // theese are rendered in a portal outside of the body, so mimic the #root attributes and classList on to it:
-                const root = document.getElementById("root") as HTMLDivElement;
-                const editorWrapper = editorWrapperDomElRef.current;
-                if (editorWrapper && root) {
-                    Object.entries(root.dataset).forEach(([key, value]) => {
-                        editorWrapper.dataset[key] = value;
-                    });
-                    editorWrapper.classList = root.classList.toString();
-                }
-            }}
+            // onEnterTransitionEnd={() => {
+            //     ;
+            //     mimicRootAttributes();
+            //     applyInProgressEdits();
+            // }}
         >
             <Popover.Target>
                 <Button
@@ -171,6 +261,7 @@ export function NestedEditor({
                             contentEditable={
                                 <ContentEditable
                                     data-id={id}
+                                    data-js="editor-container"
                                     className="outline-none min-h-[100px] p-1 border rounded"
                                 />
                             }
