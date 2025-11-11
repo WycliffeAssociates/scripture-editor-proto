@@ -105,6 +105,13 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Java 17 for Android Gradle
+        if: matrix.mobile == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17' # <-- Required by modern AGP
+
       - name: Build + Release
         uses: tauri-apps/tauri-action@mobile
         env:
