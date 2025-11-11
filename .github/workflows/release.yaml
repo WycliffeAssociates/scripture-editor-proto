@@ -74,8 +74,8 @@ jobs:
       - name: Initialize Android project if missing
         if: matrix.os == 'ubuntu-22.04'
         run: |
-          if [ ! -d src/tauri/gen/android ]; then
-            pnpm tauri android init -y
+          if [ ! -d src/tauri/rust/gen/android ]; then
+            pnpm tauri android init
           fi
 
       - name: Build + Release
