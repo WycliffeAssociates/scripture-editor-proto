@@ -143,9 +143,9 @@ function Index() {
     const { projects } = useLoaderData({ from: "__root__" });
     const { settingsManager } = useRouter().options.context;
     return (
-        <div>
-            <h1>Projects</h1>
-            <ul className="flex flex-col gap-2">
+        <div className="p-8">
+            <h1 className="text-2xl font-bold mb-3">Current Projects</h1>
+            <ul className="flex flex-col gap-3">
                 {projects?.map((project: Project) => (
                     <Link
                         key={project.projectDir.path}
@@ -163,34 +163,52 @@ function Index() {
                 ))}
             </ul>
 
-            <br />
-            <h1>Find a Repo</h1>
-            <RepoDownload
-                onDownload={handleDownload}
-                isDownloadDisabled={false}
-            ></RepoDownload>
-
-            <div>
-                {/** biome-ignore lint/correctness/useUniqueElementIds: <explanation> */}
-                <input
-                    type="file"
-                    id="file-picker"
-                    name="fileList"
-                    webkitdirectory="true"
-                    multiple
-                    onChange={handleOpenDirectory}
-                />
-            </div>
-
-            <div>
-                <label htmlFor="file-input">Select File (ZIP): </label>
-                {/** biome-ignore lint/correctness/useUniqueElementIds: <explanation> */}
-                <input
-                    id="file-input"
-                    type="file"
-                    accept=".zip"
-                    onChange={handleOpenFile}
-                />
+            <h1 className="text-2xl font-bold mb-3 mt-8">
+                Create a new project
+            </h1>
+            <div className="flex">
+                <div
+                    className="max-w-2xl w-full
+"
+                >
+                    <h2 className="text-xl font-bold mb-2">
+                        Search for a scripture repo
+                    </h2>
+                    <div className="w-full">
+                        <RepoDownload
+                            onDownload={handleDownload}
+                            isDownloadDisabled={false}
+                        />
+                    </div>
+                </div>
+                <div className="ml-44 flex flex-col gap-8">
+                    <div className="flex items-center gap-2 flex-col items-start">
+                        <label htmlFor="file-picker"> Upload a folder</label>
+                        {/** biome-ignore lint/correctness/useUniqueElementIds: <explanation> */}
+                        <input
+                            className="p-2 border border-gray-300 rounded"
+                            type="file"
+                            id="file-picker"
+                            name="fileList"
+                            webkitdirectory="true"
+                            multiple
+                            onChange={handleOpenDirectory}
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 flex-col items-start">
+                        <label htmlFor="file-input">
+                            Or Select File (ZIP):{" "}
+                        </label>
+                        {/** biome-ignore lint/correctness/useUniqueElementIds: <explanation> */}
+                        <input
+                            className="p-2 border border-gray-300 rounded"
+                            id="file-input"
+                            type="file"
+                            accept=".zip"
+                            onChange={handleOpenFile}
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -10,13 +10,26 @@ import {
     Text,
 } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
+import {
+    $getSelection,
+    $isElementNode,
+    $isLineBreakNode,
+    $isRangeSelection,
+    KEY_SPACE_COMMAND,
+} from "lexical";
 import { ChevronDown, Code, Plus } from "lucide-react";
 import { useState } from "react";
 import {
     type EditorMarkersMutableState,
     type EditorMarkersViewState,
     EditorMarkersViewStates,
+    EditorModes,
 } from "@/app/data/editor";
+import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers";
+import {
+    $createUSFMTextNode,
+    $isUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
 // import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
@@ -24,10 +37,11 @@ import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+import { guidGenerator } from "@/core/data/utils/generic";
 import { EditorMarkersMutableStates } from "../../../data/editor";
 
 export function Toolbar() {
-    const { actions, project } = useWorkspaceContext();
+    const { actions, project, editorRef } = useWorkspaceContext();
 
     // const {} = useProjectContext();
 
@@ -46,7 +60,7 @@ export function Toolbar() {
             py="xs"
             gap="md"
             display="flex"
-            className="border-y border-[var(--mantine-color-default-border)] divide-x divide-[var(--mantine-color-default-border)]"
+            className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
         >
             <ProjectList />
             <ReferencePicker />
@@ -173,7 +187,7 @@ function ProjectList() {
                 ))}
                 <Divider />
                 <Menu.Item leftSection={<Plus size={14} />}>
-                    <Link to="/create">New Project</Link>
+                    <Link to="/">New Project</Link>
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

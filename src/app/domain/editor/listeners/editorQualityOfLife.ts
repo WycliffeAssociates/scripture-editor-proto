@@ -63,7 +63,11 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
       event.preventDefault();
       event.stopPropagation();
       editor.update(() => {
-        console.log("selecting next sibling");
+        // if for some reason next text node doens't start with space, make sure if does.
+        const nextTextContent = nextSibling.getTextContent();
+        if (!nextTextContent.startsWith(" ")) {
+          nextSibling.setTextContent(` ${nextTextContent}`);
+        }
         nextSibling.select(1, 1);
       });
     }

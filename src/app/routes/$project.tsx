@@ -16,7 +16,11 @@ import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts
 
 export const Route = createFileRoute("/$project")({
     component: RouteComponent,
-    pendingComponent: () => <div>Loading...</div>,
+    pendingComponent: () => (
+        <div className="h-screen w-screen grid place-items-center">
+            Loading...
+        </div>
+    ),
     pendingMs: 100,
     loader: async ({ context, params }) => {
         console.time("total time");

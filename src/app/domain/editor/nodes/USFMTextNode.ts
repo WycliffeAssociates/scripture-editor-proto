@@ -231,6 +231,10 @@ export class USFMTextNode extends TextNode {
     if (states.tokenType === UsfmTokenTypes.endMarker) {
       element.classList.add("isCharCloseMarker");
     }
+    if (states.tokenType === UsfmTokenTypes.numberRange) {
+      element.dir = "ltr";
+    }
+
     return element;
   }
   updateDOM(
