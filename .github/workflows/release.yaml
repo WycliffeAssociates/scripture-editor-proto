@@ -77,6 +77,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
-          prerelease: false
+          prerelease: true
           args: ${{ matrix.args }}
           mobile: ${{ matrix.mobile }}
