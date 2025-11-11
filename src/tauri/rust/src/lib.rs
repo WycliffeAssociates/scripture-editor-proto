@@ -36,7 +36,7 @@ type SetupResult = std::result::Result<(), Box<dyn std::error::Error>>;
 // --- 1. The Mobile Entry Point / Setup Hook ---
 // Note the required '&mut tauri::App' argument and the specific Result type.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-fn setup_app(app: &mut tauri::App) -> SetupResult {
+pub fn setup_app(app: &mut tauri::App) -> SetupResult {
 
     // Moved your original setup logic here.
     #[cfg(debug_assertions)] // only include this code on dev builds
@@ -52,17 +52,23 @@ fn setup_app(app: &mut tauri::App) -> SetupResult {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![
-            parse_usfm,
-            git::clone_repo,
-            hello_world
-        ])
-        .setup(setup_app)
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .plugin(tauri_plugin_opener::init());
+
+    // 1. CONDITIONAL WINDOW_STATE PLUGIN REGISTRATION
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+    }
+    builder.invoke_handler(tauri::generate_handler![
+        parse_usfm,
+        git::clone_repo,
+        hello_world
+    ])
+    .setup(setup_app)
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
 }
