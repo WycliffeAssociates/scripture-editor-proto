@@ -43,18 +43,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
-
-      - uses: actions/setup-node@v4
+          version: 10
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "pnpm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Linux deps
+      - name: Install Linux deps
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
@@ -65,7 +67,12 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: install js deps
+      - name: Debug path
+        run: |
+          pwd
+          ls -a
+
+      - name: Install dependencies
         run: pnpm install
 
       - name: Build + Release
