@@ -30,27 +30,7 @@ fn hello_world() -> String {
     "Hello, world!".to_string()
 }
 
-// Use the precise return type required by tauri::Builder::setup
-type SetupResult = std::result::Result<(), Box<dyn std::error::Error>>;
-
-// --- 1. The Mobile Entry Point / Setup Hook ---
-// Note the required '&mut tauri::App' argument and the specific Result type.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn setup_app(app: &mut tauri::App) -> SetupResult {
-
-    // Moved your original setup logic here.
-    #[cfg(debug_assertions)] // only include this code on dev builds
-    {
-        // Your debug assertions code (left commented as before)
-        // let window = app
-        //     .get_webview_window("main")
-        //     .expect("Failed to get main window");
-        // // window.open_devtools();
-    }
-
-    Ok(())
-}
-
 pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
@@ -67,7 +47,18 @@ pub fn run() {
         git::clone_repo,
         hello_world
     ])
-    .setup(setup_app)
+    .setup(move |app| {
+        #[cfg(debug_assertions)] // only include this code on dev builds
+        {
+            // Your debug assertions code (left commented as before)
+            // let window = app
+            //     .get_webview_window("main")
+            //     .expect("Failed to get main window");
+            // // window.open_devtools();
+        }
+
+        Ok(())
+    })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
