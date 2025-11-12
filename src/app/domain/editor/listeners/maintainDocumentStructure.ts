@@ -5,20 +5,20 @@ import {
     type EditorState,
     type LexicalEditor,
 } from "lexical";
-import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor";
-import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
     $isVerseRangeTextNode,
     type USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     ALL_CHAR_MARKERS,
     CHAPTER_VERSE_MARKERS,
-} from "@/core/data/usfm/tokens";
-import { guidGenerator } from "@/core/data/utils/generic";
-import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex";
+} from "@/core/data/usfm/tokens.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 
 export type DocStructureFxnArgs = {
     node: USFMTextNode;

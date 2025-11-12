@@ -1,9 +1,9 @@
-import { MainEditor } from "@/app/ui/components/blocks/Editor";
-import { LintPopover } from "@/app/ui/components/blocks/LintPopover";
-import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor";
-import { SearchPanel } from "@/app/ui/components/blocks/Search";
-import { Toolbar } from "@/app/ui/components/blocks/Toolbar";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
+import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
+import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
+import { SearchPanel } from "@/app/ui/components/blocks/Search.tsx";
+import { Toolbar } from "@/app/ui/components/blocks/Toolbar.tsx";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import styles from "@/app/ui/styles/modules/Projectview.module.css";
 
 export function ProjectView() {

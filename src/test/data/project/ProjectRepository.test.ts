@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service";
-import { LanguageDirection } from "@/core/domain/project/project";
-import { FileWriter } from "@/core/io/DefaultFileWriter";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle";
-import type { IFileHandle } from "@/core/io/IFileHandle";
-import type { IFileWriter } from "@/core/io/IFileWriter";
-import type { IPathHandle } from "@/core/io/IPathHandle";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider";
-import type { Project } from "@/core/persistence/ProjectRepository";
-import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository";
-import { MockFileHandle } from "@/test/shared/mock";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
+import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileHandle } from "@/core/io/IFileHandle.ts";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
+import type { IPathHandle } from "@/core/io/IPathHandle.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
+import { MockFileHandle } from "@/test/shared/mock.ts";
 
 // Mock implementations for dependencies
 let inMemoryFiles: Map<string, string> = new Map();

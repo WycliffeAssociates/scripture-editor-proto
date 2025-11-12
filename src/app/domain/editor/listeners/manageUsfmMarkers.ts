@@ -16,15 +16,15 @@ import {
     type EditorMode,
     EditorModes,
     UsfmTokenTypes,
-} from "@/app/data/editor";
-import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+} from "@/app/data/editor.ts";
+import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
     type USFMTextNodeMetadata,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { type ParsedReference, parseSid } from "@/core/data/bible/bible";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
 import {
     ALL_USFM_MARKERS,
     CHAPTER_VERSE_MARKERS,
@@ -32,9 +32,9 @@ import {
     VALID_CHAR_MARKERS,
     VALID_NOTE_MARKERS,
     VALID_PARA_MARKERS,
-} from "@/core/data/usfm/tokens";
-import { guidGenerator } from "@/core/data/utils/generic";
-import { numRangeAtTokenStartWithWsRe } from "@/core/domain/usfm/lex";
+} from "@/core/data/usfm/tokens.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { numRangeAtTokenStartWithWsRe } from "@/core/domain/usfm/lex.ts";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
 const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\*?\s+/;

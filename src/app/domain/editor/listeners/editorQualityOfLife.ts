@@ -1,6 +1,6 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor";
-import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode"; // Adjust your import path
+import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts"; // Adjust your import path
 
 /**
  * A command helper that moves the selection to an adjacent node when it's contextually

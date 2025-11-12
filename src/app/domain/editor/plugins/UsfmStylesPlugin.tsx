@@ -1,7 +1,7 @@
 import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
-import type { EditorMarkersViewState } from "@/app/data/editor";
-import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles";
+import type { EditorMarkersViewState } from "@/app/data/editor.ts";
+import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
 
 export function UsfmStylesPlugin() {
     // Using useRef to hold the stylesheet instance to avoid re-creation on re-renders.

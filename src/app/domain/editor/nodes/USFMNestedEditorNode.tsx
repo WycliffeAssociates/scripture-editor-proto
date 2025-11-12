@@ -9,12 +9,12 @@ import type {
     Spread,
 } from "lexical";
 import { DecoratorNode } from "lexical";
-import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor";
-import type { LintError } from "@/core/data/usfm/lint";
-import type { ParsedToken } from "@/core/data/usfm/parse";
-import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic";
+import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic.ts";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 

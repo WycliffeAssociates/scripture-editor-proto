@@ -5,18 +5,18 @@ import {
     type SerializedLexicalNode,
 } from "lexical";
 import { useEffect, useState } from "react";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $isUSFMTextNode,
     isSerializedPlainTextUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     makeSid,
     type ParsedReference,
     parseSid,
-} from "@/core/data/bible/bible";
+} from "@/core/data/bible/bible.ts";
 
 type Props = {
     workingFiles: ParsedFile[];

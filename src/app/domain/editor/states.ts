@@ -1,8 +1,8 @@
 // --- NodeState Definitions ---
 
 import { createState } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor";
-import type { LintError } from "@/core/data/usfm/lint";
+import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
 
 /**
  * Defines the NodeState for 'id'. It's a unique identifier for the node.

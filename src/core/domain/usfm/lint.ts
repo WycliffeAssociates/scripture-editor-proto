@@ -1,12 +1,15 @@
-import { parseSid } from "@/core/data/bible/bible";
-import { type LintableToken, LintErrorKeys } from "@/core/data/usfm/lint";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import { type LintableToken, LintErrorKeys } from "@/core/data/usfm/lint.ts";
 import {
     ALL_USFM_MARKERS,
     All_EXPLICT_CHAR_CLOSE_MARKERS,
     VALID_NOTE_MARKERS,
-} from "@/core/data/usfm/tokens";
-import { numRangeAtTokenStartWithWsRe, TokenMap } from "@/core/domain/usfm/lex";
-import type { ParseContext } from "@/core/domain/usfm/tokenParsers";
+} from "@/core/data/usfm/tokens.ts";
+import {
+    numRangeAtTokenStartWithWsRe,
+    TokenMap,
+} from "@/core/domain/usfm/lex.ts";
+import type { ParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 
 export function lint<T extends LintableToken>(ctx: ParseContext<T>) {
     // this is a parse fxn that tracks the state of open/close char and note markers

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ScriptureBurritoProjectLoader } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
-import type { IFileWriter } from "@/core/io/IFileWriter";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import {
     MockDirectoryHandle,
     type MockIDirectoryHandle,
     mockMd5Service,
-} from "@/test/shared/mock";
+} from "@/test/shared/mock.ts";
 
 // Mock implementations for dependencies
 let inMemoryFiles: Map<string, string> = new Map();

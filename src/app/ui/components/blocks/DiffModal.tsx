@@ -11,8 +11,8 @@ import {
     useMantineTheme,
 } from "@mantine/core";
 import type { Change } from "diff";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import type { ProjectDiff } from "@/app/ui/hooks/useSave";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 
 // --- NEW HELPER COMPONENT ---
 type HighlightedDiffProps = {

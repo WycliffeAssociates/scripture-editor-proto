@@ -4,7 +4,7 @@ import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import type {
     IDirectoryProvider,
     ResourceMetadata,
-} from "@/core/persistence/DirectoryProvider";
+} from "@/core/persistence/DirectoryProvider.ts";
 import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
 

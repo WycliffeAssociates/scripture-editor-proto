@@ -4,7 +4,7 @@ import {
     EditorMarkersViewStates,
     type EditorMode,
     EditorModes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 
 type SupportedLocales = "en" | "es";
 export type Settings = {

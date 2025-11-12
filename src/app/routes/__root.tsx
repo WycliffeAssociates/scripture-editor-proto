@@ -1,5 +1,5 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
-import type { RouterContext } from "@/app/entrypoint";
+import type { RouterContext } from "@/app/entrypoint.tsx";
 
 const RootLayout = () => {
     // useEffectOnce(() => {

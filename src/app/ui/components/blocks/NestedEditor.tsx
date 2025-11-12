@@ -18,20 +18,20 @@ import {
 } from "lexical";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorMarkersViewStates } from "@/app/data/editor";
-import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
+import { EditorMarkersViewStates } from "@/app/data/editor.ts";
+import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
-} from "@/app/domain/editor/listeners/manageUsfmMarkers";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
+} from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
+import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import type { LintError } from "@/core/data/usfm/lint";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 type Props = {
     outerMarker: string;

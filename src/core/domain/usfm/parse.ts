@@ -1,11 +1,11 @@
-import type { LintableToken } from "@/core/data/usfm/lint";
-import { lexUsfm } from "@/core/domain/usfm/lex";
+import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import { lexUsfm } from "@/core/domain/usfm/lex.ts";
 import {
     organizeByChapters,
     preparedAlreadyGivenTokens,
     prepareTokens,
-} from "@/core/domain/usfm/parseUtils";
-import { type ParseContext, parseTokens } from "./tokenParsers";
+} from "@/core/domain/usfm/parseUtils.ts";
+import { type ParseContext, parseTokens } from "./tokenParsers.ts";
 
 export const parseUSFMfile = <T extends LintableToken>(
     text: string,

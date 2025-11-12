@@ -5,16 +5,16 @@ import type {
     SerializedEditorState,
     SerializedLexicalNode,
 } from "lexical";
-import { EDITOR_TAGS_USED } from "@/app/data/editor";
-import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $isUSFMTextNode,
     type SerializedUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import type { LintableTokenLike } from "@/app/ui/hooks/useActions";
-import type { LintError } from "@/core/data/usfm/lint";
-import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse";
-import { initParseContext } from "@/core/domain/usfm/tokenParsers";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { LintableTokenLike } from "@/app/ui/hooks/useActions.tsx";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
+import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 
 type LintVersesArgs = {
     editorState: EditorState;

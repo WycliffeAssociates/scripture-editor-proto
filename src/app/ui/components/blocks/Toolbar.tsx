@@ -25,21 +25,21 @@ import {
     EditorMarkersViewStates,
     EditorModes,
     UsfmTokenTypes,
-} from "@/app/data/editor";
-import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers";
+} from "@/app/data/editor.ts";
+import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
 // import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
 // import { parseUSFM } from "@/app/ui/hooks/useProjectState";
 // import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
-import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker";
-import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
-import { EditorMarkersMutableStates } from "../../../data/editor";
+import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
+import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { EditorMarkersMutableStates } from "../../../data/editor.ts";
 
 export function Toolbar() {
     const { actions, project, editorRef } = useWorkspaceContext();

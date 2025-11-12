@@ -8,21 +8,21 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import {
     MarkerTooltip,
     // ToolTipPlugin,
-} from "@/app/domain/editor/plugins/ToolTipPlugin";
-import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin";
-import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
+import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
+import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
     const { editorRef } = useWorkspaceContext();

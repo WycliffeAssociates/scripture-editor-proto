@@ -1,7 +1,7 @@
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
-import { messages as enMessages } from "./locales/en/messages";
-import { messages as esMessages } from "./locales/es/messages";
+import { messages as enMessages } from "./locales/en/messages.ts";
+import { messages as esMessages } from "./locales/es/messages.ts";
 
 export function I18nEntry({
     children,

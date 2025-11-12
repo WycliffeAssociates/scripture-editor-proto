@@ -6,7 +6,7 @@ import {
     type LexicalEditor,
     SELECTION_CHANGE_COMMAND,
 } from "lexical";
-import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
+import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 export function syncReferencePaneSid(
     editor: LexicalEditor,

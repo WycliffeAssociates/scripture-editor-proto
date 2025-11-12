@@ -1,7 +1,10 @@
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible";
-import { dedupeErrorMessagesList, type LintError } from "@/core/data/usfm/lint";
+import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible.ts";
+import {
+    dedupeErrorMessagesList,
+    type LintError,
+} from "@/core/data/usfm/lint.ts";
 
 export type UseLintReturn = ReturnType<typeof useLint>;
 type UseLintProps = {

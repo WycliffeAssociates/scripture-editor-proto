@@ -1,4 +1,4 @@
-import { type Settings, settingsDefaults } from "@/app/data/settings";
+import { type Settings, settingsDefaults } from "@/app/data/settings.ts";
 
 const APP_PREFERENCES_KEY = "app_preferences";
 

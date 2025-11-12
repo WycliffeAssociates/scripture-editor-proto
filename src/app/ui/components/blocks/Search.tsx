@@ -16,8 +16,8 @@ import {
     WholeWord,
     X,
 } from "lucide-react";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import type { UseSearchReturn } from "@/app/ui/hooks/useSearch";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
 
 export function SearchPanel() {
     const { search } = useWorkspaceContext();

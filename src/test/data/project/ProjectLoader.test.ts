@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
-import type { IFileWriter } from "@/core/io/IFileWriter";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
-import { MockDirectoryHandle, type MockFileHandle } from "@/test/shared/mock";
+import {
+    MockDirectoryHandle,
+    type MockFileHandle,
+} from "@/test/shared/mock.ts";
 
 // Mock implementations for dependencies
 const mockFileWriter: IFileWriter = {

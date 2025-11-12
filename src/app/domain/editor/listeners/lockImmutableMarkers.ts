@@ -10,14 +10,14 @@ import {
     EDITOR_TAGS_USED,
     type EditorMarkersMutableState,
     EditorMarkersMutableStates,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 import {
     $createUSFMTextNode,
     $isLockedUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
     return editor.registerCommand(

@@ -12,29 +12,29 @@ import {
     EDITOR_TAGS_USED,
     EditorMarkersViewStates,
     EditorModes,
-} from "@/app/data/editor";
-import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife";
-import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
-import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
+} from "@/app/data/editor.ts";
+import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
+import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
+import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
     lockImmutableMarkersOnCut,
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
-} from "@/app/domain/editor/listeners/lockImmutableMarkers";
+} from "@/app/domain/editor/listeners/lockImmutableMarkers.ts";
 import {
     maintainDocumentStructure,
     maintainDocumentStructureDebounced,
-} from "@/app/domain/editor/listeners/maintainDocumentStructure";
-import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata";
+} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
+import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
-} from "@/app/domain/editor/listeners/manageUsfmMarkers";
+} from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 
-import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid";
-import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas";
-import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid.ts";
+import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
+import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
     const { project, actions, lint, referenceProject } = useWorkspaceContext();

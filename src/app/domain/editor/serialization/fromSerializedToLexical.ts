@@ -3,15 +3,15 @@ import type {
     SerializedLexicalNode,
     SerializedLineBreakNode,
 } from "lexical";
-import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor";
+import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import { dedupeErrorMessagesList } from "@/core/data/usfm/lint";
-import type { ParsedToken } from "@/core/data/usfm/parse";
-import { TokenMap } from "@/core/domain/usfm/lex";
+} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { dedupeErrorMessagesList } from "@/core/data/usfm/lint.ts";
+import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export function parsedUsfmTokensToJsonLexicalNode(
     tokens: ParsedToken[],

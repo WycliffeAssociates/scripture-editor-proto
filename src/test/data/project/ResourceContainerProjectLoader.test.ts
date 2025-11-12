@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { parse, stringify } from "yaml";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
-import { MockDirectoryHandle } from "@/test/shared/mock";
+import { MockDirectoryHandle } from "@/test/shared/mock.ts";
 
 // Mock implementations for dependencies
 let inMemoryFiles: Map<string, string> = new Map();

@@ -16,7 +16,7 @@ import {
     TOKENS_TO_LOCK_FROM_EDITING,
     USFM_TEXT_NODE_TYPE,
     UsfmTokenTypes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 import {
     idState,
     inCharsState,
@@ -27,9 +27,12 @@ import {
     showState,
     sidState,
     tokenTypeState,
-} from "@/app/domain/editor/states";
-import type { LintError } from "@/core/data/usfm/lint";
-import { ALL_CHAR_MARKERS, isValidParaMarker } from "@/core/data/usfm/tokens";
+} from "@/app/domain/editor/states.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import {
+    ALL_CHAR_MARKERS,
+    isValidParaMarker,
+} from "@/core/data/usfm/tokens.ts";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {

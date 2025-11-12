@@ -3,10 +3,10 @@ import {
     HISTORY_MERGE_TAG,
     type SerializedLineBreakNode,
 } from "lexical";
-import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode";
-import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
-import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import { TokenMap } from "@/core/domain/usfm/lex";
+import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export type EditorMode = "wysiwyg" | "source";
 export const EditorModes = {

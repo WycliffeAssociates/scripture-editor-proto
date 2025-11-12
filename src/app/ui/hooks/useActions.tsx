@@ -13,20 +13,20 @@ import {
     EditorMarkersViewStates,
     USFM_TEXT_NODE_TYPE,
     UsfmTokenTypes,
-} from "@/app/data/editor";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import type { Settings } from "@/app/data/settings";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+} from "@/app/data/editor.ts";
+import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import type { Settings } from "@/app/data/settings.ts";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     isSerializedToggleMutableUSFMTextNode,
     isSerializedToggleShowUSFMTextNode,
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import type { LintableToken } from "@/core/data/usfm/lint";
-import type { Project } from "@/core/persistence/ProjectRepository";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 export type LintableTokenLike = LintableToken & {

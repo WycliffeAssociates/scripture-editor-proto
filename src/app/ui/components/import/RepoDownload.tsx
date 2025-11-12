@@ -4,16 +4,16 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AutocompleteInput, {
     type AutocompleteItem,
-} from "@/app/ui/components/import/AutoCompleteInput";
+} from "@/app/ui/components/import/AutoCompleteInput.tsx";
 import {
     fetchUserOrOrgRepos,
     fetchUsersAndOrgs,
-} from "@/core/persistence/git/giteaApi";
+} from "@/core/persistence/git/giteaApi.ts";
 import type {
     GiteaOrganization,
     GiteaRepository,
     GiteaUser,
-} from "@/core/persistence/git/types";
+} from "@/core/persistence/git/types.ts";
 
 // Define the component's props interface
 interface RepoDownloadProps {

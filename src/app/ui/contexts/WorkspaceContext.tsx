@@ -1,35 +1,35 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { createContext, useContext, useEffect, useRef } from "react";
-import type { ParsedFile } from "@/app/data/parsedProject";
-import type { SettingsManager } from "@/app/data/settings";
+import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { SettingsManager } from "@/app/data/settings.ts";
 import {
     type UseActionsHook,
     useWorkspaceActions,
-} from "@/app/ui/hooks/useActions";
+} from "@/app/ui/hooks/useActions.tsx";
 import {
     type UseDynamicStylesheetHook,
     useDynamicStylesheet,
-} from "@/app/ui/hooks/useDynamicStyles";
-import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint";
+} from "@/app/ui/hooks/useDynamicStyles.tsx";
+import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint.tsx";
 import {
     type ReferenceProjectHook,
     useReferenceProject,
-} from "@/app/ui/hooks/useReferenceProject";
+} from "@/app/ui/hooks/useReferenceProject.tsx";
 import {
     type UseProjectDiffsReturn,
     useProjectDiffs,
-} from "@/app/ui/hooks/useSave";
+} from "@/app/ui/hooks/useSave.tsx";
 import {
     type UseSearchReturn,
     useProjectSearch,
-} from "@/app/ui/hooks/useSearch";
+} from "@/app/ui/hooks/useSearch.tsx";
 import {
     useWorkspaceState,
     type WorkspaceState,
-} from "@/app/ui/hooks/useWorkspaceState";
-import type { LintError } from "@/core/data/usfm/lint";
-import type { Project } from "@/core/persistence/ProjectRepository";
+} from "@/app/ui/hooks/useWorkspaceState.tsx";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;

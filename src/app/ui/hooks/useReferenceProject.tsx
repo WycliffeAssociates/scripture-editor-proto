@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { projectParamToParsedFiles } from "@/app/routes/$project";
-import type { IProjectRepository } from "@/core/persistence/ProjectRepository";
+import { projectParamToParsedFiles } from "@/app/routes/$project.tsx";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
 export type ReferenceProjectHook = ReturnType<typeof useReferenceProject>;
 

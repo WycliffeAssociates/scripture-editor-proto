@@ -1,6 +1,6 @@
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
-import type { ScriptureBurritoProject } from "@/core/domain/project/ScriptureBurritoProjectLoader";
+import type { ScriptureBurritoProject } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
 
 /**
  * @function generateUsfmFilename

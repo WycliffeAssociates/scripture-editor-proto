@@ -6,21 +6,21 @@ import {
     LineBreakNode,
     type SerializedLexicalNode,
 } from "lexical";
-import { USFM_TEXT_NODE_TYPE } from "@/app/data/editor";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
+import { USFM_TEXT_NODE_TYPE } from "@/app/data/editor.ts";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     $isUSFMNestedEditorNode,
     isSerializedUSFMNestedEditorNode,
     type USFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $isUSFMTextNode,
     isSerializedNumberOrPlainTextUSFMTextNode,
     isSerializedPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { parseSid } from "@/core/data/bible/bible";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
 
 export function $serializedLexicalToUsfm(editor: LexicalEditor) {
     return editor.getEditorState().read(() => {

@@ -4,17 +4,17 @@ import {
     type LintableToken,
     type LintError,
     LintErrorKeys,
-} from "@/core/data/usfm/lint";
+} from "@/core/data/usfm/lint.ts";
 import {
     isValidParaMarker,
     VALID_CHAR_CROSS_REFERENCE_MARKERS,
     VALID_CHAR_FOOTNOTE_MARKERS,
     VALID_CHAR_MARKERS,
     VALID_NOTE_MARKERS,
-} from "@/core/data/usfm/tokens";
-import { finalizeChapterLabelLint, lint } from "@/core/domain/usfm/lint";
-import { TokenMap } from "./lex";
-import { mergeHorizontalWhitespaceToAdjacent } from "./parseUtils";
+} from "@/core/data/usfm/tokens.ts";
+import { finalizeChapterLabelLint, lint } from "@/core/domain/usfm/lint.ts";
+import { TokenMap } from "./lex.ts";
+import { mergeHorizontalWhitespaceToAdjacent } from "./parseUtils.ts";
 
 const attributeRegex = /^([a-zA-Z0-9\-_]+)="([^"]*)"$/;
 

@@ -9,17 +9,17 @@ import type {
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useEffectOnce } from "react-use";
-import { EDITOR_TAGS_USED } from "@/app/data/editor";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
+import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     buildSidContentMapForChapter,
     type SidContent,
     type SidContentMap,
     serializeToUsfmString,
-} from "@/app/domain/editor/serialization/lexicalToUsfm";
-import { parseSid } from "@/core/data/bible/bible";
+} from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
 
 // Import types from react-diff-view
 

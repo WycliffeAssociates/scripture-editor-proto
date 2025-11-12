@@ -1,9 +1,9 @@
 import { vi } from "vitest";
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle";
-import type { IFileHandle } from "@/core/io/IFileHandle";
-import type { IFileWriter } from "@/core/io/IFileWriter";
-import type { IPathHandle } from "@/core/io/IPathHandle";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileHandle } from "@/core/io/IFileHandle.ts";
+import type { IFileWriter } from "@/core/io/IFileWriter.ts";
+import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
 export const mockFileWriter = (
     inMemoryFiles: Map<string, string>,

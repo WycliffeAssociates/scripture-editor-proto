@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import { App } from "@/app/entrypoint";
-import { createBrowserSettingsManager } from "@/web/domain/settings";
+import { App } from "@/app/entrypoint.tsx";
+import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
 import { WebDirectoryProvider } from "@/web/persistence/WebDirectoryProvider.ts";
 
 // instantiante services

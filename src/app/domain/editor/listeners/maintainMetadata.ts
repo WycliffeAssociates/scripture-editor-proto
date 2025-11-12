@@ -9,29 +9,29 @@ import {
     EditorMarkersMutableStates,
     EditorMarkersViewStates,
     UsfmTokenTypes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 import type {
     DocStructureFxnArgs,
     MainDocumentStrutureFxn,
-} from "@/app/domain/editor/listeners/maintainDocumentStructure";
+} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import {
     $isUSFMNestedEditorNode,
     type USFMNestedEditorNode,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $isLockableUSFMTextNode,
     $isToggleableUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { parseSid } from "@/core/data/bible/bible";
-import { isValidParaMarker } from "@/core/data/usfm/tokens";
-import { markerTrimNoSlash, numRangeRe } from "@/core/domain/usfm/lex";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
+import { markerTrimNoSlash, numRangeRe } from "@/core/domain/usfm/lex.ts";
 import {
     getMutSidVals,
     LOOKAHEAD_MARKERS,
     type MutSidVals,
-} from "@/core/domain/usfm/parseUtils";
+} from "@/core/domain/usfm/parseUtils.ts";
 
 // metadata should be able to only run as a node transform since selection change shouldn't
 export function maintainDocumentMetaData(

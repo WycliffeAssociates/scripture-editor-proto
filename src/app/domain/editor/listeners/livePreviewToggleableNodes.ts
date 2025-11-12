@@ -19,11 +19,11 @@ import {
     EditorMarkersViewStates,
     TOKEN_TYPES_CAN_TOGGLE_HIDE,
     UsfmTokenTypes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 type toggleShowOnToggleableNodesArgs = {
     editor: LexicalEditor;

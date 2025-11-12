@@ -12,15 +12,18 @@ import {
     ElementNode,
     TextNode,
 } from "lexical";
-import { USFM_ELEMENT_NODE_TYPE, type USFMNodeJSON } from "@/app/data/editor";
+import {
+    USFM_ELEMENT_NODE_TYPE,
+    type USFMNodeJSON,
+} from "@/app/data/editor.ts";
 import {
     idState,
     inParaState,
     markerState,
     sidState,
     tokenTypeState,
-} from "@/app/domain/editor/states";
-import type { ParsedToken } from "@/core/data/usfm/parse";
+} from "@/app/domain/editor/states.ts";
+import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 
 export type USFMElementNodeJSON = SerializedElementNode & {
     type: typeof USFM_ELEMENT_NODE_TYPE;

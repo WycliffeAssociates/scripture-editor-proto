@@ -1,16 +1,16 @@
 import type { Token } from "moo";
-import { makeSid, parseSid } from "@/core/data/bible/bible";
-import type { LintableToken } from "@/core/data/usfm/lint";
-import { createParsedToken } from "@/core/data/usfm/parse";
+import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
+import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import { createParsedToken } from "@/core/data/usfm/parse.ts";
 import {
     markerTrimNoSlash,
     numRangeRe,
     TokenMap,
     type TokenName,
     type TokenNameSubset,
-} from "@/core/domain/usfm/lex";
-import type { LintOrParseFxn } from "@/core/domain/usfm/lint";
-import type { ParseContext } from "@/core/domain/usfm/tokenParsers";
+} from "@/core/domain/usfm/lex.ts";
+import type { LintOrParseFxn } from "@/core/domain/usfm/lint.ts";
+import type { ParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 
 export const mergeHorizontalWhitespaceToAdjacent = (
     tokens: LintableToken[],

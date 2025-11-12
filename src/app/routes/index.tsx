@@ -10,7 +10,7 @@ import { ProjectFileImporter } from "@/core/domain/project/import/ProjectFileImp
 import { WacsRepoImporter } from "@/core/domain/project/import/WacsRepoImporter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
-import { Route as projectRoute } from "./$project";
+import { Route as projectRoute } from "./$project.tsx";
 
 export const Route = createFileRoute("/")({
     component: Index,

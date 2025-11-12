@@ -14,14 +14,14 @@ import {
     TextNode,
 } from "lexical";
 import { useEffect, useRef } from "react";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
     const { referenceProject } = useWorkspaceContext();

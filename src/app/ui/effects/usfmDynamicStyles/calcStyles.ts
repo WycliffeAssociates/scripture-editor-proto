@@ -1,4 +1,7 @@
-import { type EditorMarkersViewState, UsfmTokenTypes } from "@/app/data/editor";
+import {
+    type EditorMarkersViewState,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 
 export function getPoetryStylesAsCssStyleSheet(
     markerViewState: EditorMarkersViewState,

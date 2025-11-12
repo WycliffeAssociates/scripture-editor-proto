@@ -1,17 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ParsedFile } from "@/app/data/parsedProject";
-import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical";
+import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 
-import { ProjectView } from "@/app/ui/components/views/ProjectView";
-import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext";
+import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
+import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import {
     getBookSlug,
     sortUsfmFilesByCanonicalOrder,
-} from "@/core/data/bible/bible";
-import type { LintError } from "@/core/data/usfm/lint";
+} from "@/core/data/bible/bible.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
 import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
-import { generateUsfmFilename } from "@/core/domain/project/scriptureBurritoHelpers";
-import { parseUSFMfile } from "@/core/domain/usfm/parse";
+import { generateUsfmFilename } from "@/core/domain/project/scriptureBurritoHelpers.ts";
+import { parseUSFMfile } from "@/core/domain/usfm/parse.ts";
 import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
 export const Route = createFileRoute("/$project")({

@@ -1,9 +1,9 @@
 import { Button, Popover } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { parseSid } from "@/core/data/bible/bible";
-import type { LintError } from "@/core/data/usfm/lint";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
 
 type Props = {
     wrapperClassNames?: string;

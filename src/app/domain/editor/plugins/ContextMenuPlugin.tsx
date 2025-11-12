@@ -27,14 +27,14 @@ import {
     EditorMarkersMutableStates,
     EditorMarkersViewStates,
     UsfmTokenTypes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
-import { checkAndSetIfLastMarker } from "../../../../core/domain/usfm/tokenParsers";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { checkAndSetIfLastMarker } from "../../../../core/domain/usfm/tokenParsers.ts";
 
 export type ContextMenuItem = {
     title: string;
