@@ -1,17 +1,17 @@
-import {beforeEach, describe, expect, test, vi} from "vitest";
-import type {IMd5Service} from "@/core/domain/md5/IMd5Service.ts";
-import {ProjectLoader} from "@/core/domain/project/ProjectLoader.ts";
-import type {IFileWriter} from "@/core/io/IFileWriter";
-import type {Project} from "@/core/persistence/ProjectRepository.ts";
-import {MockDirectoryHandle, type MockFileHandle} from "@/test/shared/mock";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
+import type { IFileWriter } from "@/core/io/IFileWriter";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import { MockDirectoryHandle, type MockFileHandle } from "@/test/shared/mock";
 
 // Mock implementations for dependencies
 const mockFileWriter: IFileWriter = {
-  writeFile: vi.fn(() => Promise.resolve()),
+    writeFile: vi.fn(() => Promise.resolve()),
 };
 
 const mockMd5Service: IMd5Service = {
-  calculateMd5: vi.fn(() => Promise.resolve("mock-md5-checksum")),
+    calculateMd5: vi.fn(() => Promise.resolve("mock-md5-checksum")),
 };
 
 const mockProjectDir = new MockDirectoryHandle("mock-project-dir");
@@ -39,46 +39,46 @@ const mockProjectDir = new MockDirectoryHandle("mock-project-dir");
 
 // Mock Project implementations to be returned by the loaders
 const mockScriptureBurritoProject: Project = {
-  id: "sb-project",
-  name: "Scripture Burrito Project",
-  files: [],
-  metadata: {
     id: "sb-project",
     name: "Scripture Burrito Project",
-    language: {id: "en", name: "English", direction: "ltr"},
-  },
-  projectDir: mockProjectDir,
-  fileWriter: mockFileWriter,
-  metadataJson: {ingredients: {}},
-  md5Service: mockMd5Service,
-  addBook: vi.fn(),
+    files: [],
+    metadata: {
+        id: "sb-project",
+        name: "Scripture Burrito Project",
+        language: { id: "en", name: "English", direction: "ltr" },
+    },
+    projectDir: mockProjectDir,
+    fileWriter: mockFileWriter,
+    metadataJson: { ingredients: {} },
+    md5Service: mockMd5Service,
+    addBook: vi.fn(),
 };
 
 const mockResourceContainerProject: Project = {
-  id: "rc-project",
-  name: "Resource Container Project",
-  files: [],
-  metadata: {
     id: "rc-project",
     name: "Resource Container Project",
-    language: {id: "en", name: "English", direction: "ltr"},
-  },
-  projectDir: mockProjectDir,
-  fileWriter: mockFileWriter,
-  manifestYaml: {projects: {}},
-  md5Service: mockMd5Service,
-  addBook: vi.fn(),
+    files: [],
+    metadata: {
+        id: "rc-project",
+        name: "Resource Container Project",
+        language: { id: "en", name: "English", direction: "ltr" },
+    },
+    projectDir: mockProjectDir,
+    fileWriter: mockFileWriter,
+    manifestYaml: { projects: {} },
+    md5Service: mockMd5Service,
+    addBook: vi.fn(),
 };
 
 // Mock the actual loader implementations
 vi.mock("@/core/domain/project/ResourceContainerProjectLoader.ts", () => ({
-  ResourceContainerProjectLoader: vi.fn(),
-  MANIFEST_FILENAME: "manifest.yaml",
+    ResourceContainerProjectLoader: vi.fn(),
+    MANIFEST_FILENAME: "manifest.yaml",
 }));
 
 vi.mock("@/core/domain/project/ScriptureBurritoProjectLoader.ts", () => ({
-  ScriptureBurritoProjectLoader: vi.fn(),
-  METADATA_FILENAME: "metadata.json",
+    ScriptureBurritoProjectLoader: vi.fn(),
+    METADATA_FILENAME: "metadata.json",
 }));
 
 // Helper mock for FileSystemDirectoryHandle to implement methods
@@ -106,84 +106,94 @@ vi.mock("@/core/domain/project/ScriptureBurritoProjectLoader.ts", () => ({
 // }
 
 describe("ProjectLoader", () => {
-  let projectLoader: ProjectLoader;
-  let mockScriptureBurritoLoader: any;
-  let mockResourceContainerLoader: any;
+    let projectLoader: ProjectLoader;
+    let mockScriptureBurritoLoader: any;
+    let mockResourceContainerLoader: any;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+    beforeEach(() => {
+        vi.clearAllMocks();
 
-    mockScriptureBurritoLoader = {
-      loadProject: vi.fn(() => Promise.resolve(mockScriptureBurritoProject)),
-      METADATA_FILENAME: "metadata.json",
-    };
-    mockResourceContainerLoader = {
-      loadProject: vi.fn(() => Promise.resolve(mockResourceContainerProject)),
-      MANIFEST_FILENAME: "manifest.yaml",
-    };
-    projectLoader = new ProjectLoader(
-      mockMd5Service,
-      mockResourceContainerLoader,
-      mockScriptureBurritoLoader
-    );
-  });
-
-  test("should prefer ScriptureBurritoProjectLoader if metadata.json exists", async () => {
-    vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation((fileName) => {
-      if (fileName === "metadata.json")
-        return Promise.resolve({} as FileSystemFileHandle);
-      if (fileName === "manifest.yaml")
-        return Promise.resolve({} as FileSystemFileHandle);
-      return Promise.reject(new Error("File not found"));
+        mockScriptureBurritoLoader = {
+            loadProject: vi.fn(() =>
+                Promise.resolve(mockScriptureBurritoProject),
+            ),
+            METADATA_FILENAME: "metadata.json",
+        };
+        mockResourceContainerLoader = {
+            loadProject: vi.fn(() =>
+                Promise.resolve(mockResourceContainerProject),
+            ),
+            MANIFEST_FILENAME: "manifest.yaml",
+        };
+        projectLoader = new ProjectLoader(
+            mockMd5Service,
+            mockResourceContainerLoader,
+            mockScriptureBurritoLoader,
+        );
     });
 
-    const loadedProject = await projectLoader.loadProject(
-      mockProjectDir,
-      mockFileWriter
-    );
+    test("should prefer ScriptureBurritoProjectLoader if metadata.json exists", async () => {
+        vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation(
+            (fileName) => {
+                if (fileName === "metadata.json")
+                    return Promise.resolve({} as FileSystemFileHandle);
+                if (fileName === "manifest.yaml")
+                    return Promise.resolve({} as FileSystemFileHandle);
+                return Promise.reject(new Error("File not found"));
+            },
+        );
 
-    expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledTimes(1);
-    expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledWith(
-      mockProjectDir,
-      mockFileWriter
-    );
-    expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
-    expect(loadedProject).toEqual(mockScriptureBurritoProject);
-  });
+        const loadedProject = await projectLoader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+        );
 
-  test("should use ResourceContainerProjectLoader if only manifest.yaml exists", async () => {
-    vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation((fileName) => {
-      if (fileName === "manifest.yaml")
-        return Promise.resolve({} as MockFileHandle);
-      return Promise.reject(new Error("File not found"));
+        expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledTimes(1);
+        expect(mockScriptureBurritoLoader.loadProject).toHaveBeenCalledWith(
+            mockProjectDir,
+            mockFileWriter,
+        );
+        expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
+        expect(loadedProject).toEqual(mockScriptureBurritoProject);
     });
 
-    const loadedProject = await projectLoader.loadProject(
-      mockProjectDir,
-      mockFileWriter
-    );
+    test("should use ResourceContainerProjectLoader if only manifest.yaml exists", async () => {
+        vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation(
+            (fileName) => {
+                if (fileName === "manifest.yaml")
+                    return Promise.resolve({} as MockFileHandle);
+                return Promise.reject(new Error("File not found"));
+            },
+        );
 
-    expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledTimes(1);
-    expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledWith(
-      mockProjectDir,
-      mockFileWriter
-    );
-    expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
-    expect(loadedProject).toEqual(mockResourceContainerProject);
-  });
+        const loadedProject = await projectLoader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+        );
 
-  test("should return null if neither metadata.json nor manifest.yaml exists", async () => {
-    vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation(() =>
-      Promise.reject(new Error("File not found"))
-    );
+        expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledTimes(
+            1,
+        );
+        expect(mockResourceContainerLoader.loadProject).toHaveBeenCalledWith(
+            mockProjectDir,
+            mockFileWriter,
+        );
+        expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
+        expect(loadedProject).toEqual(mockResourceContainerProject);
+    });
 
-    const loadedProject = await projectLoader.loadProject(
-      mockProjectDir,
-      mockFileWriter
-    );
+    test("should return null if neither metadata.json nor manifest.yaml exists", async () => {
+        vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation(() =>
+            Promise.reject(new Error("File not found")),
+        );
 
-    expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
-    expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
-    expect(loadedProject).toBeNull();
-  });
+        const loadedProject = await projectLoader.loadProject(
+            mockProjectDir,
+            mockFileWriter,
+        );
+
+        expect(mockScriptureBurritoLoader.loadProject).not.toHaveBeenCalled();
+        expect(mockResourceContainerLoader.loadProject).not.toHaveBeenCalled();
+        expect(loadedProject).toBeNull();
+    });
 });

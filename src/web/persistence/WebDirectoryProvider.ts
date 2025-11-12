@@ -168,10 +168,13 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         let path = "";
         for (const part of parts) {
             try {
-                dir = await dir.getDirectoryHandle(part, {create: true});
+                dir = await dir.getDirectoryHandle(part, { create: true });
             } catch (e) {
                 console.log(e);
-                console.log("Error trying to make a directory handle from parts:", parts)
+                console.log(
+                    "Error trying to make a directory handle from parts:",
+                    parts,
+                );
             }
             path += `/${part}`;
         }

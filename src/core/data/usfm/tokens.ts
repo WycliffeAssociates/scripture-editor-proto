@@ -1,10 +1,10 @@
 export const CHAPTER_VERSE_MARKERS = new Set([
-  "c",
-  "ca",
-  "cp",
-  "v",
-  "va",
-  "vp",
+    "c",
+    "ca",
+    "cp",
+    "v",
+    "va",
+    "vp",
 ]);
 
 /* 
@@ -56,46 +56,46 @@ export const VALID_CHAR_MARKERS = new Set([
     "va",
     "vp",
 
-  // Text Features
-  "add",
-  "bk",
-  "dc",
-  "em",
-  "jmp",
-  "k",
-  "nd",
-  "ord",
-  "pn",
-  "png",
-  "qt",
-  "rb",
-  "rq",
-  // "ref", // This has its own tag and is not a Char
-  "sig",
-  "sls",
-  "tl",
-  "w",
-  "wa",
-  "wg",
-  "wh",
-  "wj",
-  // Note there are 2 deprecated markers intentionally not listed here: "addpn", "pro"
+    // Text Features
+    "add",
+    "bk",
+    "dc",
+    "em",
+    "jmp",
+    "k",
+    "nd",
+    "ord",
+    "pn",
+    "png",
+    "qt",
+    "rb",
+    "rq",
+    // "ref", // This has its own tag and is not a Char
+    "sig",
+    "sls",
+    "tl",
+    "w",
+    "wa",
+    "wg",
+    "wh",
+    "wj",
+    // Note there are 2 deprecated markers intentionally not listed here: "addpn", "pro"
 
-  // Text Formatting
-  "bd",
-  "it",
-  "bdit",
-  "no",
-  "sc",
-  "sup",
+    // Text Formatting
+    "bd",
+    "it",
+    "bdit",
+    "no",
+    "sc",
+    "sup",
 
-  // Introductions
-  "ior",
-  "iqt",
+    // Introductions
+    "ior",
+    "iqt",
 
-  // Poetry
-  "qac",
-  "qs",
+    // Poetry
+    "qac",
+    "qs",
 
     // Lists
     "litl",
@@ -302,7 +302,7 @@ export const ALL_USFM_MARKERS = new Set([
 
 // todo: really this list needs close vetting
 export const TOKENS_EXPECTING_CLOSE = new Set([
-  ...VALID_NOTE_MARKERS,
-  ...VALID_CHAR_MARKERS,
-  ...VALID_MILESTONE_MARKERS,
+    ...VALID_NOTE_MARKERS,
+    ...VALID_CHAR_MARKERS,
+    ...VALID_MILESTONE_MARKERS,
 ]);

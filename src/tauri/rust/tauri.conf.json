@@ -2,7 +2,7 @@
     "$schema": "https://schema.tauri.app/config/2",
     "productName": "tauri-app",
     "version": "0.1.0",
-    "identifier": "btt-refiner-proto",
+    "identifier": "org.bibletranslationtools.bttrefinerproto",
     "build": {
         "beforeDevCommand": "pnpm dev.tauri",
         "devUrl": "http://localhost:1420",

@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "@/app/entrypoint";
 import { createBrowserSettingsManager } from "@/web/domain/settings";
-import {WebDirectoryProvider} from "@/web/persistence/WebDirectoryProvider.ts";
+import { WebDirectoryProvider } from "@/web/persistence/WebDirectoryProvider.ts";
 
 // instantiante services
 const settingsManager = createBrowserSettingsManager();
@@ -16,9 +16,11 @@ const directoryProvider = await WebDirectoryProvider.create();
 
 root.render(
     <StrictMode>
-        <App settingsManager={settingsManager}
-             gitProvider={undefined}
-             directoryProvider={directoryProvider}
-             md5Service={undefined} />
+        <App
+            settingsManager={settingsManager}
+            gitProvider={undefined}
+            directoryProvider={directoryProvider}
+            md5Service={undefined}
+        />
     </StrictMode>,
 );

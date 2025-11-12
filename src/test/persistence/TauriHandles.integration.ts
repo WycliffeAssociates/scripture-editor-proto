@@ -308,7 +308,7 @@ describe("TauriFileHandle Integration Tests (LIVE FS I/O)", () => {
         );
         const initialContent = "The quick brown fox jumps over the lazy dog.";
 
-        let stream = await handle.createWritable({ keepExistingData: false });
+        const stream = await handle.createWritable({ keepExistingData: false });
         await stream.write(initialContent);
         await stream.close();
 
