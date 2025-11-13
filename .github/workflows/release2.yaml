@@ -1,40 +1,58 @@
 name: Release
 
 on:
+  # push:
+  #   tags:
+  #     - "v*"
   push:
-    tags:
-      - "v*"
+    # Sequence of patterns matched against refs/heads
+    branches:
+      - wk-11-11-25
+  workflow_dispatch:
 
 jobs:
   set-secrets:
     # Central job to load all secrets from 1Password
     runs-on: ubuntu-latest
     outputs:
-      apple_certificate: ${{ steps.secrets.outputs.APPLE_CERTIFICATE }}
-      apple_certificate_password: ${{ steps.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
-      apple_api_issuer: ${{ steps.secrets.outputs.APPLE_API_ISSUER }}
-      apple_api_key: ${{ steps.secrets.outputs.APPLE_API_KEY }}
-      apple_api_key_path: ${{ steps.secrets.outputs.APPLE_API_KEY_PATH }}
-      android_keystore_base64: ${{ steps.secrets.outputs.ANDROID_KEYSTORE }}
-      android_keystore_password: ${{ steps.secrets.outputs.ANDROID_KEYSTORE_PASSWORD }}
-      android_key_alias: ${{ steps.secrets.outputs.ANDROID_KEY_ALIAS }}
-      android_key_password: ${{ steps.secrets.outputs.ANDROID_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ steps.secrets.outputs.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ steps.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.KEYCHAIN_PASSWORD }}
+      APP_STORE_CONNECT_KEY: ${{ steps.secrets.outputs.APP_STORE_CONNECT_KEY }}
+      APP_STORE_API_ISSUER: ${{ steps.secrets.outputs.APP_STORE_API_ISSUER }}
+      APP_STORE_API_KEY_ID: ${{ steps.secrets.outputs.APP_STORE_API_KEY_ID }}
     steps:
       - name: Load Secrets from 1Password
         id: secrets
         uses: 1password/load-secrets-action@v2
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          APPLE_CERTIFICATE: "op://DevOps/MYVAULT/APPLE_CERTIFICATE"
-          APPLE_CERTIFICATE_PASSWORD: "op://DevOps/MYVAULT/APPLE_CERTIFICATE_PASSWORD"
-          APPLE_API_ISSUER: "op://DevOps/MYVAULT/APPLE_API_ISSUER"
-          APPLE_API_KEY: "op://DevOps/MYVAULT/APPLE_API_KEY"
-          APPLE_API_KEY_PATH: "op://DevOps/MYVAULT/APPLE_API_KEY_PATH"
-          ANDROID_KEYSTORE: "op://DevOps/MYVAULT/ANDROID_KEYSTORE"
-          ANDROID_KEYSTORE_PASSWORD: "op://DevOps/MYVAULT/ANDROID_KEYSTORE_PASSWORD"
-          ANDROID_KEY_ALIAS: "op://DevOps/MYVAULT/ANDROID_KEY_ALIAS"
-          ANDROID_KEY_PASSWORD: "op://DevOps/MYVAULT/ANDROID_KEY_PASSWORD"
+          APPLE_CERTIFICATE: "op://DevOps/Scripture-Editor/p12-b64"
+          APPLE_CERTIFICATE_PASSWORD: "op://DevOps/Scripture-Editor/apple-p12-cert-password"
+          KEYCHAIN_PASSWORD: "op://DevOps/Scripture-Editor/keychain-password"
+          APP_STORE_CONNECT_KEY: "op://DevOps/Scripture-Editor/app-store-connect-p8-b64"
+          APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
+          APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
   # maybe put a job here to lint and make sure no errors?
+  ensure-versions-synced:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version parity
+        run: |
+          set -euo pipefail
+          pkg=$(node -p "require('./package.json').version")
+          # Run sync script to ensure Cargo.toml matches package.json
+          node scripts/syncVersions.js
+          # Now verify all are in sync
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' ./src/tauri/rust/Cargo.toml | head -n1)
+          echo "package.json: $pkg"
+          echo "src/tauri/rust/Cargo.toml: $cargo"
+          echo "src/tauri/rust/tauri.conf.json: points to ../package.json"
+          if [ "$pkg" != "$cargo" ]; then
+            echo "Version mismatch detected between package.json and src/tauri/rust/Cargo.toml"
+            exit 1
+          fi
   build-desktops:
     permissions:
       contents: write
@@ -58,7 +76,33 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Import Apple Developer Certificate
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ needs.set-secrets.outputs.apple_certificate }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.set-secrets.outputs.apple_certificate_password }}
+          KEYCHAIN_PASSWORD: ${{ needs.set-secrets.outputs.apple_certificate_password }}
+          APP_STORE_CONNECT_KEY: ${{ needs.set-secrets.outputs.app_store_connect_key }}
 
+        run: |
+          echo $APP_STORE_CONNECT_KEY | base64 --decode > app-store-connect.p8
+          echo "APPLE_API_KEY_PATH=$(pwd)/app-store-connect.p8" >> $GITHUB_ENV
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: Verify Certificate
+        if: matrix.os == 'macos-latest'
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -105,6 +149,12 @@ jobs:
         uses: tauri-apps/tauri-action@0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ needs.set-secrets.outputs.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.set-secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_API_ISSUER: ${{ needs.set-secrets.outputs.APP_STORE_API_ISSUER }}
+          APPLE_API_KEY: ${{ needs.set-secrets.outputs.APP_STORE_API_KEY_ID }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
@@ -112,6 +162,7 @@ jobs:
           prerelease: true
           # doesn't run prebuild script: Expect assets already built at dist
           args: ${{ matrix.args }} --config ./src/tauri/rust/tauri.conf.ci_cache.json
+
       - name: Upload desktop artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -214,45 +265,46 @@ jobs:
           path: |
             ./src/tauri/rust/gen/android/app/build/outputs/apk/universal/release/*.apk
             ./src/tauri/rust/gen/android/app/build/outputs/bundle/universalRelease/*.aab
-  build-ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: "pnpm"
-      - name: Install dependencies
-        run: pnpm install
+  # build-ios:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Setup pnpm
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 10
+  #     - name: Download frontend dist
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: frontend-dist
+  #         path: dist
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 24
+  #         cache: "pnpm"
+  #     - name: Install dependencies
+  #       run: pnpm install
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # real apple phones arch: won't work on simulator
-          targets: aarch64-apple-darwin
+  #     - name: Install Rust stable
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         # all current ios devices
+  #         targets: aarch64-apple-darwin
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src/tauri/rust -> target"
+  #     - name: Rust cache
+  #       uses: swatinem/rust-cache@v2
+  #       with:
+  #         workspaces: "./src/tauri/rust -> target"
 
-      - name: Install dependencies
-        run: pnpm install
+  #     - name: Install dependencies
+  #       run: pnpm install
 
-      - name: build ios debug bundle
-        run: pnpm tauri ios build --export-method debugging --ci --config ./src/tauri/rust/tauri.conf.ci_cache.json
+  #     - name: build ios debug bundle
+  #       run: pnpm tauri ios build --export-method debugging --ci --config ./src/tauri/rust/tauri.conf.ci_cache.json
 
-    # todo: a job for android and stub for ios: cache the dist merge in config though
+  # todo: a job for android and stub for ios: cache the dist merge in config though
+
 # https://github.com/tauri-apps/tauri-action?tab=readme-ov-file#tips-and-caveats
 # If you need to further customize the default tauri.conf.json file you can add a custom config that will be merged with the default one at build time.
 # args: --config custom-config.json, so we can merge in matrix args with conf ci_cahce and just pnpm I and build once and set as the cached output as well
