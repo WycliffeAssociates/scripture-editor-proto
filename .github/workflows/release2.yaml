@@ -289,14 +289,17 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "tools platform-tools build-tools;34.0.0"
+
       - name: Install SDK / Build-tools / NDK and verify apksigner
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;25.2.9519653"
-          # Add build-tools to PATH to ensure apksigner is available
+          sdkmanager --install "platforms;android-34" "ndk;25.2.9519653"
           echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
-          # Verify apksigner is available
           which apksigner || echo "apksigner not found in PATH"
           apksigner --version || echo "apksigner not executable"
+
+      - name: Add Android NDK toolchain to PATH
+        run: |
+          echo "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
       - name: Export NDK_HOME
         run: echo "NDK_HOME=$ANDROID_NDK_ROOT" >> $GITHUB_ENV
