@@ -30,47 +30,22 @@ jobs:
             echo "Version mismatch detected between package.json and src/tauri/rust/Cargo.toml"
             exit 1
           fi
-  set-secrets:
-    needs: ensure-versions-synced
-    # Central job to load all secrets from 1Password
-    runs-on: ubuntu-latest
-    outputs:
-      APPLE_CERTIFICATE: ${{ steps.secrets.outputs.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ steps.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
-      KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.KEYCHAIN_PASSWORD }}
-      APP_STORE_CONNECT_KEY: ${{ steps.secrets.outputs.APP_STORE_CONNECT_KEY }}
-      APP_STORE_API_ISSUER: ${{ steps.secrets.outputs.APP_STORE_API_ISSUER }}
-      APP_STORE_API_KEY_ID: ${{ steps.secrets.outputs.APP_STORE_API_KEY_ID }}
-    steps:
-      - name: Load Secrets from 1Password
-        id: secrets
-        uses: 1password/load-secrets-action@v3
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          APPLE_CERTIFICATE: "op://DevOps/Scripture-Editor/p12-b64"
-          APPLE_CERTIFICATE_PASSWORD: "op://DevOps/Scripture-Editor/apple-p12-cert-password"
-          KEYCHAIN_PASSWORD: "op://DevOps/Scripture-Editor/keychain-password"
-          APP_STORE_CONNECT_KEY: "op://DevOps/Scripture-Editor/app-store-connect-p8-b64"
-          APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
-          APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
-  # maybe put a job here to lint and make sure no errors?
-
   build-tauri-frontend:
-    needs: set-secrets
+    needs: ensure-versions-synced
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Install Node
         uses: actions/setup-node@v4
         with:
           node-version: 24.4.1
           cache: "pnpm"
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Install dependencies
         run: pnpm install
       - name: Build tauri frontend
@@ -106,13 +81,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Source Secrets
+        id: secrets
+        uses: 1password/load-secrets-action@v3
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          APPLE_CERTIFICATE: "op://DevOps/Scripture-Editor/p12-b64"
+          APPLE_CERTIFICATE_PASSWORD: "op://DevOps/Scripture-Editor/apple-p12-cert-password"
+          KEYCHAIN_PASSWORD: "op://DevOps/Scripture-Editor/keychain-password"
+          APP_STORE_CONNECT_KEY: "op://DevOps/Scripture-Editor/app-store-connect-p8-b64"
+          APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
+          APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
       - name: Import Apple Developer Certificate
         if: matrix.os == 'macos-latest'
         env:
-          APPLE_CERTIFICATE: ${{ needs.set-secrets.outputs.apple_certificate }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.set-secrets.outputs.apple_certificate_password }}
-          KEYCHAIN_PASSWORD: ${{ needs.set-secrets.outputs.apple_certificate_password }}
-          APP_STORE_CONNECT_KEY: ${{ needs.set-secrets.outputs.app_store_connect_key }}
+          APPLE_CERTIFICATE: ${{ needs.secrets.outputs.apple_certificate }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.secrets.outputs.apple_certificate_password }}
+          KEYCHAIN_PASSWORD: ${{ needs.secrets.outputs.keychain_password }}
+          APP_STORE_CONNECT_KEY: ${{ needs.secrets.outputs.app_store_connect_key }}
 
         run: |
           echo $APP_STORE_CONNECT_KEY | base64 --decode > app-store-connect.p8
@@ -177,11 +163,11 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ needs.set-secrets.outputs.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.set-secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ needs.secrets.outputs.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
-          APPLE_API_ISSUER: ${{ needs.set-secrets.outputs.APP_STORE_API_ISSUER }}
-          APPLE_API_KEY: ${{ needs.set-secrets.outputs.APP_STORE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ needs.secrets.outputs.APP_STORE_API_ISSUER }}
+          APPLE_API_KEY: ${{ needs.secrets.outputs.APP_STORE_API_KEY_ID }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ github.ref_name }}
