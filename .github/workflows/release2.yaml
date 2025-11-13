@@ -55,8 +55,35 @@ jobs:
           APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
   # maybe put a job here to lint and make sure no errors?
 
-  build-desktops:
+  build-tauri-frontend:
     needs: set-secrets
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build tauri frontend
+        run: pnpm build.tauri
+
+      - name: Upload tauri frontend
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-frontend
+          path: dist
+
+  build-desktops:
+    needs: build-tauri-frontend
     permissions:
       contents: write
     strategy:
@@ -106,6 +133,13 @@ jobs:
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -138,15 +172,6 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf
-
-      - name: build tauri dist
-        run: pnpm build.tauri
-
-      - name: Upload frontend dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist
 
       - name: Build + Release
         uses: tauri-apps/tauri-action@v0
