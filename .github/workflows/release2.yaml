@@ -11,7 +11,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  ensure-versions-synced:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version parity
+        run: |
+          set -euo pipefail
+          pkg=$(node -p "require('./package.json').version")
+          # Run sync script to ensure Cargo.toml matches package.json
+          node scripts/syncVersions.js
+          # Now verify all are in sync
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' ./src/tauri/rust/Cargo.toml | head -n1)
+          echo "package.json: $pkg"
+          echo "src/tauri/rust/Cargo.toml: $cargo"
+          echo "src/tauri/rust/tauri.conf.json: points to ../package.json"
+          if [ "$pkg" != "$cargo" ]; then
+            echo "Version mismatch detected between package.json and src/tauri/rust/Cargo.toml"
+            exit 1
+          fi
   set-secrets:
+    needs: ensure-versions-synced
     # Central job to load all secrets from 1Password
     runs-on: ubuntu-latest
     outputs:
@@ -34,26 +54,9 @@ jobs:
           APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
           APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
   # maybe put a job here to lint and make sure no errors?
-  ensure-versions-synced:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate version parity
-        run: |
-          set -euo pipefail
-          pkg=$(node -p "require('./package.json').version")
-          # Run sync script to ensure Cargo.toml matches package.json
-          node scripts/syncVersions.js
-          # Now verify all are in sync
-          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' ./src/tauri/rust/Cargo.toml | head -n1)
-          echo "package.json: $pkg"
-          echo "src/tauri/rust/Cargo.toml: $cargo"
-          echo "src/tauri/rust/tauri.conf.json: points to ../package.json"
-          if [ "$pkg" != "$cargo" ]; then
-            echo "Version mismatch detected between package.json and src/tauri/rust/Cargo.toml"
-            exit 1
-          fi
+
   build-desktops:
+    needs: set-secrets
     permissions:
       contents: write
     strategy:
