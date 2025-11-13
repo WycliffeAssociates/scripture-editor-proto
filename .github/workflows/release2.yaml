@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Load Secrets from 1Password
         id: secrets
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v3
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           APPLE_CERTIFICATE: "op://DevOps/Scripture-Editor/p12-b64"
