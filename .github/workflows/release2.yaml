@@ -54,7 +54,7 @@ jobs:
       - name: Upload tauri frontend
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-frontend
+          name: frontend-dist
           path: dist
 
   build-desktops:
@@ -92,24 +92,69 @@ jobs:
           APP_STORE_CONNECT_KEY: "op://DevOps/Scripture-Editor/app-store-connect-p8-b64"
           APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
           APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
-      - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ needs.secrets.outputs.apple_certificate }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.secrets.outputs.apple_certificate_password }}
-          KEYCHAIN_PASSWORD: ${{ needs.secrets.outputs.keychain_password }}
-          APP_STORE_CONNECT_KEY: ${{ needs.secrets.outputs.app_store_connect_key }}
 
+      - name: Decode App Store Connect Key
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APP_STORE_CONNECT_KEY: ${{ needs.secrets.outputs.APP_STORE_CONNECT_KEY }}
         run: |
-          echo $APP_STORE_CONNECT_KEY | base64 --decode > app-store-connect.p8
+          echo "Decoding APP_STORE_CONNECT_KEY..."
+          echo "Length: ${#APP_STORE_CONNECT_KEY}"
+          echo "$APP_STORE_CONNECT_KEY" | base64 --decode > app-store-connect.p8
           echo "APPLE_API_KEY_PATH=$(pwd)/app-store-connect.p8" >> $GITHUB_ENV
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          echo "Decoded successfully"
+
+      - name: Decode Apple Certificate
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ needs.secrets.outputs.APPLE_CERTIFICATE }}
+        run: |
+          echo "Decoding APPLE_CERTIFICATE..."
+          echo "Length: ${#APPLE_CERTIFICATE}"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          echo "Decoded successfully"
+
+      - name: Create and Unlock Keychain
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ needs.secrets.outputs.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "Creating keychain..."
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -u build.keychain
+          echo "Keychain ready"
+
+      - name: Import Certificate
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ needs.secrets.outputs.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "Importing certificate..."
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          echo "Certificate imported"
+
+      - name: Set Key Partition List
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ needs.secrets.outputs.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "Setting key partition list..."
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          echo "Key partition list set"
+
+      - name: Verify Code Signing Identities
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          echo "Checking code signing identities..."
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Certificate
