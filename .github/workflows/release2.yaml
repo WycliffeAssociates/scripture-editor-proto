@@ -149,7 +149,7 @@ jobs:
           path: dist
 
       - name: Build + Release
-        uses: tauri-apps/tauri-action@0
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ needs.set-secrets.outputs.APPLE_CERTIFICATE }}
