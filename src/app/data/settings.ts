@@ -1,3 +1,4 @@
+import { msg } from "@lingui/core/macro";
 import {
     type EditorMarkersMutableState,
     type EditorMarkersViewState,
@@ -6,7 +7,15 @@ import {
     EditorModes,
 } from "@/app/data/editor.ts";
 
-type SupportedLocales = "en" | "es";
+export const SUPPORTED_LOCALES = ["en", "es"];
+export const LOCALES: Record<SupportedLocales, string> = {
+    en: "English",
+    es: "Español",
+};
+type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
+export function isSupportedLocale(locale: string): locale is SupportedLocales {
+    return SUPPORTED_LOCALES.includes(locale);
+}
 export type Settings = {
     fontSize: string;
     fontFamily: string;

@@ -1,4 +1,5 @@
 import {
+    Button,
     createTheme,
     type MantineColorsTuple,
     Tooltip,
@@ -41,15 +42,57 @@ const grays: MantineColorsTuple = [
     "#536676",
     "#42596b",
 ];
+const yellows: MantineColorsTuple = [
+    "#fff5e0",
+    "#ffeacb",
+    "#fed39b",
+    "#fcbb67",
+    "#faa83d",
+    "#f99a1e",
+    "#f9930b",
+    "#de7f00",
+    "#c67000",
+    "#ac6000",
+];
+const reds: MantineColorsTuple = [
+    "#ffedee",
+    "#f5dcdd",
+    "#e3b8ba",
+    "#d19294",
+    "#c27274",
+    "#ba5d60",
+    "#b85659",
+    "#a14246",
+    "#90393d",
+    "#802e33",
+];
+const greens: MantineColorsTuple = [
+    "#f4fbe9",
+    "#e9f3da",
+    "#d3e4b7",
+    "#bbd590",
+    "#a7c86f",
+    "#9ac059",
+    "#93bc4d",
+    "#82a93f",
+    "#709334",
+    "#5e7f27",
+];
 
 export const theme = createTheme({
     colors: {
         primary: primaryColors,
-        red: dangerColors,
+        success: greens,
+        warning: yellows,
+        error: reds,
         gray: grays,
     },
     primaryColor: "primary",
-    primaryShade: 8,
+    //   defaults
+    primaryShade: {
+        light: 8,
+        dark: 4,
+    },
     black: "#0E0E0E",
     fontFamily: "Inter, system-ui, sans-serif",
     radius: {
@@ -70,7 +113,7 @@ export const theme = createTheme({
         surface: virtualColor({
             name: "surface",
             light: "#fff",
-            dark: "#18191c",
+            dark: "#2a2d31",
         }),
         border: virtualColor({
             name: "border",

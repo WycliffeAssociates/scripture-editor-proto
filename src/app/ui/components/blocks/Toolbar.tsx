@@ -1,146 +1,315 @@
 import {
+    Accordion,
     ActionIcon,
     Button,
-    Center,
     Divider,
+    Drawer,
     Group,
     Menu,
+    NumberInput,
     SegmentedControl,
     Select,
+    Switch,
     Text,
+    Tooltip,
 } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
-import {
-    $getSelection,
-    $isElementNode,
-    $isLineBreakNode,
-    $isRangeSelection,
-    KEY_SPACE_COMMAND,
-} from "lexical";
-import { ChevronDown, Code, Plus } from "lucide-react";
+import { ChevronDown, Code, Menu as IconMenu, Plus } from "lucide-react";
 import { useState } from "react";
 import {
     type EditorMarkersMutableState,
+    EditorMarkersMutableStates,
     type EditorMarkersViewState,
     EditorMarkersViewStates,
-    EditorModes,
-    UsfmTokenTypes,
 } from "@/app/data/editor.ts";
-import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
-import {
-    $createUSFMTextNode,
-    $isUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
-// import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
-// import { parseUSFM } from "@/app/ui/hooks/useProjectState";
-// import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { EditorMarkersMutableStates } from "../../../data/editor.ts";
 
 export function Toolbar() {
-    const { actions, project, editorRef } = useWorkspaceContext();
+    const { actions, project } = useWorkspaceContext();
+    const [drawerOpened, setDrawerOpened] = useState(false);
 
-    // const {} = useProjectContext();
+    // Minimal toolbar: provide a single control to open the drawer (project + settings)
+    // and keep frequently used controls visible.
+    return (
+        <>
+            <Group
+                align="center"
+                py="xs"
+                gap="md"
+                display="flex"
+                className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
+            >
+                <Tooltip
+                    label="Open project & settings"
+                    withArrow
+                    openDelay={150}
+                >
+                    <ActionIcon
+                        variant="default"
+                        onClick={() => setDrawerOpened(true)}
+                        aria-label="Open project drawer"
+                    >
+                        <IconMenu size={16} />
+                    </ActionIcon>
+                </Tooltip>
 
-    // function seeUsfm() {
-    //   if (!editorRef.current) return;
-    //   const usfm = lexicalToUSFM(editorRef.current);
-    //   const bookSlug = pickedFile?.identifier?.toUpperCase();
-    //   const parsed = parseUSFM(usfm, bookSlug).chapters;
-    //   const lexical = getSerializedLexicalNodes(parsed[0]);
-    //   console.log(lexical);
-    // }
+                <ReferencePicker />
+
+                {/* Keep reference project selector visible */}
+                <ReferenceProjectList />
+
+                {/* Search and save remain in toolbar */}
+                <SearchInput />
+                <SaveAndReviewChanges />
+            </Group>
+
+            {/* Drawer lives here for now; exported below as a standalone component too */}
+            <ProjectDrawer
+                opened={drawerOpened}
+                onClose={() => setDrawerOpened(false)}
+            />
+        </>
+    );
+}
+
+/**
+ * ProjectDrawer
+ * - Contains an accordion with Project list as the first item
+ * - Settings (font size, language, mode, color scheme, zoom, marker controls) as second item
+ *
+ * Exported so the parent (ProjectView) can opt to render the drawer itself instead.
+ */
+export function ProjectDrawer({
+    opened,
+    onClose,
+}: {
+    opened: boolean;
+    onClose: () => void;
+}) {
+    const { actions, project } = useWorkspaceContext();
+    const { appSettings, updateAppSettings } = project;
 
     return (
-        <Group
-            align="center"
-            py="xs"
-            gap="md"
-            display="flex"
-            className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
+        <Drawer
+            opened={opened}
+            onClose={onClose}
+            title="Project & Settings"
+            padding="md"
+            size="xs"
+            className="toolbar-drawer"
         >
-            <ProjectList />
-            <ReferencePicker />
-            {/* Assume ReferencePicker is Mantine-wrapped already */}
-            {/* <Button variant="subtle" onClick={seeUsfm}>See USFM</Button> */}
-            <ReferenceProjectList />
-            <FontSizeAdjust />
-            <FontPicker />
-            <ActionIcon
-                variant="default"
-                onClick={() => actions.toggleToSourceMode()}
-            >
-                <Code size={16} />
-            </ActionIcon>
-            <SegmentedControl
-                value={project.appSettings.markersMutableState}
-                onChange={(value) => {
-                    actions.adjustWysiwygMode({
-                        markersMutableState: value as EditorMarkersMutableState,
-                        // already set view state
-                    });
-                }}
-                data={[
-                    {
-                        value: EditorMarkersMutableStates.IMMUTABLE,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Lock markers</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersMutableStates.MUTABLE,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Unlock markers</span>
-                            </Center>
-                        ),
-                    },
-                ]}
-            />
-            <SegmentedControl
-                value={project.appSettings.markersViewState}
-                onChange={(value) => {
-                    actions.adjustWysiwygMode({
-                        // already set mutable state
-                        markersViewState: value as EditorMarkersViewState,
-                    });
-                }}
-                data={[
-                    {
-                        value: EditorMarkersViewStates.ALWAYS,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Always visible</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersViewStates.WHEN_EDITING,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>When editing</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersViewStates.NEVER,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Never visible</span>
-                            </Center>
-                        ),
-                    },
-                ]}
-            />
-            <SearchInput />
-            <SaveAndReviewChanges />
-        </Group>
+            <Accordion variant="separated" multiple>
+                <Accordion.Item value="projects">
+                    <Accordion.Control>Projects</Accordion.Control>
+                    <Accordion.Panel>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                            }}
+                        >
+                            <ProjectList />
+                        </div>
+                    </Accordion.Panel>
+                </Accordion.Item>
+
+                <Accordion.Item value="settings">
+                    <Accordion.Control>Settings</Accordion.Control>
+                    <Accordion.Panel>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 12,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <Text fw={600}>Font size</Text>
+                                </div>
+                                <FontSizeAdjust />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <Text fw={600}>Font</Text>
+                                <FontPicker />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexDirection: "column",
+                                }}
+                            >
+                                <Text fw={600}>Editor mode</Text>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    <Tooltip
+                                        label="Switch to source mode"
+                                        withArrow
+                                        openDelay={150}
+                                    >
+                                        <ActionIcon
+                                            variant="default"
+                                            onClick={() =>
+                                                actions.toggleToSourceMode()
+                                            }
+                                            aria-label="Switch to source mode"
+                                        >
+                                            <Code size={16} />
+                                        </ActionIcon>
+                                    </Tooltip>
+
+                                    <SegmentedControl
+                                        value={appSettings.markersMutableState}
+                                        onChange={(value) => {
+                                            actions.adjustWysiwygMode({
+                                                markersMutableState:
+                                                    value as EditorMarkersMutableState,
+                                            });
+                                        }}
+                                        data={[
+                                            {
+                                                value: EditorMarkersMutableStates.IMMUTABLE,
+                                                label: "Lock markers",
+                                            },
+                                            {
+                                                value: EditorMarkersMutableStates.MUTABLE,
+                                                label: "Unlock markers",
+                                            },
+                                        ]}
+                                    />
+
+                                    <SegmentedControl
+                                        value={appSettings.markersViewState}
+                                        onChange={(value) => {
+                                            actions.adjustWysiwygMode({
+                                                markersViewState:
+                                                    value as EditorMarkersViewState,
+                                            });
+                                        }}
+                                        data={[
+                                            {
+                                                value: EditorMarkersViewStates.ALWAYS,
+                                                label: "Always",
+                                            },
+                                            {
+                                                value: EditorMarkersViewStates.WHEN_EDITING,
+                                                label: "When editing",
+                                            },
+                                            {
+                                                value: EditorMarkersViewStates.NEVER,
+                                                label: "Never",
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <Text fw={600}>App language</Text>
+                                <Select
+                                    value={appSettings.appLanguage}
+                                    onChange={(v) =>
+                                        v &&
+                                        updateAppSettings({
+                                            appLanguage: v as any,
+                                        })
+                                    }
+                                    data={[
+                                        { value: "en", label: "English" },
+                                        { value: "es", label: "Español" },
+                                        { value: "fr", label: "Français" },
+                                    ]}
+                                    w={160}
+                                />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <Text fw={600}>Theme</Text>
+                                <Switch
+                                    checked={appSettings.colorScheme === "dark"}
+                                    onChange={(e) =>
+                                        updateAppSettings({
+                                            colorScheme: e.currentTarget.checked
+                                                ? "dark"
+                                                : "light",
+                                        })
+                                    }
+                                    aria-label="Toggle dark theme"
+                                />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <Text fw={600}>Webview zoom</Text>
+                                <NumberInput
+                                    value={appSettings.zoom}
+                                    min={0.5}
+                                    max={3}
+                                    step={0.1}
+                                    onChange={(v) =>
+                                        typeof v === "number" &&
+                                        updateAppSettings({ zoom: v })
+                                    }
+                                    style={{ width: 120 }}
+                                />
+                            </div>
+                        </div>
+                    </Accordion.Panel>
+                </Accordion.Item>
+            </Accordion>
+        </Drawer>
     );
 }
 
@@ -160,8 +329,6 @@ function ProjectList() {
             params: { project: projectId },
             reloadDocument: true,
         });
-        // update project settings to this project
-        // navigate("/create");
     };
 
     return (

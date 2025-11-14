@@ -1,9 +1,11 @@
 // import "./App.css";
 // import "./ui/styles/";
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "@/app/ui/styles/global.css";
 import "@/app/ui/styles/usfm.css";
 import { MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import type { SettingsManager } from "@/app/data/settings.ts";
@@ -89,6 +91,7 @@ export function App({
                         settingsManager.get("colorScheme") || "light"
                     }
                 >
+                    <Notifications />
                     <RouterProvider router={router} />
                 </MantineProvider>
             </QueryClientProvider>

@@ -1,0 +1,19 @@
+.project {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  color: var(--mantine-primary-color-filled);
+  border-radius: var(--mantine-radius-md);
+  cursor: pointer;
+  &:hover {
+    background-color: var(--mantine-primary-color-light);
+  }
+}
+.picked {
+  background-color: var(--mantine-primary-color-light);
+  font-weight: 700;
+}
+.newProject {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  color: var(--mantine-primary-color-filled);
+  display: flex;
+  justify-content: space-between;
+}

@@ -15,12 +15,10 @@ const root = ReactDOM.createRoot(rootElement);
 const directoryProvider = await WebDirectoryProvider.create();
 
 root.render(
-    <StrictMode>
-        <App
-            settingsManager={settingsManager}
-            gitProvider={undefined}
-            directoryProvider={directoryProvider}
-            md5Service={undefined}
-        />
-    </StrictMode>,
+    <App
+        settingsManager={settingsManager}
+        gitProvider={undefined}
+        directoryProvider={directoryProvider}
+        md5Service={undefined}
+    />,
 );

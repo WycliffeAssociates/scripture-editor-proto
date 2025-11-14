@@ -1,3 +1,5 @@
+import { useDisclosure } from "@mantine/hooks";
+import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
@@ -8,47 +10,65 @@ import styles from "@/app/ui/styles/modules/Projectview.module.css";
 
 export function ProjectView() {
     const { actions } = useWorkspaceContext();
+    const [opened, { open, close }] = useDisclosure(true);
+
     return (
         <div className={styles.appLayout}>
-            <nav>
-                <Toolbar />
-            </nav>
-            <div className={styles.contentGrid}>
-                <SearchPanel />
-                <main className={styles.mainContent}>
-                    <div className={styles.editorWrapper}>
-                        {actions.prevChapter.hasPrev && (
-                            <button
-                                type="button"
-                                disabled={!actions.prevChapter.hasPrev}
-                                onClick={actions.prevChapter.go}
-                                className={styles.editorNavButton}
-                            >
-                                <span className="w-full">
-                                    {actions.prevChapter.display}
-                                </span>
-                            </button>
-                        )}
-                        <div className={styles.editor}>
-                            <LintPopover wrapperClassNames="absolute top-4 right-4 z-50" />
-                            <MainEditor />
+            <main>
+                <nav>
+                    <Toolbar />
+                </nav>
+                <div className={styles.contentGrid}>
+                    <SearchPanel />
+                    <main className={styles.mainContent}>
+                        <div className={styles.editorWrapper}>
+                            {actions.prevChapter.hasPrev && (
+                                <button
+                                    type="button"
+                                    disabled={!actions.prevChapter.hasPrev}
+                                    onClick={actions.prevChapter.go}
+                                    className={styles.editorNavButton}
+                                >
+                                    <span className="w-full">
+                                        {actions.prevChapter.display}
+                                    </span>
+                                </button>
+                            )}
+                            <div className={styles.editor}>
+                                <LintPopover wrapperClassNames="absolute top-4 right-4 z-50" />
+                                <MainEditor />
+                            </div>
+                            {actions.nextChapter.hasNext && (
+                                <button
+                                    type="button"
+                                    disabled={!actions.nextChapter.hasNext}
+                                    onClick={actions.nextChapter.go}
+                                    className={styles.editorNavButton}
+                                >
+                                    <span className="w-full">
+                                        {actions.nextChapter.display}
+                                    </span>
+                                </button>
+                            )}
                         </div>
-                        {actions.nextChapter.hasNext && (
-                            <button
-                                type="button"
-                                disabled={!actions.nextChapter.hasNext}
-                                onClick={actions.nextChapter.go}
-                                className={styles.editorNavButton}
-                            >
-                                <span className="w-full">
-                                    {actions.nextChapter.display}
-                                </span>
-                            </button>
-                        )}
-                    </div>
-                </main>
-                <ReferenceEditor />
-            </div>
+                    </main>
+                    <ReferenceEditor />
+                </div>
+                {actions.nextChapter.hasNext && (
+                    <button
+                        type="button"
+                        disabled={!actions.nextChapter.hasNext}
+                        onClick={actions.nextChapter.go}
+                        className={styles.editorNavButton}
+                    >
+                        <span className="w-full">
+                            {actions.nextChapter.display}
+                        </span>
+                    </button>
+                )}
+            </main>
+            <ReferenceEditor />
+            <AppDrawer opened={opened} close={close} />
         </div>
     );
 }

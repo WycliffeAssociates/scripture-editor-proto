@@ -69,8 +69,8 @@ jobs:
           - os: macos-latest
             args: "--target universal-apple-darwin"
             artifact_paths: |
-              src/tauri/rust/target/release/bundle/app/*.app
-              src/tauri/rust/target/release/bundle/macos/*.dmg
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.dmg
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.app
 
           # Windows
           - os: windows-latest
@@ -385,3 +385,5 @@ jobs:
   #       run: pnpm tauri ios build --export-method debugging --ci --config ./src/tauri/rust/tauri.conf.ci_cache.json
 
   # todo: a job for android and stub for ios: cache the dist merge in config though
+
+# todo: maybe try to hook up changesets and then maybe intl? Notifications. Think about some best practices with linting and test?
