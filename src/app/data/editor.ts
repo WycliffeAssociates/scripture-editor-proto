@@ -57,7 +57,7 @@ export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
     TokenMap.endMarker,
     TokenMap.implicitClose,
     TokenMap.marker,
-    TokenMap.numberRange,
+    // TokenMap.numberRange,
 ]);
 // type more loosel for includions checks
 export const TOKEN_TYPES_CAN_TOGGLE_HIDE = new Set<string>([

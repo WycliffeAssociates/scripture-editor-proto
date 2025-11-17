@@ -15,5 +15,6 @@ export function I18nEntry({
         es: esMessages,
     });
     i18n.activate(defaultLocale);
+
     return <I18nProvider i18n={i18n}>{children}</I18nProvider>;
 }

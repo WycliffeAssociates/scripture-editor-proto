@@ -1,0 +1,4 @@
+.drawerClose:hover {
+  color: var(--mantine-color-red-7);
+  background-color: transparent;
+}

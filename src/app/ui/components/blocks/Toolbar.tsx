@@ -7,15 +7,34 @@ import {
     Group,
     Menu,
     NumberInput,
+    rem,
     SegmentedControl,
     Select,
     Switch,
     Text,
     Tooltip,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { Link, useRouter } from "@tanstack/react-router";
-import { ChevronDown, Code, Menu as IconMenu, Plus } from "lucide-react";
-import { useState } from "react";
+import {
+    CAN_REDO_COMMAND,
+    CAN_UNDO_COMMAND,
+    COMMAND_PRIORITY_EDITOR,
+    type LexicalEditor,
+    REDO_COMMAND,
+    UNDO_COMMAND,
+} from "lexical";
+import {
+    BookCopy,
+    ChevronDown,
+    Code,
+    Menu as IconMenu,
+    Plus,
+    RotateCcw,
+    RotateCw,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { MEDIA_QUERY_SCREEN_SIZE } from "@/app/data/constants.ts";
 import {
     type EditorMarkersMutableState,
     EditorMarkersMutableStates,
@@ -23,55 +42,101 @@ import {
     EditorMarkersViewStates,
 } from "@/app/data/editor.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
+import FontPicker from "@/app/ui/components/blocks/ProjectSettings/FontPicker.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
-export function Toolbar() {
-    const { actions, project } = useWorkspaceContext();
-    const [drawerOpened, setDrawerOpened] = useState(false);
+export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
+    const { actions, editorRef } = useWorkspaceContext();
+    const [canUndo, setCanUndo] = useState(true);
+    const [canRedo, setCanRedo] = useState(true);
+    const [localEditorCopy, setLocalEditorCopy] =
+        useState<LexicalEditor | null>(editorRef?.current);
+    const [listenersAttached, setListenersAttached] = useState(false);
 
-    // Minimal toolbar: provide a single control to open the drawer (project + settings)
-    // and keep frequently used controls visible.
+    function attachDisabledListeners(editor: LexicalEditor) {
+        if (listenersAttached) return;
+        editor.registerCommand(
+            CAN_UNDO_COMMAND,
+            (payload: boolean) => {
+                setCanUndo(Boolean(payload));
+                return false; // allow other handlers
+            },
+            COMMAND_PRIORITY_EDITOR,
+        );
+        editor.registerCommand(
+            CAN_REDO_COMMAND,
+            (payload: boolean) => {
+                setCanRedo(Boolean(payload));
+                return false;
+            },
+            COMMAND_PRIORITY_EDITOR,
+        );
+    }
+
     return (
-        <>
-            <Group
-                align="center"
-                py="xs"
-                gap="md"
-                display="flex"
-                className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
+        <Group
+            align="center"
+            py="xs"
+            gap="md"
+            display="flex"
+            className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
+        >
+            <ActionIconSimple
+                onClick={openDrawer}
+                aria-label="Open project drawer"
+                className="text-(--mantine-color-default-text)!"
             >
-                <Tooltip
-                    label="Open project & settings"
-                    withArrow
-                    openDelay={150}
-                >
-                    <ActionIcon
-                        variant="default"
-                        onClick={() => setDrawerOpened(true)}
-                        aria-label="Open project drawer"
-                    >
-                        <IconMenu size={16} />
-                    </ActionIcon>
-                </Tooltip>
+                <IconMenu size={rem(18)} />
+            </ActionIconSimple>
 
-                <ReferencePicker />
+            {/* Undo / Redo */}
+            <ActionIconSimple
+                aria-label="Undo"
+                title="Undo"
+                onClick={() => {
+                    localEditorCopy?.dispatchCommand(UNDO_COMMAND, undefined);
+                    if (!localEditorCopy && editorRef?.current) {
+                        setLocalEditorCopy(editorRef.current);
+                        if (!listenersAttached) {
+                            attachDisabledListeners(editorRef.current);
+                            setListenersAttached(true);
+                        }
+                    }
+                }}
+                disabled={!canUndo}
+            >
+                <RotateCcw size={rem(16)} />
+            </ActionIconSimple>
+            <ActionIconSimple
+                aria-label="Redo"
+                title="Redo"
+                onClick={() => {
+                    localEditorCopy?.dispatchCommand(REDO_COMMAND, undefined);
+                    if (!localEditorCopy && editorRef?.current) {
+                        setLocalEditorCopy(editorRef.current);
+                        if (!listenersAttached) {
+                            attachDisabledListeners(editorRef.current);
+                            setListenersAttached(true);
+                        }
+                    }
+                }}
+                disabled={!canRedo}
+            >
+                <RotateCw size={rem(16)} />
+            </ActionIconSimple>
 
-                {/* Keep reference project selector visible */}
-                <ReferenceProjectList />
+            <ReferencePicker />
 
-                {/* Search and save remain in toolbar */}
-                <SearchInput />
-                <SaveAndReviewChanges />
-            </Group>
+            {/* Keep reference project selector visible */}
+            <ReferenceProjectList />
 
-            {/* Drawer lives here for now; exported below as a standalone component too */}
-            <ProjectDrawer
-                opened={drawerOpened}
-                onClose={() => setDrawerOpened(false)}
-            />
-        </>
+            {/* Search and save remain in toolbar */}
+            <SearchInput />
+            <SaveAndReviewChanges />
+        </Group>
     );
 }
 
@@ -365,9 +430,43 @@ function ProjectList() {
 /* ---------------- Reference Project ---------------- */
 function ReferenceProjectList() {
     const { allProjects, referenceProject } = useWorkspaceContext();
+    const isSmall = useMediaQuery(MEDIA_QUERY_SCREEN_SIZE.SMALL);
     const selected =
         allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
             ?.name ?? "Select Reference Project";
+
+    if (isSmall) {
+        return (
+            <Menu shadow="md" width={220}>
+                <Menu.Target>
+                    <ActionIconSimple aria-label="Select reference project">
+                        <BookCopy size={16} />
+                    </ActionIconSimple>
+                </Menu.Target>
+                <Menu.Dropdown>
+                    <Menu.Item
+                        onClick={() =>
+                            referenceProject.setReferenceProjectId(undefined)
+                        }
+                    >
+                        Clear Reference Project
+                    </Menu.Item>
+                    {allProjects.map((project) => (
+                        <Menu.Item
+                            key={project.id}
+                            onClick={() =>
+                                referenceProject.setReferenceProjectId(
+                                    project.projectDir.name,
+                                )
+                            }
+                        >
+                            {project.name}
+                        </Menu.Item>
+                    ))}
+                </Menu.Dropdown>
+            </Menu>
+        );
+    }
 
     return (
         <Menu shadow="md" width={220}>
@@ -434,32 +533,4 @@ function FontSizeAdjust() {
     );
 }
 
-/* ---------------- Font Picker ---------------- */
-function FontPicker() {
-    const { project } = useWorkspaceContext();
-    const { appSettings, updateAppSettings } = project;
-    const [fonts, _setFonts] = useState<string[]>(["Inter"]);
-    const [_selected, _setSelected] = useState("Inter");
-
-    // useEffect(() => {
-    //   invoke<string[]>("get_system_fonts")
-    //     .then((sysFonts) => {
-    //       setFonts(["Inter", ...new Set(sysFonts)]);
-    //     })
-    //     .catch(() => {});
-    // }, []);
-    if (!appSettings.canAccessSystemFonts) return null;
-
-    return (
-        <Select
-            data={fonts}
-            value={appSettings.fontFamily}
-            onChange={(value) =>
-                value && updateAppSettings({ fontFamily: value })
-            }
-            placeholder="Font"
-            searchable
-            w={160}
-        />
-    );
-}
+/* FontPicker moved to ProjectSettings/FontPicker.tsx */

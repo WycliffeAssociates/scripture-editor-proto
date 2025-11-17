@@ -4,12 +4,16 @@ import {
     Button,
     Grid,
     Popover,
+    rem,
     TextInput,
+    Transition,
     useMantineTheme,
 } from "@mantine/core";
-import { useDebouncedValue } from "@mantine/hooks";
+import { useDebouncedValue, useMediaQuery } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { MEDIA_QUERY_SCREEN_SIZE } from "@/app/data/constants.ts";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import referencePickerCss from "@/app/ui/styles/modules/ReferencePicker.module.css";
 import { parseReference } from "@/core/data/bible/bible.ts";
@@ -27,6 +31,7 @@ export function ReferencePicker() {
         workingFiles,
         pickedFile,
     } = project;
+    const isSmall = useMediaQuery(MEDIA_QUERY_SCREEN_SIZE.SMALL);
 
     // --- derived state
     const currentBook = pickedFile?.bookCode ?? "Select";
@@ -88,107 +93,139 @@ export function ReferencePicker() {
         <Popover
             opened={open}
             onChange={setOpen}
-            width={380}
+            width={isSmall ? rem(300) : rem(380)}
+            // width="300px"
             withArrow
             shadow="md"
             position="bottom-start"
         >
             <Popover.Target>
-                <Button
-                    onClick={() => setOpen((o) => !o)}
-                    variant="default"
-                    w={250}
-                    justify="space-between"
-                    leftSection={<BookIcon size={16} />}
-                    rightSection={<ChevronDownIcon size={16} />}
-                    classNames={{
-                        inner: referencePickerCss.triggerInner,
-                        label: referencePickerCss.triggerLabel,
-                    }}
-                >
-                    {currentDisplay}
-                </Button>
+                {isSmall ? (
+                    <ActionIconSimple
+                        aria-label="Open reference picker"
+                        title={currentDisplay}
+                        onClick={() => setOpen((o) => !o)}
+                        // classNames={{
+                        //   icon: "text-[var(--mantine-color-text)]",
+                        // }}
+                    >
+                        <BookIcon size={16} />
+                    </ActionIconSimple>
+                ) : (
+                    <Button
+                        onClick={() => setOpen((o) => !o)}
+                        variant="default"
+                        w={250}
+                        justify="space-between"
+                        leftSection={<BookIcon size={16} />}
+                        rightSection={<ChevronDownIcon size={16} />}
+                        classNames={{
+                            inner: referencePickerCss.triggerInner,
+                            label: referencePickerCss.triggerLabel,
+                        }}
+                    >
+                        {currentDisplay}
+                    </Button>
+                )}
             </Popover.Target>
+            <Transition
+                mounted={open}
+                transition="fade"
+                duration={100}
+                timingFunction="ease"
+            >
+                {(transitionStyle) => (
+                    <Popover.Dropdown
+                        p={0}
+                        className={referencePickerCss.dropdown}
+                        style={transitionStyle}
+                    >
+                        <form onSubmit={handleSubmit}>
+                            <TextInput
+                                autoFocus
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search (e.g. Mat 9, 1Co 1)"
+                                variant="unstyled"
+                                px="sm"
+                                py="xs"
+                                className={referencePickerCss.searchInput}
+                            />
+                        </form>
 
-            <Popover.Dropdown p={0} className={referencePickerCss.dropdown}>
-                <form onSubmit={handleSubmit}>
-                    <TextInput
-                        autoFocus
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search (e.g. Mat 9, 1Co 1)"
-                        variant="unstyled"
-                        px="sm"
-                        py="xs"
-                        className={referencePickerCss.searchInput}
-                    />
-                </form>
+                        <Accordion
+                            variant="default"
+                            classNames={{
+                                item: referencePickerCss.accordionItem,
+                                control: referencePickerCss.accordionControl,
+                                content: referencePickerCss.accordionContent,
+                            }}
+                        >
+                            {uniqueFilesStartsWith.map((file) => {
+                                const fileTitle = file.title || file.bookCode;
 
-                <Accordion
-                    variant="default"
-                    classNames={{
-                        item: referencePickerCss.accordionItem,
-                        control: referencePickerCss.accordionControl,
-                        content: referencePickerCss.accordionContent,
-                    }}
-                >
-                    {uniqueFilesStartsWith.map((file) => {
-                        const fileTitle = file.title || file.bookCode;
-
-                        return (
-                            <Accordion.Item key={file.title} value={fileTitle}>
-                                <Accordion.Control
-                                    className={
-                                        currentFileBibleIdentifier ===
-                                        file.bookCode
-                                            ? referencePickerCss.activeBook
-                                            : undefined
-                                    }
-                                >
-                                    {fileTitle}
-                                </Accordion.Control>
-                                <Accordion.Panel>
-                                    <Grid gutter="xs" justify="flex-start">
-                                        {Object.keys(file.chapters)
-                                            .map(Number)
-                                            .sort((a, b) => a - b)
-                                            .map((chap) => (
-                                                <Grid.Col
-                                                    span="content"
-                                                    key={chap}
-                                                >
-                                                    <ActionIcon
-                                                        variant={
-                                                            chap ===
-                                                            currentChapter
-                                                                ? "filled"
-                                                                : "subtle"
-                                                        }
-                                                        color={
-                                                            chap ===
-                                                            currentChapter
-                                                                ? theme.primaryColor
-                                                                : "gray"
-                                                        }
-                                                        size="lg"
-                                                        onClick={() =>
-                                                            actions.switchBookOrChapter(
-                                                                file.bookCode,
-                                                                chap,
-                                                            )
-                                                        }
-                                                    >
-                                                        {chap}
-                                                    </ActionIcon>
-                                                </Grid.Col>
-                                            ))}
-                                    </Grid>
-                                </Accordion.Panel>
-                            </Accordion.Item>
-                        );
-                    })}
-                </Accordion>
-            </Popover.Dropdown>
+                                return (
+                                    <Accordion.Item
+                                        key={file.title}
+                                        value={fileTitle}
+                                    >
+                                        <Accordion.Control
+                                            className={
+                                                currentFileBibleIdentifier ===
+                                                file.bookCode
+                                                    ? referencePickerCss.activeBook
+                                                    : undefined
+                                            }
+                                        >
+                                            {fileTitle}
+                                        </Accordion.Control>
+                                        <Accordion.Panel>
+                                            <Grid
+                                                gutter="xs"
+                                                justify="flex-start"
+                                            >
+                                                {Object.keys(file.chapters)
+                                                    .map(Number)
+                                                    .sort((a, b) => a - b)
+                                                    .map((chap) => (
+                                                        <Grid.Col
+                                                            span="content"
+                                                            key={chap}
+                                                        >
+                                                            <ActionIconSimple
+                                                                variant={
+                                                                    chap ===
+                                                                    currentChapter
+                                                                        ? "filled"
+                                                                        : "subtle"
+                                                                }
+                                                                color={
+                                                                    chap ===
+                                                                    currentChapter
+                                                                        ? theme.primaryColor
+                                                                        : "gray"
+                                                                }
+                                                                size="lg"
+                                                                onClick={() =>
+                                                                    actions.switchBookOrChapter(
+                                                                        file.bookCode,
+                                                                        chap,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {chap}
+                                                            </ActionIconSimple>
+                                                        </Grid.Col>
+                                                    ))}
+                                            </Grid>
+                                        </Accordion.Panel>
+                                    </Accordion.Item>
+                                );
+                            })}
+                        </Accordion>
+                    </Popover.Dropdown>
+                )}
+            </Transition>
         </Popover>
     );
 }

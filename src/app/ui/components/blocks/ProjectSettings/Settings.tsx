@@ -10,13 +10,21 @@ import {
     useMantineColorScheme,
 } from "@mantine/core";
 import { Languages, Moon, Sun } from "lucide-react";
-import { LOCALES, SUPPORTED_LOCALES } from "@/app/data/settings.ts";
+import { LOCALES } from "@/app/data/settings.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import EditorModeToggle from "./EditorModeToggle.tsx";
+import FontSizeControl from "./FontSizeControl.tsx";
 import styles from "./Settings.module.css";
+import ZoomControl from "./ZoomControl.tsx";
 export function SettingsPanel() {
     return (
         <Stack gap="lg">
             <DisplayThemeToggle />
+            <EditorModeToggle />
+            <ZoomControl />
+            <FontSizeControl />
+            {/*<FontPicker />*/}
             <LanguageSelector />
         </Stack>
     );
@@ -51,7 +59,7 @@ function DisplayThemeToggle() {
                         value: "light",
                         label: (
                             <Center
-                                className={`flex gap-2 ${project.appSettings.colorScheme === "light" ? "text-(--mantine-primary-color-filled) font-bold" : ""}`}
+                                className={`flex gap-2 ${project.appSettings.colorScheme === "light" ? styles.chosenToggle : ""}`}
                             >
                                 <Sun size="1.5rem" />
                                 <Box>
@@ -64,7 +72,7 @@ function DisplayThemeToggle() {
                         value: "dark",
                         label: (
                             <Center
-                                className={`flex gap-2 ${project.appSettings.colorScheme === "dark" ? "text-(--mantine-primary-color-filled) font-bold" : ""}`}
+                                className={`flex gap-2 ${project.appSettings.colorScheme === "dark" ? styles.chosenToggle : ""}`}
                             >
                                 <Moon size="1.5rem" />
                                 <Box>
@@ -92,13 +100,15 @@ export function LanguageSelector() {
         // 2. Activate the new locale for Lingui
         // This usually involves dynamically loading the message catalog
         // await dynamicActivate(locale);
+        await loadLocale(locale);
         console.log(
             `Language changed to: ${locale}. You would activate Lingui here.`,
         );
     };
     const data = Object.entries(LOCALES).map(([key, value]) => ({
         value: key,
-        label: value,
+        label: value.nativeName,
+        direction: value.direction,
     }));
 
     return (

@@ -1,5 +1,4 @@
 import { Trans } from "@lingui/react/macro";
-import { Button, Divider, Menu } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useWorkspaceContext } from "../../../contexts/WorkspaceContext.tsx";

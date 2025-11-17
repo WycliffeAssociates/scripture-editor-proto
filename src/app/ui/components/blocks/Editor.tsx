@@ -38,7 +38,7 @@ export function MainEditor() {
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className="min-h-full focus:outline-none p-4 w-full"
+                                className="min-h-full focus:outline-none p-1 w-full md:p-4"
                                 aria-label="USFM Editor"
                             />
                         }

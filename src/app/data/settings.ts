@@ -8,9 +8,18 @@ import {
 } from "@/app/data/editor.ts";
 
 export const SUPPORTED_LOCALES = ["en", "es"];
-export const LOCALES: Record<SupportedLocales, string> = {
-    en: "English",
-    es: "Español",
+export const LOCALES: Record<
+    SupportedLocales,
+    { nativeName: string; direction: "ltr" | "rtl" }
+> = {
+    en: {
+        nativeName: "English",
+        direction: "ltr",
+    },
+    es: {
+        nativeName: "Español",
+        direction: "ltr",
+    },
 };
 type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
 export function isSupportedLocale(locale: string): locale is SupportedLocales {

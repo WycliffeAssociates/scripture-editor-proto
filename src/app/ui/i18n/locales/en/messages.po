@@ -13,10 +13,30 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:47
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:72
+msgid "Dark"
+msgstr "Dark"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:33
+msgid "Display"
+msgstr "Display"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:109
+msgid "Interface Localization"
+msgstr "Interface Localization"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:59
+msgid "Light"
+msgstr "Light"
+
+#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:44
 msgid "New Project"
 msgstr "New Project"
 
-#: src/app/ui/components/blocks/AppDrawer.tsx:16
+#: src/app/ui/components/blocks/AppDrawer.tsx:20
 msgid "Projects"
 msgstr "Projects"
+
+#: src/app/ui/components/blocks/AppDrawer.tsx:31
+msgid "Settings"
+msgstr "Settings"

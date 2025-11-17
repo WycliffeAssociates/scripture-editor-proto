@@ -14,3 +14,13 @@
   height: 3rem;
   border: solid 1px var(--mantine-primary-color-filled);
 }
+
+.chosenToggle {
+  color: var(--mantine-primary-color-filled);
+  font-weight: 700;
+}
+
+.centeredTextInput {
+  font-weight: 700;
+  text-align: center;
+}
