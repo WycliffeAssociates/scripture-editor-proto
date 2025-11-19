@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './../routes/__root'
+import { Route as ScaffoldRouteImport } from './../routes/scaffold'
 import { Route as CreateRouteImport } from './../routes/create'
 import { Route as ProjectRouteImport } from './../routes/$project'
 import { Route as IndexRouteImport } from './../routes/index'
 
+const ScaffoldRoute = ScaffoldRouteImport.update({
+  id: '/scaffold',
+  path: '/scaffold',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreateRoute = CreateRouteImport.update({
   id: '/create',
   path: '/create',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$project' | '/create'
+  fullPaths: '/' | '/$project' | '/create' | '/scaffold'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$project' | '/create'
-  id: '__root__' | '/' | '/$project' | '/create'
+  to: '/' | '/$project' | '/create' | '/scaffold'
+  id: '__root__' | '/' | '/$project' | '/create' | '/scaffold'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectRoute: typeof ProjectRoute
   CreateRoute: typeof CreateRoute
+  ScaffoldRoute: typeof ScaffoldRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/scaffold': {
+      id: '/scaffold'
+      path: '/scaffold'
+      fullPath: '/scaffold'
+      preLoaderRoute: typeof ScaffoldRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/create': {
       id: '/create'
       path: '/create'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectRoute: ProjectRoute,
   CreateRoute: CreateRoute,
+  ScaffoldRoute: ScaffoldRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

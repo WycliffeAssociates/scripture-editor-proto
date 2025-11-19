@@ -53,16 +53,16 @@ const dangerColors: MantineColorsTuple = [
   "#91211d",
 ];
 const grays: MantineColorsTuple = [
-  "#ebf6ff",
-  "#e0e8ef",
-  "#c5ced6",
-  "#9facb7",
-  "#8d9ba7",
-  "#7c8d9b",
-  "#738696",
-  "#607383",
-  "#536676",
-  "#42596b",
+  "#f3f4fb",
+  "#e5e6ea",
+  "#c9cacf",
+  "#abadb5",
+  "#92949f",
+  "#828492",
+  "#7a7d8c",
+  "#686a7a",
+  "#575a69",
+  "#4d5163",
 ];
 const yellows: MantineColorsTuple = [
   "#fff5e0",

@@ -7,10 +7,10 @@ import {
   Loader,
   Modal,
   Paper,
+  rem,
   ScrollArea,
   Text,
   Tooltip,
-  useMantineTheme,
 } from "@mantine/core";
 import type { Change } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
@@ -18,46 +18,29 @@ import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx"
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
+import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
-// --- NEW HELPER COMPONENT ---
 type HighlightedDiffProps = {
   changes: Change[];
   viewType: "original" | "current";
 };
 
-/**
- * Renders an array of Change objects with additions/removals highlighted.
- */
 function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
-  const theme = useMantineTheme();
-
-  const styles = {
-    added: {
-      backgroundColor: theme.colors.green[4],
-      fontWeight: "bold",
-    },
-    removed: {
-      backgroundColor: theme.colors.red[4],
-      fontWeight: "bold",
-    },
-  };
-
   return (
-    <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+    <pre className={styles.diffPre}>
       {changes.map((change, index) => {
-        let style = {};
+        let spanClass = "";
         if (change.added && viewType === "current") {
-          style = styles.added;
+          spanClass = styles.diffHighlightAdded;
         } else if (change.removed && viewType === "original") {
-          style = styles.removed;
+          spanClass = styles.diffHighlightRemoved;
         } else if (change.added || change.removed) {
-          // Don't render additions on the "Original" side or removals on the "Current" side
           return null;
         }
 
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: <only id we have>
-          <span key={index} style={style}>
+          <span key={index} className={spanClass}>
             {change.value}
           </span>
         );
@@ -66,7 +49,6 @@ function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
   );
 }
 
-// Props for the new custom diff item
 type DiffItemProps = {
   diff: ProjectDiff;
   revertDiff: (diffToRevert: ProjectDiff) => void;
@@ -74,16 +56,13 @@ type DiffItemProps = {
   toggleDiffModal: () => void;
 };
 
-/**
- * Renders a custom side-by-side view for a single SID change.
- */
 export function DiffItem({
   diff,
   revertDiff,
   switchBookOrChapter,
   toggleDiffModal,
 }: DiffItemProps) {
-  const { isXs, isSm, isMd, isLg, isXl } = useWorkspaceMediaQuery();
+  const { isSm, isLg } = useWorkspaceMediaQuery();
   const isAddition = diff.original === null;
   const isDeletion = diff.current === null;
   const isModification = !isAddition && !isDeletion;
@@ -115,114 +94,94 @@ export function DiffItem({
     }, 500);
   }
 
+  // Helper to generate class string without clsx
+  const getPaperClass = (isHighlighted: boolean, highlightClass: string) => {
+    return `${styles.paperMinHeight} ${isHighlighted ? highlightClass : styles.paperBgDefault}`;
+  };
+
+  const renderActions = () => (
+    <Group>
+      {isSm ? (
+        <>
+          <Tooltip
+            label={<Trans>Switch to this chapter</Trans>}
+            withArrow
+            position="top"
+          >
+            <ActionIconSimple
+              onClick={() => scrollToClickedRef(diff)}
+              aria-label="Switch to this chapter"
+              title="Switch to this chapter"
+            >
+              <BookIcon size={16} />
+            </ActionIconSimple>
+          </Tooltip>
+          <Tooltip label={<Trans>Undo Change</Trans>} withArrow position="top">
+            <ActionIconSimple
+              onClick={() => revertDiff(diff)}
+              aria-label="Undo Change"
+              title="Undo Change"
+            >
+              <RotateCw size={16} />
+            </ActionIconSimple>
+          </Tooltip>
+        </>
+      ) : (
+        <>
+          <Button
+            variant="outline"
+            size="compact-xs"
+            onClick={() => scrollToClickedRef(diff)}
+          >
+            <Trans>Switch to this chapter</Trans>
+          </Button>
+          <Button
+            variant="outline"
+            size="compact-xs"
+            onClick={() => revertDiff(diff)}
+          >
+            <Trans>Undo Change</Trans>
+          </Button>
+        </>
+      )}
+    </Group>
+  );
+
   return (
-    <div
-      style={{
-        marginBottom: "1.5rem",
-        border: "1px solid #dee2e6",
-        borderRadius: "4px",
-      }}
-    >
-      <Group justify="apart">
-        <Text fw={500} size="sm">
-          {diff.semanticSid}
-        </Text>
+    <div className={styles.diffItem}>
+      <Group justify="space-between" p="xs">
+        <Text className={styles.diffSidHeader}>{diff.semanticSid}</Text>
         {diff.detail && (
-          <Text c="orange" size="xs" fw={700}>
-            {diff.detail}
-          </Text>
+          <Text className={styles.diffDetailWarning}>{diff.detail}</Text>
         )}
       </Group>
 
       {isLg ? (
-        <Grid gutter="md" style={{ padding: "12px" }}>
+        <Grid
+          gutter="md"
+          classNames={{
+            inner: styles.diffGrid,
+          }}
+        >
           {/* --- ORIGINAL (LEFT) COLUMN --- */}
-          <Grid.Col span={6}>
-            <Group justify="space-between" mb="xs">
-              <Text tt="uppercase" size="xs" fw={700}>
+          <Grid.Col>
+            <Group justify="space-between" mb="xs" mih={rem(30)}>
+              <Text className={styles.diffLabel}>
                 <Trans>Original</Trans>
               </Text>
-              <Group>
-                {isSm ? (
-                  <>
-                    <Tooltip
-                      label={<Trans>Switch to this chapter</Trans>}
-                      withArrow
-                      position="top"
-                    >
-                      <ActionIconSimple
-                        onClick={() => scrollToClickedRef(diff)}
-                        aria-label="Switch to this chapter"
-                        title="Switch to this chapter"
-                      >
-                        <BookIcon size={16} />
-                      </ActionIconSimple>
-                    </Tooltip>
-                    <Tooltip
-                      label={<Trans>Revert</Trans>}
-                      withArrow
-                      position="top"
-                    >
-                      <ActionIconSimple
-                        onClick={() => revertDiff(diff)}
-                        aria-label="Revert"
-                        title="Revert"
-                      >
-                        <RotateCw size={16} />
-                      </ActionIconSimple>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="compact-xs"
-                      onClick={() => scrollToClickedRef(diff)}
-                    >
-                      <Trans>Switch to this chapter</Trans>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="compact-xs"
-                      onClick={() => revertDiff(diff)}
-                    >
-                      <Trans>Revert</Trans>
-                    </Button>
-                  </>
-                )}
-              </Group>
+              {renderActions()}
             </Group>
             <Paper
-              withBorder
               p="xs"
-              style={{
-                backgroundColor: isDeletion ? "#fff5f5" : "#f8f9fa", // Red background for deletions
-                minHeight: "40px",
-              }}
+              className={getPaperClass(isDeletion, styles.paperBgDeletion)}
             >
               {isAddition && (
-                <Text
-                  c="dimmed"
-                  ta="center"
-                  size="sm"
-                  style={{
-                    fontStyle: "italic",
-                    paddingTop: "4px",
-                  }}
-                >
+                <Text className={styles.versePlaceholder}>
                   <Trans>(New verse)</Trans>
                 </Text>
               )}
               {isDeletion && (
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {diff.originalDisplayText}
-                </pre>
+                <pre className={styles.diffPre}>{diff.originalDisplayText}</pre>
               )}
               {isModification && diff.wordDiff && (
                 <HighlightedDiffText
@@ -234,41 +193,23 @@ export function DiffItem({
           </Grid.Col>
 
           {/* --- CURRENT (RIGHT) COLUMN --- */}
-          <Grid.Col span={6}>
-            <Text tt="uppercase" size="xs" fw={700} mb="xs">
-              <Trans>Current</Trans>
-            </Text>
+          <Grid.Col>
+            <Group justify="space-between" mb="xs" mih={rem(30)}>
+              <Text className={styles.diffLabel} mb="xs">
+                <Trans>Current</Trans>
+              </Text>
+            </Group>
             <Paper
-              withBorder
               p="xs"
-              style={{
-                backgroundColor: isAddition ? "#e6fcf5" : "#f8f9fa", // Green background for additions
-                minHeight: "40px",
-              }}
+              className={getPaperClass(isAddition, styles.paperBgAddition)}
             >
               {isDeletion && (
-                <Text
-                  c="dimmed"
-                  ta="center"
-                  size="sm"
-                  style={{
-                    fontStyle: "italic",
-                    paddingTop: "4px",
-                  }}
-                >
+                <Text className={styles.versePlaceholder}>
                   <Trans>(Verse deleted)</Trans>
                 </Text>
               )}
               {isAddition && (
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {diff.currentDisplayText}
-                </pre>
+                <pre className={styles.diffPre}>{diff.currentDisplayText}</pre>
               )}
               {isModification && diff.wordDiff && (
                 <HighlightedDiffText
@@ -281,74 +222,25 @@ export function DiffItem({
         </Grid>
       ) : (
         // Stacked vertical layout for smaller screens
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
+        <div className={styles.diffStacked} style={{ padding: "12px" }}>
           <div>
-            <Group justify="apart" mb="xs">
-              <Text tt="uppercase" size="xs" fw={700}>
+            <Group justify="space-between" mb="xs">
+              <Text className={styles.diffLabel}>
                 <Trans>Original</Trans>
               </Text>
-              <Group>
-                <Tooltip
-                  label={<Trans>Switch to this chapter</Trans>}
-                  withArrow
-                  position="top"
-                >
-                  <ActionIconSimple
-                    onClick={() => scrollToClickedRef(diff)}
-                    aria-label="Switch to this chapter"
-                    title="Switch to this chapter"
-                  >
-                    <BookIcon size={16} />
-                  </ActionIconSimple>
-                </Tooltip>
-                <Tooltip label={<Trans>Revert</Trans>} withArrow position="top">
-                  <ActionIconSimple
-                    onClick={() => revertDiff(diff)}
-                    aria-label="Revert"
-                    title="Revert"
-                  >
-                    <RotateCw size={16} />
-                  </ActionIconSimple>
-                </Tooltip>
-              </Group>
+              {renderActions()}
             </Group>
             <Paper
-              withBorder
               p="xs"
-              style={{
-                backgroundColor: isDeletion ? "#fff5f5" : "#f8f9fa",
-                minHeight: "40px",
-              }}
+              className={getPaperClass(isDeletion, styles.paperBgDeletion)}
             >
               {isAddition && (
-                <Text
-                  c="dimmed"
-                  ta="center"
-                  size="sm"
-                  style={{
-                    fontStyle: "italic",
-                    paddingTop: "4px",
-                  }}
-                >
+                <Text className={styles.versePlaceholder}>
                   <Trans>(New verse)</Trans>
                 </Text>
               )}
               {isDeletion && (
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {diff.originalDisplayText}
-                </pre>
+                <pre className={styles.diffPre}>{diff.originalDisplayText}</pre>
               )}
               {isModification && diff.wordDiff && (
                 <HighlightedDiffText
@@ -360,40 +252,20 @@ export function DiffItem({
           </div>
 
           <div>
-            <Text tt="uppercase" size="xs" fw={700} mb="xs">
+            <Text className={styles.diffLabel} mb="xs">
               <Trans>Current</Trans>
             </Text>
             <Paper
-              withBorder
               p="xs"
-              style={{
-                backgroundColor: isAddition ? "#e6fcf5" : "#f8f9fa",
-                minHeight: "40px",
-              }}
+              className={getPaperClass(isAddition, styles.paperBgAddition)}
             >
               {isDeletion && (
-                <Text
-                  c="dimmed"
-                  ta="center"
-                  size="sm"
-                  style={{
-                    fontStyle: "italic",
-                    paddingTop: "4px",
-                  }}
-                >
+                <Text className={styles.versePlaceholder}>
                   <Trans>(Verse deleted)</Trans>
                 </Text>
               )}
               {isAddition && (
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {diff.currentDisplayText}
-                </pre>
+                <pre className={styles.diffPre}>{diff.currentDisplayText}</pre>
               )}
               {isModification && diff.wordDiff && (
                 <HighlightedDiffText
@@ -409,6 +281,10 @@ export function DiffItem({
   );
 }
 
+// ... The rest of the file (DiffViewerModal, SaveAndReviewChanges) remains mostly unchanged
+// except for applying styles.modalScrollPaper, styles.stickyHeader etc.
+// which simply replace the style={{...}} props.
+
 type DiffViewerModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -417,9 +293,6 @@ type DiffViewerModalProps = {
   revertDiff: (diffToRevert: ProjectDiff) => void;
 };
 
-/**
- * A modal component that displays the diff results using the custom view.
- */
 function DiffViewerModal({
   isOpen,
   onClose,
@@ -438,39 +311,28 @@ function DiffViewerModal({
       size="95%"
       centered
     >
-      <Paper withBorder p="sm" style={{ maxHeight: "90vh", overflow: "auto" }}>
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            background: "var(--mantine-color-white, #fff)",
-            padding: "0.5rem 0",
-            display: "flex",
-            justifyContent: "flex-end",
-            borderBottom: "1px solid var(--mantine-color-default-border)",
-          }}
-        >
+      <Paper p="sm" className={styles.modalScrollPaper}>
+        <div className={styles.stickyHeader}>
           <Button
             variant="light"
             size="xs"
             onClick={saveDiff.saveProjectToDisk}
-            style={{ marginRight: "0.5rem" }}
+            className={styles.saveAllButtonMargin}
           >
             <Trans>Save all changes</Trans>
           </Button>
         </div>
 
-        <ScrollArea style={{ height: "60vh" }}>
-          <div>
+        <ScrollArea className={styles.diffScrollArea}>
+          <div className={styles.fullHeight}>
             {isCalculating && (
-              <Center style={{ height: "100%" }}>
+              <Center className={styles.fullHeight}>
                 <Loader />
               </Center>
             )}
 
             {!isCalculating && !hasChanges && (
-              <Center style={{ height: "100%" }}>
+              <Center className={styles.fullHeight}>
                 <Text>
                   <Trans>No changes detected.</Trans>
                 </Text>
@@ -497,15 +359,9 @@ function DiffViewerModal({
   );
 }
 
-/**
- * Example parent component demonstrating the usage of the hook and modal.
- */
-/**
- * Example parent component demonstrating the usage of the hook and modal.
- */
 export function SaveAndReviewChanges() {
   const { saveDiff, actions } = useWorkspaceContext();
-  const { isXs, isSm, isMd, isLg, isXl } = useWorkspaceMediaQuery();
+  const { isXs, isSm } = useWorkspaceMediaQuery();
 
   return (
     <>

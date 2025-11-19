@@ -1,3 +1,3 @@
 export interface Importer {
-    import(path: string): Promise<boolean>;
+  import(path: string): Promise<boolean>;
 }

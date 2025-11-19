@@ -10,7 +10,7 @@ import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvid
 // // instantiante services
 const settingsManager = createTauriSettingsManager();
 const directoryProvider =
-    await TauriDirectoryProvider.create("scripture-editor");
+  await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
 const gitProvider = new TauriGitProvider(directoryProvider);
 
@@ -20,12 +20,12 @@ if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 
 root.render(
-    <StrictMode>
-        <App
-            settingsManager={settingsManager}
-            gitProvider={gitProvider}
-            directoryProvider={directoryProvider}
-            md5Service={md5Service}
-        />
-    </StrictMode>,
+  <StrictMode>
+    <App
+      settingsManager={settingsManager}
+      gitProvider={gitProvider}
+      directoryProvider={directoryProvider}
+      md5Service={md5Service}
+    />
+  </StrictMode>,
 );

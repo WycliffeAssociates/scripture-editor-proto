@@ -4,17 +4,17 @@ import { messages as enMessages } from "./locales/en/messages.ts";
 import { messages as esMessages } from "./locales/es/messages.ts";
 
 export function I18nEntry({
-    children,
-    defaultLocale,
+  children,
+  defaultLocale,
 }: {
-    children: React.ReactNode;
-    defaultLocale: string;
+  children: React.ReactNode;
+  defaultLocale: string;
 }) {
-    i18n.load({
-        en: enMessages,
-        es: esMessages,
-    });
-    i18n.activate(defaultLocale);
+  i18n.load({
+    en: enMessages,
+    es: esMessages,
+  });
+  i18n.activate(defaultLocale);
 
-    return <I18nProvider i18n={i18n}>{children}</I18nProvider>;
+  return <I18nProvider i18n={i18n}>{children}</I18nProvider>;
 }

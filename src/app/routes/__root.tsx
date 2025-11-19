@@ -2,20 +2,20 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import type { RouterContext } from "@/app/entrypoint.tsx";
 
 const RootLayout = () => {
-    // useEffectOnce(() => {
-    //     const { lastProjectPath, restoreToLastProjectOnLaunch } = settingsManager.getSettings();
-    //     if (restoreToLastProjectOnLaunch && lastProjectPath) {
-    //         const projectName = lastProjectPath.split("/")[lastProjectPath.length - 1];
-    //         router.navigate({
-    //             to: `/$project`,
-    //             params: { project: projectName },
-    //         });
-    //     }
-    // });
+  // useEffectOnce(() => {
+  //     const { lastProjectPath, restoreToLastProjectOnLaunch } = settingsManager.getSettings();
+  //     if (restoreToLastProjectOnLaunch && lastProjectPath) {
+  //         const projectName = lastProjectPath.split("/")[lastProjectPath.length - 1];
+  //         router.navigate({
+  //             to: `/$project`,
+  //             params: { project: projectName },
+  //         });
+  //     }
+  // });
 
-    return (
-        <>
-            {/* <div className="p-2 flex gap-2">
+  return (
+    <>
+      {/* <div className="p-2 flex gap-2">
         <Link to="/" className="[&.active]:font-bold">
           Home
         </Link>{" "}
@@ -33,21 +33,21 @@ const RootLayout = () => {
         )}
       </div>
       <hr /> */}
-            <div className="">
-                <Outlet />
-            </div>
-            {/* <TanStackRouterDevtools /> */}
-        </>
-    );
+      <div className="">
+        <Outlet />
+      </div>
+      {/* <TanStackRouterDevtools /> */}
+    </>
+  );
 };
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
-    component: RootLayout,
-    loader: async ({ context }) => {
-        const { projectRepository } = context;
-        const projects = await projectRepository.listProjects();
+  component: RootLayout,
+  loader: async ({ context }) => {
+    const { projectRepository } = context;
+    const projects = await projectRepository.listProjects();
 
-        return { projects };
-    },
+    return { projects };
+  },
 });
 export const Route = rootRoute;

@@ -33,3 +33,4 @@ scratchings.md
 # keys
 *.p12
 *.p8
+.aider*

@@ -1,6 +1,6 @@
 import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
-import { vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
+import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 // Popover Dropdown Container
 export const dropdown = style({
@@ -12,8 +12,13 @@ export const dropdown = style({
 
 // Search Input
 export const searchInput = style({
-  borderBottom: `1px solid ${virtualVars.border}`,
+  borderBottom: `1px solid ${vars.colors.gray[5]}`,
   flexShrink: 0,
+  selectors: {
+    [`${darkSelector} &`]: {
+      borderBottom: `1px solid ${vars.colors.gray[7]}`,
+    },
+  },
 });
 
 // Trigger Button (Desktop)
