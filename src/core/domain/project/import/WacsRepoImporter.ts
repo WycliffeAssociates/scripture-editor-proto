@@ -29,11 +29,11 @@ export class WacsRepoImporter implements Importer {
    * @param url The URL of the ZIP file to download and import.
    * @returns A promise that resolves to true if the import was successful, false otherwise.
    */
-  public async import(url: string): Promise<boolean> {
+  public async import(url: string): Promise<string | null> {
     const projectsDir = await this.directoryProvider.projectsDirectory;
     const tempDirectory = await this.directoryProvider.tempDirectory;
 
-    console.log("project directory: " + projectsDir.path);
+    console.log(`project directory: ${projectsDir.path}`);
 
     let tempExtractionDir: IDirectoryHandle | null = null;
     let extractedTopLevelItem: IPathHandle | null = null;
@@ -62,10 +62,10 @@ export class WacsRepoImporter implements Importer {
       console.log(
         `[WacsRepoImporter] Project imported successfully to: ${finalProjectDir.path}`,
       );
-      return true;
+      return finalProjectDir.path;
     } catch (error) {
       console.error("[WacsRepoImporter] Import failed:", error);
-      return false;
+      return null;
     } finally {
       // 5. Cleanup temporary resources
       if (tempExtractionDir) {

@@ -68,6 +68,7 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
         id: metadata.id || projectDir.name,
         name:
           metadata.name || metadata.identification?.name?.en || projectDir.name,
+        // todo: get from ingredients?
         files: [],
         // path: projectDir.path || "", // Removed as FileSystemDirectoryHandle does not have a .path property
         metadata: {

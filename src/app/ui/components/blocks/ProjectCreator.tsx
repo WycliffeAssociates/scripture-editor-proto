@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/macro";
 import type React from "react";
 import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
 import {
@@ -34,13 +35,15 @@ export default function ProjectCreator({
 }: ProjectCreatorProps) {
   return (
     <section className={`${styles.container} ${className}`}>
-      <h2 className={styles.title}>Create a new project</h2>
+      <h2 className={styles.title}>
+        <Trans>Create a new project</Trans>
+      </h2>
 
       <div className={styles.layout}>
         {/* Left column: remote repo importer */}
         <div className={styles.leftCol}>
           <h3 className={styles.leftHeading}>
-            Search for a scripture repository
+            <Trans>Search for a scripture repository</Trans>
           </h3>
 
           <div className={styles.repoContainer}>
@@ -48,12 +51,6 @@ export default function ProjectCreator({
               onDownload={onDownload}
               isDownloadDisabled={isDownloadDisabled}
             />
-          </div>
-
-          <div className={styles.repoHelper}>
-            You can search or provide a remote repository to import into the
-            editor. Use the input above to specify a URL or repo identifier,
-            then click Download.
           </div>
         </div>
 
@@ -70,11 +67,6 @@ export default function ProjectCreator({
               accept=".zip"
               label="Or select a ZIP file"
             />
-          </div>
-
-          <div className={styles.tipText}>
-            Tip: To import a local project folder, use the folder selector. For
-            archived exports, use a ZIP file.
           </div>
         </aside>
       </div>

@@ -69,18 +69,6 @@ export const repoContainer = style({
   width: "100%",
 });
 
-/* Helper text under repo */
-export const repoHelper = style({
-  marginTop: "0.5rem",
-  fontSize: "0.875rem",
-  color: vars.colors.gray[6],
-  selectors: {
-    [`${darkSelector} &`]: {
-      color: vars.colors.gray[5],
-    },
-  },
-});
-
 /* Right column (upload controls) */
 export const rightCol = style({
   width: "100%",
@@ -151,18 +139,6 @@ export const actionDescription = style({
 /* Hidden file input */
 export const hiddenInput = style({
   display: "none",
-});
-
-/* Small tip text at bottom */
-export const tipText = style({
-  marginTop: "0.5rem",
-  fontSize: "0.8rem",
-  color: vars.colors.gray[5],
-  selectors: {
-    [`${darkSelector} &`]: {
-      color: vars.colors.gray[4],
-    },
-  },
 });
 
 /* Utility: compact container for the two upload controls on narrow screens */

@@ -27,7 +27,7 @@ export class ProjectDirectoryImporter implements Importer {
    * In a real application, this method would need a way to resolve the
    * string path to an IDirectoryHandle, perhaps from a mounted location.
    */
-  public async import(path: string): Promise<boolean> {
+  public async import(path: string): Promise<string | null> {
     console.warn(`[DirectoryProjectImporter] Standard 'import(path: string)' called for path: ${path}.
             Please use 'importDirectory(sourceDir: IDirectoryHandle)' instead for local imports.`);
     // Assuming 'path' could be the name of a directory in the temp folder for recovery/staging
@@ -40,16 +40,18 @@ export class ProjectDirectoryImporter implements Importer {
         `[DirectoryProjectImporter] Failed to resolve directory handle for path: ${path}`,
         e,
       );
-      return false;
+      return null;
     }
   }
 
   /**
    * The primary entry point to import a project from an existing directory handle.
    * @param sourceDir The IDirectoryHandle containing the project structure.
-   * @returns A promise that resolves to true if the import was successful, false otherwise.
+   * @returns A promise that resolves to the path of the imported project directory if successful, null otherwise.
    */
-  public async importDirectory(sourceDir: IDirectoryHandle): Promise<boolean> {
+  public async importDirectory(
+    sourceDir: IDirectoryHandle,
+  ): Promise<string | null> {
     const projectsDir = await this.directoryProvider.projectsDirectory;
     const sourceEntryName = sourceDir.name;
 
@@ -80,10 +82,10 @@ export class ProjectDirectoryImporter implements Importer {
       console.log(
         `[DirectoryProjectImporter] Project imported successfully to: ${finalProjectDir.path}`,
       );
-      return true;
+      return finalProjectDir.path;
     } catch (error) {
       console.error("[DirectoryProjectImporter] Import failed:", error);
-      return false;
+      return null;
     } finally {
       // 3. Cleanup temporary resources
       if (tempProjectDir) {

@@ -10,9 +10,7 @@ import {
   handleOpenFile,
 } from "@/app/domain/api/import.tsx";
 import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
-import { ProjectDirectoryImporter } from "@/core/domain/project/import/ProjectDirectoryImporter.ts";
-import { ProjectFileImporter } from "@/core/domain/project/import/ProjectFileImporter.ts";
-import { WacsRepoImporter } from "@/core/domain/project/import/WacsRepoImporter.ts";
+import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { Route as projectRoute } from "./$project.tsx";
@@ -42,19 +40,31 @@ function Index() {
   const invalidateRouterAndReload = () => router.invalidate();
 
   const { projects } = useLoaderData({ from: "__root__" });
-  const { settingsManager } = useRouter().options.context;
+  const { settingsManager, projectRepository } = useRouter().options.context;
+  const projectImporter = new ProjectImporter(
+    directoryProvider,
+    projectRepository,
+  );
 
   const onDownload = (url: string) => {
-    handleDownload({ directoryProvider, invalidateRouterAndReload }, url);
+    handleDownload(
+      { importer: projectImporter, invalidateRouterAndReload },
+      url,
+    );
   };
   const onOpenDirectory = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleOpenDirectory(event, {
       directoryProvider,
+      projectImporter,
       invalidateRouterAndReload,
     });
   };
   const onOpenFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    handleOpenFile(event, { directoryProvider, invalidateRouterAndReload });
+    handleOpenFile(event, {
+      directoryProvider,
+      projectImporter,
+      invalidateRouterAndReload,
+    });
   };
   return (
     <div className="p-8">

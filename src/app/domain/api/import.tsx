@@ -1,19 +1,16 @@
-import { ProjectDirectoryImporter } from "@/core/domain/project/import/ProjectDirectoryImporter.ts";
-import { ProjectFileImporter } from "@/core/domain/project/import/ProjectFileImporter.ts";
-import { WacsRepoImporter } from "@/core/domain/project/import/WacsRepoImporter.ts";
+import type { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
 
 type HandleDownloadArgs = {
-  directoryProvider: IDirectoryProvider;
+  importer: ProjectImporter;
   invalidateRouterAndReload: () => void;
 };
 export async function handleDownload(
-  { directoryProvider, invalidateRouterAndReload }: HandleDownloadArgs,
+  { importer, invalidateRouterAndReload }: HandleDownloadArgs,
   url: string,
 ): Promise<void> {
-  const importer = new WacsRepoImporter(directoryProvider);
-  const didImport = await importer.import(url);
+  const didImport = await importer.import({ type: "fromGitRepo", url });
   if (didImport) {
     invalidateRouterAndReload();
   }
@@ -21,11 +18,16 @@ export async function handleDownload(
 
 type OpenDirArgs = {
   directoryProvider: IDirectoryProvider;
+  projectImporter: ProjectImporter;
   invalidateRouterAndReload: () => void;
 };
 export async function handleOpenDirectory(
   event: React.ChangeEvent<HTMLInputElement>,
-  { directoryProvider, invalidateRouterAndReload }: OpenDirArgs,
+  {
+    directoryProvider,
+    projectImporter,
+    invalidateRouterAndReload,
+  }: OpenDirArgs,
 ) {
   console.log("Opening directory...");
   const files = event.target.files;
@@ -68,21 +70,36 @@ export async function handleOpenDirectory(
     }
   }
 
-  const importer = new ProjectDirectoryImporter(directoryProvider);
-  await importer.importDirectory(tempProjectDir);
+  const success = await projectImporter.import({
+    type: "fromDir",
+    dirHandle: tempProjectDir,
+  });
+
   // Clean up the temporary directory after import
-  await tempDirectory.removeEntry(tempDirName, { recursive: true });
-  invalidateRouterAndReload();
+  try {
+    await tempDirectory.removeEntry(tempDirName, { recursive: true });
+  } catch (e) {
+    console.warn("[handleOpenDirectory] failed to remove temp dir:", e);
+  }
+
+  if (success) {
+    invalidateRouterAndReload();
+  }
 }
 
 type OpenFileArgs = {
   directoryProvider: IDirectoryProvider;
+  projectImporter: ProjectImporter;
   invalidateRouterAndReload: () => void;
 };
 
 export async function processFile(
   file: File,
-  { directoryProvider, invalidateRouterAndReload }: OpenFileArgs,
+  {
+    directoryProvider,
+    projectImporter,
+    invalidateRouterAndReload,
+  }: OpenFileArgs,
 ): Promise<void> {
   console.log(
     `[processFile] Selected file name: ${file.name}, size: ${file.size} bytes`,
@@ -106,13 +123,22 @@ export async function processFile(
     `[processFile] Content written to temporary file: ${tempFileHandle.name}`,
   );
 
-  const importer = new ProjectFileImporter(directoryProvider);
-  await importer.importFile(tempFileHandle);
+  const success = await projectImporter.import({
+    type: "fromZipFile",
+    fileHandle: tempFileHandle,
+  });
   console.log("Selected ZIP File Handle:", tempFileHandle);
 
   // Clean up the temporary file after import
-  await tempDirectory.removeEntry(tempFileName, { recursive: false });
-  invalidateRouterAndReload();
+  try {
+    await tempDirectory.removeEntry(tempFileName, { recursive: false });
+  } catch (e) {
+    console.warn("[processFile] failed to remove temp file:", e);
+  }
+
+  if (success) {
+    invalidateRouterAndReload();
+  }
 }
 export async function handleOpenFile(
   event: React.ChangeEvent<HTMLInputElement>,

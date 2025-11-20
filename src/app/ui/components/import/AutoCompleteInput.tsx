@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
@@ -34,6 +35,7 @@ export interface AutocompleteInputProps {
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
+  const { t } = useLingui();
   // Solid's createSignal(false) becomes React's useState(false)
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -116,14 +118,14 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
     // SolidJS's class="" becomes React's className=""
     <div className={styles.acContainer}>
       <label htmlFor="autoCompleteInput" className={styles.acLabel}>
-        {props.label}
+        <Trans>{props.label}</Trans>
       </label>
       <div>
         <input
           id={"autoCompleteInput"}
           type="text"
           className={styles.repoInput}
-          placeholder={props.placeholder}
+          placeholder={t`${props.placeholder}`}
           // Solid's value={inputValue()} becomes React's value={inputValue}
           value={inputValue}
           // Solid's onInput={handleInput} becomes React's onChange={handleInputChange}
@@ -157,16 +159,22 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
               className={styles.acClearButton}
               aria-label="Clear selection"
             >
-              Clear
+              <Trans>Clear</Trans>
             </button>
           </div>
         )}
 
-        {props.isLoading && <div className={styles.acLoading}>Loading...</div>}
+        {props.isLoading && (
+          <div className={styles.acLoading}>
+            <Trans>Loading...</Trans>
+          </div>
+        )}
 
         {props.isError && (
           <div className={styles.acError}>
-            Error: {props.errorMessage || "Failed to fetch suggestions."}
+            <Trans>
+              Error: {props.errorMessage || t`Failed to fetch suggestions.`}
+            </Trans>
           </div>
         )}
 

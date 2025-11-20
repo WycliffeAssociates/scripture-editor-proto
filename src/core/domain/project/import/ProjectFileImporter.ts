@@ -30,7 +30,7 @@ export class ProjectFileImporter {
    * * @param zipFilePath The path (relative or absolute) to the local ZIP file.
    * @returns A promise that resolves to true if the import was successful, false otherwise.
    */
-  public async importFile(zipFileHandle: IFileHandle): Promise<boolean> {
+  public async importFile(zipFileHandle: IFileHandle): Promise<string | null> {
     const projectsDir = await this.directoryProvider.projectsDirectory;
     const tempDirectory = await this.directoryProvider.tempDirectory;
 
@@ -68,10 +68,10 @@ export class ProjectFileImporter {
       console.log(
         `[FileProjectImporter] Project imported successfully to: ${finalProjectDir.path}`,
       );
-      return true;
+      return finalProjectDir.path;
     } catch (error) {
       console.error("[FileProjectImporter] Import failed:", error);
-      return false;
+      return null;
     } finally {
       // 5. Cleanup temporary resources (extraction directory and the original staged ZIP file)
       // await this.cleanup(tempExtractionDir, zipFileHandle);

@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDebouncedState } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
@@ -25,6 +26,7 @@ interface RepoDownloadProps {
 const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
   // State for the user/organization search
   const [orgUserSearchTerm, setOrgUserSearchTerm] = useDebouncedState("", 500);
+  const { t } = useLingui();
   const [selectedOrgUser, setSelectedOrgUser] = useState<
     GiteaUser | GiteaOrganization | null
   >(null);
@@ -209,8 +211,8 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
     <div>
       {/*<Modal isOpen={props.isOpen} onClose={props.onClose} title="Download Repository">*/}
       <AutocompleteInput
-        label="Organization or User"
-        placeholder="Search for an organization or user..."
+        label={t`Organization or User`}
+        placeholder={t`Search for an organization or user...`}
         searchTerm={orgUserSearchTerm}
         setSearchTerm={setOrgUserSearchTerm}
         results={orgUserResults}
@@ -223,8 +225,8 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
       />
 
       <AutocompleteInput
-        label="Repository"
-        placeholder="Search for a repository..."
+        label={t`Repository`}
+        placeholder={t`Search for a repository...`}
         searchTerm={repoSearchTerm}
         setSearchTerm={setRepoSearchTerm}
         results={filteredRepoResults}
@@ -243,7 +245,7 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         disabled={props.isDownloadDisabled || !selectedRepo}
         className={styles.downloadButton}
       >
-        Download Repository
+        <Trans>Downloading repository</Trans>
       </button>
       {/*</Modal>*/}
     </div>

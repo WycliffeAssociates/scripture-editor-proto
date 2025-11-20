@@ -1,6 +1,8 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import { resetDb } from "@/app/db/drop.ts";
 import type { RouterContext } from "@/app/entrypoint.tsx";
 
+window.resetDb = resetDb;
 const RootLayout = () => {
   // useEffectOnce(() => {
   //     const { lastProjectPath, restoreToLastProjectOnLaunch } = settingsManager.getSettings();
@@ -46,7 +48,9 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   loader: async ({ context }) => {
     const { projectRepository } = context;
     const projects = await projectRepository.listProjects();
+    // const sanityCheck = await db.select().from(dbSchema.sanity);
 
+    // console.log("Sanity check:", sanityCheck);
     return { projects };
   },
 });

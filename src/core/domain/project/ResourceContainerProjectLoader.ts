@@ -58,13 +58,29 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
         console.log("No language found for project:", projectId);
         return null;
       }
+      const removeLeadingDirSlashes = (relPath: string): string => {
+        if (relPath.startsWith("/")) {
+          return relPath.substring(1);
+        } else if (relPath.startsWith("./")) {
+          return relPath.substring(2);
+        }
+        return relPath;
+      };
 
       const project: Project = {
         id: projectId,
         name:
           `${parsedManifest.dublin_core?.language?.title} ${parsedManifest.dublin_core?.title}` ||
           projectId,
-        files: [],
+        files:
+          parsedManifest.projects?.map((project) => ({
+            path: `${projectDir.path}/${removeLeadingDirSlashes(project.path)}`,
+            title: project.title,
+            bookCode: project.identifier.toUpperCase(),
+            nextBookId: null,
+            prevBookId: null,
+            sort: project.sort ?? 0,
+          })) || [],
         metadata: {
           id: projectId,
           name: parsedManifest.dublin_core?.title || projectId,
