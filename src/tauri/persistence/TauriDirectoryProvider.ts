@@ -4,7 +4,7 @@ import {
   homeDir,
   join,
 } from "@tauri-apps/api/path";
-import { mkdir, open } from "@tauri-apps/plugin-fs";
+import { mkdir, open, remove } from "@tauri-apps/plugin-fs";
 import { platform } from "@tauri-apps/plugin-os";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
@@ -158,6 +158,14 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     for await (const [name] of tempDir.entries()) {
       await tempDir.removeEntry(name, { recursive: true });
     }
+  }
+  async removeDirectory(
+    path: string,
+    opts: {
+      recursive?: boolean;
+    },
+  ): Promise<void> {
+    await remove(path, opts);
   }
   async openInFileManager(path: string): Promise<void> {
     await open(path);

@@ -6,6 +6,7 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { useLingui } from "@lingui/react/macro";
 import {
   HISTORY_MERGE_TAG,
   type LexicalEditor,
@@ -24,6 +25,7 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
+  const { t } = useLingui();
   const { referenceProject } = useWorkspaceContext();
   const nestedEditorRef = useRef<LexicalEditor>(null);
   const { referenceQuery, referenceProjectId: referenceProjectPath } =
@@ -64,7 +66,7 @@ export function ReferenceEditor() {
             contentEditable={
               <ContentEditable
                 className="min-h-full focus:outline-none p-4 w-full"
-                aria-label="USFM Editor"
+                aria-label={t`USFM Editor`}
               />
             }
             ErrorBoundary={LexicalErrorBoundary}

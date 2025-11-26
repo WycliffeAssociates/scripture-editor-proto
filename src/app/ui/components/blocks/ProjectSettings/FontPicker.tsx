@@ -1,6 +1,6 @@
 import { Trans } from "@lingui/react/macro";
-import { rem, Select, Stack, Text } from "@mantine/core";
-import React, { useEffect, useState } from "react";
+import { Select, Stack, Text } from "@mantine/core";
+import { useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
@@ -23,7 +23,7 @@ export default function FontPicker() {
   const { project } = useWorkspaceContext();
   const { appSettings, updateAppSettings } = project;
 
-  const [fonts, setFonts] = useState<string[]>(["Inter"]);
+  const [fonts, _setFonts] = useState<string[]>(["Inter"]);
 
   // Example: load system fonts from a native bridge (Tauri/Electron).
   // Keep this commented here — enable in the runtime that exposes the bridge.

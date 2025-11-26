@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 
 // The core item structure remains the same

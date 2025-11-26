@@ -33,9 +33,7 @@ export class ProjectFileImporter {
   public async importFile(zipFileHandle: IFileHandle): Promise<string | null> {
     const projectsDir = await this.directoryProvider.projectsDirectory;
     const tempDirectory = await this.directoryProvider.tempDirectory;
-
     let tempExtractionDir: IDirectoryHandle | null = null;
-
     try {
       // 1. Resolve the ZIP file handle and read its data
       const data = await zipFileHandle
@@ -51,7 +49,6 @@ export class ProjectFileImporter {
         data,
         tempDirectory,
       );
-      tempExtractionDir = extractionResult.tempDirHandle;
 
       // 3. Resolve name conflicts and create the final project directory
       const finalProjectDir = await this.resolveProjectDirectory(
@@ -68,31 +65,16 @@ export class ProjectFileImporter {
       console.log(
         `[FileProjectImporter] Project imported successfully to: ${finalProjectDir.path}`,
       );
+      tempExtractionDir = extractionResult.tempDirHandle;
       return finalProjectDir.path;
     } catch (error) {
       console.error("[FileProjectImporter] Import failed:", error);
       return null;
     } finally {
       // 5. Cleanup temporary resources (extraction directory and the original staged ZIP file)
-      // await this.cleanup(tempExtractionDir, zipFileHandle);
-    }
-  }
-
-  /**
-   * Resolves the string path to a file handle, assuming the file is in the temp directory.
-   */
-  private async getZipFileHandle(
-    zipFilePath: string,
-    tempDirectory: IDirectoryHandle,
-  ): Promise<IFileHandle> {
-    // Attempt to get the file handle from the temp directory using the path
-    try {
-      const zipFileHandle = await tempDirectory.getFileHandle(zipFilePath);
-      return zipFileHandle as IFileHandle;
-    } catch (e) {
-      throw new Error(
-        `[FileProjectImporter] Could not find ZIP file at path: ${zipFilePath}`,
-      );
+      if (tempExtractionDir) {
+        await this.cleanup(tempExtractionDir, zipFileHandle);
+      }
     }
   }
 

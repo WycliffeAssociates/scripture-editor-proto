@@ -129,7 +129,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     const current = this.__lintErrors;
     const incomingMessages = newLintErrors;
     // if either set is not fully contained in the other, then we need to update
-    return arraysEqualByKey(current || [], incomingMessages, "message");
+    return !arraysEqualByKey(current || [], incomingMessages, "message");
   }
 
   static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {

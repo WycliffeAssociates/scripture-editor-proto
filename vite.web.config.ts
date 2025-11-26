@@ -12,12 +12,6 @@ export default defineConfig({
   build: {
     outDir: "./dist-web",
   },
-  server: {
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
-  },
   plugins: [
     tanstackRouter({
       target: "react",

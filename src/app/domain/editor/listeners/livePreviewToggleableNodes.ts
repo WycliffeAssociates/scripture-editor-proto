@@ -10,7 +10,6 @@ import {
   type LexicalEditor,
   type LexicalNode,
   type NodeKey,
-  type RangeSelection,
 } from "lexical";
 import {
   type EditorMarkersMutableState,
@@ -47,11 +46,9 @@ export function toggleShowOnToggleableNodes({
   }
   let toDeactivate: NodeKey[] = [];
   let toActivate: NodeKey[] = [];
-  let _currentSelection: RangeSelection | null = null;
   editorState.read(() => {
     const selection = $getSelection();
     if (!selection || !$isRangeSelection(selection)) return;
-    _currentSelection = selection;
     const newActive = new Set<NodeKey>();
     const selNodes = selection.getNodes();
 

@@ -37,7 +37,8 @@ import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 export function USFMPlugin() {
   const [editor] = useLexicalComposerContext();
-  const { project, actions, lint, referenceProject } = useWorkspaceContext();
+  const { project, actions, lint, referenceProject, projectLanguageDirection } =
+    useWorkspaceContext();
   const { appSettings } = project;
   const { markersMutableState, markersViewState, mode } = appSettings;
   const markersInPreview = useRef(new Set<NodeKey>());
@@ -48,7 +49,7 @@ export function USFMPlugin() {
   const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
     // console.time("lint");
     // const messages = lintVerseRangeReferences({editorState, editor});
-
+    // todo: debug inf loop here?
     const errMessages = lintAll(
       { editorState, editor },
       actions.getFlatFileTokens,
@@ -167,6 +168,7 @@ export function USFMPlugin() {
           editorMode: mode,
           markersMutableState,
           markersViewState,
+          languageDirection: projectLanguageDirection,
         };
         textNodeTransform(arg);
         inverseTextNodeTransform(arg);
@@ -239,6 +241,7 @@ export function USFMPlugin() {
     throttledEditorChangeListener,
     referenceProject?.referenceProjectId,
     debouncedStructuralUpdates,
+    projectLanguageDirection,
   ]);
 
   return null;

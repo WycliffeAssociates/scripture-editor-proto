@@ -1,6 +1,13 @@
 {
-    "identifier": "desktop-capability",
-    "platforms": ["macOS", "windows", "linux"],
-    "windows": ["main"],
-    "permissions": ["window-state:default", "fs:default", "os:default"]
+  "identifier": "desktop-capability",
+  "platforms": ["macOS", "windows", "linux"],
+  "windows": ["main"],
+  "permissions": [
+    "window-state:default",
+    "fs:default",
+    "os:default",
+    "opener:allow-open-path",
+    "opener:default",
+    "dialog:default"
+  ]
 }

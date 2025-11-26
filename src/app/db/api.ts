@@ -1,370 +1,214 @@
 /**
- * DB API helpers using prepared statements (db.prepare) for Turso-like Database.
+ * DB API helpers using Dexie for IndexedDB.
  *
- * This module implements CRUD helpers for `languages`, `projects`, `files`
- * and minimal migration tracking.
+ * This module implements query functions for `languages`, `projects`, `files`
+ * that can be used with useLiveQuery for reactive queries.
  */
 
-import { db } from "./connect.ts";
-
-// -- Types --
-
-export type Language = {
-  id: number;
-  identifier: string;
-  title: string | null;
-  direction: "ltr" | "rtl" | null;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-export type Project = {
-  id: number;
-  identifier: string | null;
-  name: string | null;
-  project_dir: string;
-  title: string | null;
-  language_id: number | null;
-  version: string | null;
-  created_at: string | null;
-  imported_at: string | null;
-  updated_at: string | null;
-};
-
-export type FileRow = {
-  id: number;
-  project_id: number;
-  identifier: string | null;
-  title: string | null;
-  sort_order: number | null;
-  relative_path: string | null;
-  path_on_disk: string;
-  file_extension: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-// Standard definition for SQL parameters (named or positional)
-type SqlParams =
-  | Record<string, string | number | null | undefined>
-  | (string | number | null | undefined)[];
-
-// Standard definition of a run result (changes, lastId)
-type RunResult = {
-  changes: number;
-  lastInsertRowid: number | bigint;
-};
+import { db } from "./db.ts";
+import type {
+  DbFileRow,
+  DbLanguage,
+  DbProject,
+  ProjectComposite,
+  ProjectsByLanguageRow,
+} from "./types.ts";
 
 /* ---------------------------
-   Generic Helpers
+   Languages Queries
    --------------------------- */
 
-async function all<T>(sql: string, params?: SqlParams): Promise<T[]> {
-  const stmt = db.prepare(sql);
-  try {
-    const res = await (params ? stmt.all(params) : stmt.all());
+export const getLanguageByIdentifier = (identifier: string) =>
+  db.languages.where("identifier").equals(identifier).first();
 
-    if (Array.isArray(res)) {
-      return res as T[];
-    }
+export const listLanguages = () => db.languages.orderBy("identifier").toArray();
 
-    // Handle { rows: [...] } wrapper if present
-    if (
-      res &&
-      typeof res === "object" &&
-      "rows" in res &&
-      Array.isArray((res as any).rows)
-    ) {
-      return (res as any).rows as T[];
-    }
-
-    return [] as T[];
-  } finally {
-    // Safely attempt to close/finalize based on what method exists
-    try {
-      if (typeof (stmt as any).close === "function") {
-        (stmt as any).close();
-      } else if (typeof (stmt as any).finalize === "function") {
-        await (stmt as any).finalize();
-      }
-    } catch {
-      // ignore cleanup errors
-    }
-  }
-}
-
-async function get<T>(sql: string, params?: SqlParams): Promise<T | null> {
-  const stmt = db.prepare(sql);
-  try {
-    const res = await (params ? stmt.get(params) : stmt.get());
-
-    if (!res) return null;
-
-    if (typeof res === "object" && "row" in res) {
-      return (res as any).row as T;
-    }
-
-    return res as T;
-  } finally {
-    try {
-      if (typeof (stmt as any).close === "function") {
-        (stmt as any).close();
-      } else if (typeof (stmt as any).finalize === "function") {
-        await (stmt as any).finalize();
-      }
-    } catch {
-      // ignore
-    }
-  }
-}
-
-async function run(sql: string, params?: SqlParams): Promise<RunResult> {
-  const stmt = db.prepare(sql);
-  try {
-    const res = await (params ? stmt.run(params) : stmt.run());
-    return res as unknown as RunResult;
-  } finally {
-    try {
-      if (typeof (stmt as any).close === "function") {
-        (stmt as any).close();
-      } else if (typeof (stmt as any).finalize === "function") {
-        await (stmt as any).finalize();
-      }
-    } catch {
-      // ignore
-    }
-  }
-}
-
-/* ---------------------------
-   Languages CRUD
-   --------------------------- */
-
-export async function getLanguageByIdentifier(
-  identifier: string,
-): Promise<Language | null> {
-  return await get<Language>(
-    `SELECT * FROM languages WHERE identifier = :identifier LIMIT 1;`,
-    { identifier: identifier }, // Removed colon
-  );
-}
-
-export async function upsertLanguage(
+export const upsertLanguage = async (
   identifier: string,
   title: string | null = null,
   direction: "ltr" | "rtl" | null = "ltr",
-): Promise<Language | null> {
-  const sql = `
-    INSERT INTO languages (identifier, title, direction)
-    VALUES (:identifier, :title, :direction)
-    ON CONFLICT(identifier) DO UPDATE SET
-      title = excluded.title,
-      direction = excluded.direction,
-      updated_at = CURRENT_TIMESTAMP;
-  `;
-
-  await run(sql, {
-    identifier: identifier, // Removed colon
-    title: title, // Removed colon
-    direction: direction, // Removed colon
+): Promise<DbLanguage | undefined> => {
+  await db.languages.put({
+    identifier,
+    title,
+    direction,
   });
 
-  return await getLanguageByIdentifier(identifier);
-}
+  const created = await db.languages
+    .where("identifier")
+    .equals(identifier)
+    .first();
 
-export async function listLanguages(): Promise<Language[]> {
-  return await all<Language>(`SELECT * FROM languages ORDER BY identifier;`);
-}
+  return created;
+};
 
 /* ---------------------------
-   Projects CRUD
+   Projects Queries
    --------------------------- */
 
-export async function getProjectByDir(
-  projectDir: string,
-): Promise<Project | null> {
-  return await get<Project>(
-    `SELECT * FROM projects WHERE project_dir = :project_dir LIMIT 1;`,
-    { project_dir: projectDir }, // Removed colon
-  );
-}
+export const getProjectByDir = (projectDir: string) =>
+  db.projects.where("projectDir").equals(projectDir).first();
 
-export async function upsertProject(
+export const listProjects = () =>
+  db.projects.orderBy("importedAt").reverse().toArray();
+
+export const listProjectsByLanguage = async (): Promise<
+  ProjectsByLanguageRow[]
+> => {
+  const projects = await db.projects.toArray();
+  const languages = await db.languages.toArray();
+
+  return projects.map((project) => {
+    const language = languages.find((lang) => lang.id === project.languageId);
+    return {
+      projectId: project.id ?? 0,
+      projectIdentifier: project.identifier || "",
+      projectTitle: project.title || "",
+      projectName: project.name || "",
+      projectDir: project.projectDir,
+      projectLanguageId: project.languageId || 0,
+      projectVersion: project.version || null,
+      projectCreatedAt: project.createdAt || "",
+      projectImportedAt: project.importedAt || "",
+      projectUpdatedAt: project.updatedAt || "",
+      languageIdentifier: language?.identifier || "",
+      languageTitle: language?.title || "",
+      languageDirection: language?.direction || "ltr",
+    };
+  });
+};
+
+export const upsertProject = async (
   projectDir: string,
   opts: {
     identifier?: string | null;
     name?: string | null;
     title?: string | null;
-    language_id?: number | null;
+    languageId?: number | null;
     version?: string | null;
   } = {},
-): Promise<Project | null> {
-  const sql = `
-    INSERT INTO projects (project_dir, identifier, name, title, language_id, version)
-    VALUES (:project_dir, :identifier, :name, :title, :language_id, :version)
-    ON CONFLICT(project_dir) DO UPDATE SET
-      identifier = excluded.identifier,
-      name = excluded.name,
-      title = excluded.title,
-      language_id = excluded.language_id,
-      version = excluded.version,
-      updated_at = CURRENT_TIMESTAMP;
-  `;
+): Promise<DbProject | undefined> => {
+  const existing = await db.projects
+    .where("projectDir")
+    .equals(projectDir)
+    .first();
 
-  await run(sql, {
-    project_dir: projectDir, // Removed colon
-    identifier: opts.identifier ?? null,
-    name: opts.name ?? null,
-    title: opts.title ?? null,
-    language_id: opts.language_id ?? null,
-    version: opts.version ?? null,
-  });
+  const projectData = {
+    projectDir,
+    identifier: opts.identifier ?? existing?.identifier ?? null,
+    name: opts.name ?? existing?.name ?? null,
+    title: opts.title ?? existing?.title ?? null,
+    languageId: opts.languageId ?? existing?.languageId ?? null,
+    version: opts.version ?? existing?.version ?? null,
+  };
 
-  return await getProjectByDir(projectDir);
-}
+  await db.projects.put(projectData);
 
-export async function listProjects(): Promise<Project[]> {
-  return await all<Project>(
-    `SELECT * FROM projects ORDER BY imported_at DESC;`,
-  );
-}
+  return await db.projects.where("projectDir").equals(projectDir).first();
+};
 
-export async function listProjectsByLanguage(): Promise<unknown[]> {
-  return await all<unknown>(`SELECT * FROM projects_by_language;`);
-}
-
-export async function deleteProjectById(id: number): Promise<RunResult> {
-  try {
-    // Begin a transaction so deletions are atomic.
-    await run(`BEGIN`);
-
+export const deleteProjectById = async (id: number): Promise<void> => {
+  await db.transaction("rw", db.files, db.projects, async () => {
     // Delete dependent files first
-    await run(`DELETE FROM files WHERE project_id = :id;`, { id: id }); // Removed colon
+    await db.files.where("projectId").equals(id).delete();
+    // Delete the project
+    await db.projects.delete(id);
+  });
+};
 
-    // Delete the project row
-    const res = await run(`DELETE FROM projects WHERE id = :id;`, {
-      id: id, // Removed colon
-    });
-
-    // Commit the transaction.
-    await run(`COMMIT`);
-
-    return res;
-  } catch (e) {
-    try {
-      await run(`ROLLBACK`);
-    } catch (rbErr) {
-      console.warn("[db/api] rollback failed during deleteProjectById:", rbErr);
+export const deleteProjectByPath = async (
+  projectDir: string,
+): Promise<void> => {
+  await db.transaction("rw", db.files, db.projects, async () => {
+    const project = await db.projects
+      .where("projectDir")
+      .equals(projectDir)
+      .first();
+    if (project) {
+      // Delete dependent files first
+      await db.files
+        .where("projectId")
+        .equals(project.id ?? 0)
+        .delete();
+      // Delete the project
+      await db.projects.delete(project.id ?? 0);
     }
-    throw e;
-  }
-}
+  });
+};
 
 /* ---------------------------
-   Files CRUD
+   Files Queries
    --------------------------- */
 
-export async function getFileByPath(
-  pathOnDisk: string,
-): Promise<FileRow | null> {
-  return await get<FileRow>(
-    `SELECT * FROM files WHERE path_on_disk = :path_on_disk LIMIT 1;`,
-    { path_on_disk: pathOnDisk }, // Removed colon
-  );
-}
+export const getFileByPath = (pathOnDisk: string) =>
+  db.files.where("pathOnDisk").equals(pathOnDisk).first();
 
-export async function upsertFile(
+export const listFilesForProject = (projectId: number) =>
+  db.files.where("projectId").equals(projectId).sortBy("sortOrder");
+
+export const upsertFile = async (
   projectId: number,
   file: {
     identifier?: string | null;
     title?: string | null;
-    sort_order?: number | null;
-    relative_path?: string | null;
-    path_on_disk: string;
-    file_extension?: string | null;
+    sortOrder?: number | null;
+    relativePath?: string | null;
+    pathOnDisk: string;
+    fileExtension?: string | null;
   },
-): Promise<FileRow | null> {
-  const sql = `
-    INSERT INTO files (project_id, identifier, title, sort_order, relative_path, path_on_disk, file_extension)
-    VALUES (:project_id, :identifier, :title, :sort_order, :relative_path, :path_on_disk, :file_extension)
-    ON CONFLICT(path_on_disk) DO UPDATE SET
-      project_id = excluded.project_id,
-      identifier = excluded.identifier,
-      title = excluded.title,
-      sort_order = excluded.sort_order,
-      relative_path = excluded.relative_path,
-      file_extension = excluded.file_extension,
-      updated_at = CURRENT_TIMESTAMP;
-  `;
-
-  await run(sql, {
-    project_id: projectId, // Removed colon (applied to all below)
+): Promise<DbFileRow | null> => {
+  await db.files.put({
+    projectId,
     identifier: file.identifier ?? null,
     title: file.title ?? null,
-    sort_order: file.sort_order ?? null,
-    relative_path: file.relative_path ?? null,
-    path_on_disk: file.path_on_disk,
-    file_extension: file.file_extension ?? null,
+    sortOrder: file.sortOrder ?? null,
+    relativePath: file.relativePath ?? null,
+    pathOnDisk: file.pathOnDisk,
+    fileExtension: file.fileExtension ?? null,
   });
 
-  return await getFileByPath(file.path_on_disk);
-}
-
-export async function listFilesForProject(
-  projectId: number,
-): Promise<FileRow[]> {
-  const sql = `SELECT * FROM files WHERE project_id = :project_id ORDER BY COALESCE(sort_order, 2147483647), id;`;
-  return await all<FileRow>(sql, { project_id: projectId }); // Removed colon
-}
-
-export async function deleteFileById(id: number): Promise<RunResult> {
-  return await run(`DELETE FROM files WHERE id = :id;`, { id: id }); // Removed colon
-}
-
-/* ---------------------------
-   Migrations helpers
-   --------------------------- */
-
-export async function getAppliedMigrations(): Promise<string[]> {
-  const rows = await all<{ name: string }>(
-    `SELECT name FROM migrations ORDER BY applied_at;`,
+  return (
+    (await db.files.where("pathOnDisk").equals(file.pathOnDisk).first()) ?? null
   );
-  return rows.map((r) => r.name);
-}
-
-export async function recordMigration(name: string): Promise<RunResult> {
-  return await run(`INSERT OR IGNORE INTO migrations (name) VALUES (:name);`, {
-    name: name, // Removed colon
-  });
-}
-
-/* ---------------------------
-   Convenience composites
-   --------------------------- */
-
-export type ProjectComposite = {
-  project: Project;
-  files: FileRow[];
-  language: Language | null;
 };
 
-export async function getProjectWithFilesByDir(
+export const deleteFileByPathOnDisk = async (
+  pathOnDisk: string,
+): Promise<void> => {
+  // Find the file by ID to get its pathOnDisk (primary key)
+  const file = await db.files.get(pathOnDisk);
+  if (!file) {
+    throw new Error(`File with path ${pathOnDisk} not found`);
+  }
+  // Delete using pathOnDisk (string primary key)
+  await db.files.delete(file.pathOnDisk);
+};
+
+/* ---------------------------
+   Convenience Composites
+   --------------------------- */
+
+export const getProjectWithFilesByDir = async (
   projectDir: string,
-): Promise<ProjectComposite | null> {
-  const project = await getProjectByDir(projectDir);
-  if (!project) return null;
+): Promise<ProjectComposite | null> => {
+  const project = await db.projects
+    .where("projectDir")
+    .equals(projectDir)
+    .first();
+  if (!project || !project.id) return null;
 
-  const files = await listFilesForProject(project.id);
+  const files = await db.files
+    .where("projectId")
+    .equals(project.id)
+    .sortBy("sortOrder");
 
-  let language: Language | null = null;
-  if (project.language_id) {
-    language = await get<Language>(
-      `SELECT * FROM languages WHERE id = :id LIMIT 1;`,
-      {
-        id: project.language_id, // Removed colon
-      },
-    );
+  let language: DbLanguage | undefined;
+  if (project.languageId) {
+    language = await db.languages
+      .where("id")
+      .equals(project.languageId)
+      .first();
   }
 
   return { project, files, language };
-}
+};

@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { ActionIcon, Input, rem, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, rem, Stack, Text, TextInput } from "@mantine/core";
 import { Minus, Plus, ZoomIn } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";

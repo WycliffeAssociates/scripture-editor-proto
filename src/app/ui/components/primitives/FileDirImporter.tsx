@@ -31,8 +31,6 @@ export function DirImporter({
 
   return (
     <div className={`${styles.controlGroup} ${className}`}>
-      <label className={styles.label}>{label}</label>
-
       <div className={styles.actionRow}>
         <button
           type="button"
@@ -47,23 +45,17 @@ export function DirImporter({
           Upload a project folder (select directory)
         </span>
       </div>
-
-      {/**
-       * biome-ignore lint/correctness/useUniqueElementIds: This input is intentionally not given a
-       * unique id because these primitives are expected to be used in multiple places and the
-       * picker is invoked via the button above.
-       */}
-      <input
-        ref={dirInputRef}
-        type="file"
-        // Allow directory selection in browsers that support this attribute
-        // The project's ambient types include webkitdirectory on InputHTMLAttributes.
-        // @ts-expect-error - the attribute is intentionally present for browsers that support it
-        webkitdirectory="true"
-        multiple
-        className={styles.hiddenInput}
-        onChange={onOpenDirectory}
-      />
+      <label className={styles.label}>
+        {label}
+        <input
+          ref={dirInputRef}
+          type="file"
+          webkitdirectory="true"
+          multiple
+          className={styles.hiddenInput}
+          onChange={onOpenDirectory}
+        />
+      </label>
     </div>
   );
 }
@@ -190,7 +182,7 @@ export function WacsImporter({
         </button>
       </div>
 
-      <div className={styles.repoHelper}>
+      <div>
         Enter a repository URL or identifier and click Download to import a
         remote scripture repository into the editor.
       </div>

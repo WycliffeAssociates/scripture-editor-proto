@@ -58,15 +58,11 @@ export function NestedEditor({
   const nestedEditorRef = useRef<LexicalEditor>(null);
   const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
   const markersInPreview = useRef(new Set<NodeKey>());
-  const { project } = useWorkspaceContext();
+  const { project, projectLanguageDirection } = useWorkspaceContext();
   const { appSettings } = project;
   const { markersMutableState, markersViewState, mode } = appSettings;
   const [mainEditor] = useLexicalComposerContext();
   const [hasOpened, setHasOpened] = useState(false);
-  const [inProgressEditsJson, setInProgressEditsJson] =
-    useState<SerializedEditorState<SerializedLexicalNode> | null>(
-      initialEditorState,
-    );
 
   const nestedConfig = {
     namespace: `nested-${outerMarker}-${id}`,
@@ -87,7 +83,6 @@ export function NestedEditor({
       },
       // only one, default container for chap
       ParagraphNode,
-      // USFMDecoratorNode,
       LineBreakNode,
     ],
     onError(error: Error) {
@@ -102,7 +97,6 @@ export function NestedEditor({
     const json = state.toJSON();
     // bubble serialized state to parent
     onChange(json, mainEditor);
-    setInProgressEditsJson(json);
   }, [onChange, mainEditor]);
 
   const handleClose = useCallback(() => {
@@ -110,10 +104,6 @@ export function NestedEditor({
     setIsOpen(mainEditor, false);
   }, [handleSave, mainEditor, setIsOpen]);
 
-  // useEffect(() => {
-  //     if (!isOpen) return;
-
-  // }, [isOpen]);
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -178,6 +168,7 @@ export function NestedEditor({
           editorMode: mode,
           markersMutableState,
           markersViewState,
+          languageDirection: projectLanguageDirection,
         };
         textNodeTransform(arg);
         inverseTextNodeTransform(arg);
@@ -188,36 +179,19 @@ export function NestedEditor({
       wysiPreview();
       unregisterTransformWhileTyping();
     };
-  }, [markersViewState, markersMutableState, hasOpened, mode]);
+  }, [
+    markersViewState,
+    markersMutableState,
+    hasOpened,
+    mode,
+    projectLanguageDirection,
+  ]);
 
   const hasErrors = lintErrors.length > 0;
   const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";
   const errorTitle =
     lintErrors.map((e) => e.message).join("; ") || "Open nested editor";
 
-  // function applyInProgressEdits() {
-  //     const editor = nestedEditorRef.current;
-  //     const domEl = document.querySelector(`[data-id="${id}"]`);
-  //     if (editor && inProgressEditsJson && domEl) {
-  //         editor.setEditorState(
-  //             editor.parseEditorState(inProgressEditsJson),
-  //             {
-  //                 tag: "history-merge",
-  //             },
-  //         );
-  //     }
-  //     setHasOpened(true);
-  // }
-  // function mimicRootAttributes() {
-  //     const root = document.getElementById("root") as HTMLDivElement;
-  //     const editorWrapper = editorWrapperDomElRef.current;
-  //     if (editorWrapper && root) {
-  //         Object.entries(root.dataset).forEach(([key, value]) => {
-  //             editorWrapper.dataset[key] = value;
-  //         });
-  //         editorWrapper.classList = root.classList.toString();
-  //     }
-  // }
   return (
     <Popover
       defaultOpened={isOpen}
@@ -227,11 +201,6 @@ export function NestedEditor({
       position="bottom"
       shadow="md"
       width={500}
-      // onEnterTransitionEnd={() => {
-      //     ;
-      //     mimicRootAttributes();
-      //     applyInProgressEdits();
-      // }}
     >
       <Popover.Target>
         <Button

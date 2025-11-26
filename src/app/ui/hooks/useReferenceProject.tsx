@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { projectParamToParsedFiles } from "@/app/domain/api/projectToParsed.tsx";
 import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
@@ -17,10 +18,15 @@ export const useReferenceProject = ({
 }: Props) => {
   // todo: change to project
   const [referenceProjectId, setReferenceProjectId] = useState<string>();
+  const { md5Service } = useRouter().options.context;
   const referenceProjectQuery = useQuery({
     queryKey: ["projectFiles", referenceProjectId],
     queryFn: () =>
-      projectParamToParsedFiles(projectRepository, referenceProjectId),
+      projectParamToParsedFiles(
+        projectRepository,
+        referenceProjectId,
+        md5Service,
+      ),
     enabled: !!referenceProjectId,
   });
   const referenceFile = useMemo(() => {

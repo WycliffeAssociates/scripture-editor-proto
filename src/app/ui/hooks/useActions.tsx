@@ -51,10 +51,7 @@ type Props = {
   updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
 };
 export const useWorkspaceActions = ({
-  // workingFiles,
   mutWorkingFilesRef,
-  loadedProject,
-  // setWorkingFiles,
   editorRef,
   currentFileBibleIdentifier,
   currentChapter,

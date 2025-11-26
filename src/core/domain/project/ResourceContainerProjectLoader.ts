@@ -1,4 +1,5 @@
 import { stringify } from "yaml";
+import { removeLeadingDirSlashes } from "@/core/data/utils/generic.ts";
 import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
 import type { IProjectLoader } from "@/core/domain/project/IProjectLoader.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
@@ -58,14 +59,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
         console.log("No language found for project:", projectId);
         return null;
       }
-      const removeLeadingDirSlashes = (relPath: string): string => {
-        if (relPath.startsWith("/")) {
-          return relPath.substring(1);
-        } else if (relPath.startsWith("./")) {
-          return relPath.substring(2);
-        }
-        return relPath;
-      };
 
       const project: Project = {
         id: projectId,
@@ -105,11 +98,15 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
          * @param contents - Optional. The USFM content of the book. Defaults to an empty string.
          * @returns A Promise that resolves when the book is added and the manifest is updated.
          */
-        addBook: async (
-          bookCode: string,
-          localizedBookTitle?: string,
-          contents: string = "",
-        ) => {
+        addBook: async ({
+          bookCode,
+          localizedBookTitle,
+          contents = "",
+        }: {
+          bookCode: string;
+          localizedBookTitle?: string;
+          contents?: string;
+        }) => {
           const book = canonicalBookMap[bookCode.toUpperCase()];
           if (!book) {
             throw new Error(`Invalid book code: ${bookCode}`);
@@ -126,7 +123,9 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
             const existingManifestEntry = currentProjects[existingBookIndex];
             // Defer to the manifest's path if it exists
             if (existingManifestEntry.path) {
-              finalRelativeFilePath = existingManifestEntry.path;
+              finalRelativeFilePath = removeLeadingDirSlashes(
+                existingManifestEntry.path,
+              );
             }
           }
 

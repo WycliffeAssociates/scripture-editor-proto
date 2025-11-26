@@ -248,7 +248,12 @@ function getTextComponentsFromNode(node: SerializedLexicalNode): {
   plain: string;
   full: string;
 } {
-  const text = (node as any).text ?? (node.type === "linebreak" ? "\n" : "");
+  const text =
+    "text" in node && typeof node.text === "string"
+      ? node.text
+      : node.type === "linebreak"
+        ? "\n"
+        : "";
   if (node.type === "linebreak") {
     return { usfm: "\n", plain: "\n", full: "\n" };
   }

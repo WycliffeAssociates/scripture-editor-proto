@@ -1,15 +1,13 @@
 import {
-  Button,
-  type CSSVariablesResolver,
   colorsTuple,
   createTheme,
   type DefaultMantineColor,
   type MantineColorsTuple,
   Tooltip,
-  virtualColor,
 } from "@mantine/core";
 
 type ExtendedCustomColors =
+  | "primary"
   | "success"
   | "warning"
   | "error"
@@ -76,18 +74,7 @@ const yellows: MantineColorsTuple = [
   "#c67000",
   "#ac6000",
 ];
-const reds: MantineColorsTuple = [
-  "#ffedee",
-  "#f5dcdd",
-  "#e3b8ba",
-  "#d19294",
-  "#c27274",
-  "#ba5d60",
-  "#b85659",
-  "#a14246",
-  "#90393d",
-  "#802e33",
-];
+
 const greens: MantineColorsTuple = [
   "#f4fbe9",
   "#e9f3da",
@@ -119,7 +106,7 @@ export const theme = createTheme({
   //   defaults
   primaryShade: {
     light: 8,
-    dark: 4,
+    dark: 5,
   },
   black: "#0E0E0E",
   fontFamily: "Inter, system-ui, sans-serif",

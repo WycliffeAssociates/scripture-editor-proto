@@ -1,10 +1,7 @@
 import * as v from "valibot";
 import type { ProjectFile } from "@/app/data/parsedProject.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import type {
-  Language as ProjectLanguage,
-  ProjectMetadata,
-} from "@/core/domain/project/project.ts";
+import type { ProjectMetadata } from "@/core/domain/project/project.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 
@@ -158,7 +155,21 @@ export interface IProjectRepository {
    * @description Retrieves a list of all available projects.
    * @returns A Promise that resolves to an array of Project objects.
    */
-  listProjects(): Promise<Project[]>;
+  listProjects(): Promise<ListedProject[]>;
+
+  /**
+   * @method deleteProject
+   * @description Deletes a project by its unique identifier.
+   * @param projectPath - The path of the project to delete.
+   * @param options - Options for the deletion process.
+   * @returns A Promise that resolves when the project has been successfully deleted.
+   */
+  deleteProject(
+    projectPath: string,
+    options: {
+      recursive: boolean;
+    },
+  ): Promise<void>;
 }
 
 /**
@@ -183,11 +194,15 @@ export interface Project {
    * @param contents - Optional. The USFM content of the book. Defaults to an empty string to initialize an empty file.
    * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
    */
-  addBook(
-    bookCode: string,
-    localizedBookTitle?: string,
-    contents?: string,
-  ): Promise<void>;
+  addBook({
+    bookCode,
+    localizedBookTitle,
+    contents,
+  }: {
+    bookCode: string;
+    localizedBookTitle?: string;
+    contents?: string;
+  }): Promise<void>;
   /**
    * @method getBook
    * @description Retrieves the content of a specific book from the project.
@@ -196,3 +211,10 @@ export interface Project {
    */
   getBook(bookCode: string): Promise<string | null>;
 }
+export type ListedProject = Omit<
+  Project,
+  "projectDir" | "fileWriter" | "addBook" | "getBook"
+> & {
+  projectDirectoryPath: string;
+  // Add any additional properties specific to listed projects here if needed
+};

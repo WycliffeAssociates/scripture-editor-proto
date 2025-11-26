@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/create")({
@@ -5,5 +6,9 @@ export const Route = createFileRoute("/create")({
 });
 
 function RouteComponent() {
-  return <div>Hello "/create"!</div>;
+  return (
+    <div>
+      <Trans>Hello "/create"!</Trans>
+    </div>
+  );
 }

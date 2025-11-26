@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   Accordion,
   ActionIcon,
@@ -14,26 +15,14 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { Link, useRouter } from "@tanstack/react-router";
-import {
-  CAN_REDO_COMMAND,
-  CAN_UNDO_COMMAND,
-  COMMAND_PRIORITY_EDITOR,
-  type LexicalEditor,
-  REDO_COMMAND,
-  UNDO_COMMAND,
-} from "lexical";
 import {
   BookCopy,
   ChevronDown,
   Code,
   Menu as IconMenu,
   Plus,
-  RotateCcw,
-  RotateCw,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import {
   type EditorMarkersMutableState,
   EditorMarkersMutableStates,
@@ -45,7 +34,7 @@ import FontPicker from "@/app/ui/components/blocks/ProjectSettings/FontPicker.ts
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
-import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButtton.tsx";
+import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButton.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
@@ -89,6 +78,7 @@ export function ProjectDrawer({
   opened: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLingui();
   const { actions, project } = useWorkspaceContext();
   const { appSettings, updateAppSettings } = project;
 
@@ -96,14 +86,14 @@ export function ProjectDrawer({
     <Drawer
       opened={opened}
       onClose={onClose}
-      title="Project & Settings"
+      title={t`Project & Settings`}
       padding="md"
       size="xs"
       className="toolbar-drawer"
     >
       <Accordion variant="separated" multiple>
         <Accordion.Item value="projects">
-          <Accordion.Control>Projects</Accordion.Control>
+          <Accordion.Control>{t`Projects`}</Accordion.Control>
           <Accordion.Panel>
             <div
               style={{
@@ -118,7 +108,7 @@ export function ProjectDrawer({
         </Accordion.Item>
 
         <Accordion.Item value="settings">
-          <Accordion.Control>Settings</Accordion.Control>
+          <Accordion.Control>{t`Settings`}</Accordion.Control>
           <Accordion.Panel>
             <div
               style={{
@@ -166,7 +156,7 @@ export function ProjectDrawer({
                   flexDirection: "column",
                 }}
               >
-                <Text fw={600}>Editor mode</Text>
+                <Text fw={600}>{t`Editor mode`}</Text>
                 <div
                   style={{
                     display: "flex",
@@ -175,14 +165,14 @@ export function ProjectDrawer({
                   }}
                 >
                   <Tooltip
-                    label="Switch to source mode"
+                    label={t`Switch to source mode`}
                     withArrow
                     openDelay={150}
                   >
                     <ActionIcon
                       variant="default"
                       onClick={() => actions.toggleToSourceMode()}
-                      aria-label="Switch to source mode"
+                      aria-label={t`Switch to source mode`}
                     >
                       <Code size={16} />
                     </ActionIcon>
@@ -198,11 +188,11 @@ export function ProjectDrawer({
                     data={[
                       {
                         value: EditorMarkersMutableStates.IMMUTABLE,
-                        label: "Lock markers",
+                        label: t`Lock markers`,
                       },
                       {
                         value: EditorMarkersMutableStates.MUTABLE,
-                        label: "Unlock markers",
+                        label: t`Unlock markers`,
                       },
                     ]}
                   />
@@ -217,15 +207,15 @@ export function ProjectDrawer({
                     data={[
                       {
                         value: EditorMarkersViewStates.ALWAYS,
-                        label: "Always",
+                        label: t`Always`,
                       },
                       {
                         value: EditorMarkersViewStates.WHEN_EDITING,
-                        label: "When editing",
+                        label: t`When editing`,
                       },
                       {
                         value: EditorMarkersViewStates.NEVER,
-                        label: "Never",
+                        label: t`Never`,
                       },
                     ]}
                   />
@@ -240,13 +230,13 @@ export function ProjectDrawer({
                   justifyContent: "space-between",
                 }}
               >
-                <Text fw={600}>App language</Text>
+                <Text fw={600}>{t`App language`}</Text>
                 <Select
                   value={appSettings.appLanguage}
                   onChange={(v) =>
                     v &&
                     updateAppSettings({
-                      appLanguage: v as any,
+                      appLanguage: v,
                     })
                   }
                   data={[
@@ -266,7 +256,7 @@ export function ProjectDrawer({
                   justifyContent: "space-between",
                 }}
               >
-                <Text fw={600}>Theme</Text>
+                <Text fw={600}>{t`Theme`}</Text>
                 <Switch
                   checked={appSettings.colorScheme === "dark"}
                   onChange={(e) =>
@@ -274,7 +264,7 @@ export function ProjectDrawer({
                       colorScheme: e.currentTarget.checked ? "dark" : "light",
                     })
                   }
-                  aria-label="Toggle dark theme"
+                  aria-label={t`Toggle dark theme`}
                 />
               </div>
 
@@ -286,7 +276,7 @@ export function ProjectDrawer({
                   justifyContent: "space-between",
                 }}
               >
-                <Text fw={600}>Webview zoom</Text>
+                <Text fw={600}>{t`Webview zoom`}</Text>
                 <NumberInput
                   value={appSettings.zoom}
                   min={0.5}
@@ -308,10 +298,11 @@ export function ProjectDrawer({
 
 /* ---------------- Project List ---------------- */
 function ProjectList() {
-  const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
+  const { t } = useLingui();
+  const { allProjects, project } = useWorkspaceContext();
   const router = useRouter();
   const currentProject = allProjects.find(
-    (p) => p.projectDir.name === currentProjectRoute,
+    (p) => p.projectDirectoryPath === project.appSettings.lastProjectPath,
   );
   const navigateToNewProject = (projectId: string) => {
     project.updateAppSettings({
@@ -332,21 +323,21 @@ function ProjectList() {
           bd={"none"}
           rightSection={<ChevronDown size={16} />}
         >
-          {currentProject?.name ?? "Select Project"}
+          {currentProject?.name ?? t`Select Project`}
         </Button>
       </Menu.Target>
       <Menu.Dropdown>
         {allProjects.map((project) => (
           <Menu.Item
-            key={project.projectDir.path}
-            onClick={() => navigateToNewProject(project.projectDir.name)}
+            key={project.projectDirectoryPath}
+            onClick={() => navigateToNewProject(project.projectDirectoryPath)}
           >
             {project.name}
           </Menu.Item>
         ))}
         <Divider />
         <Menu.Item leftSection={<Plus size={14} />}>
-          <Link to="/">New Project</Link>
+          <Link to="/">{t`New Project`}</Link>
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>
@@ -355,17 +346,18 @@ function ProjectList() {
 
 /* ---------------- Reference Project ---------------- */
 function ReferenceProjectList() {
+  const { t } = useLingui();
   const { allProjects, referenceProject } = useWorkspaceContext();
   const { isSm } = useWorkspaceMediaQuery();
   const selected =
     allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
-      ?.name ?? "Select Reference Project";
+      ?.name ?? t`Select Reference Project`;
 
   if (isSm) {
     return (
       <Menu shadow="md" width={220}>
         <Menu.Target>
-          <ActionIconSimple aria-label="Select reference project">
+          <ActionIconSimple aria-label={t`Select reference project`}>
             <BookCopy size={16} />
           </ActionIconSimple>
         </Menu.Target>
@@ -373,13 +365,15 @@ function ReferenceProjectList() {
           <Menu.Item
             onClick={() => referenceProject.setReferenceProjectId(undefined)}
           >
-            Clear Reference Project
+            {t`Clear Reference Project`}
           </Menu.Item>
           {allProjects.map((project) => (
             <Menu.Item
               key={project.id}
               onClick={() =>
-                referenceProject.setReferenceProjectId(project.projectDir.name)
+                referenceProject.setReferenceProjectId(
+                  project.projectDirectoryPath,
+                )
               }
             >
               {project.name}
@@ -407,7 +401,9 @@ function ReferenceProjectList() {
           <Menu.Item
             key={project.id}
             onClick={() =>
-              referenceProject.setReferenceProjectId(project.projectDir.name)
+              referenceProject.setReferenceProjectId(
+                project.projectDirectoryPath,
+              )
             }
           >
             {project.name}

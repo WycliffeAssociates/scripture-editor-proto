@@ -182,7 +182,10 @@ class MockDirectoryHandle implements IDirectoryHandle {
   }
 
   async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-    return (this as any)?.path === (other as any)?.path;
+    if ("path" in other && "path" in this) {
+      return this.path === other.path;
+    }
+    return false;
   }
 
   [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
@@ -209,6 +212,9 @@ const mockDirectoryProvider: IDirectoryProvider = {
   createTempFile: vi.fn(),
   cleanTempDirectory: vi.fn(),
   openInFileManager: vi.fn(),
+  removeDirectory: vi.fn(
+    async (_path: string, _opts: { recursive?: boolean }) => {},
+  ),
   //   getDirectoryHandle, getHandle, resolveHandle
   getDirectoryHandle: vi.fn(),
   getHandle: vi.fn(),

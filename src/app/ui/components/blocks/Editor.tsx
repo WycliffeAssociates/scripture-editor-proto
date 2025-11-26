@@ -28,7 +28,7 @@ export function MainEditor() {
   const { editorRef } = useWorkspaceContext();
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto p-2">
       <MarkerTooltip />
       <LexicalComposer initialConfig={getIntialConfig()}>
         <div
@@ -81,22 +81,7 @@ export function MainEditor() {
             /> */}
         <USFMPlugin />
         <UsfmStylesPlugin />
-        <NodeContextMenuPlugin
-          items={[
-            {
-              title: "Insert \\v",
-              onSelect: () => console.log("Insert \\v"),
-            },
-            {
-              title: "Insert \\p",
-              onSelect: () => console.log("Insert \\p"),
-            },
-            {
-              title: "Split Section",
-              onSelect: () => console.log("Split Section"),
-            },
-          ]}
-        />
+        <NodeContextMenuPlugin />
       </LexicalComposer>
     </div>
   );

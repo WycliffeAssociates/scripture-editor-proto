@@ -1,16 +1,9 @@
 import { Trans } from "@lingui/react/macro";
-import {
-  ActionIcon,
-  Box,
-  Input,
-  rem,
-  Stack,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { ActionIcon, Box, rem, Stack, Text, TextInput } from "@mantine/core";
 import { Minus, Plus } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
@@ -31,19 +24,20 @@ import styles from "./Settings.module.css";
  */
 export default function FontSizeControl() {
   const { project } = useWorkspaceContext();
+  const { theme, isDarkTheme } = useWorkspaceMediaQuery();
 
   const minPx = 10;
   const maxPx = 40;
   const step = 1;
 
   // parse current fontSize string ("16px") into a number
-  const parseFontSize = (value: string | undefined): number => {
+  const parseFontSize = useCallback((value: string | undefined): number => {
     if (!value) return 16;
     const cleaned = value.trim().replace("px", "");
     const parsed = parseInt(cleaned, 10);
     if (Number.isNaN(parsed)) return 16;
     return parsed;
-  };
+  }, []);
 
   const currentFromSettings = parseFontSize(project.appSettings.fontSize);
   const [localPx, setLocalPx] = useState<number>(currentFromSettings);
@@ -54,14 +48,17 @@ export default function FontSizeControl() {
     const parsed = parseFontSize(project.appSettings.fontSize);
     setLocalPx(parsed);
     setDisplay(`${parsed}px`);
-  }, [project.appSettings.fontSize]);
+  }, [project.appSettings.fontSize, parseFontSize]);
 
-  const commitPx = (px: number) => {
-    const clamped = Math.max(minPx, Math.min(maxPx, Math.round(px)));
-    setLocalPx(clamped);
-    setDisplay(`${clamped}px`);
-    project.updateAppSettings({ fontSize: `${clamped}px` });
-  };
+  const commitPx = useCallback(
+    (px: number) => {
+      const clamped = Math.max(minPx, Math.min(maxPx, Math.round(px)));
+      setLocalPx(clamped);
+      setDisplay(`${clamped}px`);
+      project.updateAppSettings({ fontSize: `${clamped}px` });
+    },
+    [project],
+  );
 
   const handleIncrement = () => commitPx(localPx + step);
   const handleDecrement = () => commitPx(localPx - step);
@@ -114,7 +111,7 @@ export default function FontSizeControl() {
           borderRadius: rem(12),
           overflow: "hidden",
           minWidth: rem(220),
-          background: "var(--mantine-color-filled)",
+          background: isDarkTheme ? theme.colors.dark[8] : theme.colors.gray[1],
         }}
       >
         <ActionIcon
@@ -134,7 +131,12 @@ export default function FontSizeControl() {
         <Box
           style={{
             flex: 1,
-            borderRight: `1px solid var(--mantine-color-default-border)`,
+            borderLeft: isDarkTheme
+              ? `1px solid ${theme.colors.dark[5]}`
+              : `1px solid ${theme.colors.gray[3]}`,
+            borderRight: isDarkTheme
+              ? `1px solid ${theme.colors.dark[5]}`
+              : `1px solid ${theme.colors.gray[3]}`,
           }}
         >
           <TextInput

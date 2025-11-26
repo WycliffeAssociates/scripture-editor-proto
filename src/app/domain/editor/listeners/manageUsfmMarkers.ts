@@ -27,14 +27,12 @@ import {
 import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
 import {
   ALL_USFM_MARKERS,
-  CHAPTER_VERSE_MARKERS,
   isValidParaMarker,
   VALID_CHAR_MARKERS,
   VALID_NOTE_MARKERS,
   VALID_PARA_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { numRangeAtTokenStartWithWsRe } from "@/core/domain/usfm/lex.ts";
 
 const markerTokenMatchLineStartOptTrailingSpace = /^\\([\w\d]+-?\w*)\s*/;
 const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\*?\s+/;
@@ -49,12 +47,14 @@ type TextNodeTransformParams = {
   editorMode: EditorMode;
   markersMutableState: EditorMarkersMutableState;
   markersViewState: EditorMarkersViewState;
+  languageDirection: "ltr" | "rtl";
 };
 export function textNodeTransform({
   node,
   editorMode,
   markersMutableState,
   markersViewState,
+  languageDirection,
 }: TextNodeTransformParams) {
   // noop in src mode
   if (editorMode === EditorModes.SOURCE) return;
@@ -146,9 +146,9 @@ export function textNodeTransform({
     markersMutableState,
     restOfText,
     markersViewState,
+    languageDirection,
   };
 
-  // todo: markers can basically be of type
   /* 
     simple: marker + space
     withNumberRange: marker + space + numberRange
@@ -344,7 +344,7 @@ function $insertChapter(args: BaseInsertArgs): void {
 // ============================================================================
 
 function $insertPara(args: BaseInsertArgs): void {
-  const { anchorNode, marker, isStartOfLine, restOfText } = args;
+  const { anchorNode, marker, isStartOfLine } = args;
 
   const context = $getInsertionContext(anchorNode);
   const markerNode = $createMarkerNode({
@@ -548,14 +548,12 @@ function $insertNote(args: BaseInsertArgs): void {
   if (!$isRangeSelection(selection)) return;
 
   // Notes often use implicit closure (e.g., \f...\f*)
-  const common = { args, context, marker, sid: context.currentSidAsString };
   const noteNode = $createUSFMNestedEditorNode({
     text: `\\${marker}`,
     marker,
     id: guidGenerator(),
     usfmType: marker,
-    // todo: pass down args from plugin
-    languageDirection: "ltr",
+    languageDirection: args.languageDirection,
     sid: context.currentSidAsString,
     lintErrors: [],
     isOpen: true,
@@ -600,6 +598,7 @@ type BaseInsertArgs = {
   markersMutableState: EditorMarkersMutableState;
   markersViewState: EditorMarkersViewState;
   restOfText: string;
+  languageDirection: "ltr" | "rtl";
 };
 
 type InsertContext = {
@@ -799,71 +798,5 @@ export function inverseTextNodeTransform({ node }: TextNodeTransformParams) {
     // });
     // node.replace(replacement);
     // replacement.select();
-  }
-}
-
-function verseNumberTransform(node: USFMTextNode): boolean {
-  // 1. --- Initial Guard Clauses ---
-  // Only operate on plain text nodes.
-  if (node.getTokenType() !== UsfmTokenTypes.text) {
-    return false;
-  }
-
-  // Ensure the node is still part of the active editor state.
-  if (!node.isAttached()) {
-    return false;
-  }
-
-  // Get the previous sibling to check if it's a verse marker.
-  const prevSibling = node.getPreviousSibling();
-
-  // The sibling must exist and be a USFM marker node of the correct type.
-  if (
-    !$isUSFMTextNode(prevSibling) ||
-    prevSibling.getTokenType() !== UsfmTokenTypes.marker ||
-    !CHAPTER_VERSE_MARKERS.has(prevSibling.getMarker() ?? "")
-  ) {
-    return false;
-  }
-
-  // 2. --- Regex Matching and Logic ---
-  const textContent = node.getTextContent();
-  const match = textContent.match(numRangeAtTokenStartWithWsRe);
-
-  // If there's no match, there's nothing to do.
-  if (match === null) {
-    return false;
-  }
-
-  const numberRangeText = match[0]; // The full matched string, e.g., " 7-8"
-  const restOfText = textContent.substring(numberRangeText.length);
-
-  // 3. --- Node Creation and DOM Manipulation ---
-
-  // Get the properties from the previous marker to ensure context is maintained.
-  const newSid = prevSibling.getSid();
-  const inPara = prevSibling.getInPara();
-
-  // If the entire text was a number range, just convert the existing node.
-  if (restOfText === "") {
-    node.setTokenType(UsfmTokenTypes.numberRange);
-    return true;
-  } else {
-    // Otherwise, split the node.
-    // Update the current node to contain the rest of the text.
-    node.setTextContent(restOfText);
-
-    // Create a new node for the number range.
-    const numberRangeNode = $createUSFMTextNode(numberRangeText, {
-      id: guidGenerator(), // Assuming you have a GUID generator
-      tokenType: UsfmTokenTypes.numberRange,
-      sid: newSid,
-      inPara: inPara,
-      isMutable: true, // Or based on your editor state
-    });
-
-    // Insert the new number range node before the updated text node.
-    node.insertBefore(numberRangeNode);
-    return true;
   }
 }

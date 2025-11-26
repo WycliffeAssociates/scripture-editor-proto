@@ -1,4 +1,5 @@
 mod git;
+mod md5;
 mod parse;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::time::Instant;
@@ -33,6 +34,7 @@ fn hello_world() -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init());
@@ -42,23 +44,25 @@ pub fn run() {
     {
         builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
     }
-    builder.invoke_handler(tauri::generate_handler![
-        parse_usfm,
-        git::clone_repo,
-        hello_world
-    ])
-    .setup(move |app| {
-        #[cfg(debug_assertions)] // only include this code on dev builds
-        {
-            // Your debug assertions code (left commented as before)
-            // let window = app
-            //     .get_webview_window("main")
-            //     .expect("Failed to get main window");
-            // // window.open_devtools();
-        }
+    builder
+        .invoke_handler(tauri::generate_handler![
+            parse_usfm,
+            git::clone_repo,
+            hello_world,
+            md5::calculate_md5
+        ])
+        .setup(move |app| {
+            #[cfg(debug_assertions)] // only include this code on dev builds
+            {
+                // Your debug assertions code (left commented as before)
+                // let window = app
+                //     .get_webview_window("main")
+                //     .expect("Failed to get main window");
+                // // window.open_devtools();
+            }
 
-        Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

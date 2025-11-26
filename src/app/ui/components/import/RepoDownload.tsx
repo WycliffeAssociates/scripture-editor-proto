@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useDebouncedState } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import AutocompleteInput, {
   type AutocompleteItem,
 } from "@/app/ui/components/import/AutoCompleteInput.tsx";

@@ -5,6 +5,7 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { lintPopoverButton } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
+import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
 
 type Props = {
   wrapperClassNames?: string;
@@ -36,6 +37,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
             color="red"
             className={lintPopoverButton}
           >
+            {/* todo plural intl */}
             {lint.messages.length} Issues
             {/* {lint.messages.length > 1 ? "s" : ""} */}
           </Button>
@@ -71,11 +73,12 @@ function LintMessageItem({
   const { project, actions } = useWorkspaceContext();
 
   function findLintErrInDom() {
+    let didScroll = false;
     editorRef.current?.read(() => {
       const editor = editorRef.current;
       if (!editor) return;
       const domEl = document.querySelector(
-        `[data-is-lint-error="true"][data-id="${msg.nodeId}"]`,
+        `[data-id="${msg.nodeId}"]`,
       ) as HTMLElement;
       if (!domEl) return;
       if (prevDomElSelected.current) {
@@ -87,14 +90,16 @@ function LintMessageItem({
         block: "center",
       });
       domEl.classList.add("selected");
+      didScroll = true;
       if (domEl.getAttribute("data-is-nested-editor-button") === "true") {
         domEl.click();
       }
     });
+    return didScroll;
   }
 
   return (
-    <li className="w-full whitespace-normal break-words">
+    <li className="w-full whitespace-normal wrap-break-word">
       <Button
         variant="subtle"
         color="gray"
@@ -117,9 +122,9 @@ function LintMessageItem({
             findLintErrInDom();
           } else {
             actions.switchBookOrChapter(sidParsed.book, sidParsed.chapter);
-            setTimeout(() => {
-              findLintErrInDom();
-            }, 100);
+            rafUntilSuccessOrTimeout(() => {
+              return findLintErrInDom();
+            }, 5000);
           }
         }}
       >

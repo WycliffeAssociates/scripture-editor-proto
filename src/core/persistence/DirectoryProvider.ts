@@ -33,6 +33,12 @@ export interface IDirectoryProvider {
 
   getHandle(path: string): Promise<IPathHandle>;
   resolveHandle(path: string): Promise<IPathHandle>;
+  removeDirectory(
+    path: string,
+    opts: {
+      recursive?: boolean;
+    },
+  ): Promise<void>;
 }
 
 // Example domain models

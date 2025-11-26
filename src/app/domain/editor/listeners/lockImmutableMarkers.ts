@@ -7,17 +7,14 @@ import {
   PASTE_COMMAND,
 } from "lexical";
 import {
-  EDITOR_TAGS_USED,
   type EditorMarkersMutableState,
   EditorMarkersMutableStates,
 } from "@/app/data/editor.ts";
 import {
-  $createUSFMTextNode,
   $isLockedUSFMTextNode,
   $isUSFMTextNode,
   type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
   return editor.registerCommand(
@@ -87,7 +84,7 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
       }
       return false;
     },
-    COMMAND_PRIORITY_HIGH, // Use high priority to run before the default handler
+    COMMAND_PRIORITY_HIGH,
   );
 }
 
@@ -107,29 +104,9 @@ export function lockImmutableMarkersOnPaste(editor: LexicalEditor) {
         return false;
       }
 
-      const anchorNode = selectionInfo.anchorNode;
-      // if in an usfm text anchore node, split, insert
-      // if ($isUSFMTextNode(anchorNode)) {
-      //   editor.update(() => {
-      //     const anchorOffset = selectionInfo.anchorOffset;
-      //     const [left, right] = anchorNode.splitText(anchorOffset);
-      //     const pasteText = _event?.clipboardData?.getData("text/plain") || "";
-      //     console.log("Pasting text:", pasteText);
-      //     const newNode = $createUSFMTextNode(pasteText, {
-      //       id: guidGenerator(),
-      //       sid: anchorNode.getSid(),
-      //       inPara: anchorNode.getInPara(),
-      //     });
-      //     left.insertAfter(newNode);
-      //     newNode.selectEnd();
-      //   });
-      //   return true;
-      // }
       return false;
-
-      // return false;
     },
-    COMMAND_PRIORITY_HIGH, // Use high priority to run before the default handler
+    COMMAND_PRIORITY_HIGH,
   );
 }
 type LockMarkersCommandArgs = {

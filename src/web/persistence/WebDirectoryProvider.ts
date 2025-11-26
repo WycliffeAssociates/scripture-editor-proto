@@ -53,7 +53,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
 
     let dir: FileSystemDirectoryHandle = this.root;
     // let currentPath = "";
-    for (const part of parts) {
+    for await (const part of parts) {
       dir = await dir.getDirectoryHandle(part, { create: false });
       // currentPath += `/${part}`;
     }
@@ -112,6 +112,31 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     for await (const [name] of tempDir.entries()) {
       await tempDir.removeEntry(name, { recursive: true });
     }
+  }
+  async removeDirectory(
+    path: string,
+    opts: { recursive?: boolean },
+  ): Promise<void> {
+    // Normalize and split provided path into parent + basename.
+    const parts = path.split("/").filter(Boolean);
+    const name = parts.pop();
+    if (!name) {
+      throw new Error(`Invalid path for removeDirectory: ${path}`);
+    }
+
+    // Parent path should be absolute root ("/") when no other parts exist.
+    const parentPath = parts.length ? `/${parts.join("/")}` : "/";
+
+    // Resolve the parent handle and ensure it's a directory handle.
+    const parentHandle = await this.resolveHandle(parentPath);
+    const parentDir = parentHandle.asDirectoryHandle();
+    if (!parentDir) {
+      throw new Error(`Parent path is not a directory: ${parentPath}`);
+    }
+
+    // Delegate removal to the parent directory's removeEntry method.
+    // Pass the basename and the recursive flag as requested.
+    await parentDir.removeEntry(name, { recursive: !!opts?.recursive });
   }
 
   async openInFileManager(_path: string): Promise<void> {

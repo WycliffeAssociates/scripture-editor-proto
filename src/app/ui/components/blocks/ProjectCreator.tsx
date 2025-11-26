@@ -1,10 +1,11 @@
-import { Trans } from "@lingui/macro";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import type React from "react";
 import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
 import {
   DirImporter,
   FileImporter,
-} from "@/app/ui/components/primitives/DirImporter.tsx";
+} from "@/app/ui/components/primitives/FileDirImporter.tsx";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 
 type ProjectCreatorProps = {
@@ -59,13 +60,13 @@ export default function ProjectCreator({
           <div className={styles.compactControls}>
             <DirImporter
               onOpenDirectory={onOpenDirectory}
-              label="Upload a folder"
+              label={t`Upload a folder`}
             />
 
             <FileImporter
               onOpenFile={onOpenFile}
               accept=".zip"
-              label="Or select a ZIP file"
+              label={t`Or select a ZIP file`}
             />
           </div>
         </aside>

@@ -1,4 +1,5 @@
-import { Trans } from "@lingui/react/macro";
+import { t } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Button,
   Center,
@@ -110,8 +111,8 @@ export function DiffItem({
           >
             <ActionIconSimple
               onClick={() => scrollToClickedRef(diff)}
-              aria-label="Switch to this chapter"
-              title="Switch to this chapter"
+              aria-label={t`Switch to this chapter`}
+              title={t`Switch to this chapter`}
             >
               <BookIcon size={16} />
             </ActionIconSimple>
@@ -119,8 +120,8 @@ export function DiffItem({
           <Tooltip label={<Trans>Undo Change</Trans>} withArrow position="top">
             <ActionIconSimple
               onClick={() => revertDiff(diff)}
-              aria-label="Undo Change"
-              title="Undo Change"
+              aria-label={t`Undo Change`}
+              title={t`Undo Change`}
             >
               <RotateCw size={16} />
             </ActionIconSimple>
@@ -307,7 +308,7 @@ function DiffViewerModal({
     <Modal
       opened={isOpen}
       onClose={onClose}
-      title="Review Changes Before Saving"
+      title={t`Review Changes Before Saving`}
       size="95%"
       centered
     >
@@ -360,6 +361,7 @@ function DiffViewerModal({
 }
 
 export function SaveAndReviewChanges() {
+  const { t } = useLingui();
   const { saveDiff, actions } = useWorkspaceContext();
   const { isXs, isSm } = useWorkspaceMediaQuery();
 
@@ -381,8 +383,8 @@ export function SaveAndReviewChanges() {
         >
           <ActionIconSimple
             onClick={actions.toggleDiffModal}
-            aria-label="Review and save changes"
-            title="Review and save changes"
+            aria-label={t`Review and save changes`}
+            title={t`Review and save changes`}
           >
             <Save size={16} />
           </ActionIconSimple>

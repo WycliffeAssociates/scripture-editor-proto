@@ -235,7 +235,6 @@ const maintainInPara: MainDocumentStrutureFxn = ({
 
 const monitorMutabilityAndVisibility: MainDocumentStrutureFxn = ({
   node,
-  tokenType,
   updates,
 }) => {
   const rootDomEl = document.getElementById("root");

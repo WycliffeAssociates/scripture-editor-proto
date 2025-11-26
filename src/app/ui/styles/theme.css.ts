@@ -1,7 +1,6 @@
 // theme.css.ts
 
 import { themeToVars } from "@mantine/vanilla-extract";
-import { globalStyle } from "@vanilla-extract/css";
 import { theme } from "@/app/ui/styles/mantineTheme.ts";
 
 // CSS variables object, can be access in *.css.ts files

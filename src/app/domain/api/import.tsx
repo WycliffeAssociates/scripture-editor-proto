@@ -13,6 +13,8 @@ export async function handleDownload(
   const didImport = await importer.import({ type: "fromGitRepo", url });
   if (didImport) {
     invalidateRouterAndReload();
+  } else {
+    throw new Error("Failed to download project");
   }
 }
 
@@ -84,6 +86,8 @@ export async function handleOpenDirectory(
 
   if (success) {
     invalidateRouterAndReload();
+  } else {
+    throw new Error("Failed to import directory");
   }
 }
 
@@ -138,6 +142,8 @@ export async function processFile(
 
   if (success) {
     invalidateRouterAndReload();
+  } else {
+    throw new Error("Failed to import file");
   }
 }
 export async function handleOpenFile(

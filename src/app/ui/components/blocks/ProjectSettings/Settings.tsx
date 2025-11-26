@@ -18,6 +18,15 @@ import FontSizeControl from "./FontSizeControl.tsx";
 import styles from "./Settings.module.css";
 import ZoomControl from "./ZoomControl.tsx";
 export function SettingsPanel() {
+  const { project } = useWorkspaceContext();
+
+  const handleLangChange = async (locale: string | null) => {
+    if (!locale) return;
+    project.updateAppSettings({ appLanguage: locale });
+    // Make sure Lingui messages are activated
+    await loadLocale(locale);
+  };
+
   return (
     <Stack gap="lg">
       <DisplayThemeToggle />
@@ -25,7 +34,10 @@ export function SettingsPanel() {
       <ZoomControl />
       <FontSizeControl />
       {/*<FontPicker />*/}
-      <LanguageSelector />
+      <LanguageSelector
+        value={project.appSettings.appLanguage}
+        onChange={handleLangChange}
+      />
     </Stack>
   );
 }
@@ -87,30 +99,38 @@ function DisplayThemeToggle() {
   );
 }
 
-export function LanguageSelector() {
-  const { project } = useWorkspaceContext();
+export function LanguageSelector({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (locale: string | null) => Promise<void> | void;
+}) {
+  // No longer use workspace/project context here. Parent should pass `value` and `onChange`.
   // const { i18n } = useLingui(); // Hook to access Lingui's i18n object
 
-  const handleLanguageChange = async (locale: string | null) => {
+  // internal handler: if parent provided an onChange, call it; otherwise just activate the locale
+  const internalHandleLanguageChange = async (locale: string | null) => {
     if (!locale) return;
 
-    // 1. Update your application's settings state
-    project.updateAppSettings({ appLanguage: locale });
+    if (onChange) {
+      await onChange(locale);
+    } else {
+      // fallback: activate Lingui only
+      await loadLocale(locale);
+    }
 
-    // 2. Activate the new locale for Lingui
-    // This usually involves dynamically loading the message catalog
-    // await dynamicActivate(locale);
-    await loadLocale(locale);
-    console.log(
-      `Language changed to: ${locale}. You would activate Lingui here.`,
-    );
+    console.log(`Language changed to: ${locale}.`);
   };
+
+  // always use the internal handler which knows how to call parent onChange if provided
+  const handleLanguageChange = internalHandleLanguageChange;
+
   const data = Object.entries(LOCALES).map(([key, value]) => ({
     value: key,
     label: value.nativeName,
     direction: value.direction,
   }));
-
   return (
     <Stack gap="xs">
       <Text size="md" mb="2" fw={500}>
@@ -133,9 +153,14 @@ export function LanguageSelector() {
           input: styles.input,
           dropdown: styles.dropdown,
         }}
-        value={project.appSettings.appLanguage} // Get value from context
-        onChange={handleLanguageChange} // Use the handler to update state and i18n
-        data={data}
+        value={value ?? null} // prefer passed value; no project-context fallback
+        onChange={handleLanguageChange}
+        data={data.map((item) => ({
+          value: item.value,
+          // msg defined even if default form lingui
+          label: item.label.message ?? "",
+          direction: item.direction,
+        }))}
       />
     </Stack>
   );

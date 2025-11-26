@@ -1,7 +1,7 @@
 // src/app/ui/styles/modules/Projectview.css.ts
 
 import { darken, lighten } from "@mantine/core";
-import { globalStyle, style } from "@vanilla-extract/css";
+import { style } from "@vanilla-extract/css";
 import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 // Layout
@@ -110,7 +110,9 @@ export const editorNavButton = style({
     },
   },
 });
-
+export const editorNavButtonHidden = style({
+  padding: 0,
+});
 // Mobile Tab Bar
 export const mobileTabsBar = style({
   display: "flex",

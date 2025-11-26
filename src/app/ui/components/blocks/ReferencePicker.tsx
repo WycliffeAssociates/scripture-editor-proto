@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   Accordion,
   Button,
@@ -7,7 +8,6 @@ import {
   ScrollArea,
   TextInput,
   Transition,
-  useMantineTheme,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
@@ -22,11 +22,11 @@ import * as classes from "@/app/ui/styles/modules/ReferencePicker.css.ts";
 import { parseReference } from "@/core/data/bible/bible.ts";
 
 export function ReferencePicker() {
+  const { t } = useLingui();
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebouncedValue(search, 200);
 
   const [open, setOpen] = useState(false);
-  const theme = useMantineTheme();
   const { allProjects, project, actions } = useWorkspaceContext();
   const {
     currentFileBibleIdentifier,
@@ -37,7 +37,7 @@ export function ReferencePicker() {
   const { isSm } = useWorkspaceMediaQuery();
 
   // --- derived state
-  const currentBook = pickedFile?.bookCode ?? "Select";
+  const currentBook = pickedFile?.bookCode ?? t`Select`;
   const currentDisplay =
     currentChapter >= 0 ? `${currentBook} ${currentChapter}` : currentBook;
 
@@ -103,7 +103,7 @@ export function ReferencePicker() {
       <Popover.Target>
         {isSm ? (
           <ActionIconSimple
-            aria-label="Open reference picker"
+            aria-label={t`Open reference picker`}
             title={currentDisplay}
             onClick={() => setOpen((o) => !o)}
           >
@@ -142,7 +142,7 @@ export function ReferencePicker() {
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search (e.g. Mat 9, 1Co 1)"
+                placeholder={t`Search (e.g. Mat 9, 1Co 1)`}
                 variant="unstyled"
                 px="sm"
                 py="xs"

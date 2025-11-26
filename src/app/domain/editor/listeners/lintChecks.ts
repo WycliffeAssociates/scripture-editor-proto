@@ -29,7 +29,6 @@ export function lintAll(
 ) {
   const flatFileTokens = getFlatFileTokens(editorState.toJSON());
   const ctx = initParseContext(flatFileTokens);
-  // debugger;
   const lintErrors = lintExistingUsfmTokens(flatFileTokens, ctx);
   const withErrorsInThisBook = ctx.errorMessages.reduce(
     (acc, curr) => {

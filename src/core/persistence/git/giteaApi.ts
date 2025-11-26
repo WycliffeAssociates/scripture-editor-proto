@@ -4,8 +4,8 @@ import type {
   GiteaUser,
 } from "@/core/persistence/git/types.ts";
 
-const GITEA_API_URL = "https://content.bibletranslationtools.org/api/v1"; // <<< REMEMBER TO CHANGE THIS
-const GITEA_ACCESS_TOKEN = "YOUR_GITEA_ACCESS_TOKEN"; // <<< REMEMBER TO CHANGE THIS
+//   todo: env var
+const GITEA_API_URL = "https://content.bibletranslationtools.org/api/v1";
 
 const headers = {
   //Authorization: `token ${GITEA_ACCESS_TOKEN}`,
@@ -62,7 +62,7 @@ export async function fetchUsersAndOrgs(
     const filteredOrgs = orgsList.filter(
       (org) =>
         org.username.toLowerCase().includes(lowerCaseQuery) ||
-        (org.full_name && org.full_name.toLowerCase().includes(lowerCaseQuery)),
+        org.full_name?.toLowerCase().includes(lowerCaseQuery),
     );
 
     const combined = [...users, ...filteredOrgs];

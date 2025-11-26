@@ -6,7 +6,7 @@ import {
   REDO_COMMAND,
   UNDO_COMMAND,
 } from "lexical";
-import { Redo, Save, Undo } from "lucide-react";
+import { Redo, Undo } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";

@@ -13,23 +13,281 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:72
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:493
+msgid " No results "
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:180
+#: src/app/ui/components/blocks/DiffModal.tsx:239
+msgid "(New verse)"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:208
+#: src/app/ui/components/blocks/DiffModal.tsx:264
+msgid "(Verse deleted)"
+msgstr ""
+
+#. placeholder {0}: props.label
+#. placeholder {0}: props.placeholder
+#: src/app/ui/components/import/AutoCompleteInput.tsx:121
+#: src/app/ui/components/import/AutoCompleteInput.tsx:128
+msgid "{0}"
+msgstr ""
+
+#: src/app/routes/$project.tsx:12
+#: src/app/routes/index.tsx:26
+msgid "<0>Loading...</0>"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:460
+msgid "Actions"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:185
+msgid "Are you sure you want to delete the project:"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:172
+#: src/app/ui/components/blocks/ProjectRow.tsx:195
+msgid "Cancel"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:213
+msgid "Change markers to always visible"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:233
+msgid "Change markers to never visible"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:223
+msgid "Change markers to visible when editing"
+msgstr ""
+
+#: src/app/ui/components/import/AutoCompleteInput.tsx:162
+msgid "Clear"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectCreator.tsx:39
+msgid "Create a new project"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:199
+#: src/app/ui/components/blocks/DiffModal.tsx:256
+msgid "Current"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:92
 msgid "Dark"
 msgstr "Obscuro"
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:33
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:200
+msgid "Delete"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:181
+msgid "Delete project"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:53
 msgid "Display"
 msgstr "Pantalla"
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:109
+
+#: src/app/ui/components/import/RepoDownload.tsx:248
+msgid "Downloading repository"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:98
+msgid "Editor Mode"
+msgstr ""
+
+#. placeholder {0}: props.errorMessage || t`Failed to fetch suggestions.`
+#: src/app/ui/components/import/AutoCompleteInput.tsx:175
+msgid "Error: {0}"
+msgstr ""
+
+#: src/app/ui/components/import/AutoCompleteInput.tsx:176
+msgid "Failed to fetch suggestions."
+msgstr ""
+
+#. placeholder {0}: suggestedSearchApiTerm || ""
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:137
+msgid "Find \"{0}\""
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/FontPicker.tsx:47
+msgid "Font"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:162
+msgid "Insert chapter label"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:156
+msgid "Insert paragraph marker"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:168
+msgid "Insert paragraph marker (at margin)"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:174
+msgid "Insert poetry marker (one level indent)"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:186
+msgid "Insert poetry marker (three level indent)"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:180
+msgid "Insert poetry marker (two level indent)"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:150
+msgid "Insert verse marker"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:138
 msgid "Interface Localization"
 msgstr "Localización de la interfaz"
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:59
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:79
 msgid "Light"
 msgstr "Claro"
-#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:44
+
+#: src/app/ui/components/import/AutoCompleteInput.tsx:169
+msgid "Loading..."
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:193
+msgid "Lock markers"
+msgstr ""
+
+#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:140
 msgid "New Project"
 msgstr "Nuevo proyecto"
-#: src/app/ui/components/blocks/AppDrawer.tsx:20
+
+#: src/app/ui/components/blocks/DiffModal.tsx:337
+msgid "No changes detected."
+msgstr ""
+
+#. placeholder {0}: search.searchTerm
+#: src/app/ui/components/blocks/Search.tsx:279
+msgid "No results found for <0>{0}</0>"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:116
+msgid "Normal — shows only the bible text."
+msgstr ""
+
+#: src/app/ui/components/import/RepoDownload.tsx:214
+msgid "Organization or User"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:170
+#: src/app/ui/components/blocks/DiffModal.tsx:229
+msgid "Original"
+msgstr ""
+
+#: src/app/ui/components/blocks/AppDrawer.tsx:27
 msgid "Projects"
 msgstr "Proyectos"
-#: src/app/ui/components/blocks/AppDrawer.tsx:31
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:131
+msgid "Raw"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:127
+msgid "Raw — shows the underlying markup; no editor helpers."
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:117
+msgid "Regular"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:167
+msgid "Replace With:"
+msgstr ""
+
+#: src/app/ui/components/import/RepoDownload.tsx:228
+msgid "Repository"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:392
+msgid "Review & Save"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:378
+msgid "Review and save changes"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:162
+msgid "Save"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:322
+msgid "Save all changes"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:49
+msgid "Search"
+msgstr ""
+
+#: src/app/ui/components/import/RepoDownload.tsx:229
+msgid "Search for a repository..."
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectCreator.tsx:46
+msgid "Search for a scripture repository"
+msgstr ""
+
+#: src/app/ui/components/import/RepoDownload.tsx:215
+msgid "Search for an organization or user..."
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:465
+msgid "Search…"
+msgstr ""
+
+#. placeholder {0}: search.searchTerm
+#: src/app/ui/components/blocks/Search.tsx:270
+msgid "Searching for <0>{0}</0>..."
+msgstr ""
+
+#: src/app/ui/components/blocks/AppDrawer.tsx:38
 msgid "Settings"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:107
+#: src/app/ui/components/blocks/DiffModal.tsx:136
+msgid "Switch to this chapter"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx:109
+msgid "Text size"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:189
+msgid "This will remove files from disk and delete the project's metadata from the local database."
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:119
+#: src/app/ui/components/blocks/DiffModal.tsx:143
+msgid "Undo Change"
+msgstr ""
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:203
+msgid "Unlock markers"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:146
+msgid "USFM"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:141
+msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/ZoomControl.tsx:95
+msgid "Zoom"
+msgstr ""

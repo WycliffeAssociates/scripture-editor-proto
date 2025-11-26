@@ -1,46 +1,146 @@
 import { Trans } from "@lingui/react/macro";
+import { ActionIcon, Button, Center, Group, Stack, Text } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Download, Eye, Plus } from "lucide-react";
+import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 import { useWorkspaceContext } from "../../../contexts/WorkspaceContext.tsx";
-import classnames from "./ProjectList.module.css";
+import classnames from "./ProjectList.module.css.ts";
+
+/**
+ * ProjectList
+ *
+ * - Renders a list of projects as groups of a main project button and separate
+ *   action buttons (open/export).
+ * - Reads `opener` and `directoryProvider` from the router context so we can
+ *   show Open / Export actions when those methods are available.
+ * - No `any` usage; uses `ListedProject` and `RouterContext`.
+ */
 export function ProjectList() {
   const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
   const router = useRouter();
-  const currentProject = allProjects.find(
-    (p) => p.projectDir.name === currentProjectRoute,
+  const context = router.options.context;
+  const { opener, directoryProvider, platform } = context;
+
+  const currentProject = allProjects.find((p) =>
+    p.projectDirectoryPath.includes(currentProjectRoute),
   );
-  const navigateToNewProject = (projectId: string) => {
+
+  const navigateToProject = (projectPath: string) => {
+    const diskProjectName = projectPath.split("/").pop();
+    if (!diskProjectName) {
+      throw new Error("Invalid project path");
+    }
     project.updateAppSettings({
-      lastProjectPath: projectId,
+      lastProjectPath: projectPath,
     });
     router.navigate({
       to: `/$project`,
-      params: { project: projectId },
+      params: { project: diskProjectName },
       reloadDocument: true,
     });
   };
+
+  async function handleOpenProject(proj: ListedProject) {
+    if (!opener || typeof opener.open !== "function") return;
+    if (!directoryProvider) return;
+    try {
+      await opener.open(proj.projectDirectoryPath);
+    } catch (err) {
+      console.error("Open project failed:", err);
+    }
+  }
+
+  async function handleExportProject(proj: ListedProject) {
+    if (!opener || typeof opener.export !== "function") return;
+    if (!directoryProvider) return;
+    try {
+      const dirHandle = await directoryProvider.getDirectoryHandle(
+        proj.projectDirectoryPath,
+      );
+      await opener.export(
+        dirHandle,
+        `${proj.name || proj.projectDirectoryPath}.zip`,
+      );
+    } catch (err) {
+      console.error("Export project failed:", err);
+    }
+  }
+
   return (
     <div>
-      <ul>
-        {allProjects.map((project) => (
-          <li
-            key={project.projectDir.path}
-            onClick={() => navigateToNewProject(project.projectDir.name)}
-            onKeyUp={(e) => {
-              if (e.key === "Enter") {
-                navigateToNewProject(project.projectDir.name);
-              }
-            }}
-            className={`${currentProject?.name === project.name && classnames.picked} ${classnames.project}`}
-          >
-            {project.name}
-          </li>
-        ))}
-      </ul>
-      <Link to="/" className={classnames.newProject}>
-        <Trans>New Project</Trans>
-        <Plus />
-      </Link>
+      <Stack gap="xs">
+        {allProjects.map((proj) => {
+          const picked = currentProject?.name === proj.name;
+          return (
+            <Group
+              key={proj.projectDirectoryPath}
+              justify="apart"
+              align="center"
+              wrap="nowrap"
+              className={`${classnames.project} ${picked ? classnames.picked : ""}`}
+            >
+              {/* Main project button that navigates to the project */}
+              <Button
+                variant="transparent"
+                classNames={{ root: classnames.projectButton }}
+                onClick={() => navigateToProject(proj.projectDirectoryPath)}
+                aria-label={`Open project ${proj.name}`}
+                style={{ background: "none" }}
+                justify="start"
+              >
+                <Text size="sm" fw={500} className={classnames.name}>
+                  {proj.name}
+                </Text>
+              </Button>
+
+              {/* Action buttons separate from the main project button */}
+              <Group gap="xs" className={classnames.actions}>
+                {opener &&
+                  typeof opener.open === "function" &&
+                  platform !== "android" &&
+                  platform !== "ios" && (
+                    <ActionIcon
+                      size="sm"
+                      variant="light"
+                      aria-label={`Open in file manager ${proj.name}`}
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handleOpenProject(proj);
+                      }}
+                      className={classnames.iconButton}
+                    >
+                      <Eye />
+                    </ActionIcon>
+                  )}
+
+                {opener && typeof opener.export === "function" && (
+                  <ActionIcon
+                    size="sm"
+                    variant="light"
+                    aria-label={`Export project ${proj.name}`}
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      handleExportProject(proj);
+                    }}
+                    className={classnames.iconButton}
+                  >
+                    <Download />
+                  </ActionIcon>
+                )}
+              </Group>
+            </Group>
+          );
+        })}
+      </Stack>
+
+      <Center mt="xs">
+        <Link to="/" className={classnames.newProject}>
+          <Group gap="xs" align="center">
+            <Trans>New Project</Trans>
+            <Plus />
+          </Group>
+        </Link>
+      </Center>
     </div>
   );
 }

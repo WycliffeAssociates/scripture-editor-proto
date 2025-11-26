@@ -1,10 +1,5 @@
-import {
-  Group,
-  ScrollArea,
-  useMantineColorScheme,
-  useMantineTheme,
-} from "@mantine/core";
-import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { Group, ScrollArea } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
 import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
@@ -18,7 +13,7 @@ import type { ReferenceProject } from "@/app/ui/hooks/useReferenceProject.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 export function ProjectView() {
-  const { actions, referenceProject } = useWorkspaceContext();
+  const { referenceProject } = useWorkspaceContext();
   const [opened, { open, close }] = useDisclosure(false);
   const { isSm } = useWorkspaceMediaQuery();
   // const isSmall = !isBig;
@@ -137,14 +132,14 @@ function MobileReferenceTabs(props: {
       <div className={styles.mobileTabsBar}>
         <button
           type="button"
-          className={props.mobileTab === "main" ? styles.activeTab : ""}
+          className={props.mobileTab === "main" ? "activeTab" : ""}
           onClick={() => props.setMobileTab("main")}
         >
           Editor
         </button>
         <button
           type="button"
-          className={props.mobileTab === "ref" ? styles.activeTab : ""}
+          className={props.mobileTab === "ref" ? "activeTab" : ""}
           onClick={() => props.setMobileTab("ref")}
         >
           Reference
@@ -161,7 +156,7 @@ function PrevButton() {
       type="button"
       disabled={!actions.prevChapter.hasPrev}
       onClick={actions.prevChapter.go}
-      className={styles.editorNavButton}
+      className={`${styles.editorNavButton} ${!actions.prevChapter.hasPrev ? styles.editorNavButtonHidden : ""}`}
     >
       {actions.prevChapter.display}
     </button>
@@ -169,14 +164,12 @@ function PrevButton() {
 }
 function NextButton() {
   const { actions } = useWorkspaceContext();
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
   return (
     <button
       type="button"
       disabled={!actions.nextChapter.hasNext}
       onClick={actions.nextChapter.go}
-      className={styles.editorNavButton}
+      className={`${styles.editorNavButton} ${!actions.nextChapter.hasNext ? styles.editorNavButtonHidden : ""}`}
       data-css-vars="true"
     >
       {actions.nextChapter.display}

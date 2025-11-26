@@ -75,12 +75,16 @@ export const BIBLE_ORDER_MAP = new Map<string, number>(
 
 // --- 1. Canonical sort of files --------------------------------------------
 
-export function sortUsfmFilesByCanonicalOrder<T extends { name: string }>(
+export function sortUsfmFilesByCanonicalOrder<T, K extends keyof T>(
   files: T[],
+  keyField: K,
 ): T[] {
   return [...files].sort((a, b) => {
-    const aSlug = getBookSlug(a.name);
-    const bSlug = getBookSlug(b.name);
+    const fieldA = a[keyField];
+    const fieldB = b[keyField];
+    if (!fieldA || !fieldB) return 0;
+    const aSlug = getBookSlug(fieldA as unknown as string);
+    const bSlug = getBookSlug(fieldB as unknown as string);
     return (
       (BIBLE_ORDER_MAP.get(aSlug) ?? 0) - (BIBLE_ORDER_MAP.get(bSlug) ?? 0)
     );

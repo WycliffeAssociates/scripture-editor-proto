@@ -50,6 +50,16 @@ export function arraysEqualByKey<T extends Record<string, unknown>>(
   return true;
 }
 
+export const removeLeadingDirSlashes = (relPath: string): string => {
+  if (relPath.startsWith("/")) {
+    return relPath.substring(1);
+  } else if (relPath.startsWith("./")) {
+    return relPath.substring(2);
+  }
+  return relPath;
+};
+
+// biome-ignore lint/suspicious/noExplicitAny: <debounce any args is fine>
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   delay: number,
@@ -60,4 +70,35 @@ export function debounce<T extends (...args: any[]) => any>(
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(this, args), delay);
   };
+}
+/**
+ * Repeatedly calls `fn` once per animation frame until:
+ *   - it returns a truthy value (success), or
+ *   - the timeout window expires.
+ *
+ * Returns a Promise that resolves with the truthy result or `null` on timeout.
+ */
+export function rafUntilSuccessOrTimeout<T>(
+  fn: () => T | false | null | undefined,
+  maxTimeout = 5000,
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    const start = performance.now();
+
+    function tick() {
+      console.count("rafUntilSuccessOrTimeout");
+      const result = fn();
+      if (result) {
+        resolve(result);
+        return;
+      }
+      if (performance.now() - start >= maxTimeout) {
+        resolve(null);
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  });
 }

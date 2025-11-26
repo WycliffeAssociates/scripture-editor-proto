@@ -1,3 +1,4 @@
+import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import {
   type EditorMarkersMutableState,
@@ -10,14 +11,14 @@ import {
 export const SUPPORTED_LOCALES = ["en", "es"];
 export const LOCALES: Record<
   SupportedLocales,
-  { nativeName: string; direction: "ltr" | "rtl" }
+  { nativeName: MessageDescriptor; direction: "ltr" | "rtl" }
 > = {
   en: {
-    nativeName: "English",
+    nativeName: msg`English`,
     direction: "ltr",
   },
   es: {
-    nativeName: "Español",
+    nativeName: msg`Español`,
     direction: "ltr",
   },
 };

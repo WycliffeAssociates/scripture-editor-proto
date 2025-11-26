@@ -29,12 +29,15 @@ import {
   type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LintError } from "@/core/data/usfm/lint.ts";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import type {
+  ListedProject,
+  Project,
+} from "@/core/persistence/ProjectRepository.ts";
 
 interface WorkSpaceContextType {
   editorRef: React.RefObject<LexicalEditor | null>;
   settingsManager: SettingsManager;
-  allProjects: Project[];
+  allProjects: ListedProject[];
   currentProjectRoute: string;
   project: WorkspaceState;
   actions: UseActionsHook;
@@ -43,6 +46,7 @@ interface WorkSpaceContextType {
   lint: UseLintReturn;
   cssStyleSheet: UseDynamicStylesheetHook;
   saveDiff: UseProjectDiffsReturn;
+  projectLanguageDirection: "ltr" | "rtl";
 }
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
   undefined,
@@ -70,8 +74,7 @@ export const ProjectProvider = ({
 }: ProjectProviderProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
   const { projects } = useLoaderData({ from: "__root__" });
-  // const [workingFiles, setWorkingFiles] =
-  // useState<ParsedFile[]>(projectFiles);
+  const projectLanguageDirection = loadedProject.metadata.language.direction;
 
   // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
   const mutWorkingFilesRef = useRef(projectFiles);
@@ -88,6 +91,7 @@ export const ProjectProvider = ({
     editorRef: editorRef,
     pickedFile: project.pickedFile,
     pickedChapter: project.pickedChapter,
+    loadedProject,
     // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
   });
   const actions = useWorkspaceActions({
@@ -150,6 +154,7 @@ export const ProjectProvider = ({
         lint,
         cssStyleSheet,
         saveDiff,
+        projectLanguageDirection,
       }}
     >
       {children}

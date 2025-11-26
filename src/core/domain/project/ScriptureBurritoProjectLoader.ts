@@ -94,11 +94,15 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
          * @param contents - Optional. The USFM content of the book. Defaults to an empty string.
          * @returns A Promise that resolves when the book is added and `metadata.json` is updated.
          */
-        addBook: async (
-          bookCode: string,
-          localizedBookTitle?: string,
-          contents: string = "",
-        ) => {
+        addBook: async ({
+          bookCode,
+          localizedBookTitle,
+          contents = "",
+        }: {
+          bookCode: string;
+          localizedBookTitle?: string;
+          contents?: string;
+        }) => {
           const filename = generateUsfmFilename(bookCode);
           const filePath = filename; // Path relative to projectDir
 

@@ -93,7 +93,11 @@ describe("ScriptureBurritoProjectLoader", () => {
     const localizedBookTitle = "Matthew";
     const bookContents = "\\id MAT \\c 1 \\v 1 In the beginning...";
 
-    await project?.addBook(bookCode, localizedBookTitle, bookContents);
+    await project?.addBook({
+      bookCode,
+      localizedBookTitle,
+      contents: bookContents,
+    });
 
     const expectedFilename = "41-MAT.usfm";
     expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
@@ -138,7 +142,11 @@ describe("ScriptureBurritoProjectLoader", () => {
     const bookCode = "MAT";
     const bookContents = "new content";
 
-    await project?.addBook(bookCode, "Matthew", bookContents);
+    await project?.addBook({
+      bookCode,
+      localizedBookTitle: "Matthew",
+      contents: bookContents,
+    });
 
     expect(mockFileWriter.writeFile).not.toHaveBeenCalledWith(
       "41-MAT.usfm",

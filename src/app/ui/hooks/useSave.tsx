@@ -1,6 +1,5 @@
 // hooks/useProjectDiffs.ts
 
-import { useRouter } from "@tanstack/react-router";
 import { type Change, diffArrays, diffWordsWithSpace } from "diff";
 import type {
   LexicalEditor,
@@ -19,7 +18,9 @@ import {
   type SidContentMap,
   serializeToUsfmString,
 } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { parseSid } from "@/core/data/bible/bible.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 // Import types from react-diff-view
 
@@ -29,6 +30,7 @@ type UseProjectDiffsProps = {
   editorRef: React.RefObject<LexicalEditor | null>;
   pickedFile: ParsedFile | null;
   pickedChapter: ParsedChapter | null;
+  loadedProject: Project;
 };
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
 type BookCode = string;
@@ -43,12 +45,11 @@ export function useProjectDiffs({
   editorRef,
   pickedFile,
   pickedChapter,
+  loadedProject,
   // setWorkingFiles,
 }: UseProjectDiffsProps) {
   const [diffMap, setDiffMap] = useState<DiffMap>({});
   const [openDiffModal, setOpenDiffModal] = useState(false);
-  const { directoryProvider } = useRouter().options.context;
-
   // const [isCalculating, setIsCalculating] = useState(false);
   // lie to ts a moment ot make life nicer below
 
@@ -99,7 +100,6 @@ export function useProjectDiffs({
     setDiffMap(newMap);
   }
 
-  // todo: reverting deletions not working see above todo first?  Todo, if reversion not working well or bugy, jut make it a preview with go to sid, and editing in place taken. Need to get actually writing to file working. Take workingFileMut and pass to get string serialize function and write. And save on open of modal.
   const handleRevert = (diffToRevert: ProjectDiff) => {
     console.time("handleRevert");
     const sidParsed = parseSid(diffToRevert.semanticSid);
@@ -143,11 +143,6 @@ export function useProjectDiffs({
         },
       );
     }
-    // STEP 4: PUBLISH THE MUTATED STATE BACK TO REACT.
-    // This is the final and most important step.
-    // We create a new array reference to trigger a re-render for any component
-    // that depends on the `workingFiles` prop.
-    // setWorkingFiles([...mutWorkingFilesRef]);
     console.timeEnd("handleRevert");
   };
 
@@ -184,29 +179,46 @@ export function useProjectDiffs({
     mutWorkingFilesRef
       .filter((file) => uniqueBookIdsWithDiff.has(file.bookCode))
       .forEach((file) => {
-        toSave[file.path] = "";
+        toSave[file.bookCode] = "";
         file.chapters.forEach((chap) => {
           const usfmPortion = serializeToUsfmString(
             chap.lexicalState.root.children,
           );
-          toSave[file.path] += usfmPortion;
+          toSave[file.bookCode] += usfmPortion;
         });
       });
     const savePromise = await Promise.allSettled(
-      Object.entries(toSave).map(async ([path, content]) => {
-        const fileWriter = await directoryProvider.newFileWriter(path);
-        await fileWriter.write(content);
-        return fileWriter.close();
+      Object.entries(toSave).map(async ([bookCode, content]) => {
+        await loadedProject.addBook({
+          bookCode,
+          contents: content,
+        });
       }),
     );
     await Promise.all(savePromise);
     // notify if any errors
-    const error = savePromise.find((p) => p instanceof Error);
+    const error = savePromise.find((p) => p.status === "rejected");
     if (error) {
       console.error(error);
+    } else {
+      // Show success notification only if there were no errors and there were actually changes to save
+      if (Object.keys(toSave).length > 0) {
+        ShowNotificationSuccess({
+          notification: {
+            message: `Saved ${Object.keys(toSave).length} book(s) successfully`,
+            title: "Project Saved",
+          },
+        });
+      }
     }
     // now update the originalSidMapRef.current to = currentSidMap.current since we just saved the current state to disk
-    originalSidMapRef.current = { ...currentSidMap.current };
+    originalSidMapRef.current = structuredClone(currentSidMap.current);
+    // for the mutWorkingFiles, we also want to set their loadedLexical state to all the current state:
+    mutWorkingFilesRef.forEach((file) => {
+      file.chapters.forEach((chap) => {
+        chap.loadedLexicalState = structuredClone(chap.lexicalState);
+      });
+    });
     // And recompute the diff map
     setDiffMap(
       calculateInitialDiffs(originalSidMapRef.current, currentSidMap.current),

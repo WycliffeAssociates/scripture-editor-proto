@@ -1,7 +1,6 @@
 import {
   $getSelection,
   $isRangeSelection,
-  COMMAND_PRIORITY_EDITOR,
   COMMAND_PRIORITY_LOW,
   type LexicalEditor,
   SELECTION_CHANGE_COMMAND,

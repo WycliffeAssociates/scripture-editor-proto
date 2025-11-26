@@ -75,7 +75,6 @@ export function EditorModeToggle() {
         }
         break;
       case "regular":
-      default:
         if (actions.adjustWysiwygMode) {
           actions.adjustWysiwygMode({
             markersViewState: EditorMarkersViewStates.NEVER,
