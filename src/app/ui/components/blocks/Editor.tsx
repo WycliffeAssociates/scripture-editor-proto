@@ -33,6 +33,7 @@ export function MainEditor() {
       <LexicalComposer initialConfig={getIntialConfig()}>
         <div
           data-js="editor-container"
+          data-testid="lexical-editor-container"
           className="editor-container relative h-full overflow-y-auto"
         >
           <RichTextPlugin

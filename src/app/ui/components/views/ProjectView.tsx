@@ -151,12 +151,21 @@ function MobileReferenceTabs(props: {
 
 function PrevButton() {
   const { actions } = useWorkspaceContext();
+  if (!actions.prevChapter.hasPrev) {
+    return (
+      <span
+        data-testid="prev-chapter-button-hidden"
+        className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
+      />
+    );
+  }
   return (
     <button
       type="button"
+      data-testid="prev-chapter-button"
       disabled={!actions.prevChapter.hasPrev}
       onClick={actions.prevChapter.go}
-      className={`${styles.editorNavButton} ${!actions.prevChapter.hasPrev ? styles.editorNavButtonHidden : ""}`}
+      className={`${styles.editorNavButton}`}
     >
       {actions.prevChapter.display}
     </button>
@@ -164,13 +173,21 @@ function PrevButton() {
 }
 function NextButton() {
   const { actions } = useWorkspaceContext();
+  if (!actions.nextChapter.hasNext) {
+    return (
+      <span
+        data-testid="next-chapter-button-hidden"
+        className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
+      />
+    );
+  }
   return (
     <button
       type="button"
+      data-testid="next-chapter-button"
       disabled={!actions.nextChapter.hasNext}
       onClick={actions.nextChapter.go}
-      className={`${styles.editorNavButton} ${!actions.nextChapter.hasNext ? styles.editorNavButtonHidden : ""}`}
-      data-css-vars="true"
+      className={`${styles.editorNavButton}`}
     >
       {actions.nextChapter.display}
     </button>

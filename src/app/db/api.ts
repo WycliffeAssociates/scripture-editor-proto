@@ -64,7 +64,6 @@ export const listProjectsByLanguage = async (): Promise<
       projectId: project.id ?? 0,
       projectIdentifier: project.identifier || "",
       projectTitle: project.title || "",
-      projectName: project.name || "",
       projectDir: project.projectDir,
       projectLanguageId: project.languageId || 0,
       projectVersion: project.version || null,
@@ -82,7 +81,6 @@ export const upsertProject = async (
   projectDir: string,
   opts: {
     identifier?: string | null;
-    name?: string | null;
     title?: string | null;
     languageId?: number | null;
     version?: string | null;
@@ -96,13 +94,15 @@ export const upsertProject = async (
   const projectData = {
     projectDir,
     identifier: opts.identifier ?? existing?.identifier ?? null,
-    name: opts.name ?? existing?.name ?? null,
     title: opts.title ?? existing?.title ?? null,
     languageId: opts.languageId ?? existing?.languageId ?? null,
     version: opts.version ?? existing?.version ?? null,
   };
-
-  await db.projects.put(projectData);
+  if (existing) {
+    await db.projects.update(existing.id, projectData);
+  } else {
+    await db.projects.add(projectData);
+  }
 
   return await db.projects.where("projectDir").equals(projectDir).first();
 };

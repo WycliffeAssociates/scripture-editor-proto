@@ -133,10 +133,11 @@ export function LanguageSelector({
   }));
   return (
     <Stack gap="xs">
-      <Text size="md" mb="2" fw={500}>
+      <Text data-testid="language-selector-label" size="md" mb="2" fw={500}>
         <Trans>Interface Localization</Trans>
       </Text>
       <Select
+        data-testid="language-selector"
         radius={"lg"}
         styles={{
           root: {

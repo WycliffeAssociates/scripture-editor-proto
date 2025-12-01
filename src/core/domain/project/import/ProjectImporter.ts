@@ -167,7 +167,6 @@ export class ProjectImporter {
         // Upsert project row (keyed by project_dir)
         const projectRow = await upsertProject(projectDirPath, {
           identifier: projectIdentifier,
-          name: projectName,
           title: projectName,
           languageId: languageId,
           version: null,

@@ -1,6 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:5173";
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const dirname = path.dirname(__filename); // get the name of the directory
 
 test.describe("home page (empty state)", () => {
   test("shows project creation UI when there are no projects", async ({
@@ -77,4 +81,71 @@ test.describe("home page (empty state)", () => {
       console.error(err);
     }
   });
+});
+
+test.describe("home page - load projects", () => {
+  test("loads project from zip", async ({ page }) => {
+    await page.goto(BASE_URL);
+    const resolvedPath = path.resolve(
+      dirname,
+      "../",
+      "mockData",
+      "llx_reg-master.zip",
+    );
+    await page.getByTestId("file-importer").setInputFiles(resolvedPath);
+    const projectList = page.getByTestId("project-list");
+    await expect(projectList).toHaveCount(1);
+    await page.reload({
+      waitUntil: "domcontentloaded",
+    }); //should still be there
+    await expect(projectList).toHaveCount(1);
+    expect(await page.getByTestId("project-list-lauan").textContent()).toBe(
+      "Lauan",
+    );
+  });
+  test("delete Project removes from ui", async ({ page }) => {
+    await page.goto(BASE_URL);
+    const resolvedPath = path.resolve(
+      dirname,
+      "../",
+      "mockData",
+      "llx_reg-master.zip",
+    );
+    await page.getByTestId("file-importer").setInputFiles(resolvedPath);
+    const projectList = page.getByTestId("project-list");
+    await expect(projectList).toHaveCount(1);
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "LauanBible" })
+      .getByTestId("edit-project-btn")
+      .click();
+    await page.getByTestId("project-name-input").fill("Lauan - New Name");
+    await page.getByTestId("save-project-name").click();
+    const newName = page.getByTestId("Lauan - New Name");
+    await expect(newName).toHaveText("Lauan - New Name");
+
+    await page.reload({
+      waitUntil: "domcontentloaded",
+    }); //should have changed name
+    await expect(newName).toHaveText("Lauan - New Name");
+    await page.getByTestId("delete-project").click();
+    const confirmBtn = page.getByTestId("delete-project-confirm");
+    await confirmBtn.click();
+    await expect(projectList).toHaveCount(0);
+  });
+  test("loads project from unzipped folder", async ({ page }) => {
+    await page.goto(BASE_URL);
+
+    const resolvedPath = path.resolve(dirname, "../", "mockData", "llx_reg/");
+    await page.getByTestId("dir-importer").setInputFiles(resolvedPath);
+    const projectList = page.getByTestId("project-list");
+    await expect(projectList).toHaveCount(1);
+  });
+});
+test("home page localization works", async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.getByTestId("language-selector").click();
+  await page.getByRole("option", { name: "Español" }).click();
+  const label = page.getByTestId("language-selector-label");
+  await expect(label).toHaveText("Localización de la interfaz");
 });

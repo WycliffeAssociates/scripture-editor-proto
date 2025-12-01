@@ -15,7 +15,6 @@ export type DbLanguage = {
 export type DbProject = {
   id?: number;
   identifier: string | null;
-  name: string | null;
   projectDir: string;
   title: string | null;
   languageId: number | null;

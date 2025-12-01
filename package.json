@@ -78,6 +78,7 @@
     "@types/react-highlight-words": "^0.20.0",
     "@vanilla-extract/vite-plugin": "^5.1.1",
     "@vitejs/plugin-react": "4.7.0",
+    "fake-indexeddb": "^6.2.5",
     "lefthook": "2.0.3",
     "postcss": "8.5.6",
     "postcss-preset-mantine": "1.18.0",

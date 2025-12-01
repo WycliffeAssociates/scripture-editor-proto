@@ -15,7 +15,6 @@ import ProjectRow from "@/app/ui/components/blocks/ProjectRow.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import {
   ShowErrorNotification,
-  ShowNotificationInfo,
   ShowNotificationSuccess,
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
@@ -178,8 +177,13 @@ function Index() {
       <ul className="flex flex-col gap-3">
         {Object.entries(groupedIntoLangName).map(([langName, langProjects]) => (
           <li key={langName}>
-            <h2 className="text-xl font-semibold">{langName}</h2>
-            <ul className="ml-4">
+            <h2
+              data-testid={`project-list-${langName.toLowerCase()}`}
+              className="text-xl font-semibold"
+            >
+              {langName}
+            </h2>
+            <ul className="ml-4" data-testid="project-list">
               {langProjects.map((project) => (
                 <li key={project.projectDirectoryPath}>
                   <ProjectRow

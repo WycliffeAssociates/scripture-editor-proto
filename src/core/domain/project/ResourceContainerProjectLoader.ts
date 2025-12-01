@@ -62,9 +62,7 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
 
       const project: Project = {
         id: projectId,
-        name:
-          `${parsedManifest.dublin_core?.language?.title} ${parsedManifest.dublin_core?.title}` ||
-          projectId,
+        name: `${parsedManifest.dublin_core?.title}` || projectId,
         files:
           parsedManifest.projects?.map((project) => ({
             path: `${projectDir.path}/${removeLeadingDirSlashes(project.path)}`,

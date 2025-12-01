@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
+import type { ScriptureBurritoProject } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import {
@@ -41,7 +42,7 @@ const mockProjectDir = new MockDirectoryHandle("mock-project-dir");
 // };
 
 // Mock Project implementations to be returned by the loaders
-const mockScriptureBurritoProject: Project = {
+const mockScriptureBurritoProject: ScriptureBurritoProject = {
   id: "sb-project",
   name: "Scripture Burrito Project",
   files: [],
@@ -55,6 +56,7 @@ const mockScriptureBurritoProject: Project = {
   metadataJson: { ingredients: {} },
   md5Service: mockMd5Service,
   addBook: vi.fn(),
+  getBook: vi.fn(),
 };
 
 const mockResourceContainerProject: Project = {
@@ -68,9 +70,8 @@ const mockResourceContainerProject: Project = {
   },
   projectDir: mockProjectDir,
   fileWriter: mockFileWriter,
-  manifestYaml: { projects: {} },
-  md5Service: mockMd5Service,
   addBook: vi.fn(),
+  getBook: vi.fn(),
 };
 
 // Mock the actual loader implementations
@@ -134,9 +135,9 @@ describe("ProjectLoader", () => {
   test("should prefer ScriptureBurritoProjectLoader if metadata.json exists", async () => {
     vi.spyOn(mockProjectDir, "getFileHandle").mockImplementation((fileName) => {
       if (fileName === "metadata.json")
-        return Promise.resolve({} as FileSystemFileHandle);
+        return Promise.resolve({} as MockFileHandle);
       if (fileName === "manifest.yaml")
-        return Promise.resolve({} as FileSystemFileHandle);
+        return Promise.resolve({} as MockFileHandle);
       return Promise.reject(new Error("File not found"));
     });
 

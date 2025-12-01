@@ -53,20 +53,12 @@ export class ProjectDirectoryImporter implements Importer {
     sourceDir: IDirectoryHandle,
   ): Promise<string | null> {
     const projectsDir = await this.directoryProvider.projectsDirectory;
-    const sourceEntryName = sourceDir.name;
-
     let tempProjectDir: IDirectoryHandle | null = null;
 
     try {
-      // 1. Resolve name conflicts and create the final project directory
-      const finalProjectDir = await this.resolveProjectDirectory(
-        sourceEntryName,
-        projectsDir,
-      );
-
       // NEW STEP: Create a temporary directory and copy the source content there first
       const tempDir = await this.directoryProvider.tempDirectory;
-      const tempProjectDirName = `${sourceEntryName}-import-${Date.now()}`;
+      const tempProjectDirName = `${sourceDir.name}-import-${Date.now()}`;
       tempProjectDir = await tempDir.getDirectoryHandle(tempProjectDirName, {
         create: true,
       });
@@ -74,6 +66,24 @@ export class ProjectDirectoryImporter implements Importer {
       await this.copyDirectoryContents(sourceDir, tempProjectDir);
       console.log(
         `[DirectoryProjectImporter] Copied source to temporary directory: ${tempProjectDir.path}`,
+      );
+
+      // Look for the actual project name by examining the directory structure
+      let projectName = sourceDir.name; // fallback to source dir name
+
+      // Try to find a project directory inside the temp directory
+      for await (const [name, handle] of tempProjectDir.entries()) {
+        if (handle.isDir) {
+          // Use the first subdirectory name as the project name
+          projectName = name;
+          break;
+        }
+      }
+
+      // 1. Resolve name conflicts and create the final project directory using the discovered project name
+      const finalProjectDir = await this.resolveProjectDirectory(
+        projectName,
+        projectsDir,
       );
 
       // 2. Copy content from temp to final destination

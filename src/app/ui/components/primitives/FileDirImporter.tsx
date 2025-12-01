@@ -48,6 +48,7 @@ export function DirImporter({
       <label className={styles.label}>
         {label}
         <input
+          data-testid="dir-importer"
           ref={dirInputRef}
           type="file"
           webkitdirectory="true"
@@ -87,8 +88,6 @@ export function FileImporter({
 
   return (
     <div className={`${styles.controlGroup} ${className}`}>
-      <label className={styles.label}>{label}</label>
-
       <div className={styles.actionRow}>
         <button
           type="button"
@@ -104,14 +103,17 @@ export function FileImporter({
         </span>
       </div>
 
-      {/** biome-ignore lint/correctness/useUniqueElementIds: hidden input triggered above */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={accept}
-        onChange={onOpenFile}
-        className={styles.hiddenInput}
-      />
+      <label className={styles.label}>
+        <input
+          data-testid="file-importer"
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={onOpenFile}
+          className={styles.hiddenInput}
+        />
+        {label}
+      </label>
     </div>
   );
 }

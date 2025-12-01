@@ -99,6 +99,9 @@ export function ReferencePicker() {
       withArrow
       shadow="md"
       position="bottom-start"
+      data-testid={`reference-picker`}
+      data-test-bookCode={pickedFile?.bookCode}
+      data-test-chapter={currentChapter}
     >
       <Popover.Target>
         {isSm ? (
@@ -152,6 +155,7 @@ export function ReferencePicker() {
             <ScrollArea style={{ flex: 1 }}>
               <Accordion
                 variant="none"
+                data-testid="reference-books-accordion"
                 classNames={{
                   item: classes.accordionItem,
                   control: classes.accordionControl,
@@ -167,13 +171,16 @@ export function ReferencePicker() {
                   return (
                     <Accordion.Item key={file.title} value={fileTitle}>
                       <Accordion.Control
+                        data-testid="book-control"
                         className={
                           isCurrentBook ? classes.activeBookControl : undefined
                         }
                       >
                         {fileTitle}
                       </Accordion.Control>
-                      <Accordion.Panel>
+                      <Accordion.Panel
+                        data-testid={`book-${file.bookCode}-chapters`}
+                      >
                         <Grid gutter="xs" justify="flex-start">
                           {Object.keys(file.chapters)
                             .map(Number)
@@ -182,6 +189,7 @@ export function ReferencePicker() {
                               <Grid.Col span="content" key={chap}>
                                 <Button
                                   size="xs"
+                                  data-testid={`chapter-accordion-button`}
                                   variant={
                                     chap === currentChapter
                                       ? "filled"

@@ -376,7 +376,12 @@ function ReferenceProjectList() {
                 )
               }
             >
-              {project.name}
+              <span className="flex gap-1">
+                {project.name}
+                <span className="text-xs">
+                  {project.metadata?.language.name}
+                </span>
+              </span>
             </Menu.Item>
           ))}
         </Menu.Dropdown>

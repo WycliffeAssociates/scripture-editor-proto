@@ -72,7 +72,11 @@ describe("ResourceContainerProjectLoader", () => {
     const localizedBookTitle = "Matthew";
     const bookContents = "\\id MAT \\c 1 \\v 1 In the beginning...";
 
-    await project?.addBook(bookCode, localizedBookTitle, bookContents);
+    await project?.addBook({
+      bookCode,
+      contents: bookContents,
+      localizedBookTitle,
+    });
 
     const expectedFilename = "41-MAT.usfm";
     expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
@@ -140,7 +144,11 @@ describe("ResourceContainerProjectLoader", () => {
     const newLocalizedBookTitle = "New Matthew Title";
     const newBookContents = "\\id MAT \\c 1 \\v 1 New content here...";
 
-    await project?.addBook(bookCode, newLocalizedBookTitle, newBookContents);
+    await project?.addBook({
+      bookCode,
+      contents: newBookContents,
+      localizedBookTitle: newLocalizedBookTitle,
+    });
 
     // Assert that the file content was overwritten
     expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
@@ -187,7 +195,11 @@ describe("ResourceContainerProjectLoader", () => {
     const newLocalizedBookTitle = "Matthew";
     const newBookContents = "new content for existing file";
 
-    await project?.addBook(bookCode, newLocalizedBookTitle, newBookContents);
+    await project?.addBook({
+      bookCode,
+      contents: newBookContents,
+      localizedBookTitle: newLocalizedBookTitle,
+    });
 
     // Assert that the file content was overwritten
     const fileContent = inMemoryFiles.get(existingFilename);

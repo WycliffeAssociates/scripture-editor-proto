@@ -380,6 +380,7 @@ describe("TauriDirectoryProvider", () => {
 
     // Assert that the entries were iterated and removed
     // The mock yields 'file1.tmp' and 'dir2'
+    // todo: see if this is even a test we care to keep?
     // @ts-expect-error
     const tempDirHandle = TauriDirectoryHandle.mock.results.find(
       (r) => r.value.path === expectedTempDirPath,

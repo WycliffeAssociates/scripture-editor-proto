@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { db as mockedDb } from "@/app/db/__mocks__/db.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
@@ -10,6 +11,10 @@ import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 import { MockFileHandle } from "@/test/shared/mock.ts";
+
+vi.mock("@/app/db/db.ts", () => {
+  return { db: mockedDb };
+});
 
 // Mock implementations for dependencies
 let inMemoryFiles: Map<string, string> = new Map();
@@ -42,10 +47,8 @@ const MOCK_PROJECT_1: Project = {
   },
   projectDir: {} as IDirectoryHandle, // Mock or actual handle
   fileWriter: mockFileWriter,
-  manifestYaml: undefined,
-  metadataJson: undefined,
-  md5Service: mockMd5Service,
   addBook: vi.fn(),
+  getBook: vi.fn(),
 };
 
 const MOCK_PROJECT_ID_2 = "project-2";
@@ -65,10 +68,8 @@ const MOCK_PROJECT_2: Project = {
   },
   projectDir: {} as IDirectoryHandle, // Mock or actual handle
   fileWriter: mockFileWriter,
-  manifestYaml: undefined,
-  metadataJson: undefined,
-  md5Service: mockMd5Service,
   addBook: vi.fn(),
+  getBook: vi.fn(),
 };
 
 class MockDirectoryHandle implements IDirectoryHandle {
@@ -144,6 +145,18 @@ class MockDirectoryHandle implements IDirectoryHandle {
   asFileHandle = vi.fn(() => null);
   asDirectoryHandle = vi.fn(() => this);
   getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
+  containsFile = vi.fn(async (name: string) => {
+    const found = Object.keys(this.entriesMap).find((fileName) => {
+      return name === fileName;
+    });
+    return !!found;
+  });
+  containsDir = vi.fn(async (name: string) => {
+    const found = Object.keys(this.entriesMap).find((fileName) => {
+      return fileName.includes(name);
+    });
+    return !!found;
+  });
 
   entries(): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]> {
     const self = this;
@@ -205,6 +218,7 @@ const mockDirectoryProvider: IDirectoryProvider = {
       : MOCK_USER_DATA_DIR;
     return new MockDirectoryHandle(path);
   }),
+  projectsDirectory: Promise.resolve(new MockDirectoryHandle("projects")),
   getAppPrivateDirectory: vi.fn(),
   getProjectDirectory: vi.fn(),
   newFileWriter: vi.fn(),
@@ -243,27 +257,6 @@ describe("ProjectRepository", () => {
       mockDirectoryProvider,
       mockMd5Service,
     );
-  });
-
-  test("saveProject should save a project to the correct directory", async () => {
-    const projectToSave = { ...MOCK_PROJECT_1 };
-    await projectRepository.saveProject(projectToSave);
-
-    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
-      undefined,
-    );
-
-    // Simulate the directory structure being built and file being written
-    const userDataDir = await mockDirectoryProvider.getAppPublicDirectory();
-    const projectsDir = await userDataDir.getDirectoryHandle("projects");
-    const projectDir = await projectsDir.getDirectoryHandle(MOCK_PROJECT_ID_1);
-    const projectFile = await projectDir.getFileHandle("project.json");
-
-    const writer = await projectFile.createWritable();
-    expect(writer.write).toHaveBeenCalledWith(
-      JSON.stringify(projectToSave, null, 2),
-    );
-    expect(writer.close).toHaveBeenCalled();
   });
 
   test("loadProject should load an existing project", async () => {

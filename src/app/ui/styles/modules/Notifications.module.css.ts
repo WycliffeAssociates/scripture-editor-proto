@@ -1,4 +1,4 @@
-import { darken, lighten } from "@mantine/core";
+import { darken } from "@mantine/core";
 import { createVar, style } from "@vanilla-extract/css";
 import { darkSelector } from "@/app/ui/styles/theme.css.ts";
 import { vars } from "../theme.css.ts";

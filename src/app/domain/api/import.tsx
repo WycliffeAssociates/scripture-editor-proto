@@ -37,9 +37,9 @@ export async function handleOpenDirectory(
     console.log("No directory selected.");
     return;
   }
-
+  const folderName = files[0].webkitRelativePath.split("/")[0];
   const tempDirectory = await directoryProvider.tempDirectory;
-  const tempDirName = `dir-import-${Date.now()}`;
+  const tempDirName = folderName;
   const tempProjectDir = await tempDirectory.getDirectoryHandle(tempDirName, {
     create: true,
   });

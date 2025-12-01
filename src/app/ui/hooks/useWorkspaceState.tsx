@@ -27,7 +27,7 @@ export const useWorkspaceState = (
     getSavedIfPrefersRestore("lastBookIdentifier") || allFiles[0].bookCode,
   );
   const [currentChapter, setCurrentChapter] = useState(
-    getSavedIfPrefersRestore("lastChapterNumber") || 0,
+    getSavedIfPrefersRestore("lastChapterNumber") || 1,
   );
   const [referenceProjectPath, setReferenceProjectPath] = useState<
     string | null

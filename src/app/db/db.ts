@@ -38,7 +38,7 @@ async function initializeDatabase() {
     db.version(1).stores({
       languages: "++id, identifier, title, direction, createdAt, updatedAt",
       projects:
-        "++id, projectDir, identifier, name, title, languageId, version, createdAt, importedAt, updatedAt",
+        "++id, projectDir, identifier, title, languageId, version, createdAt, importedAt, updatedAt",
       files:
         "++id, projectId, identifier, title, sortOrder, relativePath, pathOnDisk, fileExtension, createdAt, updatedAt",
     });

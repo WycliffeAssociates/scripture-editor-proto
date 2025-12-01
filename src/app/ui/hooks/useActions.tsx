@@ -102,8 +102,16 @@ export const useWorkspaceActions = ({
     chapterContent?: ParsedChapter,
   ) {
     console.log("setEditorContent", fileBibleIdentifier, chapter);
-    const editor = editorRef.current;
-    if (!editor) return;
+    let editor = editorRef.current;
+    const tryGetEditor = () => editorRef.current;
+    const start = performance.now();
+    while (!editor) {
+      editor = tryGetEditor();
+      const elapsed = performance.now() - start;
+      if (elapsed > 5000) {
+        throw new Error("Editor not found");
+      }
+    }
     const targetFile = chapterContent
       ? null
       : mutWorkingFilesRef.find((f) => f.bookCode === fileBibleIdentifier);
@@ -555,11 +563,13 @@ function determineNextChapter(
     };
   if (currentChapter === pickedFile?.chapters.length - 1) {
     const nextBookId = pickedFile.nextBookId;
-    const nextBook = workingFiles.find((file) => file.bookCode === nextBookId);
+    const nextBook = nextBookId
+      ? workingFiles.find((file) => file.bookCode === nextBookId)
+      : null;
     const firstChap = 0;
     const title = nextBook?.title || nextBook?.bookCode;
     return {
-      hasNext: true,
+      hasNext: !!nextBookId,
       display: `${title} ${firstChap}`,
       go: () =>
         switchBookOrChapter(nextBookId || pickedFile.bookCode, firstChap),

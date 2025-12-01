@@ -41,6 +41,18 @@ export class MockDirectoryHandle implements MockIDirectoryHandle {
   }
   getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
   asFileHandle = vi.fn(() => null);
+  containsFile = vi.fn(async (name: string) => {
+    const found = Object.keys(this.files).find((fileName) => {
+      return name === fileName;
+    });
+    return !!found;
+  });
+  containsDir = vi.fn(async (name: string) => {
+    const found = Object.keys(this.files).find((fileName) => {
+      return fileName.includes(name);
+    });
+    return !!found;
+  });
   asDirectoryHandle = vi.fn(() => this);
   getParent = vi.fn(() => Promise.resolve(new MockDirectoryHandle("/")));
 
