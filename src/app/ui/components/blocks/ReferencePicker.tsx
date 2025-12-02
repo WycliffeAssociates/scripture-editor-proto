@@ -78,16 +78,14 @@ export function ReferencePicker() {
   }
 
   const uniqueFilesStartsWith = useMemo(() => {
-    const ref = parseReference(debouncedSearch);
-    if (!ref) return workingFiles;
     return workingFiles.filter(
       (f) =>
         f.title
           ?.toLocaleLowerCase()
-          .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
-        f.title
+          .startsWith(debouncedSearch.toLocaleLowerCase()) ||
+        f.bookCode
           ?.toLocaleLowerCase()
-          .startsWith(ref.bookMatch.toLocaleLowerCase()),
+          .startsWith(debouncedSearch.toLocaleLowerCase()),
     );
   }, [workingFiles, debouncedSearch]);
 
@@ -100,8 +98,8 @@ export function ReferencePicker() {
       shadow="md"
       position="bottom-start"
       data-testid={`reference-picker`}
-      data-test-bookCode={pickedFile?.bookCode}
-      data-test-chapter={currentChapter}
+      data-test-book-code={pickedFile?.bookCode}
+      data-test-current-chapter={currentChapter}
     >
       <Popover.Target>
         {isSm ? (
@@ -144,6 +142,7 @@ export function ReferencePicker() {
               <TextInput
                 autoFocus
                 value={search}
+                data-testid="reference-picker-search-input"
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t`Search (e.g. Mat 9, 1Co 1)`}
                 variant="unstyled"
@@ -176,7 +175,11 @@ export function ReferencePicker() {
                           isCurrentBook ? classes.activeBookControl : undefined
                         }
                       >
-                        {fileTitle}
+                        <span
+                          data-test-id-specific={`book-control-title-${file.bookCode.toLowerCase()}`}
+                        >
+                          {fileTitle}
+                        </span>
                       </Accordion.Control>
                       <Accordion.Panel
                         data-testid={`book-${file.bookCode}-chapters`}
@@ -190,6 +193,7 @@ export function ReferencePicker() {
                                 <Button
                                   size="xs"
                                   data-testid={`chapter-accordion-button`}
+                                  data-test-id-specific={`book-control-${file.bookCode.toLowerCase()}-${chap}`}
                                   variant={
                                     chap === currentChapter
                                       ? "filled"

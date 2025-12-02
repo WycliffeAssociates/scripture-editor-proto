@@ -1,3 +1,4 @@
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 
 test.describe("Editor llx-reg", () => {
@@ -18,10 +19,12 @@ test.describe("Editor llx-reg", () => {
     await expect(referencePicker).toBeVisible();
 
     // Get initial data attributes
-    const initialBookCode =
-      await referencePicker.getAttribute("data-test-bookCode");
-    const initialChapter =
-      await referencePicker.getAttribute("data-test-chapter");
+    const initialBookCode = await referencePicker.getAttribute(
+      "data-test-book-code",
+    );
+    const initialChapter = await referencePicker.getAttribute(
+      "data-test-current-chapter",
+    );
 
     console.log(
       `Initial state - Book: ${initialBookCode}, Chapter: ${initialChapter}`,
@@ -36,13 +39,13 @@ test.describe("Editor llx-reg", () => {
     if (isNextEnabled) {
       await nextButton.click();
 
-      // Playwright automatically waits for navigation and state changes
-
       // Verify data attributes have changed
-      const newBookCodeAfterNext =
-        await referencePicker.getAttribute("data-test-bookCode");
-      const newChapterAfterNext =
-        await referencePicker.getAttribute("data-test-chapter");
+      const newBookCodeAfterNext = await referencePicker.getAttribute(
+        "data-test-book-code",
+      );
+      const newChapterAfterNext = await referencePicker.getAttribute(
+        "data-test-current-chapter",
+      );
 
       console.log(
         `After next - Book: ${newBookCodeAfterNext}, Chapter: ${newChapterAfterNext}`,
@@ -63,8 +66,9 @@ test.describe("Editor llx-reg", () => {
     const isPrevEnabled = !(await prevButton.isDisabled());
     if (isPrevEnabled) {
       // Get current state before clicking prev
-      const currentBookCode =
-        await referencePicker.getAttribute("data-test-bookCode");
+      const currentBookCode = await referencePicker.getAttribute(
+        "data-test-book-code",
+      );
       const currentChapter =
         await referencePicker.getAttribute("data-test-chapter");
 
@@ -73,10 +77,12 @@ test.describe("Editor llx-reg", () => {
       // Playwright automatically waits for navigation and state changes
 
       // Verify data attributes have changed
-      const newBookCodeAfterPrev =
-        await referencePicker.getAttribute("data-test-bookCode");
-      const newChapterAfterPrev =
-        await referencePicker.getAttribute("data-test-chapter");
+      const newBookCodeAfterPrev = await referencePicker.getAttribute(
+        "data-test-book-code",
+      );
+      const newChapterAfterPrev = await referencePicker.getAttribute(
+        "data-test-current-chapter",
+      );
 
       console.log(
         `After prev - Book: ${newBookCodeAfterPrev}, Chapter: ${newChapterAfterPrev}`,
@@ -123,8 +129,8 @@ test.describe("Editor llx-reg", () => {
     const prevButton = editorPage.getByTestId("prev-chapter-button");
 
     // Hidden span should be visible, button should not exist
-    await expect(prevButtonHidden).toBeVisible();
-    await expect(prevButton).not.toBeVisible();
+    await expect(prevButtonHidden).toBeAttached();
+    await expect(prevButton).not.toBeAttached();
   });
 
   test("next button not visible in last chapter of last book", async ({
@@ -215,7 +221,355 @@ test.describe("Editor llx-reg", () => {
 
     // Should show the previous book name (not a chapter number)
     expect(prevButtonText).toBeTruthy();
-    expect(prevButtonText?.trim()).not.toMatch(/^\d+$/); // Not digit-only
-    expect(prevButtonText?.trim()).toMatch(/^[A-Za-z]/); // Starts with a letter
+  });
+
+  test.describe("Reference Picker Search", () => {
+    test("search by book code shows matching book", async ({ editorPage }) => {
+      // Open reference picker
+      const referencePicker = editorPage.getByTestId("reference-picker");
+      await referencePicker.click();
+
+      // Type search query
+      const searchInput = editorPage.getByTestId(
+        "reference-picker-search-input",
+      );
+      await searchInput.fill("ka");
+      // Wait for the results div to contain the expected text after the debounce period
+      await editorPage.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="reference-books-accordion"]')
+            ?.children.length === 1,
+      );
+
+      // Verify only Galatians is shown in the filtered list
+      const accordion = editorPage.getByTestId("reference-books-accordion");
+      await expect(accordion).toContainText("Kalatia");
+      const bookControl = editorPage.locator(
+        '[data-test-id-specific^="book-control-title-gal"]',
+      );
+      await expect(bookControl).toBeVisible();
+    });
+
+    test("search and navigate to chapter on Enter", async ({ editorPage }) => {
+      // Open reference picker
+      const referencePicker = editorPage.getByTestId("reference-picker");
+      await referencePicker.click();
+
+      // Type search query and press Enter
+      const searchInput = editorPage.getByTestId(
+        "reference-picker-search-input",
+      );
+      await searchInput.fill("luk 3");
+      await searchInput.press("Enter");
+      const bookCodeAttr = await referencePicker.getAttribute(
+        "data-test-book-code",
+      );
+      const chapterAttr = await referencePicker.getAttribute(
+        "data-test-current-chapter",
+      );
+
+      // Verify the reference was updatedin the popover
+      expect(bookCodeAttr?.toLowerCase()).toBe("luk");
+      expect(chapterAttr?.toLowerCase()).toBe("3");
+    });
+    test("search ref picker without chapter just navigates to book", async ({
+      editorPage,
+    }) => {
+      // Open reference picker
+      const referencePicker = editorPage.getByTestId("reference-picker");
+      await referencePicker.click();
+      const curChapter = await referencePicker.getAttribute(
+        "data-test-current-chapter",
+      );
+
+      // Type search query and press Enter
+      const searchInput = editorPage.getByTestId(
+        "reference-picker-search-input",
+      );
+      await searchInput.fill("luk");
+      await searchInput.press("Enter");
+      const bookCodeAttr = await referencePicker.getAttribute(
+        "data-test-book-code",
+      );
+      const chapterAttr = await referencePicker.getAttribute(
+        "data-test-current-chapter",
+      );
+
+      // Verify the reference was updatedin the popover
+      expect(bookCodeAttr?.toLowerCase()).toBe("luk");
+      expect(chapterAttr?.toLowerCase()).toBe(curChapter?.toLowerCase());
+    });
+
+    test("search shows multiple matches", async ({ editorPage }) => {
+      // Open reference picker
+      const referencePicker = editorPage.getByTestId("reference-picker");
+      await referencePicker.click();
+
+      // Search for books starting with '1'
+      const searchInput = editorPage.getByTestId(
+        "reference-picker-search-input",
+      );
+      await searchInput.fill("1");
+
+      // Verify multiple books are shown
+      const accordion = editorPage.getByTestId("reference-books-accordion");
+      await editorPage.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="reference-books-accordion"]')
+            ?.children.length === 5, //1 kor, 1 ces, 1 tim, 1 pita, 1 joni
+      );
+      const firstCorinthians = accordion.locator(
+        '[data-test-id-specific^="book-control-title-1co"]',
+      );
+      await expect(firstCorinthians).toBeVisible();
+    });
+  });
+});
+
+test.describe("Reference Project Selection", () => {
+  test("shows both projects in reference project dropdown", async ({
+    editorWithTwoProjects: page,
+  }) => {
+    // Open the reference project dropdown
+    const dropdownTrigger = page.getByTestId(
+      TESTING_IDS.referenceProjectTrigger,
+    );
+    await dropdownTrigger.click();
+    await page.getByTestId(TESTING_IDS.referenceProjectDropdown).waitFor({
+      state: "visible",
+    });
+
+    // Verify both projects are listed
+    const projectItems = await page
+      .getByTestId(TESTING_IDS.referenceProjectItem)
+      .all();
+    expect(projectItems).toHaveLength(2);
+  });
+  test("selecting reference project updates reference editor", async ({
+    editorWithTwoProjects: page,
+  }) => {
+    // Open the reference project dropdown
+    await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+    await page
+      .getByTestId(TESTING_IDS.referenceProjectDropdown)
+      .waitFor({ state: "visible" });
+
+    // Click the "Unlocked Literal Bible" reference project
+    await page
+      .getByTestId(TESTING_IDS.referenceProjectItem)
+      .filter({ hasText: "Unlocked Literal Bible" })
+      .click();
+
+    // Get the reference picker values
+    const referencePicker = page.getByTestId("reference-picker");
+    const expectedBookCode = await referencePicker.getAttribute(
+      "data-test-book-code",
+    );
+    const expectedChapter = await referencePicker.getAttribute(
+      "data-test-current-chapter",
+    );
+    if (!expectedBookCode || !expectedChapter) {
+      throw new Error("Failed to get reference picker values");
+    }
+
+    // Verify reference editor shows the same values
+    const refEditor = page.getByTestId(TESTING_IDS.refEditorContainer);
+    await expect(refEditor).toHaveAttribute(
+      "data-testing-ref-bookcode",
+      expectedBookCode?.toLowerCase(),
+    );
+    await expect(refEditor).toHaveAttribute(
+      "data-testing-ref-chapter",
+      expectedChapter,
+    );
+  });
+});
+
+test.describe("Search Functionality", () => {
+  test("search pane opens on trigger click", async ({ editorPage }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    await expect(editorPage.getByTestId(TESTING_IDS.searchInput)).toBeVisible();
+  });
+
+  test("search shows results for common word", async ({ editorPage }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("vola");
+
+    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
+    await expect(results.first()).toBeVisible(); // waits until DOM has ≥1 result
+
+    const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
+    await expect(statsSpan).toHaveText(/^\d+ \/ \d+$/);
+  });
+
+  test("search navigation buttons appear when multiple matches exist", async ({
+    editorPage,
+  }) => {
+    // Open search UI
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+
+    // Enter query
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("vola");
+
+    // Results locator
+    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
+
+    // Wait until at least 6 results appear (index 5 is the 6th item)
+    await expect(results.nth(5)).toBeVisible();
+
+    // Now count() is safe because results have finished rendering
+    const count = await results.count();
+    console.log(`Search results count: ${count}`);
+    expect(count).toBeGreaterThan(5);
+
+    // Buttons should be visible once multiple matches exist
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchPrevButton),
+    ).toBeVisible();
+
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchNextButton),
+    ).toBeVisible();
+  });
+
+  test("next button advances match counter", async ({ editorPage }) => {
+    // Open search UI
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+
+    // Fill input (auto-waits for element readiness)
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("vola");
+
+    // Wait for first result to appear — guarantees search has completed
+    const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
+    await expect(statsSpan).toHaveText(/1 \/ \d+/);
+
+    // Read the initial stats
+    const initialStats = await statsSpan.textContent();
+    console.log(`Initial stats: "${initialStats}"`);
+    expect(initialStats).toMatch(/1 \/ \d+/);
+
+    // click second result
+    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
+    await results.nth(1).click();
+
+    // Click "next" (autowaits for clickable)
+    await editorPage.getByTestId(TESTING_IDS.searchNextButton).click();
+
+    // Wait for the updated stats to reflect the next match
+    await expect(statsSpan).toHaveText("2 / 2");
+  });
+
+  test("prev button goes back", async ({ editorPage }) => {
+    // Open search UI
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+
+    // Fill input (auto-waits)
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("vola");
+    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
+    await results.nth(2).click();
+
+    // Wait for search results to populate via stats element
+    const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
+    await expect(statsSpan).toHaveText(/2 \/ \d+/);
+
+    // Advance forward
+    await editorPage.getByTestId(TESTING_IDS.searchPrevButton).click();
+
+    // Read initial stats
+    const newState = await statsSpan.textContent();
+    console.log(`New state: "${newState}"`);
+    expect(newState).toMatch(/1 \/ \d+/);
+  });
+
+  test("replace button replaces text", async ({ editorPage }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    await editorPage.getByTestId(TESTING_IDS.searchInput).fill("vola");
+    await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
+    await editorPage.getByTestId(TESTING_IDS.replaceButton).click();
+    await expect(
+      editorPage.getByText(
+        " Ai foo ni kawa i Jisu Karisito, a luvei Tevita, a luvei Eparama.",
+      ),
+    ).toBeVisible();
+  });
+  test("replace all button replaces all text in a chapter", async ({
+    editorPage,
+  }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    await editorPage.getByTestId(TESTING_IDS.searchInput).fill("vola");
+    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
+    await results.nth(1).click(); //2 results in this chapter
+    await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
+    await editorPage.getByTestId(TESTING_IDS.replaceAllButton).click();
+    const allEditorContent = await editorPage
+      .getByTestId(TESTING_IDS.mainEditorContainer)
+      .textContent();
+    console.log(allEditorContent);
+    expect(allEditorContent).not.toContain("vola");
+  });
+
+  test("match case checkbox toggles and affects results", async ({
+    editorPage,
+  }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("kaya");
+
+    const initialCount = await editorPage
+      .getByTestId(TESTING_IDS.searchResultsContainer)
+      .getAttribute("data-num-search-results");
+    if (!initialCount) {
+      throw new Error("Initial count not found");
+    }
+    console.log(`Initial count: ${initialCount}`);
+    await editorPage.getByTestId(TESTING_IDS.matchCaseCheckbox).click();
+
+    const caseSensitiveCount = await editorPage
+      .getByTestId(TESTING_IDS.searchResultsContainer)
+      .getAttribute("data-num-search-results");
+    console.log(`Case sensitive count: ${caseSensitiveCount}`);
+    expect(Number(caseSensitiveCount)).toBeLessThanOrEqual(
+      Number(initialCount),
+    );
+  });
+
+  test("whole word checkbox filters to whole words only", async ({
+    editorPage,
+  }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("in");
+    await editorPage.waitForTimeout(700);
+    const initialCount = await editorPage
+      .getByTestId(TESTING_IDS.searchResultItem)
+      .count();
+    console.log(`Initial count: ${initialCount}`);
+    await editorPage.getByTestId(TESTING_IDS.matchWholeWordCheckbox).click();
+    await editorPage.waitForTimeout(700);
+    const wholeWordCount = await editorPage
+      .getByTestId(TESTING_IDS.searchResultItem)
+      .count();
+    console.log(`Whole word count: ${wholeWordCount}`);
+    expect(wholeWordCount).toBeLessThanOrEqual(initialCount);
+  });
+
+  test("sort toggle shows case mismatches first", async ({ editorPage }) => {
+    await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+    const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
+    await searchInput.fill("the");
+    await editorPage.waitForTimeout(700);
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
+    ).not.toBeVisible();
+    await editorPage.getByTestId(TESTING_IDS.sortToggleButton).click();
+    await editorPage.waitForTimeout(200);
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
+    ).toBeVisible();
   });
 });

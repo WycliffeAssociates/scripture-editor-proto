@@ -1,68 +1,156 @@
-# Playwright Testing Guidelines
+Playwright Testing Guidelines
+Locator Strategy
+✅ Preferred
 
-## Locator Strategy
+Use data-testid for all targeting
+This ensures stable, language-independent selectors.
 
-### ✅ Preferred Approaches
-- **Always use `data-testid`** as primary locator method
-- Use `getByTestId()` for direct element targeting
-- Use `.first()`, `.last()`, `.nth()` for positioning when needed
-- Chain locators to scope elements (e.g., `panel.getByTestId("button")`)
+Use page.getByTestId(id) whenever possible.
 
-### ❌ Avoid
-- **Never use CSS class locators** (`.mantine-*`, `.css-*`)
-- Never use `getByText()` for non-English content
-- Never use `waitForTimeout()` - rely on Playwright's auto-waiting
+Use positional helpers when needed:
 
-## Test Structure
+.first()
 
-### Navigation Tests
-- Navigate using position-based selectors for language independence
-- For accordions: click control → wait for panel → target buttons within panel
-- Example pattern:
-```typescript
-const bookControl = getByTestId("book-control").first();
-await bookControl.click();
-const panel = bookControl.locator('..').getByRole('region');
-await expect(panel).toBeVisible();
-const chapterButton = panel.getByTestId("chapter-accordion-button").last();
-await chapterButton.scrollIntoViewIfNeeded();
-await chapterButton.click();
-```
+.last()
 
-### Boundary Testing
-- Test hidden spans vs visible buttons at boundaries
-- Use `toBeAttached()`/`not.toBeAttached()` for non-existent elements
-- Use `toBeVisible()`/`not.toBeVisible()` for visibility states
+.nth(i)
 
-## Auto-Waiting
-- Playwright automatically waits for elements to be ready
-- No manual timeouts needed
-- Trust auto-waiting for navigation, visibility, and state changes
+Scope elements using chained locators:
 
-## TestIds Convention
-- Use kebab-case: `prev-chapter-button`, `book-control`
-- Add `-hidden` suffix for hidden elements: `prev-chapter-button-hidden`
-- Be specific but consistent across similar components
+const panel = editorPage.getByTestId("chapter-panel");
+await panel.getByTestId("chapter-button").click();
 
-## Common Patterns
-```typescript
-// Good: Testid-based with positioning
-await getByTestId("book-control").first().click();
 
-// Bad: CSS class-based
-await locator('.mantine-Accordion-control').first().click();
+Prefer locator expectations (await expect(locator).toBeVisible()) which trigger auto-waiting.
 
-// Good: Scoped to parent container
-const panel = bookControl.locator('..').getByRole('region');
+❌ Avoid
+
+CSS class selectors (.mantine-*, .css-*)
+
+getByText() for app logic (internationalization breaks tests)
+
+Global unscoped queries (page.getByTestId("chapter-button").last() without narrowing)
+
+waitForTimeout() or manual delays
+
+locator.all(), locator.count() for readiness checks (they do not auto-wait)
+
+Auto-Waiting (Critical Rule)
+What auto-waits
+
+Playwright automatically waits for:
+
+actions: click, fill, type, press
+
+locator expectations: toBeVisible, toHaveText, toBeAttached, etc.
+
+navigation events: page loads, redirects
+
+element readiness: attached → visible → stable
+
+What does NOT auto-wait
+
+These return instant snapshots of the DOM:
+
+locator.count()
+
+locator.all()
+
+locator.elementHandles()
+
+locator.nth(i).elementHandle()
+
+If the UI is still rendering, these may return 0 or empty arrays even if elements appear moments later.
+
+Rule:
+
+Never use .count() or .all() to determine whether the UI has finished updating. Use locator expectations instead.
+
+Examples that do wait:
+
+await expect(results.first()).toBeVisible(); // waits for ≥1
+await expect(results.nth(5)).toBeVisible(); // waits for ≥6
+
+Test Structure
+Navigation & Interaction
+
+Always interact using testid-based locators.
+
+Auto-waiting guarantees stable behavior without timeouts.
+
+Example:
+
+await editorPage.getByTestId("reference-picker").click();
+
+await editorPage.getByTestId("book-control").last().click();
+await editorPage.getByTestId("chapter-accordion-button").last().click();
+
+Boundary Testing (show/hide logic)
+
+Use attachment for existence and visibility for on-screen state:
+
+await expect(editorPage.getByTestId("next-chapter-button-hidden"))
+  .toBeAttached();     // element exists in DOM
+
+await expect(editorPage.getByTestId("next-chapter-button"))
+  .not.toBeAttached(); // element does not exist
+
+
+Rules:
+
+Use toBeAttached() / not.toBeAttached() for "exists in DOM".
+
+Use toBeVisible() / not.toBeVisible() for "is shown to user".
+
+Auto-Waiting Patterns
+Correct
+const results = page.getByTestId("search-result");
+
+await expect(results.first()).toBeVisible();  // waits until at least one result exists
+
+// now counting is safe
+const count = await results.count();
+expect(count).toBeGreaterThan(5);
+
+Incorrect
+const results = page.getByTestId("search-result");
+const count = await results.count(); // ❌ snapshot: may be 0 even if results load soon
+
+TestId Conventions
+
+Kebab-case always
+search-result-item
+prev-chapter-button
+
+Use -hidden suffix for logical hidden states
+next-chapter-button-hidden
+
+Use explicit names that describe function, not appearance
+
+Common Good Patterns
+Scoped interactions
+const panel = editorPage.getByTestId("accordion-panel");
 await panel.getByTestId("chapter-button").last().click();
 
-// Bad: Global search that finds hidden elements
-await getByTestId("chapter-button").last().click();
-```
+Avoid global collisions
+// ❌ Might pick a hidden button elsewhere
+await page.getByTestId("chapter-button").last().click();
 
-## Key Principles
-1. **Testid-first** - Always prefer semantic testids
-2. **Language-agnostic** - Don't rely on text content
-3. **No manual waits** - Trust Playwright's auto-waiting
-4. **Scope properly** - Target elements within their containers
-5. **Test boundaries** - Verify show/hide behavior at limits
+Visibility & readiness
+await expect(page.getByTestId("search-input")).toBeVisible();
+await page.getByTestId("search-input").fill("vola");
+
+const results = page.getByTestId("search-result-item");
+await expect(results.nth(5)).toBeVisible();  // waits for ≥6 results
+
+Key Principles (Summary)
+
+Prefer testids always for stable and language-independent locators.
+
+Never manually wait – rely entirely on Playwright’s auto-waiting.
+
+Use expectations on locators, not .count() or .all(), to wait for UI updates.
+
+Scope carefully—query inside panels or containers whenever possible.
+
+Test boundary logic with correct expectations (attached, visible).

@@ -67,7 +67,7 @@ export const BIBLE_ORDER = [
   "3JN",
   "JUD",
   "REV",
-];
+] as const;
 
 export const BIBLE_ORDER_MAP = new Map<string, number>(
   BIBLE_ORDER.map((b, i) => [b, i]),
@@ -115,7 +115,7 @@ export function getNeighborBook(
 // --- 3. Fuzzy book matching ------------------------------------------------
 
 // Simplified fuzzy map (abbreviations and English names)
-const BOOK_ALIASES: Record<string, string[]> = {
+const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
   GEN: ["genesis", "gen", "ge"],
   EXO: ["exodus", "exo", "ex"],
   LEV: ["leviticus", "lev", "lv"],
@@ -128,6 +128,16 @@ const BOOK_ALIASES: Record<string, string[]> = {
   "2SA": ["2 samuel", "2 sam", "2sa", "2sm"],
   "1KI": ["1 kings", "1 ki", "1k"],
   "2KI": ["2 kings", "2 ki", "2k"],
+  "1CH": ["1 chronicles", "1 chron", "1ch", "1chr", "2chro", "2chron"],
+  "2CH": ["2 chronicles", "2 chron", "2ch", "2chr", "2chron", "2chro"],
+  EZR: ["ezra", "ezr", "ez"],
+  NEH: ["nehemiah", "neh", "ne"],
+  EST: ["esther", "est", "es"],
+  JOB: ["job"],
+  PSA: ["psalms", "ps", "psa"],
+  PRO: ["proverbs", "pro", "pr"],
+  ECC: ["ecclesiastes", "ecc", "ec", "ecce"],
+  SNG: ["song of solomon", "song", "sng", "sol"],
   ISA: ["isaiah", "isa", "is"],
   JER: ["jeremiah", "jer", "je"],
   LAM: ["lamentations", "lam"],
@@ -151,13 +161,14 @@ const BOOK_ALIASES: Record<string, string[]> = {
   JHN: ["john", "jn", "jhn"],
   ACT: ["acts", "ac"],
   ROM: ["romans", "rom", "rm"],
-  COR: ["corinthians", "cor", "co"],
+  "1CO": ["1corinthians", "1cor", "1co", "1corinthians"],
+  "2CO": ["2corinthians", "2cor", "2co"],
   GAL: ["galatians", "gal", "gl"],
   EPH: ["ephesians", "eph", "ep"],
-  PHI: ["philippians", "philippian", "phil", "ph", "php"],
+  PHP: ["philippians", "philippian", "phil", "ph", "php"],
   COL: ["colossians", "col", "cl"],
-  TH1: ["1 thessalonians", "1 thess", "1th", "1 th"],
-  TH2: ["2 thessalonians", "2 thess", "2th", "2 th"],
+  "1TH": ["1 thessalonians", "1 thess", "1th", "1 th"],
+  "2TH": ["2 thessalonians", "2 thess", "2th", "2 th"],
   "1TI": ["1 timothy", "1 tim", "1ti"],
   "2TI": ["2 timothy", "2 tim", "2ti"],
   TIT: ["titus", "tit"],
@@ -166,12 +177,11 @@ const BOOK_ALIASES: Record<string, string[]> = {
   JAS: ["james", "jas"],
   "1PE": ["1 peter", "1 pet", "1pe"],
   "2PE": ["2 peter", "2 pet", "2pe"],
-  "1JO": ["1 john", "1 jn", "1 joh"],
-  "2JO": ["2 john", "2 jn", "2 joh"],
-  "3JO": ["3 john", "3 jn", "3 joh"],
+  "1JN": ["1 john", "1 jn", "1 joh"],
+  "2JN": ["2 john", "2 jn", "2 joh"],
+  "3JN": ["3 john", "3 jn", "3 joh"],
   JUD: ["jude", "jud"],
   REV: ["revelation", "revelations", "rev", "revlation", "revation", "revlon"],
-  // ... add the rest
 };
 
 export function matchBook(input: string): string | null {

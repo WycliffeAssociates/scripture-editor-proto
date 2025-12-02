@@ -1,4 +1,4 @@
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Accordion,
   ActionIcon,
@@ -23,6 +23,7 @@ import {
   Menu as IconMenu,
   Plus,
 } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
   type EditorMarkersMutableState,
   EditorMarkersMutableStates,
@@ -355,15 +356,20 @@ function ReferenceProjectList() {
 
   if (isSm) {
     return (
-      <Menu shadow="md" width={220}>
+      <Menu
+        shadow="md"
+        width={220}
+        data-testid={TESTING_IDS.referenceProjectTrigger}
+      >
         <Menu.Target>
           <ActionIconSimple aria-label={t`Select reference project`}>
             <BookCopy size={16} />
           </ActionIconSimple>
         </Menu.Target>
-        <Menu.Dropdown>
+        <Menu.Dropdown data-testid={TESTING_IDS.referenceProjectDropdown}>
           <Menu.Item
             onClick={() => referenceProject.setReferenceProjectId(undefined)}
+            data-testid="reference-project-clear"
           >
             {t`Clear Reference Project`}
           </Menu.Item>
@@ -375,6 +381,7 @@ function ReferenceProjectList() {
                   project.projectDirectoryPath,
                 )
               }
+              data-testid={TESTING_IDS.referenceProjectItem}
             >
               <span className="flex gap-1">
                 {project.name}
@@ -390,21 +397,27 @@ function ReferenceProjectList() {
   }
 
   return (
-    <Menu shadow="md" width={220}>
+    <Menu
+      shadow="md"
+      width={220}
+      data-testid={TESTING_IDS.referenceProjectTrigger}
+    >
       <Menu.Target>
         <Button variant="light" rightSection={<ChevronDown size={16} />}>
           {selected}
         </Button>
       </Menu.Target>
-      <Menu.Dropdown>
+      <Menu.Dropdown data-testid={TESTING_IDS.referenceProjectDropdown}>
         <Menu.Item
           onClick={() => referenceProject.setReferenceProjectId(undefined)}
+          data-testid={TESTING_IDS.referenceProjectClear}
         >
-          Clear Reference Project
+          <Trans>Clear Reference Project</Trans>
         </Menu.Item>
         {allProjects.map((project) => (
           <Menu.Item
             key={project.id}
+            data-testid={TESTING_IDS.referenceProjectItem}
             onClick={() =>
               referenceProject.setReferenceProjectId(
                 project.projectDirectoryPath,

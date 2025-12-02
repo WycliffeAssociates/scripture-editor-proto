@@ -8,6 +8,7 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
@@ -33,7 +34,7 @@ export function MainEditor() {
       <LexicalComposer initialConfig={getIntialConfig()}>
         <div
           data-js="editor-container"
-          data-testid="lexical-editor-container"
+          data-testid={TESTING_IDS.mainEditorContainer}
           className="editor-container relative h-full overflow-y-auto"
         >
           <RichTextPlugin

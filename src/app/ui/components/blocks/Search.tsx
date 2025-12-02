@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 import Highlighter from "react-highlight-words";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
@@ -100,6 +101,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
           radius="md"
           // 1. Bind to the local state (controlled)
           value={search.searchTerm}
+          data-testid={TESTING_IDS.searchInput}
           data-js="search-input"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -118,6 +120,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
             ) : (
               <Group gap={0} mr={4}>
                 <ActionIcon
+                  data-testid={TESTING_IDS.searchPrevButton}
                   onClick={search.prevMatch}
                   disabled={!search.hasPrev}
                   variant="transparent"
@@ -126,6 +129,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                   <ChevronLeft size={18} />
                 </ActionIcon>
                 <ActionIcon
+                  data-testid={TESTING_IDS.searchNextButton}
                   onClick={search.nextMatch}
                   disabled={!search.hasNext}
                   variant="transparent"
@@ -140,12 +144,14 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
 
         <Group gap="md">
           <Checkbox
+            data-testid={TESTING_IDS.matchCaseCheckbox}
             label={t`Match Case`}
             checked={search.matchCase}
             onChange={(e) => search.setMatchCase(e.currentTarget.checked)}
             size="xs"
           />
           <Checkbox
+            data-testid={TESTING_IDS.matchWholeWordCheckbox}
             label={t`Whole Word`}
             checked={search.matchWholeWord}
             onChange={(e) => search.setMatchWholeWord(e.currentTarget.checked)}
@@ -159,6 +165,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
           <Trans>Replace With:</Trans>
         </Text>
         <TextInput
+          data-testid={TESTING_IDS.replaceInput}
           size="sm"
           value={search.replaceTerm}
           onChange={(e) => search.setReplaceTerm(e.currentTarget.value)}
@@ -167,6 +174,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
         />
         <Group grow>
           <Button
+            data-testid={TESTING_IDS.replaceButton}
             size="xs"
             variant="default"
             onClick={search.replaceCurrentMatch}
@@ -175,6 +183,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
             {t`Replace`}
           </Button>
           <Button
+            data-testid={TESTING_IDS.replaceAllButton}
             size="xs"
             variant="default"
             onClick={search.replaceAllInChapter}
@@ -194,6 +203,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
             position="top"
           >
             <ActionIcon
+              data-testid={TESTING_IDS.sortToggleButton}
               size="sm"
               variant={isSortActive ? "filled" : "light"}
               color={isSortActive ? "orange" : "gray"}
@@ -207,7 +217,13 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
           </Tooltip>
 
           {isSortActive && (
-            <Text size="xs" c="orange" fw={600} style={{ lineHeight: 1 }}>
+            <Text
+              data-testid={TESTING_IDS.searchCaseMismatchLabel}
+              size="xs"
+              c="orange"
+              fw={600}
+              style={{ lineHeight: 1 }}
+            >
               {t`Case mismatches first`} ({search.numCaseMismatches})
             </Text>
           )}
@@ -215,7 +231,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
 
         {/* Counts */}
         <Group gap={4}>
-          <span>
+          <span data-testid={TESTING_IDS.searchStats}>
             {search.totalMatches > 0
               ? `${search.currentMatchIndex + 1} / ${search.totalMatches}`
               : "0 / 0"}
@@ -301,6 +317,8 @@ function SearchResults({
 
   return (
     <div
+      data-testid={TESTING_IDS.searchResultsContainer}
+      data-num-search-results={search.results.length}
       ref={parentRef}
       className={searchClassNames.resultsContainer}
       style={{
@@ -323,6 +341,7 @@ function SearchResults({
 
           return (
             <UnstyledButton
+              data-testid={TESTING_IDS.searchResultItem}
               key={`${result.sid}-${virtualRow.index}`}
               // 1. CRITICAL: Add data-index for the measurer
               data-index={virtualRow.index}

@@ -15,6 +15,7 @@ import {
   TextNode,
 } from "lexical";
 import { useEffect, useRef } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
@@ -59,6 +60,9 @@ export function ReferenceEditor() {
       <LexicalComposer initialConfig={getIntialConfig()}>
         <EditorRefPlugin editorRef={nestedEditorRef} />
         <div
+          data-testid={TESTING_IDS.refEditorContainer}
+          data-testing-ref-chapter={referenceChapter?.chapNumber}
+          data-testing-ref-bookcode={referenceProject?.referenceFile?.bookCode.toLowerCase()}
           data-js="reference-editor-container"
           className="editor-container relative h-full overflow-y-auto"
         >
