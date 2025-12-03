@@ -13,6 +13,7 @@ type ProjectCreatorProps = {
   onOpenDirectory: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isDownloadDisabled?: boolean;
+  isImporting?: boolean;
   className?: string;
 };
 
@@ -32,6 +33,7 @@ export default function ProjectCreator({
   onOpenDirectory,
   onOpenFile,
   isDownloadDisabled = false,
+  isImporting = false,
   className = "",
 }: ProjectCreatorProps) {
   return (
@@ -50,7 +52,7 @@ export default function ProjectCreator({
           <div className={styles.repoContainer}>
             <RepoDownload
               onDownload={onDownload}
-              isDownloadDisabled={isDownloadDisabled}
+              isDownloadDisabled={isDownloadDisabled || isImporting}
             />
           </div>
         </div>
@@ -61,12 +63,14 @@ export default function ProjectCreator({
             <DirImporter
               onOpenDirectory={onOpenDirectory}
               label={t`Upload a folder`}
+              disabled={isImporting}
             />
 
             <FileImporter
               onOpenFile={onOpenFile}
               accept=".zip"
               label={t`Or select a ZIP file`}
+              disabled={isImporting}
             />
           </div>
         </aside>

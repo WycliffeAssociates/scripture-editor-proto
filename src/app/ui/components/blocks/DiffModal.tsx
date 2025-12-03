@@ -150,7 +150,7 @@ export function DiffItem({
 
   return (
     <div className={styles.diffItem}>
-      <Group justify="space-between" p="xs">
+      <Group justify="space-between" p="0">
         <Text className={styles.diffSidHeader}>{diff.semanticSid}</Text>
         {diff.detail && (
           <Text className={styles.diffDetailWarning}>{diff.detail}</Text>
@@ -223,7 +223,7 @@ export function DiffItem({
         </Grid>
       ) : (
         // Stacked vertical layout for smaller screens
-        <div className={styles.diffStacked} style={{ padding: "12px" }}>
+        <div className={styles.diffStacked}>
           <div>
             <Group justify="space-between" mb="xs">
               <Text className={styles.diffLabel}>
@@ -232,7 +232,7 @@ export function DiffItem({
               {renderActions()}
             </Group>
             <Paper
-              p="xs"
+              p={isSm ? "xs" : "sm"}
               className={getPaperClass(isDeletion, styles.paperBgDeletion)}
             >
               {isAddition && (
@@ -257,7 +257,7 @@ export function DiffItem({
               <Trans>Current</Trans>
             </Text>
             <Paper
-              p="xs"
+              p={isSm ? "xs" : "sm"}
               className={getPaperClass(isAddition, styles.paperBgAddition)}
             >
               {isDeletion && (
@@ -292,6 +292,8 @@ type DiffViewerModalProps = {
   diffs: ProjectDiff[] | null;
   isCalculating: boolean;
   revertDiff: (diffToRevert: ProjectDiff) => void;
+  isSm?: boolean;
+  isXs?: boolean;
 };
 
 function DiffViewerModal({
@@ -300,19 +302,27 @@ function DiffViewerModal({
   diffs,
   isCalculating,
   revertDiff,
+  isSm = false,
+  isXs = false,
 }: DiffViewerModalProps) {
   const hasChanges = diffs && diffs.length > 0;
   const { actions, saveDiff } = useWorkspaceContext();
+
+  // Responsive modal size - bigger on mobile
+  const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
 
   return (
     <Modal
       opened={isOpen}
       onClose={onClose}
       title={t`Review Changes Before Saving`}
-      size="95%"
+      size={modalSize}
       centered
+      classNames={{
+        header: styles.modalHeader,
+      }}
     >
-      <Paper p="sm" className={styles.modalScrollPaper}>
+      <Paper p={isSm ? "xs" : "sm"} className={styles.modalScrollPaper}>
         <div className={styles.stickyHeader}>
           <Button
             variant="light"
@@ -373,6 +383,8 @@ export function SaveAndReviewChanges() {
         diffs={saveDiff.diffs}
         isCalculating={false}
         revertDiff={saveDiff.handleRevert}
+        isSm={isSm}
+        isXs={isXs}
       />
 
       {isXs || isSm ? (

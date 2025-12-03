@@ -9,18 +9,20 @@ import {
 } from "@/app/data/editor.ts";
 
 export const SUPPORTED_LOCALES = ["en", "es"];
-export const LOCALES: Record<
+export const GET_LOCALES: () => Record<
   SupportedLocales,
   { nativeName: MessageDescriptor; direction: "ltr" | "rtl" }
-> = {
-  en: {
-    nativeName: msg`English`,
-    direction: "ltr",
-  },
-  es: {
-    nativeName: msg`Español`,
-    direction: "ltr",
-  },
+> = () => {
+  return {
+    en: {
+      nativeName: msg`English`,
+      direction: "ltr",
+    },
+    es: {
+      nativeName: msg`Español`,
+      direction: "ltr",
+    },
+  };
 };
 type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
 export function isSupportedLocale(locale: string): locale is SupportedLocales {

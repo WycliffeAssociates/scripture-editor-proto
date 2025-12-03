@@ -11,6 +11,12 @@ export const virtualVars = {
   border: "var(--mantine-color-default-border)",
 };
 export const darkSelector = "[data-mantine-color-scheme='dark']";
+export const breakpoints = {
+  minWSmall: `screen and (min-width: ${vars.breakpoints.sm})`,
+  minWMd: `screen and (min-width: ${vars.breakpoints.md})`,
+  minWLg: `screen and (min-width: ${vars.breakpoints.lg})`,
+  minWXl: `screen and (min-width: ${vars.breakpoints.xl})`,
+};
 // export const
 // export const virtualColors = {
 //   textLight: theme.other?.textColor?.light,

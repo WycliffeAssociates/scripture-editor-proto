@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   CLEAR_HISTORY_COMMAND,
   type LexicalEditor,
@@ -556,6 +557,11 @@ function determineNextChapter(
   workingFiles: ParsedFile[],
   switchBookOrChapter: (bookCode: string, chapter: number) => void,
 ) {
+  const { t } = useLingui();
+
+  const getChapterDisplay = (chapter: number) => {
+    return chapter === 0 ? t`Introduction` : chapter.toString();
+  };
   if (!pickedFile || (!currentChapter && currentChapter !== 0))
     return {
       hasNext: false,
@@ -577,7 +583,7 @@ function determineNextChapter(
   } else {
     return {
       hasNext: true,
-      display: `${currentChapter + 1}`,
+      display: `${getChapterDisplay(currentChapter + 1)}`,
       go: () => switchBookOrChapter(pickedFile.bookCode, currentChapter + 1),
     };
   }
@@ -589,6 +595,11 @@ function determinePrevChapter(
   workingFiles: ParsedFile[],
   switchBookOrChapter: (bookCode: string, chapter: number) => void,
 ) {
+  const { t } = useLingui();
+
+  const getChapterDisplay = (chapter: number) => {
+    return chapter === 0 ? t`Introduction` : chapter.toString();
+  };
   if (!pickedFile || (!currentChapter && currentChapter !== 0))
     return {
       hasPrev: false,
@@ -615,7 +626,7 @@ function determinePrevChapter(
   } else {
     return {
       hasPrev: true,
-      display: `${currentChapter - 1}`,
+      display: `${getChapterDisplay(currentChapter - 1)}`,
       go: () => switchBookOrChapter(pickedFile.bookCode, currentChapter - 1),
     };
   }

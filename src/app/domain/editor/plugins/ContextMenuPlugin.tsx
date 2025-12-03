@@ -33,8 +33,42 @@ import {
   $createUSFMTextNode,
   $isUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+
+function calculateMenuPosition(
+  touchPoint: { x: number; y: number },
+  isMobile: boolean,
+): { x: number; y: number } {
+  if (isMobile) {
+    // Center on screen for mobile
+    return {
+      x: window.innerWidth / 2 - 120, // Half of menu width
+      y: window.innerHeight / 2 - 150, // Approximate center accounting for height
+    };
+  }
+
+  // Desktop: Use touch point with boundary checking
+  const menuWidth = 240;
+  const menuHeight = 300; // Estimated max height
+  const offset = 4;
+
+  let x = touchPoint.x + offset;
+  let y = touchPoint.y + offset;
+
+  // Boundary checks
+  if (x + menuWidth > window.innerWidth) {
+    x = window.innerWidth - menuWidth - offset;
+  }
+  if (y + menuHeight > window.innerHeight) {
+    y = window.innerHeight - menuHeight - offset;
+  }
+  if (x < offset) x = offset;
+  if (y < offset) y = offset;
+
+  return { x, y };
+}
 
 export type ContextMenuItem = {
   title: React.ReactNode;
@@ -73,6 +107,7 @@ export function NodeContextMenuPlugin() {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [search, setSearch] = useState("");
   const { actions, search: searchApi } = useWorkspaceContext();
+  const { isXs, isSm } = useWorkspaceMediaQuery();
   const [suggestedSearchApiTerm, setSuggestedSearchApiTerm] = useState("");
   const selToRestore = useRef<BaseSelection>(null);
   const preSelect = useCallback(() => {
@@ -254,7 +289,12 @@ export function NodeContextMenuPlugin() {
   useEffect(() => {
     function onContextMenu(e: MouseEvent) {
       const nativeSel = window.getSelection();
-      setPos({ x: e.clientX, y: e.clientY });
+      const isMobile = isXs || isSm;
+      const menuPos = calculateMenuPosition(
+        { x: e.clientX, y: e.clientY },
+        isMobile,
+      );
+      setPos(menuPos);
       setOpened(true);
       if (nativeSel) {
         const range =
@@ -277,7 +317,7 @@ export function NodeContextMenuPlugin() {
       prev?.removeEventListener("contextmenu", onContextMenu);
       root?.addEventListener("contextmenu", onContextMenu);
     });
-  }, [editor]);
+  }, [editor, isXs, isSm]);
 
   const showTooltipNearSelection = useCallback(
     (
@@ -312,15 +352,16 @@ export function NodeContextMenuPlugin() {
 
       // If still nothing, bail
       if (!rect || (rect.width === 0 && rect.height === 0)) return;
-      const pos = {
+      const touchPoint = {
         x: rect.left + rect.width / 2,
         y: rect.bottom + 6,
       };
-      console.log({ pos });
-      setPos(pos);
+      const isMobile = isXs || isSm;
+      const menuPos = calculateMenuPosition(touchPoint, isMobile);
+      setPos(menuPos);
       setOpened(true);
     },
-    [],
+    [isXs, isSm],
   );
 
   useEffect(() => {
@@ -345,7 +386,7 @@ export function NodeContextMenuPlugin() {
       },
       COMMAND_PRIORITY_HIGH,
     );
-  }, [editor, showTooltipNearSelection]);
+  }, [editor, showTooltipNearSelection, isXs, isSm]);
 
   if (!opened) return null;
 
@@ -487,7 +528,7 @@ function ContextMenu({
         <ScrollArea.Autosize mah={240}>
           {filtered.length === 0 ? (
             <Text size="xs" c="dimmed" ta="center" py={8}>
-              <Trans> No results </Trans>
+              <Trans>No results</Trans>
             </Text>
           ) : (
             filtered.map((item, i) => (

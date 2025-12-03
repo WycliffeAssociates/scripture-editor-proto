@@ -16,12 +16,17 @@ type DirImporterProps = {
    * Optional label displayed above the control.
    */
   label?: string;
+  /**
+   * Whether the button should be disabled.
+   */
+  disabled?: boolean;
 };
 
 export function DirImporter({
   onOpenDirectory,
   className = "",
   label = "Upload a folder",
+  disabled = false,
 }: DirImporterProps) {
   const dirInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -36,6 +41,7 @@ export function DirImporter({
           type="button"
           className={styles.fileButton}
           onClick={triggerDirPicker}
+          disabled={disabled}
           aria-label="Select folder to upload"
         >
           Select Folder
@@ -55,6 +61,7 @@ export function DirImporter({
           multiple
           className={styles.hiddenInput}
           onChange={onOpenDirectory}
+          disabled={disabled}
         />
       </label>
     </div>
@@ -72,6 +79,10 @@ type FileImporterProps = {
   accept?: string;
   className?: string;
   label?: string;
+  /**
+   * Whether the button should be disabled.
+   */
+  disabled?: boolean;
 };
 
 export function FileImporter({
@@ -79,6 +90,7 @@ export function FileImporter({
   accept = ".zip",
   className = "",
   label = "Select a ZIP file",
+  disabled = false,
 }: FileImporterProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -93,6 +105,7 @@ export function FileImporter({
           type="button"
           className={styles.fileButton}
           onClick={triggerFilePicker}
+          disabled={disabled}
           aria-label="Select file to upload"
         >
           Choose File
@@ -111,6 +124,7 @@ export function FileImporter({
           accept={accept}
           onChange={onOpenFile}
           className={styles.hiddenInput}
+          disabled={disabled}
         />
         {label}
       </label>

@@ -7,10 +7,11 @@ import {
   rem,
   ScrollArea,
   TextInput,
+  Tooltip,
   Transition,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { BookIcon, ChevronDownIcon } from "lucide-react";
+import { BookIcon, ChevronDownIcon, InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 // Internal Imports
@@ -39,7 +40,9 @@ export function ReferencePicker() {
   // --- derived state
   const currentBook = pickedFile?.bookCode ?? t`Select`;
   const currentDisplay =
-    currentChapter >= 0 ? `${currentBook} ${currentChapter}` : currentBook;
+    currentChapter >= 0
+      ? `${currentBook} ${currentChapter === 0 ? t`Introduction` : currentChapter}`
+      : currentBook;
 
   // --- handlers
   function handleSubmit(e: React.FormEvent) {
@@ -217,7 +220,15 @@ export function ReferencePicker() {
                                     )
                                   }
                                 >
-                                  {chap}
+                                  {chap === 0 ? (
+                                    <Tooltip
+                                      label={t`This is introductory material for this book`}
+                                    >
+                                      <InfoIcon size={16} />
+                                    </Tooltip>
+                                  ) : (
+                                    chap
+                                  )}
                                 </Button>
                               </Grid.Col>
                             ))}

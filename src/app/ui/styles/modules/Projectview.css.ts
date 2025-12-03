@@ -22,6 +22,7 @@ export const navRibbon = style({
   position: "sticky",
   top: 0,
   zIndex: 40,
+  padding: "0.25rem .5rem",
   backgroundColor: vars.colors.body,
   borderBottom: `1px solid ${vars.colors.gray[3]}`,
 });
@@ -76,7 +77,7 @@ export const editor = style({
 });
 
 export const editorNavButton = style({
-  alignSelf: "flex-start",
+  alignSelf: "stretch",
   width: "max-content",
   margin: "0 1rem",
   cursor: "pointer",

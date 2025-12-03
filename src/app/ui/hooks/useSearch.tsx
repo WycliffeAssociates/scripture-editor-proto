@@ -180,8 +180,13 @@ export function useProjectSearch({
 
     setIsSearching(true);
 
-    // Yield to allow UI to show loader
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Scroll search results container to top when new search starts
+    const searchResultsContainer = document.querySelector(
+      '[data-js="search-results-scroll-container"]',
+    );
+    if (searchResultsContainer) {
+      searchResultsContainer.scrollTop = 0;
+    }
 
     // Check immediately after yield
     if (signal.aborted) return;
@@ -242,6 +247,7 @@ export function useProjectSearch({
       pick(allResults[firstInThisChap], query);
     } else {
       setCurrentMatchIndex(0);
+      setPickedResult(null);
     }
 
     setIsSearching(false);
@@ -254,8 +260,20 @@ export function useProjectSearch({
 
   const onSearchChange = (value: string) => {
     setSearchTerm(value);
+
+    // Scroll search results container to top when search term changes
+    if (value.trim()) {
+      const searchResultsContainer = document.querySelector(
+        '[data-js="search-results-scroll-container"]',
+      );
+      if (searchResultsContainer) {
+        searchResultsContainer.scrollTop = 0;
+      }
+    }
+
     handleSearchDebounced(value);
   };
+  const pickedResultIdx = pickedResult ? results.indexOf(pickedResult) : -1;
 
   // --- Selection / Highlighting Logic ---
   // (Remaining functions stay largely the same)
@@ -400,30 +418,40 @@ export function useProjectSearch({
   }
 
   function nextMatch() {
-    if (currentMatches.length === 0) return;
-    const editor = editorRef.current;
-    if (!editor) return;
+    if (
+      !pickedResult ||
+      pickedResultIdx === -1 ||
+      pickedResultIdx === results.length - 1
+    )
+      return pick(results[0]);
 
-    const nextIndex = (currentMatchIndex + 1) % currentMatches.length;
-    setCurrentMatchIndex(nextIndex);
-    editor.read(() => {
-      highlightAndScrollToMatch(currentMatches[nextIndex], editor, searchTerm);
-    });
+    pick(results[pickedResultIdx + 1]);
+    // if (currentMatches.length === 0) return;
+
+    // const nextIndex = (currentMatchIndex + 1) % currentMatches.length;
+    // setCurrentMatchIndex(nextIndex);
+    // editor.read(() => {
+    //   highlightAndScrollToMatch(currentMatches[nextIndex], editor, searchTerm);
+    // });
   }
 
   function prevMatch() {
-    if (currentMatches.length === 0) return;
-    const editor = editorRef.current;
-    if (!editor) return;
+    if (!pickedResultIdx) return pick(results[results.length - 1]);
+    if (pickedResultIdx === 0) return pick(results[results.length - 1]);
+    pick(results[pickedResultIdx - 1]);
 
-    const prevIndex =
-      currentMatchIndex === 0
-        ? currentMatches.length - 1
-        : currentMatchIndex - 1;
-    setCurrentMatchIndex(prevIndex);
-    editor.read(() => {
-      highlightAndScrollToMatch(currentMatches[prevIndex], editor, searchTerm);
-    });
+    // if (currentMatches.length === 0) return;
+    // const editor = editorRef.current;
+    // if (!editor) return;
+
+    // const prevIndex =
+    //   currentMatchIndex === 0
+    //     ? currentMatches.length - 1
+    //     : currentMatchIndex - 1;
+    // setCurrentMatchIndex(prevIndex);
+    // editor.read(() => {
+    //   highlightAndScrollToMatch(currentMatches[prevIndex], editor, searchTerm);
+    // });
   }
 
   function replaceCurrentMatch() {
@@ -492,9 +520,10 @@ export function useProjectSearch({
     setPickedResult(null);
   }
 
-  const hasNext = currentMatches.length > 0 && currentMatches.length > 1;
-  const hasPrev = currentMatches.length > 0 && currentMatches.length > 1;
-
+  const hasNext = results.length;
+  const hasPrev = results.length;
+  // const hasNext = currentMatches.length > 0 && currentMatches.length > 1;
+  // const hasPrev = currentMatches.length > 0 && currentMatches.length > 1;
   return {
     searchTerm,
     onSearchChange,
@@ -502,6 +531,8 @@ export function useProjectSearch({
     replaceTerm,
     setReplaceTerm,
     results,
+    pickedResult,
+    pickedResultIdx,
     pickSearchResult: (r: SearchResult) => pick(r, searchTerm),
     nextMatch,
     prevMatch,

@@ -8,6 +8,7 @@ import {
   Group,
   Loader,
   type MantineTheme,
+  Stack,
   Text,
   TextInput,
   Tooltip,
@@ -53,7 +54,12 @@ export function SearchPanel() {
       >
         <div className={searchClassNames.drawerContent}>
           <SearchControls search={search} />
-          <SearchResults search={search} theme={theme} isDark={isDarkTheme} />
+          <SearchResults
+            search={search}
+            theme={theme}
+            isDark={isDarkTheme}
+            isMobile={isSm}
+          />
         </div>
       </Drawer>
     );
@@ -83,7 +89,12 @@ export function SearchPanel() {
       </div>
 
       <SearchControls search={search} />
-      <SearchResults search={search} theme={theme} isDark={isDarkTheme} />
+      <SearchResults
+        search={search}
+        theme={theme}
+        isDark={isDarkTheme}
+        isMobile={false}
+      />
     </aside>
   );
 }
@@ -130,7 +141,9 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                 </ActionIcon>
                 <ActionIcon
                   data-testid={TESTING_IDS.searchNextButton}
-                  onClick={search.nextMatch}
+                  onClick={() => {
+                    search.nextMatch();
+                  }}
                   disabled={!search.hasNext}
                   variant="transparent"
                   color="gray"
@@ -189,7 +202,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
             onClick={search.replaceAllInChapter}
             disabled={!search.totalMatches}
           >
-            {t`Replace All`}
+            {t`Replace all in this chapter`}
           </Button>
         </Group>
       </div>
@@ -230,13 +243,13 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
         </Group>
 
         {/* Counts */}
-        <Group gap={4}>
+        <Stack gap={0}>
           <span data-testid={TESTING_IDS.searchStats}>
-            {search.totalMatches > 0
-              ? `${search.currentMatchIndex + 1} / ${search.totalMatches}`
-              : "0 / 0"}
+            {search.pickedResultIdx >= 0
+              ? `${search.pickedResultIdx + 1} of ${search.results.length} results`
+              : `${search.results.length} results`}
           </span>
-        </Group>
+        </Stack>
       </div>
     </div>
   );
@@ -246,10 +259,12 @@ function SearchResults({
   search,
   theme,
   isDark,
+  isMobile,
 }: {
   search: UseSearchReturn;
   theme: MantineTheme;
   isDark: boolean;
+  isMobile: boolean;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -318,12 +333,13 @@ function SearchResults({
   return (
     <div
       data-testid={TESTING_IDS.searchResultsContainer}
+      data-js="search-results-scroll-container"
       data-num-search-results={search.results.length}
       ref={parentRef}
       className={searchClassNames.resultsContainer}
       style={{
         overflow: "auto",
-        // Ensure the container has a defined height (usually handled by flex parent, but check this)
+        // Ensure container has a defined height (usually handled by flex parent, but check this)
         height: "100%",
       }}
     >
@@ -336,8 +352,7 @@ function SearchResults({
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const result = search.results[virtualRow.index];
-          const isActive =
-            search.results[search.currentMatchIndex]?.sid === result?.sid;
+          const isActive = search.pickedResult === result;
 
           return (
             <UnstyledButton
@@ -347,10 +362,16 @@ function SearchResults({
               data-index={virtualRow.index}
               // 2. CRITICAL: Measure the element
               ref={virtualizer.measureElement}
-              onKeyUp={(e) =>
-                e.key === "Enter" && search.pickSearchResult(result)
-              }
-              onClick={() => search.pickSearchResult(result)}
+              onKeyUp={(e) => {
+                e.key === "Enter" && search.pickSearchResult(result);
+              }}
+              onClick={() => {
+                search.pickSearchResult(result);
+                // Close search panel on mobile after navigating to result
+                if (isMobile) {
+                  search.setIsSearchPaneOpen(false);
+                }
+              }}
               style={{
                 ...getStyles(isActive),
                 position: "absolute",

@@ -245,7 +245,7 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         disabled={props.isDownloadDisabled || !selectedRepo}
         className={styles.downloadButton}
       >
-        <Trans>Downloading repository</Trans>
+        <Trans>Download repository</Trans>
       </button>
       {/*</Modal>*/}
     </div>

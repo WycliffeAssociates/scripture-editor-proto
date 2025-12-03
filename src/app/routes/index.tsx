@@ -15,6 +15,7 @@ import ProjectRow from "@/app/ui/components/blocks/ProjectRow.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import {
   ShowErrorNotification,
+  ShowImportStartedNotification,
   ShowNotificationSuccess,
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
@@ -60,6 +61,7 @@ function Index() {
   const [currentLanguage, setCurrentLanguage] = useState<string | null>(
     settingsManager.get("appLanguage"),
   );
+  const [isImporting, setIsImporting] = useState(false);
   const projectImporter = new ProjectImporter(
     directoryProvider,
     projectRepository,
@@ -81,6 +83,14 @@ function Index() {
 
   const onDownload = async (url: string) => {
     try {
+      setIsImporting(true);
+      ShowImportStartedNotification({
+        notification: {
+          message: t`Downloading repository...`,
+          title: t`Download Started`,
+        },
+      });
+
       await handleDownload(
         { importer: projectImporter, invalidateRouterAndReload },
         url,
@@ -101,12 +111,22 @@ function Index() {
           title: t`Download Error`,
         },
       });
+    } finally {
+      setIsImporting(false);
     }
   };
   const onOpenDirectory = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     try {
+      setIsImporting(true);
+      ShowImportStartedNotification({
+        notification: {
+          message: t`Importing directory...`,
+          title: t`Import Started`,
+        },
+      });
+
       await handleOpenDirectory(event, {
         directoryProvider,
         projectImporter,
@@ -128,10 +148,20 @@ function Index() {
           title: t`Import Error`,
         },
       });
+    } finally {
+      setIsImporting(false);
     }
   };
   const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
+      setIsImporting(true);
+      ShowImportStartedNotification({
+        notification: {
+          message: t`Importing file...`,
+          title: t`Import Started`,
+        },
+      });
+
       await handleOpenFile(event, {
         directoryProvider,
         projectImporter,
@@ -151,6 +181,8 @@ function Index() {
           title: t`Import Error`,
         },
       });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -203,7 +235,8 @@ function Index() {
           onDownload={onDownload}
           onOpenDirectory={onOpenDirectory}
           onOpenFile={onOpenFile}
-          isDownloadDisabled={false}
+          isDownloadDisabled={isImporting}
+          isImporting={isImporting}
         />
       </div>
     </div>

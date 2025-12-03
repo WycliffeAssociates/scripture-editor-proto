@@ -1,6 +1,6 @@
 import { rem } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
-import { darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
+import { breakpoints, darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
 // --- Layout & Containers ---
 
@@ -9,6 +9,12 @@ export const diffItem = style({
   marginBottom: "1.5rem",
   border: `1px solid ${vars.colors.gray[3]}`,
   borderRadius: "4px",
+  padding: rem(4),
+  "@media": {
+    [breakpoints.minWSmall]: {
+      padding: rem(8),
+    },
+  },
   selectors: {
     [`${darkSelector} &`]: {
       borderColor: vars.colors.dark[4],
@@ -30,6 +36,12 @@ export const diffStacked = style({
   display: "flex",
   flexDirection: "column",
   gap: "12px",
+  padding: `0 ${rem(4)}`,
+  "@media": {
+    [breakpoints.minWSmall]: {
+      padding: `0 ${rem(8)}`,
+    },
+  },
 });
 
 // Modal content wrapper
@@ -48,6 +60,14 @@ export const diffScrollArea = style({
 export const fullHeight = style({
   height: "100%",
 });
+export const modalHeader = style({
+  padding: rem(8),
+  "@media": {
+    [breakpoints.minWSmall]: {
+      padding: rem(16),
+    },
+  },
+});
 
 // --- Header & Text Styles ---
 
@@ -57,7 +77,7 @@ export const stickyHeader = style({
   top: 0,
   zIndex: 2,
   backgroundColor: vars.colors.body,
-  padding: "0.5rem 0",
+  padding: "0rem 0rem 0.5rem",
   display: "flex",
   justifyContent: "flex-end",
   borderBottom: `1px solid ${vars.colors.gray[3]}`,
@@ -98,7 +118,8 @@ export const diffDetailWarning = style({
 // Preformatted text styles (the actual verse content)
 export const diffPre = style({
   margin: 0,
-  whiteSpace: "pre-wrap",
+  // whiteSpace: "pre-wrap",
+  whiteSpace: "normal",
   fontFamily: "inherit",
   color: "inherit",
 });

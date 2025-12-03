@@ -1,3 +1,4 @@
+import { i18n } from "@lingui/core";
 import { Trans } from "@lingui/react/macro";
 import {
   Box,
@@ -10,13 +11,14 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import { Languages, Moon, Sun } from "lucide-react";
-import { LOCALES } from "@/app/data/settings.ts";
+import { GET_LOCALES } from "@/app/data/settings.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
 import styles from "./Settings.module.css";
 import ZoomControl from "./ZoomControl.tsx";
+
 export function SettingsPanel() {
   const { project } = useWorkspaceContext();
 
@@ -113,12 +115,7 @@ export function LanguageSelector({
   const internalHandleLanguageChange = async (locale: string | null) => {
     if (!locale) return;
 
-    if (onChange) {
-      await onChange(locale);
-    } else {
-      // fallback: activate Lingui only
-      await loadLocale(locale);
-    }
+    await onChange(locale);
 
     console.log(`Language changed to: ${locale}.`);
   };
@@ -126,7 +123,7 @@ export function LanguageSelector({
   // always use the internal handler which knows how to call parent onChange if provided
   const handleLanguageChange = internalHandleLanguageChange;
 
-  const data = Object.entries(LOCALES).map(([key, value]) => ({
+  const data = Object.entries(GET_LOCALES()).map(([key, value]) => ({
     value: key,
     label: value.nativeName,
     direction: value.direction,
@@ -159,7 +156,7 @@ export function LanguageSelector({
         data={data.map((item) => ({
           value: item.value,
           // msg defined even if default form lingui
-          label: item.label.message ?? "",
+          label: i18n._(item.label),
           direction: item.direction,
         }))}
       />

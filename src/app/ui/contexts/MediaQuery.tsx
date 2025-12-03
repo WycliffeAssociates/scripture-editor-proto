@@ -19,6 +19,8 @@ interface MediaQueryContextType {
   isTouch: boolean;
   isDarkTheme: boolean;
   theme: MantineTheme;
+  mobileTab: "main" | "ref";
+  setMobileTab: (tab: "main" | "ref") => void;
 }
 
 const MediaQueryContext = createContext<MediaQueryContextType | undefined>(
@@ -38,6 +40,7 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [breakpoint, setBreakpoint] = useState<Breakpoint>("lg"); // Default to lg
+  const [mobileTab, setMobileTab] = useState<"main" | "ref">("main");
 
   // Use Mantine's useMediaQuery to detect screen size changes
   const isXs = useMantineMediaQuery(`(max-width: ${BREAKPOINTS.sm})`);
@@ -73,6 +76,8 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     isTouch,
     isDarkTheme,
     theme,
+    mobileTab,
+    setMobileTab,
   };
 
   return (

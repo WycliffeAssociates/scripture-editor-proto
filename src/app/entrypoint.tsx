@@ -94,7 +94,7 @@ export function App({
   );
 
   return (
-    <I18nEntry defaultLocale={settingsManager.get("appLanguage")}>
+    <I18nEntry>
       <QueryClientProvider client={queryClient}>
         <MantineProvider
           theme={theme}

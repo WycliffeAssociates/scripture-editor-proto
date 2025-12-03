@@ -1,6 +1,7 @@
-import { Group, ScrollArea } from "@mantine/core";
+import { useLingui } from "@lingui/react/macro";
+import { Group, ScrollArea, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState } from "react";
+import { InfoIcon } from "lucide-react";
 import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
@@ -15,11 +16,8 @@ import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 export function ProjectView() {
   const { referenceProject } = useWorkspaceContext();
   const [opened, { open, close }] = useDisclosure(false);
-  const { isSm } = useWorkspaceMediaQuery();
+  const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
   // const isSmall = !isBig;
-
-  // Only used on mobile tabs
-  const [mobileTab, setMobileTab] = useState<"main" | "ref">("main");
 
   return (
     <div
@@ -151,6 +149,8 @@ function MobileReferenceTabs(props: {
 
 function PrevButton() {
   const { actions } = useWorkspaceContext();
+  const { t } = useLingui();
+
   if (!actions.prevChapter.hasPrev) {
     return (
       <span
@@ -159,6 +159,10 @@ function PrevButton() {
       />
     );
   }
+
+  const isIntroduction =
+    actions.prevChapter.display?.includes(t`Introduction`) || false;
+
   return (
     <button
       type="button"
@@ -167,12 +171,20 @@ function PrevButton() {
       onClick={actions.prevChapter.go}
       className={`${styles.editorNavButton}`}
     >
-      {actions.prevChapter.display}
+      {isIntroduction ? (
+        <Tooltip label={t`This is introductory material for this book`}>
+          <InfoIcon size={16} />
+        </Tooltip>
+      ) : (
+        actions.prevChapter.display || ""
+      )}
     </button>
   );
 }
 function NextButton() {
   const { actions } = useWorkspaceContext();
+  const { t } = useLingui();
+
   if (!actions.nextChapter.hasNext) {
     return (
       <span
@@ -181,6 +193,10 @@ function NextButton() {
       />
     );
   }
+
+  const isIntroduction =
+    actions.nextChapter.display?.includes(t`Introduction`) || false;
+
   return (
     <button
       type="button"
@@ -189,7 +205,13 @@ function NextButton() {
       onClick={actions.nextChapter.go}
       className={`${styles.editorNavButton}`}
     >
-      {actions.nextChapter.display}
+      {isIntroduction ? (
+        <Tooltip label={t`This is introductory material for this book`}>
+          <InfoIcon size={16} />
+        </Tooltip>
+      ) : (
+        actions.nextChapter.display || ""
+      )}
     </button>
   );
 }

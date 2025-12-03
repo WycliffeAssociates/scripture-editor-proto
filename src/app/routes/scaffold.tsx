@@ -6,6 +6,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useEffectOnce } from "react-use";
 import { processFile } from "@/app/domain/api/import.tsx";
 import {
   ShowErrorNotification,
@@ -121,12 +122,14 @@ function RouteComponent() {
     await processScaffold(url);
   };
 
-  useEffect(() => {
+  useEffectOnce(() => {
     if (search.url) {
       setUrl(search.url);
       processScaffold(search.url);
+    } else {
+      router.navigate({ to: "/" });
     }
-  }, [search.url, processScaffold]);
+  });
 
   const isLoading = loading;
   const showForm = !search.url || !isLoading;

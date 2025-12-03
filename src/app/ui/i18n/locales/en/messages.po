@@ -13,17 +13,17 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:493
-msgid " No results "
-msgstr " No results "
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:490
+#~ msgid " No results "
+#~ msgstr " No results "
 
-#: src/app/ui/components/blocks/DiffModal.tsx:180
-#: src/app/ui/components/blocks/DiffModal.tsx:239
+#: src/app/ui/components/blocks/DiffModal.tsx:181
+#: src/app/ui/components/blocks/DiffModal.tsx:240
 msgid "(New verse)"
 msgstr "(New verse)"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:208
-#: src/app/ui/components/blocks/DiffModal.tsx:264
+#: src/app/ui/components/blocks/DiffModal.tsx:209
+#: src/app/ui/components/blocks/DiffModal.tsx:265
 msgid "(Verse deleted)"
 msgstr "(Verse deleted)"
 
@@ -35,32 +35,49 @@ msgid "{0}"
 msgstr "{0}"
 
 #: src/app/routes/$project.tsx:12
-#: src/app/routes/index.tsx:26
+#: src/app/routes/index.tsx:28
 msgid "<0>Loading...</0>"
 msgstr "<0>Loading...</0>"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:460
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:457
 msgid "Actions"
 msgstr "Actions"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:185
+#: src/app/ui/components/blocks/Toolbar.tsx:211
+#~ msgid "Always"
+#~ msgstr "Always"
+
+#: src/app/routes/scaffold.tsx:95
+#: src/app/routes/scaffold.tsx:101
+msgid "An unknown error occurred"
+msgstr "An unknown error occurred"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:234
+#~ msgid "App language"
+#~ msgstr "App language"
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:193
 msgid "Are you sure you want to delete the project:"
 msgstr "Are you sure you want to delete the project:"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:172
-#: src/app/ui/components/blocks/ProjectRow.tsx:195
+#: src/app/ui/components/blocks/ProjectRow.tsx:180
+#: src/app/ui/components/blocks/ProjectRow.tsx:203
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:213
+#: src/app/ui/components/blocks/Search.tsx:230
+msgid "Case mismatches first"
+msgstr "Case mismatches first"
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:210
 msgid "Change markers to always visible"
 msgstr "Change markers to always visible"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:233
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:230
 msgid "Change markers to never visible"
 msgstr "Change markers to never visible"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:223
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:220
 msgid "Change markers to visible when editing"
 msgstr "Change markers to visible when editing"
 
@@ -68,50 +85,99 @@ msgstr "Change markers to visible when editing"
 msgid "Clear"
 msgstr "Clear"
 
-#: src/app/ui/components/blocks/ProjectCreator.tsx:39
+#: src/app/ui/components/blocks/Toolbar.tsx:68
+#: src/app/ui/components/blocks/Toolbar.tsx:112
+msgid "Clear Reference Project"
+msgstr "Clear Reference Project"
+
+#: src/app/ui/components/blocks/ProjectCreator.tsx:40
 msgid "Create a new project"
 msgstr "Create a new project"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:199
-#: src/app/ui/components/blocks/DiffModal.tsx:256
+#: src/app/ui/components/blocks/DiffModal.tsx:200
+#: src/app/ui/components/blocks/DiffModal.tsx:257
 msgid "Current"
 msgstr "Current"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:92
+#: src/app/routes/index.tsx:161
+msgid "Current Projects"
+msgstr "Current Projects"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:93
 msgid "Dark"
 msgstr "Dark"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:200
+#: src/app/ui/components/blocks/ProjectRow.tsx:209
 msgid "Delete"
 msgstr "Delete"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:181
+#: src/app/ui/components/blocks/ProjectRow.tsx:189
 msgid "Delete project"
 msgstr "Delete project"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:53
+#: src/app/routes/index.tsx:117
+msgid "Directory imported successfully!"
+msgstr "Directory imported successfully!"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:54
 msgid "Display"
 msgstr "Display"
+
+#: src/app/routes/index.tsx:101
+msgid "Download Error"
+msgstr "Download Error"
 
 #: src/app/ui/components/import/RepoDownload.tsx:248
 msgid "Downloading repository"
 msgstr "Downloading repository"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:98
+#: src/app/routes/scaffold.tsx:52
+msgid "Downloading scaffold ZIP..."
+msgstr "Downloading scaffold ZIP..."
+
+#: src/app/ui/components/blocks/Toolbar.tsx:160
+#~ msgid "Editor mode"
+#~ msgstr "Editor mode"
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:97
 msgid "Editor Mode"
 msgstr "Editor Mode"
+
+#: src/app/data/settings.ts:18
+msgid "English"
+msgstr "English"
 
 #. placeholder {0}: props.errorMessage || t`Failed to fetch suggestions.`
 #: src/app/ui/components/import/AutoCompleteInput.tsx:175
 msgid "Error: {0}"
 msgstr "Error: {0}"
 
+#: src/app/data/settings.ts:22
+msgid "Español"
+msgstr "Español"
+
+#: src/app/routes/index.tsx:100
+msgid "Failed to download project"
+msgstr "Failed to download project"
+
 #: src/app/ui/components/import/AutoCompleteInput.tsx:176
 msgid "Failed to fetch suggestions."
 msgstr "Failed to fetch suggestions."
 
+#: src/app/routes/index.tsx:127
+msgid "Failed to import directory"
+msgstr "Failed to import directory"
+
+#: src/app/routes/index.tsx:150
+msgid "Failed to import file"
+msgstr "Failed to import file"
+
+#: src/app/routes/index.tsx:142
+msgid "File imported successfully!"
+msgstr "File imported successfully!"
+
 #. placeholder {0}: suggestedSearchApiTerm || ""
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:137
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:134
 msgid "Find \"{0}\""
 msgstr "Find \"{0}\""
 
@@ -119,39 +185,58 @@ msgstr "Find \"{0}\""
 msgid "Font"
 msgstr "Font"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:162
+#: src/app/ui/components/blocks/Search.tsx:204
+msgid "Group case mismatches"
+msgstr "Group case mismatches"
+
+#: src/app/routes/create.tsx:11
+msgid "Hello \"/create\"!"
+msgstr "Hello \"/create\"!"
+
+#: src/app/routes/index.tsx:128
+#: src/app/routes/index.tsx:151
+msgid "Import Error"
+msgstr "Import Error"
+
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:159
 msgid "Insert chapter label"
 msgstr "Insert chapter label"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:156
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:153
 msgid "Insert paragraph marker"
 msgstr "Insert paragraph marker"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:168
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:165
 msgid "Insert paragraph marker (at margin)"
 msgstr "Insert paragraph marker (at margin)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:174
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:171
 msgid "Insert poetry marker (one level indent)"
 msgstr "Insert poetry marker (one level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:186
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:183
 msgid "Insert poetry marker (three level indent)"
 msgstr "Insert poetry marker (three level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:180
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:177
 msgid "Insert poetry marker (two level indent)"
 msgstr "Insert poetry marker (two level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:150
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:147
 msgid "Insert verse marker"
 msgstr "Insert verse marker"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:138
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:134
 msgid "Interface Localization"
 msgstr "Interface Localization"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:79
+#: src/app/ui/components/blocks/ReferencePicker.tsx:42
+#: src/app/ui/hooks/useActions.tsx:563
+#: src/app/ui/hooks/useActions.tsx:601
+msgid "Introduction"
+msgstr "Introduction"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:80
 msgid "Light"
 msgstr "Light"
 
@@ -159,85 +244,172 @@ msgstr "Light"
 msgid "Loading..."
 msgstr "Loading..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:193
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:190
 msgid "Lock markers"
 msgstr "Lock markers"
 
-#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:140
+#: src/app/ui/components/blocks/Search.tsx:151
+msgid "Match Case"
+msgstr "Match Case"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:219
+#~ msgid "Never"
+#~ msgstr "Never"
+
+#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:139
 msgid "New Project"
 msgstr "New Project"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:337
+#: src/app/ui/components/blocks/DiffModal.tsx:338
 msgid "No changes detected."
 msgstr "No changes detected."
 
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:490
+msgid "No results"
+msgstr "No results"
+
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/blocks/Search.tsx:279
+#: src/app/ui/components/blocks/Search.tsx:290
 msgid "No results found for <0>{0}</0>"
 msgstr "No results found for <0>{0}</0>"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:116
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:115
 msgid "Normal — shows only the bible text."
 msgstr "Normal — shows only the bible text."
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:115
+msgid "Open reference picker"
+msgstr "Open reference picker"
+
+#: src/app/ui/components/blocks/ProjectCreator.tsx:69
+msgid "Or select a ZIP file"
+msgstr "Or select a ZIP file"
 
 #: src/app/ui/components/import/RepoDownload.tsx:214
 msgid "Organization or User"
 msgstr "Organization or User"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:170
-#: src/app/ui/components/blocks/DiffModal.tsx:229
+#: src/app/ui/components/blocks/DiffModal.tsx:171
+#: src/app/ui/components/blocks/DiffModal.tsx:230
 msgid "Original"
 msgstr "Original"
+
+#: src/app/routes/scaffold.tsx:60
+msgid "Processing scaffold ZIP..."
+msgstr "Processing scaffold ZIP..."
+
+#: src/app/ui/components/blocks/Toolbar.tsx:90
+#~ msgid "Project & Settings"
+#~ msgstr "Project & Settings"
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:160
+msgid "Project display name"
+msgstr "Project display name"
+
+#: src/app/routes/index.tsx:90
+msgid "Project downloaded successfully!"
+msgstr "Project downloaded successfully!"
 
 #: src/app/ui/components/blocks/AppDrawer.tsx:27
 msgid "Projects"
 msgstr "Projects"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:131
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:130
 msgid "Raw"
 msgstr "Raw"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:127
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:126
 msgid "Raw — shows the underlying markup; no editor helpers."
 msgstr "Raw — shows the underlying markup; no editor helpers."
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:117
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:116
 msgid "Regular"
 msgstr "Regular"
 
-#: src/app/ui/components/blocks/Search.tsx:167
+#: src/app/ui/components/blocks/Search.tsx:204
+msgid "Remove sort"
+msgstr "Remove sort"
+
+#: src/app/ui/components/blocks/Search.tsx:186
+msgid "Replace"
+msgstr "Replace"
+
+#: src/app/ui/components/blocks/Search.tsx:192
+#~ msgid "Replace All"
+#~ msgstr "Replace All"
+
+#: src/app/ui/components/blocks/Search.tsx:195
+msgid "Replace all in this chapter"
+msgstr "Replace all in this chapter"
+
+#: src/app/ui/components/blocks/Search.tsx:168
 msgid "Replace With:"
 msgstr "Replace With:"
+
+#: src/app/ui/components/blocks/Search.tsx:175
+msgid "Replace with..."
+msgstr "Replace with..."
 
 #: src/app/ui/components/import/RepoDownload.tsx:228
 msgid "Repository"
 msgstr "Repository"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:392
+#: src/app/ui/components/blocks/DiffModal.tsx:394
 msgid "Review & Save"
 msgstr "Review & Save"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:378
+#: src/app/ui/components/blocks/DiffModal.tsx:380
+#: src/app/ui/components/blocks/DiffModal.tsx:386
+#: src/app/ui/components/blocks/DiffModal.tsx:387
 msgid "Review and save changes"
 msgstr "Review and save changes"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:162
+#: src/app/ui/components/blocks/DiffModal.tsx:311
+msgid "Review Changes Before Saving"
+msgstr "Review Changes Before Saving"
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:170
 msgid "Save"
 msgstr "Save"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:322
+#: src/app/ui/components/blocks/DiffModal.tsx:323
 msgid "Save all changes"
 msgstr "Save all changes"
 
-#: src/app/ui/components/blocks/Search.tsx:49
+#: src/app/routes/scaffold.tsx:102
+msgid "Scaffold Error"
+msgstr "Scaffold Error"
+
+#: src/app/routes/scaffold.tsx:140
+msgid "Scaffold from WACS URL"
+msgstr "Scaffold from WACS URL"
+
+#: src/app/routes/scaffold.tsx:71
+msgid "Scaffold process completed successfully!"
+msgstr "Scaffold process completed successfully!"
+
+#: src/app/routes/scaffold.tsx:168
+msgid "Scaffold Project"
+msgstr "Scaffold Project"
+
+#: src/app/routes/scaffold.tsx:75
+msgid "Scaffold project created successfully! We will now navigate to the project."
+msgstr "Scaffold project created successfully! We will now navigate to the project."
+
+#: src/app/ui/components/blocks/Search.tsx:50
+#: src/app/ui/components/blocks/Search.tsx:114
 msgid "Search"
 msgstr "Search"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:155
+msgid "Search (e.g. Mat 9, 1Co 1)"
+msgstr "Search (e.g. Mat 9, 1Co 1)"
 
 #: src/app/ui/components/import/RepoDownload.tsx:229
 msgid "Search for a repository..."
 msgstr "Search for a repository..."
 
-#: src/app/ui/components/blocks/ProjectCreator.tsx:46
+#: src/app/ui/components/blocks/ProjectCreator.tsx:47
 msgid "Search for a scripture repository"
 msgstr "Search for a scripture repository"
 
@@ -245,48 +417,116 @@ msgstr "Search for a scripture repository"
 msgid "Search for an organization or user..."
 msgstr "Search for an organization or user..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:465
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:462
 msgid "Search…"
 msgstr "Search…"
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/blocks/Search.tsx:270
+#: src/app/ui/components/blocks/Search.tsx:281
 msgid "Searching for <0>{0}</0>..."
 msgstr "Searching for <0>{0}</0>..."
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:46
+msgid "Select"
+msgstr "Select"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:327
+#~ msgid "Select Project"
+#~ msgstr "Select Project"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:56
+msgid "Select reference project"
+msgstr "Select reference project"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:46
+msgid "Select Reference Project"
+msgstr "Select Reference Project"
 
 #: src/app/ui/components/blocks/AppDrawer.tsx:38
 msgid "Settings"
 msgstr "Settings"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:107
-#: src/app/ui/components/blocks/DiffModal.tsx:136
+#: src/app/routes/index.tsx:91
+#: src/app/routes/index.tsx:118
+#: src/app/routes/index.tsx:143
+#: src/app/routes/scaffold.tsx:76
+msgid "Success"
+msgstr "Success"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:169
+#: src/app/ui/components/blocks/Toolbar.tsx:176
+#~ msgid "Switch to source mode"
+#~ msgstr "Switch to source mode"
+
+#: src/app/ui/components/blocks/DiffModal.tsx:108
+#: src/app/ui/components/blocks/DiffModal.tsx:114
+#: src/app/ui/components/blocks/DiffModal.tsx:115
+#: src/app/ui/components/blocks/DiffModal.tsx:137
 msgid "Switch to this chapter"
 msgstr "Switch to this chapter"
 
-#: src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx:109
+#: src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx:103
 msgid "Text size"
 msgstr "Text size"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:189
+#: src/app/ui/components/blocks/Toolbar.tsx:260
+#~ msgid "Theme"
+#~ msgstr "Theme"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:231
+msgid "This is introductory material for this book"
+msgstr "This is introductory material for this book"
+
+#: src/app/ui/components/blocks/ProjectRow.tsx:197
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "This will remove files from disk and delete the project's metadata from the local database."
 
-#: src/app/ui/components/blocks/DiffModal.tsx:119
-#: src/app/ui/components/blocks/DiffModal.tsx:143
+#: src/app/ui/components/blocks/Toolbar.tsx:268
+#~ msgid "Toggle dark theme"
+#~ msgstr "Toggle dark theme"
+
+#: src/app/ui/components/blocks/DiffModal.tsx:120
+#: src/app/ui/components/blocks/DiffModal.tsx:123
+#: src/app/ui/components/blocks/DiffModal.tsx:124
+#: src/app/ui/components/blocks/DiffModal.tsx:144
 msgid "Undo Change"
 msgstr "Undo Change"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:203
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:200
 msgid "Unlock markers"
 msgstr "Unlock markers"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:146
+#: src/app/ui/components/blocks/ProjectCreator.tsx:63
+msgid "Upload a folder"
+msgstr "Upload a folder"
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:145
 msgid "USFM"
 msgstr "USFM"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:141
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:140
 msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 msgstr "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
+
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:73
+msgid "USFM Editor"
+msgstr "USFM Editor"
+
+#: src/app/routes/scaffold.tsx:147
+msgid "WACS ZIP URL"
+msgstr "WACS ZIP URL"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:280
+#~ msgid "Webview zoom"
+#~ msgstr "Webview zoom"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:215
+#~ msgid "When editing"
+#~ msgstr "When editing"
+
+#: src/app/ui/components/blocks/Search.tsx:158
+msgid "Whole Word"
+msgstr "Whole Word"
 
 #: src/app/ui/components/blocks/ProjectSettings/ZoomControl.tsx:95
 msgid "Zoom"
