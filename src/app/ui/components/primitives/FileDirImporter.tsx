@@ -177,16 +177,17 @@ export function WacsImporter({
 
   return (
     <div className={`${styles.controlGroup} ${className}`}>
-      <label className={styles.label}>{label}</label>
-
       <div className={styles.actionRow}>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
-          className={`${styles.repoInput} ${styles.repoContainer}`}
-          aria-label="Repository to download"
-        />
+        <label className={styles.label}>
+          {label}
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            className={`${styles.repoInput} ${styles.repoContainer}`}
+            aria-label="Repository to download"
+          />
+        </label>
         <button
           type="button"
           className={styles.downloadButton}
