@@ -18,13 +18,13 @@ const platform: PlatformAndWeb = "web";
 const directoryProvider = await WebDirectoryProvider.create();
 const opener = new WebOpener();
 root.render(
-  <StrictMode>
-    <App
-      settingsManager={settingsManager}
-      directoryProvider={directoryProvider}
-      md5Service={webMd5Service}
-      opener={opener}
-      platform={platform}
-    />
-  </StrictMode>,
+    <StrictMode>
+        <App
+            settingsManager={settingsManager}
+            directoryProvider={directoryProvider}
+            md5Service={webMd5Service}
+            opener={opener}
+            platform={platform}
+        />
+    </StrictMode>,
 );

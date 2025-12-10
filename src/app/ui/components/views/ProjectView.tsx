@@ -14,203 +14,209 @@ import type { ReferenceProject } from "@/app/ui/hooks/useReferenceProject.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 export function ProjectView() {
-  const { referenceProject } = useWorkspaceContext();
-  const [opened, { open, close }] = useDisclosure(false);
-  const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
-  // const isSmall = !isBig;
+    const { referenceProject } = useWorkspaceContext();
+    const [opened, { open, close }] = useDisclosure(false);
+    const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
+    // const isSmall = !isBig;
 
-  return (
-    <div
-      className={
-        referenceProject.referenceProjectId
-          ? styles.appLayoutWithReference
-          : styles.appLayout
-      }
-    >
-      <TopToolbar isSmall={isSm} openDrawer={open} />
-
-      {/* MOBILE TABS (CSS toggles visibility, editors remain mounted) */}
-      <MobileReferenceTabs
-        isSmall={isSm}
-        referenceProject={referenceProject}
-        mobileTab={mobileTab}
-        setMobileTab={setMobileTab}
-      />
-
-      {/* EDITORS ALWAYS MOUNTED — only layout changes */}
-      <div
-        className={
-          isSm ? styles.mobileEditorsContainer : styles.desktopContentGrid
-        }
-        style={
-          isSm
-            ? ({
-                "--show-main": mobileTab === "main" ? "block" : "none",
-                "--show-ref": mobileTab === "ref" ? "block" : "none",
-              } as React.CSSProperties)
-            : undefined
-        }
-      >
-        {/* Desktop search panel */}
-        <SearchPanel />
-
-        {/* Main editor area */}
-        <ScrollArea
-          offsetScrollbars={"y"}
-          type={isSm ? "always" : "hover"}
-          className={
-            isSm ? styles.editorMainSmall : styles.editorWrapperDesktop
-          }
+    return (
+        <div
+            className={
+                referenceProject.referenceProjectId
+                    ? styles.appLayoutWithReference
+                    : styles.appLayout
+            }
         >
-          <div className={styles.editor}>
-            {!isSm && (
-              <Group
-                justify="space-between"
-                classNames={{
-                  root: "sticky top-0 z-50 bg-[var(--mantine-color-body)] py-1",
-                }}
-              >
-                <PrevButton />
-                <LintPopover wrapperClassNames="" />
-                <NextButton />
-              </Group>
-            )}
-            <MainEditor />
-          </div>
-        </ScrollArea>
+            <TopToolbar isSmall={isSm} openDrawer={open} />
 
-        {/* Reference editor */}
-        <ScrollArea
-          offsetScrollbars={"y"}
-          className={isSm ? styles.editorReferenceSmall : ""}
-          type={isSm ? "always" : "hover"}
-        >
-          <ReferenceEditor />
-        </ScrollArea>
-      </div>
+            {/* MOBILE TABS (CSS toggles visibility, editors remain mounted) */}
+            <MobileReferenceTabs
+                isSmall={isSm}
+                referenceProject={referenceProject}
+                mobileTab={mobileTab}
+                setMobileTab={setMobileTab}
+            />
 
-      <AppDrawer opened={opened} close={close} />
-    </div>
-  );
+            {/* EDITORS ALWAYS MOUNTED — only layout changes */}
+            <div
+                className={
+                    isSm
+                        ? styles.mobileEditorsContainer
+                        : styles.desktopContentGrid
+                }
+                style={
+                    isSm
+                        ? ({
+                              "--show-main":
+                                  mobileTab === "main" ? "block" : "none",
+                              "--show-ref":
+                                  mobileTab === "ref" ? "block" : "none",
+                          } as React.CSSProperties)
+                        : undefined
+                }
+            >
+                {/* Desktop search panel */}
+                <SearchPanel />
+
+                {/* Main editor area */}
+                <ScrollArea
+                    offsetScrollbars={"y"}
+                    type={isSm ? "always" : "hover"}
+                    className={
+                        isSm
+                            ? styles.editorMainSmall
+                            : styles.editorWrapperDesktop
+                    }
+                >
+                    <div className={styles.editor}>
+                        {!isSm && (
+                            <Group
+                                justify="space-between"
+                                classNames={{
+                                    root: "sticky top-0 z-50 bg-[var(--mantine-color-body)] py-1",
+                                }}
+                            >
+                                <PrevButton />
+                                <LintPopover wrapperClassNames="" />
+                                <NextButton />
+                            </Group>
+                        )}
+                        <MainEditor />
+                    </div>
+                </ScrollArea>
+
+                {/* Reference editor */}
+                <ScrollArea
+                    offsetScrollbars={"y"}
+                    className={isSm ? styles.editorReferenceSmall : ""}
+                    type={isSm ? "always" : "hover"}
+                >
+                    <ReferenceEditor />
+                </ScrollArea>
+            </div>
+
+            <AppDrawer opened={opened} close={close} />
+        </div>
+    );
 }
 
 function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
-  return (
-    <nav className={styles.navRibbon}>
-      <Toolbar openDrawer={props.openDrawer} />
+    return (
+        <nav className={styles.navRibbon}>
+            <Toolbar openDrawer={props.openDrawer} />
 
-      {props.isSmall && (
-        <div className={styles.mobileRibbon}>
-          <div className={styles.mobileRibbonLeft}>
-            <PrevButton />
-          </div>
+            {props.isSmall && (
+                <div className={styles.mobileRibbon}>
+                    <div className={styles.mobileRibbonLeft}>
+                        <PrevButton />
+                    </div>
 
-          <LintPopover wrapperClassNames="relative" />
+                    <LintPopover wrapperClassNames="relative" />
 
-          <div className={styles.mobileRibbonRight}>
-            <NextButton />
-          </div>
-        </div>
-      )}
-    </nav>
-  );
+                    <div className={styles.mobileRibbonRight}>
+                        <NextButton />
+                    </div>
+                </div>
+            )}
+        </nav>
+    );
 }
 
 function MobileReferenceTabs(props: {
-  isSmall: boolean;
-  referenceProject: ReferenceProject;
-  mobileTab: "main" | "ref";
-  setMobileTab: (tab: "main" | "ref") => void;
+    isSmall: boolean;
+    referenceProject: ReferenceProject;
+    mobileTab: "main" | "ref";
+    setMobileTab: (tab: "main" | "ref") => void;
 }) {
-  return (
-    props.isSmall &&
-    props.referenceProject.referenceProjectId && (
-      <div className={styles.mobileTabsBar}>
-        <button
-          type="button"
-          data-testid="mobile-main-editor-tab"
-          className={props.mobileTab === "main" ? "activeTab" : ""}
-          onClick={() => props.setMobileTab("main")}
-        >
-          Editor
-        </button>
-        <button
-          type="button"
-          data-testid="mobile-reference-editor-tab"
-          className={props.mobileTab === "ref" ? "activeTab" : ""}
-          onClick={() => props.setMobileTab("ref")}
-        >
-          Reference
-        </button>
-      </div>
-    )
-  );
+    return (
+        props.isSmall &&
+        props.referenceProject.referenceProjectId && (
+            <div className={styles.mobileTabsBar}>
+                <button
+                    type="button"
+                    data-testid="mobile-main-editor-tab"
+                    className={props.mobileTab === "main" ? "activeTab" : ""}
+                    onClick={() => props.setMobileTab("main")}
+                >
+                    Editor
+                </button>
+                <button
+                    type="button"
+                    data-testid="mobile-reference-editor-tab"
+                    className={props.mobileTab === "ref" ? "activeTab" : ""}
+                    onClick={() => props.setMobileTab("ref")}
+                >
+                    Reference
+                </button>
+            </div>
+        )
+    );
 }
 
 function PrevButton() {
-  const { actions } = useWorkspaceContext();
-  const { t } = useLingui();
+    const { actions } = useWorkspaceContext();
+    const { t } = useLingui();
 
-  if (!actions.prevChapter.hasPrev) {
+    if (!actions.prevChapter.hasPrev) {
+        return (
+            <span
+                data-testid="prev-chapter-button-hidden"
+                className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
+            />
+        );
+    }
+
+    const isIntroduction =
+        actions.prevChapter.display?.includes(t`Introduction`) || false;
+
     return (
-      <span
-        data-testid="prev-chapter-button-hidden"
-        className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
-      />
+        <button
+            type="button"
+            data-testid="prev-chapter-button"
+            disabled={!actions.prevChapter.hasPrev}
+            onClick={actions.prevChapter.go}
+            className={`${styles.editorNavButton}`}
+        >
+            {isIntroduction ? (
+                <Tooltip label={t`This is introductory material for this book`}>
+                    <InfoIcon size={16} />
+                </Tooltip>
+            ) : (
+                actions.prevChapter.display || ""
+            )}
+        </button>
     );
-  }
-
-  const isIntroduction =
-    actions.prevChapter.display?.includes(t`Introduction`) || false;
-
-  return (
-    <button
-      type="button"
-      data-testid="prev-chapter-button"
-      disabled={!actions.prevChapter.hasPrev}
-      onClick={actions.prevChapter.go}
-      className={`${styles.editorNavButton}`}
-    >
-      {isIntroduction ? (
-        <Tooltip label={t`This is introductory material for this book`}>
-          <InfoIcon size={16} />
-        </Tooltip>
-      ) : (
-        actions.prevChapter.display || ""
-      )}
-    </button>
-  );
 }
 function NextButton() {
-  const { actions } = useWorkspaceContext();
-  const { t } = useLingui();
+    const { actions } = useWorkspaceContext();
+    const { t } = useLingui();
 
-  if (!actions.nextChapter.hasNext) {
+    if (!actions.nextChapter.hasNext) {
+        return (
+            <span
+                data-testid="next-chapter-button-hidden"
+                className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
+            />
+        );
+    }
+    const isIntroduction =
+        actions.nextChapter.display?.includes(t`Introduction`) || false;
+
     return (
-      <span
-        data-testid="next-chapter-button-hidden"
-        className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
-      />
+        <button
+            type="button"
+            data-testid="next-chapter-button"
+            disabled={!actions.nextChapter.hasNext}
+            onClick={actions.nextChapter.go}
+            className={`${styles.editorNavButton}`}
+        >
+            {isIntroduction ? (
+                <Tooltip label={t`This is introductory material for this book`}>
+                    <InfoIcon size={16} />
+                </Tooltip>
+            ) : (
+                actions.nextChapter.display || ""
+            )}
+        </button>
     );
-  }
-  const isIntroduction =
-    actions.nextChapter.display?.includes(t`Introduction`) || false;
-
-  return (
-    <button
-      type="button"
-      data-testid="next-chapter-button"
-      disabled={!actions.nextChapter.hasNext}
-      onClick={actions.nextChapter.go}
-      className={`${styles.editorNavButton}`}
-    >
-      {isIntroduction ? (
-        <Tooltip label={t`This is introductory material for this book`}>
-          <InfoIcon size={16} />
-        </Tooltip>
-      ) : (
-        actions.nextChapter.display || ""
-      )}
-    </button>
-  );
 }

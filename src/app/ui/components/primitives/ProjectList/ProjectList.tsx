@@ -17,140 +17,151 @@ import classnames from "./ProjectList.module.css.ts";
  * - No `any` usage; uses `ListedProject` and `RouterContext`.
  */
 export function ProjectList() {
-  const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
-  const router = useRouter();
-  const context = router.options.context;
-  const { opener, directoryProvider, platform } = context;
+    const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
+    const router = useRouter();
+    const context = router.options.context;
+    const { opener, directoryProvider, platform } = context;
 
-  const currentProject = allProjects.find((p) =>
-    p.projectDirectoryPath.includes(currentProjectRoute),
-  );
+    const currentProject = allProjects.find((p) =>
+        p.projectDirectoryPath.includes(currentProjectRoute),
+    );
 
-  const navigateToProject = (projectPath: string) => {
-    const diskProjectName = projectPath.split("/").pop();
-    if (!diskProjectName) {
-      throw new Error("Invalid project path");
+    const navigateToProject = (projectPath: string) => {
+        const diskProjectName = projectPath.split("/").pop();
+        if (!diskProjectName) {
+            throw new Error("Invalid project path");
+        }
+        project.updateAppSettings({
+            lastProjectPath: projectPath,
+        });
+        router.navigate({
+            to: `/$project`,
+            params: { project: diskProjectName },
+            reloadDocument: true,
+        });
+    };
+
+    async function handleOpenProject(proj: ListedProject) {
+        if (!opener || typeof opener.open !== "function") return;
+        if (!directoryProvider) return;
+        try {
+            await opener.open(proj.projectDirectoryPath);
+        } catch (err) {
+            console.error("Open project failed:", err);
+        }
     }
-    project.updateAppSettings({
-      lastProjectPath: projectPath,
-    });
-    router.navigate({
-      to: `/$project`,
-      params: { project: diskProjectName },
-      reloadDocument: true,
-    });
-  };
 
-  async function handleOpenProject(proj: ListedProject) {
-    if (!opener || typeof opener.open !== "function") return;
-    if (!directoryProvider) return;
-    try {
-      await opener.open(proj.projectDirectoryPath);
-    } catch (err) {
-      console.error("Open project failed:", err);
+    async function handleExportProject(proj: ListedProject) {
+        if (!opener || typeof opener.export !== "function") return;
+        if (!directoryProvider) return;
+        try {
+            const dirHandle = await directoryProvider.getDirectoryHandle(
+                proj.projectDirectoryPath,
+            );
+            await opener.export(
+                dirHandle,
+                `${proj.name || proj.projectDirectoryPath}.zip`,
+            );
+        } catch (err) {
+            console.error("Export project failed:", err);
+        }
     }
-  }
 
-  async function handleExportProject(proj: ListedProject) {
-    if (!opener || typeof opener.export !== "function") return;
-    if (!directoryProvider) return;
-    try {
-      const dirHandle = await directoryProvider.getDirectoryHandle(
-        proj.projectDirectoryPath,
-      );
-      await opener.export(
-        dirHandle,
-        `${proj.name || proj.projectDirectoryPath}.zip`,
-      );
-    } catch (err) {
-      console.error("Export project failed:", err);
-    }
-  }
+    return (
+        <div data-testid={TESTING_IDS.appDrawer.projectsList}>
+            <Stack gap="xs">
+                {allProjects.map((proj) => {
+                    const picked = currentProject?.name === proj.name;
+                    const projectTestId = proj.name
+                        ?.toLowerCase()
+                        .replace(/\s+/g, "-");
+                    return (
+                        <Group
+                            key={proj.projectDirectoryPath}
+                            justify="apart"
+                            align="center"
+                            wrap="nowrap"
+                            className={`${classnames.project} ${picked ? classnames.picked : ""}`}
+                            data-testid={`project-list-item-${projectTestId}`}
+                        >
+                            {/* Main project button that navigates to the project */}
+                            <Button
+                                variant="transparent"
+                                classNames={{ root: classnames.projectButton }}
+                                onClick={() =>
+                                    navigateToProject(proj.projectDirectoryPath)
+                                }
+                                aria-label={`Open project ${proj.name}`}
+                                style={{ background: "none" }}
+                                justify="start"
+                                data-testid="project-list-item-button"
+                            >
+                                <Text
+                                    size="sm"
+                                    fw={500}
+                                    className={classnames.name}
+                                >
+                                    {proj.name}
+                                </Text>
+                            </Button>
 
-  return (
-    <div data-testid={TESTING_IDS.appDrawer.projectsList}>
-      <Stack gap="xs">
-        {allProjects.map((proj) => {
-          const picked = currentProject?.name === proj.name;
-          const projectTestId = proj.name?.toLowerCase().replace(/\s+/g, "-");
-          return (
-            <Group
-              key={proj.projectDirectoryPath}
-              justify="apart"
-              align="center"
-              wrap="nowrap"
-              className={`${classnames.project} ${picked ? classnames.picked : ""}`}
-              data-testid={`project-list-item-${projectTestId}`}
-            >
-              {/* Main project button that navigates to the project */}
-              <Button
-                variant="transparent"
-                classNames={{ root: classnames.projectButton }}
-                onClick={() => navigateToProject(proj.projectDirectoryPath)}
-                aria-label={`Open project ${proj.name}`}
-                style={{ background: "none" }}
-                justify="start"
-                data-testid="project-list-item-button"
-              >
-                <Text size="sm" fw={500} className={classnames.name}>
-                  {proj.name}
-                </Text>
-              </Button>
+                            {/* Action buttons separate from the main project button */}
+                            <Group gap="xs" className={classnames.actions}>
+                                {opener &&
+                                    typeof opener.open === "function" &&
+                                    platform !== "android" &&
+                                    platform !== "ios" && (
+                                        <ActionIcon
+                                            size="sm"
+                                            variant="light"
+                                            aria-label={`Open in file manager ${proj.name}`}
+                                            onClick={(e: React.MouseEvent) => {
+                                                e.stopPropagation();
+                                                handleOpenProject(proj);
+                                            }}
+                                            className={classnames.iconButton}
+                                            data-testid="project-list-item-open"
+                                        >
+                                            <Eye />
+                                        </ActionIcon>
+                                    )}
 
-              {/* Action buttons separate from the main project button */}
-              <Group gap="xs" className={classnames.actions}>
-                {opener &&
-                  typeof opener.open === "function" &&
-                  platform !== "android" &&
-                  platform !== "ios" && (
-                    <ActionIcon
-                      size="sm"
-                      variant="light"
-                      aria-label={`Open in file manager ${proj.name}`}
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        handleOpenProject(proj);
-                      }}
-                      className={classnames.iconButton}
-                      data-testid="project-list-item-open"
+                                {opener &&
+                                    typeof opener.export === "function" && (
+                                        <ActionIcon
+                                            size="sm"
+                                            variant="light"
+                                            aria-label={`Export project ${proj.name}`}
+                                            onClick={(e: React.MouseEvent) => {
+                                                e.stopPropagation();
+                                                handleExportProject(proj);
+                                            }}
+                                            className={classnames.iconButton}
+                                            data-testid={
+                                                TESTING_IDS.appDrawer.itemExport
+                                            }
+                                        >
+                                            <Download />
+                                        </ActionIcon>
+                                    )}
+                            </Group>
+                        </Group>
+                    );
+                })}
+            </Stack>
+
+            <Center mt="xs">
+                <Link to="/" className={classnames.newProject}>
+                    <Group
+                        gap="xs"
+                        align="center"
+                        data-testid={TESTING_IDS.appDrawer.newProject}
                     >
-                      <Eye />
-                    </ActionIcon>
-                  )}
-
-                {opener && typeof opener.export === "function" && (
-                  <ActionIcon
-                    size="sm"
-                    variant="light"
-                    aria-label={`Export project ${proj.name}`}
-                    onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      handleExportProject(proj);
-                    }}
-                    className={classnames.iconButton}
-                    data-testid={TESTING_IDS.appDrawer.itemExport}
-                  >
-                    <Download />
-                  </ActionIcon>
-                )}
-              </Group>
-            </Group>
-          );
-        })}
-      </Stack>
-
-      <Center mt="xs">
-        <Link to="/" className={classnames.newProject}>
-          <Group
-            gap="xs"
-            align="center"
-            data-testid={TESTING_IDS.appDrawer.newProject}
-          >
-            <Trans>New Project</Trans>
-            <Plus />
-          </Group>
-        </Link>
-      </Center>
-    </div>
-  );
+                        <Trans>New Project</Trans>
+                        <Plus />
+                    </Group>
+                </Link>
+            </Center>
+        </div>
+    );
 }

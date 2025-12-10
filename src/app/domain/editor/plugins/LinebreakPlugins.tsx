@@ -1,12 +1,12 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
-  $createLineBreakNode,
-  $getSelection,
-  $isRangeSelection,
-  $isTextNode,
-  COMMAND_PRIORITY_EDITOR,
-  KEY_ENTER_COMMAND,
-  type LineBreakNode,
+    $createLineBreakNode,
+    $getSelection,
+    $isRangeSelection,
+    $isTextNode,
+    COMMAND_PRIORITY_EDITOR,
+    KEY_ENTER_COMMAND,
+    type LineBreakNode,
 } from "lexical";
 import { useEffect } from "react";
 
@@ -18,54 +18,54 @@ import { useEffect } from "react";
  */
 
 export function UseLineBreaks() {
-  const [editor] = useLexicalComposerContext();
+    const [editor] = useLexicalComposerContext();
 
-  useEffect(() => {
-    return editor.registerCommand(
-      KEY_ENTER_COMMAND,
-      (event) => {
-        event?.preventDefault();
+    useEffect(() => {
+        return editor.registerCommand(
+            KEY_ENTER_COMMAND,
+            (event) => {
+                event?.preventDefault();
 
-        const selection = $getSelection();
-        if ($isRangeSelection(selection)) {
-          const anchorNode = selection.anchor.getNode();
-          const offset = selection.anchor.offset;
-          let lineBreak: LineBreakNode;
+                const selection = $getSelection();
+                if ($isRangeSelection(selection)) {
+                    const anchorNode = selection.anchor.getNode();
+                    const offset = selection.anchor.offset;
+                    let lineBreak: LineBreakNode;
 
-          if ($isTextNode(anchorNode)) {
-            const size = anchorNode.getTextContentSize();
+                    if ($isTextNode(anchorNode)) {
+                        const size = anchorNode.getTextContentSize();
 
-            if (offset === size) {
-              // Cursor at END
-              lineBreak = $createLineBreakNode();
-              anchorNode.insertAfter(lineBreak);
-            } else if (offset === 0) {
-              // Cursor at START
-              lineBreak = $createLineBreakNode();
-              anchorNode.insertBefore(lineBreak);
-            } else {
-              // Cursor in MIDDLE: split
-              const [_left, right] = anchorNode.splitText(offset);
-              lineBreak = $createLineBreakNode();
-              right.insertBefore(lineBreak);
-              right.select(0, 0);
-              return true;
-            }
-          } else {
-            lineBreak = $createLineBreakNode();
-            selection.insertNodes([lineBreak]);
-          }
+                        if (offset === size) {
+                            // Cursor at END
+                            lineBreak = $createLineBreakNode();
+                            anchorNode.insertAfter(lineBreak);
+                        } else if (offset === 0) {
+                            // Cursor at START
+                            lineBreak = $createLineBreakNode();
+                            anchorNode.insertBefore(lineBreak);
+                        } else {
+                            // Cursor in MIDDLE: split
+                            const [_left, right] = anchorNode.splitText(offset);
+                            lineBreak = $createLineBreakNode();
+                            right.insertBefore(lineBreak);
+                            right.select(0, 0);
+                            return true;
+                        }
+                    } else {
+                        lineBreak = $createLineBreakNode();
+                        selection.insertNodes([lineBreak]);
+                    }
 
-          // Default: caret after the line break
-          lineBreak.selectNext();
-          return true;
-        }
+                    // Default: caret after the line break
+                    lineBreak.selectNext();
+                    return true;
+                }
 
-        return true;
-      },
-      COMMAND_PRIORITY_EDITOR,
-    );
-  }, [editor]);
+                return true;
+            },
+            COMMAND_PRIORITY_EDITOR,
+        );
+    }, [editor]);
 
-  return null;
+    return null;
 }

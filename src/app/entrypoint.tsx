@@ -21,92 +21,94 @@ import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts
 import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 
 type EntryPointProps = {
-  settingsManager: SettingsManager;
-  directoryProvider: IDirectoryProvider;
-  md5Service: IMd5Service;
-  opener: IOpener;
-  platform: PlatformAndWeb;
+    settingsManager: SettingsManager;
+    directoryProvider: IDirectoryProvider;
+    md5Service: IMd5Service;
+    opener: IOpener;
+    platform: PlatformAndWeb;
 };
 
 // Create a client for React Query
 const queryClient = new QueryClient();
 
 export interface RouterContext {
-  queryClient: QueryClient; //for if wanting to manage tanstack query in route loader,
-  settingsManager: SettingsManager;
-  directoryProvider: IDirectoryProvider;
-  projectRepository: IProjectRepository;
-  md5Service: IMd5Service;
-  opener: IOpener;
-  platform: PlatformAndWeb;
+    queryClient: QueryClient; //for if wanting to manage tanstack query in route loader,
+    settingsManager: SettingsManager;
+    directoryProvider: IDirectoryProvider;
+    projectRepository: IProjectRepository;
+    md5Service: IMd5Service;
+    opener: IOpener;
+    platform: PlatformAndWeb;
 }
 
 // wrapping this let's us get it's type as ReturnType to declaration merge, whilse just receiving service deps as props to app
 const wrapCreateRouter = (
-  settingsManager: SettingsManager,
-  directoryProvider: IDirectoryProvider,
-  projectRepository: IProjectRepository,
-  md5Service: IMd5Service,
-  opener: IOpener,
-  platform: PlatformAndWeb,
+    settingsManager: SettingsManager,
+    directoryProvider: IDirectoryProvider,
+    projectRepository: IProjectRepository,
+    md5Service: IMd5Service,
+    opener: IOpener,
+    platform: PlatformAndWeb,
 ) => {
-  const router = createRouter({
-    routeTree,
-    context: {
-      settingsManager,
-      queryClient,
-      directoryProvider,
-      projectRepository,
-      md5Service,
-      opener,
-      platform,
-    },
-  });
-  return router;
+    const router = createRouter({
+        routeTree,
+        context: {
+            settingsManager,
+            queryClient,
+            directoryProvider,
+            projectRepository,
+            md5Service,
+            opener,
+            platform,
+        },
+    });
+    return router;
 };
 declare module "@tanstack/react-router" {
-  interface Register {
-    // This infers the type of our router and registers it across your entire project
-    router: ReturnType<typeof wrapCreateRouter>;
-  }
+    interface Register {
+        // This infers the type of our router and registers it across your entire project
+        router: ReturnType<typeof wrapCreateRouter>;
+    }
 }
 
 export function App({
-  settingsManager,
-  directoryProvider,
-  md5Service,
-  opener,
-  platform,
-}: EntryPointProps) {
-  const projectRepository = new ProjectRepository(
-    directoryProvider,
-    md5Service,
-  );
-
-  // Create a router
-  const router = wrapCreateRouter(
     settingsManager,
     directoryProvider,
-    projectRepository,
     md5Service,
     opener,
     platform,
-  );
+}: EntryPointProps) {
+    const projectRepository = new ProjectRepository(
+        directoryProvider,
+        md5Service,
+    );
 
-  return (
-    <I18nEntry>
-      <QueryClientProvider client={queryClient}>
-        <MantineProvider
-          theme={theme}
-          cssVariablesResolver={cssVariablesResolver}
-          defaultColorScheme={settingsManager.get("colorScheme") || "light"}
-        >
-          <ThemeQueryProvider>
-            <Notifications />
-            <RouterProvider router={router} />
-          </ThemeQueryProvider>
-        </MantineProvider>
-      </QueryClientProvider>
-    </I18nEntry>
-  );
+    // Create a router
+    const router = wrapCreateRouter(
+        settingsManager,
+        directoryProvider,
+        projectRepository,
+        md5Service,
+        opener,
+        platform,
+    );
+
+    return (
+        <I18nEntry>
+            <QueryClientProvider client={queryClient}>
+                <MantineProvider
+                    theme={theme}
+                    cssVariablesResolver={cssVariablesResolver}
+                    defaultColorScheme={
+                        settingsManager.get("colorScheme") || "light"
+                    }
+                >
+                    <ThemeQueryProvider>
+                        <Notifications />
+                        <RouterProvider router={router} />
+                    </ThemeQueryProvider>
+                </MantineProvider>
+            </QueryClientProvider>
+        </I18nEntry>
+    );
 }

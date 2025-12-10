@@ -10,7 +10,7 @@ export const LocalizedTextSchema = v.record(v.string(), v.string());
  * Schema for ingredient checksum validation
  */
 export const ChecksumSchema = v.object({
-  md5: v.string(),
+    md5: v.string(),
 });
 
 /**
@@ -18,10 +18,10 @@ export const ChecksumSchema = v.object({
  * Only validates properties we actually access
  */
 export const IngredientSchema = v.object({
-  checksum: ChecksumSchema,
-  size: v.number(),
-  mimeType: v.string(),
-  scope: v.optional(v.record(v.string(), v.unknown())),
+    checksum: ChecksumSchema,
+    size: v.number(),
+    mimeType: v.string(),
+    scope: v.optional(v.record(v.string(), v.unknown())),
 });
 
 export type Ingredient = v.InferOutput<typeof IngredientSchema>;
@@ -30,18 +30,18 @@ export type Ingredient = v.InferOutput<typeof IngredientSchema>;
  * Schema for language definitions in burrito metadata
  */
 export const LanguageSchema = v.object({
-  tag: v.string(),
-  name: v.record(v.string(), v.string()),
-  scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
+    tag: v.string(),
+    name: v.record(v.string(), v.string()),
+    scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
 });
 
 /**
  * Schema for language definitions in burrito metadata
  */
 export const LanguageDefinitionSchema = v.object({
-  tag: v.string(),
-  name: v.record(v.string(), v.string()),
-  direction: v.optional(v.picklist(["ltr", "rtl"])),
+    tag: v.string(),
+    name: v.record(v.string(), v.string()),
+    direction: v.optional(v.picklist(["ltr", "rtl"])),
 });
 
 /**
@@ -49,16 +49,16 @@ export const LanguageDefinitionSchema = v.object({
  * Simplified to only validate what we actually use
  */
 export const LanguagesSchema = v.object({
-  default: v.object({ tag: v.string() }),
+    default: v.object({ tag: v.string() }),
 });
 
 /**
  * Schema for localized book names
  */
 export const LocalizedNameSchema = v.object({
-  short: LocalizedTextSchema,
-  long: v.optional(LocalizedTextSchema),
-  abbr: v.optional(LocalizedTextSchema),
+    short: LocalizedTextSchema,
+    long: v.optional(LocalizedTextSchema),
+    abbr: v.optional(LocalizedTextSchema),
 });
 
 /**
@@ -66,28 +66,28 @@ export const LocalizedNameSchema = v.object({
  * Only validates properties we actually access, keeping everything optional for flexibility
  */
 export const ScriptureBurritoMetadataSchema = v.object({
-  meta: v.object({
-    version: v.string(),
-    defaultLocale: v.optional(v.string()),
-    dateCreated: v.optional(v.string()),
-  }),
-
-  identification: v.optional(
-    v.object({
-      name: LocalizedTextSchema,
-      description: v.optional(LocalizedTextSchema),
-      abbreviation: v.optional(LocalizedTextSchema),
+    meta: v.object({
+        version: v.string(),
+        defaultLocale: v.optional(v.string()),
+        dateCreated: v.optional(v.string()),
     }),
-  ),
-  languages: v.optional(v.array(LanguageSchema)),
 
-  ingredients: v.record(v.string(), IngredientSchema),
+    identification: v.optional(
+        v.object({
+            name: LocalizedTextSchema,
+            description: v.optional(LocalizedTextSchema),
+            abbreviation: v.optional(LocalizedTextSchema),
+        }),
+    ),
+    languages: v.optional(v.array(LanguageSchema)),
 
-  localizedNames: v.optional(v.record(v.string(), LocalizedNameSchema)),
+    ingredients: v.record(v.string(), IngredientSchema),
+
+    localizedNames: v.optional(v.record(v.string(), LocalizedNameSchema)),
 });
 
 export type ScriptureBurritoMetadata = v.InferOutput<
-  typeof ScriptureBurritoMetadataSchema
+    typeof ScriptureBurritoMetadataSchema
 >;
 
 /**
@@ -95,7 +95,7 @@ export type ScriptureBurritoMetadata = v.InferOutput<
  * Throws if validation fails
  */
 export function parseScriptureBurritoMetadata(raw: unknown) {
-  return v.parse(ScriptureBurritoMetadataSchema, raw);
+    return v.parse(ScriptureBurritoMetadataSchema, raw);
 }
 
 /**
@@ -103,15 +103,15 @@ export function parseScriptureBurritoMetadata(raw: unknown) {
  * Following established patterns from ProjectRepository.ts
  */
 export function tryParseScriptureBurritoMetadata(
-  raw: unknown,
+    raw: unknown,
 ): [
-  ReturnType<typeof parseScriptureBurritoMetadata> | undefined,
-  Error | undefined,
+    ReturnType<typeof parseScriptureBurritoMetadata> | undefined,
+    Error | undefined,
 ] {
-  try {
-    const parsed = parseScriptureBurritoMetadata(raw);
-    return [parsed, undefined];
-  } catch (err) {
-    return [undefined, err instanceof Error ? err : new Error(String(err))];
-  }
+    try {
+        const parsed = parseScriptureBurritoMetadata(raw);
+        return [parsed, undefined];
+    } catch (err) {
+        return [undefined, err instanceof Error ? err : new Error(String(err))];
+    }
 }

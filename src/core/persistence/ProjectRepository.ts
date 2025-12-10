@@ -27,35 +27,35 @@ import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 
 /** Language schema (used inside project metadata) */
 export const LanguageSchema = v.object({
-  id: v.string(),
-  name: v.string(),
-  // direction is optional and when present should be a string such as 'ltr' or 'rtl'
-  direction: v.optional(v.string()),
+    id: v.string(),
+    name: v.string(),
+    // direction is optional and when present should be a string such as 'ltr' or 'rtl'
+    direction: v.optional(v.string()),
 });
 
 /** Project metadata schema */
 export const ProjectMetadataSchema = v.object({
-  name: v.string(),
-  id: v.string(),
-  language: LanguageSchema,
+    name: v.string(),
+    id: v.string(),
+    language: LanguageSchema,
 });
 
 /** Project file schema (shape used by parsedProject.ProjectFile) */
 export const ProjectFileSchema = v.object({
-  path: v.string(),
-  title: v.string(),
-  bookCode: v.string(),
-  nextBookId: v.nullable(v.string()),
-  prevBookId: v.nullable(v.string()),
-  sort: v.optional(v.number()),
+    path: v.string(),
+    title: v.string(),
+    bookCode: v.string(),
+    nextBookId: v.nullable(v.string()),
+    prevBookId: v.nullable(v.string()),
+    sort: v.optional(v.number()),
 });
 
 /** Minimal project schema for DB indexing (excludes projectDir and fileWriter) */
 export const DbProjectSchema = v.object({
-  id: v.string(),
-  name: v.string(),
-  files: v.array(ProjectFileSchema),
-  metadata: ProjectMetadataSchema,
+    id: v.string(),
+    name: v.string(),
+    files: v.array(ProjectFileSchema),
+    metadata: ProjectMetadataSchema,
 });
 
 /* ---------------------------
@@ -67,21 +67,21 @@ export const DbProjectSchema = v.object({
  * Throws if validation fails.
  */
 export function parseProjectFile(raw: unknown): ProjectFile {
-  return v.parse(ProjectFileSchema, raw) as ProjectFile;
+    return v.parse(ProjectFileSchema, raw) as ProjectFile;
 }
 
 /**
  * Parse and validate an array of ProjectFile objects.
  */
 export function parseProjectFiles(raw: unknown): ProjectFile[] {
-  return v.parse(v.array(ProjectFileSchema), raw) as ProjectFile[];
+    return v.parse(v.array(ProjectFileSchema), raw) as ProjectFile[];
 }
 
 /**
  * Parse and validate project metadata.
  */
 export function parseProjectMetadata(raw: unknown): ProjectMetadata {
-  return v.parse(ProjectMetadataSchema, raw) as ProjectMetadata;
+    return v.parse(ProjectMetadataSchema, raw) as ProjectMetadata;
 }
 
 /**
@@ -89,17 +89,17 @@ export function parseProjectMetadata(raw: unknown): ProjectMetadata {
  * Returns the validated subset used by the post-import hook.
  */
 export function parseProjectForDb(raw: unknown): {
-  id: string;
-  name: string;
-  files: ProjectFile[];
-  metadata: ProjectMetadata;
-} {
-  return v.parse(DbProjectSchema, raw) as {
     id: string;
     name: string;
     files: ProjectFile[];
     metadata: ProjectMetadata;
-  };
+} {
+    return v.parse(DbProjectSchema, raw) as {
+        id: string;
+        name: string;
+        files: ProjectFile[];
+        metadata: ProjectMetadata;
+    };
 }
 
 /**
@@ -107,23 +107,23 @@ export function parseProjectForDb(raw: unknown): {
  * If parsing succeeds, returns [value, undefined]. If it fails, returns [undefined, error].
  */
 export function tryParseProjectForDb(raw: unknown): [
-  (
-    | {
-        id: string;
-        name: string;
-        files: ProjectFile[];
-        metadata: ProjectMetadata;
-      }
-    | undefined
-  ),
-  Error | undefined,
+    (
+        | {
+              id: string;
+              name: string;
+              files: ProjectFile[];
+              metadata: ProjectMetadata;
+          }
+        | undefined
+    ),
+    Error | undefined,
 ] {
-  try {
-    const parsed = parseProjectForDb(raw);
-    return [parsed, undefined];
-  } catch (err) {
-    return [undefined, err instanceof Error ? err : new Error(String(err))];
-  }
+    try {
+        const parsed = parseProjectForDb(raw);
+        return [parsed, undefined];
+    } catch (err) {
+        return [undefined, err instanceof Error ? err : new Error(String(err))];
+    }
 }
 
 /**
@@ -132,44 +132,44 @@ export function tryParseProjectForDb(raw: unknown): [
  *              This includes saving, loading, and listing projects.
  */
 export interface IProjectRepository {
-  /**
-   * @method saveProject
-   * @description Saves the given Project object. The implementation handles the underlying storage mechanism.
-   * @param project - The Project object to save.
-   * @returns A Promise that resolves when the project has been successfully saved.
-   */
-  saveProject(project: Project): Promise<void>;
-  /**
-   * @method loadProject
-   * @description Loads a Project object by its unique identifier.
-   * @param projectId - The unique identifier of the project to load.
-   * @param md5Service - An IMd5Service instance for calculating MD5 checksums (used by the ProjectLoader within).
-   * @returns A Promise that resolves to the loaded Project object, or null if no project is found with the given ID.
-   */
-  loadProject(
-    projectId: string,
-    md5Service: IMd5Service,
-  ): Promise<Project | null>;
-  /**
-   * @method listProjects
-   * @description Retrieves a list of all available projects.
-   * @returns A Promise that resolves to an array of Project objects.
-   */
-  listProjects(): Promise<ListedProject[]>;
+    /**
+     * @method saveProject
+     * @description Saves the given Project object. The implementation handles the underlying storage mechanism.
+     * @param project - The Project object to save.
+     * @returns A Promise that resolves when the project has been successfully saved.
+     */
+    saveProject(project: Project): Promise<void>;
+    /**
+     * @method loadProject
+     * @description Loads a Project object by its unique identifier.
+     * @param projectId - The unique identifier of the project to load.
+     * @param md5Service - An IMd5Service instance for calculating MD5 checksums (used by the ProjectLoader within).
+     * @returns A Promise that resolves to the loaded Project object, or null if no project is found with the given ID.
+     */
+    loadProject(
+        projectId: string,
+        md5Service: IMd5Service,
+    ): Promise<Project | null>;
+    /**
+     * @method listProjects
+     * @description Retrieves a list of all available projects.
+     * @returns A Promise that resolves to an array of Project objects.
+     */
+    listProjects(): Promise<ListedProject[]>;
 
-  /**
-   * @method deleteProject
-   * @description Deletes a project by its unique identifier.
-   * @param projectPath - The path of the project to delete.
-   * @param options - Options for the deletion process.
-   * @returns A Promise that resolves when the project has been successfully deleted.
-   */
-  deleteProject(
-    projectPath: string,
-    options: {
-      recursive: boolean;
-    },
-  ): Promise<void>;
+    /**
+     * @method deleteProject
+     * @description Deletes a project by its unique identifier.
+     * @param projectPath - The path of the project to delete.
+     * @param options - Options for the deletion process.
+     * @returns A Promise that resolves when the project has been successfully deleted.
+     */
+    deleteProject(
+        projectPath: string,
+        options: {
+            recursive: boolean;
+        },
+    ): Promise<void>;
 }
 
 /**
@@ -178,43 +178,43 @@ export interface IProjectRepository {
  *              It also includes a method to add books to the project.
  */
 export interface Project {
-  id: string;
-  name: string;
-  files: ProjectFile[];
-  metadata: ProjectMetadata;
-  projectDir: IDirectoryHandle;
-  fileWriter: IFileWriter;
-  /**
-   * @method addBook
-   * @description Adds a USFM file (book) to the project. This method is intelligent about project type
-   *              and updates the relevant metadata (e.g., manifest.yaml or metadata.json) accordingly.
-   *              It will not overwrite existing books.
-   * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
-   * @param localizedBookTitle - Optional. A localized title for the book. Defaults to the book code.
-   * @param contents - Optional. The USFM content of the book. Defaults to an empty string to initialize an empty file.
-   * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
-   */
-  addBook({
-    bookCode,
-    localizedBookTitle,
-    contents,
-  }: {
-    bookCode: string;
-    localizedBookTitle?: string;
-    contents?: string;
-  }): Promise<void>;
-  /**
-   * @method getBook
-   * @description Retrieves the content of a specific book from the project.
-   * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
-   * @returns A Promise that resolves to the content of the book as a string, or null if the book is not found.
-   */
-  getBook(bookCode: string): Promise<string | null>;
+    id: string;
+    name: string;
+    files: ProjectFile[];
+    metadata: ProjectMetadata;
+    projectDir: IDirectoryHandle;
+    fileWriter: IFileWriter;
+    /**
+     * @method addBook
+     * @description Adds a USFM file (book) to the project. This method is intelligent about project type
+     *              and updates the relevant metadata (e.g., manifest.yaml or metadata.json) accordingly.
+     *              It will not overwrite existing books.
+     * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
+     * @param localizedBookTitle - Optional. A localized title for the book. Defaults to the book code.
+     * @param contents - Optional. The USFM content of the book. Defaults to an empty string to initialize an empty file.
+     * @returns A Promise that resolves when the book has been successfully added to the project and its metadata.
+     */
+    addBook({
+        bookCode,
+        localizedBookTitle,
+        contents,
+    }: {
+        bookCode: string;
+        localizedBookTitle?: string;
+        contents?: string;
+    }): Promise<void>;
+    /**
+     * @method getBook
+     * @description Retrieves the content of a specific book from the project.
+     * @param bookCode - The three-letter book code (e.g., "MAT", "MRK").
+     * @returns A Promise that resolves to the content of the book as a string, or null if the book is not found.
+     */
+    getBook(bookCode: string): Promise<string | null>;
 }
 export type ListedProject = Omit<
-  Project,
-  "projectDir" | "fileWriter" | "addBook" | "getBook"
+    Project,
+    "projectDir" | "fileWriter" | "addBook" | "getBook"
 > & {
-  projectDirectoryPath: string;
-  // Add any additional properties specific to listed projects here if needed
+    projectDirectoryPath: string;
+    // Add any additional properties specific to listed projects here if needed
 };

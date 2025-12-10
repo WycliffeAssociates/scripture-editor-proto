@@ -2,35 +2,35 @@ import type { IFileHandle } from "@/core/io/IFileHandle.ts";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
 export interface _IDirectoryHandle extends IPathHandle {
-  getDirectoryHandle(
-    name: string,
-    options?: FileSystemGetDirectoryOptions,
-  ): Promise<IDirectoryHandle>;
+    getDirectoryHandle(
+        name: string,
+        options?: FileSystemGetDirectoryOptions,
+    ): Promise<IDirectoryHandle>;
 
-  getFileHandle(
-    name: string,
-    options?: FileSystemGetFileOptions,
-  ): Promise<IFileHandle>;
+    getFileHandle(
+        name: string,
+        options?: FileSystemGetFileOptions,
+    ): Promise<IFileHandle>;
 
-  removeEntry(name: string, options?: FileSystemRemoveOptions): Promise<void>;
+    removeEntry(name: string, options?: FileSystemRemoveOptions): Promise<void>;
 
-  resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null>;
+    resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null>;
 
-  [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
-    [string, IPathHandle]
-  >;
+    [Symbol.asyncIterator](): FileSystemDirectoryHandleAsyncIterator<
+        [string, IPathHandle]
+    >;
 
-  entries(): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]>;
+    entries(): FileSystemDirectoryHandleAsyncIterator<[string, IPathHandle]>;
 
-  keys(): FileSystemDirectoryHandleAsyncIterator<string>;
+    keys(): FileSystemDirectoryHandleAsyncIterator<string>;
 
-  values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle>;
+    values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle>;
 
-  containsFile(name: string): Promise<boolean>;
+    containsFile(name: string): Promise<boolean>;
 
-  containsDir(name: string): Promise<boolean>;
+    containsDir(name: string): Promise<boolean>;
 
-  [Symbol.asyncDispose](): Promise<void>;
+    [Symbol.asyncDispose](): Promise<void>;
 }
 
 export type IDirectoryHandle = _IDirectoryHandle & FileSystemDirectoryHandle;

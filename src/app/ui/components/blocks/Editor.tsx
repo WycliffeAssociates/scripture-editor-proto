@@ -1,6 +1,6 @@
 import {
-  type InitialConfigType,
-  LexicalComposer,
+    type InitialConfigType,
+    LexicalComposer,
 } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
@@ -12,13 +12,13 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
-  $createUSFMTextNode,
-  USFMTextNode,
+    $createUSFMTextNode,
+    USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import {
-  MarkerTooltip,
-  // ToolTipPlugin,
+    MarkerTooltip,
+    // ToolTipPlugin,
 } from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
@@ -26,33 +26,33 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
-  const { editorRef } = useWorkspaceContext();
+    const { editorRef } = useWorkspaceContext();
 
-  return (
-    <div className="h-full overflow-y-auto p-2">
-      <MarkerTooltip />
-      <LexicalComposer initialConfig={getIntialConfig()}>
-        <div
-          data-js="editor-container"
-          data-testid={TESTING_IDS.mainEditorContainer}
-          className="editor-container relative h-full overflow-y-auto"
-        >
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className="min-h-full focus:outline-none p-1 w-full md:px-2"
-                aria-label="USFM Editor"
-              />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-        </div>
-        <EditorRefPlugin editorRef={editorRef} />
-        {/* <DecoratorFocusPlugin /> */}
-        {/* <UseLineBreaks /> */}
-        <HistoryPlugin />
-        {/* <LivePreviewSelectedNodesPlugin /> */}
-        {/* <CustomOnChangePlugin
+    return (
+        <div className="h-full overflow-y-auto p-2">
+            <MarkerTooltip />
+            <LexicalComposer initialConfig={getIntialConfig()}>
+                <div
+                    data-js="editor-container"
+                    data-testid={TESTING_IDS.mainEditorContainer}
+                    className="editor-container relative h-full overflow-y-auto"
+                >
+                    <RichTextPlugin
+                        contentEditable={
+                            <ContentEditable
+                                className="min-h-full focus:outline-none p-1 w-full md:px-2"
+                                aria-label="USFM Editor"
+                            />
+                        }
+                        ErrorBoundary={LexicalErrorBoundary}
+                    />
+                </div>
+                <EditorRefPlugin editorRef={editorRef} />
+                {/* <DecoratorFocusPlugin /> */}
+                {/* <UseLineBreaks /> */}
+                <HistoryPlugin />
+                {/* <LivePreviewSelectedNodesPlugin /> */}
+                {/* <CustomOnChangePlugin
               ignoreHistoryMergeTagChange={true}
               tagsToIgnore={new Set(["programmatic"])}
               onSelectionChange={(editorState, editor, tags) => {
@@ -81,38 +81,38 @@ export function MainEditor() {
               searchTerm={projectSearchTerm}
               currentEditorState={currentEditorState}
             /> */}
-        <USFMPlugin />
-        <UsfmStylesPlugin />
-        <NodeContextMenuPlugin />
-      </LexicalComposer>
-    </div>
-  );
+                <USFMPlugin />
+                <UsfmStylesPlugin />
+                <NodeContextMenuPlugin />
+            </LexicalComposer>
+        </div>
+    );
 }
 
 function getIntialConfig(): InitialConfigType {
-  return {
-    namespace: "USFMEditor",
-    nodes: [
-      USFMElementNode,
-      USFMTextNode,
-      {
-        replace: TextNode,
-        with: (node: TextNode) => {
-          return $createUSFMTextNode(node.getTextContent(), {
-            id: guidGenerator(),
-            sid: "",
-            inPara: "",
-          });
-        },
-        withKlass: USFMTextNode,
-      },
-      // only one, default container for chap
-      ParagraphNode,
-      // USFMDecoratorNode,
-      LineBreakNode,
-      // footnoes and x-notes
-      USFMNestedEditorNode,
-    ],
-    onError: console.error,
-  };
+    return {
+        namespace: "USFMEditor",
+        nodes: [
+            USFMElementNode,
+            USFMTextNode,
+            {
+                replace: TextNode,
+                with: (node: TextNode) => {
+                    return $createUSFMTextNode(node.getTextContent(), {
+                        id: guidGenerator(),
+                        sid: "",
+                        inPara: "",
+                    });
+                },
+                withKlass: USFMTextNode,
+            },
+            // only one, default container for chap
+            ParagraphNode,
+            // USFMDecoratorNode,
+            LineBreakNode,
+            // footnoes and x-notes
+            USFMNestedEditorNode,
+        ],
+        onError: console.error,
+    };
 }

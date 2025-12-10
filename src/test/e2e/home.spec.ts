@@ -7,145 +7,156 @@ const __filename = fileURLToPath(import.meta.url); // get the resolved path to t
 const dirname = path.dirname(__filename); // get the name of the directory
 
 test.describe("home page (empty state)", () => {
-  test("shows project creation UI when there are no projects", async ({
-    page,
-  }) => {
-    const consoleMessages: Array<{ type: string; text: string }> = [];
-    page.on("console", (m) => {
-      try {
-        consoleMessages.push({ type: m.type(), text: m.text() });
-      } catch {
-        // ignore
-      }
+    test("shows project creation UI when there are no projects", async ({
+        page,
+    }) => {
+        const consoleMessages: Array<{ type: string; text: string }> = [];
+        page.on("console", (m) => {
+            try {
+                consoleMessages.push({ type: m.type(), text: m.text() });
+            } catch {
+                // ignore
+            }
+        });
+
+        try {
+            const response = await page.goto(BASE_URL, {
+                waitUntil: "domcontentloaded",
+            });
+            expect(response).not.toBeNull();
+            if (response) expect(response.ok()).toBeTruthy();
+
+            // Wait for full load to ensure client-side rendering finished
+            await page.waitForLoadState("load");
+
+            // small delay to let client-side hydration run (helps flakiness)
+            await page.waitForTimeout(500);
+
+            // Main create section heading from ProjectCreator
+            await expect(
+                page.locator("text=Create a new project"),
+            ).toBeVisible();
+
+            // Ensure the repo + local upload controls are present
+            await expect(
+                page.locator("text=Search for a scripture repository"),
+            ).toBeVisible();
+            await expect(page.locator("text=Upload a folder")).toBeVisible();
+            await expect(
+                page.locator("text=Or select a ZIP file"),
+            ).toBeVisible();
+
+            // Ensure there are no project rows rendered in the project list container.
+            // The project list is an <ul class="flex flex-col gap-3"> with child <li>s when projects exist.
+            const projectListItems = page.locator(
+                "ul.flex.flex-col.gap-3 > li",
+            );
+            await expect(projectListItems).toHaveCount(0);
+        } catch (err) {
+            // Dump helpful artifacts for debugging and rethrow the error
+            throw err;
+        }
     });
 
-    try {
-      const response = await page.goto(BASE_URL, {
-        waitUntil: "domcontentloaded",
-      });
-      expect(response).not.toBeNull();
-      if (response) expect(response.ok()).toBeTruthy();
+    test("has accessible heading and basic layout", async ({ page }) => {
+        const consoleMessages: Array<{ type: string; text: string }> = [];
+        page.on("console", (m) => {
+            try {
+                consoleMessages.push({ type: m.type(), text: m.text() });
+            } catch {
+                // ignore
+            }
+        });
 
-      // Wait for full load to ensure client-side rendering finished
-      await page.waitForLoadState("load");
+        try {
+            await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+            await page.waitForLoadState("load");
 
-      // small delay to let client-side hydration run (helps flakiness)
-      await page.waitForTimeout(500);
+            // small delay to let client-side hydration run
+            await page.waitForTimeout(500);
 
-      // Main create section heading from ProjectCreator
-      await expect(page.locator("text=Create a new project")).toBeVisible();
+            // Page header should contain "Current Projects"
+            await expect(page.locator("text=Current Projects")).toBeVisible();
 
-      // Ensure the repo + local upload controls are present
-      await expect(
-        page.locator("text=Search for a scripture repository"),
-      ).toBeVisible();
-      await expect(page.locator("text=Upload a folder")).toBeVisible();
-      await expect(page.locator("text=Or select a ZIP file")).toBeVisible();
-
-      // Ensure there are no project rows rendered in the project list container.
-      // The project list is an <ul class="flex flex-col gap-3"> with child <li>s when projects exist.
-      const projectListItems = page.locator("ul.flex.flex-col.gap-3 > li");
-      await expect(projectListItems).toHaveCount(0);
-    } catch (err) {
-      // Dump helpful artifacts for debugging and rethrow the error
-      throw err;
-    }
-  });
-
-  test("has accessible heading and basic layout", async ({ page }) => {
-    const consoleMessages: Array<{ type: string; text: string }> = [];
-    page.on("console", (m) => {
-      try {
-        consoleMessages.push({ type: m.type(), text: m.text() });
-      } catch {
-        // ignore
-      }
+            // The create area should be reachable via heading role as well
+            const createHeading = page.getByRole("heading", {
+                name: /Create a new project/i,
+            });
+            await expect(createHeading).toBeVisible();
+        } catch (err) {
+            console.error(err);
+        }
     });
-
-    try {
-      await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("load");
-
-      // small delay to let client-side hydration run
-      await page.waitForTimeout(500);
-
-      // Page header should contain "Current Projects"
-      await expect(page.locator("text=Current Projects")).toBeVisible();
-
-      // The create area should be reachable via heading role as well
-      const createHeading = page.getByRole("heading", {
-        name: /Create a new project/i,
-      });
-      await expect(createHeading).toBeVisible();
-    } catch (err) {
-      console.error(err);
-    }
-  });
 });
 
 test.describe("home page - load projects", () => {
-  test("loads project from zip", async ({ page }) => {
-    await page.goto(BASE_URL);
-    const resolvedPath = path.resolve(
-      dirname,
-      "../",
-      "mockData",
-      "llx_reg-master.zip",
-    );
-    await page.getByTestId("file-importer").setInputFiles(resolvedPath);
-    const projectList = page.getByTestId("project-list");
-    await expect(projectList).toHaveCount(1);
-    await page.reload({
-      waitUntil: "domcontentloaded",
-    }); //should still be there
-    await expect(projectList).toHaveCount(1);
-    expect(await page.getByTestId("project-list-lauan").textContent()).toBe(
-      "Lauan",
-    );
-  });
-  test("delete Project removes from ui", async ({ page }) => {
-    await page.goto(BASE_URL);
-    const resolvedPath = path.resolve(
-      dirname,
-      "../",
-      "mockData",
-      "llx_reg-master.zip",
-    );
-    await page.getByTestId("file-importer").setInputFiles(resolvedPath);
-    const projectList = page.getByTestId("project-list");
-    await expect(projectList).toHaveCount(1);
-    await page
-      .getByRole("listitem")
-      .filter({ hasText: "LauanBible" })
-      .getByTestId("edit-project-btn")
-      .click();
-    await page.getByTestId("project-name-input").fill("Lauan - New Name");
-    await page.getByTestId("save-project-name").click();
-    const newName = page.getByTestId("Lauan - New Name");
-    await expect(newName).toHaveText("Lauan - New Name");
+    test("loads project from zip", async ({ page }) => {
+        await page.goto(BASE_URL);
+        const resolvedPath = path.resolve(
+            dirname,
+            "../",
+            "mockData",
+            "llx_reg-master.zip",
+        );
+        await page.getByTestId("file-importer").setInputFiles(resolvedPath);
+        const projectList = page.getByTestId("project-list");
+        await expect(projectList).toHaveCount(1);
+        await page.reload({
+            waitUntil: "domcontentloaded",
+        }); //should still be there
+        await expect(projectList).toHaveCount(1);
+        expect(await page.getByTestId("project-list-lauan").textContent()).toBe(
+            "Lauan",
+        );
+    });
+    test("delete Project removes from ui", async ({ page }) => {
+        await page.goto(BASE_URL);
+        const resolvedPath = path.resolve(
+            dirname,
+            "../",
+            "mockData",
+            "llx_reg-master.zip",
+        );
+        await page.getByTestId("file-importer").setInputFiles(resolvedPath);
+        const projectList = page.getByTestId("project-list");
+        await expect(projectList).toHaveCount(1);
+        await page
+            .getByRole("listitem")
+            .filter({ hasText: "LauanBible" })
+            .getByTestId("edit-project-btn")
+            .click();
+        await page.getByTestId("project-name-input").fill("Lauan - New Name");
+        await page.getByTestId("save-project-name").click();
+        const newName = page.getByTestId("Lauan - New Name");
+        await expect(newName).toHaveText("Lauan - New Name");
 
-    await page.reload({
-      waitUntil: "domcontentloaded",
-    }); //should have changed name
-    await expect(newName).toHaveText("Lauan - New Name");
-    await page.getByTestId("delete-project").click();
-    const confirmBtn = page.getByTestId("delete-project-confirm");
-    await confirmBtn.click();
-    await expect(projectList).toHaveCount(0);
-  });
-  test("loads project from unzipped folder", async ({ page }) => {
-    await page.goto(BASE_URL);
+        await page.reload({
+            waitUntil: "domcontentloaded",
+        }); //should have changed name
+        await expect(newName).toHaveText("Lauan - New Name");
+        await page.getByTestId("delete-project").click();
+        const confirmBtn = page.getByTestId("delete-project-confirm");
+        await confirmBtn.click();
+        await expect(projectList).toHaveCount(0);
+    });
+    test("loads project from unzipped folder", async ({ page }) => {
+        await page.goto(BASE_URL);
 
-    const resolvedPath = path.resolve(dirname, "../", "mockData", "llx_reg/");
-    await page.getByTestId("dir-importer").setInputFiles(resolvedPath);
-    const projectList = page.getByTestId("project-list");
-    await expect(projectList).toHaveCount(1);
-  });
+        const resolvedPath = path.resolve(
+            dirname,
+            "../",
+            "mockData",
+            "llx_reg/",
+        );
+        await page.getByTestId("dir-importer").setInputFiles(resolvedPath);
+        const projectList = page.getByTestId("project-list");
+        await expect(projectList).toHaveCount(1);
+    });
 });
 test("home page localization works", async ({ page }) => {
-  await page.goto(BASE_URL);
-  await page.getByTestId("language-selector").click();
-  await page.getByRole("option", { name: "Español" }).click();
-  const label = page.getByTestId("language-selector-label");
-  await expect(label).toHaveText("Localización de la interfaz");
+    await page.goto(BASE_URL);
+    await page.getByTestId("language-selector").click();
+    await page.getByRole("option", { name: "Español" }).click();
+    const label = page.getByTestId("language-selector-label");
+    await expect(label).toHaveText("Localización de la interfaz");
 });

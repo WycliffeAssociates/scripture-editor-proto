@@ -1,71 +1,71 @@
 import {
-  $getRoot,
-  ElementNode,
-  type LexicalEditor,
-  type LexicalNode,
-  LineBreakNode,
-  type SerializedLexicalNode,
+    $getRoot,
+    ElementNode,
+    type LexicalEditor,
+    type LexicalNode,
+    LineBreakNode,
+    type SerializedLexicalNode,
 } from "lexical";
 import { USFM_TEXT_NODE_TYPE } from "@/app/data/editor.ts";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
-  $isUSFMNestedEditorNode,
-  isSerializedUSFMNestedEditorNode,
-  type USFMNestedEditorNode,
-  type USFMNestedEditorNodeJSON,
+    $isUSFMNestedEditorNode,
+    isSerializedUSFMNestedEditorNode,
+    type USFMNestedEditorNode,
+    type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
-  $isUSFMTextNode,
-  isSerializedNumberOrPlainTextUSFMTextNode,
-  isSerializedPlainTextUSFMTextNode,
-  isSerializedUSFMTextNode,
+    $isUSFMTextNode,
+    isSerializedNumberOrPlainTextUSFMTextNode,
+    isSerializedPlainTextUSFMTextNode,
+    isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
 export function $serializedLexicalToUsfm(editor: LexicalEditor) {
-  return editor.getEditorState().read(() => {
-    const root = $getRoot();
-    const serialized = serializeNode(root, editor);
-    return serialized;
-  });
+    return editor.getEditorState().read(() => {
+        const root = $getRoot();
+        const serialized = serializeNode(root, editor);
+        return serialized;
+    });
 }
 
 function serializeNode(node: LexicalNode, editor: LexicalEditor): string {
-  const nodeType = node.getType();
-  if ($isUSFMNestedEditorNode(node)) {
-    return serializeNestedEditorState(node, editor);
-  }
-  if (nodeType === USFM_TEXT_NODE_TYPE && $isUSFMTextNode(node)) {
-    return node.getTextContent();
-  }
-  if (node instanceof ElementNode || nodeType === "paragraph") {
-    const elNode = node as ElementNode;
-    const children = elNode.getChildren?.() ?? [];
-    return children.map((c) => serializeNode(c, editor)).join("");
-  }
-  if (node instanceof LineBreakNode) {
-    return "\n";
-  }
-  return "";
+    const nodeType = node.getType();
+    if ($isUSFMNestedEditorNode(node)) {
+        return serializeNestedEditorState(node, editor);
+    }
+    if (nodeType === USFM_TEXT_NODE_TYPE && $isUSFMTextNode(node)) {
+        return node.getTextContent();
+    }
+    if (node instanceof ElementNode || nodeType === "paragraph") {
+        const elNode = node as ElementNode;
+        const children = elNode.getChildren?.() ?? [];
+        return children.map((c) => serializeNode(c, editor)).join("");
+    }
+    if (node instanceof LineBreakNode) {
+        return "\n";
+    }
+    return "";
 }
 
 function serializeNestedEditorState(
-  node: USFMNestedEditorNode,
-  editor: LexicalEditor,
+    node: USFMNestedEditorNode,
+    editor: LexicalEditor,
 ) {
-  // what to
-  const editorState = editor.parseEditorState(node.getLatestEditorState());
-  let nestedVal = `\\${node.getMarker()} `;
-  editorState.read(() => {
-    const nestedRoot = $getRoot();
-    nestedVal += nestedRoot
-      .getChildren()
-      .map((c) => serializeNode(c, editor))
-      .join("");
-    nestedVal += ` \\${node.getMarker()}*`;
+    // what to
+    const editorState = editor.parseEditorState(node.getLatestEditorState());
+    let nestedVal = `\\${node.getMarker()} `;
+    editorState.read(() => {
+        const nestedRoot = $getRoot();
+        nestedVal += nestedRoot
+            .getChildren()
+            .map((c) => serializeNode(c, editor))
+            .join("");
+        nestedVal += ` \\${node.getMarker()}*`;
+        return nestedVal;
+    });
     return nestedVal;
-  });
-  return nestedVal;
 }
 
 //================================================================================
@@ -78,38 +78,38 @@ function serializeNestedEditorState(
  * @returns A single string representing the complete USFM document.
  */
 export function serializeToUsfmString(nodes: SerializedLexicalNode[]): string {
-  const accumulator = { str: "" };
-  traverseForUsfmString(nodes, accumulator);
-  return accumulator.str;
+    const accumulator = { str: "" };
+    traverseForUsfmString(nodes, accumulator);
+    return accumulator.str;
 }
 
 function traverseForUsfmString(
-  nodes: SerializedLexicalNode[],
-  accumulator: { str: string },
+    nodes: SerializedLexicalNode[],
+    accumulator: { str: string },
 ): void {
-  for (const node of nodes) {
-    if (node.type === "linebreak") {
-      accumulator.str += "\n";
-      continue;
-    }
+    for (const node of nodes) {
+        if (node.type === "linebreak") {
+            accumulator.str += "\n";
+            continue;
+        }
 
-    if (isSerializedUSFMTextNode(node)) {
-      accumulator.str += node.text;
-      continue;
-    }
+        if (isSerializedUSFMTextNode(node)) {
+            accumulator.str += node.text;
+            continue;
+        }
 
-    if (isSerializedUSFMNestedEditorNode(node)) {
-      // Handle nested content like footnotes by recursively processing them.
-      // the opening marker isn't currently captured as part of the node's internal structure. During lex then post parse, once hitting a nested node, it become {marker, children} where the close marker is in the children array, but openeing is not duplicated into it.
-      accumulator.str += `\\${node.marker} `;
-      traverseForUsfmString(node.editorState.root.children, accumulator);
-      continue;
-    }
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            // Handle nested content like footnotes by recursively processing them.
+            // the opening marker isn't currently captured as part of the node's internal structure. During lex then post parse, once hitting a nested node, it become {marker, children} where the close marker is in the children array, but openeing is not duplicated into it.
+            accumulator.str += `\\${node.marker} `;
+            traverseForUsfmString(node.editorState.root.children, accumulator);
+            continue;
+        }
 
-    if (isSerializedElementNode(node) && node.children) {
-      traverseForUsfmString(node.children, accumulator);
+        if (isSerializedElementNode(node) && node.children) {
+            traverseForUsfmString(node.children, accumulator);
+        }
     }
-  }
 }
 
 //================================================================================
@@ -117,12 +117,12 @@ function traverseForUsfmString(
 //================================================================================
 
 type SidTextMapOptions = {
-  ignoreFootnotes?: boolean;
-  lineBreakToSpace?: boolean;
+    ignoreFootnotes?: boolean;
+    lineBreakToSpace?: boolean;
 };
 
 type SidTextMapState = {
-  lastSid?: string;
+    lastSid?: string;
 };
 
 /**
@@ -133,105 +133,108 @@ type SidTextMapState = {
  * @returns A Record mapping SIDs to their plain text content.
  */
 export function serializeToSidTextMap(
-  nodes: SerializedLexicalNode[],
-  options: SidTextMapOptions = {},
+    nodes: SerializedLexicalNode[],
+    options: SidTextMapOptions = {},
 ): Record<string, string> {
-  const accumulator: Record<string, string> = {};
-  const state: SidTextMapState = {};
-  traverseForSidTextMap(nodes, options, accumulator, state);
-  return accumulator;
+    const accumulator: Record<string, string> = {};
+    const state: SidTextMapState = {};
+    traverseForSidTextMap(nodes, options, accumulator, state);
+    return accumulator;
 }
 
 function traverseForSidTextMap(
-  nodes: SerializedLexicalNode[],
-  options: SidTextMapOptions,
-  accumulator: Record<string, string>,
-  state: SidTextMapState,
+    nodes: SerializedLexicalNode[],
+    options: SidTextMapOptions,
+    accumulator: Record<string, string>,
+    state: SidTextMapState,
 ): void {
-  for (const node of nodes) {
-    if (node.type === "linebreak") {
-      if (state.lastSid) {
-        const content = options.lineBreakToSpace ? " " : "\n";
-        if (content !== " " || !accumulator[state.lastSid]?.endsWith(" ")) {
-          accumulator[state.lastSid] =
-            (accumulator[state.lastSid] || "") + content;
+    for (const node of nodes) {
+        if (node.type === "linebreak") {
+            if (state.lastSid) {
+                const content = options.lineBreakToSpace ? " " : "\n";
+                if (
+                    content !== " " ||
+                    !accumulator[state.lastSid]?.endsWith(" ")
+                ) {
+                    accumulator[state.lastSid] =
+                        (accumulator[state.lastSid] || "") + content;
+                }
+            }
+            continue;
         }
-      }
-      continue;
-    }
 
-    if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
-      // Only include plain text nodes, effectively stripping markers.
-      accumulator[node.sid] = (accumulator[node.sid] || "") + node.text;
-      state.lastSid = node.sid;
-      continue;
-    }
+        if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
+            // Only include plain text nodes, effectively stripping markers.
+            accumulator[node.sid] = (accumulator[node.sid] || "") + node.text;
+            state.lastSid = node.sid;
+            continue;
+        }
 
-    if (isSerializedUSFMNestedEditorNode(node)) {
-      if (!options.ignoreFootnotes) {
-        // If not ignoring, process the content but not the markers.
-        traverseForSidTextMap(
-          node.editorState.root.children,
-          options,
-          accumulator,
-          state,
-        );
-      }
-      continue;
-    }
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            if (!options.ignoreFootnotes) {
+                // If not ignoring, process the content but not the markers.
+                traverseForSidTextMap(
+                    node.editorState.root.children,
+                    options,
+                    accumulator,
+                    state,
+                );
+            }
+            continue;
+        }
 
-    if (isSerializedElementNode(node) && node.children) {
-      traverseForSidTextMap(node.children, options, accumulator, state);
+        if (isSerializedElementNode(node) && node.children) {
+            traverseForSidTextMap(node.children, options, accumulator, state);
+        }
     }
-  }
 }
 
 //================================================================================
 // Function 3: Build the rich, contextual map for reversion (CORRECTED)
 //================================================================================
 export type SidContent = {
-  /** The nodes that make up the content of this block. For a verse, it's the top-level
-   *  nodes. For a footnote, it's the nodes INSIDE the footnote's editorState. */
-  nodes: SerializedLexicalNode[];
+    /** The nodes that make up the content of this block. For a verse, it's the top-level
+     *  nodes. For a footnote, it's the nodes INSIDE the footnote's editorState. */
+    nodes: SerializedLexicalNode[];
 
-  /** The parent array that `nodes` belongs to. This is the array to splice for
-   *  INTERNAL content changes. */
-  parentChapterNodeList: SerializedLexicalNode[];
+    /** The parent array that `nodes` belongs to. This is the array to splice for
+     *  INTERNAL content changes. */
+    parentChapterNodeList: SerializedLexicalNode[];
 
-  /** The starting index of the first node of this block within its parent list. */
-  startIndexInParent: number;
+    /** The starting index of the first node of this block within its parent list. */
+    startIndexInParent: number;
 
-  /** The unique key of the immediately preceding block, used as a revert anchor. */
-  previousSid: string | null;
+    /** The unique key of the immediately preceding block, used as a revert anchor. */
+    previousSid: string | null;
 
-  /** The original, semantic SID for this block (e.g., "GEN 9:2"). */
-  semanticSid: string;
+    /** The original, semantic SID for this block (e.g., "GEN 9:2"). */
+    semanticSid: string;
 
-  /** A UI-friendly version of the SID, especially for nested content. */
-  displaySid: string;
+    /** A UI-friendly version of the SID, especially for nested content. */
+    displaySid: string;
 
-  /** A "signature" of the structural USFM markers. */
-  usfmStructure: string;
+    /** A "signature" of the structural USFM markers. */
+    usfmStructure: string;
 
-  /** ONLY the plain, user-visible text content for this block. */
-  plainTextStructure: string;
+    /** ONLY the plain, user-visible text content for this block. */
+    plainTextStructure: string;
 
-  /** The full USFM text for this block, including all markers. */
-  fullText: string;
+    /** The full USFM text for this block, including all markers. */
+    fullText: string;
 
-  /** If this is a nested block (like a footnote), this is the wrapper node itself. */
-  wrapperNode?: USFMNestedEditorNodeJSON;
+    /** If this is a nested block (like a footnote), this is the wrapper node itself. */
+    wrapperNode?: USFMNestedEditorNodeJSON;
 
-  /** The parent list of the wrapper node (i.e., the chapter's root.children). */
-  wrapperParentList?: SerializedLexicalNode[];
+    /** The parent list of the wrapper node (i.e., the chapter's root.children). */
+    wrapperParentList?: SerializedLexicalNode[];
 
-  /** The index of the wrapper node within its parent list. */
-  wrapperStartIndex?: number;
+    /** The index of the wrapper node within its parent list. */
+    wrapperStartIndex?: number;
 
-  /** A zero-based index representing the order in which this block was found in the document. */
-  foundOrder: number;
+    /** A zero-based index representing the order in which this block was found in the document. */
+    foundOrder: number;
 
-  detail?: string;
+    detail?: string;
 };
 
 export type SidContentMap = Record<string, SidContent>; // The key is the unique, mangled SID.
@@ -244,27 +247,27 @@ export type SidContentMap = Record<string, SidContent>; // The key is the unique
  * Extracts the different text components from a single serialized node.
  */
 function getTextComponentsFromNode(node: SerializedLexicalNode): {
-  usfm: string;
-  plain: string;
-  full: string;
+    usfm: string;
+    plain: string;
+    full: string;
 } {
-  const text =
-    "text" in node && typeof node.text === "string"
-      ? node.text
-      : node.type === "linebreak"
-        ? "\n"
-        : "";
-  if (node.type === "linebreak") {
-    return { usfm: "\n", plain: "\n", full: "\n" };
-  }
-  if (isSerializedNumberOrPlainTextUSFMTextNode(node)) {
-    return { usfm: "", plain: text, full: text };
-  }
-  if (isSerializedUSFMTextNode(node)) {
-    return { usfm: text, plain: "", full: text };
-  }
-  // Generic elements have no direct text value.
-  return { usfm: "", plain: "", full: "" };
+    const text =
+        "text" in node && typeof node.text === "string"
+            ? node.text
+            : node.type === "linebreak"
+              ? "\n"
+              : "";
+    if (node.type === "linebreak") {
+        return { usfm: "\n", plain: "\n", full: "\n" };
+    }
+    if (isSerializedNumberOrPlainTextUSFMTextNode(node)) {
+        return { usfm: "", plain: text, full: text };
+    }
+    if (isSerializedUSFMTextNode(node)) {
+        return { usfm: text, plain: "", full: text };
+    }
+    // Generic elements have no direct text value.
+    return { usfm: "", plain: "", full: "" };
 }
 
 /**
@@ -272,28 +275,28 @@ function getTextComponentsFromNode(node: SerializedLexicalNode): {
  * optionally wrapping them with USFM markers (for footnotes).
  */
 function extractTextComponents(
-  nodes: SerializedLexicalNode[],
-  marker?: string,
+    nodes: SerializedLexicalNode[],
+    marker?: string,
 ): { usfmStructure: string; plainTextStructure: string; fullText: string } {
-  let usfmStructure = marker ? `\\${marker} ` : "";
-  let plainTextStructure = "";
-  let fullText = marker ? `\\${marker} ` : "";
+    let usfmStructure = marker ? `\\${marker} ` : "";
+    let plainTextStructure = "";
+    let fullText = marker ? `\\${marker} ` : "";
 
-  function traverse(nodeList: SerializedLexicalNode[]) {
-    for (const node of nodeList) {
-      const components = getTextComponentsFromNode(node);
-      usfmStructure += components.usfm;
-      plainTextStructure += components.plain;
-      fullText += components.full;
-      if (isSerializedElementNode(node) && node.children) {
-        traverse(node.children);
-      }
+    function traverse(nodeList: SerializedLexicalNode[]) {
+        for (const node of nodeList) {
+            const components = getTextComponentsFromNode(node);
+            usfmStructure += components.usfm;
+            plainTextStructure += components.plain;
+            fullText += components.full;
+            if (isSerializedElementNode(node) && node.children) {
+                traverse(node.children);
+            }
+        }
     }
-  }
 
-  traverse(nodes);
+    traverse(nodes);
 
-  return { usfmStructure, plainTextStructure, fullText };
+    return { usfmStructure, plainTextStructure, fullText };
 }
 
 /**
@@ -305,126 +308,130 @@ function extractTextComponents(
  * @param chapterNodeList The `root.children` array from a chapter's lexical state.
  */
 export function buildSidContentMapForChapter(
-  chapterNodeList: SerializedLexicalNode[],
-  _map?: SidContentMap,
+    chapterNodeList: SerializedLexicalNode[],
+    _map?: SidContentMap,
 ): SidContentMap {
-  const map: SidContentMap = _map || {};
+    const map: SidContentMap = _map || {};
 
-  // --- State Management for the Single Pass ---
-  let activeVerseKey: string | null = null;
-  let previousBlockKey: string | null = null;
-  const duplicateSidCounters = new Map<string, number>();
-  const footnoteCounters = new Map<string, number>();
-  // The new counter for ordering.
-  let blockCounter = 0;
+    // --- State Management for the Single Pass ---
+    let activeVerseKey: string | null = null;
+    let previousBlockKey: string | null = null;
+    const duplicateSidCounters = new Map<string, number>();
+    const footnoteCounters = new Map<string, number>();
+    // The new counter for ordering.
+    let blockCounter = 0;
 
-  for (let i = 0; i < chapterNodeList.length; i++) {
-    const node = chapterNodeList[i];
+    for (let i = 0; i < chapterNodeList.length; i++) {
+        const node = chapterNodeList[i];
 
-    // --- Case 1: Handle Footnotes (as new, distinct blocks) ---
-    if (isSerializedUSFMNestedEditorNode(node)) {
-      const parentSid = activeVerseKey
-        ? map[activeVerseKey].semanticSid
-        : "ORPHAN_NOTE";
-      const footnoteCount = (footnoteCounters.get(parentSid) || 0) + 1;
-      footnoteCounters.set(parentSid, footnoteCount);
-      const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
-      const footnoteChildren = node.editorState.root.children;
+        // --- Case 1: Handle Footnotes (as new, distinct blocks) ---
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            const parentSid = activeVerseKey
+                ? map[activeVerseKey].semanticSid
+                : "ORPHAN_NOTE";
+            const footnoteCount = (footnoteCounters.get(parentSid) || 0) + 1;
+            footnoteCounters.set(parentSid, footnoteCount);
+            const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
+            const footnoteChildren = node.editorState.root.children;
 
-      map[footnoteKey] = {
-        nodes: footnoteChildren,
-        parentChapterNodeList: footnoteChildren,
-        startIndexInParent: 0,
-        previousSid: previousBlockKey,
-        semanticSid: parentSid,
-        displaySid: `${parentSid} (${node.marker} note)`,
-        ...extractTextComponents(footnoteChildren, node.marker),
-        wrapperNode: node,
-        wrapperParentList: chapterNodeList,
-        wrapperStartIndex: i,
-        foundOrder: blockCounter,
-      };
+            map[footnoteKey] = {
+                nodes: footnoteChildren,
+                parentChapterNodeList: footnoteChildren,
+                startIndexInParent: 0,
+                previousSid: previousBlockKey,
+                semanticSid: parentSid,
+                displaySid: `${parentSid} (${node.marker} note)`,
+                ...extractTextComponents(footnoteChildren, node.marker),
+                wrapperNode: node,
+                wrapperParentList: chapterNodeList,
+                wrapperStartIndex: i,
+                foundOrder: blockCounter,
+            };
 
-      previousBlockKey = footnoteKey;
-      blockCounter++;
-      continue;
-    }
-
-    // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
-    if (isSerializedUSFMTextNode(node) && node.sid) {
-      const semanticSid = node.sid;
-      if (!activeVerseKey || map[activeVerseKey].semanticSid !== semanticSid) {
-        let uniqueKey: string = semanticSid;
-        if (map[uniqueKey]) {
-          const count = (duplicateSidCounters.get(semanticSid) || 0) + 1;
-          duplicateSidCounters.set(semanticSid, count);
-          uniqueKey = `${semanticSid}_dup_${count}`;
+            previousBlockKey = footnoteKey;
+            blockCounter++;
+            continue;
         }
-        activeVerseKey = uniqueKey;
 
-        // --- OUT-OF-ORDER DETECTION LOGIC ---
-        let detail: string | undefined;
-        if (previousBlockKey) {
-          const prevBlock = map[previousBlockKey];
-          const prevSidParsed = parseSid(prevBlock.semanticSid);
-          const currentSidParsed = parseSid(semanticSid);
+        // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
+        if (isSerializedUSFMTextNode(node) && node.sid) {
+            const semanticSid = node.sid;
+            if (
+                !activeVerseKey ||
+                map[activeVerseKey].semanticSid !== semanticSid
+            ) {
+                let uniqueKey: string = semanticSid;
+                if (map[uniqueKey]) {
+                    const count =
+                        (duplicateSidCounters.get(semanticSid) || 0) + 1;
+                    duplicateSidCounters.set(semanticSid, count);
+                    uniqueKey = `${semanticSid}_dup_${count}`;
+                }
+                activeVerseKey = uniqueKey;
 
-          // Check if both are valid, verse-level SIDs in the same chapter.
-          if (
-            prevSidParsed &&
-            !prevSidParsed.isBookChapOnly &&
-            currentSidParsed &&
-            !currentSidParsed.isBookChapOnly &&
-            prevSidParsed.chapter === currentSidParsed.chapter
-          ) {
-            const expectedVerse = prevSidParsed.verseEnd + 1;
-            if (currentSidParsed.verseStart !== expectedVerse) {
-              detail = `Out of order (expected v. ${expectedVerse})`;
+                // --- OUT-OF-ORDER DETECTION LOGIC ---
+                let detail: string | undefined;
+                if (previousBlockKey) {
+                    const prevBlock = map[previousBlockKey];
+                    const prevSidParsed = parseSid(prevBlock.semanticSid);
+                    const currentSidParsed = parseSid(semanticSid);
+
+                    // Check if both are valid, verse-level SIDs in the same chapter.
+                    if (
+                        prevSidParsed &&
+                        !prevSidParsed.isBookChapOnly &&
+                        currentSidParsed &&
+                        !currentSidParsed.isBookChapOnly &&
+                        prevSidParsed.chapter === currentSidParsed.chapter
+                    ) {
+                        const expectedVerse = prevSidParsed.verseEnd + 1;
+                        if (currentSidParsed.verseStart !== expectedVerse) {
+                            detail = `Out of order (expected v. ${expectedVerse})`;
+                        }
+                    }
+                }
+
+                map[activeVerseKey] = {
+                    nodes: [],
+                    parentChapterNodeList: chapterNodeList,
+                    startIndexInParent: i,
+                    previousSid: previousBlockKey,
+                    semanticSid: semanticSid,
+                    displaySid: semanticSid,
+                    usfmStructure: "",
+                    plainTextStructure: "",
+                    fullText: "",
+                    foundOrder: blockCounter,
+                    detail,
+                };
+                blockCounter++;
+                previousBlockKey = activeVerseKey;
             }
-          }
+
+            const block = map[activeVerseKey];
+            block.nodes.push(node);
+            const { usfm, plain, full } = getTextComponentsFromNode(node);
+            block.usfmStructure += usfm;
+            block.plainTextStructure += plain;
+            block.fullText += full;
+            continue;
+        }
+        if (isSerializedElementNode(node) && node.children) {
+            return buildSidContentMapForChapter(node.children, map);
         }
 
-        map[activeVerseKey] = {
-          nodes: [],
-          parentChapterNodeList: chapterNodeList,
-          startIndexInParent: i,
-          previousSid: previousBlockKey,
-          semanticSid: semanticSid,
-          displaySid: semanticSid,
-          usfmStructure: "",
-          plainTextStructure: "",
-          fullText: "",
-          foundOrder: blockCounter,
-          detail,
-        };
-        blockCounter++;
-        previousBlockKey = activeVerseKey;
-      }
-
-      const block = map[activeVerseKey];
-      block.nodes.push(node);
-      const { usfm, plain, full } = getTextComponentsFromNode(node);
-      block.usfmStructure += usfm;
-      block.plainTextStructure += plain;
-      block.fullText += full;
-      continue;
+        // --- Case 3: Handle Follower Nodes (e.g., Line Breaks) ---
+        // A follower node always belongs to the active VERSE, not an interrupting footnote.
+        if (activeVerseKey) {
+            const block = map[activeVerseKey];
+            block.nodes.push(node);
+            const { usfm, plain, full } = getTextComponentsFromNode(node);
+            block.usfmStructure += usfm;
+            block.plainTextStructure += plain;
+            block.fullText += full;
+        }
     }
-    if (isSerializedElementNode(node) && node.children) {
-      return buildSidContentMapForChapter(node.children, map);
-    }
-
-    // --- Case 3: Handle Follower Nodes (e.g., Line Breaks) ---
-    // A follower node always belongs to the active VERSE, not an interrupting footnote.
-    if (activeVerseKey) {
-      const block = map[activeVerseKey];
-      block.nodes.push(node);
-      const { usfm, plain, full } = getTextComponentsFromNode(node);
-      block.usfmStructure += usfm;
-      block.plainTextStructure += plain;
-      block.fullText += full;
-    }
-  }
-  return map;
+    return map;
 }
 
 /**

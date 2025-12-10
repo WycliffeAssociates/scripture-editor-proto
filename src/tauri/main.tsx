@@ -12,7 +12,7 @@ import { TauriOpener } from "@/tauri/persistence/TauriOpener.ts";
 // // instantiante services
 const settingsManager = createTauriSettingsManager();
 const directoryProvider =
-  await TauriDirectoryProvider.create("scripture-editor");
+    await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
 const opener = new TauriOpener();
 
@@ -22,13 +22,13 @@ if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 
 root.render(
-  <StrictMode>
-    <App
-      settingsManager={settingsManager}
-      directoryProvider={directoryProvider}
-      md5Service={md5Service}
-      opener={opener}
-      platform={platform()}
-    />
-  </StrictMode>,
+    <StrictMode>
+        <App
+            settingsManager={settingsManager}
+            directoryProvider={directoryProvider}
+            md5Service={md5Service}
+            opener={opener}
+            platform={platform()}
+        />
+    </StrictMode>,
 );
