@@ -17,12 +17,10 @@ jobs:
         run: npm install -g pnpm && pnpm install
       - name: build web version
         run: pnpm run build.web
-      - name: run vite preview on web version
-        run: pnpm run preview
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
       - name: Run Playwright tests
-        run: BASE_URL=http://localhost:4173 pnpm exec playwright test
+        run: pnpm exec playwright test
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
