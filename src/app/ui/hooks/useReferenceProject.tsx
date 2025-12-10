@@ -16,7 +16,6 @@ export const useReferenceProject = ({
   pickedFileIdentifier,
   pickedChapterNumber,
 }: Props) => {
-  // todo: change to project
   const [referenceProjectId, setReferenceProjectId] = useState<string>();
   const { md5Service } = useRouter().options.context;
   const referenceProjectQuery = useQuery({

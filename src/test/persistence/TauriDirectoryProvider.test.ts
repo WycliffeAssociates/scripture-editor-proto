@@ -185,6 +185,23 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
       fileStore.set(normalizedPath, newContent);
     },
   ),
+  writeFile: vi.fn(
+    async (path: string, contents: string, options?: { append?: boolean }) => {
+      const normalizedPath = await normalize(path);
+      const parentPath = await dirname(normalizedPath); // Use dirname for parent path
+      if (
+        parentPath &&
+        parentPath !== "/" &&
+        !mockDirectories.has(parentPath)
+      ) {
+        await mkdir(parentPath, { recursive: true });
+      }
+
+      const existing = fileStore.get(normalizedPath) || "";
+      const newContent = options?.append ? existing + contents : contents;
+      fileStore.set(normalizedPath, newContent);
+    },
+  ),
 
   readTextFile: vi.fn(async (path: string) => {
     const normalizedPath = await normalize(path);
@@ -383,6 +400,7 @@ describe("TauriDirectoryProvider", () => {
     // todo: see if this is even a test we care to keep?
     // @ts-expect-error
     const tempDirHandle = TauriDirectoryHandle.mock.results.find(
+      // @ts-expect-error
       (r) => r.value.path === expectedTempDirPath,
     )?.value;
 

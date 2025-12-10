@@ -594,55 +594,6 @@ function updateChapterInDiffMap({
   return newDiffMap;
 }
 
-/**
- * Updates an existing DiffMap by re-calculating the differences for
- * only a single chapter. This function MUTATES the `diffMap` for performance.
- *
- * @param diffMap The current DiffMap to be updated.
- * @param originalMap The complete original SidContentMap.
- * @param currentMap The complete current SidContentMap.
- * @param bookCode The book code of the chapter that changed.
- * @param chapterNum The number of the chapter that changed.
- */
-// todo: finish with ai gem later and test;
-// function updateDiffsForChapter(
-//     diffMap: DiffMap,
-//     originalMap: FileChapScopedSids,
-//     currentMap: FileChapScopedSids,
-//     bookCode: string,
-//     chapterNum: number,
-// ): void {
-//     const originalApplicableSids = Object.keys(
-//         originalMap[bookCode][String(chapterNum)],
-//     );
-//     const currentApplicableSids = Object.keys(
-//         currentMap[bookCode][String(chapterNum)],
-//     );
-//     const chapterSids = new Set([
-//         ...originalApplicableSids,
-//         ...currentApplicableSids,
-//     ]);
-
-//     // Step 2: Iterate through the relevant SIDs and update the main diffMap.
-//     for (const sid of chapterSids) {
-//         const original = originalMap[bookCode][String(chapterNum)][sid] ?? null;
-//         const current = currentMap[bookCode][String(chapterNum)][sid] ?? null;
-//         const diff = buildDiff(sid, original, current);
-//         if (diff) {
-//             diffMap[sid] = diff;
-//         } else {
-//             delete diffMap[sid];
-//         }
-//     }
-//     // step 3; if diffMap has any keys left not in chapterSids, delete them
-//     Object.keys(diffMap).forEach((sidKey) => {
-//         const sidParsed = parseSid(sidKey);
-//         if (sidParsed?.chapter === chapterNum && !chapterSids.has(sidKey)) {
-//             delete diffMap[sidKey];
-//         }
-//     });
-// }
-
 //================================================================================
 // 4. Revert Logic (Updated to work with the Nested SID Map)
 //================================================================================

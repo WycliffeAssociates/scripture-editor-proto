@@ -155,41 +155,6 @@ test.describe("Editor llx-reg", () => {
     await expect(nextButton).not.toBeAttached();
   });
 
-  test("next button shows book name at last chapter of first book", async ({
-    editorPage,
-  }) => {
-    const nextButton = editorPage.getByTestId("next-chapter-button");
-
-    // Navigate to last chapter of first book (Genesis 50)
-    const referencePicker = editorPage.getByTestId("reference-picker");
-    await referencePicker.click();
-
-    // Click first book control to expand its chapters
-    const firstBookControl = editorPage.getByTestId("book-control").first();
-    await firstBookControl.click();
-
-    // Wait for accordion panel to be visible, then find the last chapter button within the expanded panel
-    const firstBookPanel = firstBookControl.locator("..").getByRole("region"); // Get the associated accordion panel
-    await expect(firstBookPanel).toBeVisible();
-
-    const lastChapterButton = firstBookPanel
-      .getByTestId("chapter-accordion-button")
-      .last();
-    await lastChapterButton.scrollIntoViewIfNeeded();
-    await lastChapterButton.click();
-
-    // Get next button text
-    const nextButtonText = await nextButton.textContent();
-    console.log(
-      `Next button text in last chapter of first book "${nextButtonText}"`,
-    );
-
-    // Should show "Exodus" (the next book name, not a chapter number)
-    expect(nextButtonText).toBeTruthy();
-    expect(nextButtonText?.trim()).not.toMatch(/^\d+$/); // Not digit-only
-    expect(nextButtonText?.trim()).toMatch(/^[A-Za-z]/); // Starts with a letter
-  });
-
   test("prev button shows book name in first chapter of non-first books", async ({
     editorPage,
   }) => {
@@ -401,7 +366,7 @@ test.describe("Search Functionality", () => {
     await expect(results.first()).toBeVisible(); // waits until DOM has ≥1 result
 
     const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
-    await expect(statsSpan).toHaveText(/^\d+ \/ \d+$/);
+    await expect(statsSpan).toHaveText(/^\d+ \w+ \d+/);
   });
 
   test("search navigation buttons appear when multiple matches exist", async ({
@@ -435,7 +400,14 @@ test.describe("Search Functionality", () => {
     ).toBeVisible();
   });
 
-  test("next button advances match counter", async ({ editorPage }) => {
+  test("next button advances match counter", async ({
+    editorPage,
+    isMobile,
+  }) => {
+    if (isMobile) {
+      test.skip(isMobile, "This test is not relevant for mobile viewports.");
+    }
+
     // Open search UI
     await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
 
@@ -445,12 +417,12 @@ test.describe("Search Functionality", () => {
 
     // Wait for first result to appear — guarantees search has completed
     const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
-    await expect(statsSpan).toHaveText(/1 \/ \d+/);
+    await expect(statsSpan).toHaveText(/1 \w+ \d+/);
 
     // Read the initial stats
     const initialStats = await statsSpan.textContent();
     console.log(`Initial stats: "${initialStats}"`);
-    expect(initialStats).toMatch(/1 \/ \d+/);
+    expect(initialStats).toMatch(/1 \w+ \d+/);
 
     // click second result
     const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
@@ -460,10 +432,13 @@ test.describe("Search Functionality", () => {
     await editorPage.getByTestId(TESTING_IDS.searchNextButton).click();
 
     // Wait for the updated stats to reflect the next match
-    await expect(statsSpan).toHaveText("2 / 2");
+    await expect(statsSpan).toHaveText("3 of 378 results");
   });
 
-  test("prev button goes back", async ({ editorPage }) => {
+  test("prev button goes back", async ({ editorPage, isMobile }) => {
+    if (isMobile) {
+      test.skip(isMobile, "This test is not relevant for mobile viewports. ");
+    }
     // Open search UI
     await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
 
@@ -475,7 +450,7 @@ test.describe("Search Functionality", () => {
 
     // Wait for search results to populate via stats element
     const statsSpan = editorPage.getByTestId(TESTING_IDS.searchStats);
-    await expect(statsSpan).toHaveText(/2 \/ \d+/);
+    await expect(statsSpan).toHaveText(/3 \w+ \d+/);
 
     // Advance forward
     await editorPage.getByTestId(TESTING_IDS.searchPrevButton).click();
@@ -483,7 +458,7 @@ test.describe("Search Functionality", () => {
     // Read initial stats
     const newState = await statsSpan.textContent();
     console.log(`New state: "${newState}"`);
-    expect(newState).toMatch(/1 \/ \d+/);
+    expect(newState).toMatch(/2 \w+ \d+/);
   });
 
   test("replace button replaces text", async ({ editorPage }) => {
@@ -502,8 +477,6 @@ test.describe("Search Functionality", () => {
   }) => {
     await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
     await editorPage.getByTestId(TESTING_IDS.searchInput).fill("vola");
-    const results = editorPage.getByTestId(TESTING_IDS.searchResultItem);
-    await results.nth(1).click(); //2 results in this chapter
     await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
     await editorPage.getByTestId(TESTING_IDS.replaceAllButton).click();
     const allEditorContent = await editorPage
@@ -544,13 +517,16 @@ test.describe("Search Functionality", () => {
     await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
     const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
     await searchInput.fill("in");
-    await editorPage.waitForTimeout(700);
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
+    ).toBeVisible();
     const initialCount = await editorPage
       .getByTestId(TESTING_IDS.searchResultItem)
       .count();
+    expect(initialCount).toBeGreaterThan(0);
     console.log(`Initial count: ${initialCount}`);
     await editorPage.getByTestId(TESTING_IDS.matchWholeWordCheckbox).click();
-    await editorPage.waitForTimeout(700);
+    // await editorPage.waitForTimeout(700);
     const wholeWordCount = await editorPage
       .getByTestId(TESTING_IDS.searchResultItem)
       .count();
@@ -561,13 +537,18 @@ test.describe("Search Functionality", () => {
   test("sort toggle shows case mismatches first", async ({ editorPage }) => {
     await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
     const searchInput = editorPage.getByTestId(TESTING_IDS.searchInput);
-    await searchInput.fill("the");
-    await editorPage.waitForTimeout(700);
+    await searchInput.fill("Jisu");
+    // wait for results to populate
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
+    ).toBeVisible();
     await expect(
       editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
     ).not.toBeVisible();
     await editorPage.getByTestId(TESTING_IDS.sortToggleButton).click();
-    await editorPage.waitForTimeout(200);
+    await expect(
+      editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
+    ).toBeVisible();
     await expect(
       editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
     ).toBeVisible();

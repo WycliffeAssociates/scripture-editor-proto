@@ -53,7 +53,14 @@ const mockScriptureBurritoProject: ScriptureBurritoProject = {
   },
   projectDir: mockProjectDir,
   fileWriter: mockFileWriter,
-  metadataJson: { ingredients: {} },
+  metadataJson: {
+    meta: {
+      version: "1.0.0",
+      defaultLocale: "en",
+      dateCreated: new Date().toISOString(),
+    },
+    ingredients: {},
+  },
   md5Service: mockMd5Service,
   addBook: vi.fn(),
   getBook: vi.fn(),

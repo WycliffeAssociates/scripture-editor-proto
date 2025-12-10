@@ -24,7 +24,6 @@ export const navRibbon = style({
   zIndex: 40,
   padding: "0.25rem .5rem",
   backgroundColor: vars.colors.body,
-  borderBottom: `1px solid ${vars.colors.gray[3]}`,
 });
 
 export const mobileRibbon = style({

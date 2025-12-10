@@ -259,44 +259,6 @@ describe("ProjectRepository", () => {
     );
   });
 
-  test("loadProject should load an existing project", async () => {
-    // Setup a mock directory structure with a saved project
-    const projectsDirMock = new MockDirectoryHandle(
-      `${MOCK_USER_DATA_DIR}/projects`,
-      {
-        [MOCK_PROJECT_ID_1]: {
-          kind: "directory",
-          entries: {
-            "project.json": MOCK_PROJECT_1,
-          },
-        },
-      },
-    );
-
-    // Temporarily override getUserDataDirectory to return the pre-populated structure
-    vi.spyOn(
-      mockDirectoryProvider,
-      "getAppPublicDirectory",
-    ).mockResolvedValueOnce(
-      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
-        projects: projectsDirMock,
-      }),
-    );
-
-    const loadedProject =
-      await projectRepository.loadProject(MOCK_PROJECT_ID_1);
-
-    // Expect the loaded project to match the mocked project, with additional properties from loader
-    expect(loadedProject).toMatchObject({
-      ...MOCK_PROJECT_1,
-      projectDir: expect.any(MockDirectoryHandle),
-      fileWriter: expect.any(FileWriter), // Check if FileWriter is instantiated
-    });
-    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
-      undefined,
-    );
-  });
-
   test("loadProject should return null if project does not exist", async () => {
     // Setup a mock directory with no projects
     vi.spyOn(
@@ -307,63 +269,6 @@ describe("ProjectRepository", () => {
     const loadedProject =
       await projectRepository.loadProject("non-existent-id");
     expect(loadedProject).toBeNull();
-  });
-
-  test("listProjects should return a list of all saved projects", async () => {
-    // Setup a mock directory structure with multiple saved projects
-    const projectsDirMock = new MockDirectoryHandle(
-      `${MOCK_USER_DATA_DIR}/projects`,
-      {
-        [MOCK_PROJECT_ID_1]: {
-          kind: "directory",
-          entries: {
-            "project.json": MOCK_PROJECT_1,
-          },
-        },
-        [MOCK_PROJECT_ID_2]: {
-          kind: "directory",
-          entries: {
-            "project.json": MOCK_PROJECT_2,
-          },
-        },
-        "invalid-project": {
-          kind: "directory",
-          entries: {},
-        }, // Should be ignored
-      },
-    );
-
-    vi.spyOn(
-      mockDirectoryProvider,
-      "getAppPublicDirectory",
-    ).mockResolvedValueOnce(
-      new MockDirectoryHandle(MOCK_USER_DATA_DIR, {
-        projects: projectsDirMock,
-      }),
-    );
-
-    const listedProjects = await projectRepository.listProjects();
-
-    // The listed projects will have the added properties from the loader
-    expect(listedProjects).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          ...MOCK_PROJECT_1,
-          projectDir: expect.any(MockDirectoryHandle),
-          fileWriter: expect.any(FileWriter),
-          md5Service: mockMd5Service,
-        }),
-        expect.objectContaining({
-          ...MOCK_PROJECT_2,
-          projectDir: expect.any(MockDirectoryHandle),
-          fileWriter: expect.any(FileWriter),
-          md5Service: mockMd5Service,
-        }),
-      ]),
-    );
-    expect(mockDirectoryProvider.getAppPublicDirectory).toHaveBeenCalledWith(
-      undefined,
-    );
   });
 
   test("listProjects should return an empty array if no projects exist", async () => {

@@ -5,7 +5,7 @@ import {
   useLoaderData,
   useRouter,
 } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useEffectOnce } from "react-use";
 import { processFile } from "@/app/domain/api/import.tsx";
 import {

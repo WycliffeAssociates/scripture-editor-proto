@@ -24,6 +24,7 @@ import {
 } from "lexical";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
   EditorMarkersMutableStates,
   EditorMarkersViewStates,
@@ -386,7 +387,7 @@ export function NodeContextMenuPlugin() {
       },
       COMMAND_PRIORITY_HIGH,
     );
-  }, [editor, showTooltipNearSelection, isXs, isSm]);
+  }, [editor, showTooltipNearSelection]);
 
   if (!opened) return null;
 
@@ -471,6 +472,7 @@ function ContextMenu({
     <Portal>
       <Paper
         ref={clickOutSideRef}
+        data-testid={TESTING_IDS.contextMenu.container}
         shadow="lg"
         radius="md"
         withBorder
@@ -500,6 +502,7 @@ function ContextMenu({
 
         <TextInput
           ref={searchRef}
+          data-testid={TESTING_IDS.contextMenu.searchInput}
           placeholder={t`Search…`}
           size="xs"
           autoFocus={true}
@@ -564,6 +567,11 @@ function ContextMenu({
                   e.currentTarget.style.background = "transparent";
                 }}
                 tabIndex={0}
+                data-testid={
+                  item.type === "searchAction"
+                    ? TESTING_IDS.contextMenu.searchAction
+                    : undefined
+                }
               >
                 {item.icon}
                 <Text size="sm">{item.title}</Text>

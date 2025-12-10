@@ -11,6 +11,7 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import { Languages, Moon, Sun } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES } from "@/app/data/settings.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
@@ -54,8 +55,10 @@ function DisplayThemeToggle() {
         <Trans>Display</Trans>
       </Text>
       <SegmentedControl
+        data-testid={TESTING_IDS.settings.themeToggle}
         radius={"lg"}
         withItemsBorders={false}
+        data-value={project.appSettings.colorScheme}
         value={project.appSettings.colorScheme}
         classNames={{
           root: styles.root,
@@ -130,11 +133,16 @@ export function LanguageSelector({
   }));
   return (
     <Stack gap="xs">
-      <Text data-testid="language-selector-label" size="md" mb="2" fw={500}>
+      <Text
+        data-testid={TESTING_IDS.settings.languageSelectorLabel}
+        size="md"
+        mb="2"
+        fw={500}
+      >
         <Trans>Interface Localization</Trans>
       </Text>
       <Select
-        data-testid="language-selector"
+        data-testid={TESTING_IDS.settings.languageSelector}
         radius={"lg"}
         styles={{
           root: {

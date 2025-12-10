@@ -15,11 +15,13 @@ import {
 } from "@mantine/core";
 import type { Change } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
+import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 
 type HighlightedDiffProps = {
   changes: Change[];
@@ -28,7 +30,10 @@ type HighlightedDiffProps = {
 
 function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
   return (
-    <pre className={styles.diffPre}>
+    <pre
+      data-testid={`${TESTING_IDS.save.diffCurrentPre}-${viewType}`}
+      className={styles.diffPre}
+    >
       {changes.map((change, index) => {
         let spanClass = "";
         if (change.added && viewType === "current") {
@@ -64,6 +69,7 @@ export function DiffItem({
   toggleDiffModal,
 }: DiffItemProps) {
   const { isSm, isLg } = useWorkspaceMediaQuery();
+  const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
   const isAddition = diff.original === null;
   const isDeletion = diff.current === null;
   const isModification = !isAddition && !isDeletion;
@@ -94,8 +100,6 @@ export function DiffItem({
       }, 2000);
     }, 500);
   }
-
-  // Helper to generate class string without clsx
   const getPaperClass = (isHighlighted: boolean, highlightClass: string) => {
     return `${styles.paperMinHeight} ${isHighlighted ? highlightClass : styles.paperBgDefault}`;
   };
@@ -110,6 +114,7 @@ export function DiffItem({
             position="top"
           >
             <ActionIconSimple
+              data-testid={TESTING_IDS.save.goToChapterButton}
               onClick={() => scrollToClickedRef(diff)}
               aria-label={t`Switch to this chapter`}
               title={t`Switch to this chapter`}
@@ -119,6 +124,7 @@ export function DiffItem({
           </Tooltip>
           <Tooltip label={<Trans>Undo Change</Trans>} withArrow position="top">
             <ActionIconSimple
+              data-testid={TESTING_IDS.save.revertButton}
               onClick={() => revertDiff(diff)}
               aria-label={t`Undo Change`}
               title={t`Undo Change`}
@@ -133,6 +139,7 @@ export function DiffItem({
             variant="outline"
             size="compact-xs"
             onClick={() => scrollToClickedRef(diff)}
+            data-testid={TESTING_IDS.save.goToChapterButton}
           >
             <Trans>Switch to this chapter</Trans>
           </Button>
@@ -140,6 +147,7 @@ export function DiffItem({
             variant="outline"
             size="compact-xs"
             onClick={() => revertDiff(diff)}
+            data-testid={TESTING_IDS.save.revertButton}
           >
             <Trans>Undo Change</Trans>
           </Button>
@@ -149,9 +157,17 @@ export function DiffItem({
   );
 
   return (
-    <div className={styles.diffItem}>
+    <div data-testid={TESTING_IDS.save.diffItem} className={styles.diffItem}>
       <Group justify="space-between" p="0">
-        <Text className={styles.diffSidHeader}>{diff.semanticSid}</Text>
+        <Text
+          data-testid={TESTING_IDS.save.diffSidHeader}
+          className={styles.diffSidHeader}
+        >
+          {bookCodeToProjectLocalizedTitle({
+            bookCode: diff.bookCode,
+            replaceCodeInString: diff.semanticSid,
+          })}
+        </Text>
         {diff.detail && (
           <Text className={styles.diffDetailWarning}>{diff.detail}</Text>
         )}
@@ -323,12 +339,16 @@ function DiffViewerModal({
       }}
     >
       <Paper p={isSm ? "xs" : "sm"} className={styles.modalScrollPaper}>
-        <div className={styles.stickyHeader}>
+        <div
+          data-testId={TESTING_IDS.save.modal}
+          className={styles.stickyHeader}
+        >
           <Button
             variant="light"
             size="xs"
             onClick={saveDiff.saveProjectToDisk}
             className={styles.saveAllButtonMargin}
+            data-testid={TESTING_IDS.save.saveAllButton}
           >
             <Trans>Save all changes</Trans>
           </Button>
@@ -375,12 +395,16 @@ export function SaveAndReviewChanges() {
   const { saveDiff, actions } = useWorkspaceContext();
   const { isXs, isSm } = useWorkspaceMediaQuery();
 
+  const sorted = sortListBySidCanonical(
+    saveDiff.diffs.map((diff) => ({ sid: diff.semanticSid, ...diff })),
+  );
+
   return (
     <>
       <DiffViewerModal
         isOpen={saveDiff.openDiffModal}
         onClose={saveDiff.closeModal}
-        diffs={saveDiff.diffs}
+        diffs={sorted}
         isCalculating={false}
         revertDiff={saveDiff.handleRevert}
         isSm={isSm}
@@ -394,6 +418,7 @@ export function SaveAndReviewChanges() {
           position="top"
         >
           <ActionIconSimple
+            data-testid={TESTING_IDS.save.trigger}
             onClick={actions.toggleDiffModal}
             aria-label={t`Review and save changes`}
             title={t`Review and save changes`}
@@ -402,7 +427,11 @@ export function SaveAndReviewChanges() {
           </ActionIconSimple>
         </Tooltip>
       ) : (
-        <Button color="primary.7" onClick={actions.toggleDiffModal}>
+        <Button
+          data-testid={TESTING_IDS.save.trigger}
+          color="primary.7"
+          onClick={actions.toggleDiffModal}
+        >
           <Trans>Review &amp; Save</Trans>
         </Button>
       )}

@@ -47,6 +47,13 @@ interface WorkSpaceContextType {
   cssStyleSheet: UseDynamicStylesheetHook;
   saveDiff: UseProjectDiffsReturn;
   projectLanguageDirection: "ltr" | "rtl";
+  bookCodeToProjectLocalizedTitle({
+    bookCode,
+    replaceCodeInString,
+  }: {
+    bookCode: string;
+    replaceCodeInString?: string;
+  }): string;
 }
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
   undefined,
@@ -130,6 +137,21 @@ export const ProjectProvider = ({
     currentBibleBookId: project.currentFileBibleIdentifier,
   });
 
+  function bookCodeToProjectLocalizedTitle({
+    bookCode,
+    replaceCodeInString,
+  }: {
+    bookCode: string;
+    replaceCodeInString?: string;
+  }) {
+    const file = loadedProject.files.find((file) => file.bookCode === bookCode);
+    if (!file) return bookCode;
+    if (replaceCodeInString) {
+      return replaceCodeInString.replace(bookCode, file.title);
+    }
+    return file.title;
+  }
+
   // sync props to state: Be sure all dirty work is saved before navigating away or closing app
   useEffect(() => {
     mutWorkingFilesRef.current = projectFiles;
@@ -155,6 +177,7 @@ export const ProjectProvider = ({
         cssStyleSheet,
         saveDiff,
         projectLanguageDirection,
+        bookCodeToProjectLocalizedTitle,
       }}
     >
       {children}

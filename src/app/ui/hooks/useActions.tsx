@@ -192,7 +192,6 @@ export const useWorkspaceActions = ({
   const nextChapter = determineNextChapter(
     pickedFile,
     currentChapter,
-    mutWorkingFilesRef,
     switchBookOrChapter,
   );
   const prevChapter = determinePrevChapter(
@@ -554,7 +553,6 @@ function updateDomClassListWithMarkerViewState({
 function determineNextChapter(
   pickedFile: ParsedFile | null,
   currentChapter: number,
-  workingFiles: ParsedFile[],
   switchBookOrChapter: (bookCode: string, chapter: number) => void,
 ) {
   const { t } = useLingui();
@@ -569,14 +567,11 @@ function determineNextChapter(
     };
   if (currentChapter === pickedFile?.chapters.length - 1) {
     const nextBookId = pickedFile.nextBookId;
-    const nextBook = nextBookId
-      ? workingFiles.find((file) => file.bookCode === nextBookId)
-      : null;
+
     const firstChap = 0;
-    const title = nextBook?.title || nextBook?.bookCode;
     return {
       hasNext: !!nextBookId,
-      display: `${title} ${firstChap}`,
+      display: t`Introduction`,
       go: () =>
         switchBookOrChapter(nextBookId || pickedFile.bookCode, firstChap),
     };

@@ -112,7 +112,11 @@ export function EditorModeToggle() {
             label: (
               <ModeLabel
                 value="regular"
-                tooltip={<Trans>Normal — shows only the bible text.</Trans>}
+                tooltip={
+                  <Trans>
+                    Normal — shows only the bible text and verse numbers.
+                  </Trans>
+                }
                 labelText={<Trans>Regular</Trans>}
               />
             ),

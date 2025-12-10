@@ -95,8 +95,6 @@ export function ProjectView() {
 }
 
 function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
-  const { actions } = useWorkspaceContext();
-
   return (
     <nav className={styles.navRibbon}>
       <Toolbar openDrawer={props.openDrawer} />
@@ -104,13 +102,13 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
       {props.isSmall && (
         <div className={styles.mobileRibbon}>
           <div className={styles.mobileRibbonLeft}>
-            {actions.prevChapter.hasPrev && <PrevButton />}
+            <PrevButton />
           </div>
 
           <LintPopover wrapperClassNames="relative" />
 
           <div className={styles.mobileRibbonRight}>
-            {actions.nextChapter.hasNext && <NextButton />}
+            <NextButton />
           </div>
         </div>
       )}
@@ -130,6 +128,7 @@ function MobileReferenceTabs(props: {
       <div className={styles.mobileTabsBar}>
         <button
           type="button"
+          data-testid="mobile-main-editor-tab"
           className={props.mobileTab === "main" ? "activeTab" : ""}
           onClick={() => props.setMobileTab("main")}
         >
@@ -137,6 +136,7 @@ function MobileReferenceTabs(props: {
         </button>
         <button
           type="button"
+          data-testid="mobile-reference-editor-tab"
           className={props.mobileTab === "ref" ? "activeTab" : ""}
           onClick={() => props.setMobileTab("ref")}
         >
@@ -193,7 +193,6 @@ function NextButton() {
       />
     );
   }
-
   const isIntroduction =
     actions.nextChapter.display?.includes(t`Introduction`) || false;
 

@@ -25,6 +25,7 @@ export const test = base.extend<MyFixtures>({
       "mockData",
       "llx_reg-master.zip",
     );
+
     await page.getByTestId("file-importer").setInputFiles(resolvedPath);
 
     // Wait for project to appear in list
@@ -72,7 +73,7 @@ export const test = base.extend<MyFixtures>({
 
     await page.getByTestId("project-row-link").first().click();
     await page
-      .getByTestId("lexical-editor-container")
+      .getByTestId(TESTING_IDS.mainEditorContainer)
       .waitFor({ state: "visible" });
     // Use the page in the test
     await use(page);

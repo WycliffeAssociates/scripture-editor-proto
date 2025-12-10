@@ -46,21 +46,22 @@ export default defineConfig({
       name: "firefox",
       use: {...devices["Desktop Firefox"]},
     },
+    // !: NOTE: NO WEBKIT. AUTOMATED BROWSERS RUN AS PRIVATE, AND OPFS does not work in private browsers for webkit.
 
-    {
-      name: "webkit",
-      use: {...devices["Desktop Safari"]},
-    },
+    // {
+    //   name: "webkit",
+    //   use: {...devices["Desktop Safari"]},
+    // },
 
     /* Test against mobile viewports. */
     {
       name: "Mobile Chrome",
       use: {...devices["Pixel 5"]},
     },
-    {
-      name: "Mobile Safari",
-      use: {...devices["iPhone 12"]},
-    },
+    // {
+    //   name: "Mobile Safari",
+    //   use: {...devices["iPhone 12"]},
+    // },
 
     /* Test against branded browsers. */
     // {

@@ -12,8 +12,16 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
   return (
-    <Group align="center" py="xs" gap="md" display="flex" className="">
+    <Group
+      align="center"
+      py="xs"
+      gap="md"
+      display="flex"
+      justify="center"
+      className="border-b border-solid border-(--mantine-color-gray-2)"
+    >
       <ActionIconSimple
+        data-testid={TESTING_IDS.settings.drawerOpenButton}
         onClick={openDrawer}
         aria-label="Open project drawer"
         className="text-(--mantine-color-default-text)!"
@@ -53,7 +61,10 @@ function ReferenceProjectList() {
         data-testid={TESTING_IDS.referenceProjectTrigger}
       >
         <Menu.Target>
-          <ActionIconSimple aria-label={t`Select reference project`}>
+          <ActionIconSimple
+            data-testid={TESTING_IDS.referenceProjectTrigger}
+            aria-label={t`Select reference project`}
+          >
             <BookCopy size={16} />
           </ActionIconSimple>
         </Menu.Target>

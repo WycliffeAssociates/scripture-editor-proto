@@ -12,8 +12,13 @@ export class WebDirectoryProvider implements IDirectoryProvider {
   private constructor(private root: FileSystemDirectoryHandle) {}
 
   static async create(): Promise<WebDirectoryProvider> {
-    const root = await navigator.storage.getDirectory(); // OPFS root
-    return new WebDirectoryProvider(root);
+    try {
+      const root = await navigator.storage.getDirectory(); // OPFS root
+      return new WebDirectoryProvider(root);
+    } catch (e) {
+      console.error("Failed to access OPFS:", e);
+      throw e;
+    }
   }
 
   async getAppPublicDirectory(

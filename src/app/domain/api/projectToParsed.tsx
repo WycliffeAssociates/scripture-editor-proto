@@ -33,7 +33,6 @@ export async function projectParamToParsedFiles(
   }> = [];
 
   for (const entry of loadedProject.files) {
-    // todo: need to return localized book name for ui
     const bookContent = loadedProject.getBook(entry.bookCode);
     if (entries && bookContent) {
       const text = await bookContent;

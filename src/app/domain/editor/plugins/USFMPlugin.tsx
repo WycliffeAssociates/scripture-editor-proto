@@ -47,15 +47,11 @@ export function USFMPlugin() {
   const structuralUpdateDebounceMs = 1000;
 
   const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
-    // console.time("lint");
-    // const messages = lintVerseRangeReferences({editorState, editor});
-    // todo: debug inf loop here?
     const errMessages = lintAll(
       { editorState, editor },
       actions.getFlatFileTokens,
     );
 
-    // console.log(messages);
     lint.mergeInNewErrorsFromChapter(errMessages);
   }, lintDebounceMs);
 

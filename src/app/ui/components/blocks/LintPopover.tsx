@@ -1,6 +1,7 @@
 import { Button, Popover } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { lintPopoverButton } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
@@ -21,6 +22,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
   return (
     <div className={wrapperClassNames}>
       <Popover
+        data-testid={TESTING_IDS.lintPopover.triggerButton}
         opened={lintPopoverIsOpen}
         onDismiss={() => setLintPopoverIsOpen(false)}
         position="bottom-start"
@@ -44,7 +46,10 @@ export function LintPopover({ wrapperClassNames }: Props) {
         </Popover.Target>
 
         <Popover.Dropdown className="max-h-64 overflow-y-auto">
-          <ul className="space-y-2 text-sm flex flex-col items-start">
+          <ul
+            className="space-y-2 text-sm flex flex-col items-start"
+            data-testid={TESTING_IDS.lintPopover.container}
+          >
             {lint.messages.map((msg) => (
               <LintMessageItem
                 key={msg.nodeId}
@@ -101,6 +106,7 @@ function LintMessageItem({
   return (
     <li className="w-full whitespace-normal wrap-break-word">
       <Button
+        data-testid={TESTING_IDS.lintPopover.errorItem}
         variant="subtle"
         color="gray"
         fullWidth
@@ -129,8 +135,15 @@ function LintMessageItem({
         }}
       >
         <span className="flex flex-col items-start text-start wrap-break-word whitespace-break-spaces ">
-          <span className="font-semibold">{msg.sid}</span>
-          <span>{msg.message}</span>
+          <span
+            data-testid={TESTING_IDS.lintPopover.errorSid}
+            className="font-semibold"
+          >
+            {msg.sid}
+          </span>
+          <span data-testid={TESTING_IDS.lintPopover.errorMessage}>
+            {msg.message}
+          </span>
         </span>
       </Button>
     </li>

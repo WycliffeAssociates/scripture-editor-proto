@@ -40,17 +40,23 @@ describe("ScriptureBurritoProjectLoader", () => {
   let loader: ScriptureBurritoProjectLoader;
   let mockProjectDir: MockIDirectoryHandle;
   const MOCK_PROJECT_NAME = "My Test Burrito Project";
-  const MOCK_PROJECT_ID = "test-burrito-id";
 
   const sampleMetadataJson = {
-    id: MOCK_PROJECT_ID,
+    meta: {
+      version: "1.0.0",
+      defaultLocale: "en",
+      dateCreated: new Date().toISOString(),
+    },
     identification: {
       name: { en: MOCK_PROJECT_NAME },
     },
-    languages: {
-      default: { tag: "en", direction: "ltr" },
-      en: { name: { en: "English" } },
-    },
+    languages: [
+      {
+        tag: "en",
+        name: { en: "English" },
+        scriptDirection: "ltr",
+      },
+    ],
     ingredients: {},
   };
 
@@ -70,7 +76,7 @@ describe("ScriptureBurritoProjectLoader", () => {
     const project = await loader.loadProject(mockProjectDir, mockFileWriter);
 
     expect(project).not.toBeNull();
-    expect(project?.id).toBe(MOCK_PROJECT_ID);
+    expect(project?.id).toBe(MOCK_PROJECT_NAME);
     expect(project?.name).toBe(MOCK_PROJECT_NAME);
     expect(project?.metadata.language.id).toBe("en");
     expect(project?.metadataJson).toEqual(sampleMetadataJson);
@@ -124,7 +130,11 @@ describe("ScriptureBurritoProjectLoader", () => {
 
   test("addBook should not overwrite an existing file (as ingredient)", async () => {
     const existingIngredients = {
-      "41-MAT.usfm": { checksum: { md5: "old-md5" } },
+      "41-MAT.usfm": {
+        checksum: { md5: "old-md5" },
+        mimeType: "text/usfm", // Required field
+        size: 12345, // Recommended field (integer)
+      },
     };
     const metadataWithExistingBook = {
       ...sampleMetadataJson,

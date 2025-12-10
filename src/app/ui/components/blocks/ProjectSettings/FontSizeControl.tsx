@@ -3,6 +3,7 @@ import { ActionIcon, Box, rem, Stack, Text, TextInput } from "@mantine/core";
 import { Minus, Plus } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import styles from "./Settings.module.css";
@@ -115,6 +116,7 @@ export default function FontSizeControl() {
         }}
       >
         <ActionIcon
+          data-testid={TESTING_IDS.settings.fontSizeDecrement}
           variant="subtle"
           onClick={handleDecrement}
           aria-label="Decrease font size"
@@ -140,6 +142,7 @@ export default function FontSizeControl() {
           }}
         >
           <TextInput
+            data-testid={TESTING_IDS.settings.fontSizeInput}
             value={display}
             onChange={(e) => setDisplay(e.currentTarget.value)}
             onBlur={handleInputBlur}
@@ -153,6 +156,7 @@ export default function FontSizeControl() {
         </Box>
 
         <ActionIcon
+          data-testid={TESTING_IDS.settings.fontSizeIncrement}
           variant="subtle"
           onClick={handleIncrement}
           aria-label="Increase font size"

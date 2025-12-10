@@ -213,12 +213,14 @@ export function ReferencePicker() {
                                     width: "3rem",
                                     height: "3rem",
                                   }}
-                                  onClick={() =>
+                                  onClick={() => {
                                     actions.switchBookOrChapter(
                                       file.bookCode,
                                       chap,
-                                    )
-                                  }
+                                    );
+                                    // close the popover
+                                    setOpen(false);
+                                  }}
                                 >
                                   {chap === 0 ? (
                                     <Tooltip
