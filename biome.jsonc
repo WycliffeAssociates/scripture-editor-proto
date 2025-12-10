@@ -1,74 +1,74 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
-  "vcs": {
-    "enabled": false,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
-  "files": {
-    "ignoreUnknown": false,
-    "includes": [
-      "./src/**/*.{ts,tsx}",
-      "lingui.config.js",
-      "vite.config.ts",
-      "vite.tauri.config.ts",
-      "vite.web.config.ts",
-      "vitest.config.ts",
-      "!**/routeTree.gen.ts"
-    ]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      // "recommended": true,
-      "style": {
-        "useImportType": {
-          "level": "warn",
-          "fix": "safe",
-          "options": {
-            "style": "auto"
-          }
-        }
-      },
-      "correctness": {
-        "noUnusedImports": {
-          "level": "warn",
-          "fix": "none",
-          "options": {}
-        },
-        "noUnusedFunctionParameters": {
-          "level": "warn",
-          "fix": "none",
-          "options": {}
-        },
-        "useImportExtensions": {
-          "level": "warn",
-          "options": {
-            "forceJsExtensions": false
-          }
-        }
-      }
-    }
-  },
-  "javascript": {
+    "$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
+    "vcs": {
+        "enabled": false,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "ignoreUnknown": false,
+        "includes": [
+            "./src/**/*.{ts,tsx}",
+            "lingui.config.js",
+            "vite.config.ts",
+            "vite.tauri.config.ts",
+            "vite.web.config.ts",
+            "vitest.config.ts",
+            "!**/routeTree.gen.ts"
+        ]
+    },
     "formatter": {
-      "quoteStyle": "double"
-    }
-  },
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            // "recommended": true,
+            "style": {
+                "useImportType": {
+                    "level": "warn",
+                    "fix": "safe",
+                    "options": {
+                        "style": "auto"
+                    }
+                }
+            },
+            "correctness": {
+                "noUnusedImports": {
+                    "level": "warn",
+                    "fix": "none",
+                    "options": {}
+                },
+                "noUnusedFunctionParameters": {
+                    "level": "warn",
+                    "fix": "none",
+                    "options": {}
+                },
+                "useImportExtensions": {
+                    "level": "warn",
+                    "options": {
+                        "forceJsExtensions": false
+                    }
+                }
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "double"
+        }
+    },
 
-  "assist": {
-    "enabled": true,
+    "assist": {
+        "enabled": true,
 
-    "actions": {
-      "source": {
-        "organizeImports": "on",
-        "recommended": true
-      }
+        "actions": {
+            "source": {
+                "organizeImports": "on",
+                "recommended": true
+            }
+        }
     }
-  }
 }

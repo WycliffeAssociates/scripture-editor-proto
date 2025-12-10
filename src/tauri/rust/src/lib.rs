@@ -34,7 +34,6 @@ fn hello_world() -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init());
@@ -48,8 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             parse_usfm,
             git::clone_repo,
-            hello_world,
-            md5::calculate_md5
+            hello_world
         ])
         .setup(move |app| {
             #[cfg(debug_assertions)] // only include this code on dev builds
