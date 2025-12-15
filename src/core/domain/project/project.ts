@@ -22,7 +22,7 @@ export const LanguageDirection = {
     RTL: "rtl",
 } as const;
 
-type LanguageDirection =
+export type LanguageDirection =
     (typeof LanguageDirection)[keyof typeof LanguageDirection];
 
 export interface ProjectFile2 {

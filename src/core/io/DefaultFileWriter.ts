@@ -1,4 +1,4 @@
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
 

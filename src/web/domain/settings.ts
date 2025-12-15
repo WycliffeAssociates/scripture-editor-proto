@@ -1,9 +1,9 @@
-import type { SettingsManager } from "@/app/data/settings";
+import type { SettingsManager } from "@/app/data/settings.ts";
 import {
     createBaseLocalStorageSettingsManager,
     getSettingsLocalStorage,
     setDocumentRootFontSize,
-} from "@/app/domain/settings/settings";
+} from "@/app/domain/settings/settings.ts";
 
 export function createBrowserSettingsManager(): SettingsManager {
     const persisted = getSettingsLocalStorage();

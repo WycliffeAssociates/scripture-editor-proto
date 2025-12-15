@@ -1,7 +1,7 @@
 import type { LexicalEditor } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { ParsedFile } from "@/app/data/parsedProject";
-import type { Settings, SettingsManager } from "@/app/data/settings";
+import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 
 export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 
@@ -29,7 +29,7 @@ export const useWorkspaceState = (
                 allFiles[0].bookCode,
         );
     const [currentChapter, setCurrentChapter] = useState(
-        getSavedIfPrefersRestore("lastChapterNumber") || 0,
+        getSavedIfPrefersRestore("lastChapterNumber") || 1,
     );
     const [referenceProjectPath, setReferenceProjectPath] = useState<
         string | null

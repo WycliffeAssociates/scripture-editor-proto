@@ -1,208 +1,114 @@
-import {
-    ActionIcon,
-    Button,
-    Center,
-    Divider,
-    Group,
-    Menu,
-    SegmentedControl,
-    Select,
-    Text,
-} from "@mantine/core";
-import { Link, useRouter } from "@tanstack/react-router";
-import {
-    $getSelection,
-    $isElementNode,
-    $isLineBreakNode,
-    $isRangeSelection,
-    KEY_SPACE_COMMAND,
-} from "lexical";
-import { ChevronDown, Code, Plus } from "lucide-react";
-import { useState } from "react";
-import {
-    type EditorMarkersMutableState,
-    type EditorMarkersViewState,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor";
-import { textNodeTransform } from "@/app/domain/editor/listeners/manageUsfmMarkers";
-import {
-    $createUSFMTextNode,
-    $isUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal";
-// import { lexicalToUSFM } from "@/app/ui/hooks/useProjectState";
-// import { parseUSFM } from "@/app/ui/hooks/useProjectState";
-// import { getSerializedLexicalNodes } from "@/app/ui/hooks/useProjectState";
-import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker";
-import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
-import { EditorMarkersMutableStates } from "../../../data/editor";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { Button, Group, Menu, rem } from "@mantine/core";
+import { BookCopy, ChevronDown, Menu as IconMenu } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
+import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
+import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
+import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButton.tsx";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
-export function Toolbar() {
-    const { actions, project, editorRef } = useWorkspaceContext();
-
-    // const {} = useProjectContext();
-
-    // function seeUsfm() {
-    //   if (!editorRef.current) return;
-    //   const usfm = lexicalToUSFM(editorRef.current);
-    //   const bookSlug = pickedFile?.identifier?.toUpperCase();
-    //   const parsed = parseUSFM(usfm, bookSlug).chapters;
-    //   const lexical = getSerializedLexicalNodes(parsed[0]);
-    //   console.log(lexical);
-    // }
-
+export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
     return (
         <Group
             align="center"
             py="xs"
             gap="md"
             display="flex"
-            className="border-y border-(--mantine-color-default-border) divide-x divide-(--mantine-color-default-border)"
+            justify="center"
+            className="border-b border-solid border-(--mantine-color-gray-2)"
         >
-            <ProjectList />
-            <ReferencePicker />
-            {/* Assume ReferencePicker is Mantine-wrapped already */}
-            {/* <Button variant="subtle" onClick={seeUsfm}>See USFM</Button> */}
-            <ReferenceProjectList />
-            <FontSizeAdjust />
-            <FontPicker />
-            <ActionIcon
-                variant="default"
-                onClick={() => actions.toggleToSourceMode()}
+            <ActionIconSimple
+                data-testid={TESTING_IDS.settings.drawerOpenButton}
+                onClick={openDrawer}
+                aria-label="Open project drawer"
+                className="text-(--mantine-color-default-text)!"
             >
-                <Code size={16} />
-            </ActionIcon>
-            <SegmentedControl
-                value={project.appSettings.markersMutableState}
-                onChange={(value) => {
-                    actions.adjustWysiwygMode({
-                        markersMutableState: value as EditorMarkersMutableState,
-                        // already set view state
-                    });
-                }}
-                data={[
-                    {
-                        value: EditorMarkersMutableStates.IMMUTABLE,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Lock markers</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersMutableStates.MUTABLE,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Unlock markers</span>
-                            </Center>
-                        ),
-                    },
-                ]}
-            />
-            <SegmentedControl
-                value={project.appSettings.markersViewState}
-                onChange={(value) => {
-                    actions.adjustWysiwygMode({
-                        // already set mutable state
-                        markersViewState: value as EditorMarkersViewState,
-                    });
-                }}
-                data={[
-                    {
-                        value: EditorMarkersViewStates.ALWAYS,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Always visible</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersViewStates.WHEN_EDITING,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>When editing</span>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: EditorMarkersViewStates.NEVER,
-                        label: (
-                            <Center style={{ gap: 10 }}>
-                                <span>Never visible</span>
-                            </Center>
-                        ),
-                    },
-                ]}
-            />
+                <IconMenu size={rem(14)} />
+            </ActionIconSimple>
+
+            {/* Undo / Redo */}
+            <HistoryButtons />
+
+            <ReferencePicker />
+
+            {/* Keep reference project selector visible */}
+            <ReferenceProjectList />
+
+            {/* Search and save remain in toolbar */}
             <SearchInput />
             <SaveAndReviewChanges />
         </Group>
     );
 }
 
-/* ---------------- Project List ---------------- */
-function ProjectList() {
-    const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
-    const router = useRouter();
-    const currentProject = allProjects.find(
-        (p) => p.projectDir.name === currentProjectRoute,
-    );
-    const navigateToNewProject = (projectId: string) => {
-        project.updateAppSettings({
-            lastProjectPath: projectId,
-        });
-        router.navigate({
-            to: `/$project`,
-            params: { project: projectId },
-            reloadDocument: true,
-        });
-        // update project settings to this project
-        // navigate("/create");
-    };
-
-    return (
-        <Menu shadow="md" width={220}>
-            <Menu.Target>
-                <Button
-                    variant="default"
-                    bd={"none"}
-                    rightSection={<ChevronDown size={16} />}
-                >
-                    {currentProject?.name ?? "Select Project"}
-                </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-                {allProjects.map((project) => (
-                    <Menu.Item
-                        key={project.projectDir.path}
-                        onClick={() =>
-                            navigateToNewProject(project.projectDir.name)
-                        }
-                    >
-                        {project.name}
-                    </Menu.Item>
-                ))}
-                <Divider />
-                <Menu.Item leftSection={<Plus size={14} />}>
-                    <Link to="/">New Project</Link>
-                </Menu.Item>
-            </Menu.Dropdown>
-        </Menu>
-    );
-}
-
 /* ---------------- Reference Project ---------------- */
 function ReferenceProjectList() {
+    const { t } = useLingui();
     const { allProjects, referenceProject } = useWorkspaceContext();
+    const { isSm, setMobileTab } = useWorkspaceMediaQuery();
     const selected =
         allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
-            ?.name ?? "Select Reference Project";
+            ?.name ?? t`Select Reference Project`;
+
+    if (isSm) {
+        return (
+            <Menu
+                shadow="md"
+                width={220}
+                data-testid={TESTING_IDS.referenceProjectTrigger}
+            >
+                <Menu.Target>
+                    <ActionIconSimple
+                        data-testid={TESTING_IDS.referenceProjectTrigger}
+                        aria-label={t`Select reference project`}
+                    >
+                        <BookCopy size={16} />
+                    </ActionIconSimple>
+                </Menu.Target>
+                <Menu.Dropdown
+                    data-testid={TESTING_IDS.referenceProjectDropdown}
+                >
+                    <Menu.Item
+                        onClick={() => {
+                            referenceProject.setReferenceProjectId(undefined);
+                            setMobileTab("main");
+                        }}
+                        data-testid="reference-project-clear"
+                    >
+                        {t`Clear Reference Project`}
+                    </Menu.Item>
+                    {allProjects.map((project) => (
+                        <Menu.Item
+                            key={project.id}
+                            onClick={() =>
+                                referenceProject.setReferenceProjectId(
+                                    project.projectDirectoryPath,
+                                )
+                            }
+                            data-testid={TESTING_IDS.referenceProjectItem}
+                        >
+                            <span className="flex gap-1 items-center">
+                                {project.name}
+                                <span className="text-xs">
+                                    ({project.metadata?.language.name})
+                                </span>
+                            </span>
+                        </Menu.Item>
+                    ))}
+                </Menu.Dropdown>
+            </Menu>
+        );
+    }
 
     return (
-        <Menu shadow="md" width={220}>
+        <Menu
+            shadow="md"
+            width={220}
+            data-testid={TESTING_IDS.referenceProjectTrigger}
+        >
             <Menu.Target>
                 <Button
                     variant="light"
@@ -211,20 +117,23 @@ function ReferenceProjectList() {
                     {selected}
                 </Button>
             </Menu.Target>
-            <Menu.Dropdown>
+            <Menu.Dropdown data-testid={TESTING_IDS.referenceProjectDropdown}>
                 <Menu.Item
-                    onClick={() =>
-                        referenceProject.setReferenceProjectId(undefined)
-                    }
+                    onClick={() => {
+                        referenceProject.setReferenceProjectId(undefined);
+                        setMobileTab("main");
+                    }}
+                    data-testid={TESTING_IDS.referenceProjectClear}
                 >
-                    Clear Reference Project
+                    <Trans>Clear Reference Project</Trans>
                 </Menu.Item>
                 {allProjects.map((project) => (
                     <Menu.Item
                         key={project.id}
+                        data-testid={TESTING_IDS.referenceProjectItem}
                         onClick={() =>
                             referenceProject.setReferenceProjectId(
-                                project.projectDir.name,
+                                project.projectDirectoryPath,
                             )
                         }
                     >
@@ -236,62 +145,4 @@ function ReferenceProjectList() {
     );
 }
 
-/* ---------------- Font Size Adjust ---------------- */
-function FontSizeAdjust() {
-    const { project } = useWorkspaceContext();
-    const { appSettings, updateAppSettings } = project;
-
-    const minSize = 8;
-    function adjust(delta: number) {
-        const num = parseFloat(appSettings.fontSize);
-        const unit = appSettings.fontSize.replace(/[0-9.]/g, "") || "px";
-        const newSize = `${Math.max(minSize, num + delta)}${unit}`;
-        updateAppSettings({ fontSize: newSize });
-    }
-
-    return (
-        <Group gap={4}>
-            <ActionIcon
-                variant="default"
-                onClick={() => adjust(-1)}
-                disabled={parseFloat(appSettings.fontSize) <= minSize}
-            >
-                –
-            </ActionIcon>
-            <Text fz="sm">{appSettings.fontSize}</Text>
-            <ActionIcon variant="default" onClick={() => adjust(1)}>
-                +
-            </ActionIcon>
-        </Group>
-    );
-}
-
-/* ---------------- Font Picker ---------------- */
-function FontPicker() {
-    const { project } = useWorkspaceContext();
-    const { appSettings, updateAppSettings } = project;
-    const [fonts, _setFonts] = useState<string[]>(["Inter"]);
-    const [_selected, _setSelected] = useState("Inter");
-
-    // useEffect(() => {
-    //   invoke<string[]>("get_system_fonts")
-    //     .then((sysFonts) => {
-    //       setFonts(["Inter", ...new Set(sysFonts)]);
-    //     })
-    //     .catch(() => {});
-    // }, []);
-    if (!appSettings.canAccessSystemFonts) return null;
-
-    return (
-        <Select
-            data={fonts}
-            value={appSettings.fontFamily}
-            onChange={(value) =>
-                value && updateAppSettings({ fontFamily: value })
-            }
-            placeholder="Font"
-            searchable
-            w={160}
-        />
-    );
-}
+/* FontPicker moved to ProjectSettings/FontPicker.tsx */

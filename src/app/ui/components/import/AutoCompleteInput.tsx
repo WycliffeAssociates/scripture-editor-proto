@@ -1,5 +1,7 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 
 // The core item structure remains the same
 export interface AutocompleteItem {
@@ -33,6 +35,7 @@ export interface AutocompleteInputProps {
 }
 
 export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
+    const { t } = useLingui();
     // Solid's createSignal(false) becomes React's useState(false)
     const [showDropdown, setShowDropdown] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -115,19 +118,16 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
 
     return (
         // SolidJS's class="" becomes React's className=""
-        <div className="relative w-full mb-4">
-            <label
-                htmlFor="autoCompleteInput"
-                className="block text-gray-700 text-sm font-bold mb-2"
-            >
-                {props.label}
+        <div className={styles.acContainer}>
+            <label htmlFor="autoCompleteInput" className={styles.acLabel}>
+                <Trans>{props.label}</Trans>
             </label>
-            <div className="relative">
+            <div>
                 <input
                     id={"autoCompleteInput"}
                     type="text"
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    placeholder={props.placeholder}
+                    className={styles.repoInput}
+                    placeholder={t`${props.placeholder}`}
                     // Solid's value={inputValue()} becomes React's value={inputValue}
                     value={inputValue}
                     // Solid's onInput={handleInput} becomes React's onChange={handleInputChange}
@@ -138,19 +138,19 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                 />
 
                 {props.selectedItem && (
-                    <div className="flex items-center mt-2 p-2 bg-gray-100 rounded">
+                    <div className={styles.acSelected}>
                         {props.showAvatar && props.selectedItem.avatar_url && (
                             <img
                                 src={props.selectedItem.avatar_url}
                                 alt={props.selectedItem.name}
-                                className="w-8 h-8 rounded-full mr-2 object-cover"
+                                className={styles.acSelectedAvatar}
                             />
                         )}
-                        <span className="font-medium text-gray-800">
+                        <span className={styles.acSelectedText}>
                             {props.selectedItem.name}
                             {props.selectedItem.type &&
                                 props.selectedItem.type !== "repo" && (
-                                    <span className="ml-2 text-sm text-gray-500">
+                                    <span className={styles.acItemText}>
                                         ({props.selectedItem.type})
                                     </span>
                                 )}
@@ -158,50 +158,51 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                         <button
                             type="button"
                             onClick={() => props.onSelect(null)}
-                            className="ml-auto text-red-500 hover:text-red-700 text-sm"
+                            className={styles.acClearButton}
                             aria-label="Clear selection"
                         >
-                            Clear
+                            <Trans>Clear</Trans>
                         </button>
                     </div>
                 )}
 
                 {props.isLoading && (
-                    <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg mt-1 p-2 text-gray-600">
-                        Loading...
+                    <div className={styles.acLoading}>
+                        <Trans>Loading...</Trans>
                     </div>
                 )}
 
                 {props.isError && (
-                    <div className="absolute z-10 w-full bg-red-100 border border-red-400 text-red-700 rounded-b-lg shadow-lg mt-1 p-2">
-                        Error:{" "}
-                        {props.errorMessage || "Failed to fetch suggestions."}
+                    <div className={styles.acError}>
+                        <Trans>
+                            Error:{" "}
+                            {props.errorMessage ||
+                                t`Failed to fetch suggestions.`}
+                        </Trans>
                     </div>
                 )}
 
                 {shouldShowResultsDropdown && (
-                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-48 overflow-y-auto mt-1">
+                    <ul className={styles.acDropdown}>
                         {props.results?.map((item, index) => (
                             <li
                                 key={item.id}
-                                className={`px-4 py-2 cursor-pointer hover:bg-blue-100 ${
-                                    highlightedIndex === index
-                                        ? "bg-blue-200"
-                                        : ""
-                                }`}
+                                className={`${styles.acListItem} ${highlightedIndex === index ? styles.acHighlighted : ""}`}
                                 onMouseDown={() => props.onSelect(item)}
                             >
-                                <div className="flex items-center">
+                                <div className={styles.acItemContent}>
                                     {props.showAvatar && item.avatar_url && (
                                         <img
                                             src={item.avatar_url}
                                             alt={item.name}
-                                            className="w-8 h-8 rounded-full mr-2 object-cover"
+                                            className={styles.acItemAvatar}
                                         />
                                     )}
-                                    <span>{item.name}</span>
+                                    <span className={styles.acItemText}>
+                                        {item.name}
+                                    </span>
                                     {item.type && item.type !== "repo" && (
-                                        <span className="ml-2 text-sm text-gray-500">
+                                        <span className={styles.acItemText}>
                                             ({item.type})
                                         </span>
                                     )}

@@ -1,0 +1,25 @@
+# EXAMPLE USAGE:
+#
+#   Refer for explanation to following link:
+#   https://lefthook.dev/configuration
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      skip:
+        - ref: master
+      # don't block non master commits for lint errors
+      run: pnpm run format {staged_files} || true
+      # adds a little time to commit, but nicer on commits just to make sure linting isn't muddying a diff
+      stage_fixed: true
+    lint-master:
+      only:
+        - ref: master
+      # block master commits for lint errors
+      run: pnpm run format {staged_files}
+      stage_fixed: true
+    sync-versions:
+      only:
+        - ref: master
+      run: node scripts/syncVersions.js
+      stage_fixed: true

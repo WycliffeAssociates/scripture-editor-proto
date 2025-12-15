@@ -8,37 +8,39 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import {
     MarkerTooltip,
     // ToolTipPlugin,
-} from "@/app/domain/editor/plugins/ToolTipPlugin";
-import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin";
-import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
+import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
+import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
     const { editorRef } = useWorkspaceContext();
 
     return (
-        <div className="h-full overflow-y-auto">
+        <div className="h-full overflow-y-auto p-2">
             <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js="editor-container"
+                    data-testid={TESTING_IDS.mainEditorContainer}
                     className="editor-container relative h-full overflow-y-auto"
                 >
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className="min-h-full focus:outline-none p-4 w-full"
+                                className="min-h-full focus:outline-none p-1 w-full md:px-2"
                                 aria-label="USFM Editor"
                             />
                         }
@@ -81,22 +83,7 @@ export function MainEditor() {
             /> */}
                 <USFMPlugin />
                 <UsfmStylesPlugin />
-                <NodeContextMenuPlugin
-                    items={[
-                        {
-                            title: "Insert \\v",
-                            onSelect: () => console.log("Insert \\v"),
-                        },
-                        {
-                            title: "Insert \\p",
-                            onSelect: () => console.log("Insert \\p"),
-                        },
-                        {
-                            title: "Split Section",
-                            onSelect: () => console.log("Split Section"),
-                        },
-                    ]}
-                />
+                <NodeContextMenuPlugin />
             </LexicalComposer>
         </div>
     );

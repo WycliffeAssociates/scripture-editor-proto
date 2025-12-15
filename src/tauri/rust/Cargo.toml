@@ -1,6 +1,6 @@
 [package]
-name = "tauri-app"
-version = "0.1.0"
+name = "dovetail"
+version = "0.2.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -15,24 +15,25 @@ name = "tauri_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
-tauri = { version = "2", features = [] }
+tauri = { version = "2.9.2", features = [] }
 tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tauri-plugin-fs = "2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+tauri-plugin-fs = "2.4.4"
 logos = "0.15.1"
 once_cell = "1.21.3"
 regex = "1.11.2"
 git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
+tauri-plugin-dialog = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-window-state = "2"
+tauri-plugin-window-state = "2.4.1"
 
 [profile.dev]
 incremental = true

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
     CLEAR_HISTORY_COMMAND,
     type LexicalEditor,
@@ -13,20 +14,20 @@ import {
     EditorMarkersViewStates,
     USFM_TEXT_NODE_TYPE,
     UsfmTokenTypes,
-} from "@/app/data/editor";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject";
-import type { Settings } from "@/app/data/settings";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+} from "@/app/data/editor.ts";
+import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import type { Settings } from "@/app/data/settings.ts";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     isSerializedToggleMutableUSFMTextNode,
     isSerializedToggleShowUSFMTextNode,
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import type { LintableToken } from "@/core/data/usfm/lint";
-import type { Project } from "@/core/persistence/ProjectRepository";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 export type LintableTokenLike = LintableToken & {
@@ -51,10 +52,7 @@ type Props = {
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
 };
 export const useWorkspaceActions = ({
-    // workingFiles,
     mutWorkingFilesRef,
-    loadedProject,
-    // setWorkingFiles,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -105,8 +103,16 @@ export const useWorkspaceActions = ({
         chapterContent?: ParsedChapter,
     ) {
         console.log("setEditorContent", fileBibleIdentifier, chapter);
-        const editor = editorRef.current;
-        if (!editor) return;
+        let editor = editorRef.current;
+        const tryGetEditor = () => editorRef.current;
+        const start = performance.now();
+        while (!editor) {
+            editor = tryGetEditor();
+            const elapsed = performance.now() - start;
+            if (elapsed > 5000) {
+                throw new Error("Editor not found");
+            }
+        }
         const targetFile = chapterContent
             ? null
             : mutWorkingFilesRef.find(
@@ -188,7 +194,6 @@ export const useWorkspaceActions = ({
     const nextChapter = determineNextChapter(
         pickedFile,
         currentChapter,
-        mutWorkingFilesRef,
         switchBookOrChapter,
     );
     const prevChapter = determinePrevChapter(
@@ -457,6 +462,7 @@ function getFlattenedEditorStateAsParseTokens(
     // Recursive helper to descend through nested structures
     function collectTokens(
         nodes: SerializedLexicalNode[],
+        _lastSid: string,
     ): Array<LintableTokenLike> {
         const tokens: Array<LintableTokenLike> = [];
 
@@ -467,30 +473,33 @@ function getFlattenedEditorStateAsParseTokens(
                     tokenType: UsfmTokenTypes.verticalWhitespace,
                     text: "\n",
                     id: "",
+                    sid: _lastSid,
                 });
                 continue;
             }
             if (isSerializedUSFMTextNode(node)) {
                 tokens.push(node);
+                if (node.sid) _lastSid = node.sid;
                 continue;
             }
 
             if (isSerializedElementNode(node)) {
-                tokens.push(...collectTokens(node.children ?? []));
+                tokens.push(...collectTokens(node.children ?? [], _lastSid));
                 continue;
             }
 
             if (isSerializedUSFMNestedEditorNode(node)) {
                 const nestedChildren = node.editorState?.root?.children ?? [];
+                if (node.sid) _lastSid = node.sid;
                 // the node itself has the opening marker
-                tokens.push(node, ...collectTokens(nestedChildren));
+                tokens.push(node, ...collectTokens(nestedChildren, _lastSid));
             }
         }
 
         return tokens;
     }
 
-    return collectTokens(firstChild.children ?? []);
+    return collectTokens(firstChild.children ?? [], "");
 }
 
 export function getFlattenedFileTokens(
@@ -560,9 +569,13 @@ function updateDomClassListWithMarkerViewState({
 function determineNextChapter(
     pickedFile: ParsedFile | null,
     currentChapter: number,
-    workingFiles: ParsedFile[],
     switchBookOrChapter: (bookCode: string, chapter: number) => void,
 ) {
+    const { t } = useLingui();
+
+    const getChapterDisplay = (chapter: number) => {
+        return chapter === 0 ? t`Introduction` : chapter.toString();
+    };
     if (!pickedFile || (!currentChapter && currentChapter !== 0))
         return {
             hasNext: false,
@@ -570,14 +583,11 @@ function determineNextChapter(
         };
     if (currentChapter === pickedFile?.chapters.length - 1) {
         const nextBookId = pickedFile.nextBookId;
-        const nextBook = workingFiles.find(
-            (file) => file.bookCode === nextBookId,
-        );
+
         const firstChap = 0;
-        const title = nextBook?.title || nextBook?.bookCode;
         return {
-            hasNext: true,
-            display: `${title} ${firstChap}`,
+            hasNext: !!nextBookId,
+            display: t`Introduction`,
             go: () =>
                 switchBookOrChapter(
                     nextBookId || pickedFile.bookCode,
@@ -587,7 +597,7 @@ function determineNextChapter(
     } else {
         return {
             hasNext: true,
-            display: `${currentChapter + 1}`,
+            display: `${getChapterDisplay(currentChapter + 1)}`,
             go: () =>
                 switchBookOrChapter(pickedFile.bookCode, currentChapter + 1),
         };
@@ -600,6 +610,11 @@ function determinePrevChapter(
     workingFiles: ParsedFile[],
     switchBookOrChapter: (bookCode: string, chapter: number) => void,
 ) {
+    const { t } = useLingui();
+
+    const getChapterDisplay = (chapter: number) => {
+        return chapter === 0 ? t`Introduction` : chapter.toString();
+    };
     if (!pickedFile || (!currentChapter && currentChapter !== 0))
         return {
             hasPrev: false,
@@ -631,7 +646,7 @@ function determinePrevChapter(
     } else {
         return {
             hasPrev: true,
-            display: `${currentChapter - 1}`,
+            display: `${getChapterDisplay(currentChapter - 1)}`,
             go: () =>
                 switchBookOrChapter(pickedFile.bookCode, currentChapter - 1),
         };

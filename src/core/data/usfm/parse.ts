@@ -1,5 +1,5 @@
 import type { Token } from "moo";
-import type { LintableToken, LintError } from "@/core/data/usfm/lint";
+import type { LintableToken, LintError } from "@/core/data/usfm/lint.ts";
 export type TokenDuringParse = Token & {
     attributes?: Record<string, string>;
     content?: Array<TokenDuringParse>;

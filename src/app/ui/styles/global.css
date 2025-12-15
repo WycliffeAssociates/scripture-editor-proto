@@ -14,6 +14,10 @@
 ::highlight(matched-search) {
   background-color: yellow;
 }
+[data-mantine-color-scheme="dark"] ::highlight(matched-search) {
+  background-color: rgb(109, 109, 6);
+}
 body {
   line-height: 1.7;
+  background-color: var(--mantine-color-body);
 }

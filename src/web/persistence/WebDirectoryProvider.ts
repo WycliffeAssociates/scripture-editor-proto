@@ -4,7 +4,7 @@ import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import type {
     IDirectoryProvider,
     ResourceMetadata,
-} from "@/core/persistence/DirectoryProvider";
+} from "@/core/persistence/DirectoryProvider.ts";
 import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
 
@@ -12,8 +12,13 @@ export class WebDirectoryProvider implements IDirectoryProvider {
     private constructor(private root: FileSystemDirectoryHandle) {}
 
     static async create(): Promise<WebDirectoryProvider> {
-        const root = await navigator.storage.getDirectory(); // OPFS root
-        return new WebDirectoryProvider(root);
+        try {
+            const root = await navigator.storage.getDirectory(); // OPFS root
+            return new WebDirectoryProvider(root);
+        } catch (e) {
+            console.error("Failed to access OPFS:", e);
+            throw e;
+        }
     }
 
     async getAppPublicDirectory(
@@ -61,7 +66,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
 
         let dir: FileSystemDirectoryHandle = this.root;
         // let currentPath = "";
-        for (const part of parts) {
+        for await (const part of parts) {
             dir = await dir.getDirectoryHandle(part, { create: false });
             // currentPath += `/${part}`;
         }
@@ -136,6 +141,31 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             await tempDir.removeEntry(name, { recursive: true });
         }
     }
+    async removeDirectory(
+        path: string,
+        opts: { recursive?: boolean },
+    ): Promise<void> {
+        // Normalize and split provided path into parent + basename.
+        const parts = path.split("/").filter(Boolean);
+        const name = parts.pop();
+        if (!name) {
+            throw new Error(`Invalid path for removeDirectory: ${path}`);
+        }
+
+        // Parent path should be absolute root ("/") when no other parts exist.
+        const parentPath = parts.length ? `/${parts.join("/")}` : "/";
+
+        // Resolve the parent handle and ensure it's a directory handle.
+        const parentHandle = await this.resolveHandle(parentPath);
+        const parentDir = parentHandle.asDirectoryHandle();
+        if (!parentDir) {
+            throw new Error(`Parent path is not a directory: ${parentPath}`);
+        }
+
+        // Delegate removal to the parent directory's removeEntry method.
+        // Pass the basename and the recursive flag as requested.
+        await parentDir.removeEntry(name, { recursive: !!opts?.recursive });
+    }
 
     async openInFileManager(_path: string): Promise<void> {
         alert("File system browsing is not supported in browser mode.");
@@ -168,10 +198,13 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         let path = "";
         for (const part of parts) {
             try {
-                dir = await dir.getDirectoryHandle(part, {create: true});
+                dir = await dir.getDirectoryHandle(part, { create: true });
             } catch (e) {
                 console.log(e);
-                console.log("Error trying to make a directory handle from parts:", parts)
+                console.log(
+                    "Error trying to make a directory handle from parts:",
+                    parts,
+                );
             }
             path += `/${part}`;
         }

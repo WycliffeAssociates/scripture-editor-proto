@@ -31,9 +31,9 @@ export interface IDirectoryProvider {
         source: ResourceMetadata,
     ): Promise<FileSystemDirectoryHandle>;
 
-  // File utilities
-  newFileWriter(filePath: string): Promise<WritableStreamDefaultWriter>;
-  newFileReader(filePath: string): Promise<File>;
+    // File utilities
+    newFileWriter(filePath: string): Promise<FileSystemWritableFileStream>;
+    newFileReader(filePath: string): Promise<File>;
 
     createTempFile(
         prefix: string,

@@ -1,10 +1,10 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { SettingsManager } from "@/app/data/settings";
+import type { SettingsManager } from "@/app/data/settings.ts";
 import {
     createBaseLocalStorageSettingsManager,
     setDocumentRootFontFamily,
     setDocumentRootFontSize,
-} from "@/app/domain/settings/settings";
+} from "@/app/domain/settings/settings.ts";
 
 export function createTauriSettingsManager(): SettingsManager {
     const base = createBaseLocalStorageSettingsManager({

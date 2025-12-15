@@ -1,9 +1,12 @@
 import { Button, Popover } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { parseSid } from "@/core/data/bible/bible";
-import type { LintError } from "@/core/data/usfm/lint";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { lintPopoverButton } from "@/app/ui/styles/modules/LintPopover.css.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
 
 type Props = {
     wrapperClassNames?: string;
@@ -19,6 +22,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
     return (
         <div className={wrapperClassNames}>
             <Popover
+                data-testid={TESTING_IDS.lintPopover.triggerButton}
                 opened={lintPopoverIsOpen}
                 onDismiss={() => setLintPopoverIsOpen(false)}
                 position="bottom-start"
@@ -33,15 +37,19 @@ export function LintPopover({ wrapperClassNames }: Props) {
                         size="xs"
                         variant="filled"
                         color="red"
-                        className="z-50"
+                        className={lintPopoverButton}
                     >
-                        {lint.messages.length} Lint issue
-                        {lint.messages.length > 1 ? "s" : ""}
+                        {/* todo plural intl */}
+                        {lint.messages.length} Issues
+                        {/* {lint.messages.length > 1 ? "s" : ""} */}
                     </Button>
                 </Popover.Target>
 
                 <Popover.Dropdown className="max-h-64 overflow-y-auto">
-                    <ul className="space-y-2 text-sm flex flex-col items-start">
+                    <ul
+                        className="space-y-2 text-sm flex flex-col items-start"
+                        data-testid={TESTING_IDS.lintPopover.container}
+                    >
                         {lint.messages.map((msg) => (
                             <LintMessageItem
                                 key={msg.nodeId}
@@ -70,11 +78,12 @@ function LintMessageItem({
     const { project, actions } = useWorkspaceContext();
 
     function findLintErrInDom() {
+        let didScroll = false;
         editorRef.current?.read(() => {
             const editor = editorRef.current;
             if (!editor) return;
             const domEl = document.querySelector(
-                `[data-is-lint-error="true"][data-id="${msg.nodeId}"]`,
+                `[data-id="${msg.nodeId}"]`,
             ) as HTMLElement;
             if (!domEl) return;
             if (prevDomElSelected.current) {
@@ -86,15 +95,18 @@ function LintMessageItem({
                 block: "center",
             });
             domEl.classList.add("selected");
+            didScroll = true;
             if (domEl.getAttribute("data-is-nested-editor-button") === "true") {
                 domEl.click();
             }
         });
+        return didScroll;
     }
 
     return (
-        <li className="w-full whitespace-normal break-words">
+        <li className="w-full whitespace-normal wrap-break-word">
             <Button
+                data-testid={TESTING_IDS.lintPopover.errorItem}
                 variant="subtle"
                 color="gray"
                 fullWidth
@@ -119,15 +131,22 @@ function LintMessageItem({
                             sidParsed.book,
                             sidParsed.chapter,
                         );
-                        setTimeout(() => {
-                            findLintErrInDom();
-                        }, 100);
+                        rafUntilSuccessOrTimeout(() => {
+                            return findLintErrInDom();
+                        }, 5000);
                     }
                 }}
             >
                 <span className="flex flex-col items-start text-start wrap-break-word whitespace-break-spaces ">
-                    <span className="font-semibold">{msg.sid}</span>
-                    <span>{msg.message}</span>
+                    <span
+                        data-testid={TESTING_IDS.lintPopover.errorSid}
+                        className="font-semibold"
+                    >
+                        {msg.sid}
+                    </span>
+                    <span data-testid={TESTING_IDS.lintPopover.errorMessage}>
+                        {msg.message}
+                    </span>
                 </span>
             </Button>
         </li>

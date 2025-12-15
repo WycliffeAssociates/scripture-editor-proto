@@ -1,11 +1,17 @@
-import {dirname, join} from "@tauri-apps/api/path";
-import type {IDirectoryHandle} from "@/core/io/IDirectoryHandle.ts";
-import type {IFileHandle} from "@/core/io/IFileHandle.ts";
-import type {IPathHandle} from "@/core/io/IPathHandle.ts";
-import {normalize} from "@/tauri/io/PathUtils.ts";
-import {TauriFileHandle} from "@/tauri/io/TauriFileHandle.ts";
-
-import {type DirEntry, mkdir, readDir, readTextFile, remove, writeTextFile,} from "@tauri-apps/plugin-fs";
+import { dirname, join } from "@tauri-apps/api/path";
+import {
+    type DirEntry,
+    mkdir,
+    readDir,
+    readTextFile,
+    remove,
+    writeTextFile,
+} from "@tauri-apps/plugin-fs";
+import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { IFileHandle } from "@/core/io/IFileHandle.ts";
+import type { IPathHandle } from "@/core/io/IPathHandle.ts";
+import { normalize } from "@/tauri/io/PathUtils.ts";
+import { TauriFileHandle } from "@/tauri/io/TauriFileHandle.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
@@ -26,20 +32,20 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
 
     async getDirectoryHandle(
         name: string,
-        opts?: { create?: boolean }
+        opts?: { create?: boolean },
     ): Promise<IDirectoryHandle> {
         const dirPath = await join(this.path, name);
-        if (opts?.create) await mkdir(dirPath, {recursive: true});
+        if (opts?.create) await mkdir(dirPath, { recursive: true });
         return new TauriDirectoryHandle(dirPath, this.resolveHandle);
     }
 
     async getFileHandle(
         name: string,
-        opts?: { create?: boolean }
+        opts?: { create?: boolean },
     ): Promise<IFileHandle> {
         const filePath = await join(this.path, name);
         if (opts?.create) {
-            await mkdir(this.path, {recursive: true});
+            await mkdir(this.path, { recursive: true });
             try {
                 await readTextFile(filePath);
             } catch {
@@ -49,15 +55,21 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
         return new TauriFileHandle(filePath, this.resolveHandle);
     }
 
-    async removeEntry(name: string, opts?: { recursive?: boolean }): Promise<void> {
+    async removeEntry(
+        name: string,
+        opts?: { recursive?: boolean },
+    ): Promise<void> {
         const targetPath = await join(this.path, name);
-        await remove(targetPath, {recursive: !!opts?.recursive}).catch((e) => {
-            const msg = String((e as Error)?.message || "");
-            if (!/not found|no such file|does not exist/i.test(msg)) throw e;
-        });
+        await remove(targetPath, { recursive: !!opts?.recursive }).catch(
+            (e) => {
+                const msg = String((e as Error)?.message || "");
+                if (!/not found|no such file|does not exist/i.test(msg))
+                    throw e;
+            },
+        );
     }
 
-    async* entries(): FileSystemDirectoryHandleAsyncIterator<
+    async *entries(): FileSystemDirectoryHandleAsyncIterator<
         [string, IPathHandle]
     > {
         const items: DirEntry[] = await readDir(this.path).catch(() => []);
@@ -69,16 +81,19 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
                     new TauriDirectoryHandle(childPath, this.resolveHandle),
                 ];
             } else {
-                yield [item.name, new TauriFileHandle(childPath, this.resolveHandle)];
+                yield [
+                    item.name,
+                    new TauriFileHandle(childPath, this.resolveHandle),
+                ];
             }
         }
     }
 
-    async* keys(): FileSystemDirectoryHandleAsyncIterator<string> {
+    async *keys(): FileSystemDirectoryHandleAsyncIterator<string> {
         for await (const [name] of this.entries()) yield name;
     }
 
-    async* values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
+    async *values(): FileSystemDirectoryHandleAsyncIterator<IPathHandle> {
         for await (const [, handle] of this.entries()) yield handle;
     }
 

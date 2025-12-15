@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -15,27 +15,27 @@ jobs:
         include:
           # macOS arm64
           - os: macos-latest
-            args: '--target aarch64-apple-darwin'
+            args: "--target aarch64-apple-darwin"
             mobile: false
 
           # macOS x64
           - os: macos-latest
-            args: '--target x86_64-apple-darwin'
+            args: "--target x86_64-apple-darwin"
             mobile: false
 
           # Windows
           - os: windows-latest
-            args: ''
+            args: ""
             mobile: false
 
           # Linux desktop
           - os: ubuntu-22.04
-            args: ''
+            args: ""
             mobile: false
 
           # Android build
           - os: ubuntu-22.04
-            args: ''
+            args: ""
             mobile: android
 
     runs-on: ${{ matrix.os }}
@@ -67,7 +67,6 @@ jobs:
             librsvg2-dev \
             patchelf
 
-
       - name: Install dependencies
         run: pnpm install
 
@@ -77,10 +76,10 @@ jobs:
           if [ ! -d src/tauri/rust/gen/android ]; then
             pnpm tauri android init
           fi
-          
+
           # The tauri-action implicitly sets up the NDK, we just need to find the bin directory.
           # We assume ANDROID_SDK_ROOT is set by the setup-android action.
-          
+
           if [ -z "$ANDROID_NDK_ROOT" ]; then
             # Try to find the NDK bin directory under the SDK root
             NDK_TOOLCHAIN_DIR=$(find $ANDROID_SDK_ROOT/ndk -type d -name "linux-x86_64" | head -n 1)/bin
@@ -90,13 +89,13 @@ jobs:
           fi
 
           echo "NDK Toolchain Directory: $NDK_TOOLCHAIN_DIR"
-          
+
           if [ -d "$NDK_TOOLCHAIN_DIR" ]; then
             # Create Symlinks for the missing tools (ar and ranlib are most common)
             echo "Creating symlinks to resolve 'ranlib not found' error..."
             ln -sf "$NDK_TOOLCHAIN_DIR/llvm-ar" "$NDK_TOOLCHAIN_DIR/aarch64-linux-android-ar"
             ln -sf "$NDK_TOOLCHAIN_DIR/llvm-ranlib" "$NDK_TOOLCHAIN_DIR/aarch64-linux-android-ranlib"
-          
+
             # Also add the toolchain dir to PATH to ensure they are discoverable
             echo "Adding toolchain to PATH."
             echo "$NDK_TOOLCHAIN_DIR" >> $GITHUB_PATH
@@ -109,8 +108,8 @@ jobs:
         if: matrix.mobile == 'android'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17' # <-- Required by modern AGP
+          distribution: "temurin"
+          java-version: "17" # <-- Required by modern AGP
 
       - name: Build + Release
         uses: tauri-apps/tauri-action@mobile

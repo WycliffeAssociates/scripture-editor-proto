@@ -1,0 +1,898 @@
+Issues detected by verifyUSFM version 1.4.3, 2025-10-09, C:\DCS\Lauan\llx_reg
+   with reference to en_ulb 21-05 as the source text.
+-------------------
+Free floating mark at MAT 1:20: kaya, “ I Josefa
+Free floating mark at MAT 2:18: “ E dua
+Punctuation after quote mark at MAT 4:3: ".
+Free floating mark at MAT 4:4: kaya, " Ni
+Punctuation after quote mark at MAT 4:6: ".
+Free floating mark at MAT 4:6: volai " Ni
+Punctuation after quote mark at MAT 4:7: ".
+Free floating mark at MAT 4:8: Jisu, "
+Punctuation after quote mark at MAT 4:9: ".
+Punctuation after quote mark at MAT 4:10: ".
+Free floating mark at MAT 4:10: volai, " Ko
+Free floating mark at MAT 4:16: rarama "
+Punctuation after quote mark at MAT 4:17: ".
+Punctuation after quote mark at MAT 4:19: ".
+Free floating mark at MAT 4:19: rau, " Drau
+First word in sentence is not capitalized: "ia" at MAT 5:22
+First word in sentence is not capitalized: "a" in MAT 5:45
+First word in sentence is not capitalized: "ia" at MAT 5:46
+Check the punctuation at MAT 7:4: ?.
+Punctuation after quote mark at MAT 8:2: ".
+Free floating mark at MAT 8:2: kaya, " Turaga
+Punctuation after quote mark at MAT 8:3: ".
+Punctuation after quote mark at MAT 8:13: ".
+Free floating mark at MAT 8:13: turaganivalu, " Lako
+Punctuation after quote mark at MAT 8:17: ".
+Free floating mark at MAT 8:17: kaya, " A sa
+Punctuation after quote mark at MAT 8:19: '.
+Free floating mark at MAT 8:19: Jisu, " Vakavuvuli
+Punctuation after quote mark at MAT 8:20: ".
+Free floating mark at MAT 8:20: Jisu, " Sa
+Punctuation after quote mark at MAT 8:21: ".
+Free floating mark at MAT 8:21: koya, " turaga
+Punctuation after quote mark at MAT 8:22: ".
+Punctuation after quote mark at MAT 8:25: ".
+Punctuation after quote mark at MAT 8:26: ".
+Free floating mark at MAT 8:27: kaya, " A mataqali
+Free floating mark at MAT 8:29: mai, " A cava
+First word in sentence is not capitalized: "e" in MAT 9:24
+Repeated quotes at MAT 12:2
+Word medial punctuation in MAT 13:11: iratou,"Sa
+Punctuation after quote mark at MAT 13:12: ".
+Punctuation after quote mark at MAT 13:14: ".
+Free floating mark at MAT 13:14: kaya, " Ni
+Free floating mark at MAT 13:24: ei, " A matanitu
+Punctuation after quote mark at MAT 13:28: ".
+Free floating mark at MAT 13:28: Jisu, " A vunica
+Free floating mark at MAT 13:29: dauteitei " Sega
+Free floating mark at MAT 13:31: kaya, " A matanitu
+Free floating mark at MAT 13:33: vakatautauvata. " A mataniitu
+Free floating mark at MAT 13:34: paroCta, "
+Punctuation after quote mark at MAT 13:36: ".
+Free floating mark at MAT 13:37: kaya, " Ko
+First word in sentence is not capitalized: "ai" in MAT 13:38
+Free floating mark at MAT 13:51: kaya " io"
+Punctuation after quote mark at MAT 13:52: ".
+Free floating mark at MAT 13:52: Jisu, " Ko
+Free floating mark at MAT 13:54: veikayakina, " E kauta
+Punctuation after quote mark at MAT 13:57: ".
+Free floating mark at MAT 13:57: ei, " A parofita
+Word medial punctuation in MAT 15:26: kaya,"Sa
+Word medial punctuation in MAT 15:28: vua,"Yalewa,
+Word medial punctuation in MAT 15:33: jisaipeli,"Eda
+Word medial punctuation in MAT 15:34: Jisu,"E
+Free floating mark at MAT 16:2: kaya, " Ni
+Free floating mark at MAT 16:6: Jisu, " Dou
+Free floating mark at MAT 16:7: kaya, " Kai
+Free floating mark at MAT 16:8: ratou, " Sa
+First word in sentence is not capitalized: "cava" at MAT 16:11
+Free floating mark at MAT 16:13: kaya, " Ko
+Free floating mark at MAT 16:15: ratou, " Ia
+Free floating mark at MAT 16:16: kaya, " Ko
+Free floating mark at MAT 16:17: " Sa
+Free floating mark at MAT 16:22: kaya, " Me
+Free floating mark at MAT 16:23: Pita, " Mo
+First word in sentence is not capitalized: "ko" in MAT 16:23
+Free floating mark at MAT 16:24: kaya, " Kevaka
+Free floating mark at MAT 17:5: kaya, " Oqo
+Free floating mark at MAT 17:10: kaya, " A cava
+Translation is very short compared to en_ulb 21-05 source: MAT 18:10
+Punctuation after quote mark at MAT 18:21: ".
+Free floating mark at MAT 18:21: Jisu, " Turaga
+Punctuation after quote mark at MAT 18:22: ".
+Word medial punctuation in MAT 18:22: Jisu,"Au
+Punctuation after quote mark at MAT 18:28: ".
+Free floating mark at MAT 18:28: kina, " Sauma
+Punctuation after quote mark at MAT 18:29: ".
+Free floating mark at MAT 18:29: kina, " Au
+Free floating mark at MAT 18:32: kina, " Tamata
+Forward slash in MAT 19:7
+First word in sentence is not capitalized: "sa" at MAT 19:7
+Empty verse: MAT 19:30
+Word medial punctuation in MAT 21:16: aya:”Io”,
+Translation is very short compared to en_ulb 21-05 source: MAT 21:25
+First word in sentence is not capitalized: "vavuvvuli" at MAT 22:24
+Free floating mark at MAT 23:1: kaya, "
+Translation is very short compared to en_ulb 21-05 source: MAT 23:13
+First word in sentence is not capitalized: "rairai" in MAT 23:27
+First word in sentence is not capitalized: "ko" in MAT 23:37
+Punctuation after quote mark at MAT 23:39: ".
+Punctuation missing at end of chapter before MAT 25
+Forward slash in MAT 25:18
+Translation is very short compared to en_ulb 21-05 source: MAT 25:26
+Translation is very short compared to en_ulb 21-05 source: MAT 25:32
+Translation is very short compared to en_ulb 21-05 source: MAT 25:34
+Translation is very short compared to en_ulb 21-05 source: MAT 25:41
+Translation is very short compared to en_ulb 21-05 source: MAT 25:44
+First word in sentence is not capitalized: "ameca" at MAT 25:45
+Word medial punctuation in MAT 26:10: ira,"Dou
+Word medial punctuation in MAT 26:15: kaya,"Ka
+Word medial punctuation in MAT 26:17: vua,"E
+Word medial punctuation in MAT 26:18: koya,"Lako
+Word medial punctuation in MAT 26:22: vua,"Oqu
+Word medial punctuation in MAT 26:23: kaya,"O
+Word medial punctuation in MAT 26:25: kaya,"Vakavuvuli
+Word medial punctuation in MAT 26:26: kaya,"Taura,
+Word medial punctuation in MAT 26:27: kaya,"Dou
+Word medial punctuation in MAT 26:31: Jisu,"Dou
+Word medial punctuation in MAT 26:33: vua,"Kevaka
+Word medial punctuation in MAT 26:34: Jisu,"Au
+Word medial punctuation in MAT 26:35: Pita,"Kevaka
+Word medial punctuation in MAT 26:36: jisaipeli,"Dou
+Word medial punctuation in MAT 26:39: kya,"I
+Word medial punctuation in MAT 26:40: Pita,"Oi,
+Word medial punctuation in MAT 26:42: kaya,"I
+Word medial punctuation in MAT 26:45: ratou,"Dou
+Word medial punctuation in MAT 26:48: kaya,"Ko
+Word medial punctuation in MAT 26:49: kaya,"Sa
+Word medial punctuation in MAT 26:50: Jisu,"Oqui
+Repeated quotes at MAT 26:52
+Word medial punctuation in MAT 26:52: Jisu,''Daramaka
+Repeated quotes at MAT 26:54
+Repeated quotes at MAT 26:55
+Repeated quotes at MAT 26:61
+Repeated quotes at MAT 26:62
+Repeated quotes at MAT 26:63
+Repeated quotes at MAT 26:64
+Repeated quotes at MAT 26:65
+First word in sentence is not capitalized: "raica" in MAT 26:65
+Repeated quotes at MAT 26:66
+Repeated quotes at MAT 26:68
+Repeated quotes at MAT 26:69
+Repeated quotes at MAT 26:70
+Repeated quotes at MAT 26:71
+Repeated quotes at MAT 26:72
+Repeated quotes at MAT 26:73
+Repeated quotes at MAT 26:74
+Repeated quotes at MAT 26:75
+Free floating mark at MAT 27:17: ira “ Ko
+Punctuation after quote mark at MRK 1:11: ".
+Free floating mark at MRK 1:11: domo, " Ko
+Free floating mark at MRK 1:15: " Sa
+Punctuation after quote mark at MRK 1:24: ".
+Punctuation after quote mark at MRK 2:5: ".
+Punctuation after quote mark at MRK 2:11: ".
+Word medial punctuation in MRK 2:19: ira,"Era
+Punctuation after quote mark at MRK 3:5: ".
+Punctuation after quote mark at MRK 3:11: ".
+First word in sentence is not capitalized: "sa" in MRK 3:33
+First word in sentence is not capitalized: "ko" at MRK 3:35
+Word medial punctuation in MRK 4:13: koya,"Dou
+First word in sentence is not capitalized: "o" at MRK 4:16
+Word medial punctuation in MRK 4:35: ira,"Meta
+Word medial punctuation in MRK 4:38: vua,"Vakavuvuli
+Word medial punctuation in MRK 4:39: wasawasa,"Mo
+Punctuation after quote mark at MRK 5:8: ".
+Punctuation after quote mark at MRK 5:9: ".
+Free floating mark at MRK 5:9: ko " Lewe
+Translation is very short compared to en_ulb 21-05 source: MRK 5:23
+First word in sentence is not capitalized: "sa" at MRK 5:26
+Free floating mark at MRK 5:34: Jisu, " Na
+Punctuation after quote mark at MRK 5:36: ".
+Punctuation after quote mark at MRK 5:39: ".
+Free floating mark at MRK 5:39: ira " A cava
+Punctuation after quote mark at MRK 5:41: ".
+First word in sentence is not capitalized: "oiratou" in MRK 6:3
+First word in sentence is not capitalized: "sa" in MRK 6:22
+First word in sentence is not capitalized: "vakasauri" at MRK 6:25
+Word medial punctuation in MRK 6:31: koya,"Dou
+First word in sentence is not capitalized: "me" in MRK 6:37
+First word in sentence is not capitalized: "ka" in MRK 6:45
+First word in sentence is not capitalized: "sa" in MRK 6:50
+Free floating mark at MRK 7:6: Jisu, " Me
+Punctuation after quote mark at MRK 7:7: ".
+Punctuation after quote mark at MRK 7:10: ".
+Optional text or untagged footnote at MRK 7:11
+Free floating mark at MRK 7:18: Jisu, " Dou
+Punctuation after quote mark at MRK 7:19: ".
+Punctuation after quote mark at MRK 7:27: ".
+Punctuation after quote mark at MRK 7:28: ".
+Free floating mark at MRK 7:28: Jisu, " Ko
+Punctuation after quote mark at MRK 7:34: ".
+Free floating mark at MRK 7:34: kaya " Efafaca"
+Punctuation after quote mark at MRK 7:37: ".
+Free floating mark at MRK 7:37: veikayakina, " Ko
+Translation is very short compared to en_ulb 21-05 source: MRK 8:7
+Free floating mark at MRK 8:12: ira, " A cava
+Punctuation after quote mark at MRK 8:15: ".
+Free floating mark at MRK 8:15: Jisu, " Dou
+Punctuation after quote mark at MRK 8:19: '.
+Free floating mark at MRK 8:20: madrai? " E ratou
+Word medial punctuation in MRK 8:20: "Ni"u
+Punctuation after quote mark at MRK 8:21: ".
+Punctuation after quote mark at MRK 8:23: ".
+Free floating mark at MRK 8:23: koya, " Se
+Punctuation after quote mark at MRK 8:29: ".
+Punctuation after quote mark at MRK 8:33: ".
+Punctuation after quote mark at MRK 8:34: ".
+Translation is very short compared to en_ulb 21-05 source: MRK 8:35
+Word medial punctuation in MRK 9:23: Jisu,"Kevaka
+Punctuation after quote mark at MRK 10:9: ".
+Punctuation after quote mark at MRK 10:12: ".
+Punctuation after quote mark at MRK 10:14: ".
+Punctuation after quote mark at MRK 10:17: ".
+Word medial punctuation in MRK 10:17: me"u
+Punctuation after quote mark at MRK 10:20: ".
+Punctuation after quote mark at MRK 10:21: '.
+Punctuation after quote mark at MRK 10:23: ".
+Free floating mark at MRK 10:23: kaya, " Sa
+Free floating mark at MRK 10:24: vosa. " Ragone
+Punctuation after quote mark at MRK 10:27: ".
+Word medial punctuation in MRK 10:38: ka"u
+First word in sentence is not capitalized: "kaya" at MRK 10:38
+Punctuation after quote mark at MRK 10:40: ".
+Word medial punctuation in MRK 10:40: ni"u
+Punctuation after quote mark at MRK 10:47: ".
+Punctuation after quote mark at MRK 10:48: ".
+Free floating mark at MRK 10:48: levu, " Luvei
+Punctuation after quote mark at MRK 10:51: ".
+Punctuation after quote mark at MRK 10:52: ".
+First word in sentence is not capitalized: "drau" in MRK 11:3
+Free floating mark at MRK 11:5: mai, " A cava
+Word medial punctuation in MRK 11:9: kaya,"Osana,
+First word in sentence is not capitalized: "sauma" in MRK 11:30
+Repeated quotes at MRK 11:31
+First word in sentence is not capitalized: "kara" in MRK 11:31
+Free floating mark at MRK 11:33: Jisu, " Au
+First word in sentence is not capitalized: "sa" in MRK 11:33
+Word medial punctuation in MRK 12:24: Jisu,"E
+Word medial punctuation in MRK 12:32: Vunivola,"E
+First word in sentence is not capitalized: "ko" in MRK 12:32
+Word medial punctuation in MRK 12:34: kina,"Ko
+First word in sentence is not capitalized: "sa" at MRK 12:38
+Word medial punctuation in MRK 13:1: tisaipeli,"Vakavuvuli
+Word medial punctuation in MRK 13:5: Jisu."Dou
+Punctuation after quote mark at MRK 13:6: ".
+Punctuation after quote mark at MRK 13:8: ".
+Punctuation after quote mark at MRK 13:13: ".
+Translation is very short compared to en_ulb 21-05 source: MRK 13:19
+Non-standard chapter label at MRK 14: Marika 14
+First word in sentence is not capitalized: "e" at MRK 14:3
+Free floating mark at MRK 14:35: bilo. " A
+Free floating mark at MRK 15:2: Pailato, " Ko
+First word in sentence is not capitalized: "me" in MRK 15:8
+Word medial punctuation in MRK 15:18: kaya,"Kemuni
+Free floating mark at MRK 15:31: vakakina, " ko
+First word in sentence is not capitalized: "ka" in MRK 15:32
+Word medial punctuation in MRK 15:34: cake,"Ilai
+First word in sentence is not capitalized: "a" in MRK 15:34
+First word in sentence is not capitalized: "ketena" in MRK 15:36
+Word medial punctuation in MRK 15:39: ei,"E
+Bracket or parens in MRK 15:40 (en_ulb 21-05 has a footnote there)
+First word in sentence is not capitalized: "ka" in MRK 15:43
+Inconsistent chapter titling: ['Wase', 'Marika'] in MRK
+Book title matches English: Luke
+First word in sentence is not capitalized: "vakasauri" at LUK 1:64
+Translation is very short compared to en_ulb 21-05 source: LUK 1:74
+Translation is very short compared to en_ulb 21-05 source: LUK 1:76
+Check the punctuation at LUK 2:15: .“
+Translation is very short compared to en_ulb 21-05 source: LUK 2:23
+First word in sentence is not capitalized: "l" in LUK 2:25
+First word in sentence is not capitalized: "a" in LUK 3:1
+Word medial punctuation in LUK 3:7: papitaiso,"Dou
+Word medial punctuation in LUK 3:11: Jisu,"A
+Word medial punctuation in LUK 3:12: taroga,"Vakavuvuli,
+Word medial punctuation in LUK 3:13: Jisu,"Dou
+Word medial punctuation in LUK 3:14: Jisu,"Dou
+Word medial punctuation in LUK 3:16: Joni,"Ko
+Word medial punctuation in LUK 3:22: lomalagi."Ko
+Punctuation missing at end of chapter before LUK 4
+Free floating mark at LUK 4:6: tevoro, " Au
+Punctuation after quote mark at LUK 4:7: ".
+Punctuation after quote mark at LUK 4:8: ".
+Free floating mark at LUK 4:8: tevoro " Ni
+Free floating mark at LUK 4:9: kina, " Kevaka
+Punctuation after quote mark at LUK 4:12: ".
+Word medial punctuation in LUK 4:12: tevoro,"Kakua
+Word medial punctuation in LUK 4:18: me"u
+Word medial punctuation in LUK 4:19: me"u
+Free floating mark at LUK 4:22: kaya, " E sega
+Free floating mark at LUK 4:23: au. " Vuniwai
+Punctuation after quote mark at LUK 4:24: ".
+Free floating mark at LUK 4:33: levu, "
+Punctuation after quote mark at LUK 4:34: ".
+Punctuation after quote mark at LUK 4:36: '.
+Free floating mark at LUK 4:36: vakaira, " A mataqali
+Punctuation after quote mark at LUK 4:41: ".
+Free floating mark at LUK 4:41: kaya, " Kemunu
+Punctuation after quote mark at LUK 4:43: ".
+Free floating mark at LUK 4:43: ira, " Me'u
+First word in sentence is not capitalized: "o" in LUK 4:44
+Punctuation missing at end of chapter before LUK 5
+Word medial punctuation in LUK 5:5: kaya,”Turaga
+First word in sentence is not capitalized: "vakaloulai" in LUK 5:13
+Punctuation after quote mark at LUK 5:20: ".
+Free floating mark at LUK 5:23: kai, ‘ sa
+Free floating mark at LUK 5:24: ca. “ - e
+First word in sentence is not capitalized: "e" in LUK 5:24
+Punctuation missing at end of chapter before LUK 6
+Free floating mark at LUK 6:10: “ Sa
+First word in sentence is not capitalized: "sa" at LUK 7:38
+Repeated quotes at LUK 8:39
+First word in sentence is not capitalized: "nIu" in LUK 8:46
+Free floating mark at LUK 9:41: Jisu, " A i
+Word medial punctuation in LUK 9:58: Jisu,"A
+Free floating mark at LUK 9:59: mada. " Kaya
+Word medial punctuation in LUK 9:59: kaya,"Turaga
+Free floating mark at LUK 9:62: Jisu, " A ona
+Punctuation after quote mark at LUK 10:2: ".
+Free floating mark at LUK 10:5: ei, ' Me
+Punctuation after quote mark at LUK 10:9: ".
+Punctuation after quote mark at LUK 10:17: ".
+Free floating mark at LUK 10:18: Jisu' " Au
+Free floating mark at LUK 10:22: " A veika
+Free floating mark at LUK 10:23: ira, " Sa
+Free floating mark at LUK 10:25: kaya, " Vakavuvuli,
+Free floating mark at LUK 10:26: kina, " A cava
+Punctuation after quote mark at LUK 10:27: ".
+Free floating mark at LUK 10:27: kaya, " Ko
+Punctuation after quote mark at LUK 10:28: '.
+Free floating mark at LUK 10:29: Jisu, " Ko
+Punctuation after quote mark at LUK 10:35: ".
+Free floating mark at LUK 10:35: Burenivulagi, " Qaravi
+Punctuation after quote mark at LUK 10:37: ".
+Free floating mark at LUK 10:37: kaya, " Ko
+Punctuation after quote mark at LUK 10:40: ".
+Free floating mark at LUK 10:40: Jisu. " Turaga
+Free floating mark at LUK 10:41: kaya, " Maca,
+Word medial punctuation in LUK 11:2: Jisu,”ni
+First word in sentence is not capitalized: "kaya" at LUK 11:2
+Free floating mark at LUK 11:5: Jisu, “ ko
+First word in sentence is not capitalized: "kevaka" at LUK 11:19
+First word in sentence is not capitalized: "ko" at LUK 11:23
+Free floating mark at LUK 11:24: kaya, ‘ au
+Free floating mark at LUK 11:27: koya, “ sa
+Free floating mark at LUK 11:28: kaya, “ ia
+Free floating mark at LUK 11:39: Turaga, “ Kaiei
+First word in sentence is not capitalized: "e" at LUK 11:49
+First word in sentence is not capitalized: "mai" at LUK 11:51
+First word in sentence is not capitalized: "ni" at LUK 11:53
+Punctuation after quote mark at LUK 12:1: ".
+Free floating mark at LUK 12:14: kina, " Era
+Punctuation after quote mark at LUK 12:16: ".
+Free floating mark at LUK 12:16: vata' " E dua
+Free floating mark at LUK 12:18: yaloqu, " Vakacegu
+Punctuation after quote mark at LUK 12:19: ".
+Translation is very short compared to en_ulb 21-05 source: LUK 12:19
+Free floating mark at LUK 12:22: kaya, " Dou
+Check the punctuation at LUK 12:33: ..
+Free floating mark at LUK 12:33: somidi. "
+First word in sentence is not capitalized: "ai" in LUK 12:33
+Translation is very short compared to en_ulb 21-05 source: LUK 12:36
+Free floating mark at LUK 12:45: yalona, "
+Translation is very short compared to en_ulb 21-05 source: LUK 12:45
+Word medial punctuation in LUK 12:50: ka"u
+First word in sentence is not capitalized: "ia" at LUK 12:50
+First word in sentence is not capitalized: "i" in LUK 12:53
+Free floating mark at LUK 13:7: kaya ‘ Raica,
+Free floating mark at LUK 13:8: were, ‘ Biuta
+Free floating mark at LUK 14:18: matai, ' Au
+Free floating mark at LUK 14:19: " Sa
+Free floating mark at LUK 14:26: " Kevaka
+First word in sentence is not capitalized: "sa" at LUK 15:19
+First word in sentence is not capitalized: "dou" at LUK 15:23
+Check the punctuation at LUK 16:15: ,,
+Free floating mark at LUK 16:15: koya. " Kemudou
+Check the punctuation at LUK 17:17: .?
+Word medial punctuation in LUK 18:2: kaya,”E
+Free floating mark at LUK 18:3: kaya, ‘ vukei
+First word in sentence is not capitalized: "e" at LUK 18:3
+Word medial punctuation in LUK 18:6: Turaga,”rogoca
+Free floating mark at LUK 18:10: vakaiei, “ Au
+Check the punctuation at LUK 18:18: .?
+Word medial punctuation in LUK 18:24: kaya,”A
+First word in sentence is not capitalized: "sa" at LUK 18:24
+First word in sentence is not capitalized: "meca" in LUK 18:31
+Word medial punctuation in LUK 18:39: cake,”luvei
+Free floating mark at LUK 18:41: “ a cava
+First word in sentence is not capitalized: "vakalailai" at LUK 18:43
+Word medial punctuation in LUK 19:5: kina,”Sakiusa
+Word medial punctuation in LUK 19:8: Turaga,”raica
+First word in sentence is not capitalized: "sa" at LUK 19:12
+Word medial punctuation in LUK 19:14: kaya,”e
+Free floating mark at LUK 19:20: ” lako
+First word in sentence is not capitalized: "lako" at LUK 19:20
+First word in sentence is not capitalized: "ia" at LUK 19:27
+Free floating mark at LUK 19:30: kaya, “ lako
+Word medial punctuation in LUK 19:31: kina?”kaya,
+First word in sentence is not capitalized: "kaya" in LUK 19:31
+Free floating mark at LUK 19:33: itaukei, " A cava
+Free floating mark at LUK 19:34: kaya, “ sa
+Check the punctuation at LUK 19:39: .“
+Word medial punctuation in LUK 19:42: kaya,”kevaka
+Invalid number prefix: a9 at LUK 19:42
+Punctuation missing at end of chapter before LUK 20
+First word in sentence is not capitalized: "me" at LUK 20:43
+Check the punctuation at LUK 21:24: ,.
+Check the punctuation at LUK 22:60: .:
+First word in sentence is not capitalized: "ko" in LUK 22:64
+Equals sign (=) in LUK 23:27
+Free floating mark at LUK 24:5: iratou, " A cava
+Free floating mark at LUK 24:7: kaya " ni
+Translation is very short compared to en_ulb 21-05 source: LUK 24:9
+Free floating mark at LUK 24:18: kaya, " Ko
+Free floating mark at LUK 24:19: sauma, " A meca
+Free floating mark at LUK 24:25: Jisu, " Kemudou
+Free floating mark at LUK 24:26: kaya, " E yaga
+Free floating mark at LUK 24:32: rau, " Sa
+Punctuation after quote mark at LUK 24:36: ".
+Free floating mark at LUK 24:36: kaya, " Dou
+Free floating mark at LUK 24:38: Jisu, " A cava
+Free floating mark at LUK 24:41: Jisu, " Se
+Missing verses between: LUK 24:41 and LUK 24:44
+Free floating mark at LUK 24:44: Jisu, " Ena
+Free floating mark at LUK 24:46: Jisu, " Ni
+Punctuation after quote mark at LUK 24:49: ".
+Word medial punctuation in JHN 1:21: sauma,”E
+Word medial punctuation in JHN 1:33: au,”Koi
+First word in sentence is not capitalized: "a" in JHN 1:38
+Invalid number suffix: 9a at JHN 1:42
+First word in sentence is not capitalized: "kemudou" in JHN 2:5
+Check the punctuation at JHN 4:5: ,.
+Punctuation after quote mark at JHN 4:7: ”.
+Punctuation after quote mark at JHN 4:17: ”.
+Punctuation after quote mark at JHN 4:31: ”.
+Translation is very short compared to en_ulb 21-05 source: JHN 4:35
+Punctuation after quote mark at JHN 4:50: ”.
+Equals sign (=) in JHN 5:23
+Free floating mark at JHN 6:5: Filipi, “ keta
+First word in sentence is not capitalized: "e" at JHN 6:6
+First word in sentence is not capitalized: "e" at JHN 6:7
+Free floating mark at JHN 6:9: “ e dua
+Free floating mark at JHN 6:10: Jisu, “ vakaeceri
+Word medial punctuation in JHN 6:10: tamata.”(e
+First word in sentence is not capitalized: "e" in JHN 6:10
+First word in sentence is not capitalized: "sa" in JHN 6:10
+Free floating mark at JHN 6:12: tisaipeli, “ dou
+Free floating mark at JHN 6:14: kaya, “ Kaiei
+Free floating mark at JHN 6:25: kina, “ Raponai,
+Free floating mark at JHN 6:29: Jisu, “ Kaiei
+Free floating mark at JHN 6:30: kina, “ a i
+First word in sentence is not capitalized: "sa" at JHN 6:32
+Free floating mark at JHN 6:41: kaya, “ ko
+Free floating mark at JHN 6:42: kaya, “ e tawa
+Free floating mark at JHN 6:43: kaya, “ sa
+Free floating mark at JHN 6:45: parofita, ‘ Ena
+Check the punctuation at JHN 6:51: .,
+Free floating mark at JHN 6:52: kaya, “ e rawa
+Free floating mark at JHN 6:53: Jisu, “ E djina,
+Free floating mark at JHN 6:60: kaya, “ kaiei
+Free floating mark at JHN 6:61: ira, “ e vakataotakini
+Free floating mark at JHN 6:65: koya, “ Ko
+Free floating mark at JHN 6:67: karua, “ kemudou
+Free floating mark at JHN 6:68: Pita, “ Turaga,
+Free floating mark at JHN 6:70: Jisu, “ Kau
+Word medial punctuation in JHN 7:3: tacina,"Lako
+Free floating mark at JHN 7:16: kaya, " A qou
+First word in sentence is not capitalized: "tawa" in JHN 7:19
+First word in sentence is not capitalized: "boka" at JHN 7:26
+Punctuation after quote mark at JHN 8:4: ".
+Punctuation after quote mark at JHN 8:14: ".
+First word in sentence is not capitalized: "se" in JHN 8:22
+First word in sentence is not capitalized: "ko" at JHN 8:29
+Check the punctuation at JHN 8:39: ,:
+Punctuation after quote mark at JHN 8:39: ".
+Punctuation after quote mark at JHN 8:41: ".
+Check the punctuation at JHN 8:42: :,
+Word medial punctuation in JHN 8:42: Jisu,"kevaka
+Punctuation after quote mark at JHN 8:51: ".
+Punctuation after quote mark at JHN 8:52: ".
+Punctuation after quote mark at JHN 8:58: ".
+Empty verse: JHN 9:21
+Equals sign (=) in JHN 11:23
+Empty verse: JHN 11:29
+First word in sentence is not capitalized: "xxxx" at JHN 11:52
+Translation is very short compared to en_ulb 21-05 source: JHN 11:52
+Equals sign (=) in JHN 12:12
+Equals sign (=) in JHN 12:32
+Backslash (\) near JHN 12:47
+First word in sentence is not capitalized: "i" at JHN 13:11
+Translation is very short compared to en_ulb 21-05 source: JHN 14:2
+Punctuation missing at end of chapter before JHN 15
+First word in sentence is not capitalized: "xxx" at JHN 15:5
+Translation is very short compared to en_ulb 21-05 source: JHN 15:5
+Equals sign (=) in JHN 16:3
+Equals sign (=) in JHN 16:7
+Equals sign (=) in JHN 16:11
+First word in sentence is not capitalized: "ia" at JHN 18:2
+Free floating mark at JHN 18:4: ira, “ ko
+First word in sentence is not capitalized: "e" at JHN 18:5
+Free floating mark at JHN 18:6: ira, “ Ko
+First word in sentence is not capitalized: "e" at JHN 18:6
+Free floating mark at JHN 18:7: kaya, “ au
+Word medial punctuation in JHN 18:7: vakayasava?”ratou
+First word in sentence is not capitalized: "ratou" in JHN 18:7
+First word in sentence is not capitalized: "sa" in JHN 18:7
+Translation is very short compared to en_ulb 21-05 source: JHN 18:8
+Free floating mark at JHN 18:9: kaya; “ vei
+First word in sentence is not capitalized: "u" in JHN 18:11
+Free floating mark at JHN 18:20: Jisu, “ Au
+Free floating mark at JHN 18:23: Jisu, “ kevaka
+Free floating mark at JHN 18:25: tamata, “ e tawa
+Free floating mark at JHN 18:25: kaya, “ e tawa
+First word in sentence is not capitalized: "sa" in JHN 18:25
+Free floating mark at JHN 18:26: kaya, “ kau
+First word in sentence is not capitalized: "s" at JHN 18:27
+Free floating mark at JHN 18:29: kaya, “ A meca
+First word in sentence is not capitalized: "sauma" at JHN 18:36
+Check the punctuation at JHN 18:38: ?.
+Word medial punctuation in JHN 18:40: kaya,”e
+Free floating mark at JHN 19:3: kaya, “ sa
+First word in sentence is not capitalized: "ka" in JHN 19:3
+Free floating mark at JHN 19:4: ira, “ Raica,
+Free floating mark at JHN 19:6: Pailato, “ dou
+Free floating mark at JHN 19:7: Jiu, “ e tu
+Free floating mark at JHN 19:9: Jisu, “ ko
+Free floating mark at JHN 19:10: Pailato, “ ko
+First word in sentence is not capitalized: "sa" at JHN 19:11
+First word in sentence is not capitalized: "mai" at JHN 19:12
+Punctuation after quote mark at JHN 19:13: ”.
+Embedded number in word: Raravatu5” at JHN 19:13
+Word medial punctuation in JHN 19:14: Jiu,”Raica
+Word medial punctuation in JHN 19:15: kaya,”E
+First word in sentence is not capitalized: "kaya" in JHN 19:15
+Word medial punctuation in JHN 19:17: Qavokavoka,”ka
+Word medial punctuation in JHN 19:21: kaya,”ko
+Word medial punctuation in JHN 19:22: Pailato,”a
+Word medial punctuation in JHN 19:24: kaya,”Era
+First word in sentence is not capitalized: "kaiei" in JHN 19:24
+Word medial punctuation in JHN 19:26: jinana,”yalewa,
+First word in sentence is not capitalized: "ina" in JHN 19:27
+Word medial punctuation in JHN 19:28: Jisu,”Au
+Word medial punctuation in JHN 19:30: kaya,”sa
+Word medial punctuation in JHN 19:36: volatabu,”ni
+Free floating mark at JHN 20:2: rau “ Era
+First word in sentence is not capitalized: "sa" in JHN 20:13
+Free floating mark at JHN 20:15: Jisu, “ yalewa
+Word medial punctuation in JHN 20:16: “Raponai”(a
+Possible verse number (16) in text at JHN 20:16
+First word in sentence is not capitalized: "v" at JHN 20:16
+Free floating mark at JHN 20:19: iratou, “ me
+Free floating mark at JHN 20:22: iratou, “ me
+Free floating mark at JHN 20:27: Tomasi, “ dodoka
+Free floating mark at JHN 20:28: Tomasi, “ Noqu
+Free floating mark at JHN 20:29: Jisu, “ Baleta
+First word in sentence is not capitalized: "eratou" in JHN 21:3
+First word in sentence is not capitalized: "era" in JHN 21:5
+First word in sentence is not capitalized: "nira" in JHN 21:12
+Possible section title at end of ACT 21:40
+Punctuation missing at end of chapter before ACT 3
+First word in sentence is not capitalized: "ko" in ACT 7:35
+First word in sentence is not capitalized: "ka" at ACT 9:29
+First word in sentence is not capitalized: "sa" in ACT 12:15
+Free floating mark at ACT 19:2: Paula, “ dou
+Check the punctuation at ACT 19:3: ,“
+Free floating mark at ACT 19:4: Paula, “ Ko
+Free floating mark at ACT 19:13: kaya, “ E na
+Free floating mark at ACT 19:15: kaya, “ au
+Free floating mark at ACT 19:25: aya, “ Kemunu,
+First word in sentence is not capitalized: "kemunu" at ACT 19:26
+Free floating mark at ACT 19:28: kaya, “ sa
+First word in sentence is not capitalized: "meca" in ACT 19:32
+First word in sentence is not capitalized: "ko" at ACT 19:38
+Free floating mark at ACT 20:10: kaya, “ Nu
+First word in sentence is not capitalized: "meca" in ACT 20:13
+Free floating mark at ACT 20:18: koya, “ ko
+First word in sentence is not capitalized: "ka" at ACT 20:21
+Free floating mark at ACT 20:35: Jisu, “ keta
+First word in sentence is not capitalized: "veitalaci" at ACT 21:6
+Check the punctuation at ACT 21:8: .?
+First word in sentence is not capitalized: "me" in ACT 22:1
+First word in sentence is not capitalized: "vet" in ACT 22:1
+First word in sentence is not capitalized: "yavu" in ACT 22:16
+Translation is very short compared to en_ulb 21-05 source: ACT 28:6
+First word in sentence is not capitalized: "ena" in ROM 3:3
+First word in sentence is not capitalized: "ni" in ROM 4:10
+Translation is very short compared to en_ulb 21-05 source: ROM 4:15
+Equals sign (=) in ROM 7:7
+Translation is very short compared to en_ulb 21-05 source: ROM 7:23
+Check the punctuation at ROM 9:10: ,.
+First word in sentence is not capitalized: "ia" in ROM 9:19
+Equals sign (=) in ROM 9:23
+First word in sentence is not capitalized: "ni" in ROM 9:32
+First word in sentence is not capitalized: "kame" in ROM 10:7
+Free floating mark at ROM 10:10: bula “
+First word in sentence is not capitalized: "niSa" at ROM 10:10
+Non-standard chapter label at ROM 13: Wase 12
+Translation is very short compared to en_ulb 21-05 source: ROM 15:18
+First word in sentence is not capitalized: "emeni" in ROM 15:33
+Translation is very short compared to en_ulb 21-05 source: ROM 16:25
+Inconsistent chapter titling: ['Wase', 'Wase 12'] in ROM
+Possible section title on a line by itself at 1CO 11:16
+First word in sentence is not capitalized: "kaivei" in 1CO 1:20
+First word in sentence is not capitalized: "digitaka" in 1CO 1:28
+First word in sentence is not capitalized: "ena" at 1CO 2:5
+First word in sentence is not capitalized: "ko" at 1CO 2:11
+First word in sentence is not capitalized: "e" in 1CO 3:5
+First word in sentence is not capitalized: "ena" at 1CO 3:13
+First word in sentence is not capitalized: "se" at 1CO 3:22
+Check the punctuation at 1CO 4:2: ..
+Translation is very short compared to en_ulb 21-05 source: 1CO 5:2
+Translation is very short compared to en_ulb 21-05 source: 1CO 5:12
+Translation is very short compared to en_ulb 21-05 source: 1CO 6:2
+Forward slash in 1CO 6:4
+Translation is very short compared to en_ulb 21-05 source: 1CO 6:9
+Translation is very short compared to en_ulb 21-05 source: 1CO 6:16
+Translation is very short compared to en_ulb 21-05 source: 1CO 6:18
+First word in sentence is not capitalized: "me" at 1CO 7:2
+First word in sentence is not capitalized: "me" at 1CO 7:3
+First word in sentence is not capitalized: "mo" in 1CO 7:5
+First word in sentence is not capitalized: "ia" at 1CO 7:11
+First word in sentence is not capitalized: "se" in 1CO 7:16
+First word in sentence is not capitalized: "me" at 1CO 7:20
+First word in sentence is not capitalized: "kei" at 1CO 7:31
+First word in sentence is not capitalized: "ia" at 1CO 7:33
+First word in sentence is not capitalized: "au" in 1CO 9:1
+First word in sentence is not capitalized: "oi" in 1CO 9:1
+First word in sentence is not capitalized: "se" in 1CO 9:7
+First word in sentence is not capitalized: "au" at 1CO 9:8
+First word in sentence is not capitalized: "sa" in 1CO 9:8
+First word in sentence is not capitalized: "ni" at 1CO 9:9
+First word in sentence is not capitalized: "se" at 1CO 9:10
+First word in sentence is not capitalized: "vei" at 1CO 9:21
+First word in sentence is not capitalized: "vei" at 1CO 9:22
+First word of paragraph not capitalized near 1CO 11:1
+First word in sentence is not capitalized: "ia" at 1CO 11:5
+First word in sentence is not capitalized: "kaiei" at 1CO 11:10
+Free floating mark at 1CO 11:24: kaya, “ kaiei
+Free floating mark at 1CO 11:25: vou. ‘ valata
+First word in sentence is not capitalized: "valata" in 1CO 11:25
+First word in sentence is not capitalized: "ko" at 1CO 11:27
+First word in sentence is not capitalized: "maiei" at 1CO 11:30
+First word in sentence is not capitalized: "ia" at 1CO 11:31
+First word in sentence is not capitalized: "i" at 1CO 11:32
+Check the punctuation at 1CO 12:15: ,:
+First word in sentence is not capitalized: "era" in 1CO 14:21
+First word in sentence is not capitalized: "ni" in 1CO 14:26
+First word in sentence is not capitalized: "mo" in 1CO 15:34
+First word in sentence is not capitalized: "me" at 2CO 1:14
+First word in sentence is not capitalized: "se" in 2CO 1:17
+First word in sentence is not capitalized: "me" at 2CO 2:11
+First word in sentence is not capitalized: "sana" in 2CO 3:1
+First word in sentence is not capitalized: "sa" in 2CO 3:3
+Check the punctuation at 2CO 3:6: ..
+First word in sentence is not capitalized: "ka" at 2CO 4:2
+First word in sentence is not capitalized: "ia" at 2CO 5:13
+First word in sentence is not capitalized: "a" in 2CO 7:7
+First word in sentence is not capitalized: "ka" at 2CO 8:4
+First word in sentence is not capitalized: "ni" at 2CO 10:4
+Check the punctuation at 2CO 13:5: ?-
+First word in sentence is not capitalized: "ia" in GAL 1:12
+Check the punctuation at GAL 2:6: ;-
+Punctuation missing at end of chapter before GAL 4
+Punctuation missing at end of chapter before GAL 5
+Non-standard chapter label at EPH 1: Wase1
+First word in sentence is not capitalized: "ni" at EPH 2:10
+Translation is very short compared to en_ulb 21-05 source: EPH 4:1
+Translation is very short compared to en_ulb 21-05 source: EPH 4:21
+Non-standard chapter label at EPH 5: wase 5
+Empty verse: EPH 5:27
+Inconsistent chapter titling: ['Wase1', 'Wase', 'wase'] in EPH
+First word in sentence is not capitalized: "ni" at PHP 1:29
+First word in sentence is not capitalized: "taura" at PHP 2:16
+First word in sentence is not capitalized: "qarauna" in PHP 3:2
+First word in sentence is not capitalized: "ena" at PHP 4:19
+First word in sentence is not capitalized: "a" at 1TH 4:9
+Free floating mark at 1TH 5:3: kaya, “ a vakacegu
+First word in sentence is not capitalized: "vei" at 1TH 5:7
+First word in sentence is not capitalized: "vakavinavinaka" at 1TH 5:18
+First word in sentence is not capitalized: "vakatovolea" at 1TH 5:21
+Non-standard chapter label at 2TH 1: Cesolonaika 1
+Non-standard chapter label at 2TH 2: Cesalonaika 2
+Non-standard chapter label at 2TH 3: Cesalonaika 3
+Inconsistent chapter titling: ['Cesolonaika', 'Cesalonaika'] in 2TH
+Punctuation missing at end of chapter before 1TI 5
+Word medial punctuation in 1TI 5:18: Tabu,"Mo
+Punctuation missing at end of chapter before 2TI 2
+Free floating mark at TIT 1:12: kaya, “ ko
+Verse number in text (probable): TIT 2:15
+First word in sentence is not capitalized: "valata" at TIT 3:13
+Possible section title on a line by itself at PHM 1:3
+Free floating mark at HEB 7:2: maiei, " tui
+Forward slash in HEB 7:13
+Possible verse number (13) in text at HEB 7:13
+First word in sentence is not capitalized: "v" at HEB 7:13
+First word in sentence is not capitalized: "ia" at HEB 7:21
+Backslash (\) near HEB 9:1
+Possible verse number (1) in text at HEB 9:1
+First word of paragraph not capitalized near HEB 9:1
+Verse number in text (probable): HEB 10:11
+First word in sentence is not capitalized: "me" at HEB 10:22
+First word in sentence is not capitalized: "ra" at HEB 11:34
+First word in sentence is not capitalized: "ko" at JAS 5:6
+Translation is very short compared to en_ulb 21-05 source: 1PE 1:10
+Empty verse: 1PE 2:16
+Translation is very short compared to en_ulb 21-05 source: 2PE 1:7
+Equals sign (=) in 2PE 2:16
+Optional text or untagged footnote at 2PE 2:20
+Word medial punctuation in 2PE 3:4: kaya,”I
+Translation is very short compared to en_ulb 21-05 source: 1JN 4:2
+First word in sentence is not capitalized: "xxx" at 1JN 4:6
+Translation is very short compared to en_ulb 21-05 source: 1JN 4:6
+Equals sign (=) in 1JN 5:15
+Empty verse: REV 2:13
+Free floating mark at REV 2:19: " Au
+First word of paragraph not capitalized near REV 3:1
+Empty verse: REV 3:11
+Punctuation after quote mark at REV 4:1: ".
+Equals sign (=) in REV 4:2
+Translation is very short compared to en_ulb 21-05 source: REV 5:9
+Equals sign (=) in REV 7:10
+Punctuation after quote mark at REV 11:3: ".
+First word in sentence is not capitalized: "e" in REV 11:19
+First word in sentence is not capitalized: "ena" at REV 14:10
+First word in sentence is not capitalized: "ia" at REV 14:13
+Empty verse: REV 14:16
+Check the punctuation at REV 16:15: ,!
+First word in sentence is not capitalized: "au" in REV 16:15
+First word in sentence is not capitalized: "na" in REV 18:10
+First word in sentence is not capitalized: "na" in REV 18:16
+First word in sentence is not capitalized: "ka" in REV 18:16
+First word in sentence is not capitalized: "a" in REV 18:19
+First word in sentence is not capitalized: "sa" in REV 18:19
+First word in sentence is not capitalized: "sa" in REV 18:19
+Equals sign (=) in REV 19:20
+First word in sentence is not capitalized: "sa" in REV 22:12
+Mixed case word in MAT 3:1: KoJoni
+Mixed case word in MAT 4:15: NaCtalai
+Mixed case word in MAT 4:23: va-Kalili
+Mixed case word in MAT 8:17: paroCsai
+Mixed case word in MAT 25:6: vakawatitakiQ
+Mixed case word in MAT 25:22: JKaya
+Mixed case word in MAT 27:17: PAilato
+Mixed case word in MRK 7:3: vaka-Farisi
+Mixed case word in MRK 8:10: vaka-Talimanuca
+Mixed case word in MRK 16:20: aTisaipeli
+Mixed case word in LUK 8:46: nIu
+Mixed case word in LUK 8:49: TUraga
+Mixed case word in LUK 9:61: tUraga
+Mixed case word in LUK 22:67: KEvaka
+Mixed case word in LUK 23:27: M=lega
+Mixed case word in LUK 23:40: seXXXX
+Mixed case word in LUK 24:10: MeriMakitalena
+Mixed case word in LUK 24:27: paroDta
+Mixed case word in JHN 12:12: Jeri=uisalemi
+Mixed case word in ACT 2:14: doXXXXX
+Mixed case word in ACT 2:19: XaiXakariXen
+Mixed case word in ACT 2:22: tauXata
+Mixed case word in ACT 2:22: keXudou
+Mixed case word in ACT 2:22: XeXndou
+Mixed case word in ACT 2:25: tamaXX
+Mixed case word in ACT 2:33: vakalXXXlevui
+Mixed case word in ACT 2:33: raiXX
+Mixed case word in ACT 2:35: yaXamu
+Mixed case word in ACT 2:42: XXXuli
+Mixed case word in ACT 2:43: yacX
+Mixed case word in ACT 2:43: XXkilakila
+Mixed case word in ACT 3:11: vakalXvu
+Mixed case word in ACT 3:12: XXe
+Mixed case word in ACT 3:13: XXlia
+Mixed case word in ACT 3:19: valaXXXX
+Mixed case word in ACT 13:41: NNiu
+Mixed case word in ACT 14:11: vaka-Likeonia
+Mixed case word in ACT 14:13: bure-Kalou
+Mixed case word in ACT 16:12: vaka-Roma
+Mixed case word in ACT 21:29: ToroFimo
+Mixed case word in ACT 22:2: vakaXXperiu
+Mixed case word in ACT 22:20: vakamatXa
+Mixed case word in ACT 22:23: aXXai
+Mixed case word in ACT 25:13: Akanpa-na-Tu
+Mixed case word in ACT 26:14: vaka-Iperiu
+Mixed case word in ACT 28:15: valenXkana
+Mixed case word in ROM 9:4: IUsireli
+Mixed case word in ROM 10:10: niSa
+Mixed case word in ROM 10:18: SaVako
+Mixed case word in 1CO 1:6: iKairisto
+Mixed case word in 2CO 7:3: meuXX
+Mixed case word in 2CO 8:7: keiXaXs
+Mixed case word in 2CO 8:23: talXX
+Mixed case word in 2CO 9:1: tXXsa
+Mixed case word in 2CO 9:1: kemuXXu
+Mixed case word in 2CO 9:3: vakawaletakinX
+Mixed case word in 2CO 9:7: vinaXata
+Mixed case word in 2CO 11:30: vakatakXX
+Mixed case word in GAL 1:14: VakaJiu
+Mixed case word in HEB 7:11: vaka-Livai
+Mixed case word in HEB 7:11: vaka-Melikisetiki
+Mixed case word in HEB 8:1: mXXa
+Mixed case word in HEB 8:1: eXX
+Mixed case word in HEB 8:4: laXa
+Mixed case word in HEB 9:1: qaravirdXXXX
+Mixed case word in HEB 9:4: taXega
+Mixed case word in HEB 9:24: uXlega
+Mixed case word in HEB 10:1: rawXX
+Mixed case word in HEB 10:1: buXa
+Mixed case word in HEB 10:2: dX
+Mixed case word in HEB 10:2: saXa
+Mixed case word in HEB 10:3: valeananXXXX
+Mixed case word in HEB 10:5: vakaXXba
+Mixed case word in HEB 10:6: vinakatX
+Mixed case word in HEB 10:7: XXesa
+Mixed case word in HEB 10:11: viXsiga
+Mixed case word in HEB 10:12: niXacabori
+Mixed case word in HEB 10:14: vakaviXXXX
+Mixed case word in HEB 10:14: alXX
+Mixed case word in HEB 10:16: laiXa
+Mixed case word in HEB 10:16: erX
+Mixed case word in HEB 10:20: voiX
+Mixed case word in HEB 10:22: mXXaki
+Mixed case word in HEB 10:22: leXX
+Mixed case word in HEB 10:22: loXX
+Mixed case word in HEB 10:23: MeXa
+Mixed case word in HEB 10:23: nXXXXi
+Mixed case word in HEB 10:27: cXXXXXX
+Mixed case word in HEB 10:27: bukaXnqa
+Mixed case word in HEB 10:30: NIda
+Mixed case word in HEB 10:30: leXXX
+Mixed case word in HEB 10:30: oX
+Mixed case word in HEB 10:32: naXXma
+Mixed case word in HEB 10:34: kaiXXXu
+Mixed case word in HEB 10:35: sXX
+Mixed case word in HEB 10:36: loXa
+Mixed case word in HEB 10:39: veivakXXsai
+Mixed case word in HEB 10:39: maliXa
+Mixed case word in HEB 10:39: XXroroya
+Mixed case word in HEB 11:1: XXtaki
+Mixed case word in HEB 11:3: vakXX
+Mixed case word in HEB 11:6: segabaX
+Mixed case word in HEB 11:7: vXXqa
+Mixed case word in HEB 11:8: kaciviXci
+Mixed case word in HEB 11:11: valXXi
+Mixed case word in HEB 11:13: kX
+Mixed case word in HEB 11:14: vXXXXX
+Mixed case word in HEB 11:15: vaXXX
+Mixed case word in HEB 11:15: vXX
+Mixed case word in HEB 11:16: XXXXnitu
+Mixed case word in HEB 11:16: kaXXsa
+Mixed case word in HEB 11:18: kauXa
+Mixed case word in HEB 11:19: raXXX
+Mixed case word in HEB 11:19: vakXi
+Mixed case word in HEB 11:20: maiXka
+Mixed case word in HEB 11:37: valearavaX
+Mixed case word in HEB 11:37: staleX
+Mixed case word in HEB 11:38: dauXvei
+Mixed case word in REV 16:17: jikojiko-vaka-Turaga
+Other mixed case words occur more than once each: ['paroCta', 'va-Kalou', 'KKo', 'ParoDta', 'SAi', 'KArisito', 'taXa', 'taXoa', 'eXa', 'kiXa', 'taXXX', 'kiXX', 'taXXa', 'vakajiXXjXXa']
+10020 unique words. 6048 (60%) of them occur only once.
+
+SUMMARY:
+Free floating mark at ...:  192 occurrences.
+First word in sentence is not capitalized: "...:  190 occurrences.
+Mixed case word in ...:  119 occurrences.
+Punctuation after quote mark at ...:  105 occurrences.
+Word medial punctuation in ...:  93 occurrences.
+Translation is very short compared to en_ulb 21-05 source: ...:  42 occurrences.
+Check the punctuation at ...:  23 occurrences.
+Repeated quotes at ...:  20 occurrences.
+Equals sign (=) in ...:  15 occurrences.
+Punctuation missing at end of chapter before ...:  11 occurrences.
+Empty verse: ...:  8 occurrences.
+Non-standard chapter label at ...:  7 occurrences.
+Forward slash in ...:  4 occurrences.
+Inconsistent chapter titling: ['...:  4 occurrences.
+Possible verse number (1...:  3 occurrences.
+First word of paragraph not capitalized near ...:  3 occurrences.
+Optional text or untagged footnote at ...:  2 occurrences.
+Backslash (\) near ...:  2 occurrences.
+Possible section title on a line by itself at ...:  2 occurrences.
+Verse number in text (probable): ...:  2 occurrences.
+Bracket or parens in MRK 15:40 (en_ulb 21-05 has a footnote there):  1 occurrence.
+Book title matches English: Luke:  1 occurrence.
+Invalid number prefix: a9 at LUK 19:42:  1 occurrence.
+Missing verses between: LUK 24:41 and LUK 24:44:  1 occurrence.
+Invalid number suffix: 9a at JHN 1:42:  1 occurrence.
+Embedded number in word: Raravatu5” at JHN 19:13:  1 occurrence.
+Possible section title at end of ACT 21:40:  1 occurrence.
+Other mixed case words occur more than once each: ['paroCta', 'va-Kalou', 'KKo', 'ParoDta', 'SAi', 'KArisito', 'taXa', 'taXoa', 'eXa', 'kiXa', 'taXXX', 'kiXX', 'taXXa', 'vakajiXXjXXa']:  1 occurrence.
+10020 unique words. 6048 (60%) of them occur only once.:  1 occurrence.
+
+856 issues reported.
+But these kinds of warnings were suppressed:
+    Straight quotes.
+
+Missing checking_entity.
+Inconsistent book names (Koronica for 1CO vs. Korinica for 2CO)
+Inconsistent book titles (1 Cesalonaika for 1TH vs. II Cesolonaika for 2TH)

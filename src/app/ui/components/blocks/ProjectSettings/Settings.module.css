@@ -1,0 +1,26 @@
+.root {
+  padding: 0;
+  border: solid 1px var(--mantine-color-default-border);
+}
+
+.label {
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.indicator {
+  height: 3rem;
+  border: solid 1px var(--mantine-primary-color-filled);
+}
+
+.chosenToggle {
+  color: var(--mantine-primary-color-filled);
+  font-weight: 700;
+}
+
+.centeredTextInput {
+  font-weight: 700;
+  text-align: center;
+}

@@ -1,4 +1,5 @@
 mod git;
+mod md5;
 mod parse;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::time::Instant;
@@ -42,23 +43,24 @@ pub fn run() {
     {
         builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
     }
-    builder.invoke_handler(tauri::generate_handler![
-        parse_usfm,
-        git::clone_repo,
-        hello_world
-    ])
-    .setup(move |app| {
-        #[cfg(debug_assertions)] // only include this code on dev builds
-        {
-            // Your debug assertions code (left commented as before)
-            // let window = app
-            //     .get_webview_window("main")
-            //     .expect("Failed to get main window");
-            // // window.open_devtools();
-        }
+    builder
+        .invoke_handler(tauri::generate_handler![
+            parse_usfm,
+            git::clone_repo,
+            hello_world
+        ])
+        .setup(move |app| {
+            #[cfg(debug_assertions)] // only include this code on dev builds
+            {
+                // Your debug assertions code (left commented as before)
+                // let window = app
+                //     .get_webview_window("main")
+                //     .expect("Failed to get main window");
+                // // window.open_devtools();
+            }
 
-        Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

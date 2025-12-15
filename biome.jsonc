@@ -45,6 +45,12 @@
                     "level": "warn",
                     "fix": "none",
                     "options": {}
+                },
+                "useImportExtensions": {
+                    "level": "warn",
+                    "options": {
+                        "forceJsExtensions": false
+                    }
                 }
             }
         }

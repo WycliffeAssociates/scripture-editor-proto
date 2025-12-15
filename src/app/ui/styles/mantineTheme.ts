@@ -1,21 +1,42 @@
 import {
+    colorsTuple,
     createTheme,
+    type DefaultMantineColor,
     type MantineColorsTuple,
     Tooltip,
-    virtualColor,
 } from "@mantine/core";
 
+type ExtendedCustomColors =
+    | "primary"
+    | "success"
+    | "warning"
+    | "error"
+    | "gray"
+    | "textLight"
+    | "textDark"
+    | "surfaceLight"
+    | "surfaceDark"
+    | "borderLight"
+    | "borderDark"
+    | DefaultMantineColor;
+
+declare module "@mantine/core" {
+    export interface MantineThemeColorsOverride {
+        colors: Record<ExtendedCustomColors, MantineColorsTuple>;
+    }
+}
+
 const primaryColors: MantineColorsTuple = [
-    "#e7f3ff",
-    "#d0e3ff",
-    "#9ec5fc",
-    "#69a5fb",
-    "#4089fa",
-    "#2978fa",
-    "#1d70fb",
-    "#105fe1",
-    "#0057d1",
-    "#0048b2",
+    "#F4F8FB",
+    "#cee6f7",
+    "#a9d4f4",
+    "#7dc0f2",
+    "#50adf2",
+    "#2099f3",
+    "#0885e2",
+    "#00528f",
+    "#02375f",
+    "#032b4a",
 ];
 const dangerColors: MantineColorsTuple = [
     "#ffedeb",
@@ -30,26 +51,63 @@ const dangerColors: MantineColorsTuple = [
     "#91211d",
 ];
 const grays: MantineColorsTuple = [
-    "#ebf6ff",
-    "#e0e8ef",
-    "#c5ced6",
-    "#9facb7",
-    "#8d9ba7",
-    "#7c8d9b",
-    "#738696",
-    "#607383",
-    "#536676",
-    "#42596b",
+    "#f3f4fb",
+    "#e5e6ea",
+    "#c9cacf",
+    "#abadb5",
+    "#92949f",
+    "#828492",
+    "#7a7d8c",
+    "#686a7a",
+    "#575a69",
+    "#4d5163",
+];
+const yellows: MantineColorsTuple = [
+    "#fff5e0",
+    "#ffeacb",
+    "#fed39b",
+    "#fcbb67",
+    "#faa83d",
+    "#f99a1e",
+    "#f9930b",
+    "#de7f00",
+    "#c67000",
+    "#ac6000",
+];
+
+const greens: MantineColorsTuple = [
+    "#f4fbe9",
+    "#e9f3da",
+    "#d3e4b7",
+    "#bbd590",
+    "#a7c86f",
+    "#9ac059",
+    "#93bc4d",
+    "#82a93f",
+    "#709334",
+    "#5e7f27",
 ];
 
 export const theme = createTheme({
     colors: {
         primary: primaryColors,
-        red: dangerColors,
+        success: greens,
+        warning: yellows,
+        error: dangerColors,
         gray: grays,
+        textLight: colorsTuple("#0f2f4c"),
+        textDark: colorsTuple("#fff"),
+        surfaceLight: colorsTuple("#fff"),
+        surfaceDark: colorsTuple("#2a2d31"),
+        borderLight: colorsTuple("#E6E6E6"),
+        borderDark: colorsTuple("#2c3036"),
     },
     primaryColor: "primary",
-    primaryShade: 8,
+    //   defaults
+    primaryShade: {
+        light: 8,
+        dark: 5,
+    },
     black: "#0E0E0E",
     fontFamily: "Inter, system-ui, sans-serif",
     radius: {
@@ -60,23 +118,6 @@ export const theme = createTheme({
 
     shadows: {
         md: "box-shadow: 0px 1px 2px 0px #1F1F1F3D, 0px 1px 3px 0px #1F1F1F1F",
-    },
-    other: {
-        textColor: virtualColor({
-            name: "textColor",
-            light: "#0f2f4c",
-            dark: "#fff",
-        }),
-        surface: virtualColor({
-            name: "surface",
-            light: "#fff",
-            dark: "#18191c",
-        }),
-        border: virtualColor({
-            name: "border",
-            light: "#E6E6E6",
-            dark: "#2c3036",
-        }),
     },
     components: {
         Tooltip: Tooltip.extend({
@@ -92,17 +133,16 @@ export const cssVariablesResolver = (theme: ThemeType) => {
     return {
         variables: {},
         light: {
-            "--mantine-color-text": theme.other?.textColor?.light,
-            "--mantine-color-body": theme.other?.surface?.light,
-            "--mantine-color-default-border": theme.other?.border?.light,
+            "--mantine-color-text": theme.colors?.textLight?.[0] || "",
+            "--mantine-color-body": theme.colors?.surfaceLight?.[0] || "",
+            "--mantine-color-default-border":
+                theme.colors?.borderLight?.[0] || "",
         },
         dark: {
-            "--mantine-color-text": theme.other?.textColor?.dark,
-            "--mantine-color-body": theme.other?.surface?.dark,
-            "--mantine-color-default-border": theme.other?.border?.dark,
+            "--mantine-color-text": theme.colors?.textDark?.[0] || "",
+            "--mantine-color-body": theme.colors?.surfaceDark?.[0] || "",
+            "--mantine-color-default-border":
+                theme.colors?.borderDark?.[0] || "",
         },
-        // darkVariables: {
-        //   '--mantine-primary-color': theme.colors?.cyan?.[8],
-        // },
     };
 };

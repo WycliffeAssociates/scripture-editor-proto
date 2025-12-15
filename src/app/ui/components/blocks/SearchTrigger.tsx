@@ -1,12 +1,14 @@
 import { ActionIcon } from "@mantine/core";
 import { Search as IconSearch } from "lucide-react";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 export function SearchInput() {
     const { search } = useWorkspaceContext();
     return (
         <ActionIcon
             variant="subtle"
+            data-testid={TESTING_IDS.searchTrigger}
             onClick={() => {
                 search.setIsSearchPaneOpen((o) => !o);
                 setTimeout(() => {

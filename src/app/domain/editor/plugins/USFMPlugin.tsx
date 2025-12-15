@@ -12,46 +12,64 @@ import {
     EDITOR_TAGS_USED,
     EditorMarkersViewStates,
     EditorModes,
-} from "@/app/data/editor";
-import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife";
-import { lintAll } from "@/app/domain/editor/listeners/lintChecks";
-import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes";
+} from "@/app/data/editor.ts";
+import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
+import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
+import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
     lockImmutableMarkersOnCut,
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
-} from "@/app/domain/editor/listeners/lockImmutableMarkers";
-import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure";
-import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata";
+} from "@/app/domain/editor/listeners/lockImmutableMarkers.ts";
+import {
+    maintainDocumentStructure,
+    maintainDocumentStructureDebounced,
+} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
+import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
-} from "@/app/domain/editor/listeners/manageUsfmMarkers";
-import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid";
-import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas";
-import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
+} from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
+
+import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid.ts";
+import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
+import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
-    const { project, actions, lint, referenceProject } = useWorkspaceContext();
+    const {
+        project,
+        actions,
+        lint,
+        referenceProject,
+        projectLanguageDirection,
+    } = useWorkspaceContext();
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
     const lintDebounceMs = 300;
     const sixtyFPS = 16;
+    const structuralUpdateDebounceMs = 1000;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
-        // console.time("lint");
-        // const messages = lintVerseRangeReferences({editorState, editor});
-
         const errMessages = lintAll(
             { editorState, editor },
             actions.getFlatFileTokens,
         );
 
-        // console.log(messages);
         lint.mergeInNewErrorsFromChapter(errMessages);
     }, lintDebounceMs);
+
+    const debouncedStructuralUpdates = useDebouncedCallback(
+        (editorState: EditorState) => {
+            return editorState.read(() => {
+                console.time("debouncedStructuralUpdates");
+                maintainDocumentStructureDebounced(editorState, editor);
+                console.timeEnd("debouncedStructuralUpdates");
+            });
+        },
+        structuralUpdateDebounceMs,
+    );
 
     const throttledEditorChangeListener = useThrottledCallback(
         (editorState: EditorState) => {
@@ -103,6 +121,31 @@ export function USFMPlugin() {
                 return throttledEditorChangeListener(editorState);
             },
         );
+        const debouncedMaintainMetadata = editor.registerUpdateListener(
+            ({
+                editorState,
+                dirtyElements,
+                dirtyLeaves,
+                prevEditorState,
+                tags,
+            }) => {
+                const wasOnlySelChange =
+                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
+                if (
+                    wasOnlySelChange &&
+                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
+                ) {
+                    return;
+                }
+                if (prevEditorState.isEmpty()) {
+                    return;
+                }
+                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+                    return;
+                }
+                return debouncedStructuralUpdates(editorState);
+            },
+        );
 
         // update listeners, not a transform due to needing to run on selection changes
         // Get notified when Lexical commits an update to the DOM.
@@ -138,6 +181,7 @@ export function USFMPlugin() {
                     editorMode: mode,
                     markersMutableState,
                     markersViewState,
+                    languageDirection: projectLanguageDirection,
                 };
                 textNodeTransform(arg);
                 inverseTextNodeTransform(arg);
@@ -193,6 +237,7 @@ export function USFMPlugin() {
             wysiPreview();
             unregisterTransformWhileTyping();
             maintainMetadata();
+            debouncedMaintainMetadata();
             redirectParaInsertionToLineBreakUnregister();
             lints();
             keyDownUnregister();
@@ -211,6 +256,8 @@ export function USFMPlugin() {
         debouncedLint,
         throttledEditorChangeListener,
         referenceProject?.referenceProjectId,
+        debouncedStructuralUpdates,
+        projectLanguageDirection,
     ]);
 
     return null;

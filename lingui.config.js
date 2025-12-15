@@ -6,7 +6,8 @@ export default defineConfig({
     catalogs: [
         {
             path: "<rootDir>/src/app/ui/i18n/locales/{locale}/messages",
-            include: ["src"],
+            include: ["./src"],
+            exclude: ["./src/tauri/**", "./src/test/**"],
         },
     ],
 });

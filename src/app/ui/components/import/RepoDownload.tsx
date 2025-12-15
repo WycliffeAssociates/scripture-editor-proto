@@ -1,19 +1,21 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDebouncedState } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import AutocompleteInput, {
     type AutocompleteItem,
-} from "@/app/ui/components/import/AutoCompleteInput";
+} from "@/app/ui/components/import/AutoCompleteInput.tsx";
+import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 import {
     fetchUserOrOrgRepos,
     fetchUsersAndOrgs,
-} from "@/core/persistence/git/giteaApi";
+} from "@/core/persistence/git/giteaApi.ts";
 import type {
     GiteaOrganization,
     GiteaRepository,
     GiteaUser,
-} from "@/core/persistence/git/types";
+} from "@/core/persistence/git/types.ts";
 
 // Define the component's props interface
 interface RepoDownloadProps {
@@ -27,6 +29,7 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         "",
         500,
     );
+    const { t } = useLingui();
     const [selectedOrgUser, setSelectedOrgUser] = useState<
         GiteaUser | GiteaOrganization | null
     >(null);
@@ -212,8 +215,8 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
         <div>
             {/*<Modal isOpen={props.isOpen} onClose={props.onClose} title="Download Repository">*/}
             <AutocompleteInput
-                label="Organization or User"
-                placeholder="Search for an organization or user..."
+                label={t`Organization or User`}
+                placeholder={t`Search for an organization or user...`}
                 searchTerm={orgUserSearchTerm}
                 setSearchTerm={setOrgUserSearchTerm}
                 results={orgUserResults}
@@ -226,8 +229,8 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
             />
 
             <AutocompleteInput
-                label="Repository"
-                placeholder="Search for a repository..."
+                label={t`Repository`}
+                placeholder={t`Search for a repository...`}
                 searchTerm={repoSearchTerm}
                 setSearchTerm={setRepoSearchTerm}
                 results={filteredRepoResults}
@@ -241,12 +244,12 @@ const RepoDownload: React.FC<RepoDownloadProps> = (props) => {
             />
 
             <button
-                type="button" // Use type="button" for general buttons
+                type="button"
                 onClick={handleDownload}
-                disabled={props.isDownloadDisabled || !selectedRepo} // Also disable if no repo is selected
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={props.isDownloadDisabled || !selectedRepo}
+                className={styles.downloadButton}
             >
-                Download Repository
+                <Trans>Download repository</Trans>
             </button>
             {/*</Modal>*/}
         </div>

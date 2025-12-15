@@ -9,11 +9,12 @@ import type {
     Spread,
 } from "lexical";
 import { DecoratorNode } from "lexical";
-import type { USFMNodeJSON } from "@/app/data/editor";
-import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor";
-import type { LintError } from "@/core/data/usfm/lint";
-import type { ParsedToken } from "@/core/data/usfm/parse";
-import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic";
+import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic.ts";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 
@@ -104,6 +105,9 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     getLintErrors(): LintError[] | undefined {
         return this.__lintErrors;
     }
+    getTextContentSize(): number {
+        return this.__text.length;
+    }
     getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
         return this.getLatest().__editorState;
     }
@@ -125,7 +129,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         const current = this.__lintErrors;
         const incomingMessages = newLintErrors;
         // if either set is not fully contained in the other, then we need to update
-        return arraysEqualByKey(current || [], incomingMessages, "message");
+        return !arraysEqualByKey(current || [], incomingMessages, "message");
     }
 
     static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {
@@ -231,32 +235,88 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         );
     }
 }
-
-// Helper to construct in code
+export type USFMNestedEditorNodeMetadata = {
+    text: string;
+    marker: string;
+    id: string;
+    usfmType: string;
+    languageDirection: "ltr" | "rtl";
+    sid: string;
+    lintErrors?: LintError[];
+    isOpen?: boolean;
+    level?: string;
+    inPara?: string;
+    attributes?: Record<string, string>;
+};
 export function $createUSFMNestedEditorNode(
-    text: string,
-    marker: string,
-    id: string,
-    usfmType: string,
-    editorState: SerializedEditorState,
-    lintErrors?: LintError[],
-    sid?: string,
-    level?: string,
-    inPara?: string,
-    attributes?: Record<string, string>,
+    metadata: USFMNestedEditorNodeMetadata,
 ): USFMNestedEditorNode {
     return new USFMNestedEditorNode(
-        text,
-        marker,
-        id,
-        usfmType,
-        editorState,
-        lintErrors,
-        sid,
-        level,
-        inPara,
-        attributes,
+        metadata.text,
+        metadata.marker,
+        metadata.id,
+        metadata.usfmType,
+        getMinimalEditorState(metadata.languageDirection, {
+            sid: metadata.sid,
+            marker: metadata.marker,
+            inPara: metadata.inPara,
+        }),
+        metadata.lintErrors,
+        metadata.sid,
+        metadata.level,
+        metadata.inPara,
+        metadata.attributes,
+        undefined,
+        metadata.isOpen,
     );
+}
+export function getMinimalEditorState(
+    languageDirection: "ltr" | "rtl",
+    opts: {
+        sid: string;
+        marker: string;
+        inPara?: string;
+    },
+): SerializedEditorState {
+    const serializedPara: SerializedElementNode = {
+        children: [
+            // the caller and the endmarker
+            createSerializedUSFMTextNode({
+                text: "+ ",
+                id: guidGenerator(),
+                sid: opts.sid,
+                tokenType: UsfmTokenTypes.text,
+                inPara: opts.inPara,
+                show: true,
+                isMutable: true,
+            }),
+            createSerializedUSFMTextNode({
+                text: `\\${opts.marker}*`,
+                id: guidGenerator(),
+                sid: opts.sid,
+                tokenType: UsfmTokenTypes.endMarker,
+                inPara: opts.inPara,
+                show: true,
+                isMutable: true,
+            }),
+        ],
+        type: "paragraph",
+        version: 1,
+        direction: languageDirection,
+        format: "",
+        indent: 0,
+    };
+
+    return {
+        root: {
+            children: [serializedPara],
+            direction: languageDirection,
+            format: "",
+            indent: 0,
+            type: "root",
+            version: 1,
+        },
+    };
 }
 
 export function getSerializedNestedEditorNode({

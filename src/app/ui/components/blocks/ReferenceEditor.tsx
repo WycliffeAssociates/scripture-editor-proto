@@ -6,6 +6,7 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { useLingui } from "@lingui/react/macro";
 import {
     HISTORY_MERGE_TAG,
     type LexicalEditor,
@@ -14,16 +15,18 @@ import {
     TextNode,
 } from "lexical";
 import { useEffect, useRef } from "react";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode";
-import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext";
-import { guidGenerator } from "@/core/data/utils/generic";
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
+    const { t } = useLingui();
     const { referenceProject } = useWorkspaceContext();
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const { referenceQuery, referenceProjectId: referenceProjectPath } =
@@ -57,6 +60,9 @@ export function ReferenceEditor() {
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <EditorRefPlugin editorRef={nestedEditorRef} />
                 <div
+                    data-testid={TESTING_IDS.refEditorContainer}
+                    data-testing-ref-chapter={referenceChapter?.chapNumber}
+                    data-testing-ref-bookcode={referenceProject?.referenceFile?.bookCode.toLowerCase()}
                     data-js="reference-editor-container"
                     className="editor-container relative h-full overflow-y-auto"
                 >
@@ -64,7 +70,7 @@ export function ReferenceEditor() {
                         contentEditable={
                             <ContentEditable
                                 className="min-h-full focus:outline-none p-4 w-full"
-                                aria-label="USFM Editor"
+                                aria-label={t`USFM Editor`}
                             />
                         }
                         ErrorBoundary={LexicalErrorBoundary}

@@ -1,12 +1,33 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import {
     type EditorMarkersMutableState,
     type EditorMarkersViewState,
     EditorMarkersViewStates,
     type EditorMode,
     EditorModes,
-} from "@/app/data/editor";
+} from "@/app/data/editor.ts";
 
-type SupportedLocales = "en" | "es";
+export const SUPPORTED_LOCALES = ["en", "es"];
+export const GET_LOCALES: () => Record<
+    SupportedLocales,
+    { nativeName: MessageDescriptor; direction: "ltr" | "rtl" }
+> = () => {
+    return {
+        en: {
+            nativeName: msg`English`,
+            direction: "ltr",
+        },
+        es: {
+            nativeName: msg`Español`,
+            direction: "ltr",
+        },
+    };
+};
+type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
+export function isSupportedLocale(locale: string): locale is SupportedLocales {
+    return SUPPORTED_LOCALES.includes(locale);
+}
 export type Settings = {
     fontSize: string;
     fontFamily: string;

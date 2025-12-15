@@ -1,26 +1,32 @@
 {
-    "$schema": "../gen/schemas/desktop-schema.json",
-    "identifier": "default",
-    "description": "Capability for the main window",
-    "windows": ["main"],
-    "permissions": [
-        "core:default",
-        "opener:default",
-        "os:default",
-        "fs:default",
-        "fs:allow-appdata-write-recursive",
-        "fs:allow-open",
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "opener:allow-open-path",
+    "os:default",
+    "fs:default",
+    "fs:allow-appdata-write-recursive",
+    "fs:allow-open",
+    {
+      "identifier": "fs:scope",
+      "allow": [
         {
-            "identifier": "fs:scope",
-            "allow": [
-                { "path": "$APPLOCALDATA/**" },
-                { "path": "$APPDATA/**" },
-                { "path": "$HOME/btt-refiner-proto/**" }
-            ]
+          "path": "$APPLOCALDATA/**"
         },
-        "opener:allow-open-path",
-        "core:webview:allow-set-webview-zoom",
-        "core:webview:allow-set-webview-size",
-        "os:default"
-    ]
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/btt-refiner-proto/**"
+        }
+      ]
+    },
+    "core:webview:allow-set-webview-zoom",
+    "core:webview:allow-set-webview-size",
+    "dialog:default"
+  ]
 }
