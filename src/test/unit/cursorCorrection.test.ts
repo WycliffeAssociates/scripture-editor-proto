@@ -4,7 +4,7 @@ import {
     $isElementNode,
     $isRangeSelection,
 } from "lexical";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
     $isLockedUSFMTextNode,
     $isUSFMTextNode,
@@ -203,7 +203,6 @@ describe("cursorCorrection", () => {
     describe("should not run in USFM mode", () => {
         it("should not move cursor when mode is USFM (markers always visible, mutable)", () => {
             const editor = createTestEditor(usfmContent);
-            let _initialNodeKey: string | null = null;
 
             // Position cursor on locked marker
             editor.update(() => {
@@ -229,7 +228,6 @@ describe("cursorCorrection", () => {
                 expect(lockedMarkerNode).toBeDefined();
 
                 if (lockedMarkerNode) {
-                    _initialNodeKey = lockedMarkerNode.getKey();
                     // Set cursor on the locked marker
                     lockedMarkerNode.select(0, 0);
                 }
@@ -398,7 +396,6 @@ describe("cursorCorrection", () => {
     describe("should handle cursor at document start", () => {
         it("should move forward instead of backward when at document start", async () => {
             const editor = createTestEditor(usfmContent);
-            let _initialNodeKey: string | null = null;
 
             // Position cursor at start of document on first node
             editor.update(() => {
@@ -420,7 +417,6 @@ describe("cursorCorrection", () => {
                 const firstNode = allTextNodes[0];
 
                 if (firstNode) {
-                    _initialNodeKey = firstNode.getKey();
                     // Position cursor at the very start of the first node
                     firstNode.select(0, 0);
                 }
