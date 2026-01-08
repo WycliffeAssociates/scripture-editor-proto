@@ -10,7 +10,7 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { correctCursorIfNeeded } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
+import { correctCursorIfNeeded } from "@/app/domain/editor/utils/cursorCorrection.ts";
 import { createTestEditor } from "../helpers/testEditor.ts";
 
 const usfmContent = `\\id GEN
