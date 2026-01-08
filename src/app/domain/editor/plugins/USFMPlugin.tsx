@@ -1,10 +1,15 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useDebouncedCallback, useThrottledCallback } from "@mantine/hooks";
 import {
+    $getSelection,
+    $isElementNode,
+    $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     type EditorState,
     KEY_DOWN_COMMAND,
+    type LexicalEditor,
+    type LexicalNode,
     type NodeKey,
 } from "lexical";
 import { useEffect, useRef } from "react";
@@ -12,6 +17,7 @@ import {
     EDITOR_TAGS_USED,
     EditorMarkersViewStates,
     EditorModes,
+    TOKENS_TO_LOCK_FROM_EDITING,
 } from "@/app/data/editor.ts";
 import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
@@ -33,8 +39,94 @@ import {
 
 import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferencePaneSid.ts";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
-import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    $isUSFMTextNode,
+    USFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+
+export function isNodeLocked(node: LexicalNode): boolean {
+    if (!$isUSFMTextNode(node)) return false;
+    const tokenType = node.getTokenType();
+    // biome-ignore lint/suspicious/noExplicitAny: Set inclusion check - tokenType may not be in the set
+    return TOKENS_TO_LOCK_FROM_EDITING.has(tokenType as any);
+}
+
+export function findNextEditableNode(node: LexicalNode): USFMTextNode | null {
+    let current = node.getNextSibling();
+    while (current) {
+        if ($isUSFMTextNode(current) && !isNodeLocked(current)) {
+            return current as USFMTextNode;
+        }
+        if ($isUSFMTextNode(current) && isNodeLocked(current)) {
+            current = current.getNextSibling();
+            continue;
+        }
+        if ($isElementNode(current)) {
+            const firstChild = current.getFirstChild();
+            if (firstChild) {
+                current = firstChild;
+                continue;
+            }
+        }
+        current = current.getNextSibling();
+    }
+    return null;
+}
+
+export function findPreviousEditableNode(
+    node: LexicalNode,
+): USFMTextNode | null {
+    let current = node.getPreviousSibling();
+    while (current) {
+        if ($isUSFMTextNode(current) && !isNodeLocked(current)) {
+            return current as USFMTextNode;
+        }
+        if ($isUSFMTextNode(current) && isNodeLocked(current)) {
+            current = current.getPreviousSibling();
+            continue;
+        }
+        if ($isElementNode(current)) {
+            const lastChild = current.getLastChild();
+            if (lastChild) {
+                current = lastChild;
+                continue;
+            }
+        }
+        current = current.getPreviousSibling();
+    }
+    return null;
+}
+
+export function correctCursorIfNeeded(editor: LexicalEditor) {
+    editor.update(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) return;
+        const anchorNode = selection.anchor.getNode();
+        const focusNode = selection.focus.getNode();
+        const isAnchorInLocked = isNodeLocked(anchorNode);
+        const isFocusInLocked = isNodeLocked(focusNode);
+
+        if (isAnchorInLocked || isFocusInLocked) {
+            const nextEditable = findNextEditableNode(anchorNode || focusNode);
+            if (nextEditable) {
+                // Select at the beginning of the next editable node
+                nextEditable.select(0, 0);
+                return;
+            }
+
+            const prevEditable = findPreviousEditableNode(
+                anchorNode || focusNode,
+            );
+            if (prevEditable) {
+                // Select at the end of the previous editable node
+                const textLength = prevEditable.getTextContent().length;
+                prevEditable.select(textLength, textLength);
+            }
+        }
+    });
+}
+
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
     const {

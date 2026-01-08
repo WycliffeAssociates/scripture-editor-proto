@@ -3,44 +3,24 @@ import {
     $getSelection,
     $isElementNode,
     $isRangeSelection,
-    type LexicalEditor,
 } from "lexical";
-import { describe, expect, it } from "vitest";
-import { EditorModes } from "@/app/data/editor.ts";
+import { describe, expect, it, test } from "vitest";
 import {
     $isLockedUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { correctCursorIfNeeded } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { createTestEditor } from "../helpers/testEditor.ts";
 
-/**
- * Stub function for cursor correction functionality.
- * This will be implemented in ticket 1.1, but we're testing it here first (TDD).
- *
- * NOTE: This stub is intentionally doing nothing, which should make tests fail.
- * Once implemented, this function should move the cursor from locked nodes to editable nodes.
- */
-
-// Stub: Main cursor correction function
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function correctCursorIfNeeded(
-    _editor: LexicalEditor,
-    _mode: string = EditorModes.WYSIWYG,
-): void {
-    // This is a stub - will be implemented in ticket 1.1
-    // Should move cursor from locked marker to nearest editable node
-    // Intentionally does nothing to make tests fail (TDD)
-}
-
-describe("cursorCorrection", () => {
-    describe("should move cursor from locked marker to verse number", () => {
-        it("should move cursor forward when on a locked verse marker", () => {
-            const usfmContent = `\\id GEN
+const usfmContent = `\\id GEN
 \\c 1
 \\p
 \\v 1 In the beginning God created the heaven and the earth.`;
 
+describe("cursorCorrection", () => {
+    describe("should move cursor from locked marker to verse number", () => {
+        it("should move cursor forward when on a locked verse marker", async () => {
             const editor = createTestEditor(usfmContent);
 
             let initialNodeKey: string | null = null;
@@ -77,9 +57,10 @@ describe("cursorCorrection", () => {
             });
 
             // Call cursor correction (stub does nothing, so selection will be lost)
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
 
             // Check that cursor moved away from locked node
+            await new Promise((resolve) => setTimeout(resolve, 100));
             editor.getEditorState().read(() => {
                 const newSelection = $getSelection();
 
@@ -106,15 +87,8 @@ describe("cursorCorrection", () => {
     });
 
     describe("should move cursor backward if no forward editable node", () => {
-        it("should move backward when cursor is at end of document and on locked node", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 Last verse text.`;
-
+        it("should move backward when cursor is at end of document and on locked node", async () => {
             const editor = createTestEditor(usfmContent);
-
-            let _initialNodeKey: string | null = null;
 
             // Position cursor at end of document on last node
             editor.update(() => {
@@ -136,14 +110,15 @@ describe("cursorCorrection", () => {
                 const lastNode = allTextNodes[allTextNodes.length - 1];
 
                 if (lastNode) {
-                    _initialNodeKey = lastNode.getKey();
                     // Position cursor at the very end of the last node
                     lastNode.selectEnd();
                 }
             });
 
             // Call cursor correction - should move backward if on locked node
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             // Cursor should have moved to an editable position (not null)
             editor.getEditorState().read(() => {
@@ -167,11 +142,6 @@ describe("cursorCorrection", () => {
 
     describe("should not move cursor if already in editable node", () => {
         it("should keep cursor in place when already in editable text node", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 editable text content here`;
-
             const editor = createTestEditor(usfmContent);
 
             let initialNodeKey: string | null = null;
@@ -211,7 +181,7 @@ describe("cursorCorrection", () => {
             });
 
             // Call cursor correction
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
 
             // Cursor should still be in the same node
             editor.getEditorState().read(() => {
@@ -232,13 +202,7 @@ describe("cursorCorrection", () => {
 
     describe("should not run in USFM mode", () => {
         it("should not move cursor when mode is USFM (markers always visible, mutable)", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 Text content`;
-
             const editor = createTestEditor(usfmContent);
-
             let _initialNodeKey: string | null = null;
 
             // Position cursor on locked marker
@@ -274,7 +238,7 @@ describe("cursorCorrection", () => {
             // Call cursor correction with WYSIWYG mode
             // Note: The actual USFM mode checking will be implemented in ticket 1.1
             // This test will need to be updated once mode logic is added
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
 
             // For now, cursor should still exist (stub doesn't implement mode checking yet)
             editor.getEditorState().read(() => {
@@ -293,11 +257,6 @@ describe("cursorCorrection", () => {
 
     describe("should not run in Raw/Source mode", () => {
         it("should not move cursor when mode is SOURCE", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 Text content`;
-
             const editor = createTestEditor(usfmContent);
 
             let initialNodeKey: string | null = null;
@@ -331,7 +290,7 @@ describe("cursorCorrection", () => {
             });
 
             // Call cursor correction with SOURCE mode
-            correctCursorIfNeeded(editor, EditorModes.SOURCE);
+            correctCursorIfNeeded(editor);
 
             // In SOURCE mode, cursor correction should not run at all
             // Cursor should stay in the same position
@@ -359,7 +318,7 @@ describe("cursorCorrection", () => {
 
             // Should not throw any errors
             expect(() => {
-                correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+                correctCursorIfNeeded(editor);
             }).not.toThrow();
 
             // Editor should still be usable
@@ -374,7 +333,7 @@ describe("cursorCorrection", () => {
             const editor = createTestEditor(usfmContent);
 
             // Call cursor correction
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
 
             // Should handle gracefully without errors
             const finalSelection = editor.getEditorState().read(() => {
@@ -387,14 +346,7 @@ describe("cursorCorrection", () => {
 
     describe("should handle cursor at document end", () => {
         it("should move backward instead of forward when at document end", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 Last verse text at end.`;
-
             const editor = createTestEditor(usfmContent);
-
-            let _initialNodeKey: string | null = null;
 
             // Position cursor at end of document
             editor.update(() => {
@@ -417,14 +369,13 @@ describe("cursorCorrection", () => {
                 const lastNode = allTextNodes[allTextNodes.length - 1];
 
                 if (lastNode) {
-                    _initialNodeKey = lastNode.getKey();
                     // Position cursor at the very end of the last node
                     lastNode.selectEnd();
                 }
             });
 
             // If cursor is on a locked node at end, should try to move forward (fail), then backward
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
 
             // Cursor should have moved to an editable position
             editor.getEditorState().read(() => {
@@ -445,14 +396,8 @@ describe("cursorCorrection", () => {
     });
 
     describe("should handle cursor at document start", () => {
-        it("should move forward instead of backward when at document start", () => {
-            const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 First verse text.`;
-
+        it("should move forward instead of backward when at document start", async () => {
             const editor = createTestEditor(usfmContent);
-
             let _initialNodeKey: string | null = null;
 
             // Position cursor at start of document on first node
@@ -482,7 +427,9 @@ describe("cursorCorrection", () => {
             });
 
             // If cursor is on a locked node at start, should move forward (since no backward)
-            correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+            correctCursorIfNeeded(editor);
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             // Cursor should have moved to an editable position (not null)
             editor.getEditorState().read(() => {
@@ -513,7 +460,7 @@ describe("cursorCorrection", () => {
 
             // Should not throw errors
             expect(() => {
-                correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+                correctCursorIfNeeded(editor);
             }).not.toThrow();
         });
 
@@ -527,7 +474,7 @@ describe("cursorCorrection", () => {
 
             // Should not throw errors
             expect(() => {
-                correctCursorIfNeeded(editor, EditorModes.WYSIWYG);
+                correctCursorIfNeeded(editor);
             }).not.toThrow();
         });
     });
