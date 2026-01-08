@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import type React from "react";
-import RepoDownload from "@/app/ui/components/import/RepoDownload.tsx";
+import LanguageApiImporter from "@/app/ui/components/import/LanguageApiImporter.tsx";
 import {
     DirImporter,
     FileImporter,
@@ -50,7 +50,7 @@ export default function ProjectCreator({
                     </h3>
 
                     <div className={styles.repoContainer}>
-                        <RepoDownload
+                        <LanguageApiImporter
                             onDownload={onDownload}
                             isDownloadDisabled={
                                 isDownloadDisabled || isImporting

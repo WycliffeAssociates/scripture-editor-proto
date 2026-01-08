@@ -124,7 +124,7 @@ export default function ProjectRow({
                                         project.projectDirectoryPath,
                                 });
                             }}
-                            className="block flex-1 py-1"
+                            className="block flex-1 p-1 rounded-md hover:bg-(--mantine-color-gray-0)"
                             aria-label={`Open project ${project.name}`}
                             data-testid="project-row-link"
                         >

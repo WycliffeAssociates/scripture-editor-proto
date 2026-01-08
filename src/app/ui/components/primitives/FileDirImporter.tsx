@@ -152,7 +152,7 @@ type WacsImporterProps = {
 /**
  * Lightweight primitive that provides an input + action to trigger a remote
  * repository import. This mirrors the "search / download" piece but is intentionally
- * small so it can be composed into larger blocks (or replaced by the richer `RepoDownload`).
+ * small so it can be composed into larger blocks (or replaced by the richer `LanguageApiImporter`).
  */
 export function WacsImporter({
     onDownload,

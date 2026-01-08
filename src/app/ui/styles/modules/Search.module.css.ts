@@ -6,9 +6,8 @@ export const searchPanel = style({
     borderLeft: `1px solid ${vars.colors.defaultBorder}`,
     height: "100%",
     overflow: "hidden",
-    // display: "grid",
-    // gridTemplateRows: "auto auto 1fr",
-    // alignItems: "start",
+    display: "flex",
+    flexDirection: "column",
     boxShadow:
         "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
     vars: {

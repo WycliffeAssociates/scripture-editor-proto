@@ -11,6 +11,11 @@ export interface AutocompleteItem {
     type?: "user" | "organization" | "repo";
 }
 
+export interface AutocompleteGroup {
+    group: string;
+    items: AutocompleteItem[];
+}
+
 // Solid's Accessor<T> and Setter<T> props are converted to regular React props
 // where data is passed directly and setters are functions.
 export interface AutocompleteInputProps {
@@ -21,7 +26,7 @@ export interface AutocompleteInputProps {
     // Solid's Setter<string> -> (value: string) => void
     setSearchTerm: (value: string) => void;
     // Solid's Accessor<AutocompleteItem[] | undefined> -> AutocompleteItem[] | undefined
-    results: AutocompleteItem[] | undefined;
+    results: AutocompleteGroup[] | undefined;
     onSelect: (item: AutocompleteItem | null) => void;
     selectedItem: AutocompleteItem | null;
     showAvatar?: boolean;
@@ -64,9 +69,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
         setShowDropdown(true); // Show dropdown on input
     };
 
+    const flattenedResults = useMemo(() => {
+        return props.results?.flatMap((group) => group.items) || [];
+    }, [props.results]);
+
     // Solid's handleKeyDown converts from Solid's KeyboardEvent to React's KeyboardEvent<HTMLInputElement>
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        const results = props.results || [];
+        const results = flattenedResults;
         if (e.key === "ArrowDown") {
             e.preventDefault();
             // Using functional state update is the same pattern in React
@@ -97,7 +106,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
     };
 
     const handleFocus = () => {
-        const resultsLength = props.results?.length || 0;
+        const resultsLength = flattenedResults.length;
         // Check if showOnFocus is true OR if there is input, AND there are results.
         if ((props.showOnFocus || inputValue.length > 0) && resultsLength > 0) {
             setShowDropdown(true);
@@ -108,11 +117,11 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
     const shouldShowResultsDropdown = useMemo(() => {
         return (
             showDropdown &&
-            (props.results?.length || 0) > 0 &&
+            flattenedResults.length > 0 &&
             !props.isLoading &&
             !props.isError
         );
-    }, [showDropdown, props.results, props.isLoading, props.isError]);
+    }, [showDropdown, flattenedResults, props.isLoading, props.isError]);
 
     // --- Render Logic ---
 
@@ -184,31 +193,51 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
 
                 {shouldShowResultsDropdown && (
                     <ul className={styles.acDropdown}>
-                        {props.results?.map((item, index) => (
+                        {props.results?.flatMap((group) => [
                             <li
-                                key={item.id}
-                                className={`${styles.acListItem} ${highlightedIndex === index ? styles.acHighlighted : ""}`}
-                                onMouseDown={() => props.onSelect(item)}
+                                key={`group-${group.group}`}
+                                className={styles.acGroupHeader}
                             >
-                                <div className={styles.acItemContent}>
-                                    {props.showAvatar && item.avatar_url && (
-                                        <img
-                                            src={item.avatar_url}
-                                            alt={item.name}
-                                            className={styles.acItemAvatar}
-                                        />
-                                    )}
-                                    <span className={styles.acItemText}>
-                                        {item.name}
-                                    </span>
-                                    {item.type && item.type !== "repo" && (
-                                        <span className={styles.acItemText}>
-                                            ({item.type})
-                                        </span>
-                                    )}
-                                </div>
-                            </li>
-                        ))}
+                                {group.group}
+                            </li>,
+                            ...group.items.map((item) => {
+                                const globalIndex =
+                                    flattenedResults.indexOf(item);
+                                return (
+                                    <li
+                                        key={item.id}
+                                        className={`${styles.acListItem} ${highlightedIndex === globalIndex ? styles.acHighlighted : ""}`}
+                                        onMouseDown={() => props.onSelect(item)}
+                                    >
+                                        <div className={styles.acItemContent}>
+                                            {props.showAvatar &&
+                                                item.avatar_url && (
+                                                    <img
+                                                        src={item.avatar_url}
+                                                        alt={item.name}
+                                                        className={
+                                                            styles.acItemAvatar
+                                                        }
+                                                    />
+                                                )}
+                                            <span className={styles.acItemText}>
+                                                {item.name}
+                                            </span>
+                                            {item.type &&
+                                                item.type !== "repo" && (
+                                                    <span
+                                                        className={
+                                                            styles.acItemText
+                                                        }
+                                                    >
+                                                        ({item.type})
+                                                    </span>
+                                                )}
+                                        </div>
+                                    </li>
+                                );
+                            }),
+                        ])}
                     </ul>
                 )}
             </div>

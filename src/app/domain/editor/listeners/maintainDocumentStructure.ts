@@ -62,6 +62,7 @@ export function maintainDocumentStructure(
             trySplitOutMarkersFromKnownErrorTokens(args);
             //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
             removeEmptyNumberRangeNotPrecededByMarker(args);
+            fixNumberRangeReparenting(args);
         }
         // mergeAdjacentTextNodesOfSameType({
         //   allNodes,
@@ -200,24 +201,88 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
     tokenType,
     updates,
 }) => {
-    const isMarker = tokenType === UsfmTokenTypes.marker;
-    if (!isMarker) return;
-    const marker = node.getMarker();
-    if (!marker) return;
-    if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
-    const nextSibling = node.getNextSibling();
-    if (!$isUSFMTextNode(nextSibling)) return;
-    const nextSiblingToken = nextSibling.getTokenType();
-    if (nextSiblingToken !== UsfmTokenTypes.numberRange) return;
+    // Only process numberRange nodes, not markers
+    const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
+    if (!isNumberRange) return;
+    // Check if the numberRange is empty
+    if (!node.getTextContent().trim().length) {
+        // Look at the previous sibling to see if it's a marker expecting a number
+        const previousSibling = node.getPreviousSibling();
+        if (!$isUSFMTextNode(previousSibling)) return;
 
-    if (!nextSibling.getTextContent().trim().length) {
-        const update = () => {
-            nextSibling.remove();
-        };
-        updates.push({
-            dbgLabel: "removeEmptyNumberRangeNotPrecededByMarker",
-            update,
-        });
+        const isPrevMarker =
+            previousSibling.getTokenType() === UsfmTokenTypes.marker;
+        if (!isPrevMarker) return;
+
+        const prevMarker = previousSibling.getMarker();
+        if (!prevMarker) return;
+
+        // Only remove if NOT preceded by a chapter/verse marker
+        if (!CHAPTER_VERSE_MARKERS.has(prevMarker)) {
+            const update = () => {
+                node.remove();
+            };
+            updates.push({
+                dbgLabel: "removeEmptyNumberRangeNotPrecededByMarker",
+                update,
+            });
+        }
+    }
+};
+
+const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
+    node,
+    tokenType,
+    updates,
+}) => {
+    // Only process numberRange nodes
+    const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
+    if (!isNumberRange) return;
+
+    // Check if numberRange is empty
+    if (!node.getTextContent().trim().length) {
+        // Look at previous sibling to see if it's a chapter/verse marker
+        const previousSibling = node.getPreviousSibling();
+        if (!$isUSFMTextNode(previousSibling)) return;
+
+        const isPrevMarker =
+            previousSibling.getTokenType() === UsfmTokenTypes.marker;
+        if (!isPrevMarker) return;
+
+        const prevMarker = previousSibling.getMarker();
+        if (!prevMarker) return;
+
+        // Only fix if preceded by chapter/verse marker
+        if (CHAPTER_VERSE_MARKERS.has(prevMarker)) {
+            // Look at next sibling to see if it starts with a number
+            const nextSibling = node.getNextSibling();
+            if (!$isUSFMTextNode(nextSibling)) return;
+
+            const nextText = nextSibling.getTextContent().trim();
+            const startsWithNumber = /^\d/.test(nextText);
+
+            if (startsWithNumber) {
+                const update = () => {
+                    // Extract just the number from next sibling
+                    const numberMatch = nextText.match(/^(\d+)/);
+                    if (!numberMatch) return;
+
+                    // Move only the number to the empty numberRange
+                    node.setTextContent(numberMatch[1]);
+                    node.selectEnd();
+
+                    // Clear the next sibling (now empty)
+                    const nextContentSansNumber = nextText.slice(
+                        numberMatch[0].length,
+                    );
+                    nextSibling.setTextContent(nextContentSansNumber);
+                };
+                updates.push({
+                    dbgLabel: "fixNumberRangeReparenting",
+                    update,
+                });
+            }
+        }
     }
 };
 

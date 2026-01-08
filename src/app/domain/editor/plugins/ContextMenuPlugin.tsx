@@ -123,6 +123,57 @@ export function NodeContextMenuPlugin() {
             $setSelection(selToRestore.current);
         });
     }, [editor]);
+
+    const extractSearchTerm = useCallback(() => {
+        let searchTerm = "";
+
+        // First check for native selection (from right-click/double-click)
+        const nativeSel = window.getSelection();
+        if (nativeSel && nativeSel.rangeCount > 0) {
+            const range = nativeSel.getRangeAt(0);
+            searchTerm = range.toString().trim();
+            if (searchTerm) {
+                return searchTerm;
+            }
+        }
+
+        // Fall back to Lexical selection logic
+        editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+                if (!selection.isCollapsed()) {
+                    // Use selected text if there's a range selection
+                    searchTerm = selection.getTextContent();
+                } else {
+                    // Extract word at cursor if selection is collapsed
+                    const anchorNode = selection.anchor.getNode();
+                    if ($isUSFMTextNode(anchorNode)) {
+                        const text = anchorNode.getTextContent();
+                        const offset = selection.anchor.offset;
+
+                        // Find word start (move backward until non-word character)
+                        let start = offset;
+                        while (start > 0 && /\w/.test(text[start - 1])) {
+                            start--;
+                        }
+
+                        // Find word end (move forward until non-word character)
+                        let end = offset;
+                        while (end < text.length && /\w/.test(text[end])) {
+                            end++;
+                        }
+
+                        if (start !== end) {
+                            searchTerm = text.slice(start, end);
+                        }
+                    }
+                }
+            }
+        });
+
+        return searchTerm;
+    }, [editor]);
+
     const insertMarker = useCallback(
         (markerNoSlash: string) => {
             editor.update(() => {
@@ -295,7 +346,7 @@ export function NodeContextMenuPlugin() {
     // Open on right click
     useEffect(() => {
         function onContextMenu(e: MouseEvent) {
-            const nativeSel = window.getSelection();
+            e.preventDefault();
             const isMobile = isXs || isSm;
             const menuPos = calculateMenuPosition(
                 { x: e.clientX, y: e.clientY },
@@ -303,20 +354,10 @@ export function NodeContextMenuPlugin() {
             );
             setPos(menuPos);
             setOpened(true);
-            if (nativeSel) {
-                const range =
-                    nativeSel?.rangeCount > 0
-                        ? nativeSel.getRangeAt(0).cloneRange()
-                        : null;
-                e.preventDefault();
-                if (range && nativeSel) {
-                    nativeSel.removeAllRanges();
-                    nativeSel.addRange(range);
-                    const searchText = range.toString().trim();
-                    if (searchText) {
-                        setSuggestedSearchApiTerm(searchText);
-                    }
-                }
+
+            const searchTerm = extractSearchTerm();
+            if (searchTerm) {
+                setSuggestedSearchApiTerm(searchTerm);
             }
         }
 
@@ -324,7 +365,7 @@ export function NodeContextMenuPlugin() {
             prev?.removeEventListener("contextmenu", onContextMenu);
             root?.addEventListener("contextmenu", onContextMenu);
         });
-    }, [editor, isXs, isSm]);
+    }, [editor, isXs, isSm, extractSearchTerm]);
 
     const showTooltipNearSelection = useCallback(
         (
@@ -388,6 +429,11 @@ export function NodeContextMenuPlugin() {
 
                 event.preventDefault();
 
+                const searchTerm = extractSearchTerm();
+                if (searchTerm) {
+                    setSuggestedSearchApiTerm(searchTerm);
+                }
+
                 // Try to position at cursor
                 editor.getEditorState().read(() => {
                     showTooltipNearSelection(editor, setPos, setOpened);
@@ -397,7 +443,7 @@ export function NodeContextMenuPlugin() {
             },
             COMMAND_PRIORITY_HIGH,
         );
-    }, [editor, showTooltipNearSelection]);
+    }, [editor, showTooltipNearSelection, extractSearchTerm]);
 
     if (!opened) return null;
 

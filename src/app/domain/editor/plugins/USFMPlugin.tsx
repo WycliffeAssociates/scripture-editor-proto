@@ -99,19 +99,19 @@ export function findPreviousEditableNode(
 }
 
 export function correctCursorIfNeeded(editor: LexicalEditor) {
-    editor.update(() => {
+    let nodeToSelect: USFMTextNode | null = null;
+    editor.read(() => {
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) return;
         const anchorNode = selection.anchor.getNode();
         const focusNode = selection.focus.getNode();
         const isAnchorInLocked = isNodeLocked(anchorNode);
-        const isFocusInLocked = isNodeLocked(focusNode);
 
-        if (isAnchorInLocked || isFocusInLocked) {
+        if (isAnchorInLocked) {
             const nextEditable = findNextEditableNode(anchorNode || focusNode);
             if (nextEditable) {
                 // Select at the beginning of the next editable node
-                nextEditable.select(0, 0);
+                nodeToSelect = nextEditable;
                 return;
             }
 
@@ -120,11 +120,20 @@ export function correctCursorIfNeeded(editor: LexicalEditor) {
             );
             if (prevEditable) {
                 // Select at the end of the previous editable node
-                const textLength = prevEditable.getTextContent().length;
-                prevEditable.select(textLength, textLength);
+                nodeToSelect = prevEditable;
             }
         }
     });
+
+    if (nodeToSelect) {
+        if (import.meta.env.DEV) {
+            console.log("Correcting cursor to", nodeToSelect);
+        }
+        editor.update(() => {
+            if (!nodeToSelect) return;
+            nodeToSelect.select(0, 0);
+        });
+    }
 }
 
 export function USFMPlugin() {

@@ -64,7 +64,7 @@ export const leftHeading = style({
     color: vars.colors.text,
 });
 
-/* Repo container (where RepoDownload mounts) */
+/* Repo container (where LanguageApiImporter mounts) */
 export const repoContainer = style({
     width: "100%",
 });
@@ -376,6 +376,22 @@ export const acHighlighted = style({
     selectors: {
         [`${darkSelector} &`]: {
             backgroundColor: darken(vars.colors.primary[2], 0.02),
+        },
+    },
+});
+
+/* Group header for autocomplete groups */
+export const acGroupHeader = style({
+    padding: "0.25rem 0.75rem",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    color: vars.colors.gray[6],
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    cursor: "default",
+    selectors: {
+        [`${darkSelector} &`]: {
+            color: vars.colors.gray[5],
         },
     },
 });
