@@ -82,7 +82,7 @@ export class WacsRepoImporter implements Importer {
      * @param url The URL of the ZIP file.
      * @returns The raw ArrayBuffer data and the file name.
      */
-    private async downloadData(
+    public async downloadData(
         url: string,
     ): Promise<{ data: ArrayBuffer; filename: string }> {
         console.log(`[WacsRepoImporter] Starting download of: ${url}`);

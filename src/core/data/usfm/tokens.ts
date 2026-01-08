@@ -141,20 +141,20 @@ export const All_EXPLICT_CHAR_CLOSE_MARKERS = [...ALL_CHAR_MARKERS].reduce(
     },
     new Set<string>(),
 );
-export const NON_NOTE_CHAR_OPEN_MARKERS = new Set([
-    ...VALID_CHAR_MARKERS,
-    ...VALID_MILESTONE_MARKERS,
-]);
-export const NON_NOTE_CHAR_CLOSE_MARKERS = new Set(
-    [...NON_NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`),
-);
-export const NOTE_CHAR_OPEN_MARKERS = new Set([
-    ...VALID_CHAR_FOOTNOTE_MARKERS,
-    ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
-]);
-export const NOTE_CHAR_CLOSE_MARKERS = new Set(
-    [...NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`),
-);
+// const NON_NOTE_CHAR_OPEN_MARKERS = new Set([
+//   ...VALID_CHAR_MARKERS,
+//   ...VALID_MILESTONE_MARKERS,
+// ]);
+// const _NON_NOTE_CHAR_CLOSE_MARKERS = new Set(
+//   [...NON_NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`)
+// );
+// const NOTE_CHAR_OPEN_MARKERS = new Set([
+//   ...VALID_CHAR_FOOTNOTE_MARKERS,
+//   ...VALID_CHAR_CROSS_REFERENCE_MARKERS,
+// ]);
+// const _NOTE_CHAR_CLOSE_MARKERS = new Set(
+//   [...NOTE_CHAR_OPEN_MARKERS].map((marker) => `\\${marker}*`)
+// );
 
 export const VALID_PARA_MARKERS = new Set([
     // Identification
@@ -284,7 +284,7 @@ export const VALID_PARA_MARKERS = new Set([
     // Breaks - see https://docs.usfm.bible/usfm/3.1/char/breaks/pb.html
     "pb",
 ]);
-export const DOCUMENT_MARKERS = new Set(["id", "usfm"]);
+const DOCUMENT_MARKERS = new Set(["id", "usfm"]);
 export const isValidParaMarker = (marker: string) => {
     return VALID_PARA_MARKERS.has(marker);
 };
@@ -301,8 +301,8 @@ export const ALL_USFM_MARKERS = new Set([
 ]);
 
 // todo: really this list needs close vetting
-export const TOKENS_EXPECTING_CLOSE = new Set([
-    ...VALID_NOTE_MARKERS,
-    ...VALID_CHAR_MARKERS,
-    ...VALID_MILESTONE_MARKERS,
-]);
+// const _TOKENS_EXPECTING_CLOSE = new Set([
+//   ...VALID_NOTE_MARKERS,
+//   ...VALID_CHAR_MARKERS,
+//   ...VALID_MILESTONE_MARKERS,
+// ]);

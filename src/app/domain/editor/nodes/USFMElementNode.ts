@@ -1,21 +1,16 @@
 import type {
     EditorConfig,
-    LexicalNode,
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
 import {
-    $create,
     $getState,
     $getStateChange,
     $setState,
     ElementNode,
     TextNode,
 } from "lexical";
-import {
-    USFM_ELEMENT_NODE_TYPE,
-    type USFMNodeJSON,
-} from "@/app/data/editor.ts";
+import { USFM_ELEMENT_NODE_TYPE } from "@/app/data/editor.ts";
 import {
     idState,
     inParaState,
@@ -23,7 +18,6 @@ import {
     sidState,
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
-import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 
 export type USFMElementNodeJSON = SerializedElementNode & {
     type: typeof USFM_ELEMENT_NODE_TYPE;
@@ -166,51 +160,9 @@ export class USFMElementNode extends ElementNode {
 }
 
 /* type guards */
-export function $isUSFMElementNode(node: LexicalNode): node is USFMElementNode {
-    return node.getType() === USFM_ELEMENT_NODE_TYPE;
-}
+
 export function isSerializedElementNode(
     node: SerializedLexicalNode,
 ): node is SerializedElementNode {
     return node.type === USFM_ELEMENT_NODE_TYPE || node.type === "paragraph";
-}
-
-// creates
-export function $createUSFMElementNode(opts?: {
-    id: string;
-    marker?: string;
-    inPara?: string;
-    sid?: string;
-    attributes?: Record<string, string>;
-}): USFMElementNode {
-    const node = $create(USFMElementNode);
-    const writable = node.getWritable();
-    if (opts) {
-        $setState(writable, idState, opts.id);
-        $setState(writable, markerState, opts.marker);
-        $setState(writable, inParaState, opts.inPara ?? "");
-        $setState(writable, sidState, opts.sid ?? "");
-    }
-    return node;
-}
-
-export function createSerializedUSFMElementNode(
-    opts: ParsedToken,
-    direction: "ltr" | "rtl",
-    children: USFMNodeJSON[],
-): USFMElementNodeJSON {
-    return {
-        type: USFM_ELEMENT_NODE_TYPE,
-        id: opts.id,
-        tokenType: opts.tokenType,
-        marker: opts.marker,
-        inPara: opts.inPara,
-        sid: opts.sid,
-        // attributes: opts.attributes ?? {},
-        version: 1,
-        children,
-        direction,
-        indent: 0,
-        format: "start",
-    };
 }

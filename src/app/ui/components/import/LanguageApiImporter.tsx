@@ -2,8 +2,9 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useDebouncedValue } from "@mantine/hooks";
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
-import AutocompleteInput, {
+import {
     type AutocompleteGroup,
+    AutocompleteInput,
     type AutocompleteItem,
 } from "@/app/ui/components/import/AutoCompleteInput.tsx";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";

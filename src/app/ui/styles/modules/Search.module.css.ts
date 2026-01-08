@@ -1,7 +1,8 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../theme.css.ts";
+
 // Main search panel styles
-export const searchPanel = style({
+const searchPanel = style({
     maxWidth: "50ch",
     borderLeft: `1px solid ${vars.colors.defaultBorder}`,
     height: "100%",
@@ -21,7 +22,7 @@ export const searchPanel = style({
 });
 
 // Header area
-export const header = style({
+const header = style({
     padding:
         "var(--mantine-spacing-md) var(--mantine-spacing-md) var(--mantine-spacing-xs) var(--mantine-spacing-md)",
     display: "flex",
@@ -30,7 +31,7 @@ export const header = style({
 });
 
 // Controls container
-export const controls = style({
+const controls = style({
     width: "100%",
     padding:
         "0 var(--mantine-spacing-md) var(--mantine-spacing-xs) var(--mantine-spacing-md)",
@@ -41,21 +42,21 @@ export const controls = style({
 });
 
 // Search input section
-export const searchInputSection = style({
+const searchInputSection = style({
     display: "flex",
     flexDirection: "column",
     gap: "var(--mantine-spacing-xs)",
 });
 
 // Replace section
-export const replaceSection = style({
+const replaceSection = style({
     display: "flex",
     flexDirection: "column",
     gap: "calc(var(--mantine-spacing-xs) * 1.5)",
 });
 
 // Stats section
-export const stats = style({
+const stats = style({
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-end",
@@ -64,7 +65,7 @@ export const stats = style({
 });
 
 // Mobile drawer content
-export const drawerContent = style({
+const drawerContent = style({
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -72,34 +73,34 @@ export const drawerContent = style({
 });
 
 // Results container
-export const resultsContainer = style({
+const resultsContainer = style({
     flex: 1,
 });
 
 // Results list
-export const resultsList = style({
+const resultsList = style({
     display: "flex",
     flexDirection: "column",
 });
 
 // Empty state containers
-export const emptyState = style({
+const emptyState = style({
     padding: "var(--mantine-spacing-xl) var(--mantine-spacing-md)",
     textAlign: "center",
 });
 
-export const searchingState = style({
+const searchingState = style({
     padding: "var(--mantine-spacing-md)",
     textAlign: "center",
 });
 
-export const noResultsState = style({
+const noResultsState = style({
     padding: "var(--mantine-spacing-md)",
     textAlign: "center",
 });
 
 // Search result item (keeping the existing logic but in vanilla extract)
-export const searchResult = style({
+const searchResult = style({
     background: "var(--data-bg)",
     color: "var(--data-text)",
     padding: "var(--mantine-spacing-md)",
@@ -123,13 +124,13 @@ export const searchResult = style({
 });
 
 // Result item header
-export const resultHeader = style({
+const resultHeader = style({
     display: "block",
     width: "100%",
 });
 
 // Result SID (scripture identifier)
-export const resultSid = style({
+const resultSid = style({
     fontWeight: 700,
     fontSize: "var(--mantine-font-size-xs)",
     textTransform: "uppercase",
@@ -137,7 +138,7 @@ export const resultSid = style({
 });
 
 // Result arrow icon
-export const resultArrow = style({
+const resultArrow = style({
     opacity: 0,
     selectors: {
         ".searchResult:hover &": {
@@ -147,22 +148,22 @@ export const resultArrow = style({
 });
 
 // Result text
-export const resultText = style({
+const resultText = style({
     fontSize: "var(--mantine-font-size-sm)",
     lineHeight: 1.6,
 });
 
 // Search icon in empty state
-export const searchIcon = style({
+const searchIcon = style({
     margin: "0 auto var(--mantine-spacing-sm) auto",
     opacity: 0.2,
 });
-export const highlight = style({
+const highlight = style({
     backgroundColor: vars.colors.yellow.filled,
     fontWeight: 700,
 });
 
-// Default export to mimic CSS module import
+// Default  to mimic CSS module import
 const classes = {
     searchPanel,
     header,

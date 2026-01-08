@@ -48,12 +48,6 @@ export type ProjectsByLanguageRow = {
     languageDirection: "ltr" | "rtl";
 };
 
-export type ProjectComposite = {
-    project: DbProject;
-    files: DbFileRow[];
-    language: DbLanguage | undefined;
-};
-
 // Types for hook modifications
 export type LanguageModification = {
     updatedAt?: string;

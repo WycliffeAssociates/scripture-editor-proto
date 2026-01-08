@@ -310,7 +310,7 @@ function isKnownCommonKeyCombo(event: KeyboardEvent): boolean {
     );
 }
 
-export function $getSelectionInfo() {
+function $getSelectionInfo() {
     const selection = $getSelection();
     if (!$isRangeSelection(selection)) return false;
     const nodes = selection.getNodes();

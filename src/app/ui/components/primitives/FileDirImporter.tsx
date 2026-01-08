@@ -154,7 +154,9 @@ type WacsImporterProps = {
  * repository import. This mirrors the "search / download" piece but is intentionally
  * small so it can be composed into larger blocks (or replaced by the richer `LanguageApiImporter`).
  */
-export function WacsImporter({
+
+// biome-ignore lint/correctness/noUnusedVariables: <may reimplement and use again>
+function WacsImporter({
     onDownload,
     initialValue = "",
     className = "",
@@ -206,9 +208,3 @@ export function WacsImporter({
         </div>
     );
 }
-
-export default {
-    DirImporter,
-    FileImporter,
-    WacsImporter,
-};

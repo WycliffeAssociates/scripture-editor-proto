@@ -10,18 +10,12 @@ import type {
     DbFileRow,
     DbLanguage,
     DbProject,
-    ProjectComposite,
     ProjectsByLanguageRow,
 } from "./types.ts";
 
 /* ---------------------------
    Languages Queries
    --------------------------- */
-
-export const getLanguageByIdentifier = (identifier: string) =>
-    db.languages.where("identifier").equals(identifier).first();
-
-export const listLanguages = () => db.languages.orderBy("identifier").toArray();
 
 export const upsertLanguage = async (
     identifier: string,
@@ -45,12 +39,6 @@ export const upsertLanguage = async (
 /* ---------------------------
    Projects Queries
    --------------------------- */
-
-export const getProjectByDir = (projectDir: string) =>
-    db.projects.where("projectDir").equals(projectDir).first();
-
-export const listProjects = () =>
-    db.projects.orderBy("importedAt").reverse().toArray();
 
 export const listProjectsByLanguage = async (): Promise<
     ProjectsByLanguageRow[]
@@ -109,15 +97,6 @@ export const upsertProject = async (
     return await db.projects.where("projectDir").equals(projectDir).first();
 };
 
-export const deleteProjectById = async (id: number): Promise<void> => {
-    await db.transaction("rw", db.files, db.projects, async () => {
-        // Delete dependent files first
-        await db.files.where("projectId").equals(id).delete();
-        // Delete the project
-        await db.projects.delete(id);
-    });
-};
-
 export const deleteProjectByPath = async (
     projectDir: string,
 ): Promise<void> => {
@@ -141,12 +120,6 @@ export const deleteProjectByPath = async (
 /* ---------------------------
    Files Queries
    --------------------------- */
-
-export const getFileByPath = (pathOnDisk: string) =>
-    db.files.where("pathOnDisk").equals(pathOnDisk).first();
-
-export const listFilesForProject = (projectId: number) =>
-    db.files.where("projectId").equals(projectId).sortBy("sortOrder");
 
 export const upsertFile = async (
     projectId: number,
@@ -175,43 +148,6 @@ export const upsertFile = async (
     );
 };
 
-export const deleteFileByPathOnDisk = async (
-    pathOnDisk: string,
-): Promise<void> => {
-    // Find the file by ID to get its pathOnDisk (primary key)
-    const file = await db.files.get(pathOnDisk);
-    if (!file) {
-        throw new Error(`File with path ${pathOnDisk} not found`);
-    }
-    // Delete using pathOnDisk (string primary key)
-    await db.files.delete(file.pathOnDisk);
-};
-
 /* ---------------------------
    Convenience Composites
    --------------------------- */
-
-export const getProjectWithFilesByDir = async (
-    projectDir: string,
-): Promise<ProjectComposite | null> => {
-    const project = await db.projects
-        .where("projectDir")
-        .equals(projectDir)
-        .first();
-    if (!project || !project.id) return null;
-
-    const files = await db.files
-        .where("projectId")
-        .equals(project.id)
-        .sortBy("sortOrder");
-
-    let language: DbLanguage | undefined;
-    if (project.languageId) {
-        language = await db.languages
-            .where("id")
-            .equals(project.languageId)
-            .first();
-    }
-
-    return { project, files, language };
-};

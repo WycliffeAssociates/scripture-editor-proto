@@ -9,8 +9,6 @@ import {
     type TokenName,
     type TokenNameSubset,
 } from "@/core/domain/usfm/lex.ts";
-import type { LintOrParseFxn } from "@/core/domain/usfm/lint.ts";
-import type { ParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 
 export const mergeHorizontalWhitespaceToAdjacent = (
     tokens: LintableToken[],
@@ -39,25 +37,25 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     return tokens;
 };
 
-export const removeVerticalWhiteSpaceInVerses: LintOrParseFxn<LintableToken> = (
-    ctx: ParseContext<LintableToken>,
-) => {
-    const { currentToken, nextToken, twoFromCurrent, idsToFilterOut } = ctx;
-    if (currentToken?.tokenType !== TokenMap.marker) return;
-    if (!nextToken || nextToken.tokenType !== TokenMap.verticalWhitespace)
-        return;
-    if (!twoFromCurrent || twoFromCurrent.tokenType !== TokenMap.marker) return;
+// DECIDE: MIGHT KEEP LATER
+// const removeVerticalWhiteSpaceInVerses: LintOrParseFxn<LintableToken> = (
+//   ctx: ParseContext<LintableToken>
+// ) => {
+//   const {currentToken, nextToken, twoFromCurrent, idsToFilterOut} = ctx;
+//   if (currentToken?.tokenType !== TokenMap.marker) return;
+//   if (!nextToken || nextToken.tokenType !== TokenMap.verticalWhitespace) return;
+//   if (!twoFromCurrent || twoFromCurrent.tokenType !== TokenMap.marker) return;
 
-    // this pattern: \v {#} text BR \v {#}
-    if (
-        nextToken?.tokenType === TokenMap.verticalWhitespace &&
-        twoFromCurrent?.tokenType === TokenMap.marker &&
-        twoFromCurrent.marker === "v"
-    ) {
-        // remove the vertical whitespace
-        idsToFilterOut.push(nextToken.id);
-    }
-};
+//   // this pattern: \v {#} text BR \v {#}
+//   if (
+//     nextToken?.tokenType === TokenMap.verticalWhitespace &&
+//     twoFromCurrent?.tokenType === TokenMap.marker &&
+//     twoFromCurrent.marker === "v"
+//   ) {
+//     // remove the vertical whitespace
+//     idsToFilterOut.push(nextToken.id);
+//   }
+// };
 
 export const organizeByChapters = <T extends LintableToken>(
     parsedTokens: T[],

@@ -2,18 +2,16 @@ import { vi } from "vitest";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
-import type { IFileWriter } from "@/core/io/IFileWriter.ts";
+
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 
-export const mockFileWriter = (
-    inMemoryFiles: Map<string, string>,
-): IFileWriter => {
-    return {
-        writeFile: vi.fn(async (filename: string, content: string) => {
-            inMemoryFiles.set(filename, content);
-        }),
-    };
-};
+// const mockFileWriter = (inMemoryFiles: Map<string, string>): IFileWriter => {
+//   return {
+//     writeFile: vi.fn(async (filename: string, content: string) => {
+//       inMemoryFiles.set(filename, content);
+//     }),
+//   };
+// };
 
 export const mockMd5Service: IMd5Service = {
     calculateMd5: vi.fn((text: string) => Promise.resolve(`mock-md5-${text}`)),

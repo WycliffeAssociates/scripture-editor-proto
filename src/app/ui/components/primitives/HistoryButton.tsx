@@ -87,7 +87,7 @@ type HistoryButtonPropsUndo = {
     canUndo: boolean;
     handleUndo: () => void;
 };
-export function UndoButton({ canUndo, handleUndo }: HistoryButtonPropsUndo) {
+function UndoButton({ canUndo, handleUndo }: HistoryButtonPropsUndo) {
     return (
         <ActionIconSimple
             aria-label="Undo"
@@ -103,7 +103,7 @@ type HistoryButtonPropsRedo = {
     canRedo: boolean;
     handleRedo: () => void;
 };
-export function RedoButton({ canRedo, handleRedo }: HistoryButtonPropsRedo) {
+function RedoButton({ canRedo, handleRedo }: HistoryButtonPropsRedo) {
     return (
         <ActionIconSimple
             aria-label="Redo"

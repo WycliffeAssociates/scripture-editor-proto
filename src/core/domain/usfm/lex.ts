@@ -1,8 +1,8 @@
 import moo from "moo";
 
-const isUnicodeEscape = (type: string) => type.startsWith("\\u");
-export const isMarker = (text: string) =>
-    text.match(/^\\[a-z\d]+/u) && !isUnicodeEscape(text);
+// const isUnicodeEscape = (type: string) => type.startsWith("\\u");
+// const isMarker = (text: string) =>
+//   text.match(/^\\[a-z\d]+/u) && !isUnicodeEscape(text);
 const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
 export const markerTrimNoSlash = (text: string) =>
     markerWithoutBackslash(text.trim());

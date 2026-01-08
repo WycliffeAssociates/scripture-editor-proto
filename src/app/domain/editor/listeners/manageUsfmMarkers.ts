@@ -654,7 +654,7 @@ type CreatMarkerNodeArgs = {
     args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">;
     isEndMarker?: boolean;
 };
-export function $createMarkerNode({
+function $createMarkerNode({
     marker,
     context,
     args,

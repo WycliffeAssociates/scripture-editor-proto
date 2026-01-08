@@ -44,22 +44,6 @@ export const mobileRibbonLeft = style({
 
 export const mobileRibbonRight = style([mobileRibbonLeft]);
 
-// Desktop Layout
-export const desktopContentGrid = style({
-    display: "grid",
-    gridTemplateColumns: "30fr 40fr 30fr",
-    overflow: "hidden",
-    height: "100%",
-});
-
-export const editorMain = style({
-    gridColumn: 2,
-    display: "flex",
-    justifyContent: "center",
-    height: "100%",
-    overflowY: "auto",
-});
-
 export const editorWrapperDesktop = style({
     width: "100%",
     maxWidth: "65ch",
@@ -119,24 +103,6 @@ export const mobileTabsBar = style({
     paddingBlock: "0.25rem",
     borderBottom: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: vars.colors.body,
-});
-
-export const mobileTabButton = style({
-    flex: 1,
-    background: "transparent",
-    border: "none",
-    fontSize: "1rem",
-    padding: "0.5rem",
-    cursor: "pointer",
-    color: vars.colors.gray[7],
-
-    selectors: {
-        "&.activeTab": {
-            borderBottom: `3px solid ${vars.colors.blue[6]}`,
-            fontWeight: 600,
-            color: vars.colors.blue[6],
-        },
-    },
 });
 
 // Mobile Editors (Tab Switching)

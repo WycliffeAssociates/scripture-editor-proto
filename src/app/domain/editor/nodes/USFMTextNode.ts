@@ -348,14 +348,7 @@ export function $isToggleableUSFMTextNode(
         TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.getTokenType() ?? "")
     );
 }
-export function isSerializedToggleableUSFMTextNode(
-    node: SerializedLexicalNode,
-): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.tokenType ?? "")
-    );
-}
+
 export function isSerializedNumberOrPlainTextUSFMTextNode(
     node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
@@ -517,13 +510,4 @@ export function updateSerializedToggleableUSFMTextNode(
         ...node,
         ...nodeUpdate,
     };
-}
-export function setSerializedToggleableTextMutability(
-    node: SerializedUSFMTextNode,
-    isMutable: boolean,
-) {
-    return updateSerializedToggleableUSFMTextNode(node, {
-        ...node,
-        isMutable,
-    });
 }

@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import type { ProjectFile } from "@/app/data/parsedProject.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { ProjectMetadata } from "@/core/domain/project/project.ts";
@@ -26,105 +25,12 @@ import type { IFileWriter } from "@/core/io/IFileWriter.ts";
    --------------------------- */
 
 /** Language schema (used inside project metadata) */
-export const LanguageSchema = v.object({
-    id: v.string(),
-    name: v.string(),
-    // direction is optional and when present should be a string such as 'ltr' or 'rtl'
-    direction: v.optional(v.string()),
-});
-
-/** Project metadata schema */
-export const ProjectMetadataSchema = v.object({
-    name: v.string(),
-    id: v.string(),
-    language: LanguageSchema,
-});
-
-/** Project file schema (shape used by parsedProject.ProjectFile) */
-export const ProjectFileSchema = v.object({
-    path: v.string(),
-    title: v.string(),
-    bookCode: v.string(),
-    nextBookId: v.nullable(v.string()),
-    prevBookId: v.nullable(v.string()),
-    sort: v.optional(v.number()),
-});
-
-/** Minimal project schema for DB indexing (excludes projectDir and fileWriter) */
-export const DbProjectSchema = v.object({
-    id: v.string(),
-    name: v.string(),
-    files: v.array(ProjectFileSchema),
-    metadata: ProjectMetadataSchema,
-});
-
-/* ---------------------------
-   Parse helpers
-   --------------------------- */
-
-/**
- * Parse and validate a single ProjectFile object.
- * Throws if validation fails.
- */
-export function parseProjectFile(raw: unknown): ProjectFile {
-    return v.parse(ProjectFileSchema, raw) as ProjectFile;
-}
-
-/**
- * Parse and validate an array of ProjectFile objects.
- */
-export function parseProjectFiles(raw: unknown): ProjectFile[] {
-    return v.parse(v.array(ProjectFileSchema), raw) as ProjectFile[];
-}
-
-/**
- * Parse and validate project metadata.
- */
-export function parseProjectMetadata(raw: unknown): ProjectMetadata {
-    return v.parse(ProjectMetadataSchema, raw) as ProjectMetadata;
-}
-
-/**
- * Parse and validate a project-like object for DB indexing.
- * Returns the validated subset used by the post-import hook.
- */
-export function parseProjectForDb(raw: unknown): {
-    id: string;
-    name: string;
-    files: ProjectFile[];
-    metadata: ProjectMetadata;
-} {
-    return v.parse(DbProjectSchema, raw) as {
-        id: string;
-        name: string;
-        files: ProjectFile[];
-        metadata: ProjectMetadata;
-    };
-}
-
-/**
- * Safe parse variant that returns a tuple [valid, error?]
- * If parsing succeeds, returns [value, undefined]. If it fails, returns [undefined, error].
- */
-export function tryParseProjectForDb(raw: unknown): [
-    (
-        | {
-              id: string;
-              name: string;
-              files: ProjectFile[];
-              metadata: ProjectMetadata;
-          }
-        | undefined
-    ),
-    Error | undefined,
-] {
-    try {
-        const parsed = parseProjectForDb(raw);
-        return [parsed, undefined];
-    } catch (err) {
-        return [undefined, err instanceof Error ? err : new Error(String(err))];
-    }
-}
+// const LanguageSchema = v.object({
+//   id: v.string(),
+//   name: v.string(),
+//   // direction is optional and when present should be a string such as 'ltr' or 'rtl'
+//   direction: v.optional(v.string()),
+// });
 
 /**
  * @interface IProjectRepository

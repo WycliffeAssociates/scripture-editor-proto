@@ -4,9 +4,9 @@ import { darkSelector } from "@/app/ui/styles/theme.css.ts";
 import { vars } from "../theme.css.ts";
 
 // Create reusable CSS variables
-export const notificationBg = createVar();
-export const notificationBorder = createVar();
-export const notificationHoverBg = createVar();
+const notificationBg = createVar();
+const notificationBorder = createVar();
+const notificationHoverBg = createVar();
 function getDarkVar(color: string) {
     return {
         [`${darkSelector} &`]: {
@@ -18,7 +18,7 @@ function getDarkVar(color: string) {
     };
 }
 // Color definitions for different notification types
-export const errorColors = style({
+const errorColors = style({
     vars: {
         [notificationBg]: vars.colors.red[2],
         [notificationBorder]: vars.colors.red.filled,
@@ -29,7 +29,7 @@ export const errorColors = style({
     },
 });
 
-export const successColors = style({
+const successColors = style({
     vars: {
         [notificationBg]: vars.colors.green[2],
         [notificationBorder]: vars.colors.green.filled,
@@ -40,7 +40,7 @@ export const successColors = style({
     },
 });
 
-export const infoColors = style({
+const infoColors = style({
     vars: {
         [notificationBg]: vars.colors.primary[2],
         [notificationBorder]: vars.colors.primary.filled,
@@ -52,14 +52,14 @@ export const infoColors = style({
 });
 
 // Shared base styles that reference the CSS variables
-export const baseRoot = style({
+const baseRoot = style({
     color: vars.colors.text,
     borderRadius: vars.radiusDefault,
     backgroundColor: notificationBg,
     border: `1px solid ${notificationBorder}`,
 });
 
-export const baseIcon = style({
+const baseIcon = style({
     backgroundColor: darken(notificationBg, 0.3),
     color: vars.colors.text,
     borderRadius: "999px",
@@ -68,7 +68,7 @@ export const baseIcon = style({
     justifyContent: "center",
 });
 
-export const baseCloseButton = style({
+const baseCloseButton = style({
     color: vars.colors.text,
     transition: "color 0.2s ease, background-color 0.2s ease",
     selectors: {
@@ -79,7 +79,7 @@ export const baseCloseButton = style({
     },
 });
 
-export const closeButtonHover = style({
+const closeButtonHover = style({
     selectors: {
         "&:hover": {
             backgroundColor: notificationHoverBg,

@@ -270,7 +270,7 @@ export function $createUSFMNestedEditorNode(
         metadata.isOpen,
     );
 }
-export function getMinimalEditorState(
+function getMinimalEditorState(
     languageDirection: "ltr" | "rtl",
     opts: {
         sid: string;
@@ -373,7 +373,4 @@ export function isSerializedUSFMNestedEditorNode(
     node: SerializedLexicalNode,
 ): node is USFMNestedEditorNodeJSON {
     return node.type === USFM_NESTED_DECORATOR_TYPE;
-}
-export function getChildrenFromNestedEditorNode(node: USFMNestedEditorNode) {
-    return node.__editorState.root.children;
 }

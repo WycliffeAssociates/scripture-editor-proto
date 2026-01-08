@@ -477,8 +477,8 @@ function SearchResults({
 
                                         // C. Execute Regex to find all occurrences
                                         let match: RegExpExecArray | null;
-                                        // biome-ignore lint/suspicious/noAssignInExpressions: <intentional>
                                         while (
+                                            // biome-ignore lint/suspicious/noAssignInExpressions: <intentional>
                                             (match =
                                                 regex.exec(textToHighlight)) !==
                                             null

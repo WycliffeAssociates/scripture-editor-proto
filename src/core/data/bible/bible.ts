@@ -1,6 +1,6 @@
 // bibleUtils.ts
 // Core canonical ordering of books (standard 66)
-export const BIBLE_ORDER = [
+const BIBLE_ORDER = [
     "GEN",
     "EXO",
     "LEV",
@@ -69,7 +69,7 @@ export const BIBLE_ORDER = [
     "REV",
 ] as const;
 
-export const BIBLE_ORDER_MAP = new Map<string, number>(
+const BIBLE_ORDER_MAP = new Map<string, number>(
     BIBLE_ORDER.map((b, i) => [b, i]),
 );
 
@@ -99,18 +99,6 @@ export function getBookSlug(book: string): string {
             ? book.slice(dashIndex + 1, dashIndex + 4)
             : book.slice(0, 3);
     return slug.toUpperCase();
-}
-
-// --- 2. Navigation (previous / next book) ---------------------------------
-
-export function getNeighborBook(
-    bookId: string,
-    dir: "prev" | "next",
-): string | null {
-    const idx = BIBLE_ORDER_MAP.get(bookId);
-    if (idx === undefined) return null;
-    const newIdx = dir === "prev" ? idx - 1 : idx + 1;
-    return BIBLE_ORDER[newIdx] ?? null;
 }
 
 // --- 3. Fuzzy book matching ------------------------------------------------
@@ -192,7 +180,7 @@ const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
     ],
 };
 
-export function matchBook(input: string): string | null {
+function matchBook(input: string): string | null {
     const normalized = input.toLowerCase().replace(/\s+/g, "");
     for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
         if (

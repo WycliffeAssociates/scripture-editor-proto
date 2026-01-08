@@ -1,5 +1,4 @@
 import { parse } from "yaml";
-import { getBookSlug } from "@/core/data/bible/bible.ts";
 
 export type ResourceContainerDublinCore = {
     conformsto: string;
@@ -52,32 +51,4 @@ export type ResourceContainer = {
 
 export function parseResourceContainer(yamlManifest: string) {
     return parse(yamlManifest) as Partial<ResourceContainer>;
-}
-
-export function getLocalizedBookNameFromManifest({
-    bookName,
-    filePath,
-    resourceContainer,
-}: {
-    bookName: string;
-    filePath: string;
-    resourceContainer: Partial<ResourceContainer>;
-}) {
-    const bookSlug = getBookSlug(bookName);
-    const project = resourceContainer.projects?.find(
-        (project) =>
-            bookSlug.toLowerCase() === project.identifier.toLowerCase(),
-    );
-    return {
-        title: project?.title,
-        identifier: project?.identifier,
-        sort: project?.sort,
-        path: filePath,
-    };
-}
-
-export function sortBasedOnManifest(
-    files: ReturnType<typeof getLocalizedBookNameFromManifest>[],
-) {
-    return files.sort((a, b) => (a?.sort || 0) - (b?.sort || 0));
 }

@@ -4,12 +4,12 @@ import * as v from "valibot";
  * Reusable schema for localized text (e.g. { "en": "Genesis" })
  * Used extensively in Burrito metadata.
  */
-export const LocalizedTextSchema = v.record(v.string(), v.string());
+const LocalizedTextSchema = v.record(v.string(), v.string());
 
 /**
  * Schema for ingredient checksum validation
  */
-export const ChecksumSchema = v.object({
+const ChecksumSchema = v.object({
     md5: v.string(),
 });
 
@@ -17,7 +17,7 @@ export const ChecksumSchema = v.object({
  * Schema for burrito ingredient validation
  * Only validates properties we actually access
  */
-export const IngredientSchema = v.object({
+const IngredientSchema = v.object({
     checksum: ChecksumSchema,
     size: v.number(),
     mimeType: v.string(),
@@ -29,7 +29,7 @@ export type Ingredient = v.InferOutput<typeof IngredientSchema>;
 /**
  * Schema for language definitions in burrito metadata
  */
-export const LanguageSchema = v.object({
+const LanguageSchema = v.object({
     tag: v.string(),
     name: v.record(v.string(), v.string()),
     scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
@@ -38,24 +38,24 @@ export const LanguageSchema = v.object({
 /**
  * Schema for language definitions in burrito metadata
  */
-export const LanguageDefinitionSchema = v.object({
-    tag: v.string(),
-    name: v.record(v.string(), v.string()),
-    direction: v.optional(v.picklist(["ltr", "rtl"])),
-});
+// const LanguageDefinitionSchema = v.object({
+//   tag: v.string(),
+//   name: v.record(v.string(), v.string()),
+//   direction: v.optional(v.picklist(["ltr", "rtl"])),
+// });
 
 /**
  * Schema for languages object in burrito metadata
  * Simplified to only validate what we actually use
  */
-export const LanguagesSchema = v.object({
-    default: v.object({ tag: v.string() }),
-});
+// const LanguagesSchema = v.object({
+//   default: v.object({tag: v.string()}),
+// });
 
 /**
  * Schema for localized book names
  */
-export const LocalizedNameSchema = v.object({
+const LocalizedNameSchema = v.object({
     short: LocalizedTextSchema,
     long: v.optional(LocalizedTextSchema),
     abbr: v.optional(LocalizedTextSchema),
@@ -65,7 +65,7 @@ export const LocalizedNameSchema = v.object({
  * Main schema for Scripture Burrito metadata validation
  * Only validates properties we actually access, keeping everything optional for flexibility
  */
-export const ScriptureBurritoMetadataSchema = v.object({
+const ScriptureBurritoMetadataSchema = v.object({
     meta: v.object({
         version: v.string(),
         defaultLocale: v.optional(v.string()),

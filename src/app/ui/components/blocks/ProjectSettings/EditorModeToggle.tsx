@@ -25,7 +25,7 @@ import styles from "./Settings.module.css";
  *
  * This component mirrors the styling used by `DisplayThemeToggle` in Settings.
  */
-export function EditorModeToggle() {
+function EditorModeToggle() {
     const { project, actions } = useWorkspaceContext();
 
     const { mode, markersViewState, markersMutableState } = project.appSettings;

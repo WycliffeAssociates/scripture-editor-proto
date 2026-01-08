@@ -244,5 +244,3 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
         </div>
     );
 };
-
-export default AutocompleteInput;

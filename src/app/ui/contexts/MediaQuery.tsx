@@ -96,24 +96,3 @@ export const useWorkspaceMediaQuery = (): MediaQueryContextType => {
     }
     return context;
 };
-
-// Type guard for breakpoint
-export const isBreakpoint = (
-    bp: Breakpoint,
-    context: MediaQueryContextType,
-): boolean => {
-    switch (bp) {
-        case "xs":
-            return context.isXs;
-        case "sm":
-            return context.isSm;
-        case "md":
-            return context.isMd;
-        case "lg":
-            return context.isLg;
-        case "xl":
-            return context.isXl;
-        default:
-            return false;
-    }
-};

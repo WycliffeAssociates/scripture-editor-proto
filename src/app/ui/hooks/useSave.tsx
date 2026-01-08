@@ -262,7 +262,7 @@ export function useProjectDiffs({
  * @param getLexicalState A function to extract either the current or original state from a chapter.
  * @returns A single, flat SidContentMap for the entire project.
  */
-export function getProjectSidContentMap(
+function getProjectSidContentMap(
     workingFiles: ParsedFile[],
     getLexicalState: (chap: ParsedChapter) => SerializedEditorState,
 ): FileChapScopedSids {

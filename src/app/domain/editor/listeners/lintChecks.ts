@@ -71,7 +71,7 @@ type DfsEditorStateForLintArgs = {
     updatesToMainEditor: Array<() => void>;
     withErrorsInThisBook: Record<string, LintError[]>;
 };
-export function dfsEditorStateForLint({
+function dfsEditorStateForLint({
     editor,
     editorState,
     updatesToMainEditor,

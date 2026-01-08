@@ -17,18 +17,9 @@ import {
 import {
     $isUSFMTextNode,
     isSerializedNumberOrPlainTextUSFMTextNode,
-    isSerializedPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
-
-export function $serializedLexicalToUsfm(editor: LexicalEditor) {
-    return editor.getEditorState().read(() => {
-        const root = $getRoot();
-        const serialized = serializeNode(root, editor);
-        return serialized;
-    });
-}
 
 function serializeNode(node: LexicalNode, editor: LexicalEditor): string {
     const nodeType = node.getType();
@@ -116,15 +107,6 @@ function traverseForUsfmString(
 // Function 2: Serialize to a map of SID -> Plain Text
 //================================================================================
 
-type SidTextMapOptions = {
-    ignoreFootnotes?: boolean;
-    lineBreakToSpace?: boolean;
-};
-
-type SidTextMapState = {
-    lastSid?: string;
-};
-
 /**
  * Serializes nodes into a map where each key is a Scripture ID (e.g., "MAT 1:1")
  * and the value is ONLY the plain text content, with all markers stripped out.
@@ -132,62 +114,60 @@ type SidTextMapState = {
  * @param options - Configuration options for the output.
  * @returns A Record mapping SIDs to their plain text content.
  */
-export function serializeToSidTextMap(
-    nodes: SerializedLexicalNode[],
-    options: SidTextMapOptions = {},
-): Record<string, string> {
-    const accumulator: Record<string, string> = {};
-    const state: SidTextMapState = {};
-    traverseForSidTextMap(nodes, options, accumulator, state);
-    return accumulator;
-}
+// NOTE: NOT USED YET, BUT KEEPING CAUSE NOT READY TO DELETE
+// function serializeToSidTextMap(
+//   nodes: SerializedLexicalNode[],
+//   options: SidTextMapOptions = {}
+// ): Record<string, string> {
+//   const accumulator: Record<string, string> = {};
+//   const state: SidTextMapState = {};
+//   traverseForSidTextMap(nodes, options, accumulator, state);
+//   return accumulator;
+// }
 
-function traverseForSidTextMap(
-    nodes: SerializedLexicalNode[],
-    options: SidTextMapOptions,
-    accumulator: Record<string, string>,
-    state: SidTextMapState,
-): void {
-    for (const node of nodes) {
-        if (node.type === "linebreak") {
-            if (state.lastSid) {
-                const content = options.lineBreakToSpace ? " " : "\n";
-                if (
-                    content !== " " ||
-                    !accumulator[state.lastSid]?.endsWith(" ")
-                ) {
-                    accumulator[state.lastSid] =
-                        (accumulator[state.lastSid] || "") + content;
-                }
-            }
-            continue;
-        }
+// function traverseForSidTextMap(
+//   nodes: SerializedLexicalNode[],
+//   options: SidTextMapOptions,
+//   accumulator: Record<string, string>,
+//   state: SidTextMapState
+// ): void {
+//   for (const node of nodes) {
+//     if (node.type === "linebreak") {
+//       if (state.lastSid) {
+//         const content = options.lineBreakToSpace ? " " : "\n";
+//         if (content !== " " || !accumulator[state.lastSid]?.endsWith(" ")) {
+//           accumulator[state.lastSid] =
+//             (accumulator[state.lastSid] || "") + content;
+//         }
+//       }
+//       continue;
+//     }
 
-        if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
-            // Only include plain text nodes, effectively stripping markers.
-            accumulator[node.sid] = (accumulator[node.sid] || "") + node.text;
-            state.lastSid = node.sid;
-            continue;
-        }
+//     if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
+//       // Only include plain text nodes, effectively stripping markers.
+//       accumulator[node.sid] = (accumulator[node.sid] || "") + node.text;
+//       state.lastSid = node.sid;
+//       continue;
+//     }
 
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            if (!options.ignoreFootnotes) {
-                // If not ignoring, process the content but not the markers.
-                traverseForSidTextMap(
-                    node.editorState.root.children,
-                    options,
-                    accumulator,
-                    state,
-                );
-            }
-            continue;
-        }
+//     if (isSerializedUSFMNestedEditorNode(node)) {
+//       if (!options.ignoreFootnotes) {
+//         // If not ignoring, process the content but not the markers.
+//         traverseForSidTextMap(
+//           node.editorState.root.children,
+//           options,
+//           accumulator,
+//           state
+//         );
+//       }
+//       continue;
+//     }
 
-        if (isSerializedElementNode(node) && node.children) {
-            traverseForSidTextMap(node.children, options, accumulator, state);
-        }
-    }
-}
+//     if (isSerializedElementNode(node) && node.children) {
+//       traverseForSidTextMap(node.children, options, accumulator, state);
+//     }
+//   }
+// }
 
 //================================================================================
 // Function 3: Build the rich, contextual map for reversion (CORRECTED)

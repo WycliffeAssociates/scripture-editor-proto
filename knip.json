@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/web/main.tsx", "src/tauri/main.tsx", "src/app/entrypoint.tsx"],
+  "project": [
+    "src/**/*.{ts,tsx,css}",
+    "!src/routeTree.gen.ts",
+    "!src/app/generated/**",
+    "!src/tauri/rust/**",
+    "!src/app/ui/i18n/locales/**"
+  ],
+  "ignoreDependencies": ["wrangler"],
+  "tanstack-router": {
+    "entry": ["src/app/generated/routeTree.gen.ts"]
+  },
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  },
+  "tags": ["-lintignore"]
+}

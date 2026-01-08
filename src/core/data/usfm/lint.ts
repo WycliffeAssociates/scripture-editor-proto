@@ -42,10 +42,6 @@ export type LintableToken = {
     attributes?: Record<string, string>;
 };
 
-export function lintErrorToUniqueKey(error: LintError): string {
-    return `${error.msgKey}-${error.sid}-${error.nodeId}`;
-}
-
 export function dedupeErrorMessagesList(errors: LintError[]): LintError[] {
     return Array.from(
         new Map(

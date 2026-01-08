@@ -1,7 +1,7 @@
 import { MD5 } from "crypto-es";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 
-export class WebMd5Service implements IMd5Service {
+class WebMd5Service implements IMd5Service {
     /**
      * @method calculateMd5
      * @description Calculates the MD5 checksum of a given text string.

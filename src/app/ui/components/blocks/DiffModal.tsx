@@ -62,7 +62,7 @@ type DiffItemProps = {
     toggleDiffModal: () => void;
 };
 
-export function DiffItem({
+function DiffItem({
     diff,
     revertDiff,
     switchBookOrChapter,

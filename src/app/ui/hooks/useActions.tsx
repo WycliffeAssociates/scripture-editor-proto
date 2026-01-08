@@ -502,7 +502,7 @@ function getFlattenedEditorStateAsParseTokens(
     return collectTokens(firstChild.children ?? [], "");
 }
 
-export function getFlattenedFileTokens(
+function getFlattenedFileTokens(
     pickedFile: ParsedFile | null,
     currentEditorState: SerializedEditorState,
     currentChapter: number,

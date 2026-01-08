@@ -18,20 +18,6 @@ export function guidGenerator() {
     );
 }
 
-export function timeIt<T>(fn: () => T, name?: string) {
-    const start = performance.now();
-    const result = fn();
-    const end = performance.now();
-    console.log(`${name || "Function"} took ${end - start}ms`);
-    return result;
-}
-
-export function everyArrayItemInEach<T>(a: Array<T>, b: Array<T>) {
-    if (a.length !== b.length) return false;
-    // if b holds extra items, size check will catch it
-    return a.every((item) => b.includes(item));
-}
-
 export function arraysEqualByKey<T extends Record<string, unknown>>(
     a: T[],
     b: T[],
@@ -59,18 +45,6 @@ export const removeLeadingDirSlashes = (relPath: string): string => {
     return relPath;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: <debounce any args is fine>
-export function debounce<T extends (...args: any[]) => any>(
-    func: T,
-    delay: number,
-): (...args: Parameters<T>) => void {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
-    return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), delay);
-    };
-}
 /**
  * Repeatedly calls `fn` once per animation frame until:
  *   - it returns a truthy value (success), or

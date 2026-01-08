@@ -5,6 +5,7 @@ import { MockDirectoryHandle } from "@/test/shared/mock.ts";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
+
 global.fetch = mockFetch;
 
 // Mock fflate
@@ -65,24 +66,8 @@ describe("WacsRepoImporter", () => {
                 arrayBuffer: () => Promise.resolve(zipContent),
             });
 
-            const { unzip } = await import("fflate");
-            (unzip as any).mockImplementation(
-                (
-                    data: Uint8Array,
-                    options: any,
-                    callback: (error: Error | null, result: any) => void,
-                ) => {
-                    callback(null, {
-                        "project/": new Uint8Array(),
-                        "project/file.txt": new Uint8Array([
-                            72, 101, 108, 108, 111,
-                        ]), // "Hello"
-                    });
-                },
-            );
-
             // Act & Assert - The method should accept the URL without throwing
-            const result = await importer.import(testUrl);
+            await importer.import(testUrl);
 
             // Verify fetch was called with the correct URL
             expect(mockFetch).toHaveBeenCalledWith(testUrl);
@@ -101,19 +86,6 @@ describe("WacsRepoImporter", () => {
                 ok: true,
                 arrayBuffer: () => Promise.resolve(zipContent),
             });
-
-            const { unzip } = await import("fflate");
-            (unzip as any).mockImplementation(
-                (
-                    data: Uint8Array,
-                    options: any,
-                    callback: (error: Error | null, result: any) => void,
-                ) => {
-                    callback(null, {
-                        "test.txt": new Uint8Array([72, 101, 108, 108, 111]),
-                    });
-                },
-            );
 
             for (const url of urls) {
                 await importer.import(url);
@@ -156,7 +128,7 @@ describe("WacsRepoImporter", () => {
             });
 
             // Access private method through prototype for testing
-            const downloadData = (importer as any).downloadData.bind(importer);
+            const downloadData = importer.downloadData.bind(importer);
             const result = await downloadData(testUrl);
 
             expect(result.filename).toBe("my-project.zip");

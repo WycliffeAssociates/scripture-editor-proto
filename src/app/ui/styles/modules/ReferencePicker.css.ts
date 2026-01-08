@@ -81,11 +81,3 @@ export const activeBookControl = style({
 export const accordionContent = style({
     padding: "0.5rem",
 });
-
-// Grid for Chapters
-export const chapterGrid = style({
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-    padding: "0.5rem",
-});

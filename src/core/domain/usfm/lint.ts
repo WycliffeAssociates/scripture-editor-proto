@@ -28,7 +28,7 @@ export type LintOrParseFxn<T extends LintableToken> = (
     ctx: ParseContext<T>,
 ) => void;
 
-export const lintChapterLabels: LintOrParseFxn<LintableToken> = (
+const lintChapterLabels: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     const token = ctx.currentToken;
@@ -56,27 +56,7 @@ export const lintChapterLabels: LintOrParseFxn<LintableToken> = (
     labels.map.get(nextText)?.push(ctx.nextToken);
 };
 
-export const checkForVerseRangeAfterVerseMarker: LintOrParseFxn<
-    LintableToken
-> = (ctx: ParseContext<LintableToken>) => {
-    const token = ctx.currentToken;
-    if (!token?.marker) return;
-    const isVerseRangeMarker = token.marker === "v";
-    const nextMarkerType = ctx.nextToken?.tokenType;
-    if (isVerseRangeMarker && nextMarkerType !== TokenMap.numberRange) {
-        const text = ctx.currentToken?.text;
-        if (!text) return;
-        const err = {
-            message: `Verse range expected after \\v`,
-            sid: ctx.currentToken?.sid ?? "unknown location",
-            msgKey: LintErrorKeys.verseRangeExpectedAfterVerseMarker,
-            nodeId: token.id,
-        };
-        ctx.errorMessages.push(err);
-    }
-};
-
-export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
+const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     const token = ctx.currentToken;
@@ -121,7 +101,7 @@ export const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
     ctx.lintChapters.list.push(nextVal);
 };
 
-export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
+const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     const token = ctx.currentToken;
@@ -220,7 +200,7 @@ export const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     chapterState.last = end;
 };
 
-export const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
+const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     // when in text and prev was verse
@@ -238,7 +218,7 @@ export const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
     }
 };
 
-export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
+const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     if (!ctx.currentToken) return;
@@ -280,7 +260,7 @@ export const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
     }
 };
 
-export const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
+const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     if (!ctx.currentToken) return;
@@ -298,7 +278,7 @@ export const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
     ctx.errorMessages.push(err);
 };
 
-export const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
+const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
     if (!ctx.currentToken) return;
@@ -317,7 +297,7 @@ export const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
     ctx.errorMessages.push(err);
 };
 
-export const lintNumRangePreceededByTokenExpectingNum: LintOrParseFxn<
+const lintNumRangePreceededByTokenExpectingNum: LintOrParseFxn<
     LintableToken
 > = (ctx: ParseContext<LintableToken>) => {
     if (!ctx.currentToken) return;
@@ -337,11 +317,11 @@ export const lintNumRangePreceededByTokenExpectingNum: LintOrParseFxn<
     ctx.errorMessages.push(err);
 };
 
-export const nearbyTokenText: LintOrParseFxn<LintableToken> = (
-    ctx: ParseContext<LintableToken>,
-) => {
-    return `${ctx.prevToken?.text} ${ctx.currentToken?.text} ${ctx.nextToken?.text} ${ctx.twoFromCurrent?.text}`;
-};
+// const nearbyTokenText: LintOrParseFxn<LintableToken> = (
+//   ctx: ParseContext<LintableToken>
+// ) => {
+//   return `${ctx.prevToken?.text} ${ctx.currentToken?.text} ${ctx.nextToken?.text} ${ctx.twoFromCurrent?.text}`;
+// };
 
 export function finalizeChapterLabelLint<T extends LintableToken>(
     ctx: ParseContext<T>,
@@ -388,9 +368,9 @@ export function finalizeChapterLabelLint<T extends LintableToken>(
     }
 }
 
-export const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<
-    LintableToken
-> = (ctx: ParseContext<LintableToken>) => {
+const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<LintableToken> = (
+    ctx: ParseContext<LintableToken>,
+) => {
     if (!ctx.currentToken) return;
     if (ctx.currentToken.tokenType !== TokenMap.error) {
         return;

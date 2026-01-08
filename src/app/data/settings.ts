@@ -25,9 +25,7 @@ export const GET_LOCALES: () => Record<
     };
 };
 type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
-export function isSupportedLocale(locale: string): locale is SupportedLocales {
-    return SUPPORTED_LOCALES.includes(locale);
-}
+
 export type Settings = {
     fontSize: string;
     fontFamily: string;

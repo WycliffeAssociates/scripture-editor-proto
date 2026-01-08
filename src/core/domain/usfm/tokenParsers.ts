@@ -133,7 +133,7 @@ export function parseTokens<T extends LintableToken>(
    Context-manipulation helpers
    ---------------------------- */
 
-export function checkAndSetIfLastMarker<T extends LintableToken>(
+function checkAndSetIfLastMarker<T extends LintableToken>(
     ctx: ParseContext<T>,
 ) {
     const t = ctx.currentToken;
@@ -143,7 +143,7 @@ export function checkAndSetIfLastMarker<T extends LintableToken>(
     }
 }
 
-export function checkForHangingNoteStacks<T extends LintableToken>(
+function checkForHangingNoteStacks<T extends LintableToken>(
     ctx: ParseContext<T>,
 ) {
     const t = ctx.currentToken;
@@ -181,9 +181,7 @@ export function checkForHangingNoteStacks<T extends LintableToken>(
     }
 }
 
-export function checkIfValidParaMarker<T extends LintableToken>(
-    ctx: ParseContext<T>,
-) {
+function checkIfValidParaMarker<T extends LintableToken>(ctx: ParseContext<T>) {
     const t = ctx.currentToken;
     if (t?.marker === "c") {
         ctx.currentParaMarker = null;
@@ -196,7 +194,7 @@ export function checkIfValidParaMarker<T extends LintableToken>(
     t.isParaMarker = true;
 }
 
-export function checkCharStack<T extends LintableToken>(ctx: ParseContext<T>) {
+function checkCharStack<T extends LintableToken>(ctx: ParseContext<T>) {
     const t = ctx.currentToken;
     if (!t?.tokenType) return;
     const type = t.tokenType;
@@ -235,9 +233,7 @@ export function checkCharStack<T extends LintableToken>(ctx: ParseContext<T>) {
     }
 }
 
-export function checkUpdateNoteParent<T extends LintableToken>(
-    ctx: ParseContext<T>,
-) {
+function checkUpdateNoteParent<T extends LintableToken>(ctx: ParseContext<T>) {
     const t = ctx.currentToken;
     if (!t || t.tokenType !== TokenMap.marker) return;
     if (VALID_NOTE_MARKERS.has(t.marker ?? "")) {
@@ -245,7 +241,7 @@ export function checkUpdateNoteParent<T extends LintableToken>(
     }
 }
 
-export function pushAttrPairToLastMarker<T extends LintableToken>(
+function pushAttrPairToLastMarker<T extends LintableToken>(
     ctx: ParseContext<T>,
 ) {
     const t = ctx.currentToken;
@@ -257,7 +253,7 @@ export function pushAttrPairToLastMarker<T extends LintableToken>(
     ctx.lastMarker.attributes[key] = value;
 }
 
-export function addParentTokenContextInfo<T extends LintableToken>(
+function addParentTokenContextInfo<T extends LintableToken>(
     ctx: ParseContext<T>,
 ) {
     const t = ctx.currentToken;
@@ -270,7 +266,7 @@ export function addParentTokenContextInfo<T extends LintableToken>(
     }
 }
 
-export function checkIfShouldNestInNoteParent<T extends LintableToken>(
+function checkIfShouldNestInNoteParent<T extends LintableToken>(
     ctx: ParseContext<T>,
 ) {
     const t = ctx.currentToken;

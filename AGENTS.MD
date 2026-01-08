@@ -104,7 +104,8 @@ This project uses a CLI ticket system. **Never create markdown files in `.ticket
 
 # Development Commands
 *   **Dev:** `pnpm dev.tauri` or `pnpm dev.web`
-*   **Lint/Format:** `pnpm run biome` (**Run before every commit**)
+*   **Knip**: `pnpm knip` (**Check for structural issues**) check the cli for help if needed. 
+*   **Lint/Format:** `pnpm run format` (**Run before every commit**)
 *   **Test Unit:** `pnpm test:unit`
 *   **Test E2E:** `pnpm test.e2e` (Use `data-testid`, never `getByText`)
 

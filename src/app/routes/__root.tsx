@@ -20,7 +20,7 @@ const RootLayout = () => {
     );
 };
 
-const rootRoute = createRootRouteWithContext<RouterContext>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
     component: RootLayout,
     loader: async ({ context }) => {
         const { projectRepository } = context;
@@ -31,4 +31,3 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
         return { projects };
     },
 });
-export const Route = rootRoute;

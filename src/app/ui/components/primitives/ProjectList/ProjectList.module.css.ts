@@ -2,7 +2,7 @@
 import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
 
-export const project = style({
+const project = style({
     padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
     color: "var(--mantine-primary-color-filled)",
     borderRadius: "var(--mantine-radius-md)",
@@ -24,12 +24,12 @@ export const project = style({
     },
 });
 
-export const picked = style({
+const picked = style({
     backgroundColor: darken(`var(--mantine-primary-color-light)`, 0.1),
     fontWeight: 700,
 });
 
-export const projectButton = style({
+const projectButton = style({
     background: "none",
     border: "none",
     padding: 0,
@@ -44,7 +44,7 @@ export const projectButton = style({
     // },
 });
 
-export const name = style({
+const name = style({
     display: "inline-block",
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -52,7 +52,7 @@ export const name = style({
     maxWidth: "60ch",
 });
 
-export const actions = style({
+const actions = style({
     display: "inline-flex",
     alignItems: "center",
     gap: "var(--mantine-spacing-xs)",
@@ -60,7 +60,7 @@ export const actions = style({
     marginLeft: "var(--mantine-spacing-sm)",
 });
 
-export const iconButton = style({
+const iconButton = style({
     background: "transparent",
     border: "none",
     padding: "4px",
@@ -83,7 +83,7 @@ export const iconButton = style({
     },
 });
 
-export const newProject = style({
+const newProject = style({
     padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
     color: "var(--mantine-primary-color-filled)",
     display: "flex",
