@@ -325,6 +325,23 @@ export function USFMPlugin() {
             referenceProject?.referenceProjectId,
         );
 
+        // Register update listener for cursor correction
+        const cursorCorrectionUnregister = editor.registerUpdateListener(
+            ({ editorState, tags }) => {
+                // Early exit if not in Regular mode (WYSIWYG)
+                if (mode !== EditorModes.WYSIWYG) return;
+
+                // Skip if this was triggered programmatically
+                if (tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)) return;
+
+                // Skip if editor is empty
+                if (editorState.isEmpty()) return;
+
+                // Check and correct cursor if needed
+                correctCursorIfNeeded(editor);
+            },
+        );
+
         const cleanup = () => {
             wysiPreview();
             unregisterTransformWhileTyping();
@@ -337,6 +354,7 @@ export function USFMPlugin() {
             pasteCommand();
             lockImmutablesOnCut();
             syncRefScrollUnregister();
+            cursorCorrectionUnregister();
         };
 
         return cleanup;
