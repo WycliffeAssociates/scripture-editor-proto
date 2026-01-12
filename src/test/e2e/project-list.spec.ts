@@ -1,4 +1,4 @@
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 
 test.describe("ProjectList Component", () => {
@@ -24,7 +24,10 @@ test.describe("ProjectList Component", () => {
         await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
 
         // Click on the project button
-        await page.getByTestId("project-list-item-button").first().click();
+        await page
+            .getByTestId(TESTING_IDS.project.listItemButton)
+            .first()
+            .click();
 
         // Verify navigation occurred - should be on the project page
         await expect(
@@ -43,7 +46,7 @@ test.describe("ProjectList Component", () => {
 
         // Verify export button is present
         await expect(
-            page.getByTestId("project-list-item-export").first(),
+            page.getByTestId(TESTING_IDS.appDrawer.itemExport).first(),
         ).toBeVisible();
     });
 
@@ -92,9 +95,9 @@ test.describe("ProjectList Component", () => {
         // Open the app drawer
         await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
 
-        // Count project items
+        // Count project items using TEST_ID_GENERATORS pattern
         const projectItems = page.locator(
-            '[data-testid^="project-list-item-"]',
+            `[data-testid="${TEST_ID_GENERATORS.projectListItem("llx_reg")}"]`,
         );
         const count = await projectItems.count();
 
@@ -102,11 +105,15 @@ test.describe("ProjectList Component", () => {
         expect(count).toBeGreaterThan(1);
 
         // Each project should have a button
-        const projectButtons = page.getByTestId("project-list-item-button");
+        const projectButtons = page.getByTestId(
+            TESTING_IDS.project.listItemButton,
+        );
         await expect(projectButtons.first()).toBeVisible();
 
         // Each project should have an export button
-        const exportButtons = page.getByTestId("project-list-item-export");
+        const exportButtons = page.getByTestId(
+            TESTING_IDS.appDrawer.itemExport,
+        );
         await expect(exportButtons.first()).toBeVisible();
     });
 });
