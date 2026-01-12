@@ -2,7 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { ActionIcon, Button, Center, Group, Stack, Text } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Download, Eye, Plus } from "lucide-react";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 import { useWorkspaceContext } from "../../../contexts/WorkspaceContext.tsx";
 import classnames from "./ProjectList.module.css.ts";
@@ -72,9 +72,6 @@ export function ProjectList() {
             <Stack gap="xs">
                 {allProjects.map((proj) => {
                     const picked = currentProject?.name === proj.name;
-                    const projectTestId = proj.name
-                        ?.toLowerCase()
-                        .replace(/\s+/g, "-");
                     return (
                         <Group
                             key={proj.projectDirectoryPath}
@@ -82,7 +79,9 @@ export function ProjectList() {
                             align="center"
                             wrap="nowrap"
                             className={`${classnames.project} ${picked ? classnames.picked : ""}`}
-                            data-testid={`project-list-item-${projectTestId}`}
+                            data-testid={TEST_ID_GENERATORS.projectListItem(
+                                proj.name ?? "",
+                            )}
                         >
                             {/* Main project button that navigates to the project */}
                             <Button
