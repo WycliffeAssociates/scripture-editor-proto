@@ -13,7 +13,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon, InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-
+import { TEST_ID_GENERATORS } from "@/app/data/constants.ts";
 // Internal Imports
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -102,7 +102,7 @@ export function ReferencePicker() {
             withArrow
             shadow="md"
             position="bottom-start"
-            data-testid={`reference-picker`}
+            data-testid="reference-picker"
             data-test-book-code={pickedFile?.bookCode}
             data-test-current-chapter={currentChapter}
         >
@@ -188,13 +188,17 @@ export function ReferencePicker() {
                                                 }
                                             >
                                                 <span
-                                                    data-test-id-specific={`book-control-title-${file.bookCode.toLowerCase()}`}
+                                                    data-test-id-specific={TEST_ID_GENERATORS.bookTitle(
+                                                        file.bookCode,
+                                                    )}
                                                 >
                                                     {fileTitle}
                                                 </span>
                                             </Accordion.Control>
                                             <Accordion.Panel
-                                                data-testid={`book-${file.bookCode}-chapters`}
+                                                data-testid={TEST_ID_GENERATORS.bookChapterPanel(
+                                                    file.bookCode,
+                                                )}
                                             >
                                                 <Grid
                                                     gutter="xs"
@@ -210,8 +214,11 @@ export function ReferencePicker() {
                                                             >
                                                                 <Button
                                                                     size="xs"
-                                                                    data-testid={`chapter-accordion-button`}
-                                                                    data-test-id-specific={`book-control-${file.bookCode.toLowerCase()}-${chap}`}
+                                                                    data-testid="chapter-accordion-button"
+                                                                    data-test-id-specific={TEST_ID_GENERATORS.bookChapterBtn(
+                                                                        file.bookCode,
+                                                                        chap,
+                                                                    )}
                                                                     variant={
                                                                         chap ===
                                                                         currentChapter
