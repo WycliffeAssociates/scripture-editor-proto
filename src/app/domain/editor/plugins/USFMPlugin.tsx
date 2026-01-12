@@ -1,9 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useDebouncedCallback, useThrottledCallback } from "@mantine/hooks";
 import {
     COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
-    type EditorState,
     KEY_DOWN_COMMAND,
     type NodeKey,
 } from "lexical";
@@ -14,6 +12,7 @@ import {
     EditorModes,
 } from "@/app/data/editor.ts";
 import { useEditorLinter } from "@/app/domain/editor/hooks/useEditorLinter.ts";
+import { useEditorStructure } from "@/app/domain/editor/hooks/useEditorStructure.ts";
 import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
@@ -21,11 +20,6 @@ import {
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
 } from "@/app/domain/editor/listeners/lockImmutableMarkers.ts";
-import {
-    maintainDocumentStructure,
-    maintainDocumentStructureDebounced,
-} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
-import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -43,99 +37,14 @@ export function USFMPlugin() {
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
-    const sixtyFPS = 16;
-    const structuralUpdateDebounceMs = 1000;
 
     // Use the editor linter hook
     useEditorLinter(editor);
 
-    const debouncedStructuralUpdates = useDebouncedCallback(
-        (editorState: EditorState) => {
-            return editorState.read(() => {
-                console.time("debouncedStructuralUpdates");
-                maintainDocumentStructureDebounced(editorState, editor);
-                console.timeEnd("debouncedStructuralUpdates");
-            });
-        },
-        structuralUpdateDebounceMs,
-    );
-
-    const throttledEditorChangeListener = useThrottledCallback(
-        (editorState: EditorState) => {
-            return editorState.read(() => {
-                console.time("throttledEditorChangeListener");
-                maintainDocumentStructure(editorState, editor);
-                maintainDocumentMetaData(
-                    editorState,
-                    editor,
-                    project.pickedFile.bookCode,
-                );
-                console.timeEnd("throttledEditorChangeListener");
-                // for (const dfsNode of $dfs()) {
-                // }
-                // console.timeEnd("throttledEditorChangeListener");
-            });
-        },
-        sixtyFPS,
-    );
+    // Use the editor structure hook
+    useEditorStructure(editor);
 
     useEffect(() => {
-        if (mode === EditorModes.SOURCE) {
-            console.log("mode === EditorModes.SOURCE");
-            // NOOOP NO EFFECTS IN THIS MODE
-            return;
-        }
-        const maintainMetadata = editor.registerUpdateListener(
-            ({
-                editorState,
-                dirtyElements,
-                dirtyLeaves,
-                prevEditorState,
-                tags,
-            }) => {
-                const wasOnlySelChange =
-                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
-                if (
-                    wasOnlySelChange &&
-                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
-                ) {
-                    return;
-                }
-                if (prevEditorState.isEmpty()) {
-                    return;
-                }
-                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
-                    return;
-                }
-                return throttledEditorChangeListener(editorState);
-            },
-        );
-        const debouncedMaintainMetadata = editor.registerUpdateListener(
-            ({
-                editorState,
-                dirtyElements,
-                dirtyLeaves,
-                prevEditorState,
-                tags,
-            }) => {
-                const wasOnlySelChange =
-                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
-                if (
-                    wasOnlySelChange &&
-                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
-                ) {
-                    return;
-                }
-                if (prevEditorState.isEmpty()) {
-                    return;
-                }
-                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
-                    return;
-                }
-                return debouncedStructuralUpdates(editorState);
-            },
-        );
-
         // update listeners, not a transform due to needing to run on selection changes
         // Get notified when Lexical commits an update to the DOM.
         const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
@@ -232,8 +141,6 @@ export function USFMPlugin() {
         const cleanup = () => {
             wysiPreview();
             unregisterTransformWhileTyping();
-            maintainMetadata();
-            debouncedMaintainMetadata();
             redirectParaInsertionToLineBreakUnregister();
             keyDownUnregister();
             moveToAdjacentNodesWhenSeemsAppropriateUnregister();
@@ -249,9 +156,7 @@ export function USFMPlugin() {
         markersViewState,
         editor,
         markersMutableState,
-        throttledEditorChangeListener,
         referenceProject?.referenceProjectId,
-        debouncedStructuralUpdates,
         projectLanguageDirection,
     ]);
 
