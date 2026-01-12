@@ -18,6 +18,7 @@ import {
     $isUSFMTextNode,
     isSerializedNumberOrPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
@@ -291,6 +292,81 @@ function handleNestedEditorNode(
 }
 
 /**
+ * Handles a USFM text node (e.g., verse markers, verse numbers) by creating or
+ * updating verse blocks in SidContentMap. This function manages duplicate SIDs,
+ * out-of-order detection, and updates TraversalState with the new verse block.
+ *
+ * @param node - The USFM text node to handle (must have sid defined)
+ * @param nodeIndex - The index of the node in the chapter's root.children array
+ * @param state - The mutable traversal state being updated
+ */
+function handleUSFMTextNode(
+    node: SerializedUSFMTextNode & { sid: string },
+    nodeIndex: number,
+    state: TraversalState,
+): void {
+    const semanticSid = node.sid;
+    if (
+        !state.activeVerseKey ||
+        state.map[state.activeVerseKey].semanticSid !== semanticSid
+    ) {
+        let uniqueKey: string = semanticSid;
+        if (state.map[uniqueKey]) {
+            const count =
+                (state.duplicateSidCounters.get(semanticSid) || 0) + 1;
+            state.duplicateSidCounters.set(semanticSid, count);
+            uniqueKey = `${semanticSid}_dup_${count}`;
+        }
+        state.activeVerseKey = uniqueKey;
+
+        // --- OUT-OF-ORDER DETECTION LOGIC ---
+        let detail: string | undefined;
+        if (state.previousBlockKey) {
+            const prevBlock = state.map[state.previousBlockKey];
+            const prevSidParsed = parseSid(prevBlock.semanticSid);
+            const currentSidParsed = parseSid(semanticSid);
+
+            // Check if both are valid, verse-level SIDs in the same chapter.
+            if (
+                prevSidParsed &&
+                !prevSidParsed.isBookChapOnly &&
+                currentSidParsed &&
+                !currentSidParsed.isBookChapOnly &&
+                prevSidParsed.chapter === currentSidParsed.chapter
+            ) {
+                const expectedVerse = prevSidParsed.verseEnd + 1;
+                if (currentSidParsed.verseStart !== expectedVerse) {
+                    detail = `Out of order (expected v. ${expectedVerse})`;
+                }
+            }
+        }
+
+        state.map[state.activeVerseKey] = {
+            nodes: [],
+            parentChapterNodeList: state.chapterNodeList,
+            startIndexInParent: nodeIndex,
+            previousSid: state.previousBlockKey,
+            semanticSid: semanticSid,
+            displaySid: semanticSid,
+            usfmStructure: "",
+            plainTextStructure: "",
+            fullText: "",
+            foundOrder: state.blockCounter,
+            detail,
+        };
+        state.blockCounter++;
+        state.previousBlockKey = state.activeVerseKey;
+    }
+
+    const block = state.map[state.activeVerseKey];
+    block.nodes.push(node);
+    const { usfm, plain, full } = getTextComponentsFromNode(node);
+    block.usfmStructure += usfm;
+    block.plainTextStructure += plain;
+    block.fullText += full;
+}
+
+/**
  * Extracts the different text components from a single serialized node.
  */
 function getTextComponentsFromNode(node: SerializedLexicalNode): {
@@ -382,65 +458,11 @@ export function buildSidContentMapForChapter(
 
         // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
         if (isSerializedUSFMTextNode(node) && node.sid) {
-            const semanticSid = node.sid;
-            if (
-                !state.activeVerseKey ||
-                state.map[state.activeVerseKey].semanticSid !== semanticSid
-            ) {
-                let uniqueKey: string = semanticSid;
-                if (state.map[uniqueKey]) {
-                    const count =
-                        (state.duplicateSidCounters.get(semanticSid) || 0) + 1;
-                    state.duplicateSidCounters.set(semanticSid, count);
-                    uniqueKey = `${semanticSid}_dup_${count}`;
-                }
-                state.activeVerseKey = uniqueKey;
-
-                // --- OUT-OF-ORDER DETECTION LOGIC ---
-                let detail: string | undefined;
-                if (state.previousBlockKey) {
-                    const prevBlock = state.map[state.previousBlockKey];
-                    const prevSidParsed = parseSid(prevBlock.semanticSid);
-                    const currentSidParsed = parseSid(semanticSid);
-
-                    // Check if both are valid, verse-level SIDs in the same chapter.
-                    if (
-                        prevSidParsed &&
-                        !prevSidParsed.isBookChapOnly &&
-                        currentSidParsed &&
-                        !currentSidParsed.isBookChapOnly &&
-                        prevSidParsed.chapter === currentSidParsed.chapter
-                    ) {
-                        const expectedVerse = prevSidParsed.verseEnd + 1;
-                        if (currentSidParsed.verseStart !== expectedVerse) {
-                            detail = `Out of order (expected v. ${expectedVerse})`;
-                        }
-                    }
-                }
-
-                state.map[state.activeVerseKey] = {
-                    nodes: [],
-                    parentChapterNodeList: state.chapterNodeList,
-                    startIndexInParent: i,
-                    previousSid: state.previousBlockKey,
-                    semanticSid: semanticSid,
-                    displaySid: semanticSid,
-                    usfmStructure: "",
-                    plainTextStructure: "",
-                    fullText: "",
-                    foundOrder: state.blockCounter,
-                    detail,
-                };
-                state.blockCounter++;
-                state.previousBlockKey = state.activeVerseKey;
-            }
-
-            const block = state.map[state.activeVerseKey];
-            block.nodes.push(node);
-            const { usfm, plain, full } = getTextComponentsFromNode(node);
-            block.usfmStructure += usfm;
-            block.plainTextStructure += plain;
-            block.fullText += full;
+            handleUSFMTextNode(
+                node as SerializedUSFMTextNode & { sid: string },
+                i,
+                state,
+            );
             continue;
         }
         if (isSerializedElementNode(node) && node.children) {
