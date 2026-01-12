@@ -13,8 +13,8 @@ import {
     EditorMarkersViewStates,
     EditorModes,
 } from "@/app/data/editor.ts";
+import { useEditorLinter } from "@/app/domain/editor/hooks/useEditorLinter.ts";
 import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
-import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
 import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
     lockImmutableMarkersOnCut,
@@ -38,28 +38,16 @@ import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
-    const {
-        project,
-        actions,
-        lint,
-        referenceProject,
-        projectLanguageDirection,
-    } = useWorkspaceContext();
+    const { project, referenceProject, projectLanguageDirection } =
+        useWorkspaceContext();
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
     const markersInPreview = useRef(new Set<NodeKey>());
-    const lintDebounceMs = 300;
     const sixtyFPS = 16;
     const structuralUpdateDebounceMs = 1000;
 
-    const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
-        const errMessages = lintAll(
-            { editorState, editor },
-            actions.getFlatFileTokens,
-        );
-
-        lint.mergeInNewErrorsFromChapter(errMessages);
-    }, lintDebounceMs);
+    // Use the editor linter hook
+    useEditorLinter(editor);
 
     const debouncedStructuralUpdates = useDebouncedCallback(
         (editorState: EditorState) => {
@@ -193,16 +181,6 @@ export function USFMPlugin() {
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
 
-        const lints = editor.registerUpdateListener(
-            ({ editorState, tags: _tags }) => {
-                if (mode !== EditorModes.WYSIWYG) {
-                    return;
-                }
-                //   console.log({tags});
-                debouncedLint(editorState);
-            },
-        );
-
         // commands:
         const keyDownUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
@@ -257,7 +235,6 @@ export function USFMPlugin() {
             maintainMetadata();
             debouncedMaintainMetadata();
             redirectParaInsertionToLineBreakUnregister();
-            lints();
             keyDownUnregister();
             moveToAdjacentNodesWhenSeemsAppropriateUnregister();
             pasteCommand();
@@ -272,7 +249,6 @@ export function USFMPlugin() {
         markersViewState,
         editor,
         markersMutableState,
-        debouncedLint,
         throttledEditorChangeListener,
         referenceProject?.referenceProjectId,
         debouncedStructuralUpdates,
