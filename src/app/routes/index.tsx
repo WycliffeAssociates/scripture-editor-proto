@@ -5,7 +5,7 @@ import {
     useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
     handleDownload,
     handleOpenDirectory,
@@ -219,7 +219,9 @@ function Index() {
                     ([langName, langProjects]) => (
                         <li key={langName}>
                             <h2
-                                data-testid={`project-list-${langName.toLowerCase()}`}
+                                data-testid={TEST_ID_GENERATORS.projectListGroup(
+                                    langName,
+                                )}
                                 className="text-xl font-semibold"
                             >
                                 {langName}
