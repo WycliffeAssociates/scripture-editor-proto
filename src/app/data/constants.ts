@@ -3,6 +3,12 @@ import type { Platform } from "@tauri-apps/plugin-os";
 export type PlatformAndWeb = Platform | "web";
 
 export const TESTING_IDS = {
+    import: {
+        importer: "file-importer",
+    },
+    project: {
+        list: "project-list",
+    },
     mainEditorContainer: "main-editor-container",
     referenceProjectPanel: "reference-project-panel",
     referenceProjectTrigger: "reference-project-trigger",
@@ -73,4 +79,22 @@ export const TESTING_IDS = {
         mainEditorTab: "mobile-main-editor-tab",
         referenceEditorTab: "mobile-reference-editor-tab",
     },
+} as const;
+
+// Dynamic test ID generators
+export const TEST_ID_GENERATORS = {
+    projectListItem: (name: string) =>
+        `project-list-item-${name.toLowerCase().replace(/\s+/g, "-")}`,
+
+    bookChapterBtn: (book: string, chap: number) =>
+        `book-control-${book.toLowerCase()}-${chap}`,
+
+    projectListGroup: (langName: string) =>
+        `project-list-${langName.toLowerCase()}`,
+
+    bookChapterPanel: (bookCode: string) =>
+        `book-${bookCode.toLowerCase()}-chapters`,
+
+    bookTitle: (bookCode: string) =>
+        `book-control-title-${bookCode.toLowerCase()}`,
 } as const;
