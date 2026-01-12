@@ -1,18 +1,13 @@
 import { useDebouncedCallback } from "@mantine/hooks";
-import {
-    $getRoot,
-    type LexicalEditor,
-    type LexicalNode,
-    type SerializedLexicalNode,
-} from "lexical";
+import { $getRoot, type LexicalEditor, type LexicalNode } from "lexical";
 import { useEffect, useRef, useState } from "react";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
-    $isUSFMTextNode,
-    isSerializedPlainTextUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+    escapeRegex,
+    findMatch,
+    reduceSerializedNodesToText,
+} from "@/app/domain/search/search.utils.ts";
 import {
     makeSid,
     type ParsedReference,
@@ -568,91 +563,7 @@ export function useProjectSearch({
         setMatchWholeWord,
         matchCase,
         setMatchCase,
-        escapeRegex,
         sortBy,
         currentSort,
     };
-}
-
-function reduceSerializedNodesToText(
-    serializedNodes: SerializedLexicalNode[],
-): Record<string, string> {
-    const result: Record<string, string> = {};
-
-    for (const node of serializedNodes) {
-        if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
-            result[node.sid] = (result[node.sid] || "") + node.text;
-        }
-
-        if (isSerializedElementNode(node)) {
-            const childText = reduceSerializedNodesToText(node.children);
-            for (const [sid, text] of Object.entries(childText)) {
-                result[sid] = (result[sid] || "") + text;
-            }
-        }
-
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            const childText = reduceSerializedNodesToText(
-                node.editorState.root.children,
-            );
-            for (const [sid, text] of Object.entries(childText)) {
-                result[sid] = (result[sid] || "") + text;
-            }
-        }
-    }
-
-    return result;
-}
-
-function escapeRegex(str: string) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-type FindMatchArgs = {
-    textToSearch: string;
-    searchTerm: string;
-    matchCase: boolean;
-    matchWholeWord: boolean;
-};
-
-function findMatch({
-    textToSearch,
-    searchTerm,
-    matchCase,
-    matchWholeWord,
-}: FindMatchArgs) {
-    if (!searchTerm) {
-        return { isMatch: false, matchedTerm: null };
-    }
-
-    if (matchWholeWord) {
-        const escapedTerm = escapeRegex(searchTerm);
-        const regex = new RegExp(
-            `\\b${escapedTerm}\\b`,
-            matchCase ? "g" : "gi",
-        );
-        const result = regex.exec(textToSearch);
-        if (result) {
-            return { isMatch: true, matchedTerm: result[0] };
-        }
-    } else {
-        if (matchCase) {
-            const index = textToSearch.indexOf(searchTerm);
-            if (index > -1) {
-                return { isMatch: true, matchedTerm: searchTerm };
-            }
-        } else {
-            const index = textToSearch
-                .toLowerCase()
-                .indexOf(searchTerm.toLowerCase());
-            if (index > -1) {
-                const originalTerm = textToSearch.substring(
-                    index,
-                    index + searchTerm.length,
-                );
-                return { isMatch: true, matchedTerm: originalTerm };
-            }
-        }
-    }
-    return { isMatch: false, matchedTerm: null };
 }
