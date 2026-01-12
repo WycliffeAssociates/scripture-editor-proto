@@ -1,17 +1,29 @@
+import { ProjectIndexer } from "@/app/domain/project/ProjectIndexer.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
 type HandleDownloadArgs = {
     importer: ProjectImporter;
+    projectRepository: IProjectRepository;
+    md5Service: IMd5Service;
     invalidateRouterAndReload: () => void;
 };
 export async function handleDownload(
-    { importer, invalidateRouterAndReload }: HandleDownloadArgs,
+    {
+        importer,
+        projectRepository,
+        md5Service,
+        invalidateRouterAndReload,
+    }: HandleDownloadArgs,
     url: string,
 ): Promise<void> {
-    const didImport = await importer.import({ type: "fromGitRepo", url });
-    if (didImport) {
+    const importedPath = await importer.import({ type: "fromGitRepo", url });
+    if (importedPath) {
+        const indexer = new ProjectIndexer(projectRepository, md5Service);
+        await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
     } else {
         throw new Error("Failed to download project");
@@ -21,6 +33,8 @@ export async function handleDownload(
 type OpenDirArgs = {
     directoryProvider: IDirectoryProvider;
     projectImporter: ProjectImporter;
+    projectRepository: IProjectRepository;
+    md5Service: IMd5Service;
     invalidateRouterAndReload: () => void;
 };
 export async function handleOpenDirectory(
@@ -28,6 +42,8 @@ export async function handleOpenDirectory(
     {
         directoryProvider,
         projectImporter,
+        projectRepository,
+        md5Service,
         invalidateRouterAndReload,
     }: OpenDirArgs,
 ) {
@@ -78,7 +94,7 @@ export async function handleOpenDirectory(
         }
     }
 
-    const success = await projectImporter.import({
+    const importedPath = await projectImporter.import({
         type: "fromDir",
         dirHandle: tempProjectDir,
     });
@@ -90,7 +106,9 @@ export async function handleOpenDirectory(
         console.warn("[handleOpenDirectory] failed to remove temp dir:", e);
     }
 
-    if (success) {
+    if (importedPath) {
+        const indexer = new ProjectIndexer(projectRepository, md5Service);
+        await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
     } else {
         throw new Error("Failed to import directory");
@@ -100,6 +118,8 @@ export async function handleOpenDirectory(
 type OpenFileArgs = {
     directoryProvider: IDirectoryProvider;
     projectImporter: ProjectImporter;
+    projectRepository: IProjectRepository;
+    md5Service: IMd5Service;
     invalidateRouterAndReload: () => void;
 };
 
@@ -108,6 +128,8 @@ export async function processFile(
     {
         directoryProvider,
         projectImporter,
+        projectRepository,
+        md5Service,
         invalidateRouterAndReload,
     }: OpenFileArgs,
 ): Promise<void> {
@@ -133,7 +155,7 @@ export async function processFile(
         `[processFile] Content written to temporary file: ${tempFileHandle.name}`,
     );
 
-    const success = await projectImporter.import({
+    const importedPath = await projectImporter.import({
         type: "fromZipFile",
         fileHandle: tempFileHandle,
     });
@@ -146,7 +168,9 @@ export async function processFile(
         console.warn("[processFile] failed to remove temp file:", e);
     }
 
-    if (success) {
+    if (importedPath) {
+        const indexer = new ProjectIndexer(projectRepository, md5Service);
+        await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
     } else {
         throw new Error("Failed to import file");

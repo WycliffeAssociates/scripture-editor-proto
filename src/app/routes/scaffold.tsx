@@ -34,11 +34,7 @@ function RouteComponent() {
     const { directoryProvider, projectRepository, md5Service } =
         router.options.context;
     const { projects: initialProjects } = useLoaderData({ from: "__root__" });
-    const projectImporter = new ProjectImporter(
-        directoryProvider,
-        projectRepository,
-        md5Service,
-    );
+    const projectImporter = new ProjectImporter(directoryProvider);
     const [url, setUrl] = useState(search.url || "");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -66,6 +62,8 @@ function RouteComponent() {
                 await processFile(scaffoldFile, {
                     directoryProvider,
                     projectImporter,
+                    projectRepository,
+                    md5Service,
                     invalidateRouterAndReload,
                 });
                 setSuccessMessage(t`Scaffold process completed successfully!`); // Localize text
@@ -122,6 +120,7 @@ function RouteComponent() {
             router,
             invalidateRouterAndReload,
             projectRepository,
+            md5Service,
         ],
     );
 

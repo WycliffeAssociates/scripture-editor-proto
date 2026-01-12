@@ -5,6 +5,7 @@ import {
     useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
     handleDownload,
     handleOpenDirectory,
@@ -62,11 +63,7 @@ function Index() {
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
-    const projectImporter = new ProjectImporter(
-        directoryProvider,
-        projectRepository,
-        md5Service,
-    );
+    const projectImporter = new ProjectImporter(directoryProvider);
 
     const groupedIntoLangName = projects.reduce(
         (acc, project) => {
@@ -92,7 +89,12 @@ function Index() {
             });
 
             await handleDownload(
-                { importer: projectImporter, invalidateRouterAndReload },
+                {
+                    importer: projectImporter,
+                    projectRepository,
+                    md5Service,
+                    invalidateRouterAndReload,
+                },
                 url,
             );
             ShowNotificationSuccess({
@@ -130,6 +132,8 @@ function Index() {
             await handleOpenDirectory(event, {
                 directoryProvider,
                 projectImporter,
+                projectRepository,
+                md5Service,
                 invalidateRouterAndReload,
             });
             ShowNotificationSuccess({
@@ -165,6 +169,8 @@ function Index() {
             await handleOpenFile(event, {
                 directoryProvider,
                 projectImporter,
+                projectRepository,
+                md5Service,
                 invalidateRouterAndReload,
             });
             ShowNotificationSuccess({
@@ -218,7 +224,10 @@ function Index() {
                             >
                                 {langName}
                             </h2>
-                            <ul className="ml-4" data-testid="project-list">
+                            <ul
+                                className="ml-4"
+                                data-testid={TESTING_IDS.project.list}
+                            >
                                 {langProjects.map((project) => (
                                     <li key={project.projectDirectoryPath}>
                                         <ProjectRow
