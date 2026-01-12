@@ -55,4 +55,16 @@ describe("TEST_ID_GENERATORS", () => {
             expect(result).toBe("book-mat-chapters");
         });
     });
+
+    describe("diffCurrentPre", () => {
+        it("should generate test ID for diff current pre with original view", () => {
+            const result = TEST_ID_GENERATORS.diffCurrentPre("original");
+            expect(result).toBe("save-diff-current-pre-original");
+        });
+
+        it("should generate test ID for diff current pre with current view", () => {
+            const result = TEST_ID_GENERATORS.diffCurrentPre("current");
+            expect(result).toBe("save-diff-current-pre-current");
+        });
+    });
 });

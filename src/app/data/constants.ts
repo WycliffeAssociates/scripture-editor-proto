@@ -97,4 +97,7 @@ export const TEST_ID_GENERATORS = {
 
     bookTitle: (bookCode: string) =>
         `book-control-title-${bookCode.toLowerCase()}`,
+
+    diffCurrentPre: (viewType: "original" | "current") =>
+        `save-diff-current-pre-${viewType}`,
 } as const;

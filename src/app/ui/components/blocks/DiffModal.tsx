@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import type { Change } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
@@ -31,7 +31,7 @@ type HighlightedDiffProps = {
 function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
     return (
         <pre
-            data-testid={`${TESTING_IDS.save.diffCurrentPre}-${viewType}`}
+            data-testid={TEST_ID_GENERATORS.diffCurrentPre(viewType)}
             className={styles.diffPre}
         >
             {changes.map((change, index) => {
