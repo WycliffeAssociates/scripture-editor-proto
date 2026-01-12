@@ -1,5 +1,5 @@
 import { useDebouncedCallback } from "@mantine/hooks";
-import { $getRoot, type LexicalEditor, type LexicalNode } from "lexical";
+import { $getRoot, type LexicalEditor } from "lexical";
 import { useEffect, useRef, useState } from "react";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -8,6 +8,11 @@ import {
     findMatch,
     reduceSerializedNodesToText,
 } from "@/app/domain/search/search.utils.ts";
+import {
+    clearHighlights,
+    highlightMatch,
+    type MatchInNode,
+} from "@/app/ui/hooks/useSearchHighlighter.ts";
 import {
     makeSid,
     type ParsedReference,
@@ -37,12 +42,6 @@ type SearchResult = {
     naturalIndex: number;
 };
 export type SortOption = "canonical" | "caseMismatch";
-
-type MatchInNode = {
-    node: LexicalNode;
-    start: number;
-    end: number;
-};
 
 export type UseSearchReturn = ReturnType<typeof useProjectSearch>;
 
@@ -97,7 +96,7 @@ export function useProjectSearch({
             if (searchAbortController.current) {
                 searchAbortController.current.abort();
             }
-            CSS.highlights.clear();
+            clearHighlights();
             setResults([]);
             setIsSearching(false);
         }
@@ -186,7 +185,7 @@ export function useProjectSearch({
         // Check immediately after yield
         if (signal.aborted) return;
 
-        CSS.highlights.clear();
+        clearHighlights();
 
         const filesToSearch = saveCurrentDirtyLexical() || workingFiles;
         const allResults: SearchResult[] = [];
@@ -274,7 +273,7 @@ export function useProjectSearch({
     // (Remaining functions stay largely the same)
 
     function pick(result: SearchResult, activeSearchTerm = searchTerm) {
-        CSS.highlights.clear();
+        clearHighlights();
         setPickedResult(result);
 
         const newChapterState = switchBookOrChapter(
@@ -348,85 +347,18 @@ export function useProjectSearch({
                     );
 
                     if (firstOfSid) {
-                        highlightAndScrollToMatch(
+                        highlightMatch(
                             firstOfSid,
                             editor,
                             activeSearchTerm,
+                            matchWholeWord,
+                            matchCase,
                         );
                         setCurrentMatchIndex(searchMatches.indexOf(firstOfSid));
                     }
                 }
             });
         });
-    }
-
-    function highlightAndScrollToMatch(
-        match: MatchInNode,
-        editor: LexicalEditor,
-        activeSearchTerm: string,
-    ) {
-        const domEl = editor.getElementByKey(match.node.getKey());
-        if (domEl) {
-            const domTextContent = domEl.textContent;
-            domEl.scrollIntoView({ block: "center", behavior: "smooth" });
-
-            if (!domTextContent) return;
-
-            const matchHighlight = new Highlight();
-
-            if (matchWholeWord) {
-                // --- Whole Word Highlight ---
-                const escapedTerm = escapeRegex(activeSearchTerm);
-                const regex = new RegExp(
-                    `\\b${escapedTerm}\\b`,
-                    matchCase ? "g" : "gi",
-                );
-
-                let regexMatch: RegExpExecArray | null;
-                // biome-ignore lint/suspicious/noAssignInExpressions: <intentional>
-                while ((regexMatch = regex.exec(domTextContent)) !== null) {
-                    const range = new Range();
-                    const firstChild = domEl.firstChild || domEl;
-
-                    // Safety check for range boundaries
-                    if (regexMatch.index < domTextContent.length) {
-                        range.setStart(firstChild, regexMatch.index);
-                        range.setEnd(
-                            firstChild,
-                            regexMatch.index + regexMatch[0].length,
-                        );
-                        matchHighlight.add(range);
-                    }
-                }
-            } else {
-                // --- Substring Highlight ---
-                let startIndex = 0;
-                const textToSearch = matchCase
-                    ? domTextContent
-                    : domTextContent.toLowerCase();
-                const termToSearch = matchCase
-                    ? activeSearchTerm
-                    : activeSearchTerm.toLowerCase();
-
-                while (true) {
-                    const index = textToSearch.indexOf(
-                        termToSearch,
-                        startIndex,
-                    );
-                    if (index === -1) break;
-
-                    const range = new Range();
-                    const firstChild = domEl.firstChild || domEl;
-                    range.setStart(firstChild, index);
-                    range.setEnd(firstChild, index + activeSearchTerm.length);
-                    matchHighlight.add(range);
-
-                    startIndex = index + activeSearchTerm.length;
-                }
-            }
-
-            CSS.highlights.set("matched-search", matchHighlight);
-        }
     }
 
     function nextMatch() {
