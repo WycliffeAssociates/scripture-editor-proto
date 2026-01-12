@@ -219,6 +219,33 @@ export type SidContent = {
 
 export type SidContentMap = Record<string, SidContent>; // The key is the unique, mangled SID.
 
+/**
+ * Mutable state passed between iterations during traversal.
+ * Encapsulates all tracking variables needed for building the SidContentMap.
+ */
+export type TraversalState = {
+    /** The map being populated with SID content entries. */
+    map: SidContentMap;
+
+    /** The key of the currently active verse block being processed. */
+    activeVerseKey: string | null;
+
+    /** The unique key of the immediately preceding block, used as a revert anchor. */
+    previousBlockKey: string | null;
+
+    /** Counters for tracking duplicate SIDs within the document. */
+    duplicateSidCounters: Map<string, number>;
+
+    /** Counters for tracking footnotes per parent SID. */
+    footnoteCounters: Map<string, number>;
+
+    /** A zero-based counter representing the order in which blocks are found. */
+    blockCounter: number;
+
+    /** The chapter's node list being traversed (root.children). */
+    chapterNodeList: SerializedLexicalNode[];
+};
+
 //==================================================================
 // 2. Helper Functions
 //===============================================================
