@@ -17,7 +17,7 @@ import {
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
 import { USFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
  * Hook that registers all editor input handling including:

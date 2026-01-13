@@ -19,6 +19,7 @@ export default defineConfig({
             "**/*.test.ts", // Existing default pattern
             "**/*.spec.ts", // Existing default pattern
             "**/*.integration.ts",
+            "!src/test/e2e/**",
         ],
     },
     resolve: {

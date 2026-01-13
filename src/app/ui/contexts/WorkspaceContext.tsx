@@ -34,7 +34,7 @@ import type {
     Project,
 } from "@/core/persistence/ProjectRepository.ts";
 
-interface WorkSpaceContextType {
+export interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
     settingsManager: SettingsManager;
     allProjects: ListedProject[];
@@ -55,16 +55,6 @@ interface WorkSpaceContextType {
         replaceCodeInString?: string;
     }): string;
 }
-const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
-    undefined,
-);
-
-export const useWorkspaceContext = () => {
-    const ctx = useContext(WorkspaceContext);
-    if (!ctx)
-        throw new Error("useProjectContext must be inside ProjectProvider");
-    return ctx;
-};
 
 type ProjectProviderProps = {
     currentProjectRoute: string;
@@ -73,6 +63,12 @@ type ProjectProviderProps = {
     children: React.ReactNode;
     loadedProject: Project;
 };
+const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
+    undefined,
+);
+
+export { WorkspaceContext };
+
 export const ProjectProvider = ({
     currentProjectRoute,
     projectFiles,
@@ -125,7 +121,7 @@ export const ProjectProvider = ({
         pickedChapterNumber: project.pickedChapter.chapNumber,
     });
     const search = useProjectSearch({
-        workingFiles: mutWorkingFilesRef.current,
+        workingFiles: projectFiles,
         saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,

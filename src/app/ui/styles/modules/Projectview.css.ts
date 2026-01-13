@@ -111,6 +111,12 @@ export const mobileEditorsContainer = style({
     height: "100%",
     overflow: "hidden",
 });
+export const desktopContentGrid = style({
+    display: "grid",
+    gridTemplateColumns: "30fr 40fr 30fr",
+    overflow: "hidden",
+    height: "100%",
+});
 
 // Main and reference are *stacked* and toggled with CSS vars
 export const editorMainSmall = style({

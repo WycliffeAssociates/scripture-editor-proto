@@ -1,7 +1,7 @@
 import { ActionIcon } from "@mantine/core";
 import { Search as IconSearch } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function SearchInput() {
     const { search } = useWorkspaceContext();

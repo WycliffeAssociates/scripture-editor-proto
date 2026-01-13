@@ -95,23 +95,26 @@ test.describe("ProjectList Component", () => {
         // Open the app drawer
         await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
 
-        // Count project items using TEST_ID_GENERATORS pattern
-        const projectItems = page.locator(
-            `[data-testid="${TEST_ID_GENERATORS.projectListItem("llx_reg")}"]`,
+        // Count project items in the app drawer
+        const appDrawerProjectsList = page.getByTestId(
+            TESTING_IDS.appDrawer.projectsList,
         );
-        const count = await projectItems.count();
+        const projectItems = await appDrawerProjectsList
+            .locator('[data-testid^="project-list-item-"]')
+            .all();
+        const count = projectItems.length;
 
         // Should have at least one project
         expect(count).toBeGreaterThan(1);
 
         // Each project should have a button
-        const projectButtons = page.getByTestId(
+        const projectButtons = appDrawerProjectsList.getByTestId(
             TESTING_IDS.project.listItemButton,
         );
         await expect(projectButtons.first()).toBeVisible();
 
         // Each project should have an export button
-        const exportButtons = page.getByTestId(
+        const exportButtons = appDrawerProjectsList.getByTestId(
             TESTING_IDS.appDrawer.itemExport,
         );
         await expect(exportButtons.first()).toBeVisible();

@@ -1,5 +1,5 @@
 import { useDebouncedCallback } from "@mantine/hooks";
-import { $getRoot, type LexicalEditor } from "lexical";
+import { $getRoot, type LexicalEditor, type LexicalNode } from "lexical";
 import { useEffect, useRef, useState } from "react";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -230,6 +230,7 @@ export function useProjectSearch({
         // Final safety check before state update
         if (signal.aborted) return;
         const sortedResults = applySort(allResults, currentSort);
+
         setResults(sortedResults);
 
         // Auto-select logic
@@ -445,8 +446,22 @@ export function useProjectSearch({
         if (!editor) return;
 
         editor.update(() => {
-            currentMatches.forEach((match) => {
-                const node = match.node;
+            const uniqueNodes = currentMatches.reduce(
+                (acc: { seen: Set<string>; nodes: LexicalNode[] }, curr) => {
+                    const nodeId = curr.node.getKey();
+                    if (!acc.seen.has(nodeId)) {
+                        acc.seen.add(nodeId);
+                        acc.nodes.push(curr.node);
+                    }
+                    return acc;
+                },
+                {
+                    seen: new Set<string>(),
+                    nodes: [] as LexicalNode[],
+                },
+            );
+
+            uniqueNodes.nodes.forEach((node: LexicalNode) => {
                 if (!$isUSFMTextNode(node)) return;
                 const text = node.getTextContent();
                 const newText = text.replaceAll(searchTerm, replaceTerm);
@@ -466,8 +481,8 @@ export function useProjectSearch({
         setPickedResult(null);
     }
 
-    const hasNext = results.length;
-    const hasPrev = results.length;
+    const hasNext = results.length > 0;
+    const hasPrev = results.length > 0;
     // const hasNext = currentMatches.length > 0 && currentMatches.length > 1;
     // const hasPrev = currentMatches.length > 0 && currentMatches.length > 1;
     return {
@@ -497,5 +512,6 @@ export function useProjectSearch({
         setMatchCase,
         sortBy,
         currentSort,
+        escapeRegex,
     };
 }

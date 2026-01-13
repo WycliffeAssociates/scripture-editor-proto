@@ -28,8 +28,8 @@ import { useRef } from "react";
 import Highlighter from "react-highlight-words";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import searchClassNames from "@/app/ui/styles/modules/Search.module.css.ts";
 
 export function SearchPanel() {

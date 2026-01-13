@@ -252,9 +252,9 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                     const filePath = filename; // Path relative to projectDir
 
                     if (project.metadataJson.ingredients?.[filePath]) {
-                        console.warn(
-                            `Book ${filename} already exists as an ingredient. Not adding.`,
-                        );
+                        // console.warn(
+                        //     `Book ${filename} already exists as an ingredient. Not adding.`,
+                        // );
                         return;
                     }
 

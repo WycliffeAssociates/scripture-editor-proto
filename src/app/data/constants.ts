@@ -5,9 +5,22 @@ export type PlatformAndWeb = Platform | "web";
 export const TESTING_IDS = {
     import: {
         importer: "file-importer",
+        dirImporter: "dir-importer",
     },
     project: {
         list: "project-list",
+        rowLink: "project-row-link",
+        nameInput: "project-name-input",
+        saveName: "save-project-name",
+        delete: "delete-project",
+        deleteConfirm: "delete-project-confirm",
+        listItemButton: "project-list-item-button",
+        editButton: "edit-project-btn",
+    },
+    language: {
+        apiImporter: "language-api-importer",
+        importerDownload: "language-importer-download",
+        importerClear: "language-importer-clear",
     },
     mainEditorContainer: "main-editor-container",
     referenceProjectPanel: "reference-project-panel",
@@ -16,6 +29,7 @@ export const TESTING_IDS = {
     referenceProjectClear: "reference-project-clear",
     referenceProjectItem: "reference-project-item",
     refEditorContainer: "ref-editor-container",
+    referencePicker: "reference-picker",
     searchInput: "search-input",
     searchPrevButton: "search-prev-button",
     searchNextButton: "search-next-button",
@@ -78,6 +92,32 @@ export const TESTING_IDS = {
     mobile: {
         mainEditorTab: "mobile-main-editor-tab",
         referenceEditorTab: "mobile-reference-editor-tab",
+    },
+    navigation: {
+        prevChapterButton: "prev-chapter-button",
+        prevChapterButtonHidden: "prev-chapter-button-hidden",
+        nextChapterButton: "next-chapter-button",
+        nextChapterButtonHidden: "next-chapter-button-hidden",
+    },
+    reference: {
+        booksAccordion: "reference-books-accordion",
+        bookControl: "book-control",
+        chapterAccordionButton: "chapter-accordion-button",
+        pickerSearchInput: "reference-picker-search-input",
+    },
+    onboarding: {
+        mainLayout: "main-layout",
+        sidebar: "sidebar",
+        fileBrowserButton: "file-browser-button",
+        recentProjectsList: "recent-projects-list",
+        newProjectButton: "new-project-button",
+        editorArea: "editor-area",
+        toolbar: "toolbar",
+        formattingPalette: "formatting-palette",
+        searchButton: "search-button",
+        replaceButton: "replace-button",
+        saveButton: "save-button",
+        exportButton: "export-button",
     },
 } as const;
 

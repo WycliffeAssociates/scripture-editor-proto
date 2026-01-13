@@ -1,19 +1,19 @@
-import { expect, test } from "./fixtures.ts";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { BASE_URL, expect, test } from "./fixtures.ts";
 
 test.describe("LanguageApiImporter Component", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.getByText("New Project").click();
+        await page.goto(BASE_URL);
     });
 
     test("should search for language and display results", async ({ page }) => {
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator('input[type="text"]')
             .fill("english");
 
         await expect(
-            page.getByTestId("language-api-importer").locator("ul"),
+            page.getByTestId(TESTING_IDS.language.apiImporter).locator("ul"),
         ).toBeVisible();
     });
 
@@ -21,32 +21,32 @@ test.describe("LanguageApiImporter Component", () => {
         page,
     }) => {
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator('input[type="text"]')
             .fill("spanish");
 
         await page.waitForTimeout(500);
 
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator("ul li")
-            .first()
+            .nth(2)
             .click();
 
         await expect(
-            page.getByTestId("language-importer-download"),
+            page.getByTestId(TESTING_IDS.language.importerDownload),
         ).toBeEnabled();
     });
 
     test("should show loading state while fetching repos", async ({ page }) => {
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator('input[type="text"]')
             .fill("e");
 
         await expect(
             page
-                .getByTestId("language-api-importer")
+                .getByTestId(TESTING_IDS.language.apiImporter)
                 .locator("text=Loading..."),
         ).toBeVisible({ timeout: 5000 });
     });
@@ -55,26 +55,23 @@ test.describe("LanguageApiImporter Component", () => {
         page,
     }) => {
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator('input[type="text"]')
             .fill("spanish");
 
         await page.waitForTimeout(500);
 
         await page
-            .getByTestId("language-api-importer")
+            .getByTestId(TESTING_IDS.language.apiImporter)
             .locator("ul li")
-            .first()
+            .nth(2)
             .click();
 
-        await page
-            .getByTestId("language-api-importer")
-            .locator('button[aria-label="Clear"]')
-            .click();
+        await page.getByTestId(TESTING_IDS.language.importerClear).click();
 
         await expect(
             page
-                .getByTestId("language-api-importer")
+                .getByTestId(TESTING_IDS.language.apiImporter)
                 .locator('input[type="text"]'),
         ).toHaveValue("");
     });

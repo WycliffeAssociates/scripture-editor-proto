@@ -3,7 +3,7 @@ import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
 import { EditorModes } from "@/app/data/editor.ts";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
  * Hook to manage linting for a Lexical editor.

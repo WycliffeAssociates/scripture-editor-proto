@@ -82,7 +82,7 @@ async function initializeDatabase() {
         );
 
         // Test database connection
-        console.log("[db/init] Dexie database connected successfully");
+        // console.log("[db/init] Dexie database connected successfully");
     } catch (err) {
         console.error("[db/init] Database initialization failed:", err);
         throw err;

@@ -282,8 +282,10 @@ describe("reduceSerializedNodesToText", () => {
     }
 
     function createMockElementNode(
+        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
         children: any[],
         sid?: string,
+        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
     ): USFMElementNodeJSON & { children: any[] } {
         return {
             type: "usfm-element-node",
@@ -449,6 +451,7 @@ describe("reduceSerializedNodesToText", () => {
     });
 
     it("should handle complex nested structure with mixed node types", () => {
+        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
         const nodes: any[] = [
             // Plain text node at root
             createMockUSFMTextNode("In", "verse-1"),
@@ -511,6 +514,7 @@ describe("reduceSerializedNodesToText", () => {
     });
 
     it("should handle non-USFM nodes gracefully", () => {
+        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
         const nodes: any[] = [
             createMockUSFMTextNode("Valid", "verse-1"),
             // Unknown node type - should be ignored

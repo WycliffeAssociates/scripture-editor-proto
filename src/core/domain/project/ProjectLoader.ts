@@ -96,8 +96,8 @@ export class ProjectLoader implements IProjectLoader {
         try {
             const handle = await dir.getFileHandle(fileName);
             if (handle != null && handle !== undefined) return true;
-        } catch (error) {
-            console.error(`Error checking file existence: ${error}`);
+        } catch (_error) {
+            // console.error(`Error checking file existence: ${error}`);
             return false;
         }
         return false;

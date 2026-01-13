@@ -12,7 +12,7 @@ import {
     EditorMarkersViewStates,
     EditorModes,
 } from "@/app/data/editor.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
 /**

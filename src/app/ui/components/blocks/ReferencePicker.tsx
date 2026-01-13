@@ -13,11 +13,11 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon, InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { TEST_ID_GENERATORS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 // Internal Imports
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 // Styles
 import * as classes from "@/app/ui/styles/modules/ReferencePicker.css.ts";
 import { parseReference } from "@/core/data/bible/bible.ts";
@@ -102,7 +102,7 @@ export function ReferencePicker() {
             withArrow
             shadow="md"
             position="bottom-start"
-            data-testid="reference-picker"
+            data-testid={TESTING_IDS.referencePicker}
             data-test-book-code={pickedFile?.bookCode}
             data-test-current-chapter={currentChapter}
         >
@@ -147,7 +147,9 @@ export function ReferencePicker() {
                             <TextInput
                                 autoFocus
                                 value={search}
-                                data-testid="reference-picker-search-input"
+                                data-testid={
+                                    TESTING_IDS.reference.pickerSearchInput
+                                }
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder={t`Search (e.g. Mat 9, 1Co 1)`}
                                 variant="unstyled"
@@ -159,7 +161,9 @@ export function ReferencePicker() {
                         <ScrollArea style={{ flex: 1 }}>
                             <Accordion
                                 variant="none"
-                                data-testid="reference-books-accordion"
+                                data-testid={
+                                    TESTING_IDS.reference.booksAccordion
+                                }
                                 classNames={{
                                     item: classes.accordionItem,
                                     control: classes.accordionControl,
@@ -180,7 +184,10 @@ export function ReferencePicker() {
                                             value={fileTitle}
                                         >
                                             <Accordion.Control
-                                                data-testid="book-control"
+                                                data-testid={
+                                                    TESTING_IDS.reference
+                                                        .bookControl
+                                                }
                                                 className={
                                                     isCurrentBook
                                                         ? classes.activeBookControl
@@ -214,7 +221,11 @@ export function ReferencePicker() {
                                                             >
                                                                 <Button
                                                                     size="xs"
-                                                                    data-testid="chapter-accordion-button"
+                                                                    data-testid={
+                                                                        TESTING_IDS
+                                                                            .reference
+                                                                            .chapterAccordionButton
+                                                                    }
                                                                     data-test-id-specific={TEST_ID_GENERATORS.bookChapterBtn(
                                                                         file.bookCode,
                                                                         chap,

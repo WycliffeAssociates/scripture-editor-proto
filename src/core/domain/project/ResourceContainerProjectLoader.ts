@@ -46,7 +46,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
             const contents = await file.text();
             const parsedManifest: Partial<ResourceContainer> =
                 parseResourceContainer(contents);
-            console.log("Loading Resource Container manifest:", contents);
 
             const projectId = parsedManifest.dublin_core?.identifier;
             const language = parsedManifest.dublin_core?.language;

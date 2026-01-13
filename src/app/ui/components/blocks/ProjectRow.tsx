@@ -10,6 +10,7 @@ import {
 import { Link, useRouter } from "@tanstack/react-router";
 import { Check, Pencil, Trash, X } from "lucide-react";
 import { useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { deleteProjectByPath, upsertProject } from "@/app/db/api.ts";
 import { Route as projectRoute } from "@/app/routes/$project.tsx";
@@ -126,7 +127,7 @@ export default function ProjectRow({
                             }}
                             className="block flex-1 p-1 rounded-md hover:bg-(--mantine-color-gray-0)"
                             aria-label={`Open project ${project.name}`}
-                            data-testid="project-row-link"
+                            data-testid={TESTING_IDS.project.rowLink}
                         >
                             <Text data-testid={project.name} fw={500}>
                                 {project.name}
@@ -136,7 +137,7 @@ export default function ProjectRow({
                         <Group gap="xs">
                             <ActionIcon
                                 size="sm"
-                                data-testid="edit-project-btn"
+                                data-testid={TESTING_IDS.project.editButton}
                                 variant="light"
                                 onClick={() => setIsEditing(true)}
                                 aria-label="Edit project name"
@@ -145,7 +146,7 @@ export default function ProjectRow({
                             </ActionIcon>
 
                             <ActionIcon
-                                data-testid="delete-project"
+                                data-testid={TESTING_IDS.project.delete}
                                 size="sm"
                                 color="red"
                                 variant="light"
@@ -160,7 +161,7 @@ export default function ProjectRow({
                     <Group className="w-full" gap="sm">
                         <TextInput
                             className="flex-1"
-                            data-testid="project-name-input"
+                            data-testid={TESTING_IDS.project.nameInput}
                             value={name}
                             onChange={(e) => setName(e.currentTarget.value)}
                             placeholder={t`Project display name`}
@@ -169,7 +170,7 @@ export default function ProjectRow({
                         <Button
                             leftSection={<Check />}
                             color="green"
-                            data-testid="save-project-name"
+                            data-testid={TESTING_IDS.project.saveName}
                             onClick={saveName}
                             loading={isSaving}
                         >
@@ -209,7 +210,7 @@ export default function ProjectRow({
                     >{t`Cancel`}</Button>
                     <Button
                         color="red"
-                        data-testid="delete-project-confirm"
+                        data-testid={TESTING_IDS.project.deleteConfirm}
                         onClick={doDelete}
                         loading={isDeleting}
                     >{t`Delete`}</Button>

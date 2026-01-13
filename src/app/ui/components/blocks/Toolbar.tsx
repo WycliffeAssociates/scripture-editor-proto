@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Button, Group, Menu, rem } from "@mantine/core";
 import { BookCopy, ChevronDown, Menu as IconMenu } from "lucide-react";
+import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
@@ -8,23 +9,16 @@ import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButton.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
     return (
-        <Group
-            align="center"
-            py="xs"
-            gap="md"
-            display="flex"
-            justify="center"
-            className="border-b border-solid border-(--mantine-color-gray-2)"
-        >
+        <Group className={classes.toolbar}>
             <ActionIconSimple
                 data-testid={TESTING_IDS.settings.drawerOpenButton}
                 onClick={openDrawer}
                 aria-label="Open project drawer"
-                className="text-(--mantine-color-default-text)!"
             >
                 <IconMenu size={rem(14)} />
             </ActionIconSimple>
@@ -47,8 +41,34 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 /* ---------------- Reference Project ---------------- */
 function ReferenceProjectList() {
     const { t } = useLingui();
-    const { allProjects, referenceProject } = useWorkspaceContext();
+    const { allProjects, referenceProject, currentProjectRoute } =
+        useWorkspaceContext();
     const { isSm, setMobileTab } = useWorkspaceMediaQuery();
+
+    // Group projects by language
+    const groupedProjects = useMemo(() => {
+        return allProjects.reduce(
+            (acc, project) => {
+                const languageName =
+                    project.metadata?.language.name || "Unknown Language";
+                if (!acc[languageName]) {
+                    acc[languageName] = [];
+                }
+                acc[languageName].push(project);
+                return acc;
+            },
+            {} as Record<string, typeof allProjects>,
+        );
+    }, [allProjects]);
+
+    // Check if a project is the current working project
+    const isCurrentProject = (project: (typeof allProjects)[0]) => {
+        return (
+            currentProjectRoute ===
+            project.projectDirectoryPath.split("/").pop()
+        );
+    };
+
     const selected =
         allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
             ?.name ?? t`Select Reference Project`;
@@ -76,28 +96,59 @@ function ReferenceProjectList() {
                             referenceProject.setReferenceProjectId(undefined);
                             setMobileTab("main");
                         }}
-                        data-testid="reference-project-clear"
+                        data-testid={TESTING_IDS.referenceProjectClear}
+                        className={classes.clearReferenceProject}
                     >
                         {t`Clear Reference Project`}
                     </Menu.Item>
-                    {allProjects.map((project) => (
-                        <Menu.Item
-                            key={project.id}
-                            onClick={() =>
-                                referenceProject.setReferenceProjectId(
-                                    project.projectDirectoryPath,
-                                )
-                            }
-                            data-testid={TESTING_IDS.referenceProjectItem}
-                        >
-                            <span className="flex gap-1 items-center">
-                                {project.name}
-                                <span className="text-xs">
-                                    ({project.metadata?.language.name})
-                                </span>
-                            </span>
-                        </Menu.Item>
-                    ))}
+                    {Object.entries(groupedProjects).map(
+                        ([languageName, projects]) => (
+                            <div key={languageName}>
+                                <Menu.Label className={classes.languageLabel}>
+                                    {languageName}
+                                </Menu.Label>
+                                {projects.map((project) => {
+                                    const isCurrent = isCurrentProject(project);
+                                    return (
+                                        <Menu.Item
+                                            key={project.id}
+                                            onClick={() =>
+                                                !isCurrent &&
+                                                referenceProject.setReferenceProjectId(
+                                                    project.projectDirectoryPath,
+                                                )
+                                            }
+                                            data-testid={
+                                                TESTING_IDS.referenceProjectItem
+                                            }
+                                            disabled={isCurrent}
+                                            color={
+                                                isCurrent ? "gray" : undefined
+                                            }
+                                            className={classes.projectItem}
+                                        >
+                                            <span
+                                                className={
+                                                    classes.projectItemContent
+                                                }
+                                            >
+                                                {project.name}
+                                                {isCurrent && (
+                                                    <span
+                                                        className={
+                                                            classes.currentProjectIndicator
+                                                        }
+                                                    >
+                                                        <Trans>(Current)</Trans>
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </Menu.Item>
+                                    );
+                                })}
+                            </div>
+                        ),
+                    )}
                 </Menu.Dropdown>
             </Menu>
         );
@@ -124,22 +175,56 @@ function ReferenceProjectList() {
                         setMobileTab("main");
                     }}
                     data-testid={TESTING_IDS.referenceProjectClear}
+                    className={classes.clearReferenceProject}
                 >
                     <Trans>Clear Reference Project</Trans>
                 </Menu.Item>
-                {allProjects.map((project) => (
-                    <Menu.Item
-                        key={project.id}
-                        data-testid={TESTING_IDS.referenceProjectItem}
-                        onClick={() =>
-                            referenceProject.setReferenceProjectId(
-                                project.projectDirectoryPath,
-                            )
-                        }
-                    >
-                        {project.name}
-                    </Menu.Item>
-                ))}
+                {Object.entries(groupedProjects).map(
+                    ([languageName, projects]) => (
+                        <div key={languageName}>
+                            <Menu.Label className={classes.languageLabel}>
+                                {languageName}
+                            </Menu.Label>
+                            {projects.map((project) => {
+                                const isCurrent = isCurrentProject(project);
+                                return (
+                                    <Menu.Item
+                                        key={project.id}
+                                        data-testid={
+                                            TESTING_IDS.referenceProjectItem
+                                        }
+                                        onClick={() =>
+                                            !isCurrent &&
+                                            referenceProject.setReferenceProjectId(
+                                                project.projectDirectoryPath,
+                                            )
+                                        }
+                                        disabled={isCurrent}
+                                        color={isCurrent ? "gray" : undefined}
+                                        className={classes.projectItem}
+                                    >
+                                        <span
+                                            className={
+                                                classes.projectItemContent
+                                            }
+                                        >
+                                            {project.name}
+                                            {isCurrent && (
+                                                <span
+                                                    className={
+                                                        classes.currentProjectIndicator
+                                                    }
+                                                >
+                                                    <Trans>(Current)</Trans>
+                                                </span>
+                                            )}
+                                        </span>
+                                    </Menu.Item>
+                                );
+                            })}
+                        </div>
+                    ),
+                )}
             </Menu.Dropdown>
         </Menu>
     );

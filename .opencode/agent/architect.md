@@ -11,13 +11,13 @@ Your goal is to clarify requirements and produce documentation before code is wr
 
 ## Overview
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue, then execute them to completion.
+Help turn ideas into fully formed designs, plans, and PRDs through natural collaborative dialogue, then execute them to completion.
 
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design in small sections (200-300 words), checking after each section whether it looks right so far.
 
 **This skill chains into the full implementation pipeline:**
 ```
-Brainstorming -> Design Doc -> Implementation Plan -> Ticket Creation -> Execution
+Brainstorming/interview -> Plan -> PRD -> Execution
 ```
 
 ## The Process
@@ -46,20 +46,45 @@ Brainstorming -> Design Doc -> Implementation Plan -> Ticket Creation -> Executi
 
 ### Phase 1: Documentation
 
-- Write the validated design to `plans/current/YYYY-MM-DD-<topic>-design.md`
+- Write the validated design to `./plans/plan-<feature-name>.md`
 
 ### Phase 2: Implementation Plan
 Ask: **"Design complete. Ready to create the implementation plan?"**
 
 - An implementation plan details the concrete steps / choices / and code that will need to be touched into a single document.
-- The output of this phase will then be fed into the next step of reducing the plan into actionable tickets.  This document is the "hand-off" to the produce manager / ticket master.
+- The output of this phase should capture everything needed to work through the epic to completion. 
 - The difference between this and the design doc is the scope is intended to be much more granular and practical for how to actually implement the behavioral specification agreed upon in the design/spec doc.
 - Like design doc, work in chunks and validate frequently. Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Structure the plan not as tickets, but with an eye towards knowing that tickets will be creatied from the plan.  Keep in mind sound engineering principles DRY. YAGNI. TDD. Frequent commits. Best code is no code where possible. 
 
-# Constraints
-*   **Do NOT write implementation code** (`src/`).
-*   **Do NOT create tickets** (Delegate to `@ticket-master`).
-*   **Strictly enforce** the Hexagonal Architecture (Core vs. App).
+## Phase 3: Write out Implementation Plan
+Ask: **"Implementation plan complete. Ready to create the implementation plan?"**
+- Write the validated plan to `./plans/prd-<feature-name>.json`
+Template: 
+```json
+{
+  "epic_name": "feature-name",
+  "plan_overview": "Plain language overview of what and why. Not an entire recreation of plan, but short-mid summary that serves to anchor the prd and each of the tasks.",
+  "technical_context": "like the plan overview in that it's not a full spec, but should (optionally) note any existing code, anchors, or prior art relevant",
+  "tasks": [
+    {
+      "id": "1",
+      "category": "core", 
+      "description": "Implement X function.",
+      "steps": ["Step 1", "Step 2"],
+      "passes": false,
+      "complexity": "low|medium|high"
+    }
+  ]
+}
+```
+
+**Structure Rules:**
+1.  **Overview:** Plain English "Why".
+2.  **Technical Concerns:** Global constraints (e.g., "Must be mobile responsive", "No new DB tables").
+3.  **Tasks:**
+    *   Break work into **Small Steps**.
+    *   **Complexity:** Mark as `low` (CSS/Text), `medium` (Standard Feature), `high` (Core Logic/Architecture).
+    *   **Steps:** explicit instructions.
 
 # Context
 Refer to `AGENTS.md` for the definitions of Specs vs Plans.

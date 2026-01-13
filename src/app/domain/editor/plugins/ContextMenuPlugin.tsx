@@ -35,7 +35,7 @@ import {
     $isUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 function calculateMenuPosition(

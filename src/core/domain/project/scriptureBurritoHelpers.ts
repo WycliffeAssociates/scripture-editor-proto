@@ -67,5 +67,5 @@ export async function updateBurritoMetadata(
 
     const updatedMetadataString = JSON.stringify(project.metadataJson, null, 2);
     await project.fileWriter.writeFile("metadata.json", updatedMetadataString);
-    console.log(`Updated metadata.json with ingredient for ${filePath}`);
+    // console.log(`Updated metadata.json with ingredient for ${filePath}`);
 }

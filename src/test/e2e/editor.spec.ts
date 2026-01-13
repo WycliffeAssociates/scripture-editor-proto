@@ -1,4 +1,4 @@
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 
 test.describe("Editor llx-reg", () => {
@@ -15,7 +15,9 @@ test.describe("Editor llx-reg", () => {
         editorPage,
     }) => {
         // Get initial reference picker state
-        const referencePicker = editorPage.getByTestId("reference-picker");
+        const referencePicker = editorPage.getByTestId(
+            TESTING_IDS.referencePicker,
+        );
         await expect(referencePicker).toBeVisible();
 
         // Get initial data attributes
@@ -31,7 +33,9 @@ test.describe("Editor llx-reg", () => {
         );
 
         // Test next button functionality
-        const nextButton = editorPage.getByTestId("next-chapter-button");
+        const nextButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.nextChapterButton,
+        );
         await expect(nextButton).toBeVisible();
 
         // Only test if next button is enabled
@@ -59,7 +63,9 @@ test.describe("Editor llx-reg", () => {
         }
 
         // Test prev button functionality
-        const prevButton = editorPage.getByTestId("prev-chapter-button");
+        const prevButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.prevChapterButton,
+        );
         await expect(prevButton).toBeVisible();
 
         // Only test if prev button is enabled
@@ -99,8 +105,12 @@ test.describe("Editor llx-reg", () => {
     test("navigation buttons are properly hidden/shown at boundaries", async ({
         editorPage,
     }) => {
-        const prevButton = await editorPage.getByTestId("prev-chapter-button");
-        const nextButton = await editorPage.getByTestId("next-chapter-button");
+        const prevButton = await editorPage.getByTestId(
+            TESTING_IDS.navigation.prevChapterButton,
+        );
+        const nextButton = await editorPage.getByTestId(
+            TESTING_IDS.navigation.nextChapterButton,
+        );
 
         // At least one of each button type should exist
         const prevExists = (await prevButton.count()) > 0;
@@ -115,21 +125,28 @@ test.describe("Editor llx-reg", () => {
         editorPage,
     }) => {
         // Navigate to first chapter of first book (Genesis 1)
-        const referencePicker = editorPage.getByTestId("reference-picker");
+        const referencePicker = editorPage.getByTestId(
+            TESTING_IDS.referencePicker,
+        );
         await referencePicker.click();
 
         // Look for first book in the dropdown and click first chapter
-        await editorPage.getByTestId("book-control").first().click();
         await editorPage
-            .getByTestId("chapter-accordion-button")
+            .getByTestId(TESTING_IDS.reference.bookControl)
+            .first()
+            .click();
+        await editorPage
+            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
             .first()
             .click();
 
         // Verify prev button is hidden (span with hidden testid)
         const prevButtonHidden = editorPage.getByTestId(
-            "prev-chapter-button-hidden",
+            TESTING_IDS.navigation.prevChapterButtonHidden,
         );
-        const prevButton = editorPage.getByTestId("prev-chapter-button");
+        const prevButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.prevChapterButton,
+        );
 
         // Hidden span should be visible, button should not exist
         await expect(prevButtonHidden).toBeAttached();
@@ -140,18 +157,28 @@ test.describe("Editor llx-reg", () => {
         editorPage,
     }) => {
         // Navigate to last chapter of last book (Revelation 22)
-        const referencePicker = editorPage.getByTestId("reference-picker");
+        const referencePicker = editorPage.getByTestId(
+            TESTING_IDS.referencePicker,
+        );
         await referencePicker.click();
 
         // Look for last book in the dropdown and click last chapter
-        await editorPage.getByTestId("book-control").last().click();
-        await editorPage.getByTestId("chapter-accordion-button").last().click();
+        await editorPage
+            .getByTestId(TESTING_IDS.reference.bookControl)
+            .last()
+            .click();
+        await editorPage
+            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
+            .last()
+            .click();
 
         // Verify next button is hidden (span with hidden testid)
         const nextButtonHidden = editorPage.getByTestId(
-            "next-chapter-button-hidden",
+            TESTING_IDS.navigation.nextChapterButtonHidden,
         );
-        const nextButton = editorPage.getByTestId("next-chapter-button");
+        const nextButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.nextChapterButton,
+        );
 
         // Hidden span should be visible, button should not exist
         await expect(nextButtonHidden).toBeAttached();
@@ -161,14 +188,20 @@ test.describe("Editor llx-reg", () => {
     test("prev button shows book name in first chapter of non-first books", async ({
         editorPage,
     }) => {
-        const prevButton = editorPage.getByTestId("prev-chapter-button");
+        const prevButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.prevChapterButton,
+        );
 
         // Navigate to first chapter of a middle book (Matthew 1)
-        const referencePicker = editorPage.getByTestId("reference-picker");
+        const referencePicker = editorPage.getByTestId(
+            TESTING_IDS.referencePicker,
+        );
         await referencePicker.click();
 
         // Click last book control to expand its chapters
-        const lastBookControl = editorPage.getByTestId("book-control").last();
+        const lastBookControl = editorPage
+            .getByTestId(TESTING_IDS.reference.bookControl)
+            .last();
         await lastBookControl.click();
 
         // Wait for accordion panel to be visible, then find the first chapter button within the expanded panel
@@ -176,7 +209,7 @@ test.describe("Editor llx-reg", () => {
         await expect(lastBookPanel).toBeVisible();
 
         const firstChapterButton = lastBookPanel
-            .getByTestId("chapter-accordion-button")
+            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
             .first();
         await firstChapterButton.scrollIntoViewIfNeeded();
         await firstChapterButton.click();
@@ -196,29 +229,31 @@ test.describe("Editor llx-reg", () => {
             editorPage,
         }) => {
             // Open reference picker
-            const referencePicker = editorPage.getByTestId("reference-picker");
+            const referencePicker = editorPage.getByTestId(
+                TESTING_IDS.referencePicker,
+            );
             await referencePicker.click();
 
             // Type search query
             const searchInput = editorPage.getByTestId(
-                "reference-picker-search-input",
+                TESTING_IDS.reference.pickerSearchInput,
             );
             await searchInput.fill("ka");
             // Wait for the results div to contain the expected text after the debounce period
             await editorPage.waitForFunction(
                 () =>
                     document.querySelector(
-                        '[data-testid="reference-books-accordion"]',
+                        `[data-testid="reference-books-accordion"`,
                     )?.children.length === 1,
             );
 
             // Verify only Galatians is shown in the filtered list
             const accordion = editorPage.getByTestId(
-                "reference-books-accordion",
+                TESTING_IDS.reference.booksAccordion,
             );
             await expect(accordion).toContainText("Kalatia");
             const bookControl = editorPage.locator(
-                '[data-test-id-specific^="book-control-title-gal"]',
+                `[data-test-id-specific="${TEST_ID_GENERATORS.bookTitle("gal")}"]`,
             );
             await expect(bookControl).toBeVisible();
         });
@@ -227,12 +262,14 @@ test.describe("Editor llx-reg", () => {
             editorPage,
         }) => {
             // Open reference picker
-            const referencePicker = editorPage.getByTestId("reference-picker");
+            const referencePicker = editorPage.getByTestId(
+                TESTING_IDS.referencePicker,
+            );
             await referencePicker.click();
 
             // Type search query and press Enter
             const searchInput = editorPage.getByTestId(
-                "reference-picker-search-input",
+                TESTING_IDS.reference.pickerSearchInput,
             );
             await searchInput.fill("luk 3");
             await searchInput.press("Enter");
@@ -251,7 +288,9 @@ test.describe("Editor llx-reg", () => {
             editorPage,
         }) => {
             // Open reference picker
-            const referencePicker = editorPage.getByTestId("reference-picker");
+            const referencePicker = editorPage.getByTestId(
+                TESTING_IDS.referencePicker,
+            );
             await referencePicker.click();
             const curChapter = await referencePicker.getAttribute(
                 "data-test-current-chapter",
@@ -259,7 +298,7 @@ test.describe("Editor llx-reg", () => {
 
             // Type search query and press Enter
             const searchInput = editorPage.getByTestId(
-                "reference-picker-search-input",
+                TESTING_IDS.reference.pickerSearchInput,
             );
             await searchInput.fill("luk");
             await searchInput.press("Enter");
@@ -277,27 +316,30 @@ test.describe("Editor llx-reg", () => {
 
         test("search shows multiple matches", async ({ editorPage }) => {
             // Open reference picker
-            const referencePicker = editorPage.getByTestId("reference-picker");
+            const referencePicker = editorPage.getByTestId(
+                TESTING_IDS.referencePicker,
+            );
             await referencePicker.click();
 
             // Search for books starting with '1'
             const searchInput = editorPage.getByTestId(
-                "reference-picker-search-input",
+                TESTING_IDS.reference.pickerSearchInput,
             );
             await searchInput.fill("1");
 
             // Verify multiple books are shown
             const accordion = editorPage.getByTestId(
-                "reference-books-accordion",
+                TESTING_IDS.reference.booksAccordion,
             );
+
             await editorPage.waitForFunction(
                 () =>
                     document.querySelector(
-                        '[data-testid="reference-books-accordion"]',
+                        `[data-testid="reference-books-accordion"]`,
                     )?.children.length === 5, //1 kor, 1 ces, 1 tim, 1 pita, 1 joni
             );
             const firstCorinthians = accordion.locator(
-                '[data-test-id-specific^="book-control-title-1co"]',
+                `[data-test-id-specific="${TEST_ID_GENERATORS.bookTitle("1co")}"]`,
             );
             await expect(firstCorinthians).toBeVisible();
         });
@@ -339,7 +381,7 @@ test.describe("Reference Project Selection", () => {
             .click();
 
         // Get the reference picker values
-        const referencePicker = page.getByTestId("reference-picker");
+        const referencePicker = page.getByTestId(TESTING_IDS.referencePicker);
         const expectedBookCode = await referencePicker.getAttribute(
             "data-test-book-code",
         );

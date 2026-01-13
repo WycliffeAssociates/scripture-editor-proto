@@ -104,7 +104,7 @@ import { Trans } from '@lingui/react/macro';
 
 const workspaceSteps = [
   {
-    target: '[data-testid="file-browser-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.fileBrowserButton}"]`,
     content: <Trans>Open your USFM files here to begin editing scripture.</Trans>,
     disableBeacon: true,
   },

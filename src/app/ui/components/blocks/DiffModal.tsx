@@ -18,8 +18,8 @@ import { BookIcon, RotateCw, Save } from "lucide-react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 

@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Group, ScrollArea, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { InfoIcon } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
@@ -9,8 +10,8 @@ import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx"
 import { SearchPanel } from "@/app/ui/components/blocks/Search.tsx";
 import { Toolbar } from "@/app/ui/components/blocks/Toolbar.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import type { ReferenceProject } from "@/app/ui/hooks/useReferenceProject.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 export function ProjectView() {
@@ -134,7 +135,7 @@ function MobileReferenceTabs(props: {
             <div className={styles.mobileTabsBar}>
                 <button
                     type="button"
-                    data-testid="mobile-main-editor-tab"
+                    data-testid={TESTING_IDS.mobile.mainEditorTab}
                     className={props.mobileTab === "main" ? "activeTab" : ""}
                     onClick={() => props.setMobileTab("main")}
                 >
@@ -142,7 +143,7 @@ function MobileReferenceTabs(props: {
                 </button>
                 <button
                     type="button"
-                    data-testid="mobile-reference-editor-tab"
+                    data-testid={TESTING_IDS.mobile.referenceEditorTab}
                     className={props.mobileTab === "ref" ? "activeTab" : ""}
                     onClick={() => props.setMobileTab("ref")}
                 >
@@ -160,7 +161,7 @@ function PrevButton() {
     if (!actions.prevChapter.hasPrev) {
         return (
             <span
-                data-testid="prev-chapter-button-hidden"
+                data-testid={TESTING_IDS.navigation.prevChapterButtonHidden}
                 className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
             />
         );
@@ -172,7 +173,7 @@ function PrevButton() {
     return (
         <button
             type="button"
-            data-testid="prev-chapter-button"
+            data-testid={TESTING_IDS.navigation.prevChapterButton}
             disabled={!actions.prevChapter.hasPrev}
             onClick={actions.prevChapter.go}
             className={`${styles.editorNavButton}`}
@@ -194,7 +195,7 @@ function NextButton() {
     if (!actions.nextChapter.hasNext) {
         return (
             <span
-                data-testid="next-chapter-button-hidden"
+                data-testid={TESTING_IDS.navigation.nextChapterButtonHidden}
                 className={`${styles.editorNavButton} ${styles.editorNavButtonHidden}`}
             />
         );
@@ -205,7 +206,7 @@ function NextButton() {
     return (
         <button
             type="button"
-            data-testid="next-chapter-button"
+            data-testid={TESTING_IDS.navigation.nextChapterButton}
             disabled={!actions.nextChapter.hasNext}
             onClick={actions.nextChapter.go}
             className={`${styles.editorNavButton}`}

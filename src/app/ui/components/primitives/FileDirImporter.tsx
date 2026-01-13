@@ -1,5 +1,6 @@
 import type React from "react";
 import { useRef, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 
 type DirImporterProps = {
@@ -54,7 +55,7 @@ export function DirImporter({
             <label className={styles.label}>
                 {label}
                 <input
-                    data-testid="dir-importer"
+                    data-testid={TESTING_IDS.import.dirImporter}
                     ref={dirInputRef}
                     type="file"
                     webkitdirectory="true"
@@ -118,7 +119,7 @@ export function FileImporter({
 
             <label className={styles.label}>
                 <input
-                    data-testid="file-importer"
+                    data-testid={TESTING_IDS.import.importer}
                     ref={fileInputRef}
                     type="file"
                     accept={accept}
@@ -196,6 +197,7 @@ function WacsImporter({
                     onClick={handleDownloadClick}
                     disabled={isSubmitting || value.trim() === ""}
                     aria-label="Download repository"
+                    data-testid={TESTING_IDS.language.importerDownload}
                 >
                     {isSubmitting ? "Downloading…" : "Download"}
                 </button>

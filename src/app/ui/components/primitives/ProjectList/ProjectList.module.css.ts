@@ -92,6 +92,13 @@ const newProject = style({
     alignItems: "center",
 });
 
+const languageLabel = style({
+    paddingTop: "var(--mantine-spacing-xs)",
+    paddingBottom: "var(--mantine-spacing-xs)",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+});
+
 /**
  * Default export to mimic CSS module default import shape used in components.
  * This allows `import classnames from "./ProjectList.module.css"` to keep working.
@@ -104,6 +111,7 @@ const classes = {
     actions,
     iconButton,
     newProject,
+    languageLabel,
 } as const;
 
 export default classes;

@@ -7,7 +7,7 @@ import {
     maintainDocumentStructureDebounced,
 } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 const sixtyFPS = 16;
 const structuralUpdateDebounceMs = 1000;

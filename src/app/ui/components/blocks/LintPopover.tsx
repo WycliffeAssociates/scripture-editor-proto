@@ -2,7 +2,7 @@ import { Button, Popover } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { lintPopoverButton } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";

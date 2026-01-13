@@ -100,13 +100,13 @@ import type { Step } from 'react-joyride';
 
 export const gettingStartedSteps: Step[] = [
   {
-    target: '[data-testid="main-layout"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.mainLayout}"]`,
     content: <Trans>Welcome to Dovetail! This is where you edit and manage your scripture files.</Trans>,
     placement: 'bottom',
     disableBeacon: true,
   },
   {
-    target: '[data-testid="sidebar"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.sidebar}"]`,
     content: <Trans>Use this sidebar to navigate between files and manage your workspace.</Trans>,
     placement: 'right',
     disableBeacon: false,
@@ -138,19 +138,19 @@ import type { Step } from 'react-joyride';
 
 export const workspaceSteps: Step[] = [
   {
-    target: '[data-testid="file-browser-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.fileBrowserButton}"]`,
     content: <Trans>Open your USFM files here to begin editing scripture.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="recent-projects-list"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.recentProjectsList}"]`,
     content: <Trans>Find and reopen your recent projects from this list.</Trans>,
     placement: 'right',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="new-project-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.newProjectButton}"]`,
     content: <Trans>Create a new project to start translating from scratch.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
@@ -179,19 +179,19 @@ import type { Step } from 'react-joyride';
 
 export const editorSteps: Step[] = [
   {
-    target: '[data-testid="editor-area"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.editorArea}"]`,
     content: <Trans>Type your scripture text here. Paragraph and verse markers are handled automatically.</Trans>,
     placement: 'top',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="toolbar"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.toolbar}"]`,
     content: <Trans>Use these tools to insert chapter markers, headings, and other formatting.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="formatting-palette"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.formattingPalette}"]`,
     content: <Trans>Quickly add common markers like paragraph breaks and verse numbers.</Trans>,
     placement: 'left',
     disableBeacon: false,
@@ -220,13 +220,13 @@ import type { Step } from 'react-joyride';
 
 export const searchSteps: Step[] = [
   {
-    target: '[data-testid="search-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.searchButton}"]`,
     content: <Trans>Find any word or phrase in your document with the search tool.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="replace-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.replaceButton}"]`,
     content: <Trans>Replace text across your entire project or just the current chapter.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
@@ -255,13 +255,13 @@ import type { Step } from 'react-joyride';
 
 export const exportSteps: Step[] = [
   {
-    target: '[data-testid="save-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.saveButton}"]`,
     content: <Trans>Save your work regularly to keep your changes safe.</Trans>,
     placement: 'bottom',
     disableBeacon: false,
   },
   {
-    target: '[data-testid="export-button"]',
+    target: `[data-testid="${TESTING_IDS.onboarding.exportButton}"]`,
     content: <Trans>Export your finished scripture in different formats when you're ready.</Trans>,
     placement: 'bottom',
     disableBeacon: false,

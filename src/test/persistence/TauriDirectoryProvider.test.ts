@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <test file. Ok to any> */
 import { dirname, join, normalize } from "@tauri-apps/api/path"; // This will be mocked
 import { mkdir, open, remove } from "@tauri-apps/plugin-fs";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -49,67 +50,94 @@ vi.mock("@tauri-apps/api/path", () => {
 
 // Mocking your custom file/directory handlers for isolation
 vi.mock("@/tauri/io/TauriFileHandle.ts", () => ({
-    TauriFileHandle: vi.fn((path, resolveHandle) => {
-        const mockFileHandle = {
-            path,
-            name: path.split("/").pop() || "",
-            kind: "file" as const,
-            isDir: false,
-            isFile: true,
-            getAbsolutePath: vi.fn(() => Promise.resolve(path)),
-            getParent: vi.fn(() =>
-                resolveHandle(path.substring(0, path.lastIndexOf("/"))),
-            ),
-            asFileHandle: vi.fn(() => mockFileHandle),
-            asDirectoryHandle: vi.fn(() => null),
-            isSameEntry: vi.fn(() => Promise.resolve(true)),
-            getFile: vi.fn(() =>
+    TauriFileHandle: vi.fn().mockImplementation(
+        // @ts-expect-error
+        class MockTauriFileHandle {
+            path: string;
+            resolveHandle: any;
+            name: string;
+            kind = "file" as const;
+            isDir = false;
+            isFile = true;
+
+            constructor(path: string, resolveHandle: any) {
+                this.path = path;
+                this.resolveHandle = resolveHandle;
+                this.name = this.path.split("/").pop() || "";
+            }
+
+            getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
+            getParent = vi.fn(() =>
+                this.resolveHandle(
+                    this.path.substring(0, this.path.lastIndexOf("/")),
+                ),
+            );
+            asFileHandle = vi.fn(() => this);
+            asDirectoryHandle = vi.fn(() => null);
+            isSameEntry = vi.fn(() => Promise.resolve(true));
+
+            getFile = vi.fn(() =>
                 Promise.resolve({
-                    name: path.split("/").pop() || "",
+                    name: this.path.split("/").pop() || "",
                     size: 1234,
                     text: vi.fn(() => Promise.resolve("mock file content")),
                 }),
-            ),
-            createWritable: vi.fn(() =>
+            );
+
+            createWritable = vi.fn(() =>
                 Promise.resolve({
                     getWriter: vi.fn(() => ({
                         write: vi.fn(() => Promise.resolve()),
                         close: vi.fn(() => Promise.resolve()),
-                        releaseLock: vi.fn(() => Promise.resolve()), // Add releaseLock
+                        releaseLock: vi.fn(() => Promise.resolve()),
                     })),
                 }),
-            ),
-        };
-        return mockFileHandle;
-    }),
+            );
+        },
+    ),
 }));
 
 vi.mock("@/tauri/io/TauriDirectoryHandle.ts", () => ({
-    TauriDirectoryHandle: vi.fn((path, resolveHandle) => ({
-        path,
-        name: path.split("/").pop(),
-        kind: "directory",
-        isDir: true,
-        isFile: false,
-        getAbsolutePath: vi.fn(() => Promise.resolve(path)),
-        getParent: vi.fn(() =>
-            resolveHandle(path.substring(0, path.lastIndexOf("/"))),
-        ),
-        asFileHandle: vi.fn(() => null),
-        asDirectoryHandle: vi.fn(() => this),
-        isSameEntry: vi.fn(() => Promise.resolve(true)),
-        entries: vi.fn(async function* () {
-            yield ["file1.tmp", { isFile: () => true }];
-            yield ["dir2", { isDirectory: () => true }];
-        }),
-        removeEntry: vi.fn(() => Promise.resolve()),
-        getFileHandle: vi.fn(() =>
-            Promise.reject(new Error("Mock: Not a file")),
-        ),
-        getDirectoryHandle: vi.fn(() =>
-            Promise.reject(new Error("Mock: Not a directory")),
-        ),
-    })),
+    TauriDirectoryHandle: vi.fn().mockImplementation(
+        // @ts-expect-error
+        class MockTauriDirectoryHandle {
+            path: string;
+            resolveHandle: any;
+            name: string;
+            kind = "directory";
+            isDir = true;
+            isFile = false;
+
+            constructor(path: string, resolveHandle: any) {
+                this.path = path;
+                this.resolveHandle = resolveHandle;
+                this.name = this.path.split("/").pop() as string;
+            }
+
+            getAbsolutePath = vi.fn(() => Promise.resolve(this.path));
+            getParent = vi.fn(() =>
+                this.resolveHandle(
+                    this.path.substring(0, this.path.lastIndexOf("/")),
+                ),
+            );
+            asFileHandle = vi.fn(() => null);
+            asDirectoryHandle = vi.fn(() => this);
+            isSameEntry = vi.fn(() => Promise.resolve(true));
+
+            entries = vi.fn(async function* () {
+                yield ["file1.tmp", { isFile: () => true }];
+                yield ["dir2", { isDirectory: () => true }];
+            });
+
+            removeEntry = vi.fn(() => Promise.resolve());
+            getFileHandle = vi.fn(() =>
+                Promise.reject(new Error("Mock: Not a file")),
+            );
+            getDirectoryHandle = vi.fn(() =>
+                Promise.reject(new Error("Mock: Not a directory")),
+            );
+        },
+    ),
 }));
 
 import { TauriDirectoryHandle } from "@/tauri/io/TauriDirectoryHandle.ts";

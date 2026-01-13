@@ -13,7 +13,7 @@ import {
 import { Languages, Moon, Sun } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES } from "@/app/data/settings.ts";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";

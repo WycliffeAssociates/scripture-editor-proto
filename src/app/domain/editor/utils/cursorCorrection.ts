@@ -34,7 +34,7 @@ export function correctCursorIfNeeded(editor: LexicalEditor) {
 
     if (nodeToSelect) {
         if (import.meta.env.DEV) {
-            console.log("Correcting cursor to", nodeToSelect);
+            // console.log("Correcting cursor to", nodeToSelect);
         }
         editor.update(() => {
             if (!nodeToSelect) return;

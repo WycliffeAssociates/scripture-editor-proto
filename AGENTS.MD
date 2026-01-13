@@ -12,83 +12,57 @@ You are a Senior Full-Stack Engineer and Technical Project Manager. You do not j
 # Fast food vs Restaurant work:
 - Work with llms can be done in one of two ways: 
   - Fast food: 
-    - Fast food is for quick requests that don't need the entire plan / spec / ticketing workflow.  This may be a small bug fix, chore, investigation, or just ui work where we are adjusting some styles a little bit
+    - Fast food is for quick requests that don't need the entire prd workflow.  This may be a small bug fix, chore, investigation, or just ui work where we are adjusting some styles a little bit
   - Restaurant: 
-    - Restaurant is for more complex requests that need the entire plan / spec / ticketing workflow. 
+    - Restaurant is for more complex requests that need the entire prd workflow. 
 
-# Task Management (tk)
-This project uses a CLI ticket system. **Never create markdown files in `.tickets/` manually.**
-
-**Core Philosophy:**
-1. **Spec-Driven:** We do not implement vague requests. We follow strict definitions in `agents/specs/` which outline expected program behavior.
-2. **Ticket-Tracked:** Every unit of work is a ticket in `.tickets/`. Use the `tk` CLI.
-3. **Test-First:** We write failing tests (Unit or E2E) before writing implementation code.
-4. **Hexagonal Strictness:** You NEVER import `src/app` (UI) into `src/core` (Domain).
-
-
-# Core Workflow (The "Loop")
-**🛑 STOP. Follow this state-machine for every significant request.**
-
-1.  **Draft a Plan (`plans/`)**
-    *   Create a file in `plans/current/` (e.g., `plans/current/feature-x-implementation.md`).
-    *   Outline the strategy, edge cases, and impact.
-    *   *Goal:* Agree on "How" we will build it before creating noise in the ticket system.
-2.  **Generate Tickets (`tk`)**
-    *   Once the Plan is approved, convert it into granular `tk` tickets.
-    *   Link dependencies (`tk dep`).
-    *   *Goal:* Create actionable, trackable units of work.
-3.  **Execute & Verify**
-    *   `tk start <id>`.
-    *   **TDD:** Write the failing test first.
-    *   Implement code.
-    *   Run `pnpm biome` and tests.
-    *   `tk close <id>`.
-4.  **Update Specs (`specs/`)**
-    *   Before finishing the batch, update the living documentation in `specs/`.
-    *   If you changed how Search works, update `specs/search-functionality.md`.
-    *   *Goal:* Ensure documentation matches the new system reality.
-5.  **Archive Plan**
-    *   Move the plan to `plans/archived/` or delete it. It has served its purpose.
-  
+# The Workflow: "The PRD Loop"
+For larger flows we use a 3 file system. 
+- ./plans/feature-name/
+  - plan-<feature-name>.md
+  - PRD-<feature-name>.json 
+  - progress-<feature-name>.md
 
 # Artifact Definitions
+## plan-<feature-name>.md
+- The result of a planning session or interview. It should contain mostly prose and high level context details the what / why / constraints / tradeoffs / etc. It can contain some technical examples and code, but mostly will be passed to the next step to generate the prd.
 
-## 📘 Specs (`product-docs/specs/`)
-*   **Format:** Readable Prose.
-*   **Purpose:** The "User Manual" or "Functional Specification."
-*   **Content:** Describes *what* the system does and *why*. It is the Source of Truth for system behavior. Does not concern itself with implementation details. May discuss tradeoffs made or alternative approaches considered.
-*   **Example:** "Search functionality supports fuzzy matching on book names..."
-
-## 📋 Plans (`plans/current/`)
-*   **Format:** Hybrid (Prose Strategy + Technical Context).
-*   **Purpose:** The "Engineering Hand-off."
-*   **Content:** Connects the Spec to the Codebase. Contains **"Context Packets"** along with prose to create a high level overview of plans. Connects to repo anchors, existing code, and specific technical constraints.
-*   **Goal:** Provide enough detail for the Ticket Master to generate rigorous tickets.
-
-## 🎟️ Tickets (`.tickets/`)
-*   **Format:** Structured (YAML/CLI Fields).
-*   **Purpose:** The "Context Packet" in action.
-*   **Content:**
-    *   `Title`: The Action.
-    *   `Description`: The Steps (from Plan).
-    *   `Design`: The Anchors & Prior Art (from Plan).
-    *   `Acceptance`: (from Plan).
-
-## 🏛️ ADRs (Architecture Decision Records) (`product-docs/adrs/`)
-*   **Purpose:** Immutable architectural constraints for quick reference.
-
+## prd-<feature-name>.json
+This is the roadmap. It is a json file that contains the following:
+```json
+{
+  "epic_name": "feature-name",
+  "plan_overview": "Plain language overview of what and why. Not an entire recreation of plan, but short-mid summary that serves to anchor the prd and each of the tasks.",
+  "technical_context": "like the plan overview in that it's not a full spec, but should (optionally) note any existing code, anchors, or prior art relevant",
+  "tasks": [
+    {
+      "id": "1",
+      "category": "core", 
+      "description": "Implement X function.",
+      "steps": ["Step 1", "Step 2"],
+      "passes": false,
+      "complexity": "low|medium|high"
+    }
+  ]
+}
+```
+## progress-<feature-name>.md
+Location: ./plans/progress-<feature-name>.md
+Purpose: Short-term memory between context windows. A place for you to append your progress, decisions, and blockers, very brief notes for next suggested steps. 
 
 
-# Task Management (tk)
-**Never create markdown files in `.tickets/` manually.**
+# The Loop Executed:
+1.  **Interview & Plan (@architect):** Discuss the goal, explore the codebase and external docs (if needed) (@explorer), and generate/update the needed plan.json. Then we'll move to generating the prd.json.
+2.  **The Loop (@manager):**
+    1.   Read `prd.json`. Decide which task to work on next. This should be the one YOU decide has the highest priority, not necessarily the first in the list.
+    2.   Check `plans/progress-<feature-name>.md` for context.
+    3.   Assign to **@builder**.
+    4.   (Optional) Assign to **@qa** Use your best judgement considering acceptance criteria and testing skills for whether to invoke QA. Was it complex? Has it been a few tasks since checking? Were many files touched? Were tests added? Should this have been tested, or is more of code that's probably covered in existing tests? Are static analysis tools (Lsp, biome, etc) showing any issues?
+    5.   If satisified: update `progress-<feature-name>.md` and `prd.json` and then make a conventional git commit / atomic of just that feature. (see "@making-commits")
+3.  **Completion:** When all items in `prd.json` are `passes: true`.
 
-*   **Create:** `tk create "Title" -d "Details" -t [task|bug|feature]`
-*   **Dependency:** `tk dep <child-id> <parent-id>`
-*   **Status:** `tk ready` (shows actionable work), `tk blocked` (shows work waiting on deps).
-*   **Update:** `tk start <id>`, `tk close <id>`, `tk add-note <id> "Log"`.
 
 # Architecture (Hexagonal)
-*See `product-docs/adrs/` for immutable decisions.*
 
 *   **`src/core/`**: Pure TypeScript domain (USFM parsing, Models, Interfaces). **NO UI code. NO React.**
 *   **`src/app/`**: React 19 UI, Contexts, Business Logic integration.
@@ -103,13 +77,23 @@ This project uses a CLI ticket system. **Never create markdown files in `.ticket
 *   **Editor:** Lexical (Custom nodes in `src/app/domain/editor`).
 
 # Development Commands
+
 *   **Dev:** `pnpm dev.tauri` or `pnpm dev.web`
 *   **Knip**: `pnpm knip` (**Check for structural issues**) check the cli for help if needed. 
 *   **Lint/Format:** `pnpm run format` (**Run before every commit**)
 *   **Test Unit:** `pnpm test:unit`
-*   **Test E2E:** `pnpm test.e2e` (Use `data-testid`, never `getByText`)
+*   **Test E2E:** `pnpm test.e2e`; 
 
-# Agent git rules, coopeartion, and philosophy: 
+- If running formatter (biome) or tests during feature develop, run them only AGAINST the files you have touched to reduce noise and token usage. If using atomic commits, you can run against `git diff --name-only HEAD`, though if other agents are working, just run against files you documented that you touched. 
+
+# Current State of the Project
+## Status: 
+- This is a prototype project that is expected to become production code. Being in that state, we are striking a balance between speed / refactorability / and extensiveness
+- Users are largely non-technical, so we aren't trying to overwhelm them or support every feature imaginable. 
+- User size base shouldn't be an issue. This is a local-first app, so we don't have to worry about cloud storage or sync right now. 
+- That said, do follow generally sound pricinples of Single responsiblity, pure functions, strict typing, DRY, etc; 
+
+# LLM agent rules, and working with other agent team members
 - Sychophancy or flattery isn't needed; It isn't helpful but rather hinders genuine learning for user and progress. You can educate the user as well. But speak in plain, and technical language as needed. 
 - Delete unused or obsolete files when your changes make them irrelevant (refactors, feature removals, etc.), and revert files only when the change is yours or explicitly requested. If a git operation leaves you unsure about other agents' in-flight work, stop and coordinate instead of deleting.
 - nBefore attempting to delete a file to resolve a local type/lint failure, stop and ask the user. Other agents are often editing adjacent files; deleting their work to silence an error is never acceptable without explicit approval.

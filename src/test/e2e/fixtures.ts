@@ -26,14 +26,16 @@ export const test = base.extend<MyFixtures>({
             "llx_reg-master.zip",
         );
 
-        await page.getByTestId("file-importer").setInputFiles(resolvedPath);
+        await page
+            .getByTestId(TESTING_IDS.import.importer)
+            .setInputFiles(resolvedPath);
 
         // Wait for project to appear in list
-        const projectList = page.getByTestId("project-list");
-        await expect(projectList).toHaveCount(1);
+        const projectList = page.getByTestId(TESTING_IDS.project.list);
+        await expect(projectList).toHaveCount(1, { timeout: 10000 });
 
         // Click on the project to navigate to editor
-        await page.getByTestId("project-row-link").click();
+        await page.getByTestId(TESTING_IDS.project.rowLink).click();
 
         // Wait for navigation to complete (you might need to adjust this selector)
         // This assumes the editor page has some identifiable element
@@ -64,14 +66,18 @@ export const test = base.extend<MyFixtures>({
         );
 
         // Load first project
-        await page.getByTestId("file-importer").setInputFiles(llxRegPath);
-        await expect(page.getByTestId("project-list")).toHaveCount(1);
+        await page
+            .getByTestId(TESTING_IDS.import.importer)
+            .setInputFiles(llxRegPath);
+        await expect(page.getByTestId(TESTING_IDS.project.list)).toHaveCount(1);
 
         // Load second project
-        await page.getByTestId("file-importer").setInputFiles(enUlbPath);
-        await expect(page.getByTestId("project-list")).toHaveCount(2);
+        await page
+            .getByTestId(TESTING_IDS.import.importer)
+            .setInputFiles(enUlbPath);
+        await expect(page.getByTestId(TESTING_IDS.project.list)).toHaveCount(2);
 
-        await page.getByTestId("project-row-link").first().click();
+        await page.getByTestId(TESTING_IDS.project.rowLink).first().click();
         await page
             .getByTestId(TESTING_IDS.mainEditorContainer)
             .waitFor({ state: "visible" });

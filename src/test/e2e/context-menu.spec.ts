@@ -2,6 +2,7 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
 
 test.describe("ContextMenu Plugin", () => {
+    // TODO: KNOWN TEST THAT WON'T RUN
     test("opens on right-click in editor", async ({ editorPage }) => {
         // Right-click in editor area
         await editorPage
@@ -10,12 +11,12 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify context menu appears
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).toBeVisible();
 
         // Verify search input is focused
         await expect(
-            editorPage.getByTestId("context-menu-search-input"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.searchInput),
         ).toBeFocused();
     });
 
@@ -28,7 +29,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify context menu appears
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).toBeVisible();
     });
 
@@ -109,7 +110,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify search action is NOT present
         await expect(
-            editorPage.getByTestId("context-menu-search-action"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.searchAction),
         ).not.toBeAttached();
     });
 
@@ -121,7 +122,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify it's open
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).toBeVisible();
 
         // Press escape
@@ -129,7 +130,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify it's closed
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).not.toBeVisible();
     });
 
@@ -141,7 +142,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify it's open
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).toBeVisible();
 
         // Click outside (on page body)
@@ -149,7 +150,7 @@ test.describe("ContextMenu Plugin", () => {
 
         // Verify it's closed
         await expect(
-            editorPage.getByTestId("context-menu-container"),
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).not.toBeVisible();
     });
 });

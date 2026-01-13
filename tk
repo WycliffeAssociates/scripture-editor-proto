@@ -41,10 +41,7 @@ def parse_semver(tid):
         return None
 
 def get_next_id(parent_id=None):
-    """Calculates next available ID.
-    If parent_id=None, returns next Epic (e.g. '1' -> '2').
-    If parent_id='1', returns next child (e.g. '1.1' -> '1.2').
-    """
+    """Calculates next available ID."""
     tickets = get_all_tickets()
     existing_ids = list(tickets.keys())
     
@@ -61,14 +58,11 @@ def get_next_id(parent_id=None):
         prefix = parent_id + "."
         parent_depth = len(parent_id.split('.'))
         max_child = 0
-        found_child = False
         
         for tid in existing_ids:
             if tid.startswith(prefix):
-                # Ensure it is a direct child (1.1, not 1.1.1)
                 parsed = parse_semver(tid)
                 if parsed and len(parsed) == parent_depth + 1:
-                    found_child = True
                     last_digit = parsed[-1]
                     if last_digit > max_child: max_child = last_digit
         
@@ -145,15 +139,31 @@ def get_descendants(root_id, all_tickets):
 def cmd_create(args):
     ensure_dir()
     
-    # ID Generation Logic
+    tid = None
+    parent_ref = None
+
+    # Strict ID Strategy Enforcement
     if args.id_override:
         tid = args.id_override
     elif args.parent:
-        # Auto-generate child ID (1 -> 1.2)
+        # Validate parent exists
+        find_ticket(args.parent)
         tid = get_next_id(args.parent)
-    else:
-        # Auto-generate Epic ID (1 -> 2)
+        parent_ref = args.parent
+    elif args.epic:
         tid = get_next_id(None)
+    else:
+        print("Error: Ticket ID strategy required.", file=sys.stderr)
+        print("You must use one of:", file=sys.stderr)
+        print("  --id <val>    : Manual ID (e.g., 1.2)", file=sys.stderr)
+        print("  --parent <val>: Auto-number as next child of parent (e.g., 1 -> 1.3)", file=sys.stderr)
+        print("  --epic        : Auto-number as next Major Epic (e.g., 2)", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate SemVer format
+    if not parse_semver(tid):
+        print(f"Error: ID '{tid}' is not valid. Must be in format 'X' or 'X.Y' (integers only).", file=sys.stderr)
+        sys.exit(1)
     
     if os.path.exists(os.path.join(TICKETS_DIR, f"{tid}.md")):
         print(f"Error: Ticket {tid} already exists.", file=sys.stderr)
@@ -174,10 +184,11 @@ def cmd_create(args):
         except: pass
             
     if args.external_ref: metadata["external-ref"] = args.external_ref
-    if args.parent:
-        # Validate parent exists
-        find_ticket(args.parent)
-        metadata["parent"] = args.parent
+    if parent_ref: metadata["parent"] = parent_ref
+    
+    # Handle implicit parenting from manual ID (optional but helpful?)
+    # If user manually types 1.2, we infer parent is 1 if not explicitly set?
+    # Let's keep it strict for now: explicit parent arg or inferred from auto-parent logic.
         
     title = args.title if args.title else "Untitled"
     body = f"# {title}\n\n"
@@ -288,10 +299,12 @@ def cmd_ls(args):
     
     allowed_ids = None
     if args.scope:
-        root_path = find_ticket(args.scope)
-        root_id = parse_ticket(root_path)[0].get('id')
-        allowed_ids = get_descendants(root_id, tickets)
-        allowed_ids.add(root_id)
+        try:
+            root_path = find_ticket(args.scope)
+            root_id = parse_ticket(root_path)[0].get('id')
+            allowed_ids = get_descendants(root_id, tickets)
+            allowed_ids.add(root_id)
+        except SystemExit: return
 
     t_list = []
     for tid, data in tickets.items():
@@ -449,7 +462,9 @@ def main():
 
     p_create = subparsers.add_parser("create", help="Create ticket")
     p_create.add_argument("title", nargs="?", help="Title")
-    p_create.add_argument("--id", dest="id_override", help="Force specific ID")
+    p_create.add_argument("--id", dest="id_override", help="Manual ID (e.g. 1.2)")
+    p_create.add_argument("--parent", help="Auto-number as child of Parent ID")
+    p_create.add_argument("--epic", action="store_true", help="Auto-number as next Major Epic")
     p_create.add_argument("-d", "--description", help="Description")
     p_create.add_argument("--design", help="Design notes")
     p_create.add_argument("--acceptance", help="Acceptance criteria")
@@ -458,7 +473,6 @@ def main():
     p_create.add_argument("-e", "--effort", default="medium", choices=VALID_EFFORTS, help="Effort")
     p_create.add_argument("-a", "--assignee", help="Assignee")
     p_create.add_argument("--external-ref", help="Ref")
-    p_create.add_argument("--parent", help="Parent ID (auto-numbers child)")
 
     p_next = subparsers.add_parser("next-id", help="Get next available ID")
     p_next.add_argument("parent", nargs="?", help="Optional parent ID")

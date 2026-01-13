@@ -9,7 +9,7 @@ import {
 import { Redo, Undo } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function HistoryButtons() {
     const { editorRef } = useWorkspaceContext();

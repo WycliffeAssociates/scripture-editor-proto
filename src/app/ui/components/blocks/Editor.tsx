@@ -22,7 +22,7 @@ import {
 } from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
@@ -42,6 +42,7 @@ export function MainEditor() {
                             <ContentEditable
                                 className="min-h-full focus:outline-none p-1 w-full md:px-2"
                                 aria-label="USFM Editor"
+                                spellCheck={false}
                             />
                         }
                         ErrorBoundary={LexicalErrorBoundary}

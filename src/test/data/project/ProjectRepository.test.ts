@@ -1,14 +1,13 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <testing mocks with any is acceptable for test files where scope is one specific thing usually> */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { db as mockedDb } from "@/app/db/__mocks__/db.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import { LanguageDirection } from "@/core/domain/project/project.ts";
-import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
+// import type {IFileWriter} from "@/core/io/IFileWriter.ts";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
 import { MockFileHandle } from "@/test/shared/mock.ts";
 
@@ -18,7 +17,7 @@ vi.mock("@/app/db/db.ts", () => {
 
 // Mock implementations for dependencies
 let inMemoryFiles: Map<string, string> = new Map();
-const mockFileWriter: IFileWriter = {
+const _mockFileWriter: IFileWriter = {
     writeFile: vi.fn(async (filename: string, content: string) => {
         inMemoryFiles.set(filename, content);
     }),
@@ -30,47 +29,6 @@ const mockMd5Service: IMd5Service = {
 
 // Mock data
 const MOCK_USER_DATA_DIR = "/mock/user/data";
-const MOCK_PROJECT_ID_1 = "project-1";
-const MOCK_PROJECT_NAME_1 = "My First Project";
-const MOCK_PROJECT_1: Project = {
-    id: MOCK_PROJECT_ID_1,
-    name: MOCK_PROJECT_NAME_1,
-    files: [],
-    metadata: {
-        name: "",
-        id: "",
-        language: {
-            name: "",
-            id: "",
-            direction: LanguageDirection.LTR,
-        },
-    },
-    projectDir: {} as IDirectoryHandle, // Mock or actual handle
-    fileWriter: mockFileWriter,
-    addBook: vi.fn(),
-    getBook: vi.fn(),
-};
-
-const MOCK_PROJECT_ID_2 = "project-2";
-const MOCK_PROJECT_NAME_2 = "Another Project";
-const MOCK_PROJECT_2: Project = {
-    id: MOCK_PROJECT_ID_2,
-    name: MOCK_PROJECT_NAME_2,
-    files: [],
-    metadata: {
-        name: "",
-        id: "",
-        language: {
-            name: "",
-            id: "",
-            direction: LanguageDirection.LTR,
-        },
-    },
-    projectDir: {} as IDirectoryHandle, // Mock or actual handle
-    fileWriter: mockFileWriter,
-    addBook: vi.fn(),
-    getBook: vi.fn(),
-};
 
 class MockDirectoryHandle implements IDirectoryHandle {
     kind: "directory" = "directory";

@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <testing mocks with any is acceptable for test files> */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";

@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
 
 // The core item structure remains the same
@@ -169,6 +170,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
                             onClick={() => props.onSelect(null)}
                             className={styles.acClearButton}
                             aria-label="Clear selection"
+                            data-testid={TESTING_IDS.language.importerClear}
                         >
                             <Trans>Clear</Trans>
                         </button>

@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useDebouncedValue } from "@mantine/hooks";
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
     type AutocompleteGroup,
     AutocompleteInput,
@@ -132,7 +133,7 @@ const LanguageApiImporter: React.FC<LanguageApiImporterProps> = (props) => {
     }, [selectedRepo, props]);
 
     return (
-        <div data-testid="language-api-importer">
+        <div data-testid={TESTING_IDS.language.apiImporter}>
             <AutocompleteInput
                 label={t`Search by language`}
                 placeholder={t`Type to search for a language...`}
@@ -151,7 +152,7 @@ const LanguageApiImporter: React.FC<LanguageApiImporterProps> = (props) => {
 
             <button
                 type="button"
-                data-testid="language-importer-download"
+                data-testid={TESTING_IDS.language.importerDownload}
                 onClick={handleDownload}
                 disabled={props.isDownloadDisabled || !selectedRepo}
                 className={styles.downloadButton}

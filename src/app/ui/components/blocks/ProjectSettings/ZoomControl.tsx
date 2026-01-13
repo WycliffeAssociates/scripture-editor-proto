@@ -3,7 +3,7 @@ import { ActionIcon, rem, Stack, Text, TextInput } from "@mantine/core";
 import { Minus, Plus, ZoomIn } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { useWorkspaceContext } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
  * ZoomControl

@@ -1,5 +1,5 @@
 // tests/save.spec.ts
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
 
 test.describe("Save and Diff Functionality", () => {
@@ -12,8 +12,12 @@ test.describe("Save and Diff Functionality", () => {
         await editorPage.keyboard.type(" An addition ");
 
         await editorPage.waitForTimeout(1000);
-        await editorPage.getByTestId("next-chapter-button").click();
-        await editorPage.getByTestId("next-chapter-button").click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
+            .click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
+            .click();
         const chap3OriginalContent = await editorPage
             .getByRole("textbox", { name: "USFM Editor" })
             .textContent();
@@ -44,7 +48,7 @@ test.describe("Save and Diff Functionality", () => {
 
         const currentPanel = diffItems
             .nth(0)
-            .getByTestId(`${TESTING_IDS.save.diffCurrentPre}-current`);
+            .getByTestId(TEST_ID_GENERATORS.diffCurrentPre("current"));
         await expect(currentPanel).toContainText("An addition");
 
         const goToFirstChapterAgain = diffItems
@@ -53,7 +57,9 @@ test.describe("Save and Diff Functionality", () => {
         await goToFirstChapterAgain.click();
 
         // assert we went to mat one by checking that the reference picker is on mat one
-        const referencePicker = editorPage.getByTestId("reference-picker");
+        const referencePicker = editorPage.getByTestId(
+            TESTING_IDS.referencePicker,
+        );
         await expect(referencePicker).toHaveAttribute(
             "data-test-current-chapter",
             "1",
@@ -77,8 +83,12 @@ test.describe("Save and Diff Functionality", () => {
         await editorPage.keyboard.press("Escape");
 
         // go back to chapter 3
-        await editorPage.getByTestId("next-chapter-button").click();
-        await editorPage.getByTestId("next-chapter-button").click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
+            .click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
+            .click();
 
         // Verify editor content is reverted
         const revertedContent = await editorPage
@@ -103,8 +113,12 @@ test.describe("Save and Diff Functionality", () => {
         await editorPage.reload();
 
         // make sure to navigae to chapter 1
-        await editorPage.getByTestId("prev-chapter-button").click();
-        await editorPage.getByTestId("prev-chapter-button").click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.prevChapterButton)
+            .click();
+        await editorPage
+            .getByTestId(TESTING_IDS.navigation.prevChapterButton)
+            .click();
 
         // Verify content persists after reload
         const textBox = await editorPage

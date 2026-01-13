@@ -68,7 +68,6 @@ export function ShowImportStartedNotification({
             description: styles.message,
         },
         icon: <Loader2 size={16} />,
-        autoClose: false,
     });
     return id;
 }
