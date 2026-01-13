@@ -21,23 +21,6 @@ describe("testEditor helpers", () => {
         expect(textContent).toContain("In the beginning");
     });
 
-    it("should create an editor from USFM content", () => {
-        const usfmContent = `\\id GEN
-\\c 1
-\\p
-\\v 1 In the beginning God created the heaven and the earth.`;
-
-        const editor = createTestEditor(usfmContent);
-
-        // Verify editor was created
-        expect(editor).toBeDefined();
-
-        // Verify we can get text content
-        const textContent = getEditorTextContent(editor);
-        console.log("Text content:", textContent);
-        expect(textContent).toContain("In the beginning");
-    });
-
     it("should extract text content from editor", () => {
         const usfmContent = `\\id GEN
 \\c 1

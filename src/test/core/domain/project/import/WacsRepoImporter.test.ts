@@ -21,6 +21,9 @@ describe("WacsRepoImporter", () => {
     let importer: WacsRepoImporter;
 
     beforeEach(() => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(console, "log").mockImplementation(() => {});
+
         mockProjectsDir = new MockDirectoryHandle("projects");
         mockTempDir = new MockDirectoryHandle("temp");
 

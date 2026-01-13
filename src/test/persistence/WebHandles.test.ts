@@ -763,14 +763,16 @@ describe("WebFileHandle", () => {
         expect(parent.name).toBe("/");
     });
 
-    test("getAbsolutePath returns the correct absolute path", () => {
+    test("getAbsolutePath returns the correct absolute path", async () => {
         const nativeHandle = new MockFileSystemFileHandle("testFile.txt");
         const wrapper = new WebFileHandle(
             nativeHandle,
             "/root/testFile.txt",
             mockResolveHandle,
         );
-        expect(wrapper.getAbsolutePath()).resolves.toBe("/root/testFile.txt");
+        await expect(wrapper.getAbsolutePath()).resolves.toBe(
+            "/root/testFile.txt",
+        );
     });
 
     test("asFileHandle returns itself", () => {
