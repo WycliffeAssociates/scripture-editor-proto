@@ -11,77 +11,37 @@ test.describe("home page (empty state)", () => {
     test("shows project creation UI when there are no projects", async ({
         page,
     }) => {
-        const consoleMessages: Array<{ type: string; text: string }> = [];
-        page.on("console", (m) => {
-            try {
-                consoleMessages.push({ type: m.type(), text: m.text() });
-            } catch {
-                // ignore
-            }
+        const response = await page.goto(BASE_URL, {
+            waitUntil: "domcontentloaded",
         });
+        expect(response).not.toBeNull();
+        if (response) expect(response.ok()).toBeTruthy();
 
-        try {
-            const response = await page.goto(BASE_URL, {
-                waitUntil: "domcontentloaded",
-            });
-            expect(response).not.toBeNull();
-            if (response) expect(response.ok()).toBeTruthy();
+        await page.waitForLoadState("load");
+        await page.waitForTimeout(500);
 
-            // Wait for full load to ensure client-side rendering finished
-            await page.waitForLoadState("load");
+        await expect(page.locator("text=Create a new project")).toBeVisible();
+        await expect(
+            page.locator("text=Search for a scripture repository"),
+        ).toBeVisible();
+        await expect(page.locator("text=Upload a folder")).toBeVisible();
+        await expect(page.locator("text=Or select a ZIP file")).toBeVisible();
 
-            // small delay to let client-side hydration run (helps flakiness)
-            await page.waitForTimeout(500);
-
-            // Main create section heading from ProjectCreator
-            await expect(
-                page.locator("text=Create a new project"),
-            ).toBeVisible();
-
-            // Ensure the repo + local upload controls are present
-            await expect(
-                page.locator("text=Search for a scripture repository"),
-            ).toBeVisible();
-            await expect(page.locator("text=Upload a folder")).toBeVisible();
-            await expect(
-                page.locator("text=Or select a ZIP file"),
-            ).toBeVisible();
-
-            // Ensure there are no project rows rendered in the project list container.
-            // The project list is an <ul class="flex flex-col gap-3"> with child <li>s when projects exist.
-            const projectListItems = page.locator(
-                "ul.flex.flex-col.gap-3 > li",
-            );
-            await expect(projectListItems).toHaveCount(0);
-        } catch (err) {
-            console.log(err);
-        }
+        const projectListItems = page.locator("ul.flex.flex-col.gap-3 > li");
+        await expect(projectListItems).toHaveCount(0);
     });
 
     test("has accessible heading and basic layout", async ({ page }) => {
-        const consoleMessages: Array<{ type: string; text: string }> = [];
-        page.on("console", (m) => {
-            consoleMessages.push({ type: m.type(), text: m.text() });
+        await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+        await page.waitForLoadState("load");
+        await page.waitForTimeout(500);
+
+        await expect(page.locator("text=Current Projects")).toBeVisible();
+
+        const createHeading = page.getByRole("heading", {
+            name: /Create a new project/i,
         });
-
-        try {
-            await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-            await page.waitForLoadState("load");
-
-            // small delay to let client-side hydration run
-            await page.waitForTimeout(500);
-
-            // Page header should contain "Current Projects"
-            await expect(page.locator("text=Current Projects")).toBeVisible();
-
-            // The create area should be reachable via heading role as well
-            const createHeading = page.getByRole("heading", {
-                name: /Create a new project/i,
-            });
-            await expect(createHeading).toBeVisible();
-        } catch (err) {
-            console.error(err);
-        }
+        await expect(createHeading).toBeVisible();
     });
 });
 
@@ -165,4 +125,69 @@ test("home page localization works", async ({ page }) => {
     await page.getByRole("option", { name: "Español" }).click();
     const label = page.getByTestId(TESTING_IDS.settings.languageSelectorLabel);
     await expect(label).toHaveText("Localización de la interfaz");
+});
+
+test.describe("Language API Importer", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto(BASE_URL);
+    });
+
+    test("searches for language and displays results", async ({ page }) => {
+        await page
+            .getByTestId(TESTING_IDS.language.apiImporter)
+            .locator('input[type="text"]')
+            .fill("english");
+
+        await expect(
+            page.getByTestId(TESTING_IDS.language.apiImporter).locator("ul"),
+        ).toBeVisible();
+    });
+
+    test("enables download button after selecting a repo", async ({ page }) => {
+        await page
+            .getByTestId(TESTING_IDS.language.apiImporter)
+            .locator('input[type="text"]')
+            .fill("spanish");
+
+        await page
+            .getByTestId(TESTING_IDS.language.apiImporter)
+            .locator("ul li")
+            .nth(2)
+            .click();
+
+        await expect(
+            page.getByTestId(TESTING_IDS.language.importerDownload),
+        ).toBeEnabled();
+    });
+
+    test("shows loading state while fetching repos", async ({ page }) => {
+        await page
+            .getByTestId(TESTING_IDS.language.apiImporter)
+            .locator('input[type="text"]')
+            .fill("e");
+
+        await expect(
+            page
+                .getByTestId(TESTING_IDS.language.apiImporter)
+                .locator("text=Loading..."),
+        ).toBeVisible({ timeout: 5000 });
+    });
+
+    test("clears selection when clicking clear button", async ({ page }) => {
+        const importer = page.getByTestId(TESTING_IDS.language.apiImporter);
+        await importer.locator('input[type="text"]').fill("spanish");
+
+        // Wait for results to appear before clicking
+        await expect(importer.locator("ul li").nth(2)).toBeVisible();
+        await importer.locator("ul li").nth(2).click();
+
+        // Wait for clear button to be visible (appears after selection)
+        const clearButton = page.getByTestId(
+            TESTING_IDS.language.importerClear,
+        );
+        await expect(clearButton).toBeVisible();
+        await clearButton.click();
+
+        await expect(importer.locator('input[type="text"]')).toHaveValue("");
+    });
 });

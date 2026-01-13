@@ -100,31 +100,19 @@ test.describe("LintPopover Component", () => {
         const sidText = await sidElement.textContent();
 
         if (sidText) {
-            console.log(`Clicking error item with SID: ${sidText}`);
-
             // Click the error item
             await firstErrorItem.click();
 
             // Verify that an element is now selected (has yellow background)
-            // The selected element should have the data-id matching our SID
             const targetSelector = `[data-id="${sidText}"]`;
             const selectedElement = editorPage.locator(targetSelector);
 
             // Check if element exists and is selected
             if (await selectedElement.isVisible()) {
-                // Verify it has the selected class
                 const hasSelectedClass = await selectedElement.evaluate((el) =>
                     el.classList.contains("selected"),
                 );
                 expect(hasSelectedClass).toBe(true);
-
-                console.log(
-                    `Successfully navigated to and selected element: ${sidText}`,
-                );
-            } else {
-                console.log(
-                    `Target element not found after navigation: ${targetSelector}`,
-                );
             }
         }
     });

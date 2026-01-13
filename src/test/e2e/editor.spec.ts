@@ -28,10 +28,6 @@ test.describe("Editor llx-reg", () => {
             "data-test-current-chapter",
         );
 
-        console.log(
-            `Initial state - Book: ${initialBookCode}, Chapter: ${initialChapter}`,
-        );
-
         // Test next button functionality
         const nextButton = editorPage.getByTestId(
             TESTING_IDS.navigation.nextChapterButton,
@@ -49,10 +45,6 @@ test.describe("Editor llx-reg", () => {
             );
             const newChapterAfterNext = await referencePicker.getAttribute(
                 "data-test-current-chapter",
-            );
-
-            console.log(
-                `After next - Book: ${newBookCodeAfterNext}, Chapter: ${newChapterAfterNext}`,
             );
 
             // At least one of the attributes should have changed
@@ -88,10 +80,6 @@ test.describe("Editor llx-reg", () => {
             );
             const newChapterAfterPrev = await referencePicker.getAttribute(
                 "data-test-current-chapter",
-            );
-
-            console.log(
-                `After prev - Book: ${newBookCodeAfterPrev}, Chapter: ${newChapterAfterPrev}`,
             );
 
             // At least one of the attributes should have changed
@@ -214,13 +202,8 @@ test.describe("Editor llx-reg", () => {
         await firstChapterButton.scrollIntoViewIfNeeded();
         await firstChapterButton.click();
 
-        // Get prev button text
-        const prevButtonText = await prevButton.textContent();
-        console.log(
-            `Prev button text in first chapter of last book: "${prevButtonText}"`,
-        );
-
         // Should show the previous book name (not a chapter number)
+        const prevButtonText = await prevButton.textContent();
         expect(prevButtonText).toBeTruthy();
     });
 
@@ -444,7 +427,6 @@ test.describe("Search Functionality", () => {
 
         // Now count() is safe because results have finished rendering
         const count = await results.count();
-        console.log(`Search results count: ${count}`);
         expect(count).toBeGreaterThan(5);
 
         // Buttons should be visible once multiple matches exist
@@ -481,7 +463,6 @@ test.describe("Search Functionality", () => {
 
         // Read the initial stats
         const initialStats = await statsSpan.textContent();
-        console.log(`Initial stats: "${initialStats}"`);
         expect(initialStats).toMatch(/1 \w+ \d+/);
 
         // click second result
@@ -520,7 +501,6 @@ test.describe("Search Functionality", () => {
 
         // Read initial stats
         const newState = await statsSpan.textContent();
-        console.log(`New state: "${newState}"`);
         expect(newState).toMatch(/2 \w+ \d+/);
     });
 
@@ -545,7 +525,6 @@ test.describe("Search Functionality", () => {
         const allEditorContent = await editorPage
             .getByTestId(TESTING_IDS.mainEditorContainer)
             .textContent();
-        console.log(allEditorContent);
         expect(allEditorContent).not.toContain("vola");
     });
 
@@ -562,13 +541,11 @@ test.describe("Search Functionality", () => {
         if (!initialCount) {
             throw new Error("Initial count not found");
         }
-        console.log(`Initial count: ${initialCount}`);
         await editorPage.getByTestId(TESTING_IDS.matchCaseCheckbox).click();
 
         const caseSensitiveCount = await editorPage
             .getByTestId(TESTING_IDS.searchResultsContainer)
             .getAttribute("data-num-search-results");
-        console.log(`Case sensitive count: ${caseSensitiveCount}`);
         expect(Number(caseSensitiveCount)).toBeLessThanOrEqual(
             Number(initialCount),
         );
@@ -587,15 +564,12 @@ test.describe("Search Functionality", () => {
             .getByTestId(TESTING_IDS.searchResultItem)
             .count();
         expect(initialCount).toBeGreaterThan(0);
-        console.log(`Initial count: ${initialCount}`);
         await editorPage
             .getByTestId(TESTING_IDS.matchWholeWordCheckbox)
             .click();
-        // await editorPage.waitForTimeout(700);
         const wholeWordCount = await editorPage
             .getByTestId(TESTING_IDS.searchResultItem)
             .count();
-        console.log(`Whole word count: ${wholeWordCount}`);
         expect(wholeWordCount).toBeLessThanOrEqual(initialCount);
     });
 
