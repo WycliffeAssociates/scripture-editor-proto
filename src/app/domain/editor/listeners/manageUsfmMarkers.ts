@@ -220,7 +220,7 @@ function $insertEndMarker(args: BaseInsertArgs): void {
 }
 
 function $insertVerse(args: BaseInsertArgs): void {
-    const { anchorNode, marker, isStartOfLine, markersMutableState } = args;
+    const { anchorNode, marker, isStartOfLine } = args;
 
     const context = $getInsertionContext(anchorNode);
 
@@ -239,8 +239,8 @@ function $insertVerse(args: BaseInsertArgs): void {
             context,
             tokenType: UsfmTokenTypes.numberRange,
             extraProps: {
-                isMutable:
-                    markersMutableState === EditorMarkersMutableStates.MUTABLE,
+                // Verse numbers should always be mutable, even if markers are locked
+                isMutable: true,
             },
         });
 
@@ -288,7 +288,7 @@ function $insertVerse(args: BaseInsertArgs): void {
 // ============================================================================
 // todo: we actually shouldn't allow inserting chapters since we break on as a ux division of edit per chapter
 function $insertChapter(args: BaseInsertArgs): void {
-    const { anchorNode, marker, isStartOfLine, markersMutableState } = args;
+    const { anchorNode, marker, isStartOfLine } = args;
 
     const context = $getInsertionContext(anchorNode);
 
@@ -307,8 +307,8 @@ function $insertChapter(args: BaseInsertArgs): void {
             context,
             tokenType: UsfmTokenTypes.numberRange,
             extraProps: {
-                isMutable:
-                    markersMutableState === EditorMarkersMutableStates.MUTABLE,
+                // Verse numbers should always be mutable, even if markers are locked
+                isMutable: true,
             },
         });
 
