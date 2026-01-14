@@ -204,26 +204,40 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
     // Only process numberRange nodes, not markers
     const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
     if (!isNumberRange) return;
-    // Check if the numberRange is empty
-    if (!node.getTextContent().trim().length) {
-        // Look at the previous sibling to see if it's a marker expecting a number
-        const previousSibling = node.getPreviousSibling();
-        if (!$isUSFMTextNode(previousSibling)) return;
 
-        const isPrevMarker =
-            previousSibling.getTokenType() === UsfmTokenTypes.marker;
-        if (!isPrevMarker) return;
+    // Look at the previous sibling to see if it's a marker expecting a number
+    const previousSibling = node.getPreviousSibling();
+    let isValidPredecessor = false;
 
+    if ($isUSFMTextNode(previousSibling)) {
         const prevMarker = previousSibling.getMarker();
-        if (!prevMarker) return;
+        if (
+            previousSibling.getTokenType() === UsfmTokenTypes.marker &&
+            prevMarker &&
+            CHAPTER_VERSE_MARKERS.has(prevMarker)
+        ) {
+            isValidPredecessor = true;
+        }
+    }
 
-        // Only remove if NOT preceded by a chapter/verse marker
-        if (!CHAPTER_VERSE_MARKERS.has(prevMarker)) {
+    if (!isValidPredecessor) {
+        // If it's an orphaned numberRange (not preceded by a valid marker)
+        if (!node.getTextContent().trim().length) {
+            // If empty, remove it
             const update = () => {
                 node.remove();
             };
             updates.push({
-                dbgLabel: "removeEmptyNumberRangeNotPrecededByMarker",
+                dbgLabel: "removeOrphanedEmptyNumberRange",
+                update,
+            });
+        } else {
+            // If it has content, convert it to plain text so it's not lost but doesn't break structure
+            const update = () => {
+                node.setTokenType(UsfmTokenTypes.text);
+            };
+            updates.push({
+                dbgLabel: "convertOrphanedNumberRangeToText",
                 update,
             });
         }
