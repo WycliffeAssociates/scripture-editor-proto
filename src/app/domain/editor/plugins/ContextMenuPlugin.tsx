@@ -28,6 +28,7 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
     EditorMarkersMutableStates,
     EditorMarkersViewStates,
+    EditorModes,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
@@ -107,8 +108,9 @@ export function NodeContextMenuPlugin() {
     const [opened, setOpened] = useState(false);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [search, setSearch] = useState("");
-    const { actions, search: searchApi } = useWorkspaceContext();
+    const { actions, search: searchApi, project } = useWorkspaceContext();
     const { isXs, isSm } = useWorkspaceMediaQuery();
+    const { mode, markersViewState, markersMutableState } = project.appSettings;
     const [suggestedSearchApiTerm, setSuggestedSearchApiTerm] = useState("");
     const selToRestore = useRef<BaseSelection>(null);
     const preSelect = useCallback(() => {
@@ -277,58 +279,78 @@ export function NodeContextMenuPlugin() {
             },
 
             {
-                title: <Trans>Lock markers</Trans>,
+                title: <Trans>Switch to Regular Mode</Trans>,
                 type: "controlAction",
-                onSelect: () => {
-                    actions.adjustWysiwygMode({
-                        markersMutableState:
-                            EditorMarkersMutableStates.IMMUTABLE,
-                    });
+                doHide: () => {
+                    // Hide if effectively in Regular mode
+                    return (
+                        mode === EditorModes.WYSIWYG &&
+                        markersViewState === EditorMarkersViewStates.NEVER &&
+                        markersMutableState ===
+                            EditorMarkersMutableStates.IMMUTABLE
+                    );
                 },
-                // icon: <Lock size={16} />,
+                onSelect: () => {
+                    if (actions.adjustWysiwygMode) {
+                        actions.adjustWysiwygMode({
+                            markersViewState: EditorMarkersViewStates.NEVER,
+                            markersMutableState:
+                                EditorMarkersMutableStates.IMMUTABLE,
+                        });
+                    }
+                },
             },
             {
-                title: <Trans>Unlock markers</Trans>,
+                title: <Trans>Switch to USFM Mode</Trans>,
                 type: "controlAction",
-                onSelect: () => {
-                    actions.adjustWysiwygMode({
-                        markersMutableState: EditorMarkersMutableStates.MUTABLE,
-                    });
+                doHide: () => {
+                    // Hide if effectively in USFM mode
+                    return (
+                        mode === EditorModes.WYSIWYG &&
+                        markersViewState === EditorMarkersViewStates.ALWAYS &&
+                        markersMutableState ===
+                            EditorMarkersMutableStates.MUTABLE
+                    );
                 },
-                // icon: <Lock size={16} />,
+                onSelect: () => {
+                    if (actions.adjustWysiwygMode) {
+                        actions.adjustWysiwygMode({
+                            markersViewState: EditorMarkersViewStates.ALWAYS,
+                            markersMutableState:
+                                EditorMarkersMutableStates.MUTABLE,
+                        });
+                    }
+                },
             },
             {
-                title: <Trans>Change markers to always visible</Trans>,
+                title: <Trans>Switch to Raw Mode</Trans>,
                 type: "controlAction",
+                doHide: () => mode === EditorModes.SOURCE,
                 onSelect: () => {
-                    actions.adjustWysiwygMode({
-                        markersViewState: EditorMarkersViewStates.ALWAYS,
-                    });
+                    if (actions.toggleToSourceMode) {
+                        actions.toggleToSourceMode();
+                    } else {
+                        // fallback manual update
+                        project.updateAppSettings({
+                            mode: EditorModes.SOURCE,
+                            markersMutableState:
+                                EditorMarkersMutableStates.MUTABLE,
+                            markersViewState: EditorMarkersViewStates.ALWAYS,
+                        });
+                    }
                 },
-                // icon: <Lock size={16} />,
-            },
-            {
-                title: <Trans>Change markers to visible when editing</Trans>,
-                type: "controlAction",
-                onSelect: () => {
-                    actions.adjustWysiwygMode({
-                        markersViewState: EditorMarkersViewStates.WHEN_EDITING,
-                    });
-                },
-                // icon: <Lock size={16} />,
-            },
-            {
-                title: <Trans>Change markers to never visible</Trans>,
-                type: "controlAction",
-                onSelect: () => {
-                    actions.adjustWysiwygMode({
-                        markersViewState: EditorMarkersViewStates.NEVER,
-                    });
-                },
-                // icon: <Lock size={16} />,
             },
         ],
-        [insertMarker, actions, searchApi, suggestedSearchApiTerm],
+        [
+            insertMarker,
+            actions,
+            searchApi,
+            suggestedSearchApiTerm,
+            mode,
+            markersViewState,
+            markersMutableState,
+            project,
+        ],
     );
 
     // Filter items by search text
