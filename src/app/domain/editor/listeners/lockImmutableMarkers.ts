@@ -1,54 +1,114 @@
 import {
+    $getRoot,
     $getSelection,
     $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
+    COPY_COMMAND,
     CUT_COMMAND,
     type LexicalEditor,
+    type LexicalNode,
     PASTE_COMMAND,
+    type RangeSelection,
 } from "lexical";
 import {
     type EditorMarkersMutableState,
     EditorMarkersMutableStates,
+    EditorMarkersViewStates,
+    UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
     $isLockedUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { CHAPTER_VERSE_MARKERS } from "@/core/data/usfm/tokens.ts";
 
-export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
+export function lockImmutableMarkersOnCopy(
+    editor: LexicalEditor,
+    markersViewState: string,
+    markersMutableState: string,
+) {
     return editor.registerCommand(
-        CUT_COMMAND,
+        COPY_COMMAND,
         (event: ClipboardEvent) => {
+            if (isSourceMode(markersViewState, markersMutableState))
+                return false;
+
             const selectionInfo = $getSelectionInfo();
             if (!selectionInfo) return false;
             const { nodes, selection } = selectionInfo;
-            if (selectionInfo.crossesLockedNodes) {
-                // don't handle and don't stop propagation
-                console.log(
-                    "Prevented cut in locked USFMTextNode or node is hidden",
-                );
+
+            const extendedNodes = $getExtendedNodesForClipboard(
+                nodes,
+                selection,
+            );
+            const wasExtended = extendedNodes.length > nodes.length;
+            const crossesLocked = nodes.some($isLockedUSFMTextNode);
+
+            if (wasExtended || crossesLocked) {
                 event.preventDefault();
                 event.stopPropagation();
 
-                // Get text from only unlocked nodes
-                const unlockedNodes = nodes
+                // Build copy text using the same logic as cut
+                const copyText = $buildClipboardText(extendedNodes, selection);
+
+                event.clipboardData?.setData("text/plain", copyText);
+                return true;
+            }
+            return false;
+        },
+        COMMAND_PRIORITY_HIGH,
+    );
+}
+
+export function lockImmutableMarkersOnCut(
+    editor: LexicalEditor,
+    markersViewState: string,
+    markersMutableState: string,
+) {
+    return editor.registerCommand(
+        CUT_COMMAND,
+        (event: ClipboardEvent) => {
+            if (isSourceMode(markersViewState, markersMutableState))
+                return false;
+
+            const selectionInfo = $getSelectionInfo();
+            if (!selectionInfo) return false;
+            const { nodes, selection } = selectionInfo;
+
+            const extendedNodes = $getExtendedNodesForClipboard(
+                nodes,
+                selection,
+            );
+            const wasExtended = extendedNodes.length > nodes.length;
+            const crossesLockedNodes = nodes.some($isLockedUSFMTextNode);
+
+            if (wasExtended || crossesLockedNodes) {
+                // don't handle and don't stop propagation
+                event.preventDefault();
+                event.stopPropagation();
+
+                // Get nodes to actually cut
+                // We allow cutting markers if they are part of the extended selection (verse markers)
+                const nodesToCut = extendedNodes
                     .filter(
                         (node) =>
                             $isUSFMTextNode(node) &&
-                            !$isLockedUSFMTextNode(node),
+                            (!$isLockedUSFMTextNode(node) ||
+                                (node.getTokenType() ===
+                                    UsfmTokenTypes.marker &&
+                                    CHAPTER_VERSE_MARKERS.has(
+                                        node.getMarker() ?? "",
+                                    ))),
                     )
                     .map((node) => node as USFMTextNode);
 
-                if (unlockedNodes.length === 0) {
-                    console.log("No unlocked text nodes to cut");
+                if (nodesToCut.length === 0) {
                     return true;
                 }
 
                 // Build cut text
-                const cutText = unlockedNodes
-                    .map((node) => node.getTextContent())
-                    .join("");
+                const cutText = $buildClipboardText(nodesToCut, selection);
 
                 // Copy to clipboard manually
                 event.clipboardData?.setData("text/plain", cutText);
@@ -59,15 +119,24 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
                         if (!startEnd) {
                             return;
                         }
-                        const [start, end] = startEnd;
+                        let [start, end] = startEnd;
+                        if (selection.isBackward()) {
+                            [start, end] = [end, start];
+                        }
 
-                        for (const node of unlockedNodes) {
+                        // Find a stable node to select after removal
+                        const lastNodeToCut = nodesToCut[nodesToCut.length - 1];
+                        const nextStableNode = lastNodeToCut.getNextSibling();
+                        const prevStableNode =
+                            nodesToCut[0].getPreviousSibling();
+
+                        for (const node of nodesToCut) {
                             const text = node.getTextContent();
 
                             const startOffset =
-                                node === start.getNode() ? start.offset : 0;
+                                node.getKey() === start.key ? start.offset : 0;
                             const endOffset =
-                                node === end.getNode()
+                                node.getKey() === end.key
                                     ? end.offset
                                     : text.length;
 
@@ -76,12 +145,26 @@ export function lockImmutableMarkersOnCut(editor: LexicalEditor) {
 
                             // If entire node is selected, just remove it
                             if (before === "" && after === "") {
+                                // If it's a locked node, we need to temporarily allow removal
+                                if ($isLockedUSFMTextNode(node)) {
+                                    node.setMutable(true);
+                                }
                                 node.remove();
                             } else {
                                 node.setTextContent(before + after);
                             }
                         }
-                        nodes[0].selectEnd();
+
+                        // Move selection to a stable point to avoid "selection lost" error
+                        if (nextStableNode?.isAttached()) {
+                            nextStableNode.selectStart();
+                        } else if (prevStableNode?.isAttached()) {
+                            prevStableNode.selectEnd();
+                        } else {
+                            // Fallback to parent or root
+                            const root = $getRoot();
+                            if (root) root.selectEnd();
+                        }
                     },
                     {
                         tag: [],
@@ -341,4 +424,110 @@ function $getSelectionInfo() {
 function killEvent(event: Event) {
     event.preventDefault();
     event.stopPropagation();
+}
+
+function $buildClipboardText(
+    nodes: LexicalNode[],
+    selection: RangeSelection,
+): string {
+    const startEnd = selection.getStartEndPoints();
+    if (!startEnd) {
+        return "";
+    }
+    let [start, end] = startEnd;
+    if (selection.isBackward()) {
+        [start, end] = [end, start];
+    }
+
+    return nodes
+        .filter($isUSFMTextNode)
+        .map((node) => {
+            const text = node.getTextContent();
+            const key = node.getKey();
+
+            // Calculate overlap with selection
+            let startOffset = 0;
+            let endOffset = text.length;
+
+            if (key === start.key) {
+                startOffset = start.offset;
+            }
+            if (key === end.key) {
+                endOffset = end.offset;
+            }
+
+            // Slice the text based on offsets
+            return text.slice(startOffset, endOffset);
+        })
+        .join("");
+}
+
+function $getExtendedNodesForClipboard(
+    nodes: LexicalNode[],
+    selection: RangeSelection,
+): LexicalNode[] {
+    const result = new Set(nodes);
+    const startPoint = selection.isBackward()
+        ? selection.focus
+        : selection.anchor;
+
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        const isFirstNode = i === 0;
+        const isAtNodeStart = isFirstNode && startPoint.offset === 0;
+
+        const isNumberRange =
+            $isUSFMTextNode(node) &&
+            node.getTokenType() === UsfmTokenTypes.numberRange;
+
+        // If it's a number range (verse number) or we're at the start of any node,
+        // we should check if there are hidden/whitespace nodes before it that should be included.
+        if (isNumberRange || isAtNodeStart) {
+            let prev = node.getPreviousSibling();
+            const toAdd: LexicalNode[] = [];
+            let foundMarker = false;
+            let foundHidden = false;
+
+            while (prev && $isUSFMTextNode(prev)) {
+                if (result.has(prev)) break;
+
+                const type = prev.getTokenType();
+                const show = prev.getShow();
+                const isMarker =
+                    type === UsfmTokenTypes.marker &&
+                    CHAPTER_VERSE_MARKERS.has(prev.getMarker() ?? "");
+
+                // We include it if it's hidden, whitespace, or the marker we're looking for
+                if (!show || type === "ws" || isMarker) {
+                    toAdd.push(prev);
+                    if (!show) foundHidden = true;
+                    if (isMarker) {
+                        foundMarker = true;
+                        break;
+                    }
+                } else {
+                    break;
+                }
+                prev = prev.getPreviousSibling();
+            }
+
+            // We only actually add these if we found a marker or hidden content
+            if (foundMarker || foundHidden) {
+                for (const n of toAdd) result.add(n);
+            }
+        }
+    }
+
+    const finalNodes = Array.from(result);
+    if (finalNodes.length > nodes.length) {
+        finalNodes.sort((a, b) => (a.isBefore(b) ? -1 : 1));
+    }
+    return finalNodes;
+}
+
+function isSourceMode(viewState: string, mutableState: string): boolean {
+    return (
+        viewState === EditorMarkersViewStates.ALWAYS &&
+        mutableState === EditorMarkersMutableStates.MUTABLE
+    );
 }
