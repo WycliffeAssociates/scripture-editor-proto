@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides the technical implementation details for adding reference text search functionality. It builds upon the design doc and provides specific code changes, file modifications, and testing guidance for engineers to implement the feature.
+This document provides the technical implementation details for adding reference text search functionality. It builds upon the design doc and provides specific code changes, file modifications, and testing guidance for  engineers to implement the feature.
 
 ## Phase 1: Hook Modifications
 

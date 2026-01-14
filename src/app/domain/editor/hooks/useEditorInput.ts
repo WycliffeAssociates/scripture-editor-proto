@@ -7,6 +7,7 @@ import {
 import { useEffect } from "react";
 import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import {
+    lockImmutableMarkersOnCopy,
     lockImmutableMarkersOnCut,
     lockImmutableMarkersOnPaste,
     lockImutableMarkersOnType,
@@ -79,8 +80,19 @@ export function useEditorInput(editor: LexicalEditor) {
         // Register PASTE_COMMAND for locking immutable markers
         const pasteCommand = lockImmutableMarkersOnPaste(editor);
 
+        // Register COPY_COMMAND for handling verse markers
+        const lockOnCopy = lockImmutableMarkersOnCopy(
+            editor,
+            markersViewState,
+            markersMutableState,
+        );
+
         // Register CUT_COMMAND for locking immutable markers
-        const lockImmutablesOnCut = lockImmutableMarkersOnCut(editor);
+        const lockImmutablesOnCut = lockImmutableMarkersOnCut(
+            editor,
+            markersViewState,
+            markersMutableState,
+        );
 
         // Cleanup function
         const cleanup = () => {
@@ -89,6 +101,7 @@ export function useEditorInput(editor: LexicalEditor) {
             keyDownUnregister();
             moveToAdjacentNodesUnregister();
             pasteCommand();
+            lockOnCopy();
             lockImmutablesOnCut();
         };
 

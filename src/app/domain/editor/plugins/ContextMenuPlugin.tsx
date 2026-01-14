@@ -74,6 +74,7 @@ function calculateMenuPosition(
 
 export type ContextMenuItem = {
     title: React.ReactNode;
+    label: string;
     marker?: string;
     onSelect: () => void;
     icon?: React.ReactNode;
@@ -223,6 +224,7 @@ export function NodeContextMenuPlugin() {
         () => [
             {
                 title: <Trans>Find "{suggestedSearchApiTerm || ""}"</Trans>,
+                label: t`Find "${suggestedSearchApiTerm || ""}"`,
                 type: "searchAction",
                 doHide: () =>
                     !suggestedSearchApiTerm ||
@@ -237,42 +239,49 @@ export function NodeContextMenuPlugin() {
             },
             {
                 title: <Trans>Insert verse marker</Trans>,
+                label: t`Insert verse marker`,
                 marker: "v",
                 type: "markerAction",
                 onSelect: () => insertMarker("v"),
             },
             {
                 title: <Trans>Insert paragraph marker</Trans>,
+                label: t`Insert paragraph marker`,
                 marker: "p",
                 type: "markerAction",
                 onSelect: () => insertMarker("p"),
             },
             {
                 title: <Trans>Insert chapter label</Trans>,
+                label: t`Insert chapter label`,
                 marker: "cl",
                 type: "markerAction",
                 onSelect: () => insertMarker("cl"),
             },
             {
                 title: <Trans>Insert paragraph marker (at margin)</Trans>,
+                label: t`Insert paragraph marker (at margin)`,
                 marker: "m",
                 type: "markerAction",
                 onSelect: () => insertMarker("m"),
             },
             {
                 title: <Trans>Insert poetry marker (one level indent)</Trans>,
+                label: t`Insert poetry marker (one level indent)`,
                 marker: "q1",
                 type: "markerAction",
                 onSelect: () => insertMarker("q1"),
             },
             {
                 title: <Trans>Insert poetry marker (two level indent)</Trans>,
+                label: t`Insert poetry marker (two level indent)`,
                 marker: "q2",
                 type: "markerAction",
                 onSelect: () => insertMarker("q2"),
             },
             {
                 title: <Trans>Insert poetry marker (three level indent)</Trans>,
+                label: t`Insert poetry marker (three level indent)`,
                 marker: "q3",
                 type: "markerAction",
                 onSelect: () => insertMarker("q3"),
@@ -280,6 +289,7 @@ export function NodeContextMenuPlugin() {
 
             {
                 title: <Trans>Switch to Regular Mode</Trans>,
+                label: t`Switch to Regular Mode`,
                 type: "controlAction",
                 doHide: () => {
                     // Hide if effectively in Regular mode
@@ -302,6 +312,7 @@ export function NodeContextMenuPlugin() {
             },
             {
                 title: <Trans>Switch to USFM Mode</Trans>,
+                label: t`Switch to USFM Mode`,
                 type: "controlAction",
                 doHide: () => {
                     // Hide if effectively in USFM mode
@@ -324,6 +335,7 @@ export function NodeContextMenuPlugin() {
             },
             {
                 title: <Trans>Switch to Raw Mode</Trans>,
+                label: t`Switch to Raw Mode`,
                 type: "controlAction",
                 doHide: () => mode === EditorModes.SOURCE,
                 onSelect: () => {
@@ -357,11 +369,7 @@ export function NodeContextMenuPlugin() {
     const filtered = contextMenuItemsToShow.filter(
         (i) =>
             (!i.doHide?.() &&
-                (typeof i.title === "string"
-                    ? i.title.toLowerCase().includes(search.toLowerCase())
-                    : String(i.title)
-                          .toLowerCase()
-                          .includes(search.toLowerCase()))) ||
+                i.label.toLowerCase().includes(search.toLowerCase())) ||
             i.marker?.toLowerCase().includes(search.toLowerCase()),
     );
 

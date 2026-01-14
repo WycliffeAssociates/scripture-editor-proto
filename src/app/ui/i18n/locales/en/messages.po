@@ -17,6 +17,11 @@ msgstr ""
 #~ msgid " No results "
 #~ msgstr " No results "
 
+#: src/app/ui/components/blocks/Toolbar.tsx:142
+#: src/app/ui/components/blocks/Toolbar.tsx:218
+msgid "(Current)"
+msgstr "(Current)"
+
 #: src/app/ui/components/blocks/DiffModal.tsx:211
 #: src/app/ui/components/blocks/DiffModal.tsx:280
 msgid "(New verse)"
@@ -29,17 +34,17 @@ msgstr "(Verse deleted)"
 
 #. placeholder {0}: props.label
 #. placeholder {0}: props.placeholder
-#: src/app/ui/components/import/AutoCompleteInput.tsx:123
-#: src/app/ui/components/import/AutoCompleteInput.tsx:130
+#: src/app/ui/components/import/AutoCompleteInput.tsx:133
+#: src/app/ui/components/import/AutoCompleteInput.tsx:140
 msgid "{0}"
 msgstr "{0}"
 
 #: src/app/routes/$project.tsx:12
-#: src/app/routes/index.tsx:29
+#: src/app/routes/index.tsx:30
 msgid "<0>Loading...</0>"
 msgstr "<0>Loading...</0>"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:510
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:556
 msgid "Actions"
 msgstr "Actions"
 
@@ -47,8 +52,8 @@ msgstr "Actions"
 #~ msgid "Always"
 #~ msgstr "Always"
 
-#: src/app/routes/scaffold.tsx:101
-#: src/app/routes/scaffold.tsx:109
+#: src/app/routes/scaffold.tsx:99
+#: src/app/routes/scaffold.tsx:107
 msgid "An unknown error occurred"
 msgstr "An unknown error occurred"
 
@@ -56,12 +61,12 @@ msgstr "An unknown error occurred"
 #~ msgid "App language"
 #~ msgstr "App language"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:199
+#: src/app/ui/components/blocks/ProjectRow.tsx:200
 msgid "Are you sure you want to delete the project:"
 msgstr "Are you sure you want to delete the project:"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:186
-#: src/app/ui/components/blocks/ProjectRow.tsx:209
+#: src/app/ui/components/blocks/ProjectRow.tsx:187
+#: src/app/ui/components/blocks/ProjectRow.tsx:210
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -69,24 +74,24 @@ msgstr "Cancel"
 msgid "Case mismatches first"
 msgstr "Case mismatches first"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:250
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:301
 msgid "Change markers to always visible"
 msgstr "Change markers to always visible"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:270
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:321
 msgid "Change markers to never visible"
 msgstr "Change markers to never visible"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:260
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:311
 msgid "Change markers to visible when editing"
 msgstr "Change markers to visible when editing"
 
-#: src/app/ui/components/import/AutoCompleteInput.tsx:164
+#: src/app/ui/components/import/AutoCompleteInput.tsx:175
 msgid "Clear"
 msgstr "Clear"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:81
-#: src/app/ui/components/blocks/Toolbar.tsx:128
+#: src/app/ui/components/blocks/Toolbar.tsx:102
+#: src/app/ui/components/blocks/Toolbar.tsx:180
 msgid "Clear Reference Project"
 msgstr "Clear Reference Project"
 
@@ -99,7 +104,7 @@ msgstr "Create a new project"
 msgid "Current"
 msgstr "Current"
 
-#: src/app/routes/index.tsx:195
+#: src/app/routes/index.tsx:201
 msgid "Current Projects"
 msgstr "Current Projects"
 
@@ -107,15 +112,15 @@ msgstr "Current Projects"
 msgid "Dark"
 msgstr "Dark"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:215
+#: src/app/ui/components/blocks/ProjectRow.tsx:216
 msgid "Delete"
 msgstr "Delete"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:195
+#: src/app/ui/components/blocks/ProjectRow.tsx:196
 msgid "Delete project"
 msgstr "Delete project"
 
-#: src/app/routes/index.tsx:137
+#: src/app/routes/index.tsx:141
 msgid "Directory imported successfully!"
 msgstr "Directory imported successfully!"
 
@@ -123,15 +128,15 @@ msgstr "Directory imported successfully!"
 msgid "Display"
 msgstr "Display"
 
-#: src/app/routes/index.tsx:111
+#: src/app/routes/index.tsx:113
 msgid "Download Error"
 msgstr "Download Error"
 
-#: src/app/ui/components/import/LanguageApiImporter.tsx:146
+#: src/app/ui/components/import/LanguageApiImporter.tsx:160
 msgid "Download repository"
 msgstr "Download repository"
 
-#: src/app/routes/index.tsx:90
+#: src/app/routes/index.tsx:87
 msgid "Download Started"
 msgstr "Download Started"
 
@@ -139,11 +144,11 @@ msgstr "Download Started"
 #~ msgid "Downloading repository"
 #~ msgstr "Downloading repository"
 
-#: src/app/routes/index.tsx:89
+#: src/app/routes/index.tsx:86
 msgid "Downloading repository..."
 msgstr "Downloading repository..."
 
-#: src/app/routes/scaffold.tsx:52
+#: src/app/routes/scaffold.tsx:48
 msgid "Downloading scaffold ZIP..."
 msgstr "Downloading scaffold ZIP..."
 
@@ -160,7 +165,7 @@ msgid "English"
 msgstr "English"
 
 #. placeholder {0}: props.errorMessage || t`Failed to fetch suggestions.`
-#: src/app/ui/components/import/AutoCompleteInput.tsx:177
+#: src/app/ui/components/import/AutoCompleteInput.tsx:188
 msgid "Error: {0}"
 msgstr "Error: {0}"
 
@@ -168,34 +173,34 @@ msgstr "Error: {0}"
 msgid "Español"
 msgstr "Español"
 
-#: src/app/routes/index.tsx:110
+#: src/app/routes/index.tsx:112
 msgid "Failed to download project"
 msgstr "Failed to download project"
 
-#: src/app/ui/components/import/AutoCompleteInput.tsx:180
+#: src/app/ui/components/import/AutoCompleteInput.tsx:191
 msgid "Failed to fetch suggestions."
 msgstr "Failed to fetch suggestions."
 
-#: src/app/routes/index.tsx:147
+#: src/app/routes/index.tsx:151
 msgid "Failed to import directory"
 msgstr "Failed to import directory"
 
-#: src/app/routes/index.tsx:182
+#: src/app/routes/index.tsx:188
 msgid "Failed to import file"
 msgstr "Failed to import file"
 
-#: src/app/routes/index.tsx:172
+#: src/app/routes/index.tsx:178
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
 #. placeholder {0}: suggestedSearchApiTerm || ""
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:172
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:223
 msgid "Find \"{0}\""
 msgstr "Find \"{0}\""
 
 #: src/app/ui/components/blocks/ProjectSettings/FontPicker.tsx:47
-msgid "Font"
-msgstr "Font"
+#~ msgid "Font"
+#~ msgstr "Font"
 
 #: src/app/ui/components/blocks/Search.tsx:225
 msgid "Group case mismatches"
@@ -205,49 +210,49 @@ msgstr "Group case mismatches"
 msgid "Hello \"/create\"!"
 msgstr "Hello \"/create\"!"
 
-#: src/app/routes/index.tsx:148
-#: src/app/routes/index.tsx:183
+#: src/app/routes/index.tsx:152
+#: src/app/routes/index.tsx:189
 msgid "Import Error"
 msgstr "Import Error"
 
-#: src/app/routes/index.tsx:126
-#: src/app/routes/index.tsx:161
+#: src/app/routes/index.tsx:128
+#: src/app/routes/index.tsx:165
 msgid "Import Started"
 msgstr "Import Started"
 
-#: src/app/routes/index.tsx:125
+#: src/app/routes/index.tsx:127
 msgid "Importing directory..."
 msgstr "Importing directory..."
 
-#: src/app/routes/index.tsx:160
+#: src/app/routes/index.tsx:164
 msgid "Importing file..."
 msgstr "Importing file..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:198
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:249
 msgid "Insert chapter label"
 msgstr "Insert chapter label"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:192
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:243
 msgid "Insert paragraph marker"
 msgstr "Insert paragraph marker"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:204
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:255
 msgid "Insert paragraph marker (at margin)"
 msgstr "Insert paragraph marker (at margin)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:210
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:261
 msgid "Insert poetry marker (one level indent)"
 msgstr "Insert poetry marker (one level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:222
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:273
 msgid "Insert poetry marker (three level indent)"
 msgstr "Insert poetry marker (three level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:216
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:267
 msgid "Insert poetry marker (two level indent)"
 msgstr "Insert poetry marker (two level indent)"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:186
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:237
 msgid "Insert verse marker"
 msgstr "Insert verse marker"
 
@@ -256,8 +261,8 @@ msgid "Interface Localization"
 msgstr "Interface Localization"
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:44
-#: src/app/ui/components/views/ProjectView.tsx:170
-#: src/app/ui/components/views/ProjectView.tsx:203
+#: src/app/ui/components/views/ProjectView.tsx:171
+#: src/app/ui/components/views/ProjectView.tsx:204
 #: src/app/ui/hooks/useActions.tsx:577
 #: src/app/ui/hooks/useActions.tsx:590
 #: src/app/ui/hooks/useActions.tsx:616
@@ -268,11 +273,11 @@ msgstr "Introduction"
 msgid "Light"
 msgstr "Light"
 
-#: src/app/ui/components/import/AutoCompleteInput.tsx:171
+#: src/app/ui/components/import/AutoCompleteInput.tsx:182
 msgid "Loading..."
 msgstr "Loading..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:229
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:280
 msgid "Lock markers"
 msgstr "Lock markers"
 
@@ -284,7 +289,7 @@ msgstr "Match Case"
 #~ msgid "Never"
 #~ msgstr "Never"
 
-#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:160
+#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
 msgstr "New Project"
 
@@ -292,7 +297,7 @@ msgstr "New Project"
 msgid "No changes detected."
 msgstr "No changes detected."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:545
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:591
 msgid "No results"
 msgstr "No results"
 
@@ -326,7 +331,7 @@ msgstr "Or select a ZIP file"
 msgid "Original"
 msgstr "Original"
 
-#: src/app/routes/scaffold.tsx:60
+#: src/app/routes/scaffold.tsx:56
 msgid "Processing scaffold ZIP..."
 msgstr "Processing scaffold ZIP..."
 
@@ -334,11 +339,11 @@ msgstr "Processing scaffold ZIP..."
 #~ msgid "Project & Settings"
 #~ msgstr "Project & Settings"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:166
+#: src/app/ui/components/blocks/ProjectRow.tsx:167
 msgid "Project display name"
 msgstr "Project display name"
 
-#: src/app/routes/index.tsx:100
+#: src/app/routes/index.tsx:102
 msgid "Project downloaded successfully!"
 msgstr "Project downloaded successfully!"
 
@@ -400,7 +405,7 @@ msgstr "Review and save changes"
 msgid "Review Changes Before Saving"
 msgstr "Review Changes Before Saving"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:176
+#: src/app/ui/components/blocks/ProjectRow.tsx:177
 msgid "Save"
 msgstr "Save"
 
@@ -408,23 +413,23 @@ msgstr "Save"
 msgid "Save all changes"
 msgstr "Save all changes"
 
-#: src/app/routes/scaffold.tsx:110
+#: src/app/routes/scaffold.tsx:108
 msgid "Scaffold Error"
 msgstr "Scaffold Error"
 
-#: src/app/routes/scaffold.tsx:148
+#: src/app/routes/scaffold.tsx:147
 msgid "Scaffold from WACS URL"
 msgstr "Scaffold from WACS URL"
 
-#: src/app/routes/scaffold.tsx:71
+#: src/app/routes/scaffold.tsx:69
 msgid "Scaffold process completed successfully!"
 msgstr "Scaffold process completed successfully!"
 
-#: src/app/routes/scaffold.tsx:176
+#: src/app/routes/scaffold.tsx:175
 msgid "Scaffold Project"
 msgstr "Scaffold Project"
 
-#: src/app/routes/scaffold.tsx:75
+#: src/app/routes/scaffold.tsx:73
 msgid "Scaffold project created successfully! We will now navigate to the project."
 msgstr "Scaffold project created successfully! We will now navigate to the project."
 
@@ -433,11 +438,11 @@ msgstr "Scaffold project created successfully! We will now navigate to the proje
 msgid "Search"
 msgstr "Search"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:152
+#: src/app/ui/components/blocks/ReferencePicker.tsx:154
 msgid "Search (e.g. Mat 9, 1Co 1)"
 msgstr "Search (e.g. Mat 9, 1Co 1)"
 
-#: src/app/ui/components/import/LanguageApiImporter.tsx:124
+#: src/app/ui/components/import/LanguageApiImporter.tsx:138
 msgid "Search by language"
 msgstr "Search by language"
 
@@ -453,7 +458,7 @@ msgstr "Search for a scripture repository"
 #~ msgid "Search for an organization or user..."
 #~ msgstr "Search for an organization or user..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:516
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:562
 msgid "Search…"
 msgstr "Search…"
 
@@ -470,11 +475,11 @@ msgstr "Select"
 #~ msgid "Select Project"
 #~ msgstr "Select Project"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:66
+#: src/app/ui/components/blocks/Toolbar.tsx:86
 msgid "Select reference project"
 msgstr "Select reference project"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:54
+#: src/app/ui/components/blocks/Toolbar.tsx:74
 msgid "Select Reference Project"
 msgstr "Select Reference Project"
 
@@ -482,10 +487,10 @@ msgstr "Select Reference Project"
 msgid "Settings"
 msgstr "Settings"
 
-#: src/app/routes/index.tsx:101
-#: src/app/routes/index.tsx:138
-#: src/app/routes/index.tsx:173
-#: src/app/routes/scaffold.tsx:76
+#: src/app/routes/index.tsx:103
+#: src/app/routes/index.tsx:142
+#: src/app/routes/index.tsx:179
+#: src/app/routes/scaffold.tsx:74
 msgid "Success"
 msgstr "Success"
 
@@ -509,13 +514,13 @@ msgstr "Text size"
 #~ msgid "Theme"
 #~ msgstr "Theme"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:247
-#: src/app/ui/components/views/ProjectView.tsx:181
-#: src/app/ui/components/views/ProjectView.tsx:214
+#: src/app/ui/components/blocks/ReferencePicker.tsx:265
+#: src/app/ui/components/views/ProjectView.tsx:182
+#: src/app/ui/components/views/ProjectView.tsx:215
 msgid "This is introductory material for this book"
 msgstr "This is introductory material for this book"
 
-#: src/app/ui/components/blocks/ProjectRow.tsx:203
+#: src/app/ui/components/blocks/ProjectRow.tsx:204
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "This will remove files from disk and delete the project's metadata from the local database."
 
@@ -523,7 +528,7 @@ msgstr "This will remove files from disk and delete the project's metadata from 
 #~ msgid "Toggle dark theme"
 #~ msgstr "Toggle dark theme"
 
-#: src/app/ui/components/import/LanguageApiImporter.tsx:125
+#: src/app/ui/components/import/LanguageApiImporter.tsx:139
 msgid "Type to search for a language..."
 msgstr "Type to search for a language..."
 
@@ -534,7 +539,7 @@ msgstr "Type to search for a language..."
 msgid "Undo Change"
 msgstr "Undo Change"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:240
+#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:291
 msgid "Unlock markers"
 msgstr "Unlock markers"
 
@@ -554,7 +559,7 @@ msgstr "USFM — shows special metadata (such as chapter and verse markers) and 
 msgid "USFM Editor"
 msgstr "USFM Editor"
 
-#: src/app/routes/scaffold.tsx:155
+#: src/app/routes/scaffold.tsx:154
 msgid "WACS ZIP URL"
 msgstr "WACS ZIP URL"
 

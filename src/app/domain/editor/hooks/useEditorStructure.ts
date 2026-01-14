@@ -9,7 +9,7 @@ import {
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
-const sixtyFPS = 16;
+const changeListenerDebounceMs = 100;
 const structuralUpdateDebounceMs = 1000;
 
 /**
@@ -44,7 +44,7 @@ export function useEditorStructure(editor: LexicalEditor) {
                 console.timeEnd("throttledEditorChangeListener");
             });
         },
-        sixtyFPS,
+        changeListenerDebounceMs,
     );
 
     useEffect(() => {
