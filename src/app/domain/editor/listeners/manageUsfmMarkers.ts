@@ -223,7 +223,6 @@ function $insertVerse(args: BaseInsertArgs): void {
     const { anchorNode, marker, isStartOfLine, markersMutableState } = args;
 
     const context = $getInsertionContext(anchorNode);
-    const prevVerseEnd = context.prevSidInfo?.verseEnd ?? 1;
 
     // Create nodes
     const markerNode = $createMarkerNode({
@@ -233,20 +232,17 @@ function $insertVerse(args: BaseInsertArgs): void {
         tokenType: UsfmTokenTypes.marker,
         sid: context.newSid,
     });
-    const verseRangeNode = $createContextTextNode({
-        text: ` ${prevVerseEnd + 1}`,
-        context,
-        tokenType: UsfmTokenTypes.numberRange,
-        extraProps: {
-            isMutable:
-                markersMutableState === EditorMarkersMutableStates.MUTABLE,
-        },
-    });
-    const blankTextNode = $createContextTextNode({
-        text: " ",
-        context,
-        tokenType: UsfmTokenTypes.text,
-    });
+
+    const createEmptyNumberRange = () =>
+        $createContextTextNode({
+            text: " ",
+            context,
+            tokenType: UsfmTokenTypes.numberRange,
+            extraProps: {
+                isMutable:
+                    markersMutableState === EditorMarkersMutableStates.MUTABLE,
+            },
+        });
 
     if (!isStartOfLine) {
         // Mid-line insertion
@@ -259,30 +255,30 @@ function $insertVerse(args: BaseInsertArgs): void {
         if ($isUSFMTextNode(right)) right.setSid(context.newSid);
 
         left.insertAfter(markerNode);
-        markerNode.insertAfter(verseRangeNode);
+
+        const numberRange = createEmptyNumberRange();
+        markerNode.insertAfter(numberRange);
+
         right?.setTextContent(` ${right.getTextContent().trimStart()}`);
 
-        if (!right) {
-            verseRangeNode.selectEnd();
-        } else {
-            right.selectStart();
-        }
+        numberRange.select();
     } else {
         // Start of line insertion
         const sibling = anchorNode.getNextSibling();
         anchorNode.replace(markerNode);
 
-        const alreadyHasVerseRangeSibling =
+        // check if there is a number range sibling already?
+        // If so, select it. If not, create an empty one and select it.
+        if (
             sibling &&
             $isUSFMTextNode(sibling) &&
-            sibling.getTokenType() === UsfmTokenTypes.numberRange;
-
-        if (!alreadyHasVerseRangeSibling) {
-            markerNode.insertAfter(verseRangeNode);
-            verseRangeNode.insertAfter(blankTextNode);
-            blankTextNode.select();
+            sibling.getTokenType() === UsfmTokenTypes.numberRange
+        ) {
+            sibling.selectStart();
         } else {
-            sibling?.selectStart();
+            const numberRange = createEmptyNumberRange();
+            markerNode.insertAfter(numberRange);
+            numberRange.select();
         }
     }
 }
@@ -295,7 +291,6 @@ function $insertChapter(args: BaseInsertArgs): void {
     const { anchorNode, marker, isStartOfLine, markersMutableState } = args;
 
     const context = $getInsertionContext(anchorNode);
-    const nextChapter = (context.prevSidInfo?.chapter ?? 0) + 1;
 
     // Create nodes
     const markerNode = $createMarkerNode({
@@ -305,20 +300,17 @@ function $insertChapter(args: BaseInsertArgs): void {
         tokenType: UsfmTokenTypes.marker,
         sid: context.currentSidAsString,
     });
-    const chapterRangeNode = $createContextTextNode({
-        text: ` ${nextChapter}`,
-        context,
-        tokenType: UsfmTokenTypes.numberRange,
-        extraProps: {
-            isMutable:
-                markersMutableState === EditorMarkersMutableStates.MUTABLE,
-        },
-    });
-    const blankTextNode = $createContextTextNode({
-        text: " ",
-        context,
-        tokenType: UsfmTokenTypes.text,
-    });
+
+    const createEmptyNumberRange = () =>
+        $createContextTextNode({
+            text: " ",
+            context,
+            tokenType: UsfmTokenTypes.numberRange,
+            extraProps: {
+                isMutable:
+                    markersMutableState === EditorMarkersMutableStates.MUTABLE,
+            },
+        });
 
     if (!isStartOfLine) {
         // Chapter must be at start of line - split and insert linebreak
@@ -335,16 +327,29 @@ function $insertChapter(args: BaseInsertArgs): void {
         lineBreakNode.insertAfter(markerNode);
 
         if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+
+        const numberRange = createEmptyNumberRange();
+        markerNode.insertAfter(numberRange);
+        numberRange.select();
     } else {
         // Ensure linebreak before
         $ensureLineBreakBefore(anchorNode);
         anchorNode.replace(markerNode);
-    }
 
-    // Always add chapter number and blank text
-    markerNode.insertAfter(chapterRangeNode);
-    chapterRangeNode.insertAfter(blankTextNode);
-    blankTextNode.select();
+        const sibling = markerNode.getNextSibling();
+
+        if (
+            sibling &&
+            $isUSFMTextNode(sibling) &&
+            sibling.getTokenType() === UsfmTokenTypes.numberRange
+        ) {
+            sibling.selectStart();
+        } else {
+            const numberRange = createEmptyNumberRange();
+            markerNode.insertAfter(numberRange);
+            numberRange.select();
+        }
+    }
 }
 
 // ============================================================================
