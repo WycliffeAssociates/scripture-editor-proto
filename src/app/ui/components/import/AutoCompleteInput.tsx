@@ -74,7 +74,6 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = (props) => {
         return props.results?.flatMap((group) => group.items) || [];
     }, [props.results]);
 
-    // Solid's handleKeyDown converts from Solid's KeyboardEvent to React's KeyboardEvent<HTMLInputElement>
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         const results = flattenedResults;
         if (e.key === "ArrowDown") {

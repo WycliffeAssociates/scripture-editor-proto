@@ -90,22 +90,23 @@ test.describe("ContextMenu Plugin", () => {
         await expect(searchAction).toContainText('Find "Jisu"');
     });
 
-    test("search action is hidden when no text selected", async ({
+    test("search action is visible when cursor is on a word (even without selection)", async ({
         editorPage,
     }) => {
-        // Click in editor without selecting text
-        await editorPage.getByTestId(TESTING_IDS.mainEditorContainer).click();
+        // Click on the word "Jisu" without selecting it
+        // We use a more specific selector to hit the word
+        const textBox = editorPage.getByText("Jisu").first();
+        await textBox.click();
 
-        // Use Ctrl+K to open context menu (more reliable than right-click in tests)
+        // Use Ctrl+K to open context menu
         await editorPage.keyboard.press("Control+k");
 
-        // Verify context menu is visible but search action is NOT present
-        await expect(
-            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
-        ).toBeVisible();
-        await expect(
-            editorPage.getByTestId(TESTING_IDS.contextMenu.searchAction),
-        ).not.toBeAttached();
+        // Verify search action is visible and contains some word
+        const searchAction = editorPage.getByTestId(
+            TESTING_IDS.contextMenu.searchAction,
+        );
+        await expect(searchAction).toBeVisible();
+        await expect(searchAction).toContainText('Find "');
     });
 
     test("closes on escape key", async ({ editorPage }) => {

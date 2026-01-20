@@ -41,3 +41,6 @@ scratchings.md
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# AI tmp
+/agent-tmp

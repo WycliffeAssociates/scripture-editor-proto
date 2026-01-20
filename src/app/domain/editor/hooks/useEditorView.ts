@@ -2,6 +2,7 @@ import type { LexicalEditor, NodeKey } from "lexical";
 import { useEffect, useRef } from "react";
 import {
     EDITOR_TAGS_USED,
+    EditorMarkersMutableStates,
     EditorMarkersViewStates,
     EditorModes,
 } from "@/app/data/editor.ts";
@@ -51,8 +52,13 @@ export function useEditorView(editor: LexicalEditor) {
         // Register update listener for cursor correction
         const cursorCorrectionUnregister = editor.registerUpdateListener(
             ({ editorState, tags }) => {
-                // Early exit if not in Regular mode (WYSIWYG)
-                if (mode !== EditorModes.WYSIWYG) return;
+                // Early exit if not in Regular mode (WYSIWYG + Immutable markers)
+                if (
+                    mode !== EditorModes.WYSIWYG ||
+                    markersMutableState !== EditorMarkersMutableStates.IMMUTABLE
+                ) {
+                    return;
+                }
 
                 // Skip if this was triggered programmatically
                 if (tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)) return;

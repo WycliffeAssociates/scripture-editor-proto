@@ -1,6 +1,6 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useEffect, useRef } from "react";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import {
