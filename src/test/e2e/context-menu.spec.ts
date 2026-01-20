@@ -148,4 +148,37 @@ test.describe("ContextMenu Plugin", () => {
             editorPage.getByTestId(TESTING_IDS.contextMenu.container),
         ).not.toBeVisible();
     });
+
+    test("multi-step action: change marker to", async ({ editorPage }) => {
+        // 1. Click in editor to position cursor near a marker (e.g. verse 1)
+        const textBox = editorPage.getByText("Ai vola ni kawa i Jisu").first();
+        await textBox.click();
+
+        // 2. Open Action Palette
+        await editorPage.keyboard.press("Control+k");
+
+        // 3. Select "Change previous marker to..."
+        // We search for it to make sure it's filtered/selected
+        await editorPage.keyboard.type("Change previous");
+        await editorPage.keyboard.press("Enter");
+
+        // 4. Verify Pill UI appeared
+        await expect(editorPage.locator(".mantine-Pill-root")).toBeVisible();
+        await expect(editorPage.locator(".mantine-Pill-root")).toContainText(
+            "Change previous marker to...",
+        );
+
+        // 5. Select "Margin Paragraph" from the second step
+        await editorPage.keyboard.type("Margin");
+        await editorPage.keyboard.press("Enter");
+
+        // 6. Verify palette closed
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).not.toBeVisible();
+
+        // 7. Verify node change (this is tricky in E2E without deep inspection,
+        // but we can check for the presence of \m in source mode if needed,
+        // or just verify no errors occurred)
+    });
 });

@@ -1,7 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getSelection, $isRangeSelection } from "lexical";
 import { useCallback } from "react";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { $isUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import type { EditorContext } from "../actions/types.ts";
@@ -59,16 +59,13 @@ export function useEditorContext() {
             if ($isRangeSelection(selection)) {
                 const node = selection.anchor.getNode();
 
-                // Traverse up to build node path and find metadata
+                // 1. Traverse up to build node path and find metadata
                 let curr: any = node;
                 while (curr) {
                     const type = curr.getType();
                     nodePath.push(type);
 
-                    if (
-                        $isUSFMTextNode(curr) ||
-                        curr instanceof USFMElementNode
-                    ) {
+                    if ($isUSFMTextNode(curr) || $isUSFMElementNode(curr)) {
                         const marker = curr.getMarker();
                         if (marker) {
                             if (!currentMarker) currentMarker = marker;
@@ -78,6 +75,38 @@ export function useEditorContext() {
                         if (sid && !currentVerse) currentVerse = sid;
                     }
                     curr = curr.getParent();
+                }
+
+                // 2. If no marker found in ancestors, search backward from current position
+                if (!currentMarker) {
+                    let searchCurr: any = node;
+                    while (searchCurr) {
+                        if (
+                            $isUSFMTextNode(searchCurr) &&
+                            searchCurr.getTokenType() === "marker"
+                        ) {
+                            currentMarker = searchCurr.getMarker();
+                            break;
+                        }
+                        const prev = searchCurr.getPreviousSibling();
+                        if (prev) {
+                            searchCurr = prev;
+                        } else {
+                            // If no siblings left, try parent (though ancestors were already checked)
+                            // or stop if we hit something that shouldn't be crossed
+                            searchCurr = searchCurr.getParent();
+                            if ($isUSFMElementNode(searchCurr)) {
+                                const m = searchCurr.getMarker();
+                                if (m) {
+                                    currentMarker = m;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Safety break to avoid infinite loop or searching too far
+                        if (nodePath.length > 50) break;
+                    }
                 }
             }
 

@@ -5,12 +5,20 @@ import {
     $isRangeSelection,
     type LexicalEditor,
 } from "lexical";
-import { AlignLeft, Hash, IndentIncrease, Pilcrow, Type } from "lucide-react";
+import {
+    AlignLeft,
+    Edit3,
+    Hash,
+    IndentIncrease,
+    Pilcrow,
+    Type,
+} from "lucide-react";
 import React from "react";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
+    type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { EditorAction } from "./types.ts";
@@ -64,7 +72,61 @@ export function createMarkerAction(
     };
 }
 
+export const AVAILABLE_MARKERS_FOR_CHANGE = [
+    { label: "Verse", value: "v" },
+    { label: "Paragraph", value: "p" },
+    { label: "Margin Paragraph", value: "m" },
+    { label: "Chapter Label", value: "cl" },
+    { label: "Poetry (Level 1)", value: "q1" },
+    { label: "Poetry (Level 2)", value: "q2" },
+    { label: "Poetry (Level 3)", value: "q3" },
+    { label: "Section Heading", value: "s" },
+    { label: "Descriptive Title", value: "d" },
+];
+
+export const CHANGE_MARKER_ACTION: EditorAction = {
+    id: "change-marker",
+    label: "Change previous marker to...",
+    category: "Markers",
+    icon: React.createElement(Edit3, { size: 16 }),
+    isVisible: (context) => !!context.currentMarker,
+    execute: () => ({
+        id: "select-new-marker",
+        label: "Select new marker",
+        type: "select",
+        options: AVAILABLE_MARKERS_FOR_CHANGE,
+        onComplete: (newValue) => {
+            const selection = $getSelection();
+            if (!$isRangeSelection(selection)) return;
+
+            const anchorNode = selection.anchor.getNode();
+            let markerNode: USFMTextNode | null = null;
+
+            // Search backward for the nearest marker node
+            let curr: any = anchorNode;
+            while (curr) {
+                if ($isUSFMTextNode(curr) && curr.getTokenType() === "marker") {
+                    markerNode = curr;
+                    break;
+                }
+                const prev = curr.getPreviousSibling();
+                if (prev) {
+                    curr = prev;
+                } else {
+                    curr = curr.getParent();
+                }
+            }
+
+            if (markerNode) {
+                markerNode.setMarker(newValue);
+                markerNode.setTextContent(`\\${newValue} `);
+            }
+        },
+    }),
+};
+
 export const MARKER_ACTIONS: EditorAction[] = [
+    CHANGE_MARKER_ACTION,
     createMarkerAction(
         "insert-v",
         "Verse",

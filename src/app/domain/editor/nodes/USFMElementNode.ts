@@ -1,5 +1,6 @@
 import type {
     EditorConfig,
+    LexicalNode,
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
@@ -160,6 +161,12 @@ export class USFMElementNode extends ElementNode {
 }
 
 /* type guards */
+
+export function $isUSFMElementNode(
+    node: LexicalNode | null | undefined,
+): node is USFMElementNode {
+    return node instanceof USFMElementNode;
+}
 
 export function isSerializedElementNode(
     node: SerializedLexicalNode,

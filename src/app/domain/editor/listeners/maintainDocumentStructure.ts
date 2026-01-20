@@ -410,6 +410,8 @@ const ensureMarkersAreClean: MainDocumentStrutureFxn = ({
         const nextSibling = node.getNextSibling();
 
         let shouldSplit = false;
+        let shouldTrim = false;
+
         if (hasAdditionalText) {
             // e.g. "\p hello"
             // User says this is the invalid pattern we are after.
@@ -420,6 +422,10 @@ const ensureMarkersAreClean: MainDocumentStrutureFxn = ({
             const nextIsNR = $isVerseRangeTextNode(nextSibling);
             if (!(isChapterOrVerse && nextIsNR)) {
                 shouldSplit = true;
+            } else if (textContent.endsWith(" ")) {
+                // e.g. "\v 1" where "\v " is the marker and " 1" is the NR.
+                // We should trim the marker to avoid double space.
+                shouldTrim = true;
             }
         } else {
             // e.g. "\p " (only spaces)
@@ -427,20 +433,18 @@ const ensureMarkersAreClean: MainDocumentStrutureFxn = ({
             // "Do nothing if it's just a linebreak next sibling."
             if (!nextSibling) {
                 shouldSplit = true;
-            } else if (
-                !$isLineBreakNode(nextSibling) &&
-                !$isVerseRangeTextNode(nextSibling) &&
-                $isUSFMTextNode(nextSibling) &&
-                nextSibling.getTokenType() !== UsfmTokenTypes.text
-            ) {
-                // If it's something else like another marker, we should probably split to keep them separate
-                shouldSplit = true;
+            } else if ($isLineBreakNode(nextSibling)) {
+                // Do nothing
+            } else {
+                // If there is any other next sibling, the marker should be clean.
+                // ensureStructuralSpaces will ensure the next sibling has the necessary space.
+                shouldTrim = true;
             }
         }
 
         if (shouldSplit) {
             updates.push({
-                dbgLabel: "ensureMarkersAreClean",
+                dbgLabel: "ensureMarkersAreClean_split",
                 update: () => {
                     const latest = node.getLatest();
                     if (!$isUSFMTextNode(latest)) return;
@@ -454,6 +458,21 @@ const ensureMarkersAreClean: MainDocumentStrutureFxn = ({
                             markerTrimNoSlash(left.getTextContent()),
                         );
                     }
+                },
+            });
+            return;
+        }
+
+        if (shouldTrim) {
+            updates.push({
+                dbgLabel: "ensureMarkersAreClean_trim",
+                update: () => {
+                    const latest = node.getLatest();
+                    if (!$isUSFMTextNode(latest)) return;
+                    latest.setTextContent(textContent.trimEnd());
+                    latest.setMarker(
+                        markerTrimNoSlash(latest.getTextContent()),
+                    );
                 },
             });
             return;

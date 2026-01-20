@@ -121,6 +121,32 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
         }
     };
 
+    const [stepSearch, setStepSearch] = useState("");
+    const stepCombobox = useCombobox({
+        onDropdownClose: () => {
+            stepCombobox.resetSelectedOption();
+        },
+    });
+
+    const filteredStepOptions = useMemo(() => {
+        if (!activeStep || !activeStep.options) return [];
+        const s = stepSearch.toLowerCase();
+        return activeStep.options.filter((opt) =>
+            opt.label.toLowerCase().includes(s),
+        );
+    }, [activeStep, stepSearch]);
+
+    // Auto-focus step search and select first option
+    useEffect(() => {
+        if (activeStep && activeStep.type === "select") {
+            stepCombobox.focusTarget();
+            stepCombobox.openDropdown();
+            if (filteredStepOptions.length > 0) {
+                stepCombobox.selectFirstOption();
+            }
+        }
+    }, [activeStep, filteredStepOptions, stepCombobox]);
+
     const handleStepComplete = (value: string) => {
         if (activeStep) {
             editor.update(() => {
@@ -132,32 +158,36 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
 
     // Auto-focus search on mount and sync dropdown state
     useEffect(() => {
-        combobox.focusTarget();
-        combobox.openDropdown();
-    }, [combobox]);
+        if (!activeStep) {
+            combobox.focusTarget();
+            combobox.openDropdown();
+        }
+    }, [combobox, activeStep]);
 
     // Select first option when filtered actions change (VS Code style)
     useEffect(() => {
-        if (filteredActions.length > 0) {
+        if (!activeStep && filteredActions.length > 0) {
             combobox.selectFirstOption();
         }
-    }, [filteredActions, combobox]);
+    }, [filteredActions, combobox, activeStep]);
 
     const handleKeyDown = (event: React.KeyboardEvent) => {
         if (event.key === "Escape") {
             onClose();
         }
-        if (event.key === "Backspace" && search === "") {
+        if (event.key === "Backspace" && search === "" && !activeStep) {
             onClose();
         }
         if (event.key === "Tab") {
             event.preventDefault();
-            combobox.selectNextOption();
+            if (activeStep && activeStep.type === "select") {
+                stepCombobox.selectNextOption();
+            } else {
+                combobox.selectNextOption();
+            }
         }
         if (event.key === "ArrowDown") {
-            // Mantine handles ArrowDown by default.
-            // Since we call combobox.openDropdown() on mount,
-            // the first ArrowDown will now correctly move to the 1st item.
+            // Mantine handles ArrowDown by default for both comboboxes
         }
     };
 
@@ -170,6 +200,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                         onRemove={() => {
                             setActiveStep(null);
                             setActiveAction(null);
+                            setStepSearch("");
                         }}
                     >
                         {activeAction
@@ -179,19 +210,80 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                             : ""}
                     </Pill>
                 </div>
-                <TextInput
-                    placeholder={activeStep.placeholder || "Enter value..."}
-                    autoFocus
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            handleStepComplete(e.currentTarget.value);
-                        }
-                        if (e.key === "Escape") {
-                            setActiveStep(null);
-                            setActiveAction(null);
-                        }
-                    }}
-                />
+                {activeStep.type === "input" ? (
+                    <TextInput
+                        className={classes.searchInput}
+                        variant="unstyled"
+                        placeholder={activeStep.placeholder || "Enter value..."}
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleStepComplete(e.currentTarget.value);
+                            }
+                            if (e.key === "Escape") {
+                                setActiveStep(null);
+                                setActiveAction(null);
+                            }
+                        }}
+                    />
+                ) : (
+                    <Combobox
+                        store={stepCombobox}
+                        onOptionSubmit={(val) => {
+                            handleStepComplete(val);
+                        }}
+                    >
+                        <Combobox.Target>
+                            <TextInput
+                                className={classes.searchInput}
+                                variant="unstyled"
+                                placeholder={
+                                    activeStep.placeholder || "Search..."
+                                }
+                                value={stepSearch}
+                                onChange={(e) =>
+                                    setStepSearch(e.currentTarget.value)
+                                }
+                                onKeyDown={(e) => {
+                                    if (e.key === "Escape") {
+                                        setActiveStep(null);
+                                        setActiveAction(null);
+                                    }
+                                    if (
+                                        e.key === "Backspace" &&
+                                        stepSearch === ""
+                                    ) {
+                                        setActiveStep(null);
+                                        setActiveAction(null);
+                                    }
+                                }}
+                            />
+                        </Combobox.Target>
+                        <ScrollArea.Autosize mah={400} type="scroll">
+                            <Combobox.Options>
+                                {filteredStepOptions.map((opt) => (
+                                    <Combobox.Option
+                                        value={opt.value}
+                                        key={opt.value}
+                                        className={classes.item}
+                                    >
+                                        <Text size="sm">{opt.label}</Text>
+                                    </Combobox.Option>
+                                ))}
+                                {filteredStepOptions.length === 0 && (
+                                    <Text
+                                        size="sm"
+                                        c="dimmed"
+                                        ta="center"
+                                        py="xl"
+                                    >
+                                        No results found
+                                    </Text>
+                                )}
+                            </Combobox.Options>
+                        </ScrollArea.Autosize>
+                    </Combobox>
+                )}
             </div>
         );
     }
