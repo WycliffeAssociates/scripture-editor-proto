@@ -26,7 +26,7 @@ export type DocStructureFxnArgs = {
     updates: Array<{
         dbgLabel: string;
         dbgDetail?: string;
-        update: () => void;
+        run: () => void;
     }>;
 };
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
@@ -39,7 +39,7 @@ export function maintainDocumentStructure(
 ) {
     const updates: Array<{
         dbgLabel: string;
-        update: () => void;
+        run: () => void;
     }> = [];
 
     editorState.read(() => {
@@ -74,8 +74,8 @@ export function maintainDocumentStructure(
         console.log(`maintain documnet structure updates ${updates.length}`);
         editor.update(() => {
             updates.forEach(
-                (update) => {
-                    update.update();
+                (u) => {
+                    u.run();
                 },
                 {
                     tag: [
@@ -97,7 +97,7 @@ export function maintainDocumentStructureDebounced(
 ) {
     const updates: Array<{
         dbgLabel: string;
-        update: () => void;
+        run: () => void;
     }> = [];
 
     editorState.read(() => {
@@ -113,8 +113,8 @@ export function maintainDocumentStructureDebounced(
         );
         editor.update(() => {
             updates.forEach(
-                (update) => {
-                    update.update();
+                (u) => {
+                    u.run();
                 },
                 {
                     tag: [
@@ -151,18 +151,17 @@ const ensureCharOpensHaveEditableNextSibling: MainDocumentStrutureFxn = ({
     ) {
         return;
     }
-    const update = () => {
-        const emptySibling = $createUSFMTextNode(" ", {
-            id: guidGenerator(),
-            sid: node.getSid().trim(),
-            inPara: node.getInPara(),
-            tokenType: UsfmTokenTypes.text,
-        });
-        node.insertAfter(emptySibling);
-    };
     updates.push({
         dbgLabel: "ensureCharOpensHaveEditableNextSibling",
-        update,
+        run: () => {
+            const emptySibling = $createUSFMTextNode(" ", {
+                id: guidGenerator(),
+                sid: node.getSid().trim(),
+                inPara: node.getInPara(),
+                tokenType: UsfmTokenTypes.text,
+            });
+            node.insertAfter(emptySibling);
+        },
     });
 };
 const ensureCharCloseHasEditableNextSibling: MainDocumentStrutureFxn = ({
@@ -182,18 +181,17 @@ const ensureCharCloseHasEditableNextSibling: MainDocumentStrutureFxn = ({
     ) {
         return;
     }
-    const update = () => {
-        const emptySibling = $createUSFMTextNode(" ", {
-            id: guidGenerator(),
-            sid: node.getSid().trim(),
-            inPara: node.getInPara(),
-            tokenType: UsfmTokenTypes.text,
-        });
-        node.insertAfter(emptySibling);
-    };
     updates.push({
         dbgLabel: "ensureCharCloseHasEditableNextSibling",
-        update,
+        run: () => {
+            const emptySibling = $createUSFMTextNode(" ", {
+                id: guidGenerator(),
+                sid: node.getSid().trim(),
+                inPara: node.getInPara(),
+                tokenType: UsfmTokenTypes.text,
+            });
+            node.insertAfter(emptySibling);
+        },
     });
 };
 
@@ -225,21 +223,19 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
         // If it's an orphaned numberRange (not preceded by a valid marker)
         if (!node.getTextContent().trim().length) {
             // If empty, remove it
-            const update = () => {
-                node.remove();
-            };
             updates.push({
                 dbgLabel: "removeOrphanedEmptyNumberRange",
-                update,
+                run: () => {
+                    node.remove();
+                },
             });
         } else {
             // If it has content, convert it to plain text so it's not lost but doesn't break structure
-            const update = () => {
-                node.setTokenType(UsfmTokenTypes.text);
-            };
             updates.push({
                 dbgLabel: "convertOrphanedNumberRangeToText",
-                update,
+                run: () => {
+                    node.setTokenType(UsfmTokenTypes.text);
+                },
             });
         }
     }
@@ -277,24 +273,23 @@ const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
             const startsWithNumber = /^\d/.test(nextText);
 
             if (startsWithNumber) {
-                const update = () => {
-                    // Extract just the number from next sibling
-                    const numberMatch = nextText.match(/^(\d+)/);
-                    if (!numberMatch) return;
-
-                    // Move only the number to the empty numberRange
-                    node.setTextContent(numberMatch[1]);
-                    node.selectEnd();
-
-                    // Clear the next sibling (now empty)
-                    const nextContentSansNumber = nextText.slice(
-                        numberMatch[0].length,
-                    );
-                    nextSibling.setTextContent(nextContentSansNumber);
-                };
                 updates.push({
                     dbgLabel: "fixNumberRangeReparenting",
-                    update,
+                    run: () => {
+                        // Extract just the number from next sibling
+                        const numberMatch = nextText.match(/^(\d+)/);
+                        if (!numberMatch) return;
+
+                        // Move only the number to the empty numberRange
+                        node.setTextContent(numberMatch[1]);
+                        node.selectEnd();
+
+                        // Clear the next sibling (now empty)
+                        const nextContentSansNumber = nextText.slice(
+                            numberMatch[0].length,
+                        );
+                        nextSibling.setTextContent(nextContentSansNumber);
+                    },
                 });
             }
         }
@@ -313,18 +308,17 @@ const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn 
         if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
         const nextSiblingToken = nextSibling.getTokenType();
         if (nextSiblingToken === UsfmTokenTypes.numberRange) return;
-        const update = () => {
-            const emptySibling = $createUSFMTextNode(" ", {
-                id: guidGenerator(),
-                sid: node.getSid().trim(),
-                inPara: node.getInPara(),
-                tokenType: UsfmTokenTypes.numberRange,
-            });
-            node.insertAfter(emptySibling);
-        };
         updates.push({
             dbgLabel: "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
-            update,
+            run: () => {
+                const emptySibling = $createUSFMTextNode(" ", {
+                    id: guidGenerator(),
+                    sid: node.getSid().trim(),
+                    inPara: node.getInPara(),
+                    tokenType: UsfmTokenTypes.numberRange,
+                });
+                node.insertAfter(emptySibling);
+            },
         });
     };
 const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
@@ -350,7 +344,7 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
     ) {
         updates.push({
             dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
-            update: () => {
+            run: () => {
                 const emptySibling = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
                     sid: node.getSid().trim(),
@@ -364,31 +358,12 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
     if (next && $isUSFMTextNode(next) && !next.getTextContent().length) {
         updates.push({
             dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
-            update: () => {
+            run: () => {
                 next.setTextContent(" ");
             },
         });
     }
 };
-// const ensureNodesSandwichedBetweenSameSidHasThatSid: MainDocumentStrutureFxn =
-//   ({node, tokenType, updates}) => {
-//     if (!$isUSFMTextNode(node)) return;
-//     const prevNode = node.getPreviousSibling();
-//     const nextNode = node.getNextSibling();
-//     if (!$isUSFMTextNode(prevNode) || !$isUSFMTextNode(nextNode)) return;
-//     const prevSid = prevNode.getSid();
-//     const nextSid = nextNode.getSid();
-//     const thisSid = node.getSid();
-//     if (prevSid !== nextSid) return;
-//     if (prevSid === thisSid) return;
-//     const update = () => {
-//       node.setSid(prevSid);
-//     };
-//     updates.push({
-//       dbgLabel: "ensureNodesSandwichedBetweenSameSidHasThatSid",
-//       update,
-//     });
-//   };
 
 const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
     node,
@@ -403,7 +378,7 @@ const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
         // call node.splitText(match.index)
         updates.push({
             dbgLabel: "trySplitOutMarkersFromKnownErrorTokens",
-            update: () => {
+            run: () => {
                 const [left, right] = node.splitText(match[0].length);
                 if ($isUSFMTextNode(left)) {
                     left.setTokenType(UsfmTokenTypes.marker);
@@ -458,7 +433,7 @@ const ensureSiblingsHaveAtLeastOneSpace: MainDocumentStrutureFxn = ({
 
     updates.push({
         dbgLabel: "ensureSiblingsHaveAtLeastOneSpace",
-        update: () => {
+        run: () => {
             if (nextSibling.isAttached()) {
                 const latestNext = nextSibling.getLatest();
                 if (!$isUSFMTextNode(latestNext)) return;
@@ -476,7 +451,7 @@ const mergeAdjacentTextNodesOfSameType = ({
     updates: Array<{
         dbgLabel: string;
         dbgDetail?: string;
-        update: () => void;
+        run: () => void;
     }>;
 }) => {
     const tokenTypesToMerge: Array<string> = [
@@ -520,7 +495,7 @@ const mergeAdjacentTextNodesOfSameType = ({
         const [first, ...rest] = group;
         updates.push({
             dbgLabel: "mergeAdjacentTextNodesOfSameTypeBatch",
-            update: () => {
+            run: () => {
                 const mergedText = group
                     .map((n) => n.getTextContent())
                     .join("");
@@ -569,7 +544,7 @@ const editCharOpenAndCloseTogether: MainDocumentStrutureFxn = ({
         if (matchedEnd.getTextContent().trim() !== endMatchingTxt) {
             updates.push({
                 dbgLabel: "editCharOpenAndCloseTogether",
-                update: () => {
+                run: () => {
                     // set the marker of both nodes:
                     const newMarker = markerTrimNoSlash(node.getTextContent());
                     if (ALL_CHAR_MARKERS.has(newMarker)) {

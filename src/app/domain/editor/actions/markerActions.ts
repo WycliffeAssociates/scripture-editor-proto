@@ -29,7 +29,7 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
 
-export function insertMarker(
+function insertMarker(
     editor: LexicalEditor,
     context: EditorContext,
     markerNoSlash: string,

@@ -37,26 +37,6 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     return tokens;
 };
 
-// DECIDE: MIGHT KEEP LATER
-// const removeVerticalWhiteSpaceInVerses: LintOrParseFxn<LintableToken> = (
-//   ctx: ParseContext<LintableToken>
-// ) => {
-//   const {currentToken, nextToken, twoFromCurrent, idsToFilterOut} = ctx;
-//   if (currentToken?.tokenType !== TokenMap.marker) return;
-//   if (!nextToken || nextToken.tokenType !== TokenMap.verticalWhitespace) return;
-//   if (!twoFromCurrent || twoFromCurrent.tokenType !== TokenMap.marker) return;
-
-//   // this pattern: \v {#} text BR \v {#}
-//   if (
-//     nextToken?.tokenType === TokenMap.verticalWhitespace &&
-//     twoFromCurrent?.tokenType === TokenMap.marker &&
-//     twoFromCurrent.marker === "v"
-//   ) {
-//     // remove the vertical whitespace
-//     idsToFilterOut.push(nextToken.id);
-//   }
-// };
-
 export const organizeByChapters = <T extends LintableToken>(
     parsedTokens: T[],
 ) => {
@@ -187,26 +167,6 @@ function prepareLexedToken<T extends Token | LintableToken>(
     }
 }
 
-export const LOOKAHEAD_MARKERS = new Set([
-    "v",
-    "p",
-    "m",
-    "mi",
-    "pi",
-    "q",
-    "q1",
-    "q2",
-    "q3",
-    "q4",
-    "s",
-    "s1",
-    "s2",
-    "s3",
-    "s4",
-    "s5",
-    "b",
-    "nb",
-]);
 type AssignSidArgs<T extends LintableToken> = {
     index: number;
     currentToken: T;
@@ -217,139 +177,52 @@ type AssignSidArgs<T extends LintableToken> = {
     mutCurSid: { val: string };
 };
 function assignSid<T extends LintableToken>(args: AssignSidArgs<T>) {
-    // was already assigned in a previous look ahead pass
-    if (args.currentToken.sid) return;
-    // if not a marker, and not already assigned, assign current sid
-    if (args.currentToken.tokenType !== TokenMap.marker && args.mutCurSid) {
-        args.currentToken.sid = args.mutCurSid.val;
-        return;
-    }
-    if (args.currentToken.marker === "c") {
-        const { expectedNumRangeToken: expectedNumToken } =
-            skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
-        if (!expectedNumToken) return;
-        if (expectedNumToken.tokenType === TokenMap.numberRange) {
-            args.mutCurChap.val = expectedNumToken.text;
-            const isValidNumRange = numRangeRe.test(
-                expectedNumToken.text.trim(),
-            );
-            if (!isValidNumRange) {
-                return;
+    // 1. Check if state needs updating based on current token
+    if (args.currentToken.tokenType === TokenMap.marker) {
+        const marker = args.currentToken.marker;
+        if (marker === "c") {
+            const { expectedNumRangeToken: expectedNumToken } =
+                skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
+            if (expectedNumToken?.tokenType === TokenMap.numberRange) {
+                const isValidNumRange = numRangeRe.test(
+                    expectedNumToken.text.trim(),
+                );
+                if (isValidNumRange) {
+                    args.mutCurChap.val = expectedNumToken.text;
+                    // chapters reset verses
+                    args.mutCurVerse.val = "0";
+                    const parsedNumRange = parseSid(
+                        `${args.bookCode} ${args.mutCurChap.val}:${args.mutCurVerse.val}`,
+                    );
+                    if (parsedNumRange) {
+                        args.mutCurSid.val = parsedNumRange.toSidString();
+                    }
+                }
             }
-            args.mutCurChap.val = expectedNumToken.text;
-            // chapters reset verses
-            args.mutCurVerse.val = "0";
-            const parsedNumRange = parseSid(
-                `${args.bookCode} ${args.mutCurChap.val}:${args.mutCurVerse.val}`,
-            );
-            if (!parsedNumRange) return;
-            args.mutCurSid.val = parsedNumRange.toSidString();
-            args.currentToken.sid = args.mutCurSid.val;
-            return;
+        } else if (marker === "v") {
+            const { expectedNumRangeToken: expectedNumToken } =
+                skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
+            if (expectedNumToken?.tokenType === TokenMap.numberRange) {
+                const isValidNumRange = numRangeRe.test(
+                    expectedNumToken.text.trim(),
+                );
+                if (isValidNumRange) {
+                    args.mutCurVerse.val = expectedNumToken.text;
+                    const parsedNumRange = parseSid(
+                        `${args.bookCode} ${args.mutCurChap.val}:${expectedNumToken.text}`,
+                    );
+                    if (parsedNumRange) {
+                        args.mutCurSid.val = parsedNumRange.toSidString();
+                    }
+                }
+            }
         }
     }
-    if (args.currentToken.marker === "v") {
-        const { expectedNumRangeToken: expectedNumToken } =
-            skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
-        if (!expectedNumToken) return;
-        if (expectedNumToken.tokenType === TokenMap.numberRange) {
-            args.mutCurVerse.val = expectedNumToken.text;
-            const isValidNumRange = numRangeRe.test(
-                expectedNumToken.text.trim(),
-            );
-            if (!isValidNumRange) {
-                return;
-            }
-            const parsedNumRange = parseSid(
-                `${args.bookCode} ${args.mutCurChap.val}:${expectedNumToken.text}`,
-            );
-            const newSid = parsedNumRange?.toSidString();
-            if (!newSid) return;
-            args.mutCurSid.val = newSid;
-            args.currentToken.sid = newSid;
-            return;
-        }
-    }
-    // most markers and tokens read sid backwards, so if not a look ahead marker, assign current sid
-    if (!LOOKAHEAD_MARKERS.has(args.currentToken.marker ?? "")) {
-        args.currentToken.sid = args.mutCurSid.val;
-        return;
-    }
-    // if we get here, we have a look ahead marker, so we need to walk forward until we hit a boundary condition
-    assignSidsUntilBoundaryCondition(args);
+
+    // 2. Apply current state to token
+    args.currentToken.sid = args.mutCurSid.val;
 }
 
-function assignSidsUntilBoundaryCondition<T extends LintableToken>(
-    args: AssignSidArgs<T>,
-) {
-    if (
-        args.currentToken.tokenType !== TokenMap.marker ||
-        !args.currentToken.marker
-    )
-        return;
-    // const currentMarker = currentToken.marker;
-    // from our current index + 1, walk until we hit a boundary.
-    const collectedTokens: T[] = [args.currentToken];
-    for (let i = args.index + 1; i < args.tokens.length; i++) {
-        const nextToken = args.tokens[i];
-        // looking ahead, normalize future tokens
-        prepareLexedToken(nextToken, i);
-        const nextTokenMarker = nextToken.marker;
-        // chapters are hard breaks, we never read past them;
-        if (nextTokenMarker === "c") {
-            break;
-        }
-        // don't read past plain text
-        if (
-            nextToken.tokenType === TokenMap.text &&
-            !nextToken.text.trim().length
-        ) {
-            break;
-        }
-        // don't read pass markers that don't read forward such as a \cl, which semantically makes sense to read back towards what's likely a nearest c
-        if (
-            nextToken.tokenType === TokenMap.marker &&
-            !LOOKAHEAD_MARKERS.has(nextTokenMarker ?? "")
-        ) {
-            break;
-        }
-        // if we read past a v marker, break after checking the next token to ensure it's a number range
-        if (nextTokenMarker === "v") {
-            const { expectedNumRangeToken, tokensSeen } =
-                skipSpaceLookForNextNumRange(args.tokens, i + 1);
-            tokensSeen.forEach((t) => {
-                collectedTokens.push(t);
-            });
-            if (!expectedNumRangeToken) return;
-            const candidateNextVerseNum = expectedNumRangeToken.text.trim();
-            if (
-                !candidateNextVerseNum ||
-                !numRangeRe.test(candidateNextVerseNum)
-            ) {
-                break;
-            }
-            //   if we get here, it's a v marker + valid num range, so we know their sid can be added to the forwarded walk
-            collectedTokens.push(nextToken);
-            collectedTokens.push(expectedNumRangeToken);
-            //   update ctx mut vars for sid
-            args.mutCurVerse.val = expectedNumRangeToken.text;
-            const possibleNewSid = parseSid(
-                `${args.bookCode} ${args.mutCurChap.val}:${args.mutCurVerse.val}`,
-            );
-            if (!possibleNewSid) {
-                break;
-            }
-            args.mutCurSid.val = possibleNewSid.toSidString();
-            // no further processing after handling v
-            break;
-        }
-    }
-    if (collectedTokens.length === 0) return;
-    //   we've already peeked ahead to see if we should assign a new sid, so we can just assign the sid to all collected tokens
-    collectedTokens.forEach((t) => {
-        t.sid = args.mutCurSid.val;
-    });
-}
 export type MutSidVals = ReturnType<typeof getMutSidVals>;
 export function getMutSidVals(bookCode: string) {
     return {
@@ -367,6 +240,7 @@ function skipSpaceLookForNextNumRange<T extends LintableToken>(
     tokens: T[],
     idx: number,
 ) {
+    if (idx >= tokens.length) return {};
     let expectedNumRangeToken = tokens[idx];
     // any time we go in the future, we need to do our normalization step btw token types
     prepareLexedToken(expectedNumRangeToken, idx);
@@ -374,8 +248,9 @@ function skipSpaceLookForNextNumRange<T extends LintableToken>(
     tokensSeen.push(expectedNumRangeToken);
     let tmpIdx = idx;
     while (
-        expectedNumRangeToken.tokenType === TokenMap.horizontalWhitespace ||
-        expectedNumRangeToken.tokenType === TokenMap.verticalWhitespace
+        (expectedNumRangeToken.tokenType === TokenMap.horizontalWhitespace ||
+            expectedNumRangeToken.tokenType === TokenMap.verticalWhitespace) &&
+        tmpIdx < tokens.length - 1
     ) {
         tmpIdx++;
         expectedNumRangeToken = tokens[tmpIdx];
