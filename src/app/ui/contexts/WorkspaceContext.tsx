@@ -101,8 +101,8 @@ export const ProjectProvider = ({
     const actions = useWorkspaceActions({
         editorRef,
         loadedProject,
-        currentChapter: project.currentChapter,
-        currentFileBibleIdentifier: project.currentFileBibleIdentifier,
+        currentChapter: project.pickedChapter.chapNumber,
+        currentFileBibleIdentifier: project.pickedFile.bookCode,
         setCurrentChapter: project.setCurrentChapter,
         setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
         updateAppSettings: project.updateAppSettings,

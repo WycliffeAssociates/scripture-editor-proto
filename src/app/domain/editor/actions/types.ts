@@ -23,6 +23,7 @@ export interface EditorContext {
     mode: string;
     markersViewState: string;
     markersMutableState: string;
+    languageDirection: "ltr" | "rtl";
     actions: any; // Workspace actions
     searchApi: any; // Search API
 }

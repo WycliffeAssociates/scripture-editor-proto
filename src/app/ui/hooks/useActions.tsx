@@ -77,8 +77,10 @@ export const useWorkspaceActions = ({
             (file) => file.bookCode === fileBibleIdentifier,
         );
         if (!file) return;
-        file.chapters[chap].lexicalState = newLexical;
-        file.chapters[chap].dirty = true;
+        const chapToUpdate = file.chapters.find((c) => c.chapNumber === chap);
+        if (!chapToUpdate) return;
+        chapToUpdate.lexicalState = newLexical;
+        chapToUpdate.dirty = true;
         updateDiffMapForChapter(file.bookCode, chap);
         return mutWorkingFilesRef;
     }
@@ -147,7 +149,6 @@ export const useWorkspaceActions = ({
         ) {
             return chapterState;
         }
-
         if (!chapterState) return;
         setEditorContent(fileBibleIdentifier, chapterToSave, chapterState);
 
@@ -361,74 +362,93 @@ export const useWorkspaceActions = ({
     };
 
     const determineNextChapter = () => {
-        if (!pickedFile || (!currentChapter && currentChapter !== 0))
+        if (!pickedFile || !pickedFile.chapters.length)
             return {
                 hasNext: false,
                 go: () => {},
             };
-        if (currentChapter === pickedFile.chapters.length - 1) {
-            const nextBookId = pickedFile.nextBookId;
-            const firstChap = 0;
+        const currentIndex = pickedFile.chapters.findIndex(
+            (ch) => ch.chapNumber === currentChapter,
+        );
+        if (currentIndex === -1)
             return {
-                hasNext: !!nextBookId,
-                display: t`Introduction`,
-                go: () =>
-                    switchBookOrChapter(
-                        nextBookId || pickedFile.bookCode,
-                        firstChap,
-                    ),
+                hasNext: false,
+                go: () => {},
             };
-        } else {
+        if (currentIndex === pickedFile.chapters.length - 1) {
+            const nextBookId = pickedFile.nextBookId;
+            if (!nextBookId)
+                return {
+                    hasNext: false,
+                    go: () => {},
+                };
+            const nextBook = mutWorkingFilesRef.find(
+                (file) => file.bookCode === nextBookId,
+            );
+            if (!nextBook || !nextBook.chapters?.length)
+                return {
+                    hasNext: false,
+                    go: () => {},
+                };
+            const firstChap = nextBook.chapters[0].chapNumber;
             return {
                 hasNext: true,
-                display: `${getChapterDisplay(currentChapter + 1)}`,
-                go: () =>
-                    switchBookOrChapter(
-                        pickedFile.bookCode,
-                        currentChapter + 1,
-                    ),
+                display: t`Introduction`,
+                go: () => switchBookOrChapter(nextBookId, firstChap),
+            };
+        } else {
+            const nextChap = pickedFile.chapters[currentIndex + 1].chapNumber;
+            return {
+                hasNext: true,
+                display: `${getChapterDisplay(nextChap)}`,
+                go: () => switchBookOrChapter(pickedFile.bookCode, nextChap),
             };
         }
     };
 
     const determinePrevChapter = () => {
-        if (!pickedFile || (!currentChapter && currentChapter !== 0))
+        if (!pickedFile || !pickedFile.chapters.length)
             return {
                 hasPrev: false,
                 go: () => {},
             };
-        if (currentChapter === 0) {
+        const currentIndex = pickedFile.chapters.findIndex(
+            (ch) => ch.chapNumber === currentChapter,
+        );
+        if (currentIndex === -1)
+            return {
+                hasPrev: false,
+                go: () => {},
+            };
+        if (currentIndex === 0) {
             const prevBookId = pickedFile.prevBookId;
+            if (!prevBookId)
+                return {
+                    hasPrev: false,
+                    go: () => {},
+                };
             const prevBook = mutWorkingFilesRef.find(
                 (file) => file.bookCode === prevBookId,
             );
             if (!prevBook || !prevBook.chapters?.length)
                 return {
                     hasPrev: false,
-                    prevBookName: null,
-                    prevChapNum: null,
                     go: () => {},
                 };
-            const lastChap = prevBook.chapters.length - 1;
+            const lastChap =
+                prevBook.chapters[prevBook.chapters.length - 1].chapNumber;
             const title = prevBook.title || prevBook.bookCode;
             return {
                 hasPrev: true,
-                display: `${title} ${lastChap}`,
-                go: () =>
-                    switchBookOrChapter(
-                        prevBookId || pickedFile.bookCode,
-                        lastChap,
-                    ),
+                display: `${title} ${getChapterDisplay(lastChap)}`,
+                go: () => switchBookOrChapter(prevBookId, lastChap),
             };
         } else {
+            const prevChap = pickedFile.chapters[currentIndex - 1].chapNumber;
             return {
                 hasPrev: true,
-                display: `${getChapterDisplay(currentChapter - 1)}`,
-                go: () =>
-                    switchBookOrChapter(
-                        pickedFile.bookCode,
-                        currentChapter - 1,
-                    ),
+                display: `${getChapterDisplay(prevChap)}`,
+                go: () => switchBookOrChapter(pickedFile.bookCode, prevChap),
             };
         }
     };

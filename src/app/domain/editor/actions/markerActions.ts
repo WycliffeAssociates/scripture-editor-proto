@@ -1,10 +1,4 @@
-import {
-    $getSelection,
-    $isElementNode,
-    $isLineBreakNode,
-    $isRangeSelection,
-    type LexicalEditor,
-} from "lexical";
+import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
 import {
     AlignLeft,
     Edit3,
@@ -14,45 +8,103 @@ import {
     Type,
 } from "lucide-react";
 import React from "react";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import type {
+    EditorMarkersMutableState,
+    EditorMarkersViewState,
+} from "@/app/data/editor.ts";
 import {
-    $createUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
-import type { EditorAction } from "./types.ts";
+import {
+    $insertChapter,
+    $insertChar,
+    $insertEndMarker,
+    $insertNote,
+    $insertPara,
+    $insertVerse,
+    type BaseInsertArgs,
+    InsertionTypes,
+    mapMarkerToInsertionType,
+} from "@/app/domain/editor/utils/insertMarkerOperations.ts";
+import type { EditorAction, EditorContext } from "./types.ts";
 
-export function insertMarker(_editor: LexicalEditor, markerNoSlash: string) {
-    const selection = $getSelection();
-    if (!selection || !$isRangeSelection(selection)) return;
-    if (!selection.isCollapsed()) return;
+export function insertMarker(
+    editor: LexicalEditor,
+    context: EditorContext,
+    markerNoSlash: string,
+) {
+    editor.update(() => {
+        const selection = $getSelection();
+        if (!selection || !$isRangeSelection(selection)) return;
 
-    const slashMarker = `\\${markerNoSlash}`;
-    const slashMarkerPadded = ` ${slashMarker} `;
-    const currentNode = selection.anchor.getNode();
+        // Most transforms assume collapsed selection, except char/note wrapping
+        // The shared utils handle collapsed vs range checks internally for char/note
+        // For others, we might want to ensure collapsed?
+        // Actually, the original textNodeTransform checked for collapsed.
+        // But for button clicks, we might want to allow replacing selection?
+        // The shared utils like $insertPara seem to handle splitText which implies collapsed or acting on anchor.
+        // Let's rely on the shared utils which generally use anchorNode.
 
-    if ($isUSFMTextNode(currentNode)) {
-        const ct = currentNode.getTextContent();
-        const content = `${ct.slice(0, selection.anchor.offset)} ${slashMarkerPadded} ${ct.slice(selection.anchor.offset)}`;
-        currentNode.setTextContent(content);
-        currentNode.select(
-            selection.anchor.offset + slashMarkerPadded.length,
-            selection.anchor.offset + slashMarkerPadded.length,
-        );
-    } else if ($isElementNode(currentNode)) {
-        const newNode = $createUSFMTextNode(slashMarkerPadded, {
-            id: guidGenerator(),
-            inPara: "",
-            marker: markerNoSlash,
-            tokenType: UsfmTokenTypes.text,
-        });
-        const nthChild = currentNode.getChildAtIndex(selection.anchor.offset);
-        if ($isLineBreakNode(nthChild)) {
-            nthChild.insertBefore(newNode);
+        const anchorNode = selection.anchor.getNode();
+        if (!$isUSFMTextNode(anchorNode)) return;
+
+        const isEndMarker = false; // Buttons usually insert start markers. End markers are implicit or specific actions?
+        // If we want to support end markers via buttons, we'd need to know.
+        // Assuming these are start markers for now.
+
+        const insertType = mapMarkerToInsertionType(markerNoSlash, isEndMarker);
+
+        // For non-wrapping types, we generally want collapsed selection
+        if (
+            insertType !== InsertionTypes.char &&
+            insertType !== InsertionTypes.note &&
+            !selection.isCollapsed()
+        ) {
+            // If range selected for para/verse/chapter, what should happen?
+            // Standard behavior might be to collapse to start or end?
+            // For now let's just use anchor.
         }
-        newNode.selectEnd();
-    }
+
+        // For manual insertion:
+        const anchorOffset = selection.anchor.offset;
+        const isNodeStart = anchorOffset === 0;
+        // We can approximate isStartOfLine by checking if prev sibling is null or linebreak?
+        const prevSibling = anchorNode.getPreviousSibling();
+        // This is simplified.
+        const isStartOfLineCalculated =
+            isNodeStart &&
+            (!prevSibling || prevSibling.getType() === "linebreak");
+
+        const args: BaseInsertArgs = {
+            anchorNode: anchorNode as USFMTextNode,
+            anchorOffsetToUse: anchorOffset,
+            marker: markerNoSlash,
+            isStartOfLine: isStartOfLineCalculated,
+            markersMutableState:
+                context.markersMutableState as EditorMarkersMutableState,
+            markersViewState:
+                context.markersViewState as EditorMarkersViewState,
+            restOfText: "", // Not really used for button insertion in the same way?
+            languageDirection: context.languageDirection,
+            isTypedInsertion: false,
+        };
+
+        switch (insertType) {
+            case InsertionTypes.verse:
+                return $insertVerse(args);
+            case InsertionTypes.chapter:
+                return $insertChapter(args);
+            case InsertionTypes.para:
+                return $insertPara(args);
+            case InsertionTypes.char:
+                return $insertChar(args);
+            case InsertionTypes.note:
+                return $insertNote(args);
+            case InsertionTypes.endMarker:
+                return $insertEndMarker(args);
+        }
+    });
 }
 
 export function createMarkerAction(
@@ -68,7 +120,7 @@ export function createMarkerAction(
         marker,
         icon,
         isVisible: () => true,
-        execute: (editor) => insertMarker(editor, marker),
+        execute: (editor, context) => insertMarker(editor, context, marker),
     };
 }
 

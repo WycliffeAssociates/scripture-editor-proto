@@ -63,8 +63,7 @@ export function maintainDocumentStructure(
             //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
             removeEmptyNumberRangeNotPrecededByMarker(args);
             fixNumberRangeReparenting(args);
-            ensureMarkersAreClean(args);
-            ensureStructuralSpaces(args);
+            ensureSiblingsHaveAtLeastOneSpace(args);
         }
         // mergeAdjacentTextNodesOfSameType({
         //   allNodes,
@@ -391,180 +390,6 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
 //     });
 //   };
 
-const ensureMarkersAreClean: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    const isMarker =
-        tokenType === UsfmTokenTypes.marker ||
-        tokenType === UsfmTokenTypes.endMarker;
-    if (!isMarker) return;
-    const textContent = node.getTextContent();
-
-    // Find first whitespace
-    const firstSpaceIndex = textContent.search(/\s/);
-    if (firstSpaceIndex !== -1) {
-        const afterFirstSpace = textContent.slice(firstSpaceIndex).trim();
-        const hasAdditionalText = afterFirstSpace.length > 0;
-        const nextSibling = node.getNextSibling();
-
-        let shouldSplit = false;
-        let shouldTrim = false;
-
-        if (hasAdditionalText) {
-            // e.g. "\p hello"
-            // User says this is the invalid pattern we are after.
-            // Exception: "nothing should happen if the next sibling is already a numberRange node"
-            // This exception mainly applies to verse/chapter markers followed by their numbers.
-            const isChapterOrVerse =
-                textContent.startsWith("\\v") || textContent.startsWith("\\c");
-            const nextIsNR = $isVerseRangeTextNode(nextSibling);
-            if (!(isChapterOrVerse && nextIsNR)) {
-                shouldSplit = true;
-            } else if (textContent.endsWith(" ")) {
-                // e.g. "\v 1" where "\v " is the marker and " 1" is the NR.
-                // We should trim the marker to avoid double space.
-                shouldTrim = true;
-            }
-        } else {
-            // e.g. "\p " (only spaces)
-            // "The main thing we neeed to prevent is {marker+space} where there is not something next to it already."
-            // "Do nothing if it's just a linebreak next sibling."
-            if (!nextSibling) {
-                shouldSplit = true;
-            } else if ($isLineBreakNode(nextSibling)) {
-                // Do nothing
-            } else {
-                // If there is any other next sibling, the marker should be clean.
-                // ensureStructuralSpaces will ensure the next sibling has the necessary space.
-                shouldTrim = true;
-            }
-        }
-
-        if (shouldSplit) {
-            updates.push({
-                dbgLabel: "ensureMarkersAreClean_split",
-                update: () => {
-                    const latest = node.getLatest();
-                    if (!$isUSFMTextNode(latest)) return;
-                    const [left, right] = latest.splitText(firstSpaceIndex);
-                    if ($isUSFMTextNode(right)) {
-                        right.setTokenType(UsfmTokenTypes.text);
-                    }
-                    // Sync marker property of left node
-                    if ($isUSFMTextNode(left)) {
-                        left.setMarker(
-                            markerTrimNoSlash(left.getTextContent()),
-                        );
-                    }
-                },
-            });
-            return;
-        }
-
-        if (shouldTrim) {
-            updates.push({
-                dbgLabel: "ensureMarkersAreClean_trim",
-                update: () => {
-                    const latest = node.getLatest();
-                    if (!$isUSFMTextNode(latest)) return;
-                    latest.setTextContent(textContent.trimEnd());
-                    latest.setMarker(
-                        markerTrimNoSlash(latest.getTextContent()),
-                    );
-                },
-            });
-            return;
-        }
-    }
-
-    // Always sync marker property if we didn't split
-    const currentMarker = node.getMarker();
-    const newMarker = markerTrimNoSlash(textContent);
-    if (currentMarker !== newMarker) {
-        updates.push({
-            dbgLabel: "syncMarkerProperty",
-            update: () => {
-                const latest = node.getLatest();
-                if ($isUSFMTextNode(latest)) {
-                    latest.setMarker(newMarker);
-                }
-            },
-        });
-    }
-};
-
-const ensureStructuralSpaces: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    const isTarget =
-        tokenType === UsfmTokenTypes.marker ||
-        tokenType === UsfmTokenTypes.endMarker ||
-        tokenType === UsfmTokenTypes.numberRange;
-
-    if (!isTarget) return;
-
-    const nextSibling = node.getNextSibling();
-    if (!nextSibling || $isLineBreakNode(nextSibling)) return;
-
-    // Check if it already starts with a space
-    let alreadyHasSpace = false;
-    if ($isUSFMTextNode(nextSibling)) {
-        alreadyHasSpace = nextSibling.getTextContent().startsWith(" ");
-    }
-
-    if (alreadyHasSpace) return;
-
-    // We need to add a space
-    if ($isUSFMTextNode(nextSibling)) {
-        updates.push({
-            dbgLabel: "ensureStructuralSpaces",
-            update: () => {
-                if (nextSibling.isAttached()) {
-                    const latestNext = nextSibling.getLatest();
-                    if (
-                        $isUSFMTextNode(latestNext) &&
-                        !latestNext.getTextContent().startsWith(" ")
-                    ) {
-                        latestNext.setTextContent(
-                            ` ${latestNext.getTextContent()}`,
-                        );
-                    }
-                }
-            },
-        });
-    } else {
-        // Next sibling is not a text node (e.g. NestedEditor)
-        updates.push({
-            dbgLabel: "ensureStructuralSpacesInsert",
-            update: () => {
-                if (node.isAttached()) {
-                    const latest = node.getLatest();
-                    // Double check if space was inserted by another update in this batch
-                    const currentNext = latest.getNextSibling();
-                    if (
-                        $isUSFMTextNode(currentNext) &&
-                        currentNext.getTextContent().startsWith(" ")
-                    ) {
-                        return;
-                    }
-
-                    const spaceNode = $createUSFMTextNode(" ", {
-                        id: guidGenerator(),
-                        sid: node.getSid(),
-                        inPara: node.getInPara(),
-                        tokenType: UsfmTokenTypes.text,
-                    });
-                    latest.insertAfter(spaceNode);
-                }
-            },
-        });
-    }
-};
-
 const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
     node,
     tokenType,
@@ -590,6 +415,57 @@ const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
             },
         });
     }
+};
+
+const ensureSiblingsHaveAtLeastOneSpace: MainDocumentStrutureFxn = ({
+    node,
+    tokenType,
+    updates,
+}) => {
+    const isTextContent =
+        tokenType === UsfmTokenTypes.marker ||
+        tokenType === UsfmTokenTypes.endMarker ||
+        tokenType === UsfmTokenTypes.numberRange ||
+        tokenType === UsfmTokenTypes.text;
+
+    if (!isTextContent) return;
+
+    const nextSibling = node.getNextSibling();
+    if (!nextSibling) return;
+
+    const nextIsLineBreak = $isLineBreakNode(nextSibling);
+    const textContentType: Array<string> = [
+        UsfmTokenTypes.marker,
+        UsfmTokenTypes.endMarker,
+        UsfmTokenTypes.numberRange,
+        UsfmTokenTypes.text,
+    ];
+    const nextIsTextContent =
+        $isUSFMTextNode(nextSibling) &&
+        textContentType.includes(nextSibling.getTokenType());
+
+    if (!nextIsTextContent) return;
+
+    const nodeText = node.getTextContent();
+    const nextText = nextSibling.getTextContent();
+
+    const endsWithSpace = nodeText.endsWith(" ");
+    const startsWithSpace = nextText.startsWith(" ");
+
+    if (endsWithSpace || startsWithSpace || nextIsLineBreak) {
+        return;
+    }
+
+    updates.push({
+        dbgLabel: "ensureSiblingsHaveAtLeastOneSpace",
+        update: () => {
+            if (nextSibling.isAttached()) {
+                const latestNext = nextSibling.getLatest();
+                if (!$isUSFMTextNode(latestNext)) return;
+                latestNext.setTextContent(` ${latestNext.getTextContent()}`);
+            }
+        },
+    });
 };
 
 const mergeAdjacentTextNodesOfSameType = ({

@@ -10,8 +10,6 @@ export function getPoetryStylesAsCssStyleSheet(
         '[data-js="editor-container"] p',
     );
     if (!containers.length) return;
-    if (containers.length > 1) {
-    }
     let styles: string = "";
     containers.forEach((container) => {
         const children = container.children;

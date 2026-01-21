@@ -1,9 +1,13 @@
 import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
-import type { EditorMarkersViewState } from "@/app/data/editor.ts";
+import { type EditorMarkersViewState, EditorModes } from "@/app/data/editor.ts";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function UsfmStylesPlugin() {
+    const { project } = useWorkspaceContext();
+
+    const { mode } = project.appSettings;
     // Using useRef to hold the stylesheet instance to avoid re-creation on re-renders.
     const dynamicCssStyleSheet = useRef(new CSSStyleSheet()).current;
     const prevStyles = useRef<string>("");
@@ -12,6 +16,13 @@ export function UsfmStylesPlugin() {
     // The wait time of 200ms can be adjusted based on your needs.
     const throttledUpdateStyles = useThrottledCallback(() => {
         // console.time("usfmStylesPluginMutation");
+        if (mode === EditorModes.SOURCE) {
+            if (prevStyles.current !== "") {
+                dynamicCssStyleSheet.replaceSync("");
+                prevStyles.current = "";
+            }
+            return;
+        }
 
         const rootEl = document.getElementById("root");
         const viewState = rootEl?.getAttribute(

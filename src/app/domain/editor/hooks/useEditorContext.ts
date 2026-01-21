@@ -8,7 +8,12 @@ import type { EditorContext } from "../actions/types.ts";
 
 export function useEditorContext() {
     const [editor] = useLexicalComposerContext();
-    const { actions, search: searchApi, project } = useWorkspaceContext();
+    const {
+        actions,
+        search: searchApi,
+        project,
+        projectLanguageDirection,
+    } = useWorkspaceContext();
     const { mode, markersViewState, markersMutableState } = project.appSettings;
 
     const getContext = useCallback((): EditorContext => {
@@ -121,6 +126,7 @@ export function useEditorContext() {
                 mode,
                 markersViewState,
                 markersMutableState,
+                languageDirection: projectLanguageDirection,
                 actions,
                 searchApi,
             };
@@ -132,6 +138,7 @@ export function useEditorContext() {
         markersMutableState,
         actions,
         searchApi,
+        projectLanguageDirection,
     ]);
 
     return { getContext };
