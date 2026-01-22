@@ -151,17 +151,19 @@ function maintainInPara(
     if (tokenType === UsfmTokenTypes.marker) {
         const rawText = node.getTextContent();
         const candidateMarker = markerTrimNoSlash(rawText);
+        // marker's can't contain spaces, so only use whatever comes before a space if there is one
+        const markerWithoutSpace = candidateMarker.split(" ")[0];
         const storedMarker = node.getMarker();
 
-        if (storedMarker && storedMarker !== candidateMarker) {
+        if (storedMarker && storedMarker !== markerWithoutSpace) {
             updates.push({
                 dbgLabel: "maintainInPara",
                 run: () => {
-                    node.setMarker(candidateMarker);
+                    node.setMarker(markerWithoutSpace);
                 },
             });
         }
-        currentMarker = candidateMarker || storedMarker;
+        currentMarker = markerWithoutSpace || storedMarker;
     }
 
     // 2. Update State (Forward Propagation)

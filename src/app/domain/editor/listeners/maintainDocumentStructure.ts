@@ -37,55 +37,73 @@ export function maintainDocumentStructure(
     editorState: EditorState,
     editor: LexicalEditor,
 ) {
-    const updates: Array<{
-        dbgLabel: string;
-        run: () => void;
-    }> = [];
+    const allNodes = editorState.read(() => [...$dfsIterator()]);
+    let totalUpdates = 0;
 
-    editorState.read(() => {
-        const allNodes = [...$dfsIterator()];
-        for (const dfsNode of allNodes) {
+    for (const dfsNode of allNodes) {
+        const nodeUpdates: Array<{
+            dbgLabel: string;
+            run: () => void;
+        }> = [];
+
+        editorState.read(() => {
             const node = dfsNode.node;
             //   can check other node types above if we need
-            if (!$isUSFMTextNode(node)) continue;
+            if (!$isUSFMTextNode(node) || !node.isAttached()) return;
             const tokenType = node.getTokenType();
             const args = {
                 node,
                 tokenType,
-                updates,
+                updates: nodeUpdates,
             };
             editCharOpenAndCloseTogether(args);
+            if (nodeUpdates.length) return;
+            fixMalformedMarkerWithNumber(args);
+            if (nodeUpdates.length) return;
             ensureNumberRangeAlwaysFollowsMarkerExpectingNum(args);
+            if (nodeUpdates.length) return;
             ensurePlainTextNodeAlwaysFollowsNumberRange(args);
+            if (nodeUpdates.length) return;
             ensureCharOpensHaveEditableNextSibling(args);
+            if (nodeUpdates.length) return;
             ensureCharCloseHasEditableNextSibling(args);
+            if (nodeUpdates.length) return;
             trySplitOutMarkersFromKnownErrorTokens(args);
+            if (nodeUpdates.length) return;
             //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
-            removeEmptyNumberRangeNotPrecededByMarker(args);
             fixNumberRangeReparenting(args);
-            ensureSiblingsHaveAtLeastOneSpace(args);
-        }
-        // mergeAdjacentTextNodesOfSameType({
-        //   allNodes,
-        //   updates,
-        // });
-    });
-    if (updates.length) {
-        console.log(`maintain documnet structure updates ${updates.length}`);
-        editor.update(() => {
-            updates.forEach(
-                (u) => {
-                    u.run();
+            if (nodeUpdates.length) return;
+            removeEmptyNumberRangeNotPrecededByMarker(args);
+            if (nodeUpdates.length) return;
+            // if (nodeUpdates.length) return; // last one, no need
+        });
+
+        if (nodeUpdates.length) {
+            console.log(
+                `maintain document structure updates for node: ${nodeUpdates.length}`,
+            );
+            console.log(nodeUpdates);
+            totalUpdates += nodeUpdates.length;
+            editor.update(
+                () => {
+                    nodeUpdates.forEach((u) => {
+                        u.run();
+                    });
                 },
                 {
                     tag: [
                         EDITOR_TAGS_USED.historyMerge,
-                        EDITOR_TAGS_USED.programaticIgnore,
+                        // EDITOR_TAGS_USED.programaticIgnore,
                     ],
-                    skipTransforms: true,
                 },
             );
-        });
+        }
+    }
+
+    if (totalUpdates > 0) {
+        console.log(
+            `maintain document structure total updates: ${totalUpdates}`,
+        );
     }
     // console.timeEnd("maintainDocumentStructure");
 }
@@ -106,28 +124,77 @@ export function maintainDocumentStructureDebounced(
             allNodes,
             updates,
         });
+        ensureSiblingsHaveAtLeastOneSpace({
+            allNodes,
+            updates,
+        });
     });
     if (updates.length) {
         console.log(
             `maintain documnet structure debounced updates ${updates.length}`,
         );
-        editor.update(() => {
-            updates.forEach(
-                (u) => {
+        editor.update(
+            () => {
+                updates.forEach((u) => {
                     u.run();
-                },
-                {
-                    tag: [
-                        EDITOR_TAGS_USED.historyMerge,
-                        EDITOR_TAGS_USED.programaticIgnore,
-                    ],
-                    skipTransforms: true,
-                },
-            );
-        });
+                });
+            },
+            {
+                tag: [
+                    EDITOR_TAGS_USED.historyMerge,
+                    //   EDITOR_TAGS_USED.programaticIgnore,
+                ],
+            },
+        );
     }
     // console.timeEnd("maintainDocumentStructure");
 }
+
+const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
+    node,
+    tokenType,
+    updates,
+}) => {
+    if (tokenType !== UsfmTokenTypes.marker) return;
+
+    const text = node.getTextContent();
+    // Regex matches: \marker + space + number
+    const match = text.match(/^(\\[A-Za-z0-9]+)[\s\u00A0]+(\d+.*)$/);
+    if (!match) return;
+
+    const [_, markerText, numberText] = match;
+    const cleanMarker = markerTrimNoSlash(markerText);
+
+    // Only apply if it's a marker that expects a number
+    if (!CHAPTER_VERSE_MARKERS.has(cleanMarker)) return;
+
+    updates.push({
+        dbgLabel: "fixMalformedMarkerWithNumber",
+        run: () => {
+            // Fix the marker node
+            node.setTextContent(markerText);
+            node.setMarker(cleanMarker);
+            // Handle the number
+            const nextSibling = node.getNextSibling();
+            if (
+                $isUSFMTextNode(nextSibling) &&
+                nextSibling.getTokenType() === UsfmTokenTypes.numberRange
+            ) {
+                // Update existing number node
+                nextSibling.setTextContent(` ${numberText}`);
+            } else {
+                // Create new number node
+                const newNumberNode = $createUSFMTextNode(numberText, {
+                    id: guidGenerator(),
+                    sid: node.getSid().trim(),
+                    inPara: node.getInPara(),
+                    tokenType: UsfmTokenTypes.numberRange,
+                });
+                node.insertAfter(newNumberNode);
+            }
+        },
+    });
+};
 
 const ensureCharOpensHaveEditableNextSibling: MainDocumentStrutureFxn = ({
     node,
@@ -317,7 +384,9 @@ const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn 
                     inPara: node.getInPara(),
                     tokenType: UsfmTokenTypes.numberRange,
                 });
+                // debugger;
                 node.insertAfter(emptySibling);
+                emptySibling.selectEnd();
             },
         });
     };
@@ -392,68 +461,79 @@ const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
     }
 };
 
-const ensureSiblingsHaveAtLeastOneSpace: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    const isTextContent =
-        tokenType === UsfmTokenTypes.marker ||
-        tokenType === UsfmTokenTypes.endMarker ||
-        tokenType === UsfmTokenTypes.numberRange ||
-        tokenType === UsfmTokenTypes.text;
-
-    if (!isTextContent) return;
-
-    const nextSibling = node.getNextSibling();
-    if (!nextSibling) return;
-
-    const nextIsLineBreak = $isLineBreakNode(nextSibling);
-    const textContentType: Array<string> = [
-        UsfmTokenTypes.marker,
-        UsfmTokenTypes.endMarker,
-        UsfmTokenTypes.numberRange,
-        UsfmTokenTypes.text,
-    ];
-    const nextIsTextContent =
-        $isUSFMTextNode(nextSibling) &&
-        textContentType.includes(nextSibling.getTokenType());
-
-    if (!nextIsTextContent) return;
-
-    const nodeText = node.getTextContent();
-    const nextText = nextSibling.getTextContent();
-
-    const endsWithSpace = nodeText.endsWith(" ");
-    const startsWithSpace = nextText.startsWith(" ");
-
-    if (endsWithSpace || startsWithSpace || nextIsLineBreak) {
-        return;
-    }
-
-    updates.push({
-        dbgLabel: "ensureSiblingsHaveAtLeastOneSpace",
-        run: () => {
-            if (nextSibling.isAttached()) {
-                const latestNext = nextSibling.getLatest();
-                if (!$isUSFMTextNode(latestNext)) return;
-                latestNext.setTextContent(` ${latestNext.getTextContent()}`);
-            }
-        },
-    });
-};
-
-const mergeAdjacentTextNodesOfSameType = ({
+const ensureSiblingsHaveAtLeastOneSpace = ({
     allNodes,
     updates,
-}: {
+}: DebouncedStructuralUpdatesArgs) => {
+    for (const dfsNode of allNodes) {
+        const node = dfsNode.node;
+        if (!$isUSFMTextNode(node)) continue;
+        const tokenType = (node as USFMTextNode).getTokenType();
+
+        const isTextContent =
+            tokenType === UsfmTokenTypes.marker ||
+            tokenType === UsfmTokenTypes.endMarker ||
+            tokenType === UsfmTokenTypes.numberRange ||
+            tokenType === UsfmTokenTypes.text;
+
+        if (!isTextContent) continue;
+
+        const nextSibling = node.getNextSibling();
+        if (!nextSibling) continue;
+
+        const nextIsLineBreak = $isLineBreakNode(nextSibling);
+        const textContentType: Array<string> = [
+            UsfmTokenTypes.marker,
+            UsfmTokenTypes.endMarker,
+            UsfmTokenTypes.numberRange,
+            UsfmTokenTypes.text,
+        ];
+        const nextIsTextContent =
+            $isUSFMTextNode(nextSibling) &&
+            textContentType.includes(
+                (nextSibling as USFMTextNode).getTokenType(),
+            );
+
+        if (!nextIsTextContent) continue;
+
+        const nodeText = node.getTextContent();
+        const nextText = nextSibling.getTextContent();
+
+        const endsWithSpace = nodeText.endsWith(" ");
+        const startsWithSpace = nextText.startsWith(" ");
+
+        if (endsWithSpace || startsWithSpace || nextIsLineBreak) {
+            continue;
+        }
+
+        updates.push({
+            dbgLabel: "ensureSiblingsHaveAtLeastOneSpace",
+            run: () => {
+                if (nextSibling.isAttached()) {
+                    const latestNext = nextSibling.getLatest();
+                    if (!$isUSFMTextNode(latestNext)) return;
+                    (latestNext as USFMTextNode).setTextContent(
+                        ` ${latestNext.getTextContent()}`,
+                    );
+                }
+            },
+        });
+    }
+};
+
+type DebouncedStructuralUpdatesArgs = {
     allNodes: Array<DFSNode>;
     updates: Array<{
         dbgLabel: string;
         dbgDetail?: string;
         run: () => void;
     }>;
-}) => {
+};
+
+const mergeAdjacentTextNodesOfSameType = ({
+    allNodes,
+    updates,
+}: DebouncedStructuralUpdatesArgs) => {
     const tokenTypesToMerge: Array<string> = [
         UsfmTokenTypes.text,
         UsfmTokenTypes.error,

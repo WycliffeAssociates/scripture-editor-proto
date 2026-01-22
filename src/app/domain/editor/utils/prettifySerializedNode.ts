@@ -9,7 +9,10 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
+import {
+    ALL_USFM_MARKERS,
+    VALID_PARA_MARKERS,
+} from "@/core/data/usfm/tokens.ts";
 
 export const POETRY_MARKERS = new Set([
     "q",
@@ -37,6 +40,67 @@ export type PrettifyTransform = (
     node: SerializedLexicalNode,
     context: PrettifyContext,
 ) => SerializedLexicalNode | SerializedLexicalNode[];
+
+/**
+ * Scans for malformed markers (e.g. "\ \v ") in text/error nodes.
+ * If found and valid, splits the node into a Marker node and a Text node.
+ */
+export function recoverMalformedMarkers(
+    node: SerializedLexicalNode,
+): SerializedLexicalNode | SerializedLexicalNode[] {
+    if (
+        isSerializedUSFMTextNode(node) &&
+        (node.tokenType === UsfmTokenTypes.text ||
+            node.tokenType === UsfmTokenTypes.error)
+    ) {
+        // Search for pattern: backslash + marker candidates + space
+        // Regex: \\([a-zA-Z0-9]+)\s
+        const regex = /\\([a-zA-Z0-9]+)\s/;
+        const match = node.text.match(regex);
+
+        if (match) {
+            const capturedMarker = match[1];
+            if (ALL_USFM_MARKERS.has(capturedMarker)) {
+                // Found a valid marker.
+                // match[0] is like "\v "
+                // match.index is where it starts.
+
+                // 1. Create Marker Node
+                // Text should be just the marker part, e.g. "\v"
+                const markerText = `\\${capturedMarker}`;
+
+                const markerNode: SerializedUSFMTextNode = {
+                    ...node,
+                    tokenType: UsfmTokenTypes.marker,
+                    marker: capturedMarker,
+                    text: markerText,
+                };
+
+                // 2. Create Text Node for the rest
+                // The match included the trailing space (\s).
+                // We want to keep the text AFTER the marker.
+                // If match is "\v ", length is 3.
+                // If we want to keep the space in the text node (as per example " 13 13 Text"),
+                // we should slice after the marker text length.
+                // match.index + markerText.length
+                const matchIndex = match.index ?? 0;
+                const remainingText = node.text.slice(
+                    matchIndex + markerText.length,
+                );
+
+                const textNode: SerializedUSFMTextNode = {
+                    ...node,
+                    tokenType: UsfmTokenTypes.text,
+                    text: remainingText,
+                    marker: undefined, // Clear marker
+                };
+
+                return [markerNode, textNode];
+            }
+        }
+    }
+    return node;
+}
 
 /**
  * Replaces multiple consecutive spaces with a single space.
@@ -229,6 +293,165 @@ export function normalizeSpacingAfterParaMarkers(
 }
 
 /**
+ * Removes linebreaks if they are immediately followed by a Verse Marker (\v).
+ * Keeps them if followed by Paragraph Marker or Text.
+ */
+export function removeInterVerseLinebreaks(
+    node: SerializedLexicalNode,
+    context: PrettifyContext,
+): SerializedLexicalNode | SerializedLexicalNode[] {
+    if (node.type === "linebreak") {
+        const { nextSibling, previousSibling } = context;
+
+        // If previous sibling is a paragraph marker, we MUST keep the linebreak
+        // to avoid the cycle with insertLinebreakAfterParaMarkers
+        if (
+            previousSibling &&
+            isSerializedUSFMTextNode(previousSibling) &&
+            previousSibling.marker &&
+            VALID_PARA_MARKERS.has(previousSibling.marker)
+        ) {
+            return node;
+        }
+
+        if (
+            nextSibling &&
+            isSerializedUSFMTextNode(nextSibling) &&
+            nextSibling.tokenType === UsfmTokenTypes.marker &&
+            nextSibling.marker === "v"
+        ) {
+            return [];
+        }
+    }
+    return node;
+}
+
+export type PendingVerse = {
+    verseNumber: string;
+    resultIndex: number;
+};
+
+/**
+ * Distributes combined verse text (e.g. "\v 1 \v 2 1. TextOne 2. TextTwo")
+ * to their respective verse markers.
+ */
+export function distributeCombinedVerseText(
+    nodes: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const result: SerializedLexicalNode[] = [];
+    const pendingVerses: PendingVerse[] = [];
+
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+
+        if (isSerializedUSFMTextNode(node)) {
+            // Check for Verse Marker + Number
+            if (node.tokenType === UsfmTokenTypes.numberRange) {
+                const prevNode = result[result.length - 1];
+                if (
+                    prevNode &&
+                    isSerializedUSFMTextNode(prevNode) &&
+                    prevNode.tokenType === UsfmTokenTypes.marker &&
+                    prevNode.marker === "v"
+                ) {
+                    result.push(node);
+                    pendingVerses.push({
+                        verseNumber: node.text.trim(),
+                        resultIndex: result.length,
+                    });
+                    continue;
+                }
+            }
+
+            // Check for Text Node
+            if (
+                node.tokenType === UsfmTokenTypes.text &&
+                pendingVerses.length > 0
+            ) {
+                const text = node.text;
+                const matches: { verse: string; start: number }[] = [];
+
+                for (const pv of pendingVerses) {
+                    // Regex: verseNumber + [. )]
+                    // Escape verseNumber just in case
+                    const escapedVerse = pv.verseNumber.replace(
+                        /[.*+?^${}()|[\]\\]/g,
+                        "\\$&",
+                    );
+                    const regex = new RegExp(`${escapedVerse}[. )]`);
+                    const match = regex.exec(text);
+                    if (match) {
+                        matches.push({
+                            verse: pv.verseNumber,
+                            start: match.index,
+                        });
+                    }
+                }
+
+                if (matches.length > 0) {
+                    matches.sort((a, b) => a.start - b.start);
+
+                    const preText = text.slice(0, matches[0].start);
+
+                    // Handle preText
+                    if (preText.length > 0) {
+                        const remainingNode: SerializedUSFMTextNode = {
+                            ...node,
+                            text: preText,
+                        };
+                        const insertionIndex = result.length;
+                        result.push(remainingNode);
+
+                        // Shift pending verses that were at the end
+                        for (const p of pendingVerses) {
+                            if (p.resultIndex >= insertionIndex) {
+                                p.resultIndex++;
+                            }
+                        }
+                    }
+
+                    // Process matches
+                    for (let m = 0; m < matches.length; m++) {
+                        const match = matches[m];
+                        const nextStart = matches[m + 1]?.start ?? text.length;
+                        const segmentText = text.slice(match.start, nextStart);
+
+                        const pvIndex = pendingVerses.findIndex(
+                            (p) => p.verseNumber === match.verse,
+                        );
+                        if (pvIndex !== -1) {
+                            const pv = pendingVerses[pvIndex];
+
+                            const newNode: SerializedUSFMTextNode = {
+                                ...node,
+                                text: segmentText,
+                            };
+
+                            result.splice(pv.resultIndex, 0, newNode);
+
+                            // Shift indices
+                            for (const p of pendingVerses) {
+                                if (p.resultIndex >= pv.resultIndex) {
+                                    p.resultIndex++;
+                                }
+                            }
+
+                            pendingVerses.splice(pvIndex, 1);
+                        }
+                    }
+
+                    continue;
+                }
+            }
+        }
+
+        result.push(node);
+    }
+
+    return result;
+}
+
+/**
  * Composes all the above transforms.
  */
 export function prettifySerializedNode(
@@ -239,7 +462,15 @@ export function prettifySerializedNode(
 
     // Apply single-node transforms first
     if (isSerializedUSFMTextNode(currentNode)) {
-        currentNode = collapseWhitespaceInTextNode(currentNode);
+        const recovered = recoverMalformedMarkers(currentNode);
+        if (Array.isArray(recovered)) {
+            return recovered;
+        }
+        currentNode = recovered as SerializedLexicalNode;
+
+        currentNode = collapseWhitespaceInTextNode(
+            currentNode as SerializedUSFMTextNode,
+        );
         currentNode = removeDuplicateVerseNumbers(
             currentNode,
             context,
@@ -250,6 +481,14 @@ export function prettifySerializedNode(
         );
         if (!Array.isArray(normalized)) {
             currentNode = normalized;
+        }
+    } else if (currentNode.type === "linebreak") {
+        const result = removeInterVerseLinebreaks(currentNode, context);
+        if (Array.isArray(result) && result.length === 0) {
+            return [];
+        }
+        if (!Array.isArray(result)) {
+            currentNode = result;
         }
     }
 
@@ -297,9 +536,12 @@ export function applyPrettifyToNodeTree(
     nodes: SerializedLexicalNode[],
     poetryMarkers: Set<string> = POETRY_MARKERS,
 ): SerializedLexicalNode[] {
+    // 0. Distribute combined verse text
+    const distributedNodes = distributeCombinedVerseText(nodes);
+
     // 1. Merge adjacent text nodes with same SID/marker/tokenType to allow whitespace collapse across nodes
     const mergedNodes: SerializedLexicalNode[] = [];
-    for (const node of nodes) {
+    for (const node of distributedNodes) {
         const lastNode = mergedNodes[mergedNodes.length - 1];
         if (
             lastNode &&

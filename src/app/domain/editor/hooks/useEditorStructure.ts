@@ -9,8 +9,8 @@ import {
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
-const changeListenerDebounceMs = 100;
-const structuralUpdateDebounceMs = 1000;
+const changeListenerDebounceMs = 300;
+const structuralUpdateDebounceMs = 500;
 
 /**
  * Hook to manage document structure maintenance for a Lexical editor.
@@ -35,7 +35,7 @@ export function useEditorStructure(editor: LexicalEditor) {
         structuralUpdateDebounceMs,
     );
 
-    const throttledEditorChangeListener = useThrottledCallback(
+    const debouncedEditorChangeListener = useDebouncedCallback(
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("throttledEditorChangeListener");
@@ -76,7 +76,7 @@ export function useEditorStructure(editor: LexicalEditor) {
                 if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
                     return;
                 }
-                return throttledEditorChangeListener(editorState);
+                return debouncedEditorChangeListener(editorState);
             },
         );
 
@@ -115,7 +115,7 @@ export function useEditorStructure(editor: LexicalEditor) {
     }, [
         mode,
         editor,
-        throttledEditorChangeListener,
+        debouncedEditorChangeListener,
         debouncedStructuralUpdates,
     ]);
 }
