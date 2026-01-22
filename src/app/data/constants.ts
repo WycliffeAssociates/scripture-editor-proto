@@ -35,6 +35,7 @@ export const TESTING_IDS = {
     searchNextButton: "search-next-button",
     matchCaseCheckbox: "search-match-case-checkbox",
     matchWholeWordCheckbox: "search-match-whole-word-checkbox",
+    includeUSFMMarkersCheckbox: "search-include-usfm-markers-checkbox",
     replaceInput: "search-replace-input",
     replaceButton: "search-replace-button",
     replaceAllButton: "search-replace-all-button",

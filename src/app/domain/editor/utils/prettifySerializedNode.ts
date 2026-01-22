@@ -11,9 +11,26 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 
+export const POETRY_MARKERS = new Set([
+    "q",
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "q5",
+    "qc",
+    "qa",
+    "qm",
+    "qm1",
+    "qm2",
+    "qm3",
+    "qd",
+]);
+
 export type PrettifyContext = {
     previousSibling?: SerializedLexicalNode;
     nextSibling?: SerializedLexicalNode;
+    poetryMarkers?: Set<string>;
 };
 
 export type PrettifyTransform = (
@@ -42,6 +59,48 @@ export function collapseWhitespaceInTextNode(
 }
 
 /**
+ * Detects the pattern \v 5 5 and removes the duplicate number from the text node.
+ */
+export function removeDuplicateVerseNumbers(
+    node: SerializedLexicalNode,
+    context: PrettifyContext,
+): SerializedLexicalNode {
+    if (
+        isSerializedUSFMTextNode(node) &&
+        node.tokenType === UsfmTokenTypes.text
+    ) {
+        const { previousSibling } = context;
+        if (
+            previousSibling &&
+            isSerializedUSFMTextNode(previousSibling) &&
+            previousSibling.tokenType === UsfmTokenTypes.numberRange
+        ) {
+            const verseNumber = previousSibling.text.trim();
+            // Check if text starts with optional whitespace + verseNumber
+            // e.g. " 5 Text", "5Text", " 5Text"
+            const regex = new RegExp(`^\\s*${verseNumber}\\s*`);
+            if (regex.test(node.text)) {
+                const newText = node.text.replace(regex, "");
+                // If we stripped everything, we might want to return an empty string or handle it.
+                // But usually there's text after. If it becomes empty, that's fine.
+                // We also want to ensure we don't strip *too* much if the user intended something else,
+                // but the requirement says "strip the number and any following whitespace".
+
+                // Wait, the requirement says: "Ensure it strips the number *and* any following whitespace, leaving the text clean."
+                // My regex `^\\s*${verseNumber}\\s*` matches leading space, the number, and trailing space.
+                // Replacing that with "" (empty string) effectively removes it.
+
+                return {
+                    ...node,
+                    text: newText,
+                } as SerializedUSFMTextNode;
+            }
+        }
+    }
+    return node;
+}
+
+/**
  * If node is a numberRange following a \c marker, ensure a linebreak node follows it.
  */
 export function insertLinebreakAfterChapterNumberRange(
@@ -50,14 +109,25 @@ export function insertLinebreakAfterChapterNumberRange(
 ): SerializedLexicalNode | SerializedLexicalNode[] {
     if (
         isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.numberRange &&
-        node.marker === "c"
+        node.tokenType === UsfmTokenTypes.numberRange
     ) {
-        const { nextSibling } = context;
-        if (nextSibling && nextSibling.type === "linebreak") {
-            return node;
+        // Check if it is a chapter number
+        let isChapter = false;
+        if (node.marker === "c") {
+            isChapter = true;
+        } else if (!node.marker && context.previousSibling) {
+            // Fallback: check previous sibling
+            if (
+                isSerializedUSFMTextNode(context.previousSibling) &&
+                context.previousSibling.marker === "c"
+            ) {
+                isChapter = true;
+            }
         }
-        return [node, { type: "linebreak", version: 1 }];
+
+        if (isChapter) {
+            return [node, { type: "linebreak", version: 1 }];
+        }
     }
     return node;
 }
@@ -74,6 +144,9 @@ export function insertLinebreakBeforeParaMarkers(
         node.marker &&
         VALID_PARA_MARKERS.has(node.marker)
     ) {
+        // Requirement: ALWAYS insert a linebreak before poetry markers (remove exclusion).
+        // So we just check VALID_PARA_MARKERS.
+
         const { previousSibling } = context;
         if (previousSibling && previousSibling.type === "linebreak") {
             return node;
@@ -98,6 +171,25 @@ export function insertLinebreakAfterParaMarkers(
         node.marker &&
         VALID_PARA_MARKERS.has(node.marker)
     ) {
+        // Check if it is a poetry marker
+        const isPoetry = context.poetryMarkers?.has(node.marker);
+
+        if (isPoetry) {
+            // Requirement: ONLY insert a linebreak after a poetry marker IF the next sibling is a MARKER node.
+            const { nextSibling } = context;
+            if (
+                nextSibling &&
+                isSerializedUSFMTextNode(nextSibling) &&
+                nextSibling.tokenType === UsfmTokenTypes.marker
+            ) {
+                // Insert linebreak
+            } else {
+                // DO NOT insert linebreak
+                return node;
+            }
+        }
+
+        // For non-poetry markers, OR if poetry condition met:
         const { nextSibling } = context;
         if (nextSibling && nextSibling.type === "linebreak") {
             return node;
@@ -148,6 +240,10 @@ export function prettifySerializedNode(
     // Apply single-node transforms first
     if (isSerializedUSFMTextNode(currentNode)) {
         currentNode = collapseWhitespaceInTextNode(currentNode);
+        currentNode = removeDuplicateVerseNumbers(
+            currentNode,
+            context,
+        ) as SerializedUSFMTextNode;
         const normalized = normalizeSpacingAfterParaMarkers(
             currentNode,
             context,
@@ -199,6 +295,7 @@ export function prettifySerializedNode(
  */
 export function applyPrettifyToNodeTree(
     nodes: SerializedLexicalNode[],
+    poetryMarkers: Set<string> = POETRY_MARKERS,
 ): SerializedLexicalNode[] {
     // 1. Merge adjacent text nodes with same SID/marker/tokenType to allow whitespace collapse across nodes
     const mergedNodes: SerializedLexicalNode[] = [];
@@ -235,7 +332,10 @@ export function applyPrettifyToNodeTree(
             if (elementNode.children) {
                 node = {
                     ...elementNode,
-                    children: applyPrettifyToNodeTree(elementNode.children),
+                    children: applyPrettifyToNodeTree(
+                        elementNode.children,
+                        poetryMarkers,
+                    ),
                 } as SerializedElementNode;
             }
         } else if (isSerializedUSFMNestedEditorNode(node)) {
@@ -249,6 +349,7 @@ export function applyPrettifyToNodeTree(
                             ...nestedNode.editorState.root,
                             children: applyPrettifyToNodeTree(
                                 nestedNode.editorState.root.children,
+                                poetryMarkers,
                             ),
                         },
                     },
@@ -259,6 +360,7 @@ export function applyPrettifyToNodeTree(
         const context: PrettifyContext = {
             previousSibling: intermediateResult[intermediateResult.length - 1],
             nextSibling: mergedNodes[i + 1],
+            poetryMarkers,
         };
 
         const transformed = prettifySerializedNode(node, context);

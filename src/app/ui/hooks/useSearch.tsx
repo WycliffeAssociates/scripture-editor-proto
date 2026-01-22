@@ -43,7 +43,10 @@ type SearchResult = {
 };
 export type SortOption = "canonical" | "caseMismatch";
 
-export type UseSearchReturn = ReturnType<typeof useProjectSearch>;
+export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
+    searchUSFM: boolean;
+    setSearchUSFM: (value: boolean) => void;
+};
 
 export function useProjectSearch({
     workingFiles,
@@ -74,6 +77,7 @@ export function useProjectSearch({
     const [isSearchPaneOpen, setIsSearchPaneOpen] = useState(false);
     const [matchWholeWord, setMatchWholeWord] = useState(false);
     const [matchCase, setMatchCase] = useState(false);
+    const [searchUSFM, setSearchUSFM] = useState(false);
 
     const currentChapterSid = makeSid({
         bookId: pickedFile.bookCode,
@@ -109,7 +113,7 @@ export function useProjectSearch({
             runSearchLogic(searchTerm);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [matchWholeWord, matchCase]);
+    }, [matchWholeWord, matchCase, searchUSFM]);
 
     const applySort = (items: SearchResult[], sortOption: SortOption) => {
         const copy = [...items];
@@ -200,7 +204,10 @@ export function useProjectSearch({
                 if (signal.aborted) return;
 
                 const serializedNodes = chapter.lexicalState.root.children;
-                const sidRecord = reduceSerializedNodesToText(serializedNodes);
+                const sidRecord = reduceSerializedNodesToText(
+                    serializedNodes,
+                    searchUSFM,
+                );
 
                 let naturalIndex = 0;
                 for (const [sid, text] of Object.entries(sidRecord)) {
@@ -510,6 +517,8 @@ export function useProjectSearch({
         setMatchWholeWord,
         matchCase,
         setMatchCase,
+        searchUSFM,
+        setSearchUSFM,
         sortBy,
         currentSort,
         escapeRegex,

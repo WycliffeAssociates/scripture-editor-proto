@@ -176,6 +176,15 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                         }
                         size="xs"
                     />
+                    <Checkbox
+                        data-testid={TESTING_IDS.includeUSFMMarkersCheckbox}
+                        label={t`Include USFM markers`}
+                        checked={search.searchUSFM}
+                        onChange={(e) =>
+                            search.setSearchUSFM(e.currentTarget.checked)
+                        }
+                        size="xs"
+                    />
                 </Group>
             </div>
 

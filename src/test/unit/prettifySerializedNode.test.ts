@@ -6,8 +6,10 @@ import {
     applyPrettifyToNodeTree,
     collapseWhitespaceInTextNode,
     insertLinebreakAfterChapterNumberRange,
+    insertLinebreakAfterParaMarkers,
     insertLinebreakBeforeParaMarkers,
     normalizeSpacingAfterParaMarkers,
+    removeDuplicateVerseNumbers,
 } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 
 const createTextNode = (
@@ -56,12 +58,95 @@ describe("prettifySerializedNode utils", () => {
             }
         });
 
-        it("should not insert if linebreak already exists", () => {
+        it("should always insert linebreak even if one exists", () => {
             const node = createTextNode("1", UsfmTokenTypes.numberRange, "c");
             const result = insertLinebreakAfterChapterNumberRange(node, {
                 nextSibling: { type: "linebreak", version: 1 },
             });
-            expect(Array.isArray(result)).toBe(false);
+            expect(Array.isArray(result)).toBe(true);
+            if (Array.isArray(result)) {
+                expect(result).toHaveLength(2);
+                expect(result[1].type).toBe("linebreak");
+            }
+        });
+
+        it("should insert linebreak if marker is missing but previous sibling is \\c", () => {
+            const node = createTextNode("1", UsfmTokenTypes.numberRange); // No marker
+            const prevSibling = createTextNode(
+                "\\c",
+                UsfmTokenTypes.marker,
+                "c",
+            );
+            const result = insertLinebreakAfterChapterNumberRange(node, {
+                previousSibling: prevSibling,
+            });
+            expect(Array.isArray(result)).toBe(true);
+            if (Array.isArray(result)) {
+                expect(result).toHaveLength(2);
+                expect(result[1].type).toBe("linebreak");
+            }
+        });
+    });
+
+    describe("removeDuplicateVerseNumbers", () => {
+        it("should remove duplicate verse number from text node", () => {
+            const verseNode = createTextNode(
+                "5",
+                UsfmTokenTypes.numberRange,
+                "v",
+            );
+            const textNode = createTextNode(" 5 Can a bird...");
+            const result = removeDuplicateVerseNumbers(textNode, {
+                previousSibling: verseNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(
+                "Can a bird...",
+            );
+        });
+
+        it("should remove duplicate verse number even if no space after", () => {
+            const verseNode = createTextNode(
+                "5",
+                UsfmTokenTypes.numberRange,
+                "v",
+            );
+            const textNode = createTextNode("5Can a bird...");
+            const result = removeDuplicateVerseNumbers(textNode, {
+                previousSibling: verseNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(
+                "Can a bird...",
+            );
+        });
+
+        it("should remove duplicate verse number even if marker is missing on prev sibling", () => {
+            const verseNode = createTextNode(
+                "5",
+                UsfmTokenTypes.numberRange,
+                // No marker
+            );
+            const textNode = createTextNode(" 5 Can a bird...");
+            const result = removeDuplicateVerseNumbers(textNode, {
+                previousSibling: verseNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(
+                "Can a bird...",
+            );
+        });
+
+        it("should not remove if number does not match", () => {
+            const verseNode = createTextNode(
+                "5",
+                UsfmTokenTypes.numberRange,
+                "v",
+            );
+            const textNode = createTextNode(" 6 Can a bird...");
+            const result = removeDuplicateVerseNumbers(textNode, {
+                previousSibling: verseNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(
+                " 6 Can a bird...",
+            );
         });
     });
 
@@ -75,6 +160,56 @@ describe("prettifySerializedNode utils", () => {
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
                 expect(result[0].type).toBe("linebreak");
+            }
+        });
+
+        it("should insert linebreak for poetry markers (ALWAYS)", () => {
+            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const result = insertLinebreakBeforeParaMarkers(node, {
+                previousSibling: createTextNode("some text"),
+                poetryMarkers: new Set(["q"]),
+            });
+            expect(Array.isArray(result)).toBe(true);
+            if (Array.isArray(result)) {
+                expect(result).toHaveLength(2);
+                expect(result[0].type).toBe("linebreak");
+            }
+        });
+    });
+
+    describe("insertLinebreakAfterParaMarkers", () => {
+        it("should insert linebreak after normal para marker", () => {
+            const node = createTextNode("\\p", UsfmTokenTypes.marker, "p");
+            // Not poetry
+            const result = insertLinebreakAfterParaMarkers(node, {
+                poetryMarkers: new Set(["q"]),
+            });
+            expect(Array.isArray(result)).toBe(true);
+            if (Array.isArray(result)) {
+                expect(result).toHaveLength(2);
+                expect(result[1].type).toBe("linebreak");
+            }
+        });
+
+        it("should NOT insert linebreak after poetry marker if next sibling is text", () => {
+            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const result = insertLinebreakAfterParaMarkers(node, {
+                poetryMarkers: new Set(["q"]),
+                nextSibling: createTextNode("some poetry text"),
+            });
+            expect(Array.isArray(result)).toBe(false);
+        });
+
+        it("should insert linebreak after poetry marker if next sibling is MARKER", () => {
+            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const result = insertLinebreakAfterParaMarkers(node, {
+                poetryMarkers: new Set(["q"]),
+                nextSibling: createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            });
+            expect(Array.isArray(result)).toBe(true);
+            if (Array.isArray(result)) {
+                expect(result).toHaveLength(2);
+                expect(result[1].type).toBe("linebreak");
             }
         });
     });
