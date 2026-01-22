@@ -5,7 +5,10 @@ import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNo
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { isSerializedPlainTextUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    isSerializedPlainTextUSFMTextNode,
+    isSerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 export function reduceSerializedNodesToText(
     serializedNodes: SerializedLexicalNode[],
@@ -15,9 +18,10 @@ export function reduceSerializedNodesToText(
 
     for (const node of serializedNodes) {
         if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
-            debugger;
-            const textToAppend = includeUSFM ? getMarkerText(node) : node.text;
+            const textToAppend = node.text;
             result[node.sid] = (result[node.sid] || "") + textToAppend;
+        } else if (isSerializedUSFMTextNode(node) && node.sid && includeUSFM) {
+            result[node.sid] = (result[node.sid] || "") + node.text;
         }
 
         if (isSerializedElementNode(node)) {
