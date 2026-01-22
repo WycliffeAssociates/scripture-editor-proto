@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+    Badge,
     Button,
     Center,
     Grid,
@@ -168,15 +169,22 @@ function DiffItem({
             className={styles.diffItem}
         >
             <Group justify="space-between" p="0">
-                <Text
-                    data-testid={TESTING_IDS.save.diffSidHeader}
-                    className={styles.diffSidHeader}
-                >
-                    {bookCodeToProjectLocalizedTitle({
-                        bookCode: diff.bookCode,
-                        replaceCodeInString: diff.semanticSid,
-                    })}
-                </Text>
+                <Group gap="xs">
+                    <Text
+                        data-testid={TESTING_IDS.save.diffSidHeader}
+                        className={styles.diffSidHeader}
+                    >
+                        {bookCodeToProjectLocalizedTitle({
+                            bookCode: diff.bookCode,
+                            replaceCodeInString: diff.semanticSid,
+                        })}
+                    </Text>
+                    {diff.isWhitespaceChange && (
+                        <Badge variant="light" color="gray" size="sm">
+                            <Trans>Whitespace Only</Trans>
+                        </Badge>
+                    )}
+                </Group>
                 {diff.detail && (
                     <Text className={styles.diffDetailWarning}>
                         {diff.detail}

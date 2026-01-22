@@ -180,21 +180,21 @@ const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
     ],
 };
 
-function matchBook(input: string): string | null {
-    const normalized = input.toLowerCase().replace(/\s+/g, "");
-    for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
-        if (
-            aliases.some(
-                (alias) =>
-                    normalized.startsWith(alias) ||
-                    normalized === id.toLowerCase(),
-            )
-        ) {
-            return id;
-        }
-    }
-    return null;
-}
+// function matchBook(input: string): string | null {
+//     const normalized = input.toLowerCase().replace(/\s+/g, "");
+//     for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
+//         if (
+//             aliases.some(
+//                 (alias) =>
+//                     normalized.startsWith(alias) ||
+//                     normalized === id.toLowerCase(),
+//             )
+//         ) {
+//             return id;
+//         }
+//     }
+//     return null;
+// }
 
 // --- 4. Parse free-form references ----------------------------------------
 //word or digit 3, all ws or noe, 1-3 digits, colon, 1-3 digits optional hyphen 1-3 digits optional. I.e. this supports

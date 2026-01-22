@@ -6,6 +6,7 @@ import {
     applyPrettifyToNodeTree,
     collapseWhitespaceInTextNode,
     distributeCombinedVerseText,
+    ensureSpaceBetweenNodes,
     insertLinebreakAfterChapterNumberRange,
     insertLinebreakAfterParaMarkers,
     insertLinebreakBeforeParaMarkers,
@@ -47,6 +48,69 @@ describe("prettifySerializedNode utils", () => {
             const node = createTextNode("  1  ", UsfmTokenTypes.numberRange);
             const result = collapseWhitespaceInTextNode(node);
             expect(result.text).toBe("  1  ");
+        });
+    });
+
+    describe("ensureSpaceBetweenNodes", () => {
+        it("should add space between Marker and Text if missing", () => {
+            const markerNode = createTextNode(
+                "\\v",
+                UsfmTokenTypes.marker,
+                "v",
+            );
+            const textNode = createTextNode("Text");
+            const result = ensureSpaceBetweenNodes(textNode, {
+                previousSibling: markerNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(" Text");
+        });
+
+        it("should add space between Marker and Marker if missing", () => {
+            const markerNode1 = createTextNode(
+                "\\p",
+                UsfmTokenTypes.marker,
+                "p",
+            );
+            // Note: createTextNode sets text to first arg.
+            const markerNode2 = createTextNode(
+                "\\v",
+                UsfmTokenTypes.marker,
+                "v",
+            );
+            const result = ensureSpaceBetweenNodes(markerNode2, {
+                previousSibling: markerNode1,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(" \\v");
+        });
+
+        it("should NOT add space if previous sibling ends with space", () => {
+            const prevNode = createTextNode("Text ");
+            const node = createTextNode("More");
+            const result = ensureSpaceBetweenNodes(node, {
+                previousSibling: prevNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe("More");
+        });
+
+        it("should NOT add space if current node starts with space", () => {
+            const prevNode = createTextNode("Text");
+            const node = createTextNode(" More");
+            const result = ensureSpaceBetweenNodes(node, {
+                previousSibling: prevNode,
+            });
+            expect((result as SerializedUSFMTextNode).text).toBe(" More");
+        });
+
+        it("should ignore linebreaks", () => {
+            const linebreak = {
+                type: "linebreak",
+                version: 1,
+            } as SerializedLexicalNode;
+            const node = createTextNode("Text");
+            const result = ensureSpaceBetweenNodes(node, {
+                previousSibling: linebreak,
+            });
+            expect(result).toBe(node);
         });
     });
 
@@ -523,7 +587,76 @@ describe("prettifySerializedNode utils", () => {
             expect(result).toHaveLength(3);
             expect(result[0].type).toBe(USFM_TEXT_NODE_TYPE);
             expect(result[1].type).toBe(USFM_TEXT_NODE_TYPE);
-            expect((result[1] as SerializedUSFMTextNode).text).toBe("\\v");
+            // ensureSpaceBetweenNodes adds a space because "1" doesn't end with space
+            expect((result[1] as SerializedUSFMTextNode).text).toBe(" \\v");
         });
+    });
+
+    it("should clear pending verses after processing text with no matches", () => {
+        // Scenario: \v 1 Text \v 2
+        // pendingVerses should be empty after "Text", so \v 1 doesn't match anything later.
+
+        const nodes: SerializedLexicalNode[] = [
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("1", UsfmTokenTypes.numberRange, "v"),
+            // Text that does NOT contain "1" followed by space/dot/paren
+            createTextNode(" Text for verse one "),
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("2", UsfmTokenTypes.numberRange, "v"),
+            // This text contains "1 " which would match verse 1 if it was still pending
+            createTextNode(" Text with number 1 inside "),
+        ];
+
+        const result = distributeCombinedVerseText(nodes);
+
+        expect(result).toHaveLength(6);
+        expect((result[2] as SerializedUSFMTextNode).text).toBe(
+            " Text for verse one ",
+        );
+        expect((result[5] as SerializedUSFMTextNode).text).toBe(
+            " Text with number 1 inside ",
+        );
+    });
+
+    it("should clear pending verses when encountering a non-verse marker", () => {
+        // Scenario: \v 1 \p Text
+        // \p should clear pending verses.
+
+        const nodes: SerializedLexicalNode[] = [
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("1", UsfmTokenTypes.numberRange, "v"),
+            createTextNode("\\p", UsfmTokenTypes.marker, "p"),
+            // Text containing "1 "
+            createTextNode(" Text 1 starts here"),
+        ];
+
+        const result = distributeCombinedVerseText(nodes);
+
+        expect(result).toHaveLength(4);
+        expect((result[3] as SerializedUSFMTextNode).text).toBe(
+            " Text 1 starts here",
+        );
+    });
+
+    it("should not split text falsely when pending verses are cleared", () => {
+        // Scenario: \v 5 ... 1,335 days
+        // If \v 5 was processed and cleared, it shouldn't match "5 " in "1,335 days" later.
+
+        const nodes: SerializedLexicalNode[] = [
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("5", UsfmTokenTypes.numberRange, "v"),
+            createTextNode(" Normal text for five "),
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("6", UsfmTokenTypes.numberRange, "v"),
+            createTextNode(" 1,335 days "),
+        ];
+
+        const result = distributeCombinedVerseText(nodes);
+
+        expect(result).toHaveLength(6);
+        expect((result[2] as SerializedUSFMTextNode).text).toBe(
+            " Normal text for five ",
+        );
+        expect((result[5] as SerializedUSFMTextNode).text).toBe(" 1,335 days ");
     });
 });

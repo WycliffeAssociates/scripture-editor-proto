@@ -344,6 +344,21 @@ export function distributeCombinedVerseText(
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
+        // Clear pending verses if we encounter a marker that is not a verse marker
+        if (
+            isSerializedUSFMTextNode(node) &&
+            node.tokenType === UsfmTokenTypes.marker &&
+            node.marker !== "v"
+        ) {
+            pendingVerses.length = 0;
+        } else if (
+            !isSerializedUSFMTextNode(node) &&
+            node.type !== "linebreak"
+        ) {
+            // Clear pending verses on non-USFM nodes (except linebreaks)
+            pendingVerses.length = 0;
+        }
+
         if (isSerializedUSFMTextNode(node)) {
             // Check for Verse Marker + Number
             if (node.tokenType === UsfmTokenTypes.numberRange) {
@@ -441,6 +456,10 @@ export function distributeCombinedVerseText(
                     }
 
                     continue;
+                } else {
+                    // No matches found in this text node, so clear pending verses
+                    // to prevent false matches in future text nodes.
+                    pendingVerses.length = 0;
                 }
             }
         }
@@ -449,6 +468,46 @@ export function distributeCombinedVerseText(
     }
 
     return result;
+}
+
+/**
+ * Ensures at least one space exists between inline nodes (markers, numbers, text).
+ */
+export function ensureSpaceBetweenNodes(
+    node: SerializedLexicalNode,
+    context: PrettifyContext,
+): SerializedLexicalNode {
+    // Skip if node is linebreak
+    if (node.type === "linebreak") return node;
+
+    const { previousSibling } = context;
+
+    // Skip if previousSibling is linebreak or undefined
+    if (!previousSibling || previousSibling.type === "linebreak") return node;
+
+    // Skip if node or previousSibling are not "text-like"
+    if (
+        !isSerializedUSFMTextNode(node) ||
+        !isSerializedUSFMTextNode(previousSibling)
+    ) {
+        return node;
+    }
+
+    // Check Boundary
+    const prevText = (previousSibling as SerializedUSFMTextNode).text;
+    const currText = (node as SerializedUSFMTextNode).text;
+
+    const prevEndsWithSpace = /\s$/.test(prevText);
+    const currStartsWithSpace = /^\s/.test(currText);
+
+    if (!prevEndsWithSpace && !currStartsWithSpace) {
+        return {
+            ...node,
+            text: ` ${currText}`,
+        } as SerializedUSFMTextNode;
+    }
+
+    return node;
 }
 
 /**
@@ -471,6 +530,9 @@ export function prettifySerializedNode(
         currentNode = collapseWhitespaceInTextNode(
             currentNode as SerializedUSFMTextNode,
         );
+
+        currentNode = ensureSpaceBetweenNodes(currentNode, context);
+
         currentNode = removeDuplicateVerseNumbers(
             currentNode,
             context,

@@ -406,6 +406,7 @@ export type ProjectDiff = {
     bookCode: string;
     chapterNum: number;
     detail?: string;
+    isWhitespaceChange?: boolean;
 };
 
 export type DiffMap = Record<string, ProjectDiff>; // The key is the uniqueKey
@@ -448,8 +449,14 @@ function buildRichDiff(
         : (current?.plainTextStructure ?? "");
 
     let wordDiff: Change[] | undefined;
+    let isWhitespaceChange = false;
     if (status === "modified") {
         wordDiff = diffWordsWithSpace(originalDisplayText, currentDisplayText);
+        // Check for whitespace-only changes
+        const strip = (s: string) => s.replace(/\s+/g, "");
+        if (strip(originalDisplayText) === strip(currentDisplayText)) {
+            isWhitespaceChange = true;
+        }
     }
     const detail = current?.detail;
 
@@ -465,6 +472,7 @@ function buildRichDiff(
         bookCode,
         chapterNum,
         detail,
+        isWhitespaceChange,
     };
 }
 
