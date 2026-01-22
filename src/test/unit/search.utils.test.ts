@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -11,7 +11,7 @@ import {
 
 describe("escapeRegex", () => {
     it("should escape all special regex characters", () => {
-        const input = ".*+?^${}()|[\\]\\\\";
+        const input = ".*+?^$" + "{}()|[\\]\\";
         const result = escapeRegex(input);
         expect(result).toBe(
             "\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\\\\\]\\\\\\\\",
@@ -282,11 +282,9 @@ describe("reduceSerializedNodesToText", () => {
     }
 
     function createMockElementNode(
-        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
-        children: any[],
+        children: USFMNodeJSON[],
         sid?: string,
-        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
-    ): USFMElementNodeJSON & { children: any[] } {
+    ): USFMElementNodeJSON & { children: USFMNodeJSON[] } {
         return {
             type: "usfm-element-node",
             id: "element-1",
@@ -298,12 +296,12 @@ describe("reduceSerializedNodesToText", () => {
             direction: "ltr",
             format: "",
             indent: 0,
-            children: children as any,
+            children: children,
         };
     }
 
     function createMockNestedEditorNode(
-        children: any[],
+        children: SerializedUSFMTextNode[],
         sid: string,
     ): USFMNestedEditorNodeJSON {
         return {
@@ -327,12 +325,11 @@ describe("reduceSerializedNodesToText", () => {
                         {
                             type: "paragraph",
                             version: 1,
-                            direction: "ltr",
                             format: "",
                             indent: 0,
-                            children: children as any,
+                            children: children,
                         },
-                    ] as any,
+                    ],
                     direction: "ltr",
                     format: "",
                     indent: 0,
@@ -411,7 +408,7 @@ describe("reduceSerializedNodesToText", () => {
             createMockUSFMTextNode("World", "verse-2"),
         ];
 
-        const nodes = [createMockElementNode(children, undefined) as any];
+        const nodes = [createMockElementNode(children, undefined)];
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
@@ -426,7 +423,7 @@ describe("reduceSerializedNodesToText", () => {
             createMockUSFMTextNode(" text", "verse-1"),
         ];
 
-        const nodes = [createMockElementNode(children, "element-1") as any];
+        const nodes = [createMockElementNode(children, "element-1")];
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
@@ -440,9 +437,7 @@ describe("reduceSerializedNodesToText", () => {
             createMockUSFMTextNode(" text", "footnote-1"),
         ];
 
-        const nodes = [
-            createMockNestedEditorNode(nestedChildren, "nested-1") as any,
-        ];
+        const nodes = [createMockNestedEditorNode(nestedChildren, "nested-1")];
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
@@ -451,8 +446,7 @@ describe("reduceSerializedNodesToText", () => {
     });
 
     it("should handle complex nested structure with mixed node types", () => {
-        // biome-ignore lint/suspicious/noExplicitAny: <any in teest mocking>
-        const nodes: any[] = [
+        const nodes: USFMNodeJSON[] = [
             // Plain text node at root
             createMockUSFMTextNode("In", "verse-1"),
             // Element node with text children
@@ -490,7 +484,7 @@ describe("reduceSerializedNodesToText", () => {
             createMockNestedEditorNode(nestedChildren, "nested-1"),
         ];
 
-        const nodes = [createMockElementNode(elementChildren) as any];
+        const nodes = [createMockElementNode(elementChildren)];
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({

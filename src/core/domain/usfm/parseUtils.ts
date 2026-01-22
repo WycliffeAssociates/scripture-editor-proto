@@ -137,6 +137,7 @@ function prepareLexedToken<T extends Token | LintableToken>(
         "verseAltOpen",
         "chapterPublished",
         "versePublished",
+        "escapedMarker",
     ]);
 
     // figure out the type string from either field

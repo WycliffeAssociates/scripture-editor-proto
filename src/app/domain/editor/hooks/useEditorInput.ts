@@ -29,7 +29,7 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * @param editor - The LexicalEditor instance
  */
 export function useEditorInput(editor: LexicalEditor) {
-    const { project, projectLanguageDirection } = useWorkspaceContext();
+    const { project, projectLanguageDirection, search } = useWorkspaceContext();
     const { appSettings } = project;
     const { markersMutableState, markersViewState, mode } = appSettings;
 
@@ -113,4 +113,37 @@ export function useEditorInput(editor: LexicalEditor) {
         markersMutableState,
         projectLanguageDirection,
     ]);
+
+    //   FIND HOTKEY TO OPEN PANEL
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (
+                (event.metaKey || event.ctrlKey) &&
+                event.key.toLowerCase() === "f"
+            ) {
+                event.preventDefault();
+                if (!search.isSearchPaneOpen) {
+                    search.setIsSearchPaneOpen(true);
+                }
+                requestAnimationFrame(() => {
+                    const searchInput = document.querySelector(
+                        '[data-js="search-input"]',
+                    ) as HTMLInputElement;
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                });
+            } else if (event.key === "Escape") {
+                event.preventDefault();
+                if (search.isSearchPaneOpen) {
+                    search.setIsSearchPaneOpen(false);
+                }
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [search]);
 }

@@ -75,8 +75,6 @@ export const item = style({
     },
 });
 
-export const itemActive = style({});
-
 export const categoryHeader = style({
     padding: `${rem(8)} ${rem(16)} ${rem(4)}`,
     fontSize: rem(11),
@@ -92,19 +90,4 @@ export const pillContainer = style({
     alignItems: "center",
     gap: rem(4),
     borderBottom: "1px solid var(--mantine-color-default-border)",
-});
-
-export const instructionText = style({
-    fontSize: rem(12),
-    color: "var(--mantine-color-dimmed)",
-});
-
-export const kbd = style({
-    padding: `${rem(2)} ${rem(4)}`,
-    borderRadius: rem(4),
-    border: "1px solid var(--mantine-color-default-border)",
-    backgroundColor: "var(--mantine-color-gray-light)",
-    fontSize: rem(10),
-    fontWeight: 700,
-    color: "var(--mantine-color-text)",
 });

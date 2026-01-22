@@ -1,4 +1,10 @@
-import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
+import {
+    $getSelection,
+    $isRangeSelection,
+    type ElementNode,
+    type LexicalEditor,
+    type LexicalNode,
+} from "lexical";
 import {
     AlignLeft,
     Edit3,
@@ -107,7 +113,7 @@ function insertMarker(
     });
 }
 
-export function createMarkerAction(
+function createMarkerAction(
     id: string,
     label: string,
     marker: string,
@@ -120,11 +126,14 @@ export function createMarkerAction(
         marker,
         icon,
         isVisible: () => true,
-        execute: (editor, context) => insertMarker(editor, context, marker),
+        execute: (editor, context) => {
+            insertMarker(editor, context, marker);
+            return undefined;
+        },
     };
 }
 
-export const AVAILABLE_MARKERS_FOR_CHANGE = [
+const AVAILABLE_MARKERS_FOR_CHANGE = [
     { label: "Verse", value: "v" },
     { label: "Paragraph", value: "p" },
     { label: "Margin Paragraph", value: "m" },
@@ -136,7 +145,7 @@ export const AVAILABLE_MARKERS_FOR_CHANGE = [
     { label: "Descriptive Title", value: "d" },
 ];
 
-export const CHANGE_MARKER_ACTION: EditorAction = {
+const CHANGE_MARKER_ACTION: EditorAction = {
     id: "change-marker",
     label: "Change previous marker to...",
     category: "Markers",
@@ -155,13 +164,13 @@ export const CHANGE_MARKER_ACTION: EditorAction = {
             let markerNode: USFMTextNode | null = null;
 
             // Search backward for the nearest marker node
-            let curr: any = anchorNode;
+            let curr: LexicalNode | ElementNode | null = anchorNode;
             while (curr) {
                 if ($isUSFMTextNode(curr) && curr.getTokenType() === "marker") {
                     markerNode = curr;
                     break;
                 }
-                const prev = curr.getPreviousSibling();
+                const prev: LexicalNode | null = curr.getPreviousSibling();
                 if (prev) {
                     curr = prev;
                 } else {

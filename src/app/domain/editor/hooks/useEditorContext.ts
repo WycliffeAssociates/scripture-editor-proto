@@ -1,5 +1,10 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getSelection, $isRangeSelection } from "lexical";
+import {
+    $getSelection,
+    $isRangeSelection,
+    type ElementNode,
+    type LexicalNode,
+} from "lexical";
 import { useCallback } from "react";
 import { $isUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -65,7 +70,7 @@ export function useEditorContext() {
                 const node = selection.anchor.getNode();
 
                 // 1. Traverse up to build node path and find metadata
-                let curr: any = node;
+                let curr: LexicalNode | ElementNode | null = node;
                 while (curr) {
                     const type = curr.getType();
                     nodePath.push(type);
@@ -84,7 +89,7 @@ export function useEditorContext() {
 
                 // 2. If no marker found in ancestors, search backward from current position
                 if (!currentMarker) {
-                    let searchCurr: any = node;
+                    let searchCurr: LexicalNode | null | ElementNode = node;
                     while (searchCurr) {
                         if (
                             $isUSFMTextNode(searchCurr) &&
@@ -93,7 +98,8 @@ export function useEditorContext() {
                             currentMarker = searchCurr.getMarker();
                             break;
                         }
-                        const prev = searchCurr.getPreviousSibling();
+                        const prev: LexicalNode | null | ElementNode =
+                            searchCurr.getPreviousSibling();
                         if (prev) {
                             searchCurr = prev;
                         } else {

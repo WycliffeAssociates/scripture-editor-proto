@@ -68,7 +68,7 @@ type InsertContext = {
 /**
  * Gets common context needed for all marker insertions
  */
-export function $getInsertionContext(anchorNode: USFMTextNode): InsertContext {
+function $getInsertionContext(anchorNode: USFMTextNode): InsertContext {
     const { nearestParaMarker, prevSidInfo } =
         findContextForVerseInsert(anchorNode);
 
@@ -97,7 +97,7 @@ type CreatMarkerNodeArgs = {
     args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">;
     isEndMarker?: boolean;
 };
-export function $createMarkerNode({
+function $createMarkerNode({
     marker,
     context,
     args,
@@ -131,7 +131,7 @@ type CreateContextTextNodeArgs = {
     tokenType: (typeof UsfmTokenTypes)[keyof typeof UsfmTokenTypes];
     extraProps?: Partial<USFMTextNodeMetadata>;
 };
-export function $createContextTextNode({
+function $createContextTextNode({
     text,
     context,
     tokenType,
@@ -149,7 +149,7 @@ export function $createContextTextNode({
 /**
  * Ensures a linebreak precedes the given node
  */
-export function $ensureLineBreakBefore(node: USFMTextNode): void {
+function $ensureLineBreakBefore(node: USFMTextNode): void {
     const prevSibling = node.getPreviousSibling();
     const isLineBreak = prevSibling && $isLineBreakNode(prevSibling);
 
@@ -188,7 +188,7 @@ export function mapMarkerToInsertionType(
     return InsertionTypes.para; // default fallback
 }
 
-export function findContextForVerseInsert(anchorNode: LexicalNode): {
+function findContextForVerseInsert(anchorNode: LexicalNode): {
     nearestParaMarker: string | null;
     prevSidInfo: ParsedReference | null;
 } {

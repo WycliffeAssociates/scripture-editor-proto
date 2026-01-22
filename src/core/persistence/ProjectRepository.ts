@@ -63,28 +63,6 @@ const DbProjectSchema = v.object({
    --------------------------- */
 
 /**
- * Parse and validate a single ProjectFile object.
- * Throws if validation fails.
- */
-function parseProjectFile(raw: unknown): ProjectFile {
-    return v.parse(ProjectFileSchema, raw) as ProjectFile;
-}
-
-/**
- * Parse and validate an array of ProjectFile objects.
- */
-function parseProjectFiles(raw: unknown): ProjectFile[] {
-    return v.parse(v.array(ProjectFileSchema), raw) as ProjectFile[];
-}
-
-/**
- * Parse and validate project metadata.
- */
-function parseProjectMetadata(raw: unknown): ProjectMetadata {
-    return v.parse(ProjectMetadataSchema, raw) as ProjectMetadata;
-}
-
-/**
  * Parse and validate a project-like object for DB indexing.
  * Returns the validated subset used by the post-import hook.
  */

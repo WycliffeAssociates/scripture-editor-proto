@@ -5,6 +5,8 @@ import type {
     RangeSelection,
 } from "lexical";
 import type { ReactNode } from "react";
+import type { UseActionsHook } from "@/app/ui/hooks/useActions.tsx";
+import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
 
 export type EditorSelection =
     | RangeSelection
@@ -24,8 +26,8 @@ export interface EditorContext {
     markersViewState: string;
     markersMutableState: string;
     languageDirection: "ltr" | "rtl";
-    actions: any; // Workspace actions
-    searchApi: any; // Search API
+    actions: UseActionsHook; // Workspace actions
+    searchApi: UseSearchReturn; // Search API
 }
 
 export interface ActionStep {
@@ -51,5 +53,5 @@ export interface EditorAction {
     execute: (
         editor: LexicalEditor,
         context: EditorContext,
-    ) => void | ActionStep;
+    ) => undefined | ActionStep;
 }

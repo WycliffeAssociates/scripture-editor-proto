@@ -63,6 +63,7 @@ export const TESTING_IDS = {
         diffCurrentPanel: "save-diff-current-panel",
         goToChapterButton: "save-diff-go-to-button",
         revertButton: "save-diff-revert-button",
+        revertAllButton: "revert-all-button",
         newVerseLabel: "save-diff-new-verse-label",
         deletedVerseLabel: "save-diff-deleted-verse-label",
     },
@@ -118,6 +119,9 @@ export const TESTING_IDS = {
         replaceButton: "replace-button",
         saveButton: "save-button",
         exportButton: "export-button",
+    },
+    prettify: {
+        projectButton: "prettify-project-button",
     },
 } as const;
 

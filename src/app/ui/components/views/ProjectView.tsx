@@ -18,7 +18,6 @@ export function ProjectView() {
     const { referenceProject } = useWorkspaceContext();
     const [opened, { open, close }] = useDisclosure(false);
     const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
-    // const isSmall = !isBig;
 
     return (
         <div

@@ -279,18 +279,18 @@ export function makeSid({
 }
 
 // --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
-export function parseReference(input: string) {
-    const normalized = input.toLowerCase().replace(/\s+/g, "");
-    const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);
-    if (!match) return null;
-    const [, rawBook, rawChap] = match;
-    const bookId = matchBook(rawBook);
-    return {
-        knownBookId: bookId,
-        bookMatch: rawBook,
-        chapter: rawChap ? Number(rawChap) : null,
-    };
-}
+// function parseReference(input: string) {
+//   const normalized = input.toLowerCase().replace(/\s+/g, "");
+//   const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);
+//   if (!match) return null;
+//   const [, rawBook, rawChap] = match;
+//   const bookId = matchBook(rawBook);
+//   return {
+//     knownBookId: bookId,
+//     bookMatch: rawBook,
+//     chapter: rawChap ? Number(rawChap) : null,
+//   };
+// }
 
 export function sortListBySidCanonical<T extends { sid: string }>(list: T[]) {
     return list.sort((a, b) => {

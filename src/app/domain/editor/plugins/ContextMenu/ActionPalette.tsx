@@ -8,9 +8,10 @@ import {
     TextInput,
     useCombobox,
 } from "@mantine/core";
-import { $getRoot } from "lexical";
+import { $getRoot, $isElementNode, type LexicalNode } from "lexical";
 import { useEffect, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+
 import { getVisibleActions } from "../../actions/registry.ts";
 import type {
     ActionStep,
@@ -83,7 +84,9 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                         const root = $getRoot();
                         const nodes = root.getChildren();
                         // Recursive search for the SID
-                        const findNodeBySid = (nodes: any[]): any => {
+                        const findNodeBySid = (
+                            nodes: LexicalNode[],
+                        ): LexicalNode | null => {
                             for (const node of nodes) {
                                 if (
                                     $isUSFMTextNode(node) &&
@@ -91,7 +94,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                                 ) {
                                     return node;
                                 }
-                                if (node.getChildren) {
+                                if ($isElementNode(node)) {
                                     const found = findNodeBySid(
                                         node.getChildren(),
                                     );
@@ -102,7 +105,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                         };
 
                         const targetNode = findNodeBySid(nodes);
-                        if (targetNode) {
+                        if (targetNode && $isUSFMTextNode(targetNode)) {
                             targetNode.select();
                         }
                     }

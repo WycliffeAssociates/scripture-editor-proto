@@ -71,6 +71,9 @@ const lexer = moo.states({
         },
         endMarker: /\\\S*\*/u,
         implicitClose: "\\*",
+        // typoMarker: {
+        //   match: /\\{2,}v /u,
+        // },
         marker: {
             match: markerRegex,
             //   match: /\\\S+/u,
@@ -105,6 +108,10 @@ const lexer = moo.states({
             },
             next: "main",
         },
+        error: {
+            match: /.+/u,
+            error: true,
+        },
     },
     expectingNumberRange: {
         numberRange: {
@@ -123,6 +130,10 @@ const lexer = moo.states({
         },
         // if numberRange Doesn't match first, fall back to text and go to main
         text: { match: textRegex, lineBreaks: true, next: "main" },
+        error: {
+            match: /.+/u,
+            error: true,
+        },
     },
     specific: {
         text: { match: textRegex, lineBreaks: true, next: "main" },
@@ -134,6 +145,10 @@ const lexer = moo.states({
                 return "\n";
             },
             next: "main",
+        },
+        error: {
+            match: /.+/u,
+            error: true,
         },
     },
 });

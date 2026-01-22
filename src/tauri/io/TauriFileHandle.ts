@@ -220,8 +220,7 @@ export class TauriFileHandle implements IFileHandle {
             },
 
             // Methods delegated or wrapped
-            // biome-ignore lint/suspicious/noExplicitAny: <native lib.dom.ts uses any here>
-            abort: (reason?: any) => nativeStream.abort(reason),
+            abort: (reason?: unknown) => nativeStream.abort(reason),
             close: () => nativeStream.close(),
             getWriter: getCustomWriter,
 

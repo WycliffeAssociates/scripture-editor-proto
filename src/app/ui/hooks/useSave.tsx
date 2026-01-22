@@ -236,6 +236,18 @@ export function useProjectDiffs({
         );
     }
 
+    const handleRevertAll = () => {
+        revertAllChanges({
+            mutWorkingFilesRef,
+            currentSidMap,
+            originalSidMap: originalSidMapRef,
+            setDiffMap,
+            pickedFile,
+            pickedChapter,
+            editorRef,
+        });
+    };
+
     // HOOK RETURN
     return {
         /**
@@ -248,8 +260,62 @@ export function useProjectDiffs({
         closeModal,
         updateDiffMapForChapter,
         handleRevert,
+        handleRevertAll,
         saveProjectToDisk,
     };
+}
+
+function revertAllChanges({
+    mutWorkingFilesRef,
+    currentSidMap,
+    originalSidMap,
+    setDiffMap,
+    pickedFile,
+    pickedChapter,
+    editorRef,
+}: {
+    mutWorkingFilesRef: ParsedFile[];
+    currentSidMap: { current: FileChapScopedSids };
+    originalSidMap: { current: FileChapScopedSids };
+    setDiffMap: (diffMap: DiffMap) => void;
+    pickedFile: ParsedFile | null;
+    pickedChapter: ParsedChapter | null;
+    editorRef: React.RefObject<LexicalEditor | null>;
+}) {
+    for (const file of mutWorkingFilesRef) {
+        for (const chap of file.chapters) {
+            chap.lexicalState = structuredClone(chap.loadedLexicalState);
+            chap.dirty = false;
+        }
+    }
+
+    // Update the currentSidMap
+    currentSidMap.current = getProjectSidContentMap(
+        mutWorkingFilesRef,
+        (c) => c.lexicalState,
+    );
+
+    // Recompute the diff map
+    setDiffMap(
+        calculateInitialDiffs(originalSidMap.current, currentSidMap.current),
+    );
+
+    // If we are currently viewing a chapter, update the editor
+    if (pickedFile && pickedChapter && editorRef.current) {
+        const currentChap = mutWorkingFilesRef
+            .find((file) => file.bookCode === pickedFile.bookCode)
+            ?.chapters.find(
+                (chap) => chap.chapNumber === pickedChapter.chapNumber,
+            );
+        if (currentChap) {
+            editorRef.current.setEditorState(
+                editorRef.current.parseEditorState(currentChap.lexicalState),
+                {
+                    tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                },
+            );
+        }
+    }
 }
 
 // A helper function to process files, avoiding code duplication

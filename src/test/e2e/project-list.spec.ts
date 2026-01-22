@@ -1,4 +1,4 @@
-import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 
 test.describe("ProjectList Component", () => {

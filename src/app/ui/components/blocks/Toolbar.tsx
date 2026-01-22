@@ -1,6 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Button, Group, Menu, rem } from "@mantine/core";
-import { BookCopy, ChevronDown, Menu as IconMenu } from "lucide-react";
+import { Button, Group, Menu, rem, Tooltip } from "@mantine/core";
+import {
+    BookCopy,
+    ChevronDown,
+    FileStack,
+    Menu as IconMenu,
+} from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
@@ -13,6 +18,9 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
+    const { actions } = useWorkspaceContext();
+    const { t } = useLingui();
+
     return (
         <Group className={classes.toolbar}>
             <ActionIconSimple
@@ -33,6 +41,17 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
             {/* Search and save remain in toolbar */}
             <SearchInput />
+
+            <Tooltip label={t`Prettify Project`} withArrow position="top">
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.prettify.projectButton}
+                    onClick={() => actions.prettifyProject()}
+                    aria-label={t`Prettify Project`}
+                >
+                    <FileStack size={rem(14)} />
+                </ActionIconSimple>
+            </Tooltip>
+
             <SaveAndReviewChanges />
         </Group>
     );

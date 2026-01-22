@@ -374,15 +374,26 @@ function DiffViewerModal({
                     data-testId={TESTING_IDS.save.modal}
                     className={styles.stickyHeader}
                 >
-                    <Button
-                        variant="light"
-                        size="xs"
-                        onClick={saveDiff.saveProjectToDisk}
-                        className={styles.saveAllButtonMargin}
-                        data-testid={TESTING_IDS.save.saveAllButton}
-                    >
-                        <Trans>Save all changes</Trans>
-                    </Button>
+                    <Group>
+                        <Button
+                            variant="light"
+                            size="xs"
+                            onClick={saveDiff.saveProjectToDisk}
+                            className={styles.saveAllButtonMargin}
+                            data-testid={TESTING_IDS.save.saveAllButton}
+                        >
+                            <Trans>Save all changes</Trans>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="xs"
+                            color="red"
+                            onClick={saveDiff.handleRevertAll}
+                            data-testid={TESTING_IDS.save.revertAllButton}
+                        >
+                            <Trans>Revert all changes</Trans>
+                        </Button>
+                    </Group>
                 </div>
 
                 <ScrollArea className={styles.diffScrollArea}>
@@ -395,7 +406,11 @@ function DiffViewerModal({
 
                         {!isCalculating && !hasChanges && (
                             <Center className={styles.fullHeight}>
-                                <Text>
+                                <Text
+                                    data-testid={
+                                        TESTING_IDS.save.noChangesMessage
+                                    }
+                                >
                                     <Trans>No changes detected.</Trans>
                                 </Text>
                             </Center>

@@ -1,12 +1,14 @@
 import { MARKER_ACTIONS } from "./markerActions.ts";
 import { MODE_ACTIONS } from "./modeActions.ts";
+import { PRETTIFY_ACTIONS } from "./prettifyActions.ts";
 import { SEARCH_ACTIONS } from "./searchActions.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
 
-export const EDITOR_ACTIONS: EditorAction[] = [
+const EDITOR_ACTIONS: EditorAction[] = [
     ...SEARCH_ACTIONS,
     ...MARKER_ACTIONS,
     ...MODE_ACTIONS,
+    ...PRETTIFY_ACTIONS,
 ];
 
 export function getVisibleActions(context: EditorContext): EditorAction[] {

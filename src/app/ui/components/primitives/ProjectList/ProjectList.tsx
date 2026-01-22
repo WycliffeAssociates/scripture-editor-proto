@@ -3,7 +3,7 @@ import { ActionIcon, Button, Center, Group, Stack, Text } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Download, Eye, Plus } from "lucide-react";
 import { useMemo } from "react";
-import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 import classnames from "./ProjectList.module.css.ts";

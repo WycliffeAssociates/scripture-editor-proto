@@ -69,6 +69,32 @@ Purpose: Short-term memory between context windows. A place for you to append yo
 *   **`src/tauri/`**: Desktop-specific Core implementations (Rust/TS).
 *   **`src/web/`**: Browser-specific Core implementations (OPFS).
 
+# Feature: Prettify
+The Prettify feature provides opinionated, opt-in formatting operations to normalize USFM files.
+
+## Formatting Operations
+1. **Linebreak after chapter**: Inserts a linebreak after `\c` markers.
+2. **Collapse whitespace**: Replaces multiple spaces/tabs with a single space in text nodes.
+3. **Linebreak before para markers**: Ensures paragraph markers (e.g., `\p`, `\q`) start on a new line.
+4. **Linebreak after para markers**: Ensures content following a paragraph marker starts on a new line.
+5. **Normalize spacing after para markers**: Ensures exactly one space after a paragraph marker before text.
+
+## Scopes
+- **Prettify Book**: Applies transformations to all chapters in the currently active book.
+- **Prettify Project**: Applies transformations to all chapters across all books in the project.
+
+## Architecture: Reduce/Pipe Pattern
+To maintain performance and simplicity, Prettify operations use a **Reduce/Pipe** pattern on `SerializedLexicalNode` objects:
+- **Direct Manipulation**: Instead of spinning up Lexical editor instances (which is heavy), we transform the JSON-serialized state directly.
+- **Recursive Pipeline**: A `prettifySerializedNode` function recursively traverses the node tree, applying a pipeline of transformation functions.
+- **Extensibility**: New formatting rules can be added by simply inserting a new function into the pipeline.
+
+## Undo & Revert Logic
+Since these operations can be destructive across many files:
+- **Cloning**: Before any transformation, the entire `mutWorkingFilesRef` is deep-cloned.
+- **Review**: Changes are marked as `dirty`, triggering the "Save & Review Changes" modal.
+- **Revert All**: A "Revert all changes" button in the DiffModal allows users to restore the project to the pre-cloned state, effectively undoing the entire Prettify operation.
+
 # Tech Stack & Standards
 *   **Language:** TypeScript (Strict), Rust (Tauri Backend).
 *   **State:** TanStack Query + React Context (`WorkspaceContext`).

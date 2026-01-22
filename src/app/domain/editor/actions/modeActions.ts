@@ -28,6 +28,7 @@ export const MODE_ACTIONS: EditorAction[] = [
                     markersMutableState: EditorMarkersMutableStates.IMMUTABLE,
                 });
             }
+            return undefined;
         },
     },
     {
@@ -50,6 +51,7 @@ export const MODE_ACTIONS: EditorAction[] = [
                     markersMutableState: EditorMarkersMutableStates.MUTABLE,
                 });
             }
+            return undefined;
         },
     },
     {
@@ -62,6 +64,7 @@ export const MODE_ACTIONS: EditorAction[] = [
             if (context.actions.toggleToSourceMode) {
                 context.actions.toggleToSourceMode();
             }
+            return undefined;
         },
     },
 ];

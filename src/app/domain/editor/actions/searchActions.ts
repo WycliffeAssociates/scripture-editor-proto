@@ -14,6 +14,7 @@ export const SEARCH_ACTIONS: EditorAction[] = [
                 context.searchApi.onSearchChange(context.suggestedSearchTerm);
                 context.searchApi.setIsSearchPaneOpen(true);
             }
+            return undefined;
         },
     },
 ];

@@ -10,6 +10,14 @@ This project is organized into three main directories:
 - `src/`: Client UI code with React components
 - `src-tauri/`: Tauri-specific code for the desktop application
 
+## Key Features
+
+### Prettify
+The Prettify feature allows users to normalize USFM formatting across a book or the entire project. It uses a high-performance **Reduce/Pipe** architecture to transform Lexical's serialized state directly, ensuring consistency without the overhead of full editor instances.
+
+- **Operations**: Whitespace collapse, linebreak normalization, and paragraph marker spacing.
+- **Safety**: All operations are reversible via a "Revert All" option in the change review modal.
+
 For more details on the structure and how to use it, see [SRC-CORE-STRUCTURE.md](./SRC-CORE-STRUCTURE.md).
 
 ## Recommended IDE Setup

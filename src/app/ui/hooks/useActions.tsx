@@ -26,6 +26,8 @@ import {
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
@@ -444,14 +446,151 @@ export const useWorkspaceActions = ({
                 go: () => switchBookOrChapter(prevBookId, lastChap),
             };
         } else {
-            const prevChap = pickedFile.chapters[currentIndex - 1].chapNumber;
+            const prevChapter =
+                pickedFile.chapters[currentIndex - 1].chapNumber;
             return {
                 hasPrev: true,
-                display: `${getChapterDisplay(prevChap)}`,
-                go: () => switchBookOrChapter(pickedFile.bookCode, prevChap),
+                display: `${getChapterDisplay(prevChapter)}`,
+                go: () => switchBookOrChapter(pickedFile.bookCode, prevChapter),
             };
         }
     };
+
+    async function prettifyBook(bookCode?: string) {
+        saveCurrentDirtyLexical();
+        // Clone for undo
+        const backup = structuredClone(mutWorkingFilesRef);
+        const targetBookCode = bookCode || currentFileBibleIdentifier;
+
+        const file = mutWorkingFilesRef.find(
+            (f) => f.bookCode === targetBookCode,
+        );
+        if (!file) return;
+
+        let currentChapterModified = false;
+
+        file.chapters.forEach((chapter) => {
+            const originalChildren = chapter.lexicalState.root.children;
+            const newChildren = applyPrettifyToNodeTree(originalChildren);
+
+            // Check if anything changed
+            if (
+                JSON.stringify(originalChildren) !== JSON.stringify(newChildren)
+            ) {
+                chapter.lexicalState.root.children = newChildren;
+                chapter.dirty = true;
+                updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+                if (
+                    file.bookCode === currentFileBibleIdentifier &&
+                    chapter.chapNumber === currentChapter
+                ) {
+                    currentChapterModified = true;
+                }
+            }
+        });
+
+        if (currentChapterModified) {
+            const currentChap = file.chapters.find(
+                (c) => c.chapNumber === currentChapter,
+            );
+            if (currentChap) {
+                setEditorContent(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                    currentChap,
+                );
+            }
+        }
+
+        ShowNotificationSuccess({
+            notification: {
+                title: t`Book Prettified`,
+                message: t`Prettified ${file.title || file.bookCode}`,
+            },
+        });
+
+        return backup; // Return backup in case caller wants to handle revert
+    }
+
+    async function prettifyProject() {
+        saveCurrentDirtyLexical();
+        // Clone for undo
+        const backup = structuredClone(mutWorkingFilesRef);
+
+        let currentChapterModified = false;
+        let modifiedBooksCount = 0;
+
+        mutWorkingFilesRef.forEach((file) => {
+            let bookModified = false;
+            file.chapters.forEach((chapter) => {
+                const originalChildren = chapter.lexicalState.root.children;
+                const newChildren = applyPrettifyToNodeTree(originalChildren);
+
+                if (
+                    JSON.stringify(originalChildren) !==
+                    JSON.stringify(newChildren)
+                ) {
+                    chapter.lexicalState.root.children = newChildren;
+                    chapter.dirty = true;
+                    updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+                    bookModified = true;
+                    if (
+                        file.bookCode === currentFileBibleIdentifier &&
+                        chapter.chapNumber === currentChapter
+                    ) {
+                        currentChapterModified = true;
+                    }
+                }
+            });
+            if (bookModified) modifiedBooksCount++;
+        });
+
+        if (currentChapterModified) {
+            const currentFile = mutWorkingFilesRef.find(
+                (f) => f.bookCode === currentFileBibleIdentifier,
+            );
+            const currentChap = currentFile?.chapters.find(
+                (c) => c.chapNumber === currentChapter,
+            );
+            if (currentChap) {
+                setEditorContent(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                    currentChap,
+                );
+            }
+        }
+
+        ShowNotificationSuccess({
+            notification: {
+                title: t`Project Prettified`,
+                message: t`Prettified ${modifiedBooksCount} book(s)`,
+            },
+        });
+
+        return backup;
+    }
+
+    function revertPrettify(backup: ParsedFile[]) {
+        mutWorkingFilesRef.length = 0;
+        mutWorkingFilesRef.push(...backup);
+
+        const currentFile = mutWorkingFilesRef.find(
+            (f) => f.bookCode === currentFileBibleIdentifier,
+        );
+        const currentChap = currentFile?.chapters.find(
+            (c) => c.chapNumber === currentChapter,
+        );
+        if (currentChap) {
+            setEditorContent(
+                currentFileBibleIdentifier,
+                currentChapter,
+                currentChap,
+            );
+        }
+
+        updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
+    }
 
     return {
         updateChapterLexical,
@@ -465,6 +604,9 @@ export const useWorkspaceActions = ({
         prevChapter: determinePrevChapter(),
         toggleDiffModal: () => toggleDiffModalCallback(saveCurrentDirtyLexical),
         initializeEditor,
+        prettifyBook,
+        prettifyProject,
+        revertPrettify,
     };
 };
 

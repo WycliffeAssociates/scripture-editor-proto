@@ -73,7 +73,7 @@ export async function projectParamToParsedFiles(
                 );
                 return {
                     lexicalState: initialState,
-                    loadedLexicalState: initialState,
+                    loadedLexicalState: structuredClone(initialState),
                     chapNumber: Number(chapter),
                     dirty: false,
                 };
