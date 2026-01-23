@@ -1,10 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import {
+    $getRoot,
+    $isElementNode,
     CLEAR_HISTORY_COMMAND,
     type LexicalEditor,
+    type LexicalNode,
     type SerializedEditorState,
-    type SerializedElementNode,
-    type SerializedLexicalNode,
 } from "lexical";
 import { useRef } from "react";
 import {
@@ -13,32 +14,30 @@ import {
     EditorMarkersMutableStates,
     type EditorMarkersViewState,
     EditorMarkersViewStates,
-    USFM_TEXT_NODE_TYPE,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
-    isSerializedUSFMNestedEditorNode,
-    type USFMNestedEditorNodeJSON,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import {
-    createSerializedUSFMTextNode,
-    isSerializedToggleMutableUSFMTextNode,
-    isSerializedToggleShowUSFMTextNode,
+    $isUSFMTextNode,
     isSerializedUSFMTextNode,
-    type SerializedUSFMTextNode,
-    updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { applyAutofixToSerializedState } from "@/app/domain/editor/utils/autofixSerializedNode.ts";
+import { matchFormattingToSource } from "@/app/domain/editor/utils/matchFormatting.ts";
+import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import {
+    walkChapters,
+    walkNodes,
+} from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
-import { parseSid } from "@/core/data/bible/bible.ts";
+import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
+import { makeSid, parseReference, parseSid } from "@/core/data/bible/bible.ts";
 import type { LintableToken, LintError } from "@/core/data/usfm/lint.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
 import {
     lintExistingUsfmTokens,
     parseUSFMChapter,
@@ -64,11 +63,15 @@ type Props = {
     pickedFile: ParsedFile | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
+    updateDiffMapForChapters: (
+        chapters: Array<{ bookCode: string; chapterNum: number }>,
+    ) => void;
     updateLintErrors: (
         book: string,
         chapter: number,
         newErrors: LintError[],
     ) => void;
+    referenceProject: ReferenceProjectHook;
 };
 
 export const useWorkspaceActions = ({
@@ -83,7 +86,9 @@ export const useWorkspaceActions = ({
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
+    updateDiffMapForChapters,
     updateLintErrors,
+    referenceProject,
 }: Props) => {
     const { t } = useLingui();
 
@@ -221,26 +226,24 @@ export const useWorkspaceActions = ({
         const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ParsedChapter | undefined;
 
-        filesToUse.forEach((file) => {
-            file.chapters.forEach((chapter) => {
-                const rootChildren = chapter.lexicalState.root.children.flatMap(
-                    (node) => {
-                        return adjustSerializedLexicalNodes(node, {
-                            show: true,
-                            isMutable: true,
-                            flattenNested: true,
-                        });
-                    },
-                );
-                chapter.lexicalState.root.children = rootChildren;
-                if (
-                    chapter.chapNumber === currentChapter &&
-                    file.bookCode === currentFileBibleIdentifier
-                ) {
-                    thisChapterUpdated = chapter;
-                }
-            });
-        });
+        for (const { file, chapter } of walkChapters(filesToUse)) {
+            const rootChildren = chapter.lexicalState.root.children.flatMap(
+                (node) => {
+                    return adjustSerializedLexicalNodes(node, {
+                        show: true,
+                        isMutable: true,
+                        flattenNested: true,
+                    });
+                },
+            );
+            chapter.lexicalState.root.children = rootChildren;
+            if (
+                chapter.chapNumber === currentChapter &&
+                file.bookCode === currentFileBibleIdentifier
+            ) {
+                thisChapterUpdated = chapter;
+            }
+        }
 
         if (thisChapterUpdated) {
             setEditorContent(
@@ -296,42 +299,39 @@ export const useWorkspaceActions = ({
         const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ParsedChapter | undefined;
 
-        filesToUse.forEach((file) => {
-            file.chapters.forEach((chapter) => {
-                if (isSwitchingFromSource) {
-                    const usfm = serializeToUsfmString(
-                        chapter.lexicalState.root.children,
-                    );
-                    const parsedChapters = parseUSFMChapter(
-                        usfm,
-                        file.bookCode,
-                    ).usfm;
-                    const parsedTokens = Object.values(parsedChapters).flat();
-                    chapter.lexicalState = parsedUsfmTokensToJsonLexicalNode(
-                        parsedTokens,
-                        chapter.lexicalState.root.direction || "ltr",
-                    );
-                }
-
-                const rootChildren = chapter.lexicalState.root.children.flatMap(
-                    (node) => {
-                        return adjustSerializedLexicalNodes(node, {
-                            show: !hide,
-                            isMutable:
-                                isMutable ===
-                                EditorMarkersMutableStates.MUTABLE,
-                        });
-                    },
+        for (const { file, chapter } of walkChapters(filesToUse)) {
+            if (isSwitchingFromSource) {
+                const usfm = serializeToUsfmString(
+                    chapter.lexicalState.root.children,
                 );
-                if (
-                    chapter.chapNumber === currentChapter &&
-                    file.bookCode === currentFileBibleIdentifier
-                ) {
-                    thisChapterUpdated = chapter;
-                }
-                chapter.lexicalState.root.children = rootChildren;
-            });
-        });
+                const parsedChapters = parseUSFMChapter(
+                    usfm,
+                    file.bookCode,
+                ).usfm;
+                const parsedTokens = Object.values(parsedChapters).flat();
+                chapter.lexicalState = parsedUsfmTokensToJsonLexicalNode(
+                    parsedTokens,
+                    chapter.lexicalState.root.direction || "ltr",
+                );
+            }
+
+            const rootChildren = chapter.lexicalState.root.children.flatMap(
+                (node) => {
+                    return adjustSerializedLexicalNodes(node, {
+                        show: !hide,
+                        isMutable:
+                            isMutable === EditorMarkersMutableStates.MUTABLE,
+                    });
+                },
+            );
+            if (
+                chapter.chapNumber === currentChapter &&
+                file.bookCode === currentFileBibleIdentifier
+            ) {
+                thisChapterUpdated = chapter;
+            }
+            chapter.lexicalState.root.children = rootChildren;
+        }
 
         if (thisChapterUpdated) {
             setEditorContent(
@@ -507,6 +507,10 @@ export const useWorkspaceActions = ({
         if (!file) return;
 
         let currentChapterModified = false;
+        const modifiedChapters: Array<{
+            bookCode: string;
+            chapterNum: number;
+        }> = [];
 
         file.chapters.forEach((chapter) => {
             const originalChildren = chapter.lexicalState.root.children;
@@ -518,7 +522,10 @@ export const useWorkspaceActions = ({
             ) {
                 chapter.lexicalState.root.children = newChildren;
                 chapter.dirty = true;
-                updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+                modifiedChapters.push({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapNumber,
+                });
                 if (
                     file.bookCode === currentFileBibleIdentifier &&
                     chapter.chapNumber === currentChapter
@@ -527,6 +534,10 @@ export const useWorkspaceActions = ({
                 }
             }
         });
+
+        if (modifiedChapters.length > 0) {
+            updateDiffMapForChapters(modifiedChapters);
+        }
 
         if (currentChapterModified) {
             const currentChap = file.chapters.find(
@@ -558,31 +569,41 @@ export const useWorkspaceActions = ({
 
         let currentChapterModified = false;
         let modifiedBooksCount = 0;
+        const modifiedChapters: Array<{
+            bookCode: string;
+            chapterNum: number;
+        }> = [];
 
-        mutWorkingFilesRef.forEach((file) => {
-            let bookModified = false;
-            file.chapters.forEach((chapter) => {
-                const originalChildren = chapter.lexicalState.root.children;
-                const newChildren = applyPrettifyToNodeTree(originalChildren);
+        for (const { file, chapter } of walkChapters(mutWorkingFilesRef)) {
+            const originalChildren = chapter.lexicalState.root.children;
+            const newChildren = applyPrettifyToNodeTree(originalChildren);
 
+            if (
+                JSON.stringify(originalChildren) !== JSON.stringify(newChildren)
+            ) {
+                chapter.lexicalState.root.children = newChildren;
+                chapter.dirty = true;
+                modifiedChapters.push({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapNumber,
+                });
                 if (
-                    JSON.stringify(originalChildren) !==
-                    JSON.stringify(newChildren)
+                    file.bookCode === currentFileBibleIdentifier &&
+                    chapter.chapNumber === currentChapter
                 ) {
-                    chapter.lexicalState.root.children = newChildren;
-                    chapter.dirty = true;
-                    updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
-                    bookModified = true;
-                    if (
-                        file.bookCode === currentFileBibleIdentifier &&
-                        chapter.chapNumber === currentChapter
-                    ) {
-                        currentChapterModified = true;
-                    }
+                    currentChapterModified = true;
                 }
-            });
-            if (bookModified) modifiedBooksCount++;
-        });
+            }
+        }
+
+        if (modifiedChapters.length > 0) {
+            updateDiffMapForChapters(modifiedChapters);
+        }
+
+        // Recount modified books more accurately
+        modifiedBooksCount = mutWorkingFilesRef.filter((f) =>
+            f.chapters.some((c) => c.dirty),
+        ).length;
 
         if (currentChapterModified) {
             const currentFile = mutWorkingFilesRef.find(
@@ -629,6 +650,186 @@ export const useWorkspaceActions = ({
         }
 
         updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
+    }
+
+    async function matchFormattingChapter() {
+        debugger;
+        if (!referenceProject.referenceChapter) return;
+        saveCurrentDirtyLexical();
+
+        const backup = structuredClone(mutWorkingFilesRef);
+        const file = mutWorkingFilesRef.find(
+            (f) => f.bookCode === currentFileBibleIdentifier,
+        );
+        const chapter = file?.chapters.find(
+            (c) => c.chapNumber === currentChapter,
+        );
+
+        if (!chapter) return;
+
+        const targetNodes = chapter.lexicalState.root.children;
+        const sourceNodes =
+            referenceProject.referenceChapter.lexicalState.root.children;
+
+        const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
+
+        if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
+            chapter.lexicalState.root.children = newNodes;
+            chapter.dirty = true;
+            updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
+            setEditorContent(
+                currentFileBibleIdentifier,
+                currentChapter,
+                chapter,
+            );
+
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Formatting Matched`,
+                    message: t`Matched formatting for Chapter ${currentChapter}`,
+                },
+            });
+        }
+
+        return backup;
+    }
+
+    async function matchFormattingBook() {
+        if (!referenceProject.referenceFile) return;
+        saveCurrentDirtyLexical();
+
+        const backup = structuredClone(mutWorkingFilesRef);
+        const file = mutWorkingFilesRef.find(
+            (f) => f.bookCode === currentFileBibleIdentifier,
+        );
+        if (!file) return;
+
+        let currentChapterModified = false;
+        let modifiedChaptersCount = 0;
+
+        file.chapters.forEach((chapter) => {
+            const refChapter = referenceProject.referenceFile?.chapters.find(
+                (rc) => rc.chapNumber === chapter.chapNumber,
+            );
+            if (!refChapter) return;
+
+            const targetNodes = chapter.lexicalState.root.children;
+            const sourceNodes = refChapter.lexicalState.root.children;
+            const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
+
+            if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
+                chapter.lexicalState.root.children = newNodes;
+                chapter.dirty = true;
+                updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+                modifiedChaptersCount++;
+                if (chapter.chapNumber === currentChapter) {
+                    currentChapterModified = true;
+                }
+            }
+        });
+
+        if (currentChapterModified) {
+            const currentChap = file.chapters.find(
+                (c) => c.chapNumber === currentChapter,
+            );
+            if (currentChap) {
+                setEditorContent(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                    currentChap,
+                );
+            }
+        }
+
+        if (modifiedChaptersCount > 0) {
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Formatting Matched`,
+                    message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${file.title || file.bookCode}`,
+                },
+            });
+        }
+
+        return backup;
+    }
+
+    async function matchFormattingProject() {
+        if (!referenceProject.referenceQuery.data) return;
+        saveCurrentDirtyLexical();
+
+        const backup = structuredClone(mutWorkingFilesRef);
+        let currentChapterModified = false;
+        let modifiedBooksCount = 0;
+
+        for (const targetFile of mutWorkingFilesRef) {
+            const refFile =
+                referenceProject.referenceQuery.data.parsedFiles.find(
+                    (rf) => rf.bookCode === targetFile.bookCode,
+                );
+            if (!refFile) continue;
+
+            let fileModified = false;
+            targetFile.chapters.forEach((chapter) => {
+                const refChapter = refFile.chapters.find(
+                    (rc) => rc.chapNumber === chapter.chapNumber,
+                );
+                if (!refChapter) return;
+
+                const targetNodes = chapter.lexicalState.root.children;
+                const sourceNodes = refChapter.lexicalState.root.children;
+                const newNodes = matchFormattingToSource(
+                    targetNodes,
+                    sourceNodes,
+                );
+
+                if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
+                    chapter.lexicalState.root.children = newNodes;
+                    chapter.dirty = true;
+                    updateDiffMapForChapter(
+                        targetFile.bookCode,
+                        chapter.chapNumber,
+                    );
+                    fileModified = true;
+                    if (
+                        targetFile.bookCode === currentFileBibleIdentifier &&
+                        chapter.chapNumber === currentChapter
+                    ) {
+                        currentChapterModified = true;
+                    }
+                }
+            });
+
+            if (fileModified) {
+                modifiedBooksCount++;
+            }
+        }
+
+        if (currentChapterModified) {
+            const currentFile = mutWorkingFilesRef.find(
+                (f) => f.bookCode === currentFileBibleIdentifier,
+            );
+            const currentChap = currentFile?.chapters.find(
+                (c) => c.chapNumber === currentChapter,
+            );
+            if (currentChap) {
+                setEditorContent(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                    currentChap,
+                );
+            }
+        }
+
+        if (modifiedBooksCount > 0) {
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Formatting Matched`,
+                    message: t`Matched formatting across ${modifiedBooksCount} books`,
+                },
+            });
+        }
+
+        return backup;
     }
 
     async function fixLintError(err: LintError) {
@@ -696,6 +897,92 @@ export const useWorkspaceActions = ({
         }
     }
 
+    function goToReference(input: string): boolean {
+        const ref = parseReference(input);
+        if (!ref) return false;
+
+        let file = ref.knownBookId
+            ? mutWorkingFilesRef.find(
+                  (f) =>
+                      f.bookCode?.toLowerCase() ===
+                      ref.knownBookId?.toLowerCase(),
+              )
+            : undefined;
+
+        if (!file) {
+            const uniqueStartsWith = mutWorkingFilesRef.filter(
+                (f) =>
+                    f.title
+                        ?.toLocaleLowerCase()
+                        .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
+                    f.bookCode
+                        ?.toLocaleLowerCase()
+                        .startsWith(ref.bookMatch.toLocaleLowerCase()),
+            );
+            if (uniqueStartsWith.length === 1) {
+                file = uniqueStartsWith[0];
+            }
+        }
+
+        if (file) {
+            const targetChapter = ref.chapter ?? currentChapter ?? 0;
+            switchBookOrChapter(file.bookCode, targetChapter);
+
+            if (ref.verse !== null) {
+                const verseSid = makeSid({
+                    bookId: file.bookCode,
+                    chapter: targetChapter,
+                    verseStart: ref.verse,
+                    verseEnd: ref.verse,
+                });
+
+                // Scroll to verse after a short delay to allow editor to load
+                setTimeout(() => {
+                    const editor = editorRef.current;
+                    if (!editor) return;
+
+                    editor.read(() => {
+                        const root = $getRoot();
+                        const findNodeBySid = (
+                            nodes: LexicalNode[],
+                        ): LexicalNode | null => {
+                            for (const node of nodes) {
+                                if (
+                                    $isUSFMTextNode(node) &&
+                                    node.getSid() === verseSid
+                                ) {
+                                    return node;
+                                }
+                                if ($isElementNode(node)) {
+                                    const found = findNodeBySid(
+                                        node.getChildren(),
+                                    );
+                                    if (found) return found;
+                                }
+                            }
+                            return null;
+                        };
+
+                        const targetNode = findNodeBySid(root.getChildren());
+                        if (targetNode) {
+                            const domEl = editor.getElementByKey(
+                                targetNode.getKey(),
+                            );
+                            if (domEl) {
+                                domEl.scrollIntoView({
+                                    block: "center",
+                                    behavior: "smooth",
+                                });
+                            }
+                        }
+                    });
+                }, 200);
+            }
+            return true;
+        }
+        return false;
+    }
+
     return {
         updateChapterLexical,
         switchBookOrChapter,
@@ -711,80 +998,13 @@ export const useWorkspaceActions = ({
         prettifyBook,
         prettifyProject,
         revertPrettify,
+        matchFormattingChapter,
+        matchFormattingBook,
+        matchFormattingProject,
         fixLintError,
+        goToReference,
     };
 };
-
-export function adjustSerializedLexicalNodes(
-    node: SerializedLexicalNode,
-    options: { show: boolean; isMutable: boolean; flattenNested?: boolean },
-): SerializedLexicalNode[] {
-    const { show, isMutable, flattenNested = false } = options;
-
-    if (node.type === USFM_TEXT_NODE_TYPE) {
-        return [
-            updateSerializedToggleableUSFMTextNode(
-                node as SerializedUSFMTextNode,
-                {
-                    show: isSerializedToggleShowUSFMTextNode(node)
-                        ? show
-                        : true,
-                    isMutable: isSerializedToggleMutableUSFMTextNode(node)
-                        ? isMutable
-                        : true,
-                },
-            ),
-        ];
-    }
-
-    if (flattenNested && isSerializedUSFMNestedEditorNode(node)) {
-        // Create opening marker node
-        const openingMarker = createSerializedUSFMTextNode({
-            text: `\\${node.marker} `,
-            id: guidGenerator(),
-            sid: node.sid || "",
-            tokenType: UsfmTokenTypes.marker,
-            marker: node.marker,
-            show: true,
-            isMutable: true,
-        });
-
-        const nestedChildren: SerializedLexicalNode[] =
-            node.editorState.root.children.flatMap((child) => {
-                if (isSerializedElementNode(child)) {
-                    return (child.children || []).flatMap((c) =>
-                        adjustSerializedLexicalNodes(c, options),
-                    );
-                }
-                return adjustSerializedLexicalNodes(child, options);
-            });
-
-        return [openingMarker, ...nestedChildren];
-    }
-
-    if (isSerializedElementNode(node)) {
-        const elementNode = node as SerializedElementNode;
-        if (elementNode.children) {
-            elementNode.children = elementNode.children.flatMap(
-                (child: SerializedLexicalNode) =>
-                    adjustSerializedLexicalNodes(child, options),
-            );
-        }
-    }
-
-    if (isSerializedUSFMNestedEditorNode(node)) {
-        const nestedNode = node as USFMNestedEditorNodeJSON;
-        if (nestedNode.editorState?.root?.children) {
-            nestedNode.editorState.root.children =
-                nestedNode.editorState.root.children.flatMap(
-                    (child: SerializedLexicalNode) =>
-                        adjustSerializedLexicalNodes(child, options),
-                );
-        }
-    }
-
-    return [node];
-}
 
 function getFlattenedEditorStateAsParseTokens(
     serializedEditorState: SerializedEditorState,
@@ -793,44 +1013,32 @@ function getFlattenedEditorStateAsParseTokens(
     const firstChild = root.children?.[0];
     if (!isSerializedElementNode(firstChild)) return [];
 
-    function collectTokens(
-        nodes: SerializedLexicalNode[],
-        _lastSid: string,
-    ): Array<LintableTokenLike> {
-        const tokens: Array<LintableTokenLike> = [];
+    const tokens: Array<LintableTokenLike> = [];
+    let _lastSid = "";
 
-        for (const node of nodes) {
-            if (node.type === "linebreak") {
-                tokens.push({
-                    tokenType: UsfmTokenTypes.verticalWhitespace,
-                    text: "\n",
-                    id: "",
-                    sid: _lastSid,
-                });
-                continue;
-            }
-            if (isSerializedUSFMTextNode(node)) {
-                tokens.push(node);
-                if (node.sid) _lastSid = node.sid;
-                continue;
-            }
-
-            if (isSerializedElementNode(node)) {
-                tokens.push(...collectTokens(node.children ?? [], _lastSid));
-                continue;
-            }
-
-            if (isSerializedUSFMNestedEditorNode(node)) {
-                const nestedChildren = node.editorState?.root?.children ?? [];
-                if (node.sid) _lastSid = node.sid;
-                tokens.push(node, ...collectTokens(nestedChildren, _lastSid));
-            }
+    for (const node of walkNodes(firstChild.children ?? [])) {
+        if (node.type === "linebreak") {
+            tokens.push({
+                tokenType: UsfmTokenTypes.verticalWhitespace,
+                text: "\n",
+                id: "",
+                sid: _lastSid,
+            });
+            continue;
+        }
+        if (isSerializedUSFMTextNode(node)) {
+            tokens.push(node);
+            if (node.sid) _lastSid = node.sid;
+            continue;
         }
 
-        return tokens;
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            if ((node as any).sid) _lastSid = (node as any).sid;
+            tokens.push(node as any);
+        }
     }
 
-    return collectTokens(firstChild.children ?? [], "");
+    return tokens;
 }
 
 function getFlattenedFileTokens(

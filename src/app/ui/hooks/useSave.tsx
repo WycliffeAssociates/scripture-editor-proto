@@ -18,6 +18,7 @@ import {
     type SidContentMap,
     serializeToUsfmString,
 } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
@@ -88,18 +89,62 @@ export function useProjectDiffs({
     });
 
     function updateDiffMapForChapter(bookCode: string, chapterNum: number) {
-        const newMap = updateChapterInDiffMap({
-            bookCode,
-            chapterNum,
-            currentDiffMap: diffMap,
-            mutWorkingFiles: mutWorkingFilesRef,
-            currentWorkingFilesSidMap: currentSidMap.current,
-            originalSidMap: originalSidMapRef.current,
+        setDiffMap((prev) => {
+            const newMap = updateChapterInDiffMap({
+                bookCode,
+                chapterNum,
+                currentDiffMap: prev,
+                mutWorkingFiles: mutWorkingFilesRef,
+                currentWorkingFilesSidMap: currentSidMap.current,
+                originalSidMap: originalSidMapRef.current,
+            });
+            return newMap || prev;
         });
-        if (!newMap) {
-            return;
+    }
+
+    function updateDiffMapForChapters(
+        chapters: Array<{ bookCode: string; chapterNum: number }>,
+    ) {
+        setDiffMap((prev) => {
+            return batchUpdateChaptersInDiffMap({
+                chapters,
+                currentDiffMap: prev,
+                mutWorkingFiles: mutWorkingFilesRef,
+                currentWorkingFilesSidMap: currentSidMap.current,
+                originalSidMap: originalSidMapRef.current,
+            });
+        });
+    }
+
+    function batchUpdateChaptersInDiffMap({
+        chapters,
+        currentDiffMap,
+        mutWorkingFiles,
+        currentWorkingFilesSidMap,
+        originalSidMap,
+    }: {
+        chapters: Array<{ bookCode: string; chapterNum: number }>;
+        currentDiffMap: DiffMap;
+        mutWorkingFiles: ParsedFile[];
+        currentWorkingFilesSidMap: FileChapScopedSids;
+        originalSidMap: FileChapScopedSids;
+    }): DiffMap {
+        console.time("batchUpdateChaptersInDiffMap");
+        let newDiffMap = { ...currentDiffMap };
+
+        for (const { bookCode, chapterNum } of chapters) {
+            newDiffMap = updateChapterInDiffMap({
+                bookCode,
+                chapterNum,
+                currentDiffMap: newDiffMap,
+                mutWorkingFiles,
+                currentWorkingFilesSidMap,
+                originalSidMap,
+            });
         }
-        setDiffMap(newMap);
+
+        console.timeEnd("batchUpdateChaptersInDiffMap");
+        return newDiffMap;
     }
 
     const handleRevert = (diffToRevert: ProjectDiff) => {
@@ -172,6 +217,7 @@ export function useProjectDiffs({
     }, []);
 
     async function saveProjectToDisk() {
+        debugger;
         const toSave: Record<string, string> = {};
         const uniqueBookIdsWithDiff = Object.keys(diffMap).reduce(
             (acc, key) => {
@@ -184,17 +230,20 @@ export function useProjectDiffs({
             },
             new Set<string>(),
         );
-        mutWorkingFilesRef
-            .filter((file) => uniqueBookIdsWithDiff.has(file.bookCode))
-            .forEach((file) => {
+        const entriesToSave = walkChapters(
+            mutWorkingFilesRef.filter((file) =>
+                uniqueBookIdsWithDiff.has(file.bookCode),
+            ),
+        );
+        for (const { file, chapter } of entriesToSave) {
+            if (!toSave[file.bookCode]) {
                 toSave[file.bookCode] = "";
-                file.chapters.forEach((chap) => {
-                    const usfmPortion = serializeToUsfmString(
-                        chap.lexicalState.root.children,
-                    );
-                    toSave[file.bookCode] += usfmPortion;
-                });
-            });
+            }
+            const usfmPortion = serializeToUsfmString(
+                chapter.lexicalState.root.children,
+            );
+            toSave[file.bookCode] += usfmPortion;
+        }
         const savePromise = await Promise.allSettled(
             Object.entries(toSave).map(async ([bookCode, content]) => {
                 await loadedProject.addBook({
@@ -222,11 +271,9 @@ export function useProjectDiffs({
         // now update the originalSidMapRef.current to = currentSidMap.current since we just saved the current state to disk
         originalSidMapRef.current = structuredClone(currentSidMap.current);
         // for the mutWorkingFiles, we also want to set their loadedLexical state to all the current state:
-        mutWorkingFilesRef.forEach((file) => {
-            file.chapters.forEach((chap) => {
-                chap.loadedLexicalState = structuredClone(chap.lexicalState);
-            });
-        });
+        for (const { chapter } of walkChapters(mutWorkingFilesRef)) {
+            chapter.loadedLexicalState = structuredClone(chapter.lexicalState);
+        }
         // And recompute the diff map
         setDiffMap(
             calculateInitialDiffs(
@@ -259,6 +306,7 @@ export function useProjectDiffs({
         openDiffModal,
         closeModal,
         updateDiffMapForChapter,
+        updateDiffMapForChapters,
         handleRevert,
         handleRevertAll,
         saveProjectToDisk,
@@ -282,11 +330,9 @@ function revertAllChanges({
     pickedChapter: ParsedChapter | null;
     editorRef: React.RefObject<LexicalEditor | null>;
 }) {
-    for (const file of mutWorkingFilesRef) {
-        for (const chap of file.chapters) {
-            chap.lexicalState = structuredClone(chap.loadedLexicalState);
-            chap.dirty = false;
-        }
+    for (const { chapter } of walkChapters(mutWorkingFilesRef)) {
+        chapter.lexicalState = structuredClone(chapter.loadedLexicalState);
+        chapter.dirty = false;
     }
 
     // Update the currentSidMap
@@ -334,25 +380,20 @@ function getProjectSidContentMap(
 ): FileChapScopedSids {
     const projectMap: FileChapScopedSids = {};
     console.time("getProjectSidContentMap");
-    // 1. Iterate through each file
-    for (const file of workingFiles) {
-        projectMap[file.bookCode] = {};
-        // 2. Iterate through each chapter in the file
-        for (const chapter of file.chapters) {
-            const lexicalState = getLexicalState(chapter);
-            const chapterMap = getSidContentMapForChapter(lexicalState);
-            projectMap[file.bookCode][chapter.chapNumber] = chapterMap;
-            // if (file.bookCode === "GEN" && chapter.chapNumber === 1) {
-            //     ;
-            // }
-
-            // 4. Merge this chapter's map into the single, project-wide map
-            // Using Object.assign is a clean and performant way to do this.
-            Object.assign(
-                projectMap[file.bookCode][chapter.chapNumber],
-                chapterMap,
-            );
+    for (const { file, chapter } of walkChapters(workingFiles)) {
+        if (!projectMap[file.bookCode]) {
+            projectMap[file.bookCode] = {};
         }
+        const lexicalState = getLexicalState(chapter);
+        const chapterMap = getSidContentMapForChapter(lexicalState);
+        projectMap[file.bookCode][chapter.chapNumber] = chapterMap;
+
+        // 4. Merge this chapter's map into the single, project-wide map
+        // Using Object.assign is a clean and performant way to do this.
+        Object.assign(
+            projectMap[file.bookCode][chapter.chapNumber],
+            chapterMap,
+        );
     }
     console.timeEnd("getProjectSidContentMap");
     return projectMap;

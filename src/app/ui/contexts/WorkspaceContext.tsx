@@ -105,6 +105,12 @@ export const ProjectProvider = ({
         currentBibleBookId: project.currentFileBibleIdentifier,
     });
 
+    const referenceProject = useReferenceProject({
+        projectRepository: projectRepository,
+        pickedFileIdentifier: project.pickedFile.bookCode,
+        pickedChapterNumber: project.pickedChapter.chapNumber,
+    });
+
     const actions = useWorkspaceActions({
         editorRef,
         loadedProject,
@@ -120,13 +126,9 @@ export const ProjectProvider = ({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: saveDiff.toggleDiffModal,
         updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
+        updateDiffMapForChapters: saveDiff.updateDiffMapForChapters,
         updateLintErrors: lint.updateErrorsForChapter,
-    });
-
-    const referenceProject = useReferenceProject({
-        projectRepository: projectRepository,
-        pickedFileIdentifier: project.pickedFile.bookCode,
-        pickedChapterNumber: project.pickedChapter.chapNumber,
+        referenceProject,
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,
