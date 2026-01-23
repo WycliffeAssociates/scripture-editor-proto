@@ -1,9 +1,13 @@
-import { Button, Popover } from "@mantine/core";
+import { Box, Button, Popover, Text } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
 import { useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import { lintPopoverButton } from "@/app/ui/styles/modules/LintPopover.css.ts";
+import {
+    lintErrorDetails,
+    lintErrorItem,
+    lintPopoverButton,
+} from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
 import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
@@ -11,6 +15,7 @@ import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
 type Props = {
     wrapperClassNames?: string;
 };
+
 export function LintPopover({ wrapperClassNames }: Props) {
     const { lint, editorRef } = useWorkspaceContext();
     const hasMessages = lint.messages.length > 0;
@@ -39,9 +44,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
                         color="red"
                         className={lintPopoverButton}
                     >
-                        {/* todo plural intl */}
                         {lint.messages.length} Issues
-                        {/* {lint.messages.length > 1 ? "s" : ""} */}
                     </Button>
                 </Popover.Target>
 
@@ -70,6 +73,7 @@ type LintMessageItemProps = {
     editorRef: React.RefObject<LexicalEditor | null>;
     prevDomElSelected: React.RefObject<HTMLElement | null>;
 };
+
 function LintMessageItem({
     msg,
     editorRef,
@@ -103,52 +107,62 @@ function LintMessageItem({
         return didScroll;
     }
 
+    const handleNavigate = () => {
+        const sidParsed = parseSid(msg.sid);
+        if (!sidParsed) return;
+        const currentBook = project.pickedFile.bookCode;
+        const currentChapter = project.pickedChapter.chapNumber;
+        if (
+            sidParsed.book === currentBook &&
+            sidParsed.chapter === currentChapter
+        ) {
+            findLintErrInDom();
+        } else {
+            actions.switchBookOrChapter(sidParsed.book, sidParsed.chapter);
+            rafUntilSuccessOrTimeout(() => {
+                return findLintErrInDom();
+            }, 5000);
+        }
+    };
+
     return (
-        <li className="w-full whitespace-normal wrap-break-word">
-            <Button
+        <li className="w-full">
+            <Box
+                className={lintErrorItem}
                 data-testid={TESTING_IDS.lintPopover.errorItem}
-                variant="subtle"
-                color="gray"
-                fullWidth
-                justify="start"
-                content="start"
-                h="max-content"
-                lh="1.4"
-                onClick={() => {
-                    const sidParsed = parseSid(msg.sid);
-                    if (!sidParsed) return;
-                    // if (sidParsed.)
-                    // if same book and chap as current, scroll, else gonna have to set content and scroll:
-                    const currentBook = project.pickedFile.bookCode;
-                    const currentChapter = project.pickedChapter.chapNumber;
-                    if (
-                        sidParsed.book === currentBook &&
-                        sidParsed.chapter === currentChapter
-                    ) {
-                        findLintErrInDom();
-                    } else {
-                        actions.switchBookOrChapter(
-                            sidParsed.book,
-                            sidParsed.chapter,
-                        );
-                        rafUntilSuccessOrTimeout(() => {
-                            return findLintErrInDom();
-                        }, 5000);
-                    }
-                }}
+                onClick={handleNavigate}
             >
-                <span className="flex flex-col items-start text-start wrap-break-word whitespace-break-spaces ">
-                    <span
+                <Box className={lintErrorDetails}>
+                    <Text
+                        size="xs"
+                        fw={700}
                         data-testid={TESTING_IDS.lintPopover.errorSid}
-                        className="font-semibold"
                     >
                         {msg.sid}
-                    </span>
-                    <span data-testid={TESTING_IDS.lintPopover.errorMessage}>
+                    </Text>
+                    <Text
+                        size="xs"
+                        data-testid={TESTING_IDS.lintPopover.errorMessage}
+                    >
                         {msg.message}
-                    </span>
-                </span>
-            </Button>
+                    </Text>
+                </Box>
+                {msg.fix && (
+                    <Button
+                        size="compact-xs"
+                        variant="light"
+                        color="blue"
+                        mt="xs"
+                        w="max-content"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            actions.fixLintError(msg);
+                        }}
+                    >
+                        {msg.fix.label}
+                    </Button>
+                )}
+            </Box>
         </li>
     );
 }

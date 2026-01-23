@@ -24,3 +24,27 @@ export const lintPopoverButton = style({
         },
     },
 });
+export const lintErrorItem = style({
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    padding: "var(--mantine-spacing-xs)",
+    borderRadius: "var(--mantine-radius-sm)",
+    cursor: "pointer",
+    transition: "background-color 0.1s ease",
+    ":hover": {
+        backgroundColor: "var(--mantine-color-gray-1)",
+    },
+    selectors: {
+        [`${darkSelector} &:hover`]: {
+            backgroundColor: "var(--mantine-color-dark-6)",
+        },
+    },
+});
+
+export const lintErrorDetails = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--mantine-spacing-xs)",
+    textAlign: "start",
+});

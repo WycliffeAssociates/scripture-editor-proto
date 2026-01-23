@@ -1,6 +1,11 @@
 import { parseSid } from "@/core/data/bible/bible.ts";
-import { type LintableToken, LintErrorKeys } from "@/core/data/usfm/lint.ts";
 import {
+    type LintableToken,
+    type LintError,
+    LintErrorKeys,
+} from "@/core/data/usfm/lint.ts";
+import {
+    ALL_TOKENS_REGEX_STRING,
     ALL_USFM_MARKERS,
     All_EXPLICT_CHAR_CLOSE_MARKERS,
     VALID_NOTE_MARKERS,
@@ -376,11 +381,35 @@ const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<LintableToken> = (
         return;
     }
 
-    const err = {
+    const err: LintError = {
         message: `Unknown token ${ctx.currentToken.text}`,
         sid: ctx.currentToken?.sid ?? "unknown location",
         msgKey: LintErrorKeys.unknownToken,
         nodeId: ctx.currentToken.id,
     };
+
+    // Attempt to detect if this is a marker that was missed due to spacing
+    // e.g. \m(for -> \m (for
+    const validMarkerAndNoSpace = `${ALL_TOKENS_REGEX_STRING}(\\S+.+)`;
+    const match = new RegExp(validMarkerAndNoSpace).exec(ctx.currentToken.text);
+
+    if (match) {
+        const potentialMarker = match[1];
+        const textAfter = match[2];
+        const maxLenTextAfter =
+            textAfter.length > 10 ? textAfter.slice(0, 10) + "..." : textAfter;
+        if (ALL_USFM_MARKERS.has(potentialMarker)) {
+            err.fix = {
+                label: `Insert space: \\${potentialMarker} ${maxLenTextAfter}`,
+                type: "convertToMarkerAndText",
+                data: {
+                    nodeId: ctx.currentToken.id,
+                    marker: potentialMarker,
+                    textAfter: textAfter,
+                },
+            };
+        }
+    }
+
     ctx.errorMessages.push(err);
 };

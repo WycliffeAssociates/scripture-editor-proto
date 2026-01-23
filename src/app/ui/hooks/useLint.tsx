@@ -57,9 +57,26 @@ export function useLint({
         return ensureDeduped;
     }
 
+    function updateErrorsForChapter(
+        book: string,
+        chapter: number,
+        newErrors: LintError[],
+    ) {
+        setMessage((prevMessages) => {
+            const filtered = prevMessages.filter((m) => {
+                const sidParsed = parseSid(m.sid);
+                if (!sidParsed) return true;
+                return sidParsed.chapter !== chapter || sidParsed.book !== book;
+            });
+            const merged = [...filtered, ...newErrors];
+            return sortListBySidCanonical(dedupeErrorMessagesList(merged));
+        });
+    }
+
     return {
         messages,
         setMessage,
         mergeInNewErrorsFromChapter,
+        updateErrorsForChapter,
     };
 }

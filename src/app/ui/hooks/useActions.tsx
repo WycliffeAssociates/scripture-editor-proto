@@ -3,6 +3,7 @@ import {
     CLEAR_HISTORY_COMMAND,
     type LexicalEditor,
     type SerializedEditorState,
+    type SerializedElementNode,
     type SerializedLexicalNode,
 } from "lexical";
 import { useRef } from "react";
@@ -18,17 +19,31 @@ import {
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
+    isSerializedUSFMNestedEditorNode,
+    type USFMNestedEditorNodeJSON,
+} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import {
+    createSerializedUSFMTextNode,
     isSerializedToggleMutableUSFMTextNode,
     isSerializedToggleShowUSFMTextNode,
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { applyAutofixToSerializedState } from "@/app/domain/editor/utils/autofixSerializedNode.ts";
 import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import type { LintableToken, LintError } from "@/core/data/usfm/lint.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import {
+    lintExistingUsfmTokens,
+    parseUSFMChapter,
+} from "@/core/domain/usfm/parse.ts";
+import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
@@ -49,6 +64,11 @@ type Props = {
     pickedFile: ParsedFile | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
+    updateLintErrors: (
+        book: string,
+        chapter: number,
+        newErrors: LintError[],
+    ) => void;
 };
 
 export const useWorkspaceActions = ({
@@ -63,6 +83,7 @@ export const useWorkspaceActions = ({
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
+    updateLintErrors,
 }: Props) => {
     const { t } = useLingui();
 
@@ -202,11 +223,12 @@ export const useWorkspaceActions = ({
 
         filesToUse.forEach((file) => {
             file.chapters.forEach((chapter) => {
-                const rootChildren = chapter.lexicalState.root.children.map(
+                const rootChildren = chapter.lexicalState.root.children.flatMap(
                     (node) => {
                         return adjustSerializedLexicalNodes(node, {
                             show: true,
                             isMutable: true,
+                            flattenNested: true,
                         });
                     },
                 );
@@ -249,6 +271,8 @@ export const useWorkspaceActions = ({
     };
 
     function adjustWysiwygMode(args: adjustWysiModeArgs) {
+        const isSwitchingFromSource = appSettings.mode === "source";
+
         const inProgress = args.duringLoad
             ? undefined
             : saveCurrentDirtyLexical();
@@ -274,7 +298,22 @@ export const useWorkspaceActions = ({
 
         filesToUse.forEach((file) => {
             file.chapters.forEach((chapter) => {
-                const rootChildren = chapter.lexicalState.root.children.map(
+                if (isSwitchingFromSource) {
+                    const usfm = serializeToUsfmString(
+                        chapter.lexicalState.root.children,
+                    );
+                    const parsedChapters = parseUSFMChapter(
+                        usfm,
+                        file.bookCode,
+                    ).usfm;
+                    const parsedTokens = Object.values(parsedChapters).flat();
+                    chapter.lexicalState = parsedUsfmTokensToJsonLexicalNode(
+                        parsedTokens,
+                        chapter.lexicalState.root.direction || "ltr",
+                    );
+                }
+
+                const rootChildren = chapter.lexicalState.root.children.flatMap(
                     (node) => {
                         return adjustSerializedLexicalNodes(node, {
                             show: !hide,
@@ -592,6 +631,71 @@ export const useWorkspaceActions = ({
         updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
     }
 
+    async function fixLintError(err: LintError) {
+        if (!err.fix) return;
+
+        const sidParsed = parseSid(err.sid);
+        if (!sidParsed) return;
+
+        // Sync any unsaved changes from the editor to mutWorkingFilesRef
+        saveCurrentDirtyLexical();
+
+        const file = mutWorkingFilesRef.find(
+            (f) => f.bookCode === sidParsed.book,
+        );
+        if (!file) {
+            console.error(`File not found for book: ${sidParsed.book}`);
+            return;
+        }
+
+        const chapter = file.chapters.find(
+            (c) => c.chapNumber === sidParsed.chapter,
+        );
+        if (!chapter) {
+            console.error(`Chapter not found: ${sidParsed.chapter}`);
+            return;
+        }
+
+        // Apply fix to the serialized state directly
+        const originalChildren = chapter.lexicalState.root.children;
+        const fixed = applyAutofixToSerializedState(originalChildren, err);
+
+        if (fixed) {
+            chapter.dirty = true;
+            updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+
+            // If the fixed chapter is the current one, reload the editor content
+            if (
+                file.bookCode === currentFileBibleIdentifier &&
+                chapter.chapNumber === currentChapter
+            ) {
+                setEditorContent(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                    chapter,
+                    editorRef.current || undefined,
+                );
+            }
+
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Fix Applied`,
+                    message: t`Autofix applied for ${err.msgKey}`,
+                },
+            });
+
+            // Refresh lints for the affected chapter
+            const flatTokens = getFlattenedFileTokens(
+                file,
+                chapter.lexicalState,
+                chapter.chapNumber,
+            );
+            const ctx = initParseContext(flatTokens);
+            const newErrors = lintExistingUsfmTokens(flatTokens, ctx);
+            updateLintErrors(file.bookCode, chapter.chapNumber, newErrors);
+        }
+    }
+
     return {
         updateChapterLexical,
         switchBookOrChapter,
@@ -607,35 +711,79 @@ export const useWorkspaceActions = ({
         prettifyBook,
         prettifyProject,
         revertPrettify,
+        fixLintError,
     };
 };
 
-function adjustSerializedLexicalNodes(
+export function adjustSerializedLexicalNodes(
     node: SerializedLexicalNode,
-    { show, isMutable }: { show: boolean; isMutable: boolean },
-) {
+    options: { show: boolean; isMutable: boolean; flattenNested?: boolean },
+): SerializedLexicalNode[] {
+    const { show, isMutable, flattenNested = false } = options;
+
     if (node.type === USFM_TEXT_NODE_TYPE) {
-        return updateSerializedToggleableUSFMTextNode(
-            node as SerializedUSFMTextNode,
-            {
-                show: isSerializedToggleShowUSFMTextNode(node) ? show : true,
-                isMutable: isSerializedToggleMutableUSFMTextNode(node)
-                    ? isMutable
-                    : true,
-            },
-        );
+        return [
+            updateSerializedToggleableUSFMTextNode(
+                node as SerializedUSFMTextNode,
+                {
+                    show: isSerializedToggleShowUSFMTextNode(node)
+                        ? show
+                        : true,
+                    isMutable: isSerializedToggleMutableUSFMTextNode(node)
+                        ? isMutable
+                        : true,
+                },
+            ),
+        ];
     }
+
+    if (flattenNested && isSerializedUSFMNestedEditorNode(node)) {
+        // Create opening marker node
+        const openingMarker = createSerializedUSFMTextNode({
+            text: `\\${node.marker} `,
+            id: guidGenerator(),
+            sid: node.sid || "",
+            tokenType: UsfmTokenTypes.marker,
+            marker: node.marker,
+            show: true,
+            isMutable: true,
+        });
+
+        const nestedChildren: SerializedLexicalNode[] =
+            node.editorState.root.children.flatMap((child) => {
+                if (isSerializedElementNode(child)) {
+                    return (child.children || []).flatMap((c) =>
+                        adjustSerializedLexicalNodes(c, options),
+                    );
+                }
+                return adjustSerializedLexicalNodes(child, options);
+            });
+
+        return [openingMarker, ...nestedChildren];
+    }
+
     if (isSerializedElementNode(node)) {
-        node.children = node.children.map((child) =>
-            adjustSerializedLexicalNodes(child, { show, isMutable }),
-        );
+        const elementNode = node as SerializedElementNode;
+        if (elementNode.children) {
+            elementNode.children = elementNode.children.flatMap(
+                (child: SerializedLexicalNode) =>
+                    adjustSerializedLexicalNodes(child, options),
+            );
+        }
     }
+
     if (isSerializedUSFMNestedEditorNode(node)) {
-        node.editorState.root.children = node.editorState.root.children.map(
-            (child) => adjustSerializedLexicalNodes(child, { show, isMutable }),
-        );
+        const nestedNode = node as USFMNestedEditorNodeJSON;
+        if (nestedNode.editorState?.root?.children) {
+            nestedNode.editorState.root.children =
+                nestedNode.editorState.root.children.flatMap(
+                    (child: SerializedLexicalNode) =>
+                        adjustSerializedLexicalNodes(child, options),
+                );
+        }
     }
-    return node;
+
+    return [node];
 }
 
 function getFlattenedEditorStateAsParseTokens(

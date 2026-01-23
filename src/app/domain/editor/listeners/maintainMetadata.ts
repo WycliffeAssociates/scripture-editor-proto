@@ -6,6 +6,7 @@ import {
     EditorMarkersViewStates,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
+import type { Settings } from "@/app/data/settings.ts";
 import type { DocStructureFxnArgs } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import {
     $isLockableUSFMTextNode,
@@ -24,6 +25,7 @@ export function maintainDocumentMetaData(
     editorState: EditorState,
     editor: LexicalEditor,
     bookCode: string,
+    appSettings: Settings,
 ) {
     const updates: Array<{
         dbgLabel: string;
@@ -47,6 +49,7 @@ export function maintainDocumentMetaData(
             const args = {
                 node,
                 tokenType,
+                appSettings,
                 updates,
             };
             adjustSidsAsNeededOnTextTokens(args, sidArgs);
@@ -189,13 +192,15 @@ function maintainInPara(
 function monitorMutabilityAndVisibility({
     node,
     updates,
+    appSettings,
 }: DocStructureFxnArgs) {
-    const rootDomEl = document.getElementById("root");
-    if (!rootDomEl) return;
     const isMutable = node.getMutable();
     const isVisible = node.getShow();
-    const viewState = rootDomEl?.dataset.markerViewState;
-    const mutabilityState = rootDomEl?.dataset.markersMutableState;
+    const {
+        markersViewState: viewState,
+        markersMutableState: mutabilityState,
+    } = appSettings;
+
     if (mutabilityState === EditorMarkersMutableStates.MUTABLE) {
         if (!isMutable && $isLockableUSFMTextNode(node)) {
             updates.push({

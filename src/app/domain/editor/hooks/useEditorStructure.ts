@@ -1,4 +1,4 @@
-import { useDebouncedCallback, useThrottledCallback } from "@mantine/hooks";
+import { useDebouncedCallback } from "@mantine/hooks";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_TAGS_USED, EditorModes } from "@/app/data/editor.ts";
@@ -28,7 +28,11 @@ export function useEditorStructure(editor: LexicalEditor) {
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("debouncedStructuralUpdates");
-                maintainDocumentStructureDebounced(editorState, editor);
+                maintainDocumentStructureDebounced(
+                    editorState,
+                    editor,
+                    project.appSettings,
+                );
                 console.timeEnd("debouncedStructuralUpdates");
             });
         },
@@ -39,8 +43,17 @@ export function useEditorStructure(editor: LexicalEditor) {
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("throttledEditorChangeListener");
-                maintainDocumentStructure(editorState, editor);
-                maintainDocumentMetaData(editorState, editor, bookCode);
+                maintainDocumentStructure(
+                    editorState,
+                    editor,
+                    project.appSettings,
+                );
+                maintainDocumentMetaData(
+                    editorState,
+                    editor,
+                    bookCode,
+                    project.appSettings,
+                );
                 console.timeEnd("throttledEditorChangeListener");
             });
         },

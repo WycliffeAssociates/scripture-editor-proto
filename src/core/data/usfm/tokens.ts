@@ -300,6 +300,11 @@ export const ALL_USFM_MARKERS = new Set([
     ...CHAPTER_VERSE_MARKERS,
 ]);
 
+const markersSorted = [...ALL_USFM_MARKERS]
+    .sort((a, b) => b.length - a.length)
+    .join("|");
+
+export const ALL_TOKENS_REGEX_STRING = `\\\\(${markersSorted})`;
 // todo: really this list needs close vetting
 // const _TOKENS_EXPECTING_CLOSE = new Set([
 //   ...VALID_NOTE_MARKERS,

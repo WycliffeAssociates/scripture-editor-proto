@@ -98,6 +98,13 @@ export const ProjectProvider = ({
         loadedProject,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
+
+    const lint = useLint({
+        initialLintErrors: allInitialLintErrors,
+        currentChapter: project.currentChapter,
+        currentBibleBookId: project.currentFileBibleIdentifier,
+    });
+
     const actions = useWorkspaceActions({
         editorRef,
         loadedProject,
@@ -113,6 +120,7 @@ export const ProjectProvider = ({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: saveDiff.toggleDiffModal,
         updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
+        updateLintErrors: lint.updateErrorsForChapter,
     });
 
     const referenceProject = useReferenceProject({
@@ -127,11 +135,6 @@ export const ProjectProvider = ({
         editorRef,
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter,
-    });
-    const lint = useLint({
-        initialLintErrors: allInitialLintErrors,
-        currentChapter: project.currentChapter,
-        currentBibleBookId: project.currentFileBibleIdentifier,
     });
 
     function bookCodeToProjectLocalizedTitle({

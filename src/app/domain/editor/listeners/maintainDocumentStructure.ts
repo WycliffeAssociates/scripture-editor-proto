@@ -5,7 +5,13 @@ import {
     type EditorState,
     type LexicalEditor,
 } from "lexical";
-import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_TAGS_USED,
+    EditorMarkersMutableStates,
+    EditorModes,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
+import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
@@ -23,6 +29,7 @@ import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 export type DocStructureFxnArgs = {
     node: USFMTextNode;
     tokenType: string;
+    appSettings: Settings;
     updates: Array<{
         dbgLabel: string;
         dbgDetail?: string;
@@ -36,6 +43,7 @@ export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
 export function maintainDocumentStructure(
     editorState: EditorState,
     editor: LexicalEditor,
+    appSettings: Settings,
 ) {
     const allNodes = editorState.read(() => [...$dfsIterator()]);
     let totalUpdates = 0;
@@ -54,28 +62,26 @@ export function maintainDocumentStructure(
             const args = {
                 node,
                 tokenType,
+                appSettings,
                 updates: nodeUpdates,
             };
-            editCharOpenAndCloseTogether(args);
-            if (nodeUpdates.length) return;
-            fixMalformedMarkerWithNumber(args);
-            if (nodeUpdates.length) return;
-            ensureNumberRangeAlwaysFollowsMarkerExpectingNum(args);
-            if (nodeUpdates.length) return;
-            ensurePlainTextNodeAlwaysFollowsNumberRange(args);
-            if (nodeUpdates.length) return;
-            ensureCharOpensHaveEditableNextSibling(args);
-            if (nodeUpdates.length) return;
-            ensureCharCloseHasEditableNextSibling(args);
-            if (nodeUpdates.length) return;
-            trySplitOutMarkersFromKnownErrorTokens(args);
-            if (nodeUpdates.length) return;
-            //   ensureNodesSandwichedBetweenSameSidHasThatSid(args);
-            fixNumberRangeReparenting(args);
-            if (nodeUpdates.length) return;
-            removeEmptyNumberRangeNotPrecededByMarker(args);
-            if (nodeUpdates.length) return;
-            // if (nodeUpdates.length) return; // last one, no need
+            const structureFixes = [
+                editCharOpenAndCloseTogether,
+                fixMalformedMarkerWithNumber,
+                ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
+                ensurePlainTextNodeAlwaysFollowsNumberRange,
+                ensureCharOpensHaveEditableNextSibling,
+                ensureCharCloseHasEditableNextSibling,
+                trySplitOutMarkersFromKnownErrorTokens,
+                //   ensureNodesSandwichedBetweenSameSidHasThatSid,
+                fixNumberRangeReparenting,
+                removeEmptyNumberRangeNotPrecededByMarker,
+            ];
+
+            for (const fixFn of structureFixes) {
+                fixFn(args);
+                if (nodeUpdates.length) break;
+            }
         });
 
         if (nodeUpdates.length) {
@@ -112,6 +118,7 @@ export function maintainDocumentStructure(
 export function maintainDocumentStructureDebounced(
     editorState: EditorState,
     editor: LexicalEditor,
+    appSettings: Settings,
 ) {
     const updates: Array<{
         dbgLabel: string;
@@ -123,10 +130,12 @@ export function maintainDocumentStructureDebounced(
         mergeAdjacentTextNodesOfSameType({
             allNodes,
             updates,
+            appSettings,
         });
         ensureSiblingsHaveAtLeastOneSpace({
             allNodes,
             updates,
+            appSettings,
         });
     });
     if (updates.length) {
@@ -364,17 +373,51 @@ const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
 };
 
 const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn =
-    ({ node, tokenType, updates }) => {
+    ({ node, tokenType, updates, appSettings }) => {
         const nextSibling = node.getNextSibling();
-        if (!$isUSFMTextNode(nextSibling)) return;
 
         const isMarker = tokenType === UsfmTokenTypes.marker;
         if (!isMarker) return;
         const marker = node.getMarker();
         if (!marker) return;
         if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
-        const nextSiblingToken = nextSibling.getTokenType();
-        if (nextSiblingToken === UsfmTokenTypes.numberRange) return;
+
+        const isRegularMode =
+            appSettings.mode === EditorModes.WYSIWYG &&
+            appSettings.markersMutableState ===
+                EditorMarkersMutableStates.IMMUTABLE;
+
+        if (
+            $isUSFMTextNode(nextSibling) &&
+            nextSibling.getTokenType() === UsfmTokenTypes.numberRange
+        ) {
+            // If the number range is empty and we are in regular mode, we should delete both
+            if (isRegularMode && !nextSibling.getTextContent().trim().length) {
+                updates.push({
+                    dbgLabel:
+                        "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker",
+                    run: () => {
+                        nextSibling.remove();
+                        node.remove();
+                    },
+                });
+            }
+            return;
+        }
+
+        // If we reach here, there is no numberRange following the marker.
+        // In regular mode, if the number is gone, the marker should be gone too.
+        if (isRegularMode) {
+            updates.push({
+                dbgLabel:
+                    "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker(noNumberRange)",
+                run: () => {
+                    node.remove();
+                },
+            });
+            return;
+        }
+
         updates.push({
             dbgLabel: "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
             run: () => {
@@ -384,7 +427,6 @@ const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn 
                     inPara: node.getInPara(),
                     tokenType: UsfmTokenTypes.numberRange,
                 });
-                // debugger;
                 node.insertAfter(emptySibling);
                 emptySibling.selectEnd();
             },
@@ -523,6 +565,7 @@ const ensureSiblingsHaveAtLeastOneSpace = ({
 
 type DebouncedStructuralUpdatesArgs = {
     allNodes: Array<DFSNode>;
+    appSettings: Settings;
     updates: Array<{
         dbgLabel: string;
         dbgDetail?: string;

@@ -151,8 +151,9 @@ function checkForHangingNoteStacks<T extends LintableToken>(
     if (t.isParaMarker || t.tokenType === TokenMap.verticalWhitespace) {
         if (ctx.charStack.length || ctx.noteParent) {
             if (ctx.charStack.length) {
-                const err = {
-                    message: `Character marker ${ctx.charStack[0]} left at opening of new paragraph at ${t.sid}`,
+                const marker = ctx.charStack[0];
+                const err: LintError = {
+                    message: `Character marker ${marker} left at opening of new paragraph at ${t.sid}`,
                     sid: t.sid ?? "",
                     msgKey: LintErrorKeys.charNotClosed,
                     nodeId: t.id,
@@ -163,13 +164,25 @@ function checkForHangingNoteStacks<T extends LintableToken>(
                 t.lintErrors.push(err);
             }
             if (ctx.noteParent) {
-                const err = {
+                const marker = ctx.noteParent.marker ?? "";
+                const nodeIdForFix =
+                    t.tokenType === TokenMap.verticalWhitespace
+                        ? (ctx.prevToken?.id ?? "")
+                        : t.id;
+                const err: LintError = {
                     message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${t.sid}`,
                     sid: t.sid ?? "",
                     msgKey: LintErrorKeys.noteNotClosed,
                     nodeId: ctx.noteParent.id,
+                    fix: {
+                        label: `Insert \\${marker}*`,
+                        type: "insertEndMarker",
+                        data: {
+                            nodeId: nodeIdForFix,
+                            marker: marker,
+                        },
+                    },
                 };
-
                 ctx.errorMessages.push(err);
                 //   just push the error to the nearest paragraph node:
                 ctx.noteParent.lintErrors ??= [];

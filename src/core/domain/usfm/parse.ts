@@ -26,7 +26,7 @@ export const parseUSFMChapter = <T extends LintableToken>(
     chapter: string,
     bookCode: string,
 ) => {
-    const { tokens } = prepareTokens<T>(chapter, lexUsfm);
+    const { tokens } = prepareTokens<T>(chapter, lexUsfm, bookCode);
     const r = parseTokens({ tokens, partialContext: { bookCode } });
     const organized = organizeByChapters(r.tokens);
     return { usfm: organized, lintErrors: r.errorMessages };

@@ -655,6 +655,31 @@ function updateChapterInDiffMap({
         console.error("Invalid chapter in updateChapterInDiffMap");
         return newDiffMap;
     }
+
+    // Optimization: Short-circuit if the serialized USFM is identical.
+    // This handles cases where structure might differ (e.g., nested vs flat) but content is the same.
+    const currentUsfm = serializeToUsfmString(
+        chapToUpdate.lexicalState.root.children,
+    );
+    const originalUsfm = serializeToUsfmString(
+        chapToUpdate.loadedLexicalState.root.children,
+    );
+
+    if (currentUsfm === originalUsfm) {
+        // Clear out any old diffs for this chapter from our copy
+        for (const key in newDiffMap) {
+            const sidParsed = parseSid(key);
+            if (
+                sidParsed?.book === bookCode &&
+                sidParsed?.chapter === chapterNum
+            ) {
+                delete newDiffMap[key];
+            }
+        }
+        console.timeEnd("updateChapterInDiffMap");
+        return newDiffMap;
+    }
+
     const newChapterMap = getSidContentMapForChapter(chapToUpdate.lexicalState);
     const asFileScopes = { [bookCode]: { [chapterNum]: newChapterMap } };
     updateMutSidContentMap(

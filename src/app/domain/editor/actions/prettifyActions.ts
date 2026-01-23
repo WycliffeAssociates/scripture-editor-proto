@@ -2,7 +2,7 @@ import { FileStack, Wand2 } from "lucide-react";
 import React from "react";
 import type { EditorAction } from "./types.ts";
 
-export const PRETTIFY_BOOK_ACTION: EditorAction = {
+const PRETTIFY_BOOK_ACTION: EditorAction = {
     id: "prettify-book",
     label: "Prettify Book",
     category: "Formatting",
@@ -14,7 +14,7 @@ export const PRETTIFY_BOOK_ACTION: EditorAction = {
     },
 };
 
-export const PRETTIFY_PROJECT_ACTION: EditorAction = {
+const PRETTIFY_PROJECT_ACTION: EditorAction = {
     id: "prettify-project",
     label: "Prettify Project",
     category: "Formatting",

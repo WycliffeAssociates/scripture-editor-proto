@@ -6,11 +6,12 @@ import {
     LineBreakNode,
     type SerializedLexicalNode,
 } from "lexical";
-import { USFM_TEXT_NODE_TYPE } from "@/app/data/editor.ts";
+import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     $isUSFMNestedEditorNode,
     isSerializedUSFMNestedEditorNode,
+    nestedEditorMarkers,
     type USFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -303,131 +304,238 @@ function extractTextComponents(
  *
  * @param chapterNodeList The `root.children` array from a chapter's lexical state.
  */
+type BuildState = {
+    activeVerseKey: string | null;
+    activeFootnoteKey: string | null;
+    activeFootnoteMarker: string | null;
+    previousBlockKey: string | null;
+    duplicateSidCounters: Map<string, number>;
+    footnoteCounters: Map<string, number>;
+    blockCounter: number;
+    map: SidContentMap;
+};
+
+/**
+ * Processes a chapter's node list into a rich, contextual SidContentMap.
+ * This implementation correctly handles duplicate SIDs, nested elements (paragraphs),
+ * and supports both structured and flattened (Source Mode) footnotes.
+ *
+ * @param chapterNodeList The `root.children` array from a chapter's lexical state.
+ */
 export function buildSidContentMapForChapter(
     chapterNodeList: SerializedLexicalNode[],
     _map?: SidContentMap,
 ): SidContentMap {
-    const map: SidContentMap = _map || {};
+    const state: BuildState = {
+        activeVerseKey: null,
+        activeFootnoteKey: null,
+        activeFootnoteMarker: null,
+        previousBlockKey: null,
+        duplicateSidCounters: new Map<string, number>(),
+        footnoteCounters: new Map<string, number>(),
+        blockCounter: 0,
+        map: _map || {},
+    };
 
-    // --- State Management for the Single Pass ---
-    let activeVerseKey: string | null = null;
-    let previousBlockKey: string | null = null;
-    const duplicateSidCounters = new Map<string, number>();
-    const footnoteCounters = new Map<string, number>();
-    // The new counter for ordering.
-    let blockCounter = 0;
+    function traverse(
+        nodes: SerializedLexicalNode[],
+        parentList: SerializedLexicalNode[],
+    ) {
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
 
-    for (let i = 0; i < chapterNodeList.length; i++) {
-        const node = chapterNodeList[i];
+            // --- Case 0: Handle ongoing capture of flattened footnote ---
+            if (state.activeFootnoteKey) {
+                const block = state.map[state.activeFootnoteKey];
 
-        // --- Case 1: Handle Footnotes (as new, distinct blocks) ---
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            const parentSid = activeVerseKey
-                ? map[activeVerseKey].semanticSid
-                : "ORPHAN_NOTE";
-            const footnoteCount = (footnoteCounters.get(parentSid) || 0) + 1;
-            footnoteCounters.set(parentSid, footnoteCount);
-            const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
-            const footnoteChildren = node.editorState.root.children;
+                // Stop capturing if we hit the footnote's own end marker or a new verse marker (implied by new SID)
+                const isFootnoteEndMarker =
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.endMarker &&
+                    (node.marker === state.activeFootnoteMarker ||
+                        node.text?.trim() ===
+                            `\\${state.activeFootnoteMarker}*`);
 
-            map[footnoteKey] = {
-                nodes: footnoteChildren,
-                parentChapterNodeList: footnoteChildren,
-                startIndexInParent: 0,
-                previousSid: previousBlockKey,
-                semanticSid: parentSid,
-                displaySid: `${parentSid} (${node.marker} note)`,
-                ...extractTextComponents(footnoteChildren, node.marker),
-                wrapperNode: node,
-                wrapperParentList: chapterNodeList,
-                wrapperStartIndex: i,
-                foundOrder: blockCounter,
-            };
+                const isNewVerse =
+                    isSerializedUSFMTextNode(node) &&
+                    (node.sid !== block.semanticSid ||
+                        (node.tokenType === UsfmTokenTypes.marker &&
+                            node.marker === "v"));
 
-            previousBlockKey = footnoteKey;
-            blockCounter++;
-            continue;
-        }
+                if (isNewVerse) {
+                    state.activeFootnoteKey = null;
+                    state.activeFootnoteMarker = null;
+                    i--; // Re-process this node in the normal flow
+                    continue;
+                }
 
-        // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
-        if (isSerializedUSFMTextNode(node) && node.sid) {
-            const semanticSid = node.sid;
+                // Node belongs to footnote
+                block.nodes.push(node);
+                const { usfm, plain, full } = getTextComponentsFromNode(node);
+                block.usfmStructure += usfm;
+                block.plainTextStructure += plain;
+                block.fullText += full;
+
+                if (isFootnoteEndMarker) {
+                    state.activeFootnoteKey = null;
+                    state.activeFootnoteMarker = null;
+                }
+                continue;
+            }
+
+            // --- Case 1: Handle Footnotes (as new, distinct blocks) ---
+            // Structured Case (WYSIWYG)
+            if (isSerializedUSFMNestedEditorNode(node)) {
+                const parentSid = state.activeVerseKey
+                    ? state.map[state.activeVerseKey].semanticSid
+                    : "ORPHAN_NOTE";
+                const footnoteCount =
+                    (state.footnoteCounters.get(parentSid) || 0) + 1;
+                state.footnoteCounters.set(parentSid, footnoteCount);
+                const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
+                const footnoteChildren = node.editorState.root.children;
+
+                state.map[footnoteKey] = {
+                    nodes: footnoteChildren,
+                    parentChapterNodeList: footnoteChildren,
+                    startIndexInParent: 0,
+                    previousSid: state.previousBlockKey,
+                    semanticSid: parentSid,
+                    displaySid: `${parentSid} (${node.marker} note)`,
+                    ...extractTextComponents(footnoteChildren, node.marker),
+                    wrapperNode: node,
+                    wrapperParentList: parentList,
+                    wrapperStartIndex: i,
+                    foundOrder: state.blockCounter,
+                };
+
+                state.previousBlockKey = footnoteKey;
+                state.blockCounter++;
+                continue;
+            }
+
+            // Flattened Case (Source Mode)
             if (
-                !activeVerseKey ||
-                map[activeVerseKey].semanticSid !== semanticSid
+                isSerializedUSFMTextNode(node) &&
+                node.tokenType === UsfmTokenTypes.marker &&
+                nestedEditorMarkers.has(node.marker || "")
             ) {
-                let uniqueKey: string = semanticSid;
-                if (map[uniqueKey]) {
-                    const count =
-                        (duplicateSidCounters.get(semanticSid) || 0) + 1;
-                    duplicateSidCounters.set(semanticSid, count);
-                    uniqueKey = `${semanticSid}_dup_${count}`;
-                }
-                activeVerseKey = uniqueKey;
+                const parentSid = state.activeVerseKey
+                    ? state.map[state.activeVerseKey].semanticSid
+                    : "ORPHAN_NOTE";
+                const footnoteCount =
+                    (state.footnoteCounters.get(parentSid) || 0) + 1;
+                state.footnoteCounters.set(parentSid, footnoteCount);
+                const footnoteKey = `${parentSid}_${node.marker}_${footnoteCount}`;
 
-                // --- OUT-OF-ORDER DETECTION LOGIC ---
-                let detail: string | undefined;
-                if (previousBlockKey) {
-                    const prevBlock = map[previousBlockKey];
-                    const prevSidParsed = parseSid(prevBlock.semanticSid);
-                    const currentSidParsed = parseSid(semanticSid);
-
-                    // Check if both are valid, verse-level SIDs in the same chapter.
-                    if (
-                        prevSidParsed &&
-                        !prevSidParsed.isBookChapOnly &&
-                        currentSidParsed &&
-                        !currentSidParsed.isBookChapOnly &&
-                        prevSidParsed.chapter === currentSidParsed.chapter
-                    ) {
-                        const expectedVerse = prevSidParsed.verseEnd + 1;
-                        if (currentSidParsed.verseStart !== expectedVerse) {
-                            detail = `Out of order (expected v. ${expectedVerse})`;
-                        }
-                    }
-                }
-
-                map[activeVerseKey] = {
-                    nodes: [],
-                    parentChapterNodeList: chapterNodeList,
+                state.map[footnoteKey] = {
+                    nodes: [node],
+                    parentChapterNodeList: parentList,
                     startIndexInParent: i,
-                    previousSid: previousBlockKey,
-                    semanticSid: semanticSid,
-                    displaySid: semanticSid,
+                    previousSid: state.previousBlockKey,
+                    semanticSid: parentSid,
+                    displaySid: `${parentSid} (${node.marker} note)`,
                     usfmStructure: "",
                     plainTextStructure: "",
                     fullText: "",
-                    foundOrder: blockCounter,
-                    detail,
+                    foundOrder: state.blockCounter,
                 };
-                blockCounter++;
-                previousBlockKey = activeVerseKey;
+                const { usfm, plain, full } = getTextComponentsFromNode(node);
+                state.map[footnoteKey].usfmStructure += usfm;
+                state.map[footnoteKey].plainTextStructure += plain;
+                state.map[footnoteKey].fullText += full;
+
+                state.activeFootnoteKey = footnoteKey;
+                state.activeFootnoteMarker = node.marker || null;
+                state.previousBlockKey = footnoteKey;
+                state.blockCounter++;
+                continue;
             }
 
-            const block = map[activeVerseKey];
-            block.nodes.push(node);
-            const { usfm, plain, full } = getTextComponentsFromNode(node);
-            block.usfmStructure += usfm;
-            block.plainTextStructure += plain;
-            block.fullText += full;
-            continue;
-        }
-        if (isSerializedElementNode(node) && node.children) {
-            return buildSidContentMapForChapter(node.children, map);
-        }
+            // --- Case 2: Handle Regular USFM Text and Verse Nodes ---
+            if (isSerializedUSFMTextNode(node) && node.sid) {
+                const semanticSid = node.sid;
+                if (
+                    !state.activeVerseKey ||
+                    state.map[state.activeVerseKey].semanticSid !== semanticSid
+                ) {
+                    let uniqueKey: string = semanticSid;
+                    if (state.map[uniqueKey]) {
+                        const count =
+                            (state.duplicateSidCounters.get(semanticSid) || 0) +
+                            1;
+                        state.duplicateSidCounters.set(semanticSid, count);
+                        uniqueKey = `${semanticSid}_dup_${count}`;
+                    }
+                    state.activeVerseKey = uniqueKey;
 
-        // --- Case 3: Handle Follower Nodes (e.g., Line Breaks) ---
-        // A follower node always belongs to the active VERSE, not an interrupting footnote.
-        if (activeVerseKey) {
-            const block = map[activeVerseKey];
-            block.nodes.push(node);
-            const { usfm, plain, full } = getTextComponentsFromNode(node);
-            block.usfmStructure += usfm;
-            block.plainTextStructure += plain;
-            block.fullText += full;
+                    // Out-of-order detection
+                    let detail: string | undefined;
+                    if (state.previousBlockKey) {
+                        const prevBlock = state.map[state.previousBlockKey];
+                        const prevSidParsed = parseSid(prevBlock.semanticSid);
+                        const currentSidParsed = parseSid(semanticSid);
+
+                        if (
+                            prevSidParsed &&
+                            !prevSidParsed.isBookChapOnly &&
+                            currentSidParsed &&
+                            !currentSidParsed.isBookChapOnly &&
+                            prevSidParsed.chapter === currentSidParsed.chapter
+                        ) {
+                            const expectedVerse = prevSidParsed.verseEnd + 1;
+                            if (currentSidParsed.verseStart !== expectedVerse) {
+                                detail = `Out of order (expected v. ${expectedVerse})`;
+                            }
+                        }
+                    }
+
+                    state.map[state.activeVerseKey] = {
+                        nodes: [],
+                        parentChapterNodeList: parentList,
+                        startIndexInParent: i,
+                        previousSid: state.previousBlockKey,
+                        semanticSid: semanticSid,
+                        displaySid: semanticSid,
+                        usfmStructure: "",
+                        plainTextStructure: "",
+                        fullText: "",
+                        foundOrder: state.blockCounter,
+                        detail,
+                    };
+                    state.blockCounter++;
+                    state.previousBlockKey = state.activeVerseKey;
+                }
+
+                const block = state.map[state.activeVerseKey];
+                block.nodes.push(node);
+                const { usfm, plain, full } = getTextComponentsFromNode(node);
+                block.usfmStructure += usfm;
+                block.plainTextStructure += plain;
+                block.fullText += full;
+                continue;
+            }
+
+            // --- Case 3: Recursion into Element Nodes (Paragraphs) ---
+            if (isSerializedElementNode(node) && node.children) {
+                traverse(node.children, node.children);
+                continue;
+            }
+
+            // --- Case 4: Handle Follower Nodes (e.g., Line Breaks) ---
+            if (state.activeVerseKey) {
+                const block = state.map[state.activeVerseKey];
+                block.nodes.push(node);
+                const { usfm, plain, full } = getTextComponentsFromNode(node);
+                block.usfmStructure += usfm;
+                block.plainTextStructure += plain;
+                block.fullText += full;
+            }
         }
     }
-    return map;
+
+    traverse(chapterNodeList, chapterNodeList);
+    return state.map;
 }
 
 /**

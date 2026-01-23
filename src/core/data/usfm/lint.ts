@@ -21,11 +21,31 @@ export const LintErrorKeys = {
 
 export type LintErrorKey = keyof typeof LintErrorKeys;
 
+export type LintErrorFix =
+    | {
+          label: string;
+          type: "insertEndMarker";
+          data: {
+              nodeId: string;
+              marker: string;
+          };
+      }
+    | {
+          label: string;
+          type: "convertToMarkerAndText";
+          data: {
+              nodeId: string;
+              marker: string;
+              textAfter: string;
+          };
+      };
+
 export type LintError = {
     message: string;
     sid: string;
     msgKey: LintErrorKey;
     nodeId: string;
+    fix?: LintErrorFix;
 };
 
 export type LintableToken = {
