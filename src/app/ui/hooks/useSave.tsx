@@ -217,7 +217,6 @@ export function useProjectDiffs({
     }, []);
 
     async function saveProjectToDisk() {
-        debugger;
         const toSave: Record<string, string> = {};
         const uniqueBookIdsWithDiff = Object.keys(diffMap).reduce(
             (acc, key) => {

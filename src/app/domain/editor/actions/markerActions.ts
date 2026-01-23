@@ -75,16 +75,39 @@ function insertMarker(
         // For manual insertion:
         const anchorOffset = selection.anchor.offset;
         const isNodeStart = anchorOffset === 0;
-        // We can approximate isStartOfLine by checking if prev sibling is null or linebreak?
-        const prevSibling = anchorNode.getPreviousSibling();
-        // This is simplified.
-        const isStartOfLineCalculated =
-            isNodeStart &&
-            (!prevSibling || prevSibling.getType() === "linebreak");
+
+        // Determine if we're visually at the start of the line by looking back for visible nodes
+        let isStartOfLineCalculated = isNodeStart;
+        let actualAnchorNode = anchorNode as USFMTextNode;
+        let actualAnchorOffset = anchorOffset;
+
+        if (isStartOfLineCalculated) {
+            let curr = anchorNode.getPreviousSibling();
+            while (curr) {
+                if (curr.getType() === "linebreak") {
+                    break;
+                }
+                if ($isUSFMTextNode(curr)) {
+                    if (curr.getShow()) {
+                        isStartOfLineCalculated = false;
+                        break;
+                    }
+                    // If it's hidden, it's part of the sequence at the visual start of line.
+                    // We move the anchor point back to the beginning of this sequence.
+                    actualAnchorNode = curr;
+                    actualAnchorOffset = 0;
+                } else {
+                    // Treat other node types (e.g. nested editors) as visible
+                    isStartOfLineCalculated = false;
+                    break;
+                }
+                curr = curr.getPreviousSibling();
+            }
+        }
 
         const args: BaseInsertArgs = {
-            anchorNode: anchorNode as USFMTextNode,
-            anchorOffsetToUse: anchorOffset,
+            anchorNode: actualAnchorNode,
+            anchorOffsetToUse: actualAnchorOffset,
             marker: markerNoSlash,
             isStartOfLine: isStartOfLineCalculated,
             markersMutableState:
