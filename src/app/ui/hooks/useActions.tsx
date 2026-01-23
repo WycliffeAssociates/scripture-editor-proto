@@ -653,7 +653,6 @@ export const useWorkspaceActions = ({
     }
 
     async function matchFormattingChapter() {
-        debugger;
         if (!referenceProject.referenceChapter) return;
         saveCurrentDirtyLexical();
 
