@@ -11,7 +11,6 @@ import {
 import { $getRoot, $isElementNode, type LexicalNode } from "lexical";
 import { useEffect, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { parseReference } from "@/core/data/bible/bible.ts";
 
 import { getVisibleActions } from "../../actions/registry.ts";
 import type {
@@ -122,6 +121,9 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
             setSearch("");
         } else {
             onClose();
+            if (action.category !== "Modes") {
+                editor.focus();
+            }
         }
     };
 
@@ -157,6 +159,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                 activeStep?.onComplete(value, editor, context);
             });
             onClose();
+            editor.focus();
         }
     };
 
@@ -178,9 +181,11 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
     const handleKeyDown = (event: React.KeyboardEvent) => {
         if (event.key === "Escape") {
             onClose();
+            editor.focus();
         }
         if (event.key === "Backspace" && search === "" && !activeStep) {
             onClose();
+            editor.focus();
         }
         if (event.key === "Tab") {
             event.preventDefault();
