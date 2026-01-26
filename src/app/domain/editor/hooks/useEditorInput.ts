@@ -5,7 +5,10 @@ import {
     type LexicalEditor,
 } from "lexical";
 import { useEffect } from "react";
-import { moveToAdjacentNodesWhenSeemsAppropriate } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
+import {
+    handleEnterOnStartOfVerse,
+    moveToAdjacentNodesWhenSeemsAppropriate,
+} from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import {
     lockImmutableMarkersOnCopy,
     lockImmutableMarkersOnCut,
@@ -77,6 +80,15 @@ export function useEditorInput(editor: LexicalEditor) {
             COMMAND_PRIORITY_HIGH,
         );
 
+        // Register KEY_DOWN_COMMAND for handling Enter at start of verse
+        const handleEnterOnVerseUnregister = editor.registerCommand(
+            KEY_DOWN_COMMAND,
+            (event: KeyboardEvent) => {
+                return handleEnterOnStartOfVerse(editor, event);
+            },
+            COMMAND_PRIORITY_HIGH,
+        );
+
         // Register PASTE_COMMAND for locking immutable markers
         const pasteCommand = lockImmutableMarkersOnPaste(editor);
 
@@ -100,6 +112,7 @@ export function useEditorInput(editor: LexicalEditor) {
             redirectParaInsertionToLineBreakUnregister();
             keyDownUnregister();
             moveToAdjacentNodesUnregister();
+            handleEnterOnVerseUnregister();
             pasteCommand();
             lockOnCopy();
             lockImmutablesOnCut();

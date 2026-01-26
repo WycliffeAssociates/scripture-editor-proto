@@ -1,4 +1,9 @@
-import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
+import {
+    $createLineBreakNode,
+    $getSelection,
+    $isRangeSelection,
+    type LexicalEditor,
+} from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts"; // Adjust your import path
 
@@ -84,6 +89,54 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
             });
         }
     }
+
+    return isHandled;
+}
+
+/**
+ * Handles "Enter" key at the start of a number range node by inserting a linebreak
+ * BEFORE the preceding marker (if it exists).
+ */
+export function handleEnterOnStartOfVerse(
+    editor: LexicalEditor,
+    event: KeyboardEvent,
+): boolean {
+    if (event.key !== "Enter") return false;
+
+    let isHandled = false;
+    editor.update(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+
+        const anchorNode = selection.anchor.getNode();
+        const offset = selection.anchor.offset;
+
+        if (!$isUSFMTextNode(anchorNode)) return;
+
+        // Check if we are at the start of a number range
+        if (
+            anchorNode.getTokenType() === UsfmTokenTypes.numberRange &&
+            offset === 0
+        ) {
+            const prevSibling = anchorNode.getPreviousSibling();
+
+            // Check if previous sibling is a marker node (e.g., \v)
+            if (
+                prevSibling &&
+                $isUSFMTextNode(prevSibling) &&
+                prevSibling.getTokenType() === UsfmTokenTypes.marker
+            ) {
+                // Insert linebreak before the marker
+                const lineBreak = $createLineBreakNode();
+                prevSibling.insertBefore(lineBreak);
+
+                // Prevent default behavior (don't split the number range)
+                event.preventDefault();
+                event.stopPropagation();
+                isHandled = true;
+            }
+        }
+    });
 
     return isHandled;
 }
