@@ -5,7 +5,11 @@ import {
     type LexicalEditor,
 } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts"; // Adjust your import path
+import {
+    $createUSFMTextNode,
+    $isUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 /**
  * A command helper that moves the selection to an adjacent node when it's contextually
@@ -131,6 +135,61 @@ export function handleEnterOnStartOfVerse(
                 prevSibling.insertBefore(lineBreak);
 
                 // Prevent default behavior (don't split the number range)
+                event.preventDefault();
+                event.stopPropagation();
+                isHandled = true;
+            }
+        }
+    });
+
+    return isHandled;
+}
+
+/**
+ * Handles backslash ("\") key at the start of a number range node by creating
+ * a new text node BEFORE the preceding marker (if it exists) and focusing it.
+ */
+export function handleBackslashOnStartOfVerse(
+    editor: LexicalEditor,
+    event: KeyboardEvent,
+): boolean {
+    if (event.key !== "\\") return false;
+
+    let isHandled = false;
+    editor.update(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+
+        const anchorNode = selection.anchor.getNode();
+        const offset = selection.anchor.offset;
+
+        if (!$isUSFMTextNode(anchorNode)) return;
+
+        // Check if we are at the start of a number range
+        if (
+            anchorNode.getTokenType() === UsfmTokenTypes.numberRange &&
+            offset === 0
+        ) {
+            const prevSibling = anchorNode.getPreviousSibling();
+
+            // Check if previous sibling is a marker node (e.g., \v)
+            if (
+                prevSibling &&
+                $isUSFMTextNode(prevSibling) &&
+                prevSibling.getTokenType() === UsfmTokenTypes.marker
+            ) {
+                const newTextNode = $createUSFMTextNode("\\", {
+                    id: guidGenerator(),
+                    tokenType: UsfmTokenTypes.text,
+                    inPara: prevSibling.getInPara(),
+                    sid: prevSibling.getSid(),
+                    isMutable: true,
+                    show: true,
+                });
+
+                prevSibling.insertBefore(newTextNode);
+                newTextNode.select();
+
                 event.preventDefault();
                 event.stopPropagation();
                 isHandled = true;

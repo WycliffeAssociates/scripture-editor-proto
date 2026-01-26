@@ -6,6 +6,7 @@ import {
 } from "lexical";
 import { useEffect } from "react";
 import {
+    handleBackslashOnStartOfVerse,
     handleEnterOnStartOfVerse,
     moveToAdjacentNodesWhenSeemsAppropriate,
 } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
@@ -84,6 +85,11 @@ export function useEditorInput(editor: LexicalEditor) {
         const handleEnterOnVerseUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {
+                const backslashHandled = handleBackslashOnStartOfVerse(
+                    editor,
+                    event,
+                );
+                if (backslashHandled) return true;
                 return handleEnterOnStartOfVerse(editor, event);
             },
             COMMAND_PRIORITY_HIGH,
