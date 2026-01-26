@@ -9,10 +9,7 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import {
-    ALL_USFM_MARKERS,
-    VALID_PARA_MARKERS,
-} from "@/core/data/usfm/tokens.ts";
+import { ALL_USFM_MARKERS } from "@/core/data/usfm/tokens.ts";
 
 export const POETRY_MARKERS = new Set([
     "q",
@@ -28,6 +25,72 @@ export const POETRY_MARKERS = new Set([
     "qm2",
     "qm3",
     "qd",
+]);
+
+/**
+ * Markers that should ALWAYS have linebreaks inserted BEFORE AND AFTER them during prettify.
+ * These are structural markers like paragraphs, headings, and lists.
+ */
+export const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
+    // Major structural markers
+    "p", // Standard paragraph
+    "m", // Margin paragraph
+    "pi", // Indented paragraph
+    "pi1",
+    "pi2",
+    "pi3",
+    // Section headings
+    "s",
+    "s1",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "ms",
+    "ms1",
+    "ms2",
+    "ms3",
+    // Lists
+    "li",
+    "li1",
+    "li2",
+    "li3",
+    "li4",
+    // Blank line
+    "b",
+]);
+
+/**
+ * Markers that should ONLY have a linebreak inserted BEFORE them (not after).
+ * Examples: chapter labels, descriptors, and other markers that have inline content.
+ */
+export const PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
+    "cl", // Chapter label
+    "cd", // Chapter description
+    "d", // Descriptive title
+    "sp", // Speaker
+    "r", // Parallel reference
+    "mr", // Major section reference range
+    "sr", // Section reference range
+]);
+
+/**
+ * Derived set of ALL markers that need a linebreak BEFORE them.
+ * Combines BEFORE_AND_AFTER + BEFORE_ONLY + POETRY_MARKERS.
+ */
+export const PRETTIFY_LINEBREAK_BEFORE_MARKERS = new Set([
+    ...PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
+    ...PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS,
+    ...POETRY_MARKERS,
+]);
+
+/**
+ * Markers that should ALWAYS get a linebreak AFTER them (unconditionally).
+ * This is the same as BEFORE_AND_AFTER markers.
+ * Poetry markers have conditional "after" behavior (only if followed by another marker).
+ */
+export const PRETTIFY_LINEBREAK_AFTER_MARKERS = new Set([
+    ...PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
 ]);
 
 export type PrettifyContext = {
@@ -206,7 +269,7 @@ export function insertLinebreakBeforeParaMarkers(
     if (
         isSerializedUSFMTextNode(node) &&
         node.marker &&
-        VALID_PARA_MARKERS.has(node.marker)
+        PRETTIFY_LINEBREAK_BEFORE_MARKERS.has(node.marker)
     ) {
         // Requirement: ALWAYS insert a linebreak before poetry markers (remove exclusion).
         // So we just check VALID_PARA_MARKERS.
@@ -224,42 +287,53 @@ export function insertLinebreakBeforeParaMarkers(
 }
 
 /**
- * Ensure a linebreak node exists after any VALID_PARA_MARKERS.
+ * Ensure a linebreak node exists after markers that require it.
+ *
+ * Three categories of markers:
+ * 1. BEFORE_AND_AFTER_MARKERS: Always get linebreak after (e.g., \p, \m, \s)
+ * 2. POETRY_MARKERS: Only get linebreak after if followed by another marker
+ * 3. BEFORE_ONLY_MARKERS: Never get linebreak after (e.g., \cl, \d)
  */
 export function insertLinebreakAfterParaMarkers(
     node: SerializedLexicalNode,
     context: PrettifyContext,
 ): SerializedLexicalNode | SerializedLexicalNode[] {
-    if (
-        isSerializedUSFMTextNode(node) &&
-        node.marker &&
-        VALID_PARA_MARKERS.has(node.marker)
-    ) {
-        // Check if it is a poetry marker
-        const isPoetry = context.poetryMarkers?.has(node.marker);
+    if (!isSerializedUSFMTextNode(node) || !node.marker) {
+        return node;
+    }
 
-        if (isPoetry) {
-            // Requirement: ONLY insert a linebreak after a poetry marker IF the next sibling is a MARKER node.
-            const { nextSibling } = context;
-            if (
-                nextSibling &&
-                isSerializedUSFMTextNode(nextSibling) &&
-                nextSibling.tokenType === UsfmTokenTypes.marker
-            ) {
-                // Insert linebreak
-            } else {
-                // DO NOT insert linebreak
-                return node;
-            }
+    const { nextSibling, poetryMarkers } = context;
+    const isPoetry = poetryMarkers?.has(node.marker);
+    const isAlwaysAfter = PRETTIFY_LINEBREAK_AFTER_MARKERS.has(node.marker);
+
+    // Poetry markers: only insert linebreak after if followed by another MARKER
+    if (isPoetry) {
+        const nextIsMarker =
+            nextSibling &&
+            isSerializedUSFMTextNode(nextSibling) &&
+            nextSibling.tokenType === UsfmTokenTypes.marker;
+
+        if (!nextIsMarker) {
+            // Poetry followed by text - no linebreak after
+            return node;
         }
 
-        // For non-poetry markers, OR if poetry condition met:
-        const { nextSibling } = context;
+        // Poetry followed by marker - insert linebreak if not already there
         if (nextSibling && nextSibling.type === "linebreak") {
             return node;
         }
         return [node, { type: "linebreak", version: 1 }];
     }
+
+    // BEFORE_AND_AFTER markers: always insert linebreak after
+    if (isAlwaysAfter) {
+        if (nextSibling && nextSibling.type === "linebreak") {
+            return node;
+        }
+        return [node, { type: "linebreak", version: 1 }];
+    }
+
+    // BEFORE_ONLY markers (like \cl): no linebreak after
     return node;
 }
 
@@ -275,12 +349,17 @@ export function normalizeSpacingAfterParaMarkers(
         node.tokenType === UsfmTokenTypes.text
     ) {
         const usfmNode = node as SerializedUSFMTextNode;
-        const { previousSibling } = context;
+        const { previousSibling, poetryMarkers } = context;
         if (
             previousSibling &&
             isSerializedUSFMTextNode(previousSibling) &&
             previousSibling.marker &&
-            VALID_PARA_MARKERS.has(previousSibling.marker)
+            (PRETTIFY_LINEBREAK_AFTER_MARKERS.has(previousSibling.marker) ||
+                PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS.has(
+                    previousSibling.marker,
+                ) ||
+                poetryMarkers?.has(previousSibling.marker) ||
+                POETRY_MARKERS.has(previousSibling.marker))
         ) {
             // Normalize leading spaces to exactly one space
             const newText = usfmNode.text.replace(/^ +/, " ");
@@ -293,33 +372,62 @@ export function normalizeSpacingAfterParaMarkers(
 }
 
 /**
- * Removes linebreaks if they are immediately followed by a Verse Marker (\v).
+ * Removes linebreaks if they are:
+ * 1. Immediately followed by a Verse Marker (\v).
+ * 2. Immediately preceded by a marker that should be inline (e.g. \cl).
+ *
  * Keeps them if followed by Paragraph Marker or Text.
  */
-export function removeInterVerseLinebreaks(
+export function removeUnwantedLinebreaks(
     node: SerializedLexicalNode,
     context: PrettifyContext,
 ): SerializedLexicalNode | SerializedLexicalNode[] {
     if (node.type === "linebreak") {
-        const { nextSibling, previousSibling } = context;
+        const { nextSibling, previousSibling, poetryMarkers } = context;
 
-        // If previous sibling is a paragraph marker, we MUST keep the linebreak
-        // to avoid the cycle with insertLinebreakAfterParaMarkers
-        if (
-            previousSibling &&
-            isSerializedUSFMTextNode(previousSibling) &&
-            previousSibling.marker &&
-            VALID_PARA_MARKERS.has(previousSibling.marker)
-        ) {
+        const prevIsUSFM =
+            previousSibling && isSerializedUSFMTextNode(previousSibling);
+        const prevMarker = prevIsUSFM
+            ? (previousSibling as SerializedUSFMTextNode).marker
+            : undefined;
+
+        const nextIsUSFM = nextSibling && isSerializedUSFMTextNode(nextSibling);
+        const nextIsMarker =
+            nextIsUSFM &&
+            (nextSibling as SerializedUSFMTextNode).tokenType ===
+                UsfmTokenTypes.marker;
+        const nextMarker = nextIsUSFM
+            ? (nextSibling as SerializedUSFMTextNode).marker
+            : undefined;
+
+        // 1. Keep linebreaks after structural markers (BEFORE_AND_AFTER)
+        if (prevMarker && PRETTIFY_LINEBREAK_AFTER_MARKERS.has(prevMarker)) {
             return node;
         }
 
+        // 2. Poetry markers logic
         if (
-            nextSibling &&
-            isSerializedUSFMTextNode(nextSibling) &&
-            nextSibling.tokenType === UsfmTokenTypes.marker &&
-            nextSibling.marker === "v"
+            prevMarker &&
+            (poetryMarkers?.has(prevMarker) || POETRY_MARKERS.has(prevMarker))
         ) {
+            if (nextIsMarker) {
+                // Poetry followed by another marker (like \v or \q2) -> Keep linebreak
+                return node;
+            }
+            // Poetry followed by text -> Remove linebreak
+            return [];
+        }
+
+        // 3. Remove linebreaks after inline-only markers (like \cl)
+        if (
+            prevMarker &&
+            PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS.has(prevMarker)
+        ) {
+            return [];
+        }
+
+        // 4. Remove linebreaks before verse markers (normalization for inter-verse space)
+        if (nextMarker === "v") {
             return [];
         }
     }
@@ -545,7 +653,7 @@ export function prettifySerializedNode(
             currentNode = normalized;
         }
     } else if (currentNode.type === "linebreak") {
-        const result = removeInterVerseLinebreaks(currentNode, context);
+        const result = removeUnwantedLinebreaks(currentNode, context);
         if (Array.isArray(result) && result.length === 0) {
             return [];
         }

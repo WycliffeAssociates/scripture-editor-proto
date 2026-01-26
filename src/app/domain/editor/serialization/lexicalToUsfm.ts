@@ -20,6 +20,7 @@ import {
     isSerializedNumberOrPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
 // function $serializedLexicalToUsfm(editor: LexicalEditor) {
@@ -87,6 +88,13 @@ function traverseForUsfmString(
     nodes: SerializedLexicalNode[],
     accumulator: { str: string },
 ): void {
+    // This needs to be carefully refactored because walkNodes yields all nodes including nested ones,
+    // but serializeToUsfmString needs to handle the order and nested editor markers manually.
+    // Actually, walkNodes is a generic DFS, but the order of nested markers matters.
+    // Let's see if we can still use it for simple trees, but for USFM with markers it might be tricky.
+    // On second thought, traverseForUsfmString is recursive and handles node.marker for nested editors.
+    // If I use walkNodes, I lose the ability to insert markers at the right level easily without extra logic.
+    // I'll skip refactoring traverseForUsfmString for now as it's highly specific.
     for (const node of nodes) {
         if (node.type === "linebreak") {
             accumulator.str += "\n";
@@ -279,19 +287,12 @@ function extractTextComponents(
     let plainTextStructure = "";
     let fullText = marker ? `\\${marker} ` : "";
 
-    function traverse(nodeList: SerializedLexicalNode[]) {
-        for (const node of nodeList) {
-            const components = getTextComponentsFromNode(node);
-            usfmStructure += components.usfm;
-            plainTextStructure += components.plain;
-            fullText += components.full;
-            if (isSerializedElementNode(node) && node.children) {
-                traverse(node.children);
-            }
-        }
+    for (const node of walkNodes(nodes)) {
+        const components = getTextComponentsFromNode(node);
+        usfmStructure += components.usfm;
+        plainTextStructure += components.plain;
+        fullText += components.full;
     }
-
-    traverse(nodes);
 
     return { usfmStructure, plainTextStructure, fullText };
 }

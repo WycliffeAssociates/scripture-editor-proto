@@ -1,5 +1,5 @@
 import { darken } from "@mantine/core";
-import { createVar, style } from "@vanilla-extract/css";
+import { createVar, keyframes, style } from "@vanilla-extract/css";
 import { darkSelector } from "@/app/ui/styles/theme.css.ts";
 import { vars } from "../theme.css.ts";
 
@@ -106,4 +106,14 @@ export const infoCloseButton = style([baseCloseButton, closeButtonHover]);
 export const message = style({
     color: vars.colors.text,
     opacity: 0.95,
+});
+
+// Spinning animation for progress notifications
+const spin = keyframes({
+    "0%": { transform: "rotate(0deg)" },
+    "100%": { transform: "rotate(360deg)" },
+});
+
+export const spinningIcon = style({
+    animation: `${spin} 1s linear infinite`,
 });

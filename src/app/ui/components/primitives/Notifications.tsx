@@ -71,3 +71,40 @@ export function ShowImportStartedNotification({
     });
     return id;
 }
+
+export function showProgressNotification(notification: NotificationData) {
+    const id = notifications.show({
+        ...notification,
+        autoClose: false,
+        withCloseButton: false,
+        classNames: {
+            root: styles.infoRoot,
+            icon: styles.infoIcon,
+            description: styles.message,
+        },
+        icon: <Loader2 size={16} className={styles.spinningIcon} />,
+    });
+    return id;
+}
+
+export function updateProgressNotification(
+    id: string,
+    notification: NotificationData,
+) {
+    notifications.update({
+        id,
+        ...notification,
+        autoClose: false,
+        withCloseButton: false,
+        classNames: {
+            root: styles.infoRoot,
+            icon: styles.infoIcon,
+            description: styles.message,
+        },
+        icon: <Loader2 size={16} className={styles.spinningIcon} />,
+    });
+}
+
+export function hideNotification(id: string) {
+    notifications.hide(id);
+}

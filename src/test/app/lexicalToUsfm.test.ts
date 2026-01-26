@@ -94,8 +94,7 @@ describe("lexicalToUsfm", () => {
 
         it("should handle nested element nodes with children", () => {
             // When encountering a paragraph wrapper, the function recursively processes
-            // children separately. The verse marker stays in its own block, and children
-            // are processed in a fresh context (creating new entries if SIDs differ).
+            // children and maintains the active verse block if SIDs match.
             const chapterNodeList = [
                 createSerializedUSFMTextNode({
                     id: "test-id-1",
@@ -134,16 +133,13 @@ describe("lexicalToUsfm", () => {
 
             const result = buildSidContentMapForChapter(chapterNodeList);
 
-            // The first "GEN 1:1" block contains only the verse marker node
+            // All nodes are grouped under "GEN 1:1" because the SIDs match.
             expect(result["GEN 1:1"]).toBeDefined();
-            expect(result["GEN 1:1"].nodes.length).toBe(1);
-
-            // The nested children create a duplicate entry since they have same SID
-            expect(result["GEN 1:1_dup_1"]).toBeDefined();
-            expect(result["GEN 1:1_dup_1"].nodes.length).toBe(3);
-            expect(result["GEN 1:1_dup_1"].plainTextStructure).toBe(
+            expect(result["GEN 1:1"].nodes.length).toBe(4);
+            expect(result["GEN 1:1"].plainTextStructure).toBe(
                 "Some text content\nMore text",
             );
+            expect(result["GEN 1:1_dup_1"]).toBeUndefined();
         });
 
         it("should handle follower nodes (line breaks) correctly", () => {

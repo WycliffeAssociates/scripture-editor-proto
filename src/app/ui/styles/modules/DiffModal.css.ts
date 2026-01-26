@@ -54,6 +54,7 @@ export const modalScrollPaper = style({
 // ScrollArea height constraint
 export const diffScrollArea = style({
     height: "60vh",
+    overflow: "auto",
 });
 
 // Center content (loader/empty state)
@@ -118,8 +119,8 @@ export const diffDetailWarning = style({
 // Preformatted text styles (the actual verse content)
 export const diffPre = style({
     margin: 0,
-    // whiteSpace: "pre-wrap",
-    whiteSpace: "normal",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
     fontFamily: "inherit",
     color: "inherit",
 });

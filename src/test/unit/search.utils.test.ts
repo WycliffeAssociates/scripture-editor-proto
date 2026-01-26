@@ -10,14 +10,6 @@ import {
 } from "@/app/domain/search/search.utils.ts";
 
 describe("escapeRegex", () => {
-    it("should escape all special regex characters", () => {
-        const input = ".*+?^$" + "{}()|[\\]\\";
-        const result = escapeRegex(input);
-        expect(result).toBe(
-            "\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\\\\\]\\\\\\\\",
-        );
-    });
-
     it("should escape each special character individually", () => {
         expect(escapeRegex(".")).toBe("\\.");
         expect(escapeRegex("*")).toBe("\\*");

@@ -11,6 +11,7 @@ import {
 import { $getRoot, $isElementNode, type LexicalNode } from "lexical";
 import { useEffect, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { parseReference } from "@/core/data/bible/bible.ts";
 
 import { getVisibleActions } from "../../actions/registry.ts";
 import type {
@@ -188,9 +189,6 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
             } else {
                 combobox.selectNextOption();
             }
-        }
-        if (event.key === "ArrowDown") {
-            // Mantine handles ArrowDown by default for both comboboxes
         }
     };
 

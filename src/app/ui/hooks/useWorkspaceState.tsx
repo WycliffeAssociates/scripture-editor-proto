@@ -34,6 +34,7 @@ export const useWorkspaceState = (
     const [referenceProjectPath, setReferenceProjectPath] = useState<
         string | null
     >(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const updateAppSettings = useCallback(
         (newSettings: Partial<Settings>) => {
@@ -47,24 +48,35 @@ export const useWorkspaceState = (
     const pickedFile = useMemo(
         () =>
             allFiles.find(
-                (file) => file.bookCode === currentFileBibleIdentifier,
+                (file) =>
+                    file.bookCode.toLowerCase() ===
+                    currentFileBibleIdentifier.toLowerCase(),
             ) || allFiles[0],
         [allFiles, currentFileBibleIdentifier],
     );
     const pickedChapter = useMemo(() => {
-        let candidate =
-            pickedFile?.chapters[currentChapter ? currentChapter : 0];
-        // if currentChapter is greater than the number of chapters in pickedFile, set it to the last chapter else first:
-        if (currentChapter > pickedFile?.chapters.length - 1) {
-            setCurrentChapter(pickedFile?.chapters.length - 1 || 0);
-            candidate = pickedFile?.chapters[pickedFile?.chapters.length - 1];
-            updateAppSettings({
-                lastChapterNumber: pickedFile?.chapters.length - 1,
-            });
-        } else if (currentChapter < 0) {
-            setCurrentChapter(0);
-            candidate = pickedFile?.chapters[0];
-            updateAppSettings({ lastChapterNumber: 0 });
+        let candidate = pickedFile?.chapters.find(
+            (c) => c.chapNumber === currentChapter,
+        );
+
+        if (!candidate && pickedFile?.chapters.length > 0) {
+            const sortedChaps = [...pickedFile.chapters].sort(
+                (a, b) => a.chapNumber - b.chapNumber,
+            );
+            const lastChap = sortedChaps[sortedChaps.length - 1];
+            const firstChap = sortedChaps[0];
+
+            if (currentChapter > lastChap.chapNumber) {
+                setCurrentChapter(lastChap.chapNumber);
+                candidate = lastChap;
+                updateAppSettings({
+                    lastChapterNumber: lastChap.chapNumber,
+                });
+            } else {
+                setCurrentChapter(firstChap.chapNumber);
+                candidate = firstChap;
+                updateAppSettings({ lastChapterNumber: firstChap.chapNumber });
+            }
         }
         return candidate;
     }, [pickedFile, currentChapter, updateAppSettings]);
@@ -82,5 +94,7 @@ export const useWorkspaceState = (
         setReferenceProjectPath,
         pickedFile,
         pickedChapter,
+        isProcessing,
+        setIsProcessing,
     };
 };

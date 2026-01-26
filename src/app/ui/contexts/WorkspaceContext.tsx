@@ -47,6 +47,7 @@ export interface WorkSpaceContextType {
     cssStyleSheet: UseDynamicStylesheetHook;
     saveDiff: UseProjectDiffsReturn;
     projectLanguageDirection: "ltr" | "rtl";
+    isProcessing: boolean;
     bookCodeToProjectLocalizedTitle({
         bookCode,
         replaceCodeInString,
@@ -85,17 +86,15 @@ export const ProjectProvider = ({
 
     const { settingsManager, projectRepository } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
-    const project = useWorkspaceState(
-        settingsManager,
-        mutWorkingFilesRef.current,
-    );
+    const project = useWorkspaceState(settingsManager, projectFiles);
     const saveDiff = useProjectDiffs({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         // setWorkingFiles,
         editorRef: editorRef,
         pickedFile: project.pickedFile,
-        pickedChapter: project.pickedChapter,
+        pickedChapter: project.pickedChapter || null,
         loadedProject,
+        setIsProcessing: project.setIsProcessing,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 
@@ -108,13 +107,14 @@ export const ProjectProvider = ({
     const referenceProject = useReferenceProject({
         projectRepository: projectRepository,
         pickedFileIdentifier: project.pickedFile.bookCode,
-        pickedChapterNumber: project.pickedChapter.chapNumber,
+        pickedChapterNumber: project.pickedChapter?.chapNumber || 0,
     });
 
     const actions = useWorkspaceActions({
         editorRef,
         loadedProject,
-        currentChapter: project.pickedChapter.chapNumber,
+        currentChapter:
+            project.pickedChapter?.chapNumber || project.currentChapter,
         currentFileBibleIdentifier: project.pickedFile.bookCode,
         setCurrentChapter: project.setCurrentChapter,
         setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
@@ -129,6 +129,7 @@ export const ProjectProvider = ({
         updateDiffMapForChapters: saveDiff.updateDiffMapForChapters,
         updateLintErrors: lint.updateErrorsForChapter,
         referenceProject,
+        setIsProcessing: project.setIsProcessing,
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,
@@ -136,7 +137,7 @@ export const ProjectProvider = ({
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
         pickedFile: project.pickedFile,
-        pickedChapter: project.pickedChapter,
+        pickedChapter: project.pickedChapter!,
     });
 
     function bookCodeToProjectLocalizedTitle({
@@ -181,6 +182,7 @@ export const ProjectProvider = ({
                 cssStyleSheet,
                 saveDiff,
                 projectLanguageDirection,
+                isProcessing: project.isProcessing,
                 bookCodeToProjectLocalizedTitle,
             }}
         >

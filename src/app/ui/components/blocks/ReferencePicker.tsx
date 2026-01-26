@@ -135,6 +135,7 @@ function ReferencePickerDropdown({
     currentChapter: number;
     actions: {
         switchBookOrChapter: (bookCode: string, chapter: number) => void;
+        goToReference: (input: string) => boolean;
     };
     setOpen: (open: boolean) => void;
     transitionStyle: React.CSSProperties;
@@ -145,7 +146,12 @@ function ReferencePickerDropdown({
             className={classes.dropdown}
             style={transitionStyle}
         >
-            <ReferencePickerSearch search={search} setSearch={setSearch} />
+            <ReferencePickerSearch
+                search={search}
+                setSearch={setSearch}
+                actions={actions}
+                setOpen={setOpen}
+            />
             <ScrollArea style={{ flex: 1 }}>
                 <Accordion
                     variant="none"
@@ -177,14 +183,28 @@ function ReferencePickerDropdown({
 function ReferencePickerSearch({
     search,
     setSearch,
+    actions,
+    setOpen,
 }: {
     search: string;
     setSearch: (value: string) => void;
+    actions: {
+        goToReference: (input: string) => boolean;
+    };
+    setOpen: (open: boolean) => void;
 }) {
     const { t } = useLingui();
 
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const success = actions.goToReference(search);
+        if (success) {
+            setOpen(false);
+        }
+    };
+
     return (
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={handleSubmit}>
             <TextInput
                 autoFocus
                 value={search}
@@ -216,6 +236,7 @@ function BookAccordionItem({
     currentChapter: number;
     actions: {
         switchBookOrChapter: (bookCode: string, chapter: number) => void;
+        goToReference: (input: string) => boolean;
     };
     setOpen: (open: boolean) => void;
 }) {

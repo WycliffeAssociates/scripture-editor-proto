@@ -13,7 +13,7 @@ import {
     normalizeSpacingAfterParaMarkers,
     recoverMalformedMarkers,
     removeDuplicateVerseNumbers,
-    removeInterVerseLinebreaks,
+    removeUnwantedLinebreaks,
 } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 
 const createTextNode = (
@@ -337,9 +337,46 @@ describe("prettifySerializedNode utils", () => {
                 );
             }
         });
+
+        it("should normalize spacing after \\cl (BEFORE_ONLY marker)", () => {
+            const markerNode = createTextNode(
+                "\\cl",
+                UsfmTokenTypes.marker,
+                "cl",
+            );
+            const textNode = createTextNode("    some text");
+            const result = normalizeSpacingAfterParaMarkers(textNode, {
+                previousSibling: markerNode,
+            });
+            expect(Array.isArray(result)).toBe(false);
+            if (!Array.isArray(result)) {
+                expect((result as SerializedUSFMTextNode).text).toBe(
+                    " some text",
+                );
+            }
+        });
+
+        it("should normalize spacing after poetry marker", () => {
+            const markerNode = createTextNode(
+                "\\q1",
+                UsfmTokenTypes.marker,
+                "q1",
+            );
+            const textNode = createTextNode("    some poetry");
+            const result = normalizeSpacingAfterParaMarkers(textNode, {
+                previousSibling: markerNode,
+                poetryMarkers: new Set(["q1"]),
+            });
+            expect(Array.isArray(result)).toBe(false);
+            if (!Array.isArray(result)) {
+                expect((result as SerializedUSFMTextNode).text).toBe(
+                    " some poetry",
+                );
+            }
+        });
     });
 
-    describe("removeInterVerseLinebreaks", () => {
+    describe("removeUnwantedLinebreaks", () => {
         it("should remove linebreak between verse and verse", () => {
             const linebreak = {
                 type: "linebreak",
@@ -347,7 +384,7 @@ describe("prettifySerializedNode utils", () => {
             } as SerializedLexicalNode;
             const nextVerse = createTextNode("\\v", UsfmTokenTypes.marker, "v");
 
-            const result = removeInterVerseLinebreaks(linebreak, {
+            const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextVerse,
             });
 
@@ -362,7 +399,7 @@ describe("prettifySerializedNode utils", () => {
             } as SerializedLexicalNode;
             const nextPara = createTextNode("\\p", UsfmTokenTypes.marker, "p");
 
-            const result = removeInterVerseLinebreaks(linebreak, {
+            const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextPara,
             });
 
@@ -377,7 +414,7 @@ describe("prettifySerializedNode utils", () => {
             const prevPara = createTextNode("\\p", UsfmTokenTypes.marker, "p");
             const nextVerse = createTextNode("\\v", UsfmTokenTypes.marker, "v");
 
-            const result = removeInterVerseLinebreaks(linebreak, {
+            const result = removeUnwantedLinebreaks(linebreak, {
                 previousSibling: prevPara,
                 nextSibling: nextVerse,
             });
@@ -392,8 +429,58 @@ describe("prettifySerializedNode utils", () => {
             } as SerializedLexicalNode;
             const nextText = createTextNode("some text");
 
-            const result = removeInterVerseLinebreaks(linebreak, {
+            const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextText,
+            });
+
+            expect(result).toEqual(linebreak);
+        });
+
+        it("should remove linebreak after \\cl (BEFORE_ONLY marker)", () => {
+            const linebreak = {
+                type: "linebreak",
+                version: 1,
+            } as SerializedLexicalNode;
+            const prevCl = createTextNode("\\cl", UsfmTokenTypes.marker, "cl");
+
+            const result = removeUnwantedLinebreaks(linebreak, {
+                previousSibling: prevCl,
+            });
+
+            expect(Array.isArray(result)).toBe(true);
+            expect(result).toHaveLength(0);
+        });
+
+        it("should remove linebreak after poetry marker if followed by text", () => {
+            const linebreak = {
+                type: "linebreak",
+                version: 1,
+            } as SerializedLexicalNode;
+            const prevQ1 = createTextNode("\\q1", UsfmTokenTypes.marker, "q1");
+            const nextText = createTextNode("poetry text");
+
+            const result = removeUnwantedLinebreaks(linebreak, {
+                previousSibling: prevQ1,
+                nextSibling: nextText,
+                poetryMarkers: new Set(["q1"]),
+            });
+
+            expect(Array.isArray(result)).toBe(true);
+            expect(result).toHaveLength(0);
+        });
+
+        it("should KEEP linebreak after poetry marker if followed by another marker", () => {
+            const linebreak = {
+                type: "linebreak",
+                version: 1,
+            } as SerializedLexicalNode;
+            const prevQ1 = createTextNode("\\q1", UsfmTokenTypes.marker, "q1");
+            const nextV = createTextNode("\\v", UsfmTokenTypes.marker, "v");
+
+            const result = removeUnwantedLinebreaks(linebreak, {
+                previousSibling: prevQ1,
+                nextSibling: nextV,
+                poetryMarkers: new Set(["q1"]),
             });
 
             expect(result).toEqual(linebreak);
@@ -658,5 +745,101 @@ describe("prettifySerializedNode utils", () => {
             " Normal text for five ",
         );
         expect((result[5] as SerializedUSFMTextNode).text).toBe(" 1,335 days ");
+    });
+
+    it("should handle the complex poetry example from user requirements", () => {
+        /*
+        User Request Example:
+        \q1 "Adah and Zillah, listen to my voice;
+        \q2 you wives of Lamech, listen to my words.
+        \q1 For I have killed a man for wounding me, 
+        \q2 a young man for bruising me.
+        \q1
+        \v 24 If Cain is avenged seven times, 
+        \q2 then Lamech will be avenged seventy-seven times."
+        
+        Expected Behavior:
+        - q1, q2 followed by text -> same line (no linebreak after marker)
+        - q1 followed by v marker -> new line after q1
+        */
+
+        const nodes: SerializedLexicalNode[] = [
+            // q1 followed by text
+            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createTextNode(' "Adah...voice;'),
+
+            // q2 followed by text
+            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createTextNode(" you wives...words."),
+
+            // q1 followed by text
+            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createTextNode(" For I have..."),
+
+            // q2 followed by text
+            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createTextNode(" a young man..."),
+
+            // q1 followed by v marker (Empty q1 case)
+            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createTextNode("24", UsfmTokenTypes.numberRange, "v"),
+            createTextNode(" If Cain..."),
+
+            // q2 followed by text
+            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createTextNode(" then Lamech..."),
+        ];
+
+        // We expect linebreaks to be inserted BEFORE all q and v markers (if not present)
+        // We expect linebreaks AFTER q markers ONLY if followed by another marker (like the q1 -> v case)
+
+        const result = applyPrettifyToNodeTree(nodes);
+
+        // Simplified expectations check
+        // 1. \q1 -> No LB after
+        // 2. \q2 -> No LB after
+        // 3. \q1 -> No LB after
+        // 4. \q2 -> No LB after
+        // 5. \q1 -> WITH LB after (because next is \v)
+        // 6. \v -> ...
+
+        // Let's verify specific adjacencies
+
+        const i = 0;
+        // First q1
+        expect(result[i]).toMatchObject({ marker: "q1" });
+        expect(result[i + 1]).toMatchObject({
+            type: USFM_TEXT_NODE_TYPE,
+            tokenType: UsfmTokenTypes.text,
+        }); // Immediate text
+
+        // Skip to next q2
+        // We expect a linebreak BEFORE q2
+        const q2Index = result.findIndex(
+            (n, idx) =>
+                idx > 0 && (n as SerializedUSFMTextNode).marker === "q2",
+        );
+        expect(result[q2Index - 1].type).toBe("linebreak");
+        expect(result[q2Index + 1].type).toBe(USFM_TEXT_NODE_TYPE); // Text follows q2
+
+        // Skip to the q1 explicitly followed by v
+        // The last q1 in our list is index 4 in original 'nodes', but indices shift with linebreaks.
+        // It's the q1 before \v 24
+
+        // Find index of \v
+        const vIndex = result.findIndex(
+            (n) => (n as SerializedUSFMTextNode).marker === "v",
+        );
+        expect(vIndex).toBeGreaterThan(0);
+
+        // The node before \v should be a linebreak (because \v usually implies start of new chunk or q1 forced it)
+        expect(result[vIndex - 1].type).toBe("linebreak");
+
+        // The node before that linebreak should be q1
+        expect(result[vIndex - 2]).toMatchObject({ marker: "q1" });
+
+        // Verify that q1 did NOT have a linebreak before it if valid (it should have one BEFORE it, and one AFTER it in this specific case)
+        expect(result[vIndex - 3].type).toBe("linebreak");
     });
 });

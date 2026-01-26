@@ -32,6 +32,7 @@ type UseProjectDiffsProps = {
     pickedFile: ParsedFile | null;
     pickedChapter: ParsedChapter | null;
     loadedProject: Project;
+    setIsProcessing: (isProcessing: boolean) => void;
 };
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
 type BookCode = string;
@@ -47,6 +48,7 @@ export function useProjectDiffs({
     pickedFile,
     pickedChapter,
     loadedProject,
+    setIsProcessing,
     // setWorkingFiles,
 }: UseProjectDiffsProps) {
     const [diffMap, setDiffMap] = useState<DiffMap>({});
@@ -102,18 +104,28 @@ export function useProjectDiffs({
         });
     }
 
-    function updateDiffMapForChapters(
+    async function updateDiffMapForChapters(
         chapters: Array<{ bookCode: string; chapterNum: number }>,
     ) {
-        setDiffMap((prev) => {
-            return batchUpdateChaptersInDiffMap({
-                chapters,
-                currentDiffMap: prev,
-                mutWorkingFiles: mutWorkingFilesRef,
-                currentWorkingFilesSidMap: currentSidMap.current,
-                originalSidMap: originalSidMapRef.current,
+        setIsProcessing(true);
+        // Use setTimeout to unblock the main thread so the UI can update (show loader)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        await new Promise<void>((resolve) => {
+            setDiffMap((prev) => {
+                const result = batchUpdateChaptersInDiffMap({
+                    chapters,
+                    currentDiffMap: prev,
+                    mutWorkingFiles: mutWorkingFilesRef,
+                    currentWorkingFilesSidMap: currentSidMap.current,
+                    originalSidMap: originalSidMapRef.current,
+                });
+                resolve();
+                return result;
             });
         });
+
+        setIsProcessing(false);
     }
 
     function batchUpdateChaptersInDiffMap({

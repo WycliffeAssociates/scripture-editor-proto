@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Button, Group, Menu, rem, Tooltip } from "@mantine/core";
+import { Button, Group, Loader, Menu, rem, Tooltip } from "@mantine/core";
 import {
+    AlignLeft,
     BookCopy,
     ChevronDown,
     FileStack,
@@ -18,7 +19,7 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions } = useWorkspaceContext();
+    const { actions, isProcessing } = useWorkspaceContext();
     const { t } = useLingui();
 
     return (
@@ -42,13 +43,21 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
             {/* Search and save remain in toolbar */}
             <SearchInput />
 
+            {/* Match Formatting Menu */}
+            <MatchFormattingMenu />
+
             <Tooltip label={t`Prettify Project`} withArrow position="top">
                 <ActionIconSimple
                     data-testid={TESTING_IDS.prettify.projectButton}
                     onClick={() => actions.prettifyProject()}
                     aria-label={t`Prettify Project`}
+                    disabled={isProcessing}
                 >
-                    <FileStack size={rem(14)} />
+                    {isProcessing ? (
+                        <Loader size={rem(14)} />
+                    ) : (
+                        <FileStack size={rem(14)} />
+                    )}
                 </ActionIconSimple>
             </Tooltip>
 
@@ -58,6 +67,44 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 }
 
 /* ---------------- Reference Project ---------------- */
+function MatchFormattingMenu() {
+    const { t } = useLingui();
+    const { actions, referenceProject } = useWorkspaceContext();
+
+    if (!referenceProject?.referenceProjectId) return null;
+
+    return (
+        <Menu shadow="md" width={200} position="bottom-end">
+            <Menu.Target>
+                <Tooltip
+                    label={t`Match Formatting to Source`}
+                    withArrow
+                    position="top"
+                >
+                    <ActionIconSimple
+                        aria-label={t`Match Formatting to Source`}
+                    >
+                        <AlignLeft size={rem(14)} />
+                    </ActionIconSimple>
+                </Tooltip>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+                <Menu.Label>{t`Match Formatting to Source`}</Menu.Label>
+                <Menu.Item onClick={() => actions.matchFormattingChapter()}>
+                    <Trans>Current Chapter</Trans>
+                </Menu.Item>
+                <Menu.Item onClick={() => actions.matchFormattingBook()}>
+                    <Trans>Current Book</Trans>
+                </Menu.Item>
+                <Menu.Item onClick={() => actions.matchFormattingProject()}>
+                    <Trans>Entire Project</Trans>
+                </Menu.Item>
+            </Menu.Dropdown>
+        </Menu>
+    );
+}
+
 function ReferenceProjectList() {
     const { t } = useLingui();
     const { allProjects, referenceProject, currentProjectRoute } =

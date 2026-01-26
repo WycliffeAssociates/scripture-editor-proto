@@ -69,9 +69,25 @@ const BIBLE_ORDER = [
     "REV",
 ] as const;
 
-const BIBLE_ORDER_MAP = new Map<string, number>(
+export const BIBLE_ORDER_MAP = new Map<string, number>(
     BIBLE_ORDER.map((b, i) => [b, i]),
 );
+
+export function matchBook(input: string): string | null {
+    const normalized = input.toLowerCase().replace(/\s+/g, "");
+    for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
+        if (
+            aliases.some(
+                (alias) =>
+                    normalized.startsWith(alias) ||
+                    normalized === id.toLowerCase(),
+            )
+        ) {
+            return id;
+        }
+    }
+    return null;
+}
 
 // --- 1. Canonical sort of files --------------------------------------------
 
@@ -278,19 +294,30 @@ export function makeSid({
     return `${bookId.toUpperCase()} ${chapter}:${verseStart}-${verseEnd}`;
 }
 
-// --- 5. Parse fuzzy input like “1 cor 3” ----------------------------------
-// function parseReference(input: string) {
-//   const normalized = input.toLowerCase().replace(/\s+/g, "");
-//   const match = normalized.match(/^(\d?[a-z]+)(\d+)?$/i);
-//   if (!match) return null;
-//   const [, rawBook, rawChap] = match;
-//   const bookId = matchBook(rawBook);
-//   return {
-//     knownBookId: bookId,
-//     bookMatch: rawBook,
-//     chapter: rawChap ? Number(rawChap) : null,
-//   };
-// }
+// --- 5. Parse fuzzy input like “1 cor 3” or "gen 3:3" ----------------------------------
+export function parseReference(input: string) {
+    const normalized = input.toLowerCase().trim();
+    // Match book and chapter, and optionally verse
+    // Supports: "gen 3", "gen 3:3", "1cor 3:3", "1 cor 3", "mat 4.4", "mat 4 4"
+    // Regex breakdown:
+    // ^(\d?\s*[a-z]+)      -> Book: optional leading digit, optional space, then letters
+    // \s*(\d+)             -> Chapter: optional space, then digits
+    // (?:[:.\s](\d+))?     -> Verse: optional separator (colon, period, or space), then digits
+    const match = normalized.match(
+        /^(\d?\s*[a-z]+)\s*(\d+)?(?:[:.\s](\d+))?$/i,
+    );
+    if (!match) return null;
+
+    const [, rawBook, rawChap, rawVerse] = match;
+    const bookId = matchBook(rawBook.replace(/\s+/g, ""));
+
+    return {
+        knownBookId: bookId,
+        bookMatch: rawBook.trim(),
+        chapter: rawChap ? Number(rawChap) : null,
+        verse: rawVerse ? Number(rawVerse) : null,
+    };
+}
 
 export function sortListBySidCanonical<T extends { sid: string }>(list: T[]) {
     return list.sort((a, b) => {

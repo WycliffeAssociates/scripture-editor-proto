@@ -16,7 +16,7 @@ function createSerializedNode(
         type: "usfm-text-node",
         text,
         marker,
-        tokenType: tokenType as any,
+        tokenType: tokenType,
         version: 1,
         id,
         sid: "GEN 1:1",

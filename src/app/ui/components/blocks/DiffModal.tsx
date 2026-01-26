@@ -10,12 +10,13 @@ import {
     Modal,
     Paper,
     rem,
-    ScrollArea,
     Text,
     Tooltip,
 } from "@mantine/core";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
+import { useRef } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -27,9 +28,19 @@ import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 type HighlightedDiffProps = {
     changes: Change[];
     viewType: "original" | "current";
+    showWhitespace?: boolean;
 };
 
-function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
+function renderWithVisibleWhitespace(text: string, showWhitespace: boolean) {
+    if (!showWhitespace) return text;
+    return text.replace(/\n/g, "↵\n");
+}
+
+function HighlightedDiffText({
+    changes,
+    viewType,
+    showWhitespace = false,
+}: HighlightedDiffProps) {
     return (
         <pre
             data-testid={TEST_ID_GENERATORS.diffCurrentPre(viewType)}
@@ -37,6 +48,7 @@ function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
         >
             {changes.map((change, index) => {
                 let spanClass = "";
+                const isHighlighted = change.added || change.removed;
                 if (change.added && viewType === "current") {
                     spanClass = styles.diffHighlightAdded;
                 } else if (change.removed && viewType === "original") {
@@ -45,10 +57,15 @@ function HighlightedDiffText({ changes, viewType }: HighlightedDiffProps) {
                     return null;
                 }
 
+                const displayValue = renderWithVisibleWhitespace(
+                    change.value,
+                    showWhitespace && isHighlighted,
+                );
+
                 return (
                     // biome-ignore lint/suspicious/noArrayIndexKey: <only id we have>
                     <span key={index} className={spanClass}>
-                        {change.value}
+                        {displayValue}
                     </span>
                 );
             })}
@@ -228,6 +245,7 @@ function DiffItem({
                                 <HighlightedDiffText
                                     changes={diff.wordDiff}
                                     viewType="original"
+                                    showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
                         </Paper>
@@ -261,6 +279,7 @@ function DiffItem({
                                 <HighlightedDiffText
                                     changes={diff.wordDiff}
                                     viewType="current"
+                                    showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
                         </Paper>
@@ -297,6 +316,7 @@ function DiffItem({
                                 <HighlightedDiffText
                                     changes={diff.wordDiff}
                                     viewType="original"
+                                    showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
                         </Paper>
@@ -327,6 +347,7 @@ function DiffItem({
                                 <HighlightedDiffText
                                     changes={diff.wordDiff}
                                     viewType="current"
+                                    showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
                         </Paper>
@@ -351,6 +372,64 @@ type DiffViewerModalProps = {
     isXs?: boolean;
 };
 
+function VirtualizedDiffList({
+    diffs,
+    revertDiff,
+}: {
+    diffs: ProjectDiff[];
+    revertDiff: (diffToRevert: ProjectDiff) => void;
+}) {
+    const { actions } = useWorkspaceContext();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const virtualizer = useVirtualizer({
+        count: diffs.length,
+        getScrollElement: () => scrollContainerRef.current,
+        estimateSize: () => 200,
+        overscan: 5,
+        measureElement: (element) => element.getBoundingClientRect().height,
+    });
+
+    return (
+        <div ref={scrollContainerRef} className={styles.diffScrollArea}>
+            <div
+                style={{
+                    height: `${virtualizer.getTotalSize()}px`,
+                    width: "100%",
+                    position: "relative",
+                }}
+            >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const diff = diffs[virtualRow.index];
+                    return (
+                        <div
+                            key={diff.semanticSid}
+                            ref={virtualizer.measureElement}
+                            data-index={virtualRow.index}
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                        >
+                            <DiffItem
+                                diff={diff}
+                                revertDiff={revertDiff}
+                                switchBookOrChapter={
+                                    actions.switchBookOrChapter
+                                }
+                                toggleDiffModal={actions.toggleDiffModal}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function DiffViewerModal({
     isOpen,
     onClose,
@@ -361,7 +440,7 @@ function DiffViewerModal({
     isXs = false,
 }: DiffViewerModalProps) {
     const hasChanges = diffs && diffs.length > 0;
-    const { actions, saveDiff } = useWorkspaceContext();
+    const { saveDiff } = useWorkspaceContext();
 
     // Responsive modal size - bigger on mobile
     const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
@@ -379,7 +458,7 @@ function DiffViewerModal({
         >
             <Paper p={isSm ? "xs" : "sm"} className={styles.modalScrollPaper}>
                 <div
-                    data-testId={TESTING_IDS.save.modal}
+                    data-testid={TESTING_IDS.save.modal}
                     className={styles.stickyHeader}
                 >
                     <Group>
@@ -404,45 +483,26 @@ function DiffViewerModal({
                     </Group>
                 </div>
 
-                <ScrollArea className={styles.diffScrollArea}>
-                    <div className={styles.fullHeight}>
-                        {isCalculating && (
-                            <Center className={styles.fullHeight}>
-                                <Loader />
-                            </Center>
-                        )}
+                {isCalculating && (
+                    <Center className={styles.fullHeight}>
+                        <Loader />
+                    </Center>
+                )}
 
-                        {!isCalculating && !hasChanges && (
-                            <Center className={styles.fullHeight}>
-                                <Text
-                                    data-testid={
-                                        TESTING_IDS.save.noChangesMessage
-                                    }
-                                >
-                                    <Trans>No changes detected.</Trans>
-                                </Text>
-                            </Center>
-                        )}
+                {!isCalculating && !hasChanges && (
+                    <Center className={styles.fullHeight}>
+                        <Text data-testid={TESTING_IDS.save.noChangesMessage}>
+                            <Trans>No changes detected.</Trans>
+                        </Text>
+                    </Center>
+                )}
 
-                        {!isCalculating && hasChanges && (
-                            <div>
-                                {diffs.map((diff) => (
-                                    <DiffItem
-                                        key={diff.semanticSid}
-                                        diff={diff}
-                                        revertDiff={revertDiff}
-                                        switchBookOrChapter={
-                                            actions.switchBookOrChapter
-                                        }
-                                        toggleDiffModal={
-                                            actions.toggleDiffModal
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
+                {!isCalculating && hasChanges && (
+                    <VirtualizedDiffList
+                        diffs={diffs}
+                        revertDiff={revertDiff}
+                    />
+                )}
             </Paper>
         </Modal>
     );

@@ -3,6 +3,7 @@ import { $getRoot, type LexicalEditor, type LexicalNode } from "lexical";
 import { useEffect, useRef, useState } from "react";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import {
     escapeRegex,
     findMatch,
@@ -195,40 +196,35 @@ export function useProjectSearch({
         const allResults: SearchResult[] = [];
 
         // --- Heavy Synchronous Loop ---
-        for (const file of filesToSearch) {
+        for (const { file, chapter } of walkChapters(filesToSearch)) {
             // Check abort signal between files to break the heavy loop
             if (signal.aborted) return;
 
-            for (const chapter of file.chapters) {
-                // Optional: Check between chapters if files are huge
-                if (signal.aborted) return;
+            const serializedNodes = chapter.lexicalState.root.children;
+            const sidRecord = reduceSerializedNodesToText(
+                serializedNodes,
+                searchUSFM,
+            );
 
-                const serializedNodes = chapter.lexicalState.root.children;
-                const sidRecord = reduceSerializedNodesToText(
-                    serializedNodes,
-                    searchUSFM,
-                );
-
-                let naturalIndex = 0;
-                for (const [sid, text] of Object.entries(sidRecord)) {
-                    const matchResult = findMatch({
-                        matchCase,
-                        searchTerm: query,
-                        matchWholeWord,
-                        textToSearch: text,
+            let naturalIndex = 0;
+            for (const [sid, text] of Object.entries(sidRecord)) {
+                const matchResult = findMatch({
+                    matchCase,
+                    searchTerm: query,
+                    matchWholeWord,
+                    textToSearch: text,
+                });
+                if (matchResult.isMatch) {
+                    allResults.push({
+                        sid,
+                        text,
+                        bibleIdentifier: file.bookCode,
+                        chapNum: chapter.chapNumber,
+                        parsedSid: parseSid(sid),
+                        isCaseMismatch: query !== matchResult.matchedTerm,
+                        naturalIndex: naturalIndex,
                     });
-                    if (matchResult.isMatch) {
-                        allResults.push({
-                            sid,
-                            text,
-                            bibleIdentifier: file.bookCode,
-                            chapNum: chapter.chapNumber,
-                            parsedSid: parseSid(sid),
-                            isCaseMismatch: query !== matchResult.matchedTerm,
-                            naturalIndex: naturalIndex,
-                        });
-                        naturalIndex++;
-                    }
+                    naturalIndex++;
                 }
             }
         }

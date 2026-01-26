@@ -16,36 +16,62 @@ import {
 } from "lexical";
 import { useEffect, useRef } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import {
+    EditorMarkersMutableStates,
+    EditorMarkersViewStates,
+} from "@/app/data/editor.ts";
 import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
+import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
     const { t } = useLingui();
-    const { referenceProject } = useWorkspaceContext();
+    const { referenceProject, project } = useWorkspaceContext();
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const { referenceQuery, referenceProjectId: referenceProjectPath } =
         referenceProject;
     const { referenceChapter } = referenceProject;
-    // if (!referenceProjectPath) {
-    //   return <div>Select a reference project</div>;
-    // }
+    const { appSettings } = project;
+
     useEffect(() => {
         if (!referenceChapter) return;
         const editor = nestedEditorRef.current;
         if (!editor) return;
-        editor.setEditorState(
-            editor.parseEditorState(referenceChapter.lexicalState),
-            {
-                tag: HISTORY_MERGE_TAG,
+
+        const { markersViewState, markersMutableState } = appSettings;
+
+        const hide =
+            markersViewState === EditorMarkersViewStates.NEVER ||
+            markersViewState === EditorMarkersViewStates.WHEN_EDITING;
+
+        const isMutable =
+            markersViewState === EditorMarkersViewStates.NEVER
+                ? EditorMarkersMutableStates.IMMUTABLE
+                : markersMutableState;
+
+        const adjustedState = structuredClone(referenceChapter.lexicalState);
+        adjustedState.root.children = adjustedState.root.children.flatMap(
+            (node) => {
+                return adjustSerializedLexicalNodes(node, {
+                    show: !hide,
+                    isMutable: isMutable === EditorMarkersMutableStates.MUTABLE,
+                });
             },
         );
-    }, [referenceChapter]);
+
+        editor.setEditorState(editor.parseEditorState(adjustedState), {
+            tag: HISTORY_MERGE_TAG,
+        });
+    }, [referenceChapter, appSettings]);
+
     if (!referenceProjectPath) {
         return null;
     }
@@ -76,6 +102,8 @@ export function ReferenceEditor() {
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
+                <USFMPlugin />
+                <UsfmStylesPlugin />
             </LexicalComposer>
         </div>
     );
