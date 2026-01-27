@@ -3,6 +3,7 @@ import { Paper } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { projectParamToParsedFiles } from "@/app/domain/api/projectToParsed.tsx";
 import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
+import { ParagraphingProvider } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 export const Route = createFileRoute("/$project")({
@@ -51,7 +52,9 @@ function RouteComponent() {
             allInitialLintErrors={allInitialLintErrors}
             loadedProject={loadedProject}
         >
-            <ProjectView />
+            <ParagraphingProvider>
+                <ProjectView />
+            </ParagraphingProvider>
         </ProjectProvider>
     );
 }

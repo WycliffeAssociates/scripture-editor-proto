@@ -16,6 +16,8 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
+import { ParagraphingGhost } from "@/app/domain/editor/plugins/ParagraphingGhost.tsx";
+import { ParagraphingPlugin } from "@/app/domain/editor/plugins/ParagraphingPlugin.tsx";
 import {
     MarkerTooltip,
     // ToolTipPlugin,
@@ -85,6 +87,8 @@ export function MainEditor() {
                 <USFMPlugin />
                 <UsfmStylesPlugin />
                 <NodeContextMenuPlugin />
+                <ParagraphingPlugin />
+                <ParagraphingGhost />
             </LexicalComposer>
         </div>
     );
