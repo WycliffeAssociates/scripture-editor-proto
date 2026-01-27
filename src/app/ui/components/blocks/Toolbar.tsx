@@ -1,20 +1,37 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Button, Group, Loader, Menu, rem, Tooltip } from "@mantine/core";
+import {
+    Button,
+    Group,
+    Loader,
+    Menu,
+    Modal,
+    rem,
+    Text,
+    Tooltip,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
     AlignLeft,
     BookCopy,
     ChevronDown,
     FileStack,
     Menu as IconMenu,
+    Stamp,
 } from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import {
+    extractMarkersFromUsfmString,
+    stripMarkersFromSerialized,
+} from "@/app/domain/editor/utils/paragraphingUtils.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButton.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useParagraphing } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
 
@@ -61,8 +78,121 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                 </ActionIconSimple>
             </Tooltip>
 
+            <ParagraphingToggle />
+
             <SaveAndReviewChanges />
         </Group>
+    );
+}
+
+function ParagraphingToggle() {
+    const { t } = useLingui();
+    const { isActive, activate, deactivate } = useParagraphing();
+    const { referenceProject, project, editorRef, isProcessing } =
+        useWorkspaceContext();
+    const [opened, { open, close }] = useDisclosure(false);
+
+    const handleClick = () => {
+        if (isActive) {
+            deactivate();
+        } else {
+            open();
+        }
+    };
+
+    const handleActivate = async (cleanSlate: boolean) => {
+        const loadedProject =
+            referenceProject.referenceQuery.data?.loadedProject;
+        if (!loadedProject) {
+            notifications.show({
+                title: t`Error`,
+                message: t`Please select a reference project first.`,
+                color: "red",
+            });
+            close();
+            return;
+        }
+
+        const currentBookCode = project.pickedFile.bookCode;
+        const usfm = await loadedProject.getBook(currentBookCode);
+
+        if (!usfm) {
+            notifications.show({
+                title: t`Error`,
+                message: t`Could not load reference book content.`,
+                color: "red",
+            });
+            close();
+            return;
+        }
+
+        const markers = extractMarkersFromUsfmString(usfm);
+
+        if (cleanSlate && editorRef.current) {
+            const editor = editorRef.current;
+            const currentEditorState = editor.getEditorState();
+            const serialized = currentEditorState.toJSON();
+            const cleanedChildren = stripMarkersFromSerialized(
+                serialized.root.children,
+            );
+
+            const newSerialized = {
+                ...serialized,
+                root: {
+                    ...serialized.root,
+                    children: cleanedChildren,
+                },
+            };
+
+            const newState = editor.parseEditorState(newSerialized);
+            editor.setEditorState(newState);
+        }
+
+        activate(markers);
+        close();
+    };
+
+    return (
+        <>
+            <Tooltip label={t`Paragraphing Mode`} withArrow position="top">
+                <ActionIconSimple
+                    onClick={handleClick}
+                    aria-label={t`Paragraphing Mode`}
+                    variant={isActive ? "filled" : "subtle"}
+                    disabled={isProcessing}
+                >
+                    <Stamp size={rem(14)} />
+                </ActionIconSimple>
+            </Tooltip>
+
+            <Modal
+                opened={opened}
+                onClose={close}
+                title={t`Enter Paragraphing Mode`}
+            >
+                <Text size="sm" mb="lg">
+                    <Trans>
+                        This mode allows you to apply formatting from the
+                        reference text. Do you want to strip existing formatting
+                        (Clean Slate) or keep it?
+                    </Trans>
+                </Text>
+                <Group justify="flex-end">
+                    <Button variant="default" onClick={close}>
+                        <Trans>Cancel</Trans>
+                    </Button>
+                    <Button
+                        variant="light"
+                        onClick={() => handleActivate(false)}
+                    >
+                        <Trans>Keep Formatting</Trans>
+                    </Button>
+                    <Button color="red" onClick={() => handleActivate(true)}>
+                        <Trans>Clean Slate</Trans>
+                    </Button>
+                </Group>
+            </Modal>
+        </>
     );
 }
 

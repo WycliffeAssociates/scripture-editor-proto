@@ -7,36 +7,39 @@
       "id": "1",
       "category": "core",
       "description": "Create ParagraphingContext and Provider",
+      "status": "done",
       "steps": [
         "Define ParagraphingContext state (isActive, queue, currentIndex, history)",
         "Implement ParagraphingProvider in src/app/ui/contexts/ParagraphingContext.tsx",
         "Add helper functions for stamp, skip, and undo actions"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {
       "id": "2",
       "category": "core",
       "description": "Implement Marker Extraction and Stripping Utilities",
+      "status": "done",
       "steps": [
         "Create extractMarkersFromSerialized utility to build the queue from reference nodes",
         "Create stripMarkersFromSerialized utility to remove structural markers from target nodes",
         "Add unit tests for both utilities"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {
       "id": "3",
       "category": "ui",
       "description": "Create ParagraphingGhost Component",
+      "status": "done",
       "steps": [
         "Implement a portal-based component that tracks the caret position",
         "Render the current marker from the queue with low opacity",
         "Add a small tooltip for reference context (verse number)"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {
@@ -48,7 +51,7 @@
         "Register KEY_ENTER_COMMAND, KEY_TAB_COMMAND, and Arrow key listeners",
         "Intercept commands when Paragraphing Mode is active to trigger context actions"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {
@@ -60,19 +63,20 @@
         "Implement the 'Clean Slate' confirmation prompt when entering the mode",
         "Ensure the mode can be toggled off safely"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "low"
     },
     {
       "id": "6",
       "category": "ui",
       "description": "Mobile Support and Final Polish",
+      "status": "in-progress",
       "steps": [
         "Add a floating 'Stamp' button for mobile/touch interfaces",
         "Add a progress indicator (e.g., 'Marker 5/20')",
         "Perform final E2E testing of the workflow"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     }
   ]
