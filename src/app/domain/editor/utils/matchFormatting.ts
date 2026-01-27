@@ -2,6 +2,11 @@ import type { SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    POETRY_MARKERS,
+    PRETTIFY_LINEBREAK_AFTER_MARKERS,
+    PRETTIFY_LINEBREAK_BEFORE_MARKERS,
+} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 
@@ -247,13 +252,41 @@ export function matchFormattingToSource(
             result.push(...buffer);
 
             // Insert missing markers immediately before the verse
-            if (markersToInsert.length > 0) {
-                result.push(...markersToInsert);
-                // Ensure a linebreak exists after inserted markers if needed?
-                // Or rely on Prettify later.
-                // Usually inserting a block marker implies a newline.
-                // Let's add one strictly if we inserted markers.
-                result.push({ type: "linebreak", version: 1 });
+            for (const markerNode of markersToInsert) {
+                const marker = hasMarker(markerNode)
+                    ? markerNode.marker
+                    : (markerNode as any).marker;
+
+                // 1. Check if we need a linebreak BEFORE this inserted marker
+                // AND if the previous node (from buffer or result) isn't already a linebreak
+                if (marker && PRETTIFY_LINEBREAK_BEFORE_MARKERS.has(marker)) {
+                    const lastNode = result[result.length - 1];
+                    if (!lastNode || lastNode.type !== "linebreak") {
+                        result.push({ type: "linebreak", version: 1 });
+                    }
+                }
+
+                // 2. Insert the Marker
+                result.push(markerNode);
+
+                // 3. Check if we need a linebreak AFTER this inserted marker
+                // Logic mirrors insertLinebreakAfterParaMarkers from Prettify
+                if (marker) {
+                    let shouldInsertAfter = false;
+
+                    if (PRETTIFY_LINEBREAK_AFTER_MARKERS.has(marker)) {
+                        shouldInsertAfter = true;
+                    } else if (POETRY_MARKERS.has(marker)) {
+                        // For poetry, we usually only want a linebreak after if it's followed by another marker.
+                        // Since we are inserting this BEFORE a verse marker (\v), the "next" node is effectively \v.
+                        // So yes, we want a linebreak.
+                        shouldInsertAfter = true;
+                    }
+
+                    if (shouldInsertAfter) {
+                        result.push({ type: "linebreak", version: 1 });
+                    }
+                }
             }
 
             result.push(node); // The Verse Marker

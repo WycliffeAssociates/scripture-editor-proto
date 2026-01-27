@@ -1,0 +1,79 @@
+{
+  "epic_name": "paragraphing-mode",
+  "plan_overview": "Implement a 'Paragraphing Mode' that allows users to format text by 'stamping' markers from a reference text using a ghost marker at the caret and the Enter key.",
+  "technical_context": "Uses Lexical editor. Requires caret-position tracking for the ghost UI. Integrates with existing Reference Pane state. Uses a Reduce/Pipe pattern for stripping markers (Clean Slate).",
+  "tasks": [
+    {
+      "id": "1",
+      "category": "core",
+      "description": "Create ParagraphingContext and Provider",
+      "steps": [
+        "Define ParagraphingContext state (isActive, queue, currentIndex, history)",
+        "Implement ParagraphingProvider in src/app/ui/contexts/ParagraphingContext.tsx",
+        "Add helper functions for stamp, skip, and undo actions"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "2",
+      "category": "core",
+      "description": "Implement Marker Extraction and Stripping Utilities",
+      "steps": [
+        "Create extractMarkersFromSerialized utility to build the queue from reference nodes",
+        "Create stripMarkersFromSerialized utility to remove structural markers from target nodes",
+        "Add unit tests for both utilities"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "3",
+      "category": "ui",
+      "description": "Create ParagraphingGhost Component",
+      "steps": [
+        "Implement a portal-based component that tracks the caret position",
+        "Render the current marker from the queue with low opacity",
+        "Add a small tooltip for reference context (verse number)"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "4",
+      "category": "editor",
+      "description": "Implement ParagraphingPlugin for Lexical",
+      "steps": [
+        "Create ParagraphingPlugin.tsx in src/app/domain/editor/plugins/",
+        "Register KEY_ENTER_COMMAND, KEY_TAB_COMMAND, and Arrow key listeners",
+        "Intercept commands when Paragraphing Mode is active to trigger context actions"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "5",
+      "category": "ui",
+      "description": "Integrate Paragraphing Mode into Editor UI",
+      "steps": [
+        "Add a toggle button to the editor toolbar",
+        "Implement the 'Clean Slate' confirmation prompt when entering the mode",
+        "Ensure the mode can be toggled off safely"
+      ],
+      "passes": false,
+      "complexity": "low"
+    },
+    {
+      "id": "6",
+      "category": "ui",
+      "description": "Mobile Support and Final Polish",
+      "steps": [
+        "Add a floating 'Stamp' button for mobile/touch interfaces",
+        "Add a progress indicator (e.g., 'Marker 5/20')",
+        "Perform final E2E testing of the workflow"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    }
+  ]
+}
