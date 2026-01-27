@@ -1,46 +1,25 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { createTestEditor } from "@/test/helpers/testEditor.ts";
 
-const createTextNode = (
-    text: string,
-    tokenType: string = UsfmTokenTypes.text,
-    marker?: string,
-    sid?: string,
-): SerializedUSFMTextNode => ({
-    type: USFM_TEXT_NODE_TYPE,
-    lexicalType: USFM_TEXT_NODE_TYPE,
-    tokenType,
-    text,
-    marker,
-    sid,
-    show: true,
-    isMutable: true,
-    id: Math.random().toString(36).substr(2, 9),
-    version: 1,
-    detail: 0,
-    format: 0,
-    mode: "normal",
-    style: "",
-});
+const createSerializedState = (usfmContent: string): SerializedEditorState => {
+    const editor = createTestEditor(usfmContent);
+    return editor.getEditorState().toJSON();
+};
 
 const createChapter = (
     chapNumber: number,
-    nodes: SerializedLexicalNode[],
+    usfmContent: string,
 ): ParsedChapter => {
-    const lexicalState: SerializedEditorState = {
-        root: {
-            type: "root",
-            format: "",
-            indent: 0,
-            version: 1,
-            children: nodes,
-            direction: null,
-        },
-    };
+    const lexicalState = createSerializedState(usfmContent);
     return {
         chapNumber,
         lexicalState,
@@ -61,138 +40,91 @@ const createFile = (
     chapters,
 });
 
-function isSerializedUSFMTextNode(
-    node: SerializedLexicalNode,
-): node is SerializedUSFMTextNode {
-    return node.type === USFM_TEXT_NODE_TYPE;
-}
+const flattenNodes = (
+    nodes: SerializedLexicalNode[],
+): SerializedLexicalNode[] => {
+    return Array.from(walkNodes(nodes)).filter(
+        (node) => isSerializedUSFMTextNode(node) || node.type === "linebreak",
+    );
+};
 
 describe("Prettify Feature Integration", () => {
     describe("Prettify Book", () => {
         it("should prettify messy USFM content in a book", () => {
-            // Messy content:
-            // \c 34 \v 1 1) I will bless the Lord at all times
-            //     his praise shall continually be in my mouth
-            // \v 2 My soul makes its boast in the Lord;  let the humble hear and be glad.  \v 3 Oh magnify the Lord with me and let us exalt his name together
-
-            const messyNodes: SerializedLexicalNode[] = [
-                createTextNode("34", UsfmTokenTypes.numberRange, "c"),
-                // Missing linebreak after \c
-                createTextNode("\\v", UsfmTokenTypes.marker, "v", "PSA 34:1"),
-                createTextNode(
-                    " 1 ",
-                    UsfmTokenTypes.numberRange,
-                    "v",
-                    "PSA 34:1",
-                ),
-                createTextNode(
-                    "1) I will bless the Lord at all times\n    his praise shall continually be in my mouth",
-                    UsfmTokenTypes.text,
-                    undefined,
-                    "PSA 34:1",
-                ),
-                // Missing linebreak before \v 2
-                createTextNode("\\v", UsfmTokenTypes.marker, "v", "PSA 34:2"),
-                createTextNode(
-                    " 2 ",
-                    UsfmTokenTypes.numberRange,
-                    "v",
-                    "PSA 34:2",
-                ),
-                createTextNode(
-                    "My soul makes its boast in the Lord;  let the humble hear and be glad.  ",
-                    UsfmTokenTypes.text,
-                    undefined,
-                    "PSA 34:2",
-                ),
-                // Extra spaces and missing linebreak before \v 3
-                createTextNode("\\v", UsfmTokenTypes.marker, "v", "PSA 34:3"),
-                createTextNode(
-                    " 3 ",
-                    UsfmTokenTypes.numberRange,
-                    "v",
-                    "PSA 34:3",
-                ),
-                createTextNode(
-                    "Oh magnify the Lord with me and let us exalt his name together",
-                    UsfmTokenTypes.text,
-                    undefined,
-                    "PSA 34:3",
-                ),
-            ];
-
-            const chapter = createChapter(34, messyNodes);
+            const chapter = createChapter(
+                34,
+                `\\id PSA
+\\c 34
+\\v 1 1) I will bless the Lord at all times
+    his praise shall continually be in my mouth
+\\v 2 My soul makes its boast in the Lord;  let the humble hear and be glad.  \\v 3 Oh magnify the Lord with me and let us exalt his name together`,
+            );
             const file = createFile("PSA", [chapter]);
 
-            // Apply prettify
             const originalChildren =
                 file.chapters[0].lexicalState.root.children;
             const newChildren = applyPrettifyToNodeTree(originalChildren);
+            const flattened = flattenNodes(newChildren);
 
-            // Verify transformations
+            const chapterNumberIndex = flattened.findIndex(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    node.marker === "c",
+            );
+            expect(flattened[chapterNumberIndex + 1]?.type).toBe("linebreak");
 
-            // 1. Linebreak after \c
-            expect(newChildren[0].type).toBe(USFM_TEXT_NODE_TYPE);
-            expect((newChildren[0] as SerializedUSFMTextNode).marker).toBe("c");
-            expect(newChildren[1].type).toBe("linebreak");
-
-            // 2. Collapse whitespace and normalize spacing
-            const v2TextNode = newChildren.find(
-                (n) =>
-                    isSerializedUSFMTextNode(n) &&
-                    n.sid === "PSA 34:2" &&
-                    n.tokenType === UsfmTokenTypes.text,
+            const v2TextNode = flattened.find(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.includes("My soul makes its boast"),
             ) as SerializedUSFMTextNode;
             expect(v2TextNode.text).toBe(
                 "My soul makes its boast in the Lord; let the humble hear and be glad. ",
             );
-            // Note: collapseWhitespaceInTextNode replaces "  " with " ".
-            // "Lord;  let" -> "Lord; let"
-            // "glad.  " -> "glad. "
 
-            // 3. Linebreaks before \v markers - SHOULD NOT HAVE THEM (they are not para markers)
-            const v2MarkerIndex = newChildren.findIndex(
-                (n) =>
-                    isSerializedUSFMTextNode(n) &&
-                    n.sid === "PSA 34:2" &&
-                    n.tokenType === UsfmTokenTypes.marker,
-            );
-            expect(newChildren[v2MarkerIndex - 1].type).not.toBe("linebreak");
+            const vMarkers = flattened.filter(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.marker &&
+                    node.marker === "v",
+            ) as SerializedUSFMTextNode[];
+            const v2Marker = vMarkers[1];
+            const v2MarkerIndex = flattened.indexOf(v2Marker);
+            expect(flattened[v2MarkerIndex - 1]?.type).not.toBe("linebreak");
 
-            // 4. Test with a real para marker
-            const nodesWithPara: SerializedLexicalNode[] = [
-                createTextNode("Some text", UsfmTokenTypes.text),
-                createTextNode("\\p", UsfmTokenTypes.marker, "p"),
-                createTextNode("Paragraph text", UsfmTokenTypes.text),
-            ];
+            const nodesWithPara = createSerializedState(`\\id GEN
+\\c 1
+Some text
+\\p Paragraph text`).root.children;
             const prettifiedPara = applyPrettifyToNodeTree(nodesWithPara);
-            const pMarkerIndex = prettifiedPara.findIndex(
-                (n) => isSerializedUSFMTextNode(n) && n.marker === "p",
+            const paraFlattened = flattenNodes(prettifiedPara);
+            const pMarkerIndex = paraFlattened.findIndex(
+                (node) => isSerializedUSFMTextNode(node) && node.marker === "p",
             );
-            expect(prettifiedPara[pMarkerIndex - 1].type).toBe("linebreak");
-            expect(prettifiedPara[pMarkerIndex + 1].type).toBe("linebreak");
+            expect(paraFlattened[pMarkerIndex - 1]?.type).toBe("linebreak");
+            expect(paraFlattened[pMarkerIndex + 1]?.type).toBe("linebreak");
         });
     });
 
     describe("Prettify Project", () => {
         it("should apply transformation to all files and chapters", () => {
             const file1 = createFile("GEN", [
-                createChapter(1, [
-                    createTextNode("1", UsfmTokenTypes.numberRange, "c"),
-                    createTextNode(
-                        "In the beginning   God",
-                        UsfmTokenTypes.text,
-                    ),
-                ]),
+                createChapter(
+                    1,
+                    `\\id GEN
+\\c 1
+In the beginning   God`,
+                ),
             ]);
             const file2 = createFile("EXO", [
-                createChapter(1, [
-                    createTextNode("1", UsfmTokenTypes.numberRange, "c"),
-                    createTextNode(
-                        "These are the   names",
-                        UsfmTokenTypes.text,
-                    ),
-                ]),
+                createChapter(
+                    1,
+                    `\\id EXO
+\\c 1
+These are the   names`,
+                ),
             ]);
 
             const project = [file1, file2];
@@ -207,25 +139,37 @@ describe("Prettify Feature Integration", () => {
                 });
             });
 
-            // Verify file 1
-            expect(file1.chapters[0].lexicalState.root.children[1].type).toBe(
-                "linebreak",
+            const genNodes = flattenNodes(
+                file1.chapters[0].lexicalState.root.children,
             );
-            const genText = file1.chapters[0].lexicalState.root.children.find(
-                (n) =>
-                    isSerializedUSFMTextNode(n) &&
-                    n.tokenType === UsfmTokenTypes.text,
+            const genChapterIndex = genNodes.findIndex(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    node.marker === "c",
+            );
+            expect(genNodes[genChapterIndex + 1]?.type).toBe("linebreak");
+            const genText = genNodes.find(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.text,
             ) as SerializedUSFMTextNode;
             expect(genText.text).toBe("In the beginning God");
 
-            // Verify file 2
-            expect(file2.chapters[0].lexicalState.root.children[1].type).toBe(
-                "linebreak",
+            const exoNodes = flattenNodes(
+                file2.chapters[0].lexicalState.root.children,
             );
-            const exoText = file2.chapters[0].lexicalState.root.children.find(
-                (n) =>
-                    isSerializedUSFMTextNode(n) &&
-                    n.tokenType === UsfmTokenTypes.text,
+            const exoChapterIndex = exoNodes.findIndex(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    node.marker === "c",
+            );
+            expect(exoNodes[exoChapterIndex + 1]?.type).toBe("linebreak");
+            const exoText = exoNodes.find(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.text,
             ) as SerializedUSFMTextNode;
             expect(exoText.text).toBe("These are the names");
         });
@@ -233,15 +177,18 @@ describe("Prettify Feature Integration", () => {
 
     describe("Revert Logic", () => {
         it("should correctly revert changes using loadedLexicalState", () => {
-            const originalNodes = [
-                createTextNode("1", UsfmTokenTypes.numberRange, "c"),
-                createTextNode("Original text", UsfmTokenTypes.text),
-            ];
-            const chapter = createChapter(1, originalNodes);
+            const chapter = createChapter(
+                1,
+                `\\id GEN
+\\c 1
+Original text`,
+            );
             const file = createFile("GEN", [chapter]);
             const mutWorkingFilesRef = [file];
+            const originalNodes = structuredClone(
+                mutWorkingFilesRef[0].chapters[0].lexicalState.root.children,
+            );
 
-            // Apply prettify
             mutWorkingFilesRef.forEach((f) => {
                 f.chapters.forEach((c) => {
                     c.lexicalState.root.children = applyPrettifyToNodeTree(
@@ -256,7 +203,6 @@ describe("Prettify Feature Integration", () => {
                 mutWorkingFilesRef[0].chapters[0].lexicalState.root.children,
             ).not.toEqual(originalNodes);
 
-            // Revert logic (simulating revertAllChanges)
             mutWorkingFilesRef.forEach((f) => {
                 f.chapters.forEach((c) => {
                     c.lexicalState = structuredClone(c.loadedLexicalState);

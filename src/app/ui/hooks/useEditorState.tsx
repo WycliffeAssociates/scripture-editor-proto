@@ -19,10 +19,12 @@ export function useEditorState({
         fileBibleIdentifier,
         chap,
         newLexical,
+        isDirty,
     }: {
         fileBibleIdentifier: string;
         chap: number;
         newLexical: SerializedEditorState;
+        isDirty?: boolean;
     }) {
         const file = mutWorkingFilesRef.find(
             (file) => file.bookCode === fileBibleIdentifier,
@@ -31,7 +33,7 @@ export function useEditorState({
         const chapToUpdate = file.chapters.find((c) => c.chapNumber === chap);
         if (!chapToUpdate) return;
         chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.dirty = true;
+        chapToUpdate.dirty = isDirty ?? true;
         updateDiffMapForChapter(file.bookCode, chap);
         return mutWorkingFilesRef;
     }

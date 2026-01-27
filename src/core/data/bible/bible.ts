@@ -69,11 +69,11 @@ const BIBLE_ORDER = [
     "REV",
 ] as const;
 
-export const BIBLE_ORDER_MAP = new Map<string, number>(
+const BIBLE_ORDER_MAP = new Map<string, number>(
     BIBLE_ORDER.map((b, i) => [b, i]),
 );
 
-export function matchBook(input: string): string | null {
+function matchBook(input: string): string | null {
     const normalized = input.toLowerCase().replace(/\s+/g, "");
     for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
         if (

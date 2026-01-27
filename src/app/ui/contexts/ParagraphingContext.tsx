@@ -1,3 +1,4 @@
+import type { SerializedEditorState } from "lexical";
 import type React from "react";
 import {
     createContext,
@@ -11,18 +12,31 @@ export interface Marker {
     type: string;
     text?: string;
     verse?: string;
+    verseNumber?: string;
+    contextText?: string;
+    sid?: string;
+    id: string;
 }
 
+export type ParagraphingSnapshot = {
+    fileBibleIdentifier: string;
+    chapterNumber: number;
+    serializedState: SerializedEditorState;
+    wasDirty: boolean;
+};
+
 interface ParagraphingContextType {
-    isActive: boolean;
-    queue: Marker[];
-    currentIndex: number;
-    currentMarker: Marker | null;
-    activate: (queue: Marker[]) => void;
-    deactivate: () => void;
-    stamp: () => void;
-    skip: () => void;
-    undo: () => void;
+    isParagraphingActive: boolean;
+    paragraphingMarkerQueue: Marker[];
+    currentParagraphingQueueIndex: number;
+    currentParagraphingMarker: Marker | null;
+    paragraphingSnapshot: ParagraphingSnapshot | null;
+    activateParagraphingMode: (paragraphingMarkerQueue: Marker[]) => void;
+    deactivateParagraphingMode: () => void;
+    setParagraphingSnapshot: (snapshot: ParagraphingSnapshot | null) => void;
+    stampParagraphingMarker: () => void;
+    skipParagraphingMarker: () => void;
+    undoParagraphingMarker: () => void;
 }
 
 const ParagraphingContext = createContext<ParagraphingContextType | undefined>(
@@ -34,71 +48,103 @@ export function ParagraphingProvider({
 }: {
     children: React.ReactNode;
 }) {
-    const [isActive, setIsActive] = useState(false);
-    const [queue, setQueue] = useState<Marker[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isParagraphingActive, setIsParagraphingActive] = useState(false);
+    const [paragraphingMarkerQueue, setParagraphingMarkerQueue] = useState<
+        Marker[]
+    >([]);
+    const [currentParagraphingQueueIndex, setCurrentParagraphingQueueIndex] =
+        useState(0);
     const [history, setHistory] = useState<number[]>([]);
+    const [paragraphingSnapshot, setParagraphingSnapshot] =
+        useState<ParagraphingSnapshot | null>(null);
 
-    const activate = useCallback((newQueue: Marker[]) => {
-        setQueue(newQueue);
-        setCurrentIndex(0);
+    const activateParagraphingMode = useCallback(
+        (newParagraphingMarkerQueue: Marker[]) => {
+            setParagraphingMarkerQueue(newParagraphingMarkerQueue);
+            setCurrentParagraphingQueueIndex(0);
+            setHistory([]);
+            setIsParagraphingActive(true);
+        },
+        [],
+    );
+
+    const deactivateParagraphingMode = useCallback(() => {
+        setIsParagraphingActive(false);
+        setParagraphingMarkerQueue([]);
+        setCurrentParagraphingQueueIndex(0);
         setHistory([]);
-        setIsActive(true);
+        setParagraphingSnapshot(null);
     }, []);
 
-    const deactivate = useCallback(() => {
-        setIsActive(false);
-        setQueue([]);
-        setCurrentIndex(0);
-        setHistory([]);
-    }, []);
+    const stampParagraphingMarker = useCallback(() => {
+        if (!isParagraphingActive) return;
+        setHistory((prev) => [...prev, currentParagraphingQueueIndex]);
+        setCurrentParagraphingQueueIndex((prev) =>
+            Math.min(prev + 1, paragraphingMarkerQueue.length),
+        );
+    }, [
+        isParagraphingActive,
+        currentParagraphingQueueIndex,
+        paragraphingMarkerQueue.length,
+    ]);
 
-    const stamp = useCallback(() => {
-        if (!isActive) return;
-        setHistory((prev) => [...prev, currentIndex]);
-        setCurrentIndex((prev) => Math.min(prev + 1, queue.length));
-    }, [isActive, currentIndex, queue.length]);
+    const skipParagraphingMarker = useCallback(() => {
+        if (!isParagraphingActive) return;
+        setHistory((prev) => [...prev, currentParagraphingQueueIndex]);
+        setCurrentParagraphingQueueIndex((prev) =>
+            Math.min(prev + 1, paragraphingMarkerQueue.length),
+        );
+    }, [
+        isParagraphingActive,
+        currentParagraphingQueueIndex,
+        paragraphingMarkerQueue.length,
+    ]);
 
-    const skip = useCallback(() => {
-        if (!isActive) return;
-        setHistory((prev) => [...prev, currentIndex]);
-        setCurrentIndex((prev) => Math.min(prev + 1, queue.length));
-    }, [isActive, currentIndex, queue.length]);
-
-    const undo = useCallback(() => {
-        if (!isActive || history.length === 0) return;
+    const undoParagraphingMarker = useCallback(() => {
+        if (!isParagraphingActive || history.length === 0) return;
         const prevIndex = history[history.length - 1];
         setHistory((prev) => prev.slice(0, -1));
-        setCurrentIndex(prevIndex);
-    }, [isActive, history]);
+        setCurrentParagraphingQueueIndex(prevIndex);
+    }, [isParagraphingActive, history]);
 
-    const currentMarker = useMemo(() => {
-        if (!isActive || currentIndex >= queue.length) return null;
-        return queue[currentIndex];
-    }, [isActive, currentIndex, queue]);
+    const currentParagraphingMarker = useMemo(() => {
+        if (
+            !isParagraphingActive ||
+            currentParagraphingQueueIndex >= paragraphingMarkerQueue.length
+        )
+            return null;
+        return paragraphingMarkerQueue[currentParagraphingQueueIndex];
+    }, [
+        isParagraphingActive,
+        currentParagraphingQueueIndex,
+        paragraphingMarkerQueue,
+    ]);
 
     const value = useMemo(
         () => ({
-            isActive,
-            queue,
-            currentIndex,
-            currentMarker,
-            activate,
-            deactivate,
-            stamp,
-            skip,
-            undo,
+            isParagraphingActive,
+            paragraphingMarkerQueue,
+            currentParagraphingQueueIndex,
+            currentParagraphingMarker,
+            paragraphingSnapshot,
+            activateParagraphingMode,
+            deactivateParagraphingMode,
+            setParagraphingSnapshot,
+            stampParagraphingMarker,
+            skipParagraphingMarker,
+            undoParagraphingMarker,
         }),
         [
-            isActive,
-            queue,
-            currentIndex,
-            currentMarker,
-            activate,
-            deactivate,
-            stamp,
-            skip,
-            undo,
+            isParagraphingActive,
+            paragraphingMarkerQueue,
+            currentParagraphingQueueIndex,
+            currentParagraphingMarker,
+            paragraphingSnapshot,
+            activateParagraphingMode,
+            deactivateParagraphingMode,
+            stampParagraphingMarker,
+            skipParagraphingMarker,
+            undoParagraphingMarker,
         ],
     );
 

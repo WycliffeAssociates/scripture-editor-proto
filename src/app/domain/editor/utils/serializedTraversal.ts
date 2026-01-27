@@ -28,7 +28,7 @@ export function* walkNodes(
         if (isSerializedElementNode(node)) {
             yield* walkNodes(node.children || []);
         } else if (isSerializedUSFMNestedEditorNode(node)) {
-            const children = (node as any).editorState?.root?.children;
+            const children = node.editorState?.root?.children;
             if (children) {
                 yield* walkNodes(children);
             }
@@ -46,7 +46,7 @@ export type NodeContext = {
  * Generator to walk through all nodes in a serialized lexical tree with context.
  * Useful for mutations like splice.
  */
-export function* walkNodesWithContext(
+function* walkNodesWithContext(
     nodes: SerializedLexicalNode[],
 ): Generator<NodeContext> {
     for (let i = 0; i < nodes.length; i++) {
@@ -55,7 +55,7 @@ export function* walkNodesWithContext(
         if (isSerializedElementNode(node)) {
             yield* walkNodesWithContext(node.children || []);
         } else if (isSerializedUSFMNestedEditorNode(node)) {
-            const children = (node as any).editorState?.root?.children;
+            const children = node.editorState?.root?.children;
             if (children) {
                 yield* walkNodesWithContext(children);
             }
@@ -66,7 +66,7 @@ export function* walkNodesWithContext(
 /**
  * Utility to find a node by a predicate in a serialized lexical tree.
  */
-export function findNode(
+function findNode(
     nodes: SerializedLexicalNode[],
     predicate: (node: SerializedLexicalNode) => boolean,
 ): SerializedLexicalNode | undefined {

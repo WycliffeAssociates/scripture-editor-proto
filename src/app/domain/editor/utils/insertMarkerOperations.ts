@@ -158,7 +158,6 @@ function $ensureLineBreakBefore(node: USFMTextNode): void {
         node.insertBefore(lineBreakNode);
     }
 }
-
 // ============================================================================
 // Insertion Type Mapping
 // ============================================================================
@@ -262,7 +261,7 @@ export function $insertEndMarker(args: BaseInsertArgs): void {
     }
 }
 
-export function $insertVerse(args: BaseInsertArgs): void {
+export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
     const { anchorNode, marker, isStartOfLine, isTypedInsertion } = args;
 
     const context = $getInsertionContext(anchorNode);
@@ -276,9 +275,9 @@ export function $insertVerse(args: BaseInsertArgs): void {
         sid: context.newSid,
     });
 
-    const createEmptyNumberRange = () =>
+    const createNumberRange = (text: string) =>
         $createContextTextNode({
-            text: " ",
+            text,
             context,
             tokenType: UsfmTokenTypes.numberRange,
             extraProps: {
@@ -299,7 +298,7 @@ export function $insertVerse(args: BaseInsertArgs): void {
 
         left.insertAfter(markerNode);
 
-        const numberRange = createEmptyNumberRange();
+        const numberRange = createNumberRange(verseNumber || " ");
         markerNode.insertAfter(numberRange);
 
         right?.setTextContent(` ${right.getTextContent().trimStart()}`);
@@ -316,7 +315,7 @@ export function $insertVerse(args: BaseInsertArgs): void {
         }
 
         // check if there is a number range sibling already?
-        // If so, select it. If not, create an empty one and select it.
+        // If so, select it. If not, create one and select it.
         if (
             sibling &&
             $isUSFMTextNode(sibling) &&
@@ -324,7 +323,7 @@ export function $insertVerse(args: BaseInsertArgs): void {
         ) {
             sibling.selectStart();
         } else {
-            const numberRange = createEmptyNumberRange();
+            const numberRange = createNumberRange(verseNumber || " ");
             markerNode.insertAfter(numberRange);
             numberRange.select();
         }

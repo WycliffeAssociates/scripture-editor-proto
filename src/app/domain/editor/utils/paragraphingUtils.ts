@@ -1,24 +1,21 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import {
-    isSerializedUSFMNestedEditorNode,
-    type USFMNestedEditorNodeJSON,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import {
-    POETRY_MARKERS,
-    PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type { Marker } from "@/app/ui/contexts/ParagraphingContext.tsx";
+import {
+    ALL_USFM_MARKERS,
+    VALID_NOTE_MARKERS,
+} from "@/core/data/usfm/tokens.ts";
 
-export const STAMPABLE_MARKERS = new Set([
-    ...PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
-    ...POETRY_MARKERS,
-    "pc", // Centered paragraph
-    "pr", // Right-aligned paragraph
-    "cls", // Closure
-    // Add other structural markers if missing from the imported sets
-]);
+export const STAMPABLE_MARKERS = new Set(
+    [...ALL_USFM_MARKERS].filter((marker) => {
+        const dontInclude = ["s5", "c"];
+        return !dontInclude.includes(marker) && !VALID_NOTE_MARKERS.has(marker);
+    }),
+);
 
 /**
  * Recursively extracts structural markers from a serialized node tree.
@@ -28,82 +25,84 @@ export function extractMarkersFromSerialized(
     nodes: SerializedLexicalNode[],
 ): Marker[] {
     const markers: Marker[] = [];
-    let currentVerse = "";
+    const currentVerse = "";
 
-    function traverse(node: SerializedLexicalNode) {
-        if (isSerializedUSFMTextNode(node)) {
-            // Track current verse context
-            if (
-                node.tokenType === UsfmTokenTypes.numberRange &&
-                node.marker === "v"
-            ) {
-                currentVerse = node.text.trim();
-            }
+    // Helper function to extract text content from following nodes
+    const getFollowingText = (
+        startIdx: number,
+        nodeArray: SerializedLexicalNode[],
+    ): string => {
+        const textParts: string[] = [];
+        const maxNodes = 5;
+        let nodesProcessed = 0;
 
-            // Extract stampable markers
-            if (
-                node.tokenType === UsfmTokenTypes.marker &&
-                node.marker &&
-                STAMPABLE_MARKERS.has(node.marker)
-            ) {
-                markers.push({
-                    type: node.marker,
-                    text: node.text,
-                    verse: currentVerse,
-                });
-            }
-        } else if (isSerializedUSFMNestedEditorNode(node)) {
-            const nestedNode = node as USFMNestedEditorNodeJSON;
-            if (nestedNode.editorState?.root?.children) {
-                nestedNode.editorState.root.children.forEach(traverse);
-            }
-        } else if ("children" in node) {
-            const elementNode = node as SerializedElementNode;
-            if (elementNode.children) {
-                elementNode.children.forEach(traverse);
+        for (
+            let i = startIdx;
+            i < nodeArray.length && nodesProcessed < maxNodes;
+            i++
+        ) {
+            const node = nodeArray[i];
+
+            if (isSerializedUSFMTextNode(node)) {
+                if (
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.trim()
+                ) {
+                    textParts.push(node.text.trim());
+                    nodesProcessed++;
+                } else if (
+                    node.tokenType === UsfmTokenTypes.marker &&
+                    node.marker &&
+                    STAMPABLE_MARKERS.has(node.marker)
+                ) {
+                    break;
+                }
+            } else if (node.type === "linebreak") {
             }
         }
-    }
 
-    nodes.forEach(traverse);
-    return markers;
-}
+        return textParts.slice(0, 3).join(" ").trim();
+    };
 
-/**
- * Extracts structural markers from a raw USFM string.
- * Used to build the queue for Paragraphing Mode from a reference text.
- */
-export function extractMarkersFromUsfmString(usfm: string): Marker[] {
-    const markers: Marker[] = [];
-    let currentVerse = "";
+    const allNodes = [...walkNodes(nodes)];
+    for (let i = 0; i < allNodes.length; i++) {
+        const node = allNodes[i];
+        if (!isSerializedUSFMTextNode(node)) continue;
 
-    // Regex to find all markers.
-    // Matches backslash followed by alphanumeric characters.
-    const markerRegex = /\\([a-zA-Z0-9]+)/g;
+        if (
+            node.tokenType === UsfmTokenTypes.marker &&
+            node.marker &&
+            STAMPABLE_MARKERS.has(node.marker)
+        ) {
+            // Get the following text for context
+            const nodeArray = Array.from(walkNodes(nodes));
+            const currentIndex = nodeArray.indexOf(node);
+            const followingText =
+                currentIndex >= 0
+                    ? getFollowingText(currentIndex + 1, nodeArray)
+                    : "";
 
-    let match: RegExpExecArray | null = null;
-    // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex loop pattern
-    while ((match = markerRegex.exec(usfm)) !== null) {
-        const marker = match[1];
-        const index = match.index;
-
-        if (marker === "v") {
-            // We need to find the verse number following \v
-            // Look ahead from the end of the match
-            const afterMarker = usfm.slice(index + match[0].length);
-            const verseMatch = afterMarker.match(/^\s*(\S+)/);
-            if (verseMatch) {
-                currentVerse = verseMatch[1];
+            // Handle verse markers specially - get verse number immediately
+            let verseNumber = "";
+            if (node.marker === "v") {
+                const nextNode = allNodes[i + 1];
+                const isNumberRangeNext =
+                    isSerializedUSFMTextNode(nextNode) &&
+                    nextNode.tokenType === UsfmTokenTypes.numberRange;
+                verseNumber = isNumberRangeNext ? nextNode.text : "";
             }
-        } else if (STAMPABLE_MARKERS.has(marker)) {
+
             markers.push({
-                type: marker,
-                text: `\\${marker}`,
+                type: node.marker,
+                text: node.text,
                 verse: currentVerse,
+                sid: node.sid,
+                id: node.id,
+                contextText: followingText,
+                verseNumber, // Set verse number directly for verse markers
             });
         }
     }
-
     return markers;
 }
 
@@ -116,49 +115,51 @@ export function stripMarkersFromSerialized(
 ): SerializedLexicalNode[] {
     const result: SerializedLexicalNode[] = [];
 
+    let prevNode: null | SerializedLexicalNode = null;
     for (const node of nodes) {
-        // 1. Handle USFM Text Nodes
         if (isSerializedUSFMTextNode(node)) {
-            // Remove stampable markers
+            if (node.tokenType === UsfmTokenTypes.text) {
+                result.push(node);
+                prevNode = node;
+                continue;
+            }
+
             if (
                 node.tokenType === UsfmTokenTypes.marker &&
                 node.marker &&
-                STAMPABLE_MARKERS.has(node.marker)
+                node.marker === "c"
             ) {
-                continue; // Skip this node
-            }
-
-            // Keep other USFM nodes (text, verses, chapters, etc.)
-            result.push(node);
-        }
-        // 2. Handle Linebreaks - Remove them all
-        else if (node.type === "linebreak") {
-        }
-        // 3. Handle Nested Editors (recurse)
-        else if (isSerializedUSFMNestedEditorNode(node)) {
-            const nestedNode = node as USFMNestedEditorNodeJSON;
-            if (nestedNode.editorState?.root?.children) {
-                const cleanedChildren = stripMarkersFromSerialized(
-                    nestedNode.editorState.root.children,
-                );
-
-                const newNestedNode: USFMNestedEditorNodeJSON = {
-                    ...nestedNode,
-                    editorState: {
-                        ...nestedNode.editorState,
-                        root: {
-                            ...nestedNode.editorState.root,
-                            children: cleanedChildren,
-                        },
-                    },
-                };
-                result.push(newNestedNode);
-            } else {
                 result.push(node);
+                prevNode = node;
+                continue;
             }
+
+            if (node.tokenType === UsfmTokenTypes.numberRange) {
+                if (
+                    prevNode &&
+                    "marker" in prevNode &&
+                    prevNode.marker === "c"
+                ) {
+                    result.push(node);
+                    prevNode = node;
+                }
+                continue;
+            }
+            continue;
         }
-        // 4. Handle Element Nodes (recurse)
-        else if ("children" in node) {
+
+        if (node.type === "linebreak") {
+            result.push(node);
+            prevNode = node;
+            continue;
+        }
+
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            prevNode = node;
+            continue;
+        }
+
+        if (isSerializedElementNode(node)) {
             const elementNode = node as SerializedElementNode;
             if (elementNode.children) {
                 const cleanedChildren = stripMarkersFromSerialized(
@@ -172,10 +173,6 @@ export function stripMarkersFromSerialized(
             } else {
                 result.push(node);
             }
-        }
-        // 5. Keep everything else
-        else {
-            result.push(node);
         }
     }
 

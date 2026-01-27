@@ -1,5 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { ActionIcon, Paper, rem, Text } from "@mantine/core";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
+import { ActionIcon, Button, Group, Paper, Text } from "@mantine/core";
 import {
     $getSelection,
     $isRangeSelection,
@@ -10,22 +12,37 @@ import {
 import { SkipForward, Stamp, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useWorkspaceMediaQuery } from "../../../ui/contexts/MediaQuery.tsx";
-import { useParagraphing } from "../../../ui/contexts/ParagraphingContext.tsx";
+import * as classes from "@/app/domain/editor/plugins/ParagraphingGhost.css.ts";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import {
+    type Marker,
+    useParagraphing,
+} from "@/app/ui/contexts/ParagraphingContext.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import { parseSid } from "@/core/data/bible/bible.ts";
 
 export function ParagraphingGhost() {
-    const { isActive, currentMarker, queue, currentIndex, skip, undo } =
-        useParagraphing();
+    const {
+        isParagraphingActive,
+        currentParagraphingMarker,
+        paragraphingMarkerQueue,
+        currentParagraphingQueueIndex,
+        skipParagraphingMarker,
+        undoParagraphingMarker,
+        paragraphingSnapshot,
+        deactivateParagraphingMode,
+    } = useParagraphing();
     const [editor] = useLexicalComposerContext();
     const { isSm, isTouch } = useWorkspaceMediaQuery();
+    const { actions, project } = useWorkspaceContext();
     const [coords, setCoords] = useState<{
         top: number;
         left: number;
-        height: number;
+        // height: number;
     } | null>(null);
 
     useEffect(() => {
-        if (!isActive) {
+        if (!isParagraphingActive) {
             setCoords(null);
             return;
         }
@@ -50,7 +67,7 @@ export function ParagraphingGhost() {
                             setCoords({
                                 top: rect.top,
                                 left: rect.left,
-                                height: rect.height || 20, // Fallback height if 0 but top/left are valid
+                                // height: rect.height || 20, // Fallback height if 0 but top/left are valid
                             });
                         }
                     }
@@ -92,56 +109,72 @@ export function ParagraphingGhost() {
             window.removeEventListener("scroll", updateGhost, true);
             window.removeEventListener("resize", updateGhost);
         };
-    }, [editor, isActive]);
+    }, [editor, isParagraphingActive]);
 
-    if (!isActive) {
+    if (!isParagraphingActive) {
         return null;
     }
 
     const showMobileControls = isSm || isTouch;
+    const useCompactLabel = isSm || isTouch;
+
+    const markerLabel = currentParagraphingMarker
+        ? getMarkerLabel({
+              marker: currentParagraphingMarker,
+              useCompactLabel,
+          })
+        : null;
+
+    const handleCancel = () => {
+        if (paragraphingSnapshot) {
+            actions.updateChapterLexical({
+                fileBibleIdentifier: paragraphingSnapshot.fileBibleIdentifier,
+                chap: paragraphingSnapshot.chapterNumber,
+                newLexical: paragraphingSnapshot.serializedState,
+                isDirty: paragraphingSnapshot.wasDirty,
+            });
+            actions.setEditorContent(
+                paragraphingSnapshot.fileBibleIdentifier,
+                paragraphingSnapshot.chapterNumber,
+                undefined,
+            );
+        }
+        deactivateParagraphingMode();
+    };
+
+    const handleSave = () => {
+        const targetFile =
+            paragraphingSnapshot?.fileBibleIdentifier ??
+            project.pickedFile.bookCode;
+        const targetChapter =
+            paragraphingSnapshot?.chapterNumber ??
+            project.pickedChapter?.chapNumber ??
+            project.currentChapter;
+        actions.saveCurrentDirtyLexical();
+        actions.setEditorContent(targetFile, targetChapter, undefined);
+        deactivateParagraphingMode();
+    };
 
     return createPortal(
         <>
             {/* Ghost Marker */}
-            {currentMarker && coords && (
+            {currentParagraphingMarker && coords && (
                 <div
+                    className={classes.ghostMarker}
                     style={{
-                        position: "fixed",
                         top: coords.top,
                         left: coords.left,
-                        height: coords.height,
-                        pointerEvents: "none",
-                        zIndex: 9999,
-                        opacity: 0.6,
-                        display: "flex",
-                        alignItems: "center",
-                        marginLeft: "1px", // Slight offset
-                        color: "var(--mantine-color-blue-6)", // Use mantine var if available, else fallback
-                        fontFamily: "monospace",
-                        fontSize: "1rem",
-                        whiteSpace: "nowrap",
-                        backgroundColor: "rgba(255, 255, 255, 0.8)", // Background to make it readable over text
-                        borderRadius: "4px",
-                        padding: "0 4px",
-                        boxShadow: "0 0 4px rgba(0,0,0,0.1)",
-                        transform: "translateY(-100%)", // Move it above the line so it doesn't obscure the text being typed?
-                        marginTop: "-4px",
+                        // height: coords.height,
                     }}
                 >
-                    <span style={{ fontWeight: "bold" }}>
-                        {currentMarker.type}
-                    </span>
-                    {currentMarker.verse && (
-                        <span
-                            style={{
-                                fontSize: "0.8em",
-                                marginLeft: "4px",
-                                color: "#666",
-                            }}
-                        >
-                            {currentMarker.verse}
+                    {markerLabel && (
+                        <span className={classes.ghostMarkerLabel}>
+                            {markerLabel}
                         </span>
                     )}
+                    <span className={classes.ghostMarkerType}>
+                        \{currentParagraphingMarker.type}
+                    </span>
                 </div>
             )}
 
@@ -151,29 +184,29 @@ export function ParagraphingGhost() {
                 p="xs"
                 radius="md"
                 withBorder
-                style={{
-                    position: "fixed",
-                    top: rem(80),
-                    right: rem(16),
-                    zIndex: 9990,
-                    opacity: 0.9,
-                    pointerEvents: "none",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                }}
+                className={classes.progressPanel}
             >
                 <Text size="sm" fw={700} c="dimmed">
-                    Paragraphing Mode
+                    <Trans>Paragraphing Mode</Trans>
                 </Text>
                 <Text size="xs">
-                    Marker {currentIndex + 1} / {queue.length}
+                    <Trans>
+                        Marker {currentParagraphingQueueIndex + 1} /{" "}
+                        {paragraphingMarkerQueue.length}
+                    </Trans>
                 </Text>
-                {currentMarker && (
-                    <Text size="xs" c="blue" fw={500}>
-                        Next: \{currentMarker.type}
-                    </Text>
-                )}
+                <Group
+                    gap="xs"
+                    justify="flex-end"
+                    className={classes.exitControls}
+                >
+                    <Button size="xs" variant="default" onClick={handleCancel}>
+                        <Trans>Cancel</Trans>
+                    </Button>
+                    <Button size="xs" onClick={handleSave}>
+                        <Trans>Save</Trans>
+                    </Button>
+                </Group>
             </Paper>
 
             {/* Mobile Controls */}
@@ -183,24 +216,15 @@ export function ParagraphingGhost() {
                     p="xs"
                     radius="xl"
                     withBorder
-                    style={{
-                        position: "fixed",
-                        bottom: rem(32),
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        zIndex: 9999,
-                        display: "flex",
-                        gap: rem(16),
-                        alignItems: "center",
-                    }}
+                    className={classes.mobileControls}
                 >
                     <ActionIcon
-                        onClick={undo}
+                        onClick={undoParagraphingMarker}
                         onMouseDown={(e) => e.preventDefault()}
                         variant="subtle"
                         color="gray"
                         size="lg"
-                        aria-label="Undo"
+                        aria-label={t`Undo`}
                     >
                         <Undo2 size={20} />
                     </ActionIcon>
@@ -213,17 +237,17 @@ export function ParagraphingGhost() {
                         color="blue"
                         size="xl"
                         radius="xl"
-                        aria-label="Stamp"
+                        aria-label={t`Stamp`}
                     >
                         <Stamp size={24} />
                     </ActionIcon>
                     <ActionIcon
-                        onClick={skip}
+                        onClick={skipParagraphingMarker}
                         onMouseDown={(e) => e.preventDefault()}
                         variant="subtle"
                         color="gray"
                         size="lg"
-                        aria-label="Skip"
+                        aria-label={t`Skip`}
                     >
                         <SkipForward size={20} />
                     </ActionIcon>
@@ -232,4 +256,75 @@ export function ParagraphingGhost() {
         </>,
         document.body,
     );
+}
+
+function getBaseMarkerLabel(marker: string) {
+    switch (marker) {
+        case "v":
+            return t`Verse marker`;
+        case "p":
+            return t`Paragraph marker`;
+        case "m":
+            return t`Margin paragraph`;
+        case "q":
+        case "q1":
+        case "q2":
+        case "q3":
+        case "q4":
+            return t`Poetry line`;
+        case "s":
+        case "s1":
+        case "s2":
+        case "s3":
+        case "s4":
+            return t`Section heading`;
+        case "cl":
+            return t`Chapter label`;
+        default:
+            return t`Marker`;
+    }
+}
+
+function getMarkerLabel({
+    marker,
+    useCompactLabel,
+}: {
+    marker: Marker;
+    useCompactLabel: boolean;
+}) {
+    const baseLabel = getBaseMarkerLabel(marker.type);
+    if (useCompactLabel) {
+        return baseLabel;
+    }
+
+    const parsedSid = marker.sid ? parseSid(marker.sid) : null;
+    const verseNumber = parsedSid?.verseStart ?? marker.verse;
+
+    // For non-verse markers, show the following text context
+    const contextText =
+        marker.type !== "v" && marker.contextText
+            ? marker.contextText.length > 20
+                ? `${marker.contextText.substring(0, 20)}...`
+                : marker.contextText
+            : "";
+
+    if (marker.type === "v") {
+        if (verseNumber) {
+            return t`Start of verse ${verseNumber}`;
+        }
+        return baseLabel;
+    }
+
+    if (verseNumber) {
+        if (contextText) {
+            return t`${baseLabel} v${verseNumber}: "${contextText}"`;
+        }
+        return t`${baseLabel} v${verseNumber}`;
+    }
+
+    if (contextText) {
+        return t`${baseLabel}: "${contextText}"`;
+    }
+
+    return baseLabel;
 }

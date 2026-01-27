@@ -7,11 +7,9 @@ import {
     EditorMarkersViewStates,
 } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import type { Settings } from "@/app/data/settings.ts";
 import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
-import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
 import { updateDomClassListWithMarkerViewState } from "./utils/domUtils.ts";
 
 export type UseModeSwitchingHook = ReturnType<typeof useModeSwitching>;
@@ -35,8 +33,8 @@ export function useModeSwitching({
     mutWorkingFilesRef: ParsedFile[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
-    appSettings: any;
-    updateAppSettings: (newSettings: any) => void;
+    appSettings: Partial<Settings>;
+    updateAppSettings: (newSettings: Partial<Settings>) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -112,7 +110,9 @@ export function useModeSwitching({
         const markersMutableState =
             markerViewState === EditorMarkersViewStates.NEVER
                 ? EditorMarkersMutableStates.IMMUTABLE
-                : args.markersMutableState || appSettings.markersMutableState;
+                : args.markersMutableState ||
+                  appSettings.markersMutableState ||
+                  EditorMarkersMutableStates.MUTABLE;
 
         const hide =
             markerViewState === EditorMarkersViewStates.NEVER ||
@@ -128,18 +128,10 @@ export function useModeSwitching({
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
             if (isSwitchingFromSource) {
-                const usfm = serializeToUsfmString(
-                    chapter.lexicalState.root.children,
-                );
-                const parsedChapters = parseUSFMChapter(
-                    usfm,
-                    file.bookCode,
-                ).usfm;
-                const parsedTokens = Object.values(parsedChapters).flat();
-                chapter.lexicalState = parsedUsfmTokensToJsonLexicalNode(
-                    parsedTokens,
-                    chapter.lexicalState.root.direction || "ltr",
-                );
+                // Instead of doing a destructive round-trip conversion (lexical -> USFM -> lexical),
+                // we preserve the original lexical state and just apply mode adjustments.
+                // This preserves the original data-id values of serialized nodes.
+                // The USFM round-trip should only happen when loading from disk, not mode switching.
             }
 
             const rootChildren = chapter.lexicalState.root.children.flatMap(

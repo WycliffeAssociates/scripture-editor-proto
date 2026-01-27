@@ -33,6 +33,7 @@ import {
     InsertionTypes,
     mapMarkerToInsertionType,
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
+import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
 
 function insertMarker(
@@ -74,36 +75,12 @@ function insertMarker(
 
         // For manual insertion:
         const anchorOffset = selection.anchor.offset;
-        const isNodeStart = anchorOffset === 0;
 
-        // Determine if we're visually at the start of the line by looking back for visible nodes
-        let isStartOfLineCalculated = isNodeStart;
-        let actualAnchorNode = anchorNode as USFMTextNode;
-        let actualAnchorOffset = anchorOffset;
-
-        if (isStartOfLineCalculated) {
-            let curr = anchorNode.getPreviousSibling();
-            while (curr) {
-                if (curr.getType() === "linebreak") {
-                    break;
-                }
-                if ($isUSFMTextNode(curr)) {
-                    if (curr.getShow()) {
-                        isStartOfLineCalculated = false;
-                        break;
-                    }
-                    // If it's hidden, it's part of the sequence at the visual start of line.
-                    // We move the anchor point back to the beginning of this sequence.
-                    actualAnchorNode = curr;
-                    actualAnchorOffset = 0;
-                } else {
-                    // Treat other node types (e.g. nested editors) as visible
-                    isStartOfLineCalculated = false;
-                    break;
-                }
-                curr = curr.getPreviousSibling();
-            }
-        }
+        const {
+            isStartOfLine: isStartOfLineCalculated,
+            actualAnchorNode,
+            actualAnchorOffset,
+        } = calculateIsStartOfLine(anchorNode as USFMTextNode, anchorOffset);
 
         const args: BaseInsertArgs = {
             anchorNode: actualAnchorNode,
