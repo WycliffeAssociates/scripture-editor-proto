@@ -145,6 +145,7 @@ export function textNodeTransform({
         markersViewState,
         languageDirection,
         isTypedInsertion: true,
+        mode: editorMode,
     };
 
     /* 

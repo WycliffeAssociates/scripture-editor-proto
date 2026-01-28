@@ -115,7 +115,7 @@
       "id": "7",
       "category": "core",
       "description": "Paragraph insertion in Regular mode (split-and-move)",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1, 6]",
         "META touches: src/app/domain/editor/utils/insertMarkerOperations.ts; src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx (if needed)",
@@ -126,7 +126,7 @@
         "Move remainder children into a newly created paragraph node with the inserted marker",
         "Place selection at the beginning of the moved content"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

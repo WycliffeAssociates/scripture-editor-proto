@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import type {
     EditorMarkersMutableState,
     EditorMarkersViewState,
+    EditorMode,
 } from "@/app/data/editor.ts";
 import { useEditorContext } from "@/app/domain/editor/hooks/useEditorContext.ts";
 import {
@@ -84,6 +85,7 @@ export function ParagraphingPlugin() {
                     restOfText: "",
                     languageDirection: context.languageDirection,
                     isTypedInsertion: false,
+                    mode: context.mode as EditorMode,
                 };
 
                 const insertType = mapMarkerToInsertionType(

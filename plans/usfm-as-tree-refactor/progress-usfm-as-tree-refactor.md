@@ -22,3 +22,5 @@
 - Completed Task 5: implemented explicit tree↔flat transforms for mode switching. Added `flattenParagraphContainersToFlatTokens` (tree→flat for Source mode) and `groupFlatTokensIntoParagraphContainers` (flat→tree for Regular mode) in modeAdjustments.ts. Updated useModeSwitching.tsx to use these transforms. Node IDs preserved where possible.
 
 - Completed Task 6: added Regular-mode structural enforcement in maintainDocumentStructure.ts. New `enforceRegularModeParagraphStructure` function ensures root children are USFMParagraphNode containers, wraps stray nodes, and ensures paragraphs have editable fallback children. Added `$createUSFMParagraphNode` factory function.
+
+- Completed Task 7: implemented paragraph insertion split-and-move for Regular mode. `$insertPara` now checks mode and dispatches to `$insertParaRegularMode` or `$insertParaSourceMode`. Regular mode finds parent paragraph container, splits anchor node if mid-text, creates new USFMParagraphNode with inserted marker, moves remainder children into new paragraph. Updated callers (markerActions.ts, ParagraphingPlugin.tsx, manageUsfmMarkers.ts) to pass `mode` in `BaseInsertArgs`.

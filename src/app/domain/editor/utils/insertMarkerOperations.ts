@@ -12,9 +12,15 @@ import {
     EditorMarkersMutableStates,
     type EditorMarkersViewState,
     EditorMarkersViewStates,
+    type EditorMode,
+    EditorModes,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import {
+    $createUSFMParagraphNode,
+    $isUSFMParagraphNode,
+} from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
@@ -52,6 +58,7 @@ export type BaseInsertArgs = {
     restOfText: string;
     languageDirection: "ltr" | "rtl";
     isTypedInsertion?: boolean;
+    mode?: EditorMode;
 };
 
 type InsertContext = {
@@ -409,6 +416,164 @@ export function $insertChapter(args: BaseInsertArgs): void {
 // ============================================================================
 
 export function $insertPara(args: BaseInsertArgs): void {
+    const { mode } = args;
+
+    // Regular mode uses tree structure with USFMParagraphNode containers
+    if (mode === EditorModes.WYSIWYG) {
+        $insertParaRegularMode(args);
+    } else {
+        $insertParaSourceMode(args);
+    }
+}
+
+/**
+ * Regular-mode paragraph insertion: split current paragraph container at caret
+ * and move remainder children into a new paragraph container.
+ */
+function $insertParaRegularMode(args: BaseInsertArgs): void {
+    const { anchorNode, anchorOffsetToUse, marker, isTypedInsertion } = args;
+
+    // Find the parent paragraph container
+    const parentParagraph = anchorNode.getParent();
+    if (!parentParagraph || !$isUSFMParagraphNode(parentParagraph)) {
+        // Fallback to source mode behavior if not in a paragraph container
+        $insertParaSourceMode(args);
+        return;
+    }
+
+    const children = parentParagraph.getChildren();
+    const anchorIndex = children.indexOf(anchorNode);
+    if (anchorIndex === -1) {
+        $insertParaSourceMode(args);
+        return;
+    }
+
+    const context = $getInsertionContext(anchorNode);
+
+    // Determine if we need to split the anchor node itself
+    const textContent = anchorNode.getTextContent();
+    const needsSplit =
+        anchorOffsetToUse > 0 && anchorOffsetToUse < textContent.length;
+
+    // Create the new paragraph container
+    const newParagraph = $createUSFMParagraphNode({
+        id: guidGenerator(),
+        marker,
+        inPara: marker,
+        tokenType: UsfmTokenTypes.marker,
+    });
+
+    // Insert the new paragraph after the current one
+    parentParagraph.insertAfter(newParagraph);
+
+    if (needsSplit) {
+        // Split the anchor node at caret position
+        let splitOffset = anchorOffsetToUse;
+        if (isTypedInsertion) {
+            // Remove the typed marker text from the left side
+            const markerTextLength = marker.length + 1; // \marker
+            splitOffset = Math.max(0, anchorOffsetToUse - markerTextLength);
+        }
+
+        const [left, right] = anchorNode.splitText(splitOffset) as [
+            USFMTextNode,
+            USFMTextNode | undefined,
+        ];
+
+        // Clean up left side
+        if (left && isTypedInsertion) {
+            const leftText = left.getTextContent().trimEnd();
+            left.setTextContent(leftText);
+        }
+
+        // Move right portion and all subsequent siblings to new paragraph
+        if (right) {
+            right.setInPara(marker);
+            right.setSid(context.newSid);
+            const rightTrimmed = ` ${right.getTextContent().trimStart()}`;
+            right.setTextContent(rightTrimmed);
+            newParagraph.append(right);
+        }
+
+        // Move all siblings after the anchor to the new paragraph
+        const siblingIndex = children.indexOf(left || anchorNode);
+        for (let i = siblingIndex + 1; i < children.length; i++) {
+            const sibling = children[i];
+            if (sibling?.isAttached()) {
+                if ($isUSFMTextNode(sibling)) {
+                    sibling.setInPara(marker);
+                }
+                newParagraph.append(sibling);
+            }
+        }
+    } else if (anchorOffsetToUse === 0) {
+        // Caret at start of anchor node - move anchor and all subsequent siblings
+        if (isTypedInsertion) {
+            // Remove the typed marker from the anchor
+            const cleanText = textContent.replace(
+                new RegExp(`^\\\\${marker}\\s*`),
+                "",
+            );
+            anchorNode.setTextContent(cleanText || " ");
+        }
+        anchorNode.setInPara(marker);
+
+        // Move anchor and all subsequent siblings to new paragraph
+        for (let i = anchorIndex; i < children.length; i++) {
+            const sibling = children[i];
+            if (sibling?.isAttached()) {
+                if ($isUSFMTextNode(sibling)) {
+                    sibling.setInPara(marker);
+                }
+                newParagraph.append(sibling);
+            }
+        }
+    } else {
+        // Caret at end of anchor - move all subsequent siblings
+        for (let i = anchorIndex + 1; i < children.length; i++) {
+            const sibling = children[i];
+            if (sibling?.isAttached()) {
+                if ($isUSFMTextNode(sibling)) {
+                    sibling.setInPara(marker);
+                }
+                newParagraph.append(sibling);
+            }
+        }
+    }
+
+    // Ensure the new paragraph has at least one editable child
+    if (newParagraph.getChildrenSize() === 0) {
+        const placeholder = $createUSFMTextNode(" ", {
+            id: guidGenerator(),
+            inPara: marker,
+            tokenType: UsfmTokenTypes.text,
+            sid: context.currentSidAsString,
+        });
+        newParagraph.append(placeholder);
+    }
+
+    // Ensure the original paragraph still has content
+    if (parentParagraph.getChildrenSize() === 0) {
+        const placeholder = $createUSFMTextNode(" ", {
+            id: guidGenerator(),
+            inPara: parentParagraph.getMarker() ?? "p",
+            tokenType: UsfmTokenTypes.text,
+            sid: context.currentSidAsString,
+        });
+        parentParagraph.append(placeholder);
+    }
+
+    // Select the start of the new paragraph
+    const firstChild = newParagraph.getFirstChild();
+    if (firstChild && $isUSFMTextNode(firstChild)) {
+        firstChild.selectStart();
+    }
+}
+
+/**
+ * Source-mode paragraph insertion: flat token stream, insert marker node with linebreaks.
+ */
+function $insertParaSourceMode(args: BaseInsertArgs): void {
     const { anchorNode, marker, isStartOfLine, isTypedInsertion } = args;
 
     const context = $getInsertionContext(anchorNode);
@@ -432,7 +597,6 @@ export function $insertPara(args: BaseInsertArgs): void {
             : textContent;
         left?.setTextContent(woMarker);
         left.insertAfter(markerNode);
-        // left.replace(markerNode);
         right?.setTextContent(` ${right.getTextContent().trimStart()}`);
         $ensureLineBreakBefore(markerNode);
 

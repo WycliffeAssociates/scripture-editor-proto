@@ -17,6 +17,7 @@ import React from "react";
 import type {
     EditorMarkersMutableState,
     EditorMarkersViewState,
+    EditorMode,
 } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
@@ -94,6 +95,7 @@ function insertMarker(
             restOfText: "", // Not really used for button insertion in the same way?
             languageDirection: context.languageDirection,
             isTypedInsertion: false,
+            mode: context.mode as EditorMode,
         };
 
         switch (insertType) {
