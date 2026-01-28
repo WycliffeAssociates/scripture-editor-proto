@@ -1,10 +1,8 @@
 import type { SerializedLexicalNode } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     isSerializedPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
@@ -24,10 +22,10 @@ export function reduceSerializedNodesToText(
             result[node.sid] = (result[node.sid] || "") + node.text;
         }
 
-        if (isSerializedElementNode(node)) {
+        if (isSerializedParagraphNode(node)) {
             const markerPrefix =
-                includeUSFM && (node as USFMElementNodeJSON).marker
-                    ? `\\${(node as USFMElementNodeJSON).marker}`
+                includeUSFM && (node as USFMParagraphNodeJSON).marker
+                    ? `\\${(node as USFMParagraphNodeJSON).marker}`
                     : "";
             const childText = reduceSerializedNodesToText(
                 node.children,
@@ -54,19 +52,6 @@ export function reduceSerializedNodesToText(
     }
 
     return result;
-}
-
-function getMarkerText(node: SerializedUSFMTextNode): string {
-    if (node.tokenType === UsfmTokenTypes.marker && node.marker) {
-        return `\\${node.marker}${node.text}`;
-    }
-    if (
-        node.tokenType === UsfmTokenTypes.endMarker ||
-        node.tokenType === "implicitClose"
-    ) {
-        return `\\*${node.text}`;
-    }
-    return node.text;
 }
 
 export function escapeRegex(str: string) {

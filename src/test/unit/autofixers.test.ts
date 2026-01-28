@@ -104,7 +104,7 @@ describe("applyAutofixToSerializedState", () => {
         const innerNode = createSerializedNode(targetId, "\\add ", "add");
 
         const elementNode: SerializedElementNode = {
-            type: "usfm-element-node",
+            type: "usfm-paragraph-node",
             version: 1,
             children: [innerNode],
             direction: "ltr",

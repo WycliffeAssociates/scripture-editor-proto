@@ -1,12 +1,13 @@
-import type { LexicalEditor, SerializedEditorState } from "lexical";
+import {
+    CLEAR_HISTORY_COMMAND,
+    type LexicalEditor,
+    type SerializedEditorState,
+} from "lexical";
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import {
-    $isUSFMTextNode,
-    isSerializedUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
 
@@ -19,7 +20,7 @@ export function getFlattenedEditorStateAsParseTokens(
 ): Array<LintableTokenLike> {
     const root = serializedEditorState.root;
     const firstChild = root.children?.[0];
-    if (!isSerializedElementNode(firstChild)) return [];
+    if (!isSerializedParagraphNode(firstChild)) return [];
 
     const tokens: Array<LintableTokenLike> = [];
     let _lastSid = "";
@@ -41,8 +42,9 @@ export function getFlattenedEditorStateAsParseTokens(
         }
 
         if (isSerializedUSFMNestedEditorNode(node)) {
-            if ((node as any).sid) _lastSid = (node as any).sid;
-            tokens.push(node as any);
+            const sid = (node as unknown as { sid?: string }).sid;
+            if (sid) _lastSid = sid;
+            tokens.push(node as unknown as LintableTokenLike);
         }
     }
 
@@ -110,5 +112,5 @@ export function setEditorContent(
             ],
         },
     );
-    editor.dispatchCommand("CLEAR_HISTORY_COMMAND", undefined);
+    editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
 }

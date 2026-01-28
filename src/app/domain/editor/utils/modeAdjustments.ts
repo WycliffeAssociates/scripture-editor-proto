@@ -1,10 +1,10 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     isSerializedUSFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     createSerializedUSFMTextNode,
     isSerializedToggleMutableUSFMTextNode,
@@ -50,7 +50,7 @@ export function adjustSerializedLexicalNodes(
 
         const nestedChildren: SerializedLexicalNode[] =
             node.editorState.root.children.flatMap((child) => {
-                if (isSerializedElementNode(child)) {
+                if (isSerializedParagraphNode(child)) {
                     return (child.children || []).flatMap((c) =>
                         adjustSerializedLexicalNodes(c, options),
                     );
@@ -61,7 +61,7 @@ export function adjustSerializedLexicalNodes(
         return [openingMarker, ...nestedChildren];
     }
 
-    if (isSerializedElementNode(node)) {
+    if (isSerializedParagraphNode(node)) {
         const elementNode = node as SerializedElementNode;
         if (elementNode.children) {
             elementNode.children = elementNode.children.flatMap(

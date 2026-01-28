@@ -3,8 +3,8 @@ import {
     HISTORY_MERGE_TAG,
     type SerializedLineBreakNode,
 } from "lexical";
-import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
@@ -50,7 +50,7 @@ export const EDITOR_TAGS_USED = {
 };
 
 export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
-export const USFM_ELEMENT_NODE_TYPE = "usfm-element-node" as const;
+export const USFM_PARAGRAPH_NODE_TYPE = "usfm-paragraph-node" as const;
 
 export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
     // TokenMap.idMarker,
@@ -68,7 +68,7 @@ export const TOKEN_TYPES_CAN_TOGGLE_HIDE = new Set<string>([
 ]);
 
 export type USFMNodeJSON =
-    | USFMElementNodeJSON
+    | USFMParagraphNodeJSON
     | SerializedUSFMTextNode
     | SerializedLineBreakNode
     | USFMNestedEditorNodeJSON;

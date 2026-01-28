@@ -1,7 +1,8 @@
+import type { SerializedElementNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { USFMElementNodeJSON } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     escapeRegex,
@@ -276,9 +277,9 @@ describe("reduceSerializedNodesToText", () => {
     function createMockElementNode(
         children: USFMNodeJSON[],
         sid?: string,
-    ): USFMElementNodeJSON & { children: USFMNodeJSON[] } {
+    ): USFMParagraphNodeJSON & { children: USFMNodeJSON[] } {
         return {
-            type: "usfm-element-node",
+            type: "usfm-paragraph-node",
             id: "element-1",
             tokenType: "element",
             inPara: "p",
@@ -320,7 +321,7 @@ describe("reduceSerializedNodesToText", () => {
                             format: "",
                             indent: 0,
                             children: children,
-                        },
+                        } as unknown as SerializedElementNode,
                     ],
                     direction: "ltr",
                     format: "",

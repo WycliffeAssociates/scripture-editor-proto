@@ -1,0 +1,234 @@
+{
+  "epic_name": "usfm-as-tree-refactor",
+  "plan_overview": "Refactor paragraph handling so Regular mode uses real paragraph/poetry block containers instead of inferred structure from flat tokens. USFM/Raw modes may stay flat, while downstream operations (export, lint, prettify, search) consume a single canonical flat-token view produced by an adapter.",
+  "technical_context": "This is a Lexical editor refactor. Regular mode root children become only USFMParagraphNode blocks (type: usfm-paragraph-node) storing the paragraph marker. A new adapter materializeFlatTokensFromSerialized(rootChildren) provides a reading-order flat token list for both flat and tree shapes (including nested editors). Mode switching becomes explicit tree<->flat transforms. Call sites that assumed a built-in paragraph wrapper or relied on USFMTextNode.inPara / data-in-para must be updated.",
+  "tasks": [
+      {
+        "id": "1",
+        "category": "core",
+        "description": "Introduce USFMParagraphNode (rename USFMElementNode)",
+        "status": "done",
+        "steps": [
+          "META depends_on: []",
+          "META touches: src/app/domain/editor/nodes/USFMElementNode.ts; src/app/data/editor.ts; src/app/ui/components/blocks/Editor.tsx; src/app/ui/components/blocks/ReferenceEditor.tsx; src/app/ui/components/blocks/NestedEditor.tsx; src/test/helpers/testEditor.ts; (all imports/guards referring to USFMElementNode)",
+          "META passes_when: Editor loads with the node registered; Serialized type is \"usfm-paragraph-node\"; isSerializedElementNode/isSerializedParagraphNode guards updated everywhere",
+          "Rename src/app/domain/editor/nodes/USFMElementNode.ts to src/app/domain/editor/nodes/USFMParagraphNode.ts",
+          "Rename class USFMElementNode -> USFMParagraphNode and exported type guard helpers accordingly",
+          "Change node type constant in src/app/data/editor.ts from USFM_ELEMENT_NODE_TYPE = \"usfm-element-node\" to USFM_PARAGRAPH_NODE_TYPE = \"usfm-paragraph-node\"",
+          "Update all imports and node registration arrays to reference USFMParagraphNode",
+          "Update serialized type unions USFMNodeJSON to use USFMParagraphNodeJSON",
+          "Ensure createDOM returns block-ish DOM (existing uses p for marker p, otherwise span; adjust to always block container in Regular mode)",
+          "Run unit tests that cover editor creation helpers"
+        ],
+        "passes": true,
+        "complexity": "high"
+      },
+    {
+      "id": "2",
+      "category": "core",
+      "description": "Regular-mode root shape and wrapping during parse",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1]",
+        "META touches: src/app/domain/editor/serialization/fromSerializedToLexical.ts",
+        "META passes_when: Regular-mode lexical root children are USFMParagraphNode(s); No Lexical built-in \"paragraph\" wrapper is required",
+        "Replace the current wrapper in parsedUsfmTokensToJsonLexicalNode that creates { type: \"paragraph\" }",
+        "For Regular-mode initial load, build root children as one or more usfm-paragraph-node nodes",
+        "Implement the flat->regular scan behavior: start new paragraph node on paragraph marker tokens",
+        "Default paragraph marker for leading content: p",
+        "Ensure nested editor tokens are handled as-is",
+        "Add tests for parse output shape for a simple doc with \\\\p, \\\\q1 markers"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "3",
+      "category": "core",
+      "description": "Flat token adapter (materializeFlatTokensFromSerialized)",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1]",
+        "META touches: src/app/domain/editor/utils/(new) materializeFlatTokensFromSerialized.ts; src/app/domain/editor/utils/serializedTraversal.ts; unit tests (new)",
+        "META passes_when: Adapter returns correct flat order for both flat and paragraph-tree shapes; Nested editor content is included in correct order; Synthetic paragraph marker tokens emitted for paragraph containers",
+        "Create src/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts",
+        "Detect paragraph container nodes (usfm-paragraph-node)",
+        "Emit a synthetic paragraph marker SerializedUSFMTextNode (minimal fields) per paragraph container",
+        "DFS-walk paragraph children using existing traversal utilities",
+        "Add unit tests: flat input yields same tokens; tree input emits synthetic marker then children; nested editor nodes included in-order",
+        "(Optional) Add walkFlatTokensSlidingWindow helper for linting"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "4",
+      "category": "core",
+      "description": "Update serialization/export to consume adapter",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [3]",
+        "META touches: src/app/domain/editor/serialization/lexicalToUsfm.ts; any other \"serialize to plain text\" utilities",
+        "META passes_when: serializeToUsfmString works for both shapes without branching",
+        "Update serializeToUsfmString entrypoint to call adapter on root children",
+        "Keep traverseForUsfmString recursive but feed it the flat list",
+        "Add/adjust tests to cover Regular-mode paragraph container shape"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "5",
+      "category": "core",
+      "description": "Mode switching: Regular <-> Source uses tree<->flat transforms",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [2, 3]",
+        "META touches: src/app/ui/hooks/useModeSwitching.tsx; src/app/domain/editor/utils/modeAdjustments.ts",
+        "META passes_when: Switching to Source produces a flat stream (including nested flatten); Switching back to Regular produces paragraph containers; No destructive USFM round-trip required",
+        "Replace current adjustSerializedLexicalNodes(... flattenNested: true) flow with explicit tree->flat conversion using the adapter and a persistable version of paragraph marker tokens",
+        "Implement flat->regular rebuild on switching back",
+        "Preserve node ids where possible; do not generate new ids unnecessarily",
+        "Ensure DOM class toggles remain correct"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "6",
+      "category": "core",
+      "description": "Regular-mode structural enforcement (maintainDocumentStructure)",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1, 2]",
+        "META touches: src/app/domain/editor/listeners/maintainDocumentStructure.ts",
+        "META passes_when: In Regular mode, root children remain paragraph nodes; Stray nodes are wrapped into a default paragraph; Paragraph nodes are not accidentally deleted/merged",
+        "Add Regular-mode-only checks: root children must be paragraph nodes",
+        "If a root child is not a paragraph node, wrap/move it into a new paragraph node with marker p",
+        "Ensure each paragraph has an editable fallback child",
+        "Verify existing verse/numberRange invariants still apply inside paragraph containers"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "7",
+      "category": "core",
+      "description": "Paragraph insertion in Regular mode (split-and-move)",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1, 6]",
+        "META touches: src/app/domain/editor/utils/insertMarkerOperations.ts; src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx (if needed)",
+        "META passes_when: Inserting a paragraph marker splits current paragraph at caret; Content after caret moves into new paragraph until next paragraph boundary",
+        "Add a Regular-mode code path for paragraph insertions",
+        "Determine current paragraph container from selection anchor",
+        "If caret is mid-paragraph, split the child list at the caret position (may require splitting a USFMTextNode)",
+        "Move remainder children into a newly created paragraph node with the inserted marker",
+        "Place selection at the beginning of the moved content"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "8",
+      "category": "ui",
+      "description": "Remove inPara dependencies in UI styling",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1, 6]",
+        "META touches: src/app/ui/effects/usfmDynamicStyles/calcStyles.ts; any CSS expecting data-in-para",
+        "META passes_when: Regular mode poetry/paragraph visuals handled by container DOM + CSS (no data-in-para); USFM mode keeps best-effort dynamic indentation as needed; Raw mode does not apply poetry dynamic indentation helpers",
+        "Restrict calcStyles / dynamic poetry stylesheet behavior to USFM mode only",
+        "Regular mode: derive indentation/styling from paragraph container marker (data-marker on usfm-paragraph-node DOM) using CSS",
+        "Raw mode: ensure no poetry indentation helper runs",
+        "Remove Regular-mode reliance on data-in-para",
+        "Ensure both main editor and reference editor still look correct"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "9",
+      "category": "core",
+      "description": "Update paragraphing utilities to use adapter",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [3]",
+        "META touches: src/app/domain/editor/utils/paragraphingUtils.ts; src/app/domain/editor/utils/paragraphingUtils.test.ts",
+        "META passes_when: Marker extraction works in both shapes; Tests no longer assume a built-in \"paragraph\" wrapper",
+        "Replace walkNodes(nodes) usage where it assumes top-level paragraph wrapper",
+        "Use the adapter output to extract markers",
+        "Update tests to locate the correct paragraph nodes (new type)"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "10",
+      "category": "core",
+      "description": "Update lint flows to consume adapter + sliding window",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [3]",
+        "META touches: src/core/data/usfm/lint.ts; src/app/domain/editor/listeners/lintChecks.ts; src/app/ui/hooks/useLint.tsx; src/app/ui/hooks/useLintFixing.tsx",
+        "META passes_when: Linting sees correct token adjacency across paragraph boundaries; Autofix operations still apply safely",
+        "Provide a prev/curr/next iterator over the flat token view",
+        "Ensure paragraph boundaries are represented by explicit paragraph marker tokens",
+        "Verify lint checks that depend on inPara are refactored to use paragraph marker tokens",
+        "Update any autofix functions that assumed flat siblings"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "11",
+      "category": "core",
+      "description": "Prettify + format matching + search use adapter",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [3]",
+        "META touches: src/app/domain/editor/utils/prettifySerializedNode.ts; src/app/domain/editor/utils/matchFormatting.ts; src/app/domain/search/search.utils.ts",
+        "META passes_when: These utilities accept either representation via adapter",
+        "Prettify: operate on flat token view; if called in Regular mode, rehydrate into paragraph tree",
+        "Match formatting: ensure sourceNodes / targetNodes are fed adapter output",
+        "Search plain-text serialization: ensure paragraph markers are included/excluded consistently via the adapter"
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "12",
+      "category": "core",
+      "description": "Cleanup: remove/ignore USFMTextNode.inPara in Regular mode",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [6, 8]",
+        "META touches: src/app/domain/editor/nodes/USFMTextNode.ts; insertion ops that set inPara",
+        "META passes_when: Regular-mode features do not read/write inPara; Source mode may still populate it if needed for legacy flows",
+        "Stop writing inPara during Regular-mode operations",
+        "Remove DOM dataset usage that relies on inPara",
+        "Keep the field temporarily if other flows still serialize it, but mark as deprecated in code"
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "13",
+      "category": "qa",
+      "description": "Full regression pass",
+      "status": "todo",
+      "steps": [
+        "META depends_on: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]",
+        "META touches: []",
+        "META passes_when: pnpm test:unit passes; Key manual flows validated (mode switching, export, poetry visuals)",
+        "Run unit tests",
+        "Manually test: switch Regular <-> Source, edit in both, verify no corruption",
+        "Manually test: insert paragraph markers via Action Palette in Regular mode; verify split",
+        "Manually test: poetry indentation stable",
+        "Manually test: nested footnotes still serialize"
+      ],
+      "passes": false,
+      "complexity": "high"
+    }
+  ]
+}

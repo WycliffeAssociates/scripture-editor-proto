@@ -7,7 +7,6 @@ import {
     type SerializedLexicalNode,
 } from "lexical";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     $isUSFMNestedEditorNode,
     isSerializedUSFMNestedEditorNode,
@@ -15,6 +14,7 @@ import {
     type USFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $isUSFMTextNode,
     isSerializedNumberOrPlainTextUSFMTextNode,
@@ -114,7 +114,7 @@ function traverseForUsfmString(
             continue;
         }
 
-        if (isSerializedElementNode(node) && node.children) {
+        if (isSerializedParagraphNode(node) && node.children) {
             traverseForUsfmString(node.children, accumulator);
         }
     }
@@ -188,7 +188,7 @@ function traverseForUsfmString(
 //       continue;
 //     }
 
-//     if (isSerializedElementNode(node) && node.children) {
+//     if (isSerializedParagraphNode(node) && node.children) {
 //       traverseForSidTextMap(node.children, options, accumulator, state);
 //     }
 //   }
@@ -517,8 +517,8 @@ export function buildSidContentMapForChapter(
                 continue;
             }
 
-            // --- Case 3: Recursion into Element Nodes (Paragraphs) ---
-            if (isSerializedElementNode(node) && node.children) {
+            // --- Case 3: Recursion into Paragraph Nodes ---
+            if (isSerializedParagraphNode(node) && node.children) {
                 traverse(node.children, node.children);
                 continue;
             }
@@ -655,7 +655,7 @@ export function buildSidContentMapForChapter(
 //       }
 //     }
 //     // only a contaienr (root paragraph element for example), just recurse in
-//     if (isSerializedElementNode(node) && node.children) {
+//     if (isSerializedParagraphNode(node) && node.children) {
 //       buildSidContentMapForChapter(node.children, map, _recursiveSid);
 //     }
 //   }

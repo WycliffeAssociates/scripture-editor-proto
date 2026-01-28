@@ -77,7 +77,7 @@ function serializeToken(
     //     marker: t.marker,
     //     inPara: t.inPara,
     //   });
-    //   return createSerializedUSFMElementNode(t, languageDirection, [
+    //   return createSerializedUSFMParagraphNode(t, languageDirection, [
     //     openSerializedMarker,
     //     ...children,
     //     close,

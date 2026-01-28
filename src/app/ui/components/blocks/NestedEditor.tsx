@@ -24,7 +24,7 @@ import {
     inverseTextNodeTransform,
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
@@ -68,7 +68,7 @@ export function NestedEditor({
         namespace: `nested-${outerMarker}-${id}`,
         editable: true,
         nodes: [
-            USFMElementNode,
+            USFMParagraphNode,
             USFMTextNode,
             {
                 replace: TextNode,

@@ -6,8 +6,8 @@ import {
     ParagraphNode,
     TextNode,
 } from "lexical";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
@@ -19,7 +19,7 @@ import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
 export function createTestEditor(usfmContent: string): LexicalEditor {
     const editor = createHeadlessEditor({
         nodes: [
-            USFMElementNode,
+            USFMParagraphNode,
             USFMTextNode,
             {
                 replace: TextNode,

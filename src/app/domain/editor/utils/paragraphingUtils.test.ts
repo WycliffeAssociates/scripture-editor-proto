@@ -1,7 +1,7 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
@@ -70,7 +70,7 @@ describe("paragraphingUtils", () => {
 \\v 1 Verse 1 text
 \\q1 Poetry text`);
 
-            const paragraphNode = nodes.find(isSerializedElementNode);
+            const paragraphNode = nodes.find(isSerializedParagraphNode);
             if (!paragraphNode) throw new Error("Missing paragraph node");
 
             const nodesToClean: SerializedLexicalNode[] = [

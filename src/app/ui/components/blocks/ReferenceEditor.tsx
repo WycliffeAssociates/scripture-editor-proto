@@ -20,8 +20,8 @@ import {
     EditorMarkersMutableStates,
     EditorMarkersViewStates,
 } from "@/app/data/editor.ts";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
@@ -191,7 +191,7 @@ function getIntialConfig(): InitialConfigType {
         namespace: "USFMEditor-Reference",
         editable: false,
         nodes: [
-            USFMElementNode,
+            USFMParagraphNode,
             USFMTextNode,
             {
                 replace: TextNode,

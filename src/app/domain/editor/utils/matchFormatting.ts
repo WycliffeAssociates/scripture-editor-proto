@@ -1,6 +1,6 @@
 import type { SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     POETRY_MARKERS,
@@ -53,7 +53,7 @@ function isStructureMarker(node: SerializedLexicalNode): boolean {
     const isMarkerToken =
         isSerializedUSFMTextNode(node) &&
         node.tokenType === UsfmTokenTypes.marker;
-    const isElementMarker = isSerializedElementNode(node) && !!marker;
+    const isElementMarker = isSerializedParagraphNode(node) && !!marker;
     return (
         (isMarkerToken || isElementMarker) &&
         !!marker &&
@@ -68,30 +68,6 @@ function isSkippedStructureMarker(node: SerializedLexicalNode): boolean {
     if (!isStructureMarker(node)) return false;
     const marker = hasMarker(node) ? node.marker : undefined;
     return !!marker && PARA_MARKERS_TO_SKIP.has(marker);
-}
-
-/**
- * Identifies if a node is "content" (verse anchors, text, char markers, footnotes).
- */
-function isContentNode(node: SerializedLexicalNode): boolean {
-    if (isStructureMarker(node)) return false;
-
-    // Nodes with an SID are definitely content
-    if (hasSid(node) && node.sid) return true;
-
-    // Verse markers are content (anchors)
-    if (
-        isSerializedUSFMTextNode(node) &&
-        node.tokenType === UsfmTokenTypes.marker &&
-        node.marker === "v"
-    ) {
-        return true;
-    }
-
-    // Linebreaks are preserved if they appear in the content flow
-    if (node.type === "linebreak") return true;
-
-    return false;
 }
 
 /**
@@ -110,14 +86,14 @@ function isVerseMarker(node: SerializedLexicalNode): boolean {
  */
 function cloneNode(node: SerializedLexicalNode): SerializedLexicalNode {
     const nodeId = hasId(node) ? node.id : undefined;
-    const newNode: any = {
+    const newNode = {
         ...node,
         id:
             nodeId ??
             (typeof crypto !== "undefined"
                 ? crypto.randomUUID()
                 : Math.random().toString(36).slice(2)),
-    };
+    } as SerializedLexicalNode & { id: string; lexicalKey?: string };
     if ("lexicalKey" in newNode) {
         newNode.lexicalKey = undefined;
     }
@@ -234,7 +210,7 @@ export function matchFormattingToSource(
             const bufferMarkers = new Set(
                 buffer
                     .filter(isStructureMarker)
-                    .map((n) => (hasMarker(n) ? n.marker : (n as any).marker)),
+                    .flatMap((n) => (hasMarker(n) ? [n.marker] : [])),
             );
 
             const markersToInsert: SerializedLexicalNode[] = [];
@@ -242,7 +218,7 @@ export function matchFormattingToSource(
             for (const expNode of expectedStructure) {
                 const expMarker = hasMarker(expNode)
                     ? expNode.marker
-                    : (expNode as any).marker;
+                    : undefined;
                 if (expMarker && !bufferMarkers.has(expMarker)) {
                     markersToInsert.push(cloneNode(expNode));
                 }
@@ -255,7 +231,7 @@ export function matchFormattingToSource(
             for (const markerNode of markersToInsert) {
                 const marker = hasMarker(markerNode)
                     ? markerNode.marker
-                    : (markerNode as any).marker;
+                    : undefined;
 
                 // 1. Check if we need a linebreak BEFORE this inserted marker
                 // AND if the previous node (from buffer or result) isn't already a linebreak

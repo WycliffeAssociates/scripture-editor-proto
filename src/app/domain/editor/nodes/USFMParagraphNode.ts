@@ -11,7 +11,7 @@ import {
     ElementNode,
     TextNode,
 } from "lexical";
-import { USFM_ELEMENT_NODE_TYPE } from "@/app/data/editor.ts";
+import { USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
 import {
     idState,
     inParaState,
@@ -20,8 +20,8 @@ import {
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
 
-export type USFMElementNodeJSON = SerializedElementNode & {
-    type: typeof USFM_ELEMENT_NODE_TYPE;
+export type USFMParagraphNodeJSON = SerializedElementNode & {
+    type: typeof USFM_PARAGRAPH_NODE_TYPE;
     id: string;
     tokenType: string;
     marker?: string;
@@ -31,16 +31,16 @@ export type USFMElementNodeJSON = SerializedElementNode & {
     version: 1;
 };
 
-export class USFMElementNode extends ElementNode {
+export class USFMParagraphNode extends ElementNode {
     static getType(): string {
-        return USFM_ELEMENT_NODE_TYPE;
+        return USFM_PARAGRAPH_NODE_TYPE;
     }
     /**
      * Automatically handles cloning, import/export JSON by using the modern $config API.
      * This significantly reduces boilerplate code.
      */
     $config() {
-        return this.config(USFM_ELEMENT_NODE_TYPE, {
+        return this.config(USFM_PARAGRAPH_NODE_TYPE, {
             extends: TextNode,
             stateConfigs: [
                 { flat: true, stateConfig: idState },
@@ -52,11 +52,11 @@ export class USFMElementNode extends ElementNode {
         });
     }
     // not sure why $config not working for auto serialize
-    exportJSON(): USFMElementNodeJSON {
+    exportJSON(): USFMParagraphNodeJSON {
         return {
             ...super.exportJSON(),
             version: 1,
-            type: USFM_ELEMENT_NODE_TYPE,
+            type: USFM_PARAGRAPH_NODE_TYPE,
             id: this.getId(),
             tokenType: this.getTokenType(),
             marker: this.getMarker(),
@@ -124,10 +124,7 @@ export class USFMElementNode extends ElementNode {
     }
 
     createDOM(_config: EditorConfig) {
-        const el =
-            this.getMarker() === "p"
-                ? document.createElement("p")
-                : document.createElement("span");
+        const el = document.createElement("div");
         const ds = el.dataset;
         const states = this.getAllStates();
         Object.entries(states).forEach(([k, v]) => {
@@ -138,7 +135,7 @@ export class USFMElementNode extends ElementNode {
         return el;
     }
     updateDOM(
-        prevNode: USFMElementNode,
+        prevNode: USFMParagraphNode,
         dom: HTMLElement,
         config: EditorConfig,
     ): boolean {
@@ -162,14 +159,19 @@ export class USFMElementNode extends ElementNode {
 
 /* type guards */
 
-export function $isUSFMElementNode(
+export function $isUSFMParagraphNode(
     node: LexicalNode | null | undefined,
-): node is USFMElementNode {
-    return node instanceof USFMElementNode;
+): node is USFMParagraphNode {
+    return node instanceof USFMParagraphNode;
 }
 
-export function isSerializedElementNode(
+export function isSerializedParagraphNode(
     node: SerializedLexicalNode,
 ): node is SerializedElementNode {
-    return node.type === USFM_ELEMENT_NODE_TYPE || node.type === "paragraph";
+    return (
+        node.type === USFM_PARAGRAPH_NODE_TYPE ||
+        // Back-compat for current serialized states and nested editor wrappers.
+        node.type === "paragraph" ||
+        node.type === "usfm-element-node"
+    );
 }

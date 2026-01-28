@@ -1,10 +1,10 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import {
     isSerializedUSFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
@@ -739,7 +739,7 @@ export function applyPrettifyToNodeTree(
         let node = mergedNodes[i];
 
         // Recursive step for children
-        if (isSerializedElementNode(node)) {
+        if (isSerializedParagraphNode(node)) {
             const elementNode = node as SerializedElementNode;
             if (elementNode.children) {
                 node = {

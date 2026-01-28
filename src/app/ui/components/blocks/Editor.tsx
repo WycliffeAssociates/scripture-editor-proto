@@ -9,8 +9,8 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { USFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     USFMTextNode,
@@ -98,7 +98,7 @@ function getIntialConfig(): InitialConfigType {
     return {
         namespace: "USFMEditor",
         nodes: [
-            USFMElementNode,
+            USFMParagraphNode,
             USFMTextNode,
             {
                 replace: TextNode,

@@ -1,7 +1,7 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type { Marker } from "@/app/ui/contexts/ParagraphingContext.tsx";
@@ -159,7 +159,7 @@ export function stripMarkersFromSerialized(
             continue;
         }
 
-        if (isSerializedElementNode(node)) {
+        if (isSerializedParagraphNode(node)) {
             const elementNode = node as SerializedElementNode;
             if (elementNode.children) {
                 const cleanedChildren = stripMarkersFromSerialized(

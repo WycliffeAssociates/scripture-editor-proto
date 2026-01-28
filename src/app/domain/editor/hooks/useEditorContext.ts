@@ -6,7 +6,7 @@ import {
     type LexicalNode,
 } from "lexical";
 import { useCallback } from "react";
-import { $isUSFMElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import type { EditorContext } from "../actions/types.ts";
@@ -75,7 +75,7 @@ export function useEditorContext() {
                     const type = curr.getType();
                     nodePath.push(type);
 
-                    if ($isUSFMTextNode(curr) || $isUSFMElementNode(curr)) {
+                    if ($isUSFMTextNode(curr) || $isUSFMParagraphNode(curr)) {
                         const marker = curr.getMarker();
                         if (marker) {
                             if (!currentMarker) currentMarker = marker;
@@ -106,7 +106,7 @@ export function useEditorContext() {
                             // If no siblings left, try parent (though ancestors were already checked)
                             // or stop if we hit something that shouldn't be crossed
                             searchCurr = searchCurr.getParent();
-                            if ($isUSFMElementNode(searchCurr)) {
+                            if ($isUSFMParagraphNode(searchCurr)) {
                                 const m = searchCurr.getMarker();
                                 if (m) {
                                     currentMarker = m;

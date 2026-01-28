@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { matchFormattingToSource } from "@/app/domain/editor/utils/matchFormatting.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
@@ -49,8 +49,8 @@ export function useFormatMatching({
             referenceProject.referenceChapter.lexicalState.root.children[0];
 
         if (
-            !isSerializedElementNode(targetPara) ||
-            !isSerializedElementNode(sourcePara)
+            !isSerializedParagraphNode(targetPara) ||
+            !isSerializedParagraphNode(sourcePara)
         ) {
             return;
         }
@@ -103,8 +103,8 @@ export function useFormatMatching({
             const sourcePara = refChapter.lexicalState.root.children[0];
 
             if (
-                !isSerializedElementNode(targetPara) ||
-                !isSerializedElementNode(sourcePara)
+                !isSerializedParagraphNode(targetPara) ||
+                !isSerializedParagraphNode(sourcePara)
             ) {
                 return;
             }
@@ -175,8 +175,8 @@ export function useFormatMatching({
                 const sourcePara = refChapter.lexicalState.root.children[0];
 
                 if (
-                    !isSerializedElementNode(targetPara) ||
-                    !isSerializedElementNode(sourcePara)
+                    !isSerializedParagraphNode(targetPara) ||
+                    !isSerializedParagraphNode(sourcePara)
                 ) {
                     return;
                 }

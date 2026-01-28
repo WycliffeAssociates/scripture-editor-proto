@@ -10,7 +10,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useEffectOnce } from "react-use";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedElementNode } from "@/app/domain/editor/nodes/USFMElementNode.ts";
+import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     buildSidContentMapForChapter,
@@ -861,7 +861,7 @@ function mutateWorkingFilesRefRevertChange(
         if (!targetChapter) return;
 
         const topPara = targetChapter.lexicalState.root.children[0];
-        if (!isSerializedElementNode(topPara)) return;
+        if (!isSerializedParagraphNode(topPara)) return;
         const targetNodeList = topPara.children;
 
         let insertionIndex = 0;
