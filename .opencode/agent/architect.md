@@ -28,6 +28,7 @@ Brainstorming/interview -> Plan -> PRD -> Execution
 - Prefer multiple choice questions when possible, but open-ended is fine too
 - Only one question per message - if a topic needs more exploration, break it into multiple questions
 - Focus on understanding: purpose, constraints, success criteria
+- Explore the codebase using the @explorer agent as needed
 
 **Exploring approaches:**
 - Propose 2-3 different approaches with trade-offs

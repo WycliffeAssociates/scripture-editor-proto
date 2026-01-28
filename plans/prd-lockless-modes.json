@@ -1,0 +1,100 @@
+{
+  "epic_name": "lockless-modes",
+  "plan_overview": "Remove marker locking/mutability so editing behaves predictably (normal cursor/delete/cut/paste), and simplify editor mode selection to three explicit modes: regular (formatted, markers hidden), usfm (markers visible), plain (hands-off, markers visible). Correctness is maintained via conservative document-structure guardrails, lint feedback, and undo/redo rather than prevention.",
+  "technical_context": "Current behavior is derived from a settings matrix (mode + markersViewState + markersMutableState) and enforced via USFMTextNode isMutable + a lockImmutableMarkers input interception layer. This refactor deletes those concepts and replaces them with a single project.appSettings.editorMode field. It also scopes maintainDocumentStructure into Tier A safety (all modes) vs Tier B correctness assists (regular/usfm only).",
+  "tasks": [
+    {
+      "id": "1",
+      "category": "core",
+      "description": "Introduce appSettings.editorMode (regular|usfm|plain), remove old mode/markers* settings, and default to regular.",
+      "steps": [
+        "Update settings/project appSettings types to remove mode/markersViewState/markersMutableState and add editorMode.",
+        "Set default editorMode to 'regular' wherever defaults are defined.",
+        "Update all callsites reading appSettings.mode/markers* to use editorMode.",
+        "Remove DOM dataset wiring that encodes marker view/mutability state (or replace with editorMode-derived flags if still needed for CSS/plugins).",
+        "Update any tests that construct Settings/appSettings objects to include editorMode only."
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "2",
+      "category": "core",
+      "description": "Update the Editor Mode toggle UI to control editorMode = regular|usfm|plain (same location, no extra toggles).",
+      "steps": [
+        "Replace the current derived-value logic in src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx with a direct mapping to editorMode.",
+        "Rename the 'raw' option label to 'Plain' and ensure the value keys match editorMode.",
+        "Update any tooltips/help text to match the new semantics (regular hides markers, usfm/plain show markers).",
+        "Remove references to actions.toggleToSourceMode/adjustWysiwygMode for mode switching if they become obsolete; otherwise adapt those actions to set editorMode." 
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "3",
+      "category": "core",
+      "description": "Remove token locking/mutability from USFMTextNode and serialized node model.",
+      "steps": [
+        "Delete TOKENS_TO_LOCK_FROM_EDITING from src/app/data/editor.ts and remove all imports/uses.",
+        "Remove isMutable state from src/app/domain/editor/nodes/USFMTextNode.ts (state, getters/setters, remove/canInsert* gates, type guards like $isLockedUSFMTextNode).",
+        "Remove serialized isMutable from createSerializedUSFMTextNode and any serialized helpers/adjusters that manipulate it.",
+        "Update node (de)serialization code and tests to stop expecting isMutable.",
+        "Update any code paths that used 'locked' semantics (e.g., traversal helpers) to either be generic or be removed." 
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "4",
+      "category": "core",
+      "description": "Delete the lockImmutableMarkers input interception layer and rely on normal Lexical editing semantics.",
+      "steps": [
+        "Delete src/app/domain/editor/listeners/lockImmutableMarkers.ts.",
+        "Remove registrations/imports from src/app/domain/editor/hooks/useEditorInput.ts.",
+        "Remove any leftover code that assumes copy/cut/paste/type are custom-handled for locked markers.",
+        "Verify Backspace/Delete/Cut/Paste behavior is now default across marker boundaries." 
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "5",
+      "category": "core",
+      "description": "Implement guardrails split: Tier A safety (all modes) vs Tier B correctness assists (regular/usfm only).",
+      "steps": [
+        "Refactor src/app/domain/editor/listeners/maintainDocumentStructure.ts into two callable paths (or two modules): a safety pass and a correctness pass.",
+        "Wire Tier A to run in all modes (regular/usfm/plain).",
+        "Wire Tier B to run only when editorMode is regular or usfm.",
+        "Ensure Tier B fixes are conservative to avoid cursor jank (small, local repairs only).",
+        "Add unit tests around a few known 'stranded marker' cases ensuring: (a) corrected in regular/usfm, (b) not auto-corrected in plain." 
+      ],
+      "passes": false,
+      "complexity": "high"
+    },
+    {
+      "id": "6",
+      "category": "ui",
+      "description": "Make marker visibility purely mode-driven: regular hides markers; usfm/plain show markers.",
+      "steps": [
+        "Remove markerViewState-based branching in styling/plugins and replace with editorMode checks.",
+        "Update any CSS/data-attributes that depended on data-marker-view-state to be derived from editorMode.",
+        "Ensure formatting consequences are visible in regular when markers are deleted (indent/para spacing changes).",
+        "Verify usfm/plain always render markers visibly." 
+      ],
+      "passes": false,
+      "complexity": "medium"
+    },
+    {
+      "id": "7",
+      "category": "test",
+      "description": "Regression tests for lockless editing behavior.",
+      "steps": [
+        "Add/adjust integration tests to ensure editing across markers (delete/cut/paste) does not throw and updates content.",
+        "Add a test that plain mode does not run Tier B correctness repairs.",
+        "Update or remove tests that assume isMutable / locked marker behavior." 
+      ],
+      "passes": false,
+      "complexity": "medium"
+    }
+  ]
+}

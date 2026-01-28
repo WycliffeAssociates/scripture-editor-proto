@@ -16,7 +16,7 @@ You execute one ticket at a time.
 Assume you have **NO memory** of previous tasks. Your source of truth is:
 1.  The prompt given by your manager.
 2.  The prd.json file -> feel free to read all of it if you need for context, but only work on the task you are assigned to.
-3.  The Codebase: `src/` (Read files before editing).
+3.  The Codebase: `src/` : Invoke the @explorer agent to find relevant files an avoid polluting your memory with irrelevant code.
 
 # Execution Loop
 1.  **Mark the task as in-progress:** Update the prd.json file to mark the task as in-progress.
