@@ -81,7 +81,7 @@
       "id": "5",
       "category": "core",
       "description": "Mode switching: Regular <-> Source uses tree<->flat transforms",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [2, 3]",
         "META touches: src/app/ui/hooks/useModeSwitching.tsx; src/app/domain/editor/utils/modeAdjustments.ts",
@@ -91,7 +91,7 @@
         "Preserve node ids where possible; do not generate new ids unnecessarily",
         "Ensure DOM class toggles remain correct"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

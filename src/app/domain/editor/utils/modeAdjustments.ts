@@ -1,17 +1,28 @@
 import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
-import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    USFM_PARAGRAPH_NODE_TYPE,
+    USFM_TEXT_NODE_TYPE,
+    type USFMNodeJSON,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
     isSerializedUSFMNestedEditorNode,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import {
+    isSerializedParagraphNode,
+    type USFMParagraphNodeJSON,
+} from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     createSerializedUSFMTextNode,
     isSerializedToggleMutableUSFMTextNode,
     isSerializedToggleShowUSFMTextNode,
+    isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
     updateSerializedToggleableUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { isSerializedUSFMParagraphContainer } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function adjustSerializedLexicalNodes(
@@ -83,4 +94,138 @@ export function adjustSerializedLexicalNodes(
     }
 
     return [node];
+}
+
+/**
+ * Flattens paragraph-tree structure into a flat token stream for Source mode.
+ * Each USFMParagraphNode container is converted to a paragraph marker token
+ * followed by its children (preserving node IDs where possible).
+ */
+export function flattenParagraphContainersToFlatTokens(
+    rootChildren: SerializedLexicalNode[],
+    options: { show: boolean; isMutable: boolean },
+): SerializedLexicalNode[] {
+    const result: SerializedLexicalNode[] = [];
+
+    for (const node of rootChildren) {
+        if (isSerializedUSFMParagraphContainer(node)) {
+            const paragraphNode = node as USFMParagraphNodeJSON;
+            const marker = paragraphNode.marker ?? "p";
+
+            // Emit paragraph marker token (using the container's ID to preserve identity)
+            const markerToken = createSerializedUSFMTextNode({
+                text: `\\${marker} `,
+                id: paragraphNode.id,
+                sid: paragraphNode.sid ?? "",
+                tokenType: UsfmTokenTypes.marker,
+                marker,
+                inPara: marker,
+                show: options.show,
+                isMutable: options.isMutable,
+            });
+            result.push(markerToken);
+
+            // Recursively flatten children (handle nested paragraph containers if any)
+            const flattenedChildren = flattenParagraphContainersToFlatTokens(
+                paragraphNode.children ?? [],
+                options,
+            );
+            result.push(...flattenedChildren);
+        } else if (isSerializedUSFMNestedEditorNode(node)) {
+            // Flatten nested editor: emit opening marker, then children, close marker is inside
+            const nestedNode = node as USFMNestedEditorNodeJSON;
+            const openingMarker = createSerializedUSFMTextNode({
+                text: `\\${nestedNode.marker} `,
+                id: guidGenerator(),
+                sid: nestedNode.sid || "",
+                tokenType: UsfmTokenTypes.marker,
+                marker: nestedNode.marker,
+                show: options.show,
+                isMutable: options.isMutable,
+            });
+            result.push(openingMarker);
+
+            // Flatten nested content
+            const nestedChildren = nestedNode.editorState?.root?.children ?? [];
+            const flattenedNested = flattenParagraphContainersToFlatTokens(
+                nestedChildren,
+                options,
+            );
+            result.push(...flattenedNested);
+        } else {
+            // Regular token - apply show/mutable adjustments
+            const adjusted = adjustSerializedLexicalNodes(node, {
+                ...options,
+                flattenNested: false,
+            });
+            result.push(...adjusted);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Groups flat tokens into paragraph containers for Regular mode.
+ * Scans for paragraph marker tokens and groups subsequent tokens into containers.
+ */
+export function groupFlatTokensIntoParagraphContainers(
+    flatTokens: SerializedLexicalNode[],
+    languageDirection: "ltr" | "rtl" = "ltr",
+): USFMNodeJSON[] {
+    type ParagraphContainer = USFMParagraphNodeJSON & {
+        children: USFMNodeJSON[];
+    };
+
+    const paragraphs: ParagraphContainer[] = [];
+    let current: ParagraphContainer | null = null;
+    let paraIndex = 0;
+
+    const startParagraph = (marker: string, id: string): ParagraphContainer => {
+        const next: ParagraphContainer = {
+            type: USFM_PARAGRAPH_NODE_TYPE,
+            version: 1,
+            direction: languageDirection,
+            format: 0,
+            indent: 0,
+            tokenType: UsfmTokenTypes.marker,
+            id,
+            marker,
+            inPara: marker,
+            children: [],
+        };
+        paragraphs.push(next);
+        current = next;
+        return next;
+    };
+
+    for (const node of flatTokens) {
+        // Check if this is a paragraph marker token
+        if (isSerializedUSFMTextNode(node)) {
+            const textNode = node as SerializedUSFMTextNode;
+            if (
+                textNode.tokenType === UsfmTokenTypes.marker &&
+                textNode.marker &&
+                isValidParaMarker(textNode.marker)
+            ) {
+                // Start new paragraph, use the marker token's ID
+                startParagraph(textNode.marker, textNode.id);
+                continue;
+            }
+        }
+
+        // If no current paragraph, create default
+        if (!current) {
+            current = startParagraph("p", `default-para-${paraIndex++}`);
+        }
+
+        current.children.push(node as USFMNodeJSON);
+    }
+
+    // Ensure at least one paragraph container
+    if (paragraphs.length === 0) {
+        startParagraph("p", "default-para-0");
+    }
+
+    return paragraphs;
 }

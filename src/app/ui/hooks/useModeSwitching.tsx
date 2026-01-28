@@ -8,7 +8,11 @@ import {
 } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
-import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
+import {
+    adjustSerializedLexicalNodes,
+    flattenParagraphContainersToFlatTokens,
+    groupFlatTokensIntoParagraphContainers,
+} from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { updateDomClassListWithMarkerViewState } from "./utils/domUtils.ts";
 
@@ -59,16 +63,12 @@ export function useModeSwitching({
         let thisChapterUpdated: ParsedChapter | undefined;
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
-            const rootChildren = chapter.lexicalState.root.children.flatMap(
-                (node) => {
-                    return adjustSerializedLexicalNodes(node, {
-                        show: true,
-                        isMutable: true,
-                        flattenNested: true,
-                    });
-                },
+            // Use tree→flat conversion: flatten paragraph containers to flat tokens
+            const flatTokens = flattenParagraphContainersToFlatTokens(
+                chapter.lexicalState.root.children,
+                { show: true, isMutable: true },
             );
-            chapter.lexicalState.root.children = rootChildren;
+            chapter.lexicalState.root.children = flatTokens;
             if (
                 chapter.chapNumber === currentChapter &&
                 file.bookCode === currentFileBibleIdentifier
@@ -127,29 +127,53 @@ export function useModeSwitching({
         let thisChapterUpdated: ParsedChapter | undefined;
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
+            const showValue = !hide;
+            const isMutableValue =
+                isMutable === EditorMarkersMutableStates.MUTABLE;
+
             if (isSwitchingFromSource) {
-                // Instead of doing a destructive round-trip conversion (lexical -> USFM -> lexical),
-                // we preserve the original lexical state and just apply mode adjustments.
-                // This preserves the original data-id values of serialized nodes.
-                // The USFM round-trip should only happen when loading from disk, not mode switching.
+                // Use flat→tree conversion: rebuild paragraph containers from flat tokens
+                const direction = chapter.lexicalState.root.direction ?? "ltr";
+                const paragraphContainers =
+                    groupFlatTokensIntoParagraphContainers(
+                        chapter.lexicalState.root.children,
+                        direction as "ltr" | "rtl",
+                    );
+                // Apply show/mutable adjustments to children within containers
+                for (const container of paragraphContainers) {
+                    if (
+                        "children" in container &&
+                        Array.isArray(container.children)
+                    ) {
+                        container.children = container.children.flatMap(
+                            (child) =>
+                                adjustSerializedLexicalNodes(child, {
+                                    show: showValue,
+                                    isMutable: isMutableValue,
+                                }),
+                        );
+                    }
+                }
+                chapter.lexicalState.root.children = paragraphContainers;
+            } else {
+                // Already in paragraph-tree structure, just adjust show/mutable
+                const rootChildren = chapter.lexicalState.root.children.flatMap(
+                    (node) => {
+                        return adjustSerializedLexicalNodes(node, {
+                            show: showValue,
+                            isMutable: isMutableValue,
+                        });
+                    },
+                );
+                chapter.lexicalState.root.children = rootChildren;
             }
 
-            const rootChildren = chapter.lexicalState.root.children.flatMap(
-                (node) => {
-                    return adjustSerializedLexicalNodes(node, {
-                        show: !hide,
-                        isMutable:
-                            isMutable === EditorMarkersMutableStates.MUTABLE,
-                    });
-                },
-            );
             if (
                 chapter.chapNumber === currentChapter &&
                 file.bookCode === currentFileBibleIdentifier
             ) {
                 thisChapterUpdated = chapter;
             }
-            chapter.lexicalState.root.children = rootChildren;
         }
 
         if (thisChapterUpdated) {
