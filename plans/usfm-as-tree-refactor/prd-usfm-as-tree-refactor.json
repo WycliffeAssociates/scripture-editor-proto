@@ -133,7 +133,7 @@
       "id": "8",
       "category": "ui",
       "description": "Remove inPara dependencies in UI styling",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1, 6]",
         "META touches: src/app/ui/effects/usfmDynamicStyles/calcStyles.ts; any CSS expecting data-in-para",
@@ -144,7 +144,7 @@
         "Remove Regular-mode reliance on data-in-para",
         "Ensure both main editor and reference editor still look correct"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

@@ -63,18 +63,47 @@ body:not(.source-mode) {
     line-height: inherit;
   }
 
-  :where(
-    [data-marker="q"],
-    [data-in-para="q"],
-    [data-marker="q1"],
-    [data-in-para="q1"],
-    [data-marker="q2"],
-    [data-in-para="q2"],
-    [data-marker="q3"],
-    [data-in-para="q3"],
-    [data-marker="q4"],
-    [data-in-para="q4"]
-  ) {
+  /*
+   Regular mode (markers immutable): paragraph containers carry the marker on
+   the usfm-paragraph-node DOM element via data-marker.
+
+   USFM mode (markers mutable): fall back to token-level data-in-para for lines
+   that don't repeat paragraph markers.
+  */
+
+  #root[data-markers-mutable-state="immutable"]
+    :where(.editor-container div[data-token-type="marker"][data-marker^="q"]) {
+    font-style: italic;
+  }
+  #root[data-markers-mutable-state="immutable"]
+    .editor-container
+    div[data-token-type="marker"][data-marker="q"],
+  #root[data-markers-mutable-state="immutable"]
+    .editor-container
+    div[data-token-type="marker"][data-marker="q1"] {
+    padding-inline-start: 8px;
+  }
+  #root[data-markers-mutable-state="immutable"]
+    .editor-container
+    div[data-token-type="marker"][data-marker="q2"] {
+    padding-inline-start: 24px;
+  }
+  #root[data-markers-mutable-state="immutable"]
+    .editor-container
+    div[data-token-type="marker"][data-marker="q3"] {
+    padding-inline-start: 40px;
+  }
+  #root[data-markers-mutable-state="immutable"]
+    .editor-container
+    div[data-token-type="marker"][data-marker="q4"] {
+    padding-inline-start: 56px;
+  }
+
+  #root[data-markers-mutable-state="mutable"]
+    :where(
+      .editor-container [data-marker^="q"],
+      .editor-container [data-in-para^="q"]
+    ) {
     font-style: italic;
   }
   /* [data-marker="b"] {
@@ -85,8 +114,17 @@ body:not(.source-mode) {
     /* pointer-events: none !important; */
   }
 
-  [data-marker-view-state="never"] [data-marker] + br,
-  [data-marker-view-state="never"] [data-marker] {
+  [data-marker-view-state="never"]
+    :where(
+      [data-token-type="marker"][data-marker],
+      [data-token-type="endMarker"][data-marker]
+    )
+    + br,
+  [data-marker-view-state="never"]
+    :where(
+      [data-token-type="marker"][data-marker],
+      [data-token-type="endMarker"][data-marker]
+    ) {
     display: none !important;
   }
 
@@ -106,9 +144,15 @@ body:not(.source-mode) {
   }
 
   [data-marker-view-state="never"]
-    [data-marker].paragraphing-reference-highlight,
+    :where(
+      [data-token-type="marker"][data-marker].paragraphing-reference-highlight,
+      [data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
+    ),
   [data-marker-view-state="never"]
-    [data-marker].paragraphing-reference-highlight
+    :where(
+      [data-token-type="marker"][data-marker].paragraphing-reference-highlight,
+      [data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
+    )
     + br {
     display: inline-block !important;
   }

@@ -1,6 +1,11 @@
 import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
-import { type EditorMarkersViewState, EditorModes } from "@/app/data/editor.ts";
+import {
+    EditorMarkersMutableStates,
+    type EditorMarkersViewState,
+    EditorMarkersViewStates,
+    EditorModes,
+} from "@/app/data/editor.ts";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -8,6 +13,12 @@ export function UsfmStylesPlugin() {
     const { project } = useWorkspaceContext();
 
     const { mode } = project.appSettings;
+    const { markersViewState, markersMutableState } = project.appSettings;
+
+    const isUsfmMode =
+        mode === EditorModes.WYSIWYG &&
+        markersViewState === EditorMarkersViewStates.ALWAYS &&
+        markersMutableState === EditorMarkersMutableStates.MUTABLE;
     // Using useRef to hold the stylesheet instance to avoid re-creation on re-renders.
     const dynamicCssStyleSheet = useRef(new CSSStyleSheet()).current;
     const prevStyles = useRef<string>("");
@@ -16,7 +27,8 @@ export function UsfmStylesPlugin() {
     // The wait time of 200ms can be adjusted based on your needs.
     const throttledUpdateStyles = useThrottledCallback(() => {
         // console.time("usfmStylesPluginMutation");
-        if (mode === EditorModes.SOURCE) {
+        // Dynamic indentation helpers are USFM-mode-only.
+        if (!isUsfmMode) {
             if (prevStyles.current !== "") {
                 dynamicCssStyleSheet.replaceSync("");
                 prevStyles.current = "";
@@ -42,6 +54,14 @@ export function UsfmStylesPlugin() {
     }, 200);
 
     useEffect(() => {
+        // Ensure we don't leak USFM-only dynamic styles into Regular/Raw modes.
+        if (!isUsfmMode && prevStyles.current !== "") {
+            dynamicCssStyleSheet.replaceSync("");
+            prevStyles.current = "";
+        }
+    }, [dynamicCssStyleSheet, isUsfmMode]);
+
+    useEffect(() => {
         // Adopt the stylesheet for the document.
         document.adoptedStyleSheets = [
             ...document.adoptedStyleSheets,
@@ -52,6 +72,10 @@ export function UsfmStylesPlugin() {
         const targetNode = document.querySelector("body") as HTMLElement;
 
         if (!targetNode) {
+            return;
+        }
+
+        if (!isUsfmMode) {
             return;
         }
 
@@ -70,7 +94,7 @@ export function UsfmStylesPlugin() {
 
         // Disconnect the observer on cleanup.
         return () => observer.disconnect();
-    }, [dynamicCssStyleSheet, throttledUpdateStyles]);
+    }, [dynamicCssStyleSheet, isUsfmMode, throttledUpdateStyles]);
 
     return null;
 }

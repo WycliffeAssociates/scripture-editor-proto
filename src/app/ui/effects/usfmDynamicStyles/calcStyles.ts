@@ -6,9 +6,9 @@ import {
 export function getPoetryStylesAsCssStyleSheet(
     markerViewState: EditorMarkersViewState,
 ) {
-    const containers = document.querySelectorAll(
-        '[data-js="editor-container"] p',
-    );
+    // USFM mode uses Lexical <p> blocks; Regular mode uses paragraph containers
+    // and should not rely on this dynamic indentation helper.
+    const containers = document.querySelectorAll(".editor-container p");
     if (!containers.length) return;
     let styles: string = "";
     containers.forEach((container) => {
