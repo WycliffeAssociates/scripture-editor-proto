@@ -167,7 +167,7 @@
       "id": "10",
       "category": "core",
       "description": "Update lint flows to consume adapter + sliding window",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [3]",
         "META touches: src/core/data/usfm/lint.ts; src/app/domain/editor/listeners/lintChecks.ts; src/app/ui/hooks/useLint.tsx; src/app/ui/hooks/useLintFixing.tsx",
@@ -184,7 +184,7 @@
       "id": "11",
       "category": "core",
       "description": "Prettify + format matching + search use adapter",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [3]",
         "META touches: src/app/domain/editor/utils/prettifySerializedNode.ts; src/app/domain/editor/utils/matchFormatting.ts; src/app/domain/search/search.utils.ts",
@@ -216,7 +216,7 @@
       "id": "13",
       "category": "qa",
       "description": "Full regression pass",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]",
         "META touches: []",

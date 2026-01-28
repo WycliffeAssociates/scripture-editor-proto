@@ -53,11 +53,11 @@ export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
 export const USFM_PARAGRAPH_NODE_TYPE = "usfm-paragraph-node" as const;
 
 export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
-    // TokenMap.idMarker,
-    // TokenMap.endMarker,
-    // TokenMap.implicitClose,
-    // TokenMap.marker,
-    // TokenMap.numberRange,
+    TokenMap.idMarker,
+    TokenMap.endMarker,
+    TokenMap.implicitClose,
+    TokenMap.marker,
+    TokenMap.numberRange,
 ]);
 // type more loosel for includions checks
 export const TOKEN_TYPES_CAN_TOGGLE_HIDE = new Set<string>([

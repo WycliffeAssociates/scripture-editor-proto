@@ -433,6 +433,15 @@ export function removeUnwantedLinebreaks(
 
         // 4. Remove linebreaks before verse markers (normalization for inter-verse space)
         if (nextMarker === "v") {
+            // Exception: If previous node was a chapter number, KEEP the linebreak.
+            if (
+                prevIsUSFM &&
+                (previousSibling as SerializedUSFMTextNode).tokenType ===
+                    UsfmTokenTypes.numberRange &&
+                (previousSibling as SerializedUSFMTextNode).marker === "c"
+            ) {
+                return node;
+            }
             return [];
         }
     }
@@ -720,7 +729,7 @@ function rehydrateParagraphs(
             isSerializedUSFMTextNode(token) &&
             token.tokenType === UsfmTokenTypes.marker &&
             token.marker &&
-            VALID_PARA_MARKERS.has(token.marker)
+            (VALID_PARA_MARKERS.has(token.marker) || token.marker === "c")
         ) {
             // Close current paragraph
             if (currentParagraph) {

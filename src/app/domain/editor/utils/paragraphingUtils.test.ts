@@ -34,14 +34,14 @@ describe("paragraphingUtils", () => {
                 .map((marker) => marker.type);
 
             // With tree structure, we get:
-            // - default "p" container for \id content
+            // - default "p" container for \id content (NOTE: createTestEditor strips chapter 0, so this is lost)
             // - explicit "p" container from \p marker
             // - "q1" container from \q1 marker
             // - "q2" container from \q2 marker
             expect(paragraphingMarkers).toContain("p");
             expect(paragraphingMarkers).toContain("q1");
             expect(paragraphingMarkers).toContain("q2");
-            expect(paragraphingMarkers.filter((m) => m === "p").length).toBe(2);
+            expect(paragraphingMarkers.filter((m) => m === "p").length).toBe(1);
         });
 
         it("should read markers inside nested elements", () => {

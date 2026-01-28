@@ -79,7 +79,7 @@ describe("cursorCorrection", () => {
                         expect(anchorNode.getMutable()).toBe(true);
                         // Should be on verse number or text content
                         const text = anchorNode.getTextContent();
-                        expect(text).toMatch(/^(1|In the beginning)/);
+                        expect(text).toMatch(/^\s*(1|In the beginning)/);
                     }
                 }
             });

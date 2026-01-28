@@ -1,7 +1,5 @@
-import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
+import type { SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { Marker } from "@/app/ui/contexts/ParagraphingContext.tsx";
@@ -112,10 +110,11 @@ export function extractMarkersFromSerialized(
 export function stripMarkersFromSerialized(
     nodes: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
+    const flatNodes = materializeFlatTokensArray(nodes);
     const result: SerializedLexicalNode[] = [];
 
     let prevNode: null | SerializedLexicalNode = null;
-    for (const node of nodes) {
+    for (const node of flatNodes) {
         if (isSerializedUSFMTextNode(node)) {
             if (node.tokenType === UsfmTokenTypes.text) {
                 result.push(node);
@@ -136,7 +135,7 @@ export function stripMarkersFromSerialized(
             if (node.tokenType === UsfmTokenTypes.numberRange) {
                 if (
                     prevNode &&
-                    "marker" in prevNode &&
+                    isSerializedUSFMTextNode(prevNode) &&
                     prevNode.marker === "c"
                 ) {
                     result.push(node);
@@ -150,27 +149,10 @@ export function stripMarkersFromSerialized(
         if (node.type === "linebreak") {
             result.push(node);
             prevNode = node;
-            continue;
         }
 
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            prevNode = node;
-            continue;
-        }
-
-        if (isSerializedParagraphNode(node)) {
-            const elementNode = node as SerializedElementNode;
-            if (elementNode.children) {
-                // Flatten children directly into result (don't keep the container)
-                const cleanedChildren = stripMarkersFromSerialized(
-                    elementNode.children,
-                );
-                result.push(...cleanedChildren);
-                if (cleanedChildren.length > 0) {
-                    prevNode = cleanedChildren[cleanedChildren.length - 1];
-                }
-            }
-        }
+        // We drop nested editor nodes themselves, but their children (text)
+        // are included in the flat stream and will be preserved as text.
     }
 
     return result;
