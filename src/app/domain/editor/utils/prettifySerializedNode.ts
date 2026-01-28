@@ -1,15 +1,19 @@
-import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import {
-    isSerializedUSFMNestedEditorNode,
-    type USFMNestedEditorNodeJSON,
-} from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import type { SerializedLexicalNode } from "lexical";
+import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { ALL_USFM_MARKERS } from "@/core/data/usfm/tokens.ts";
+import {
+    isSerializedUSFMParagraphContainer,
+    materializeFlatTokensArray,
+} from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import {
+    ALL_USFM_MARKERS,
+    VALID_PARA_MARKERS,
+} from "@/core/data/usfm/tokens.ts";
 
 export const POETRY_MARKERS = new Set([
     "q",
@@ -39,6 +43,7 @@ export const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
     "pi1",
     "pi2",
     "pi3",
+    "pi4",
     // Section headings
     "s",
     "s1",
@@ -699,6 +704,73 @@ export function prettifySerializedNode(
 }
 
 /**
+ * Rehydrates a flat list of tokens back into USFMParagraphNode containers.
+ * Used when the original input was tree-structured.
+ */
+function rehydrateParagraphs(
+    tokens: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const result: SerializedLexicalNode[] = [];
+    let currentParagraph: USFMParagraphNodeJSON | null = null;
+    let currentChildren: SerializedLexicalNode[] = [];
+
+    for (const token of tokens) {
+        // Check if token is a paragraph marker
+        if (
+            isSerializedUSFMTextNode(token) &&
+            token.tokenType === UsfmTokenTypes.marker &&
+            token.marker &&
+            VALID_PARA_MARKERS.has(token.marker)
+        ) {
+            // Close current paragraph
+            if (currentParagraph) {
+                currentParagraph.children = currentChildren;
+                result.push(currentParagraph);
+            } else if (currentChildren.length > 0) {
+                // Loose nodes before first paragraph
+                result.push(...currentChildren);
+            }
+
+            // Start new paragraph
+            currentChildren = [];
+            currentParagraph = {
+                type: USFM_PARAGRAPH_NODE_TYPE,
+                marker: token.marker,
+                children: [],
+                version: 1,
+                // Reuse ID/SID if available from the synthetic token
+                id: (token as SerializedUSFMTextNode).id,
+                sid: (token as SerializedUSFMTextNode).sid,
+                tokenType: "marker",
+                direction: null,
+                format: "",
+                indent: 0,
+            } as USFMParagraphNodeJSON;
+
+            // Do NOT add the marker token to children
+            continue;
+        }
+
+        // Add to current children
+        if (currentParagraph) {
+            currentChildren.push(token);
+        } else {
+            currentChildren.push(token);
+        }
+    }
+
+    // Close last paragraph
+    if (currentParagraph) {
+        currentParagraph.children = currentChildren;
+        result.push(currentParagraph);
+    } else if (currentChildren.length > 0) {
+        result.push(...currentChildren);
+    }
+
+    return result;
+}
+
+/**
  * Iterates through nodes, maintains context (prev/next), applies prettifySerializedNode,
  * and recursively processes children for ElementNode and USFMNestedEditorNode.
  */
@@ -706,10 +778,20 @@ export function applyPrettifyToNodeTree(
     nodes: SerializedLexicalNode[],
     poetryMarkers: Set<string> = POETRY_MARKERS,
 ): SerializedLexicalNode[] {
-    // 0. Distribute combined verse text
-    const distributedNodes = distributeCombinedVerseText(nodes);
+    // 1. Detect mode (Tree vs Flat)
+    // We check if any top-level node is a paragraph container.
+    // Note: In a mixed state, this heuristic might be imperfect, but usually it's all or nothing.
+    const isTreeMode = nodes.some(isSerializedUSFMParagraphContainer);
 
-    // 1. Merge adjacent text nodes with same SID/marker/tokenType to allow whitespace collapse across nodes
+    // 2. Flatten the input (exclude nested editors)
+    const flatTokens = materializeFlatTokensArray(nodes, {
+        includeNestedEditors: false,
+    });
+
+    // 3. Distribute combined verse text
+    const distributedNodes = distributeCombinedVerseText(flatTokens);
+
+    // 4. Merge adjacent text nodes with same SID/marker/tokenType
     const mergedNodes: SerializedLexicalNode[] = [];
     for (const node of distributedNodes) {
         const lastNode = mergedNodes[mergedNodes.length - 1];
@@ -733,39 +815,37 @@ export function applyPrettifyToNodeTree(
         }
     }
 
+    // 5. Apply Prettify Pipeline
     const intermediateResult: SerializedLexicalNode[] = [];
 
     for (let i = 0; i < mergedNodes.length; i++) {
-        let node = mergedNodes[i];
+        const node = mergedNodes[i];
 
-        // Recursive step for children
-        if (isSerializedParagraphNode(node)) {
-            const elementNode = node as SerializedElementNode;
-            if (elementNode.children) {
-                node = {
-                    ...elementNode,
-                    children: applyPrettifyToNodeTree(
-                        elementNode.children,
-                        poetryMarkers,
-                    ),
-                } as SerializedElementNode;
-            }
-        } else if (isSerializedUSFMNestedEditorNode(node)) {
-            const nestedNode = node as USFMNestedEditorNodeJSON;
-            if (nestedNode.editorState?.root?.children) {
-                node = {
-                    ...nestedNode,
-                    editorState: {
-                        ...nestedNode.editorState,
-                        root: {
-                            ...nestedNode.editorState.root,
-                            children: applyPrettifyToNodeTree(
-                                nestedNode.editorState.root.children,
-                                poetryMarkers,
-                            ),
-                        },
+        // Check for Nested Editor and recurse
+        if (isSerializedUSFMNestedEditorNode(node)) {
+            // Recurse into nested editor
+            const nestedState = node.editorState;
+            if (nestedState && nestedState.root && nestedState.root.children) {
+                const newChildren = applyPrettifyToNodeTree(
+                    nestedState.root.children,
+                    poetryMarkers,
+                );
+
+                // Construct new editor state with prettified children
+                const newEditorState = {
+                    ...nestedState,
+                    root: {
+                        ...nestedState.root,
+                        children: newChildren,
                     },
-                } as USFMNestedEditorNodeJSON;
+                };
+
+                const newNode = {
+                    ...node,
+                    editorState: newEditorState,
+                };
+                intermediateResult.push(newNode);
+                continue;
             }
         }
 
@@ -783,7 +863,7 @@ export function applyPrettifyToNodeTree(
         }
     }
 
-    // Post-process to remove duplicate linebreaks
+    // 6. Post-process to remove duplicate linebreaks
     const finalResult: SerializedLexicalNode[] = [];
     for (const node of intermediateResult) {
         if (
@@ -793,6 +873,11 @@ export function applyPrettifyToNodeTree(
             continue;
         }
         finalResult.push(node);
+    }
+
+    // 7. Rehydrate if needed
+    if (isTreeMode) {
+        return rehydrateParagraphs(finalResult);
     }
 
     return finalResult;

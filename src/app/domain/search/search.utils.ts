@@ -1,53 +1,23 @@
 import type { SerializedLexicalNode } from "lexical";
-import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     isSerializedPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 export function reduceSerializedNodesToText(
     serializedNodes: SerializedLexicalNode[],
     includeUSFM = false,
 ): Record<string, string> {
     const result: Record<string, string> = {};
+    const flatNodes = materializeFlatTokensArray(serializedNodes);
 
-    for (const node of serializedNodes) {
+    for (const node of flatNodes) {
         if (isSerializedPlainTextUSFMTextNode(node) && node.sid) {
             const textToAppend = node.text;
             result[node.sid] = (result[node.sid] || "") + textToAppend;
         } else if (isSerializedUSFMTextNode(node) && node.sid && includeUSFM) {
             result[node.sid] = (result[node.sid] || "") + node.text;
-        }
-
-        if (isSerializedParagraphNode(node)) {
-            const markerPrefix =
-                includeUSFM && (node as USFMParagraphNodeJSON).marker
-                    ? `\\${(node as USFMParagraphNodeJSON).marker}`
-                    : "";
-            const childText = reduceSerializedNodesToText(
-                node.children,
-                includeUSFM,
-            );
-            for (const [sid, text] of Object.entries(childText)) {
-                result[sid] = (result[sid] || "") + markerPrefix + text;
-            }
-        }
-
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            const markerPrefix =
-                includeUSFM && (node as USFMNestedEditorNodeJSON).marker
-                    ? `\\${(node as USFMNestedEditorNodeJSON).marker}*`
-                    : "";
-            const childText = reduceSerializedNodesToText(
-                node.editorState.root.children,
-                includeUSFM,
-            );
-            for (const [sid, text] of Object.entries(childText)) {
-                result[sid] = (result[sid] || "") + markerPrefix + text;
-            }
         }
     }
 

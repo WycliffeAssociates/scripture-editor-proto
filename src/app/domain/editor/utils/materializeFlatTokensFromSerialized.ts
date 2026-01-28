@@ -48,6 +48,10 @@ function createSyntheticParagraphMarkerToken(
     return token;
 }
 
+export type MaterializeOptions = {
+    includeNestedEditors?: boolean;
+};
+
 /**
  * Materializes a flat token stream from serialized Lexical root children.
  *
@@ -63,26 +67,33 @@ function createSyntheticParagraphMarkerToken(
  */
 export function* materializeFlatTokensFromSerialized(
     rootChildren: SerializedLexicalNode[],
+    options: MaterializeOptions = { includeNestedEditors: true },
 ): Generator<SerializedLexicalNode> {
+    const { includeNestedEditors = true } = options;
     for (const node of rootChildren) {
         if (isSerializedUSFMParagraphContainer(node)) {
             // Emit synthetic paragraph marker token
             yield createSyntheticParagraphMarkerToken(node);
             // Then recursively yield children
             const children = node.children ?? [];
-            yield* materializeFlatTokensFromSerialized(children);
+            yield* materializeFlatTokensFromSerialized(children, options);
         } else if (isSerializedUSFMNestedEditorNode(node)) {
             // Yield the nested editor node itself
             yield node;
-            // Also yield its nested content in reading order
-            const nestedChildren = node.editorState?.root?.children;
-            if (nestedChildren) {
-                yield* materializeFlatTokensFromSerialized(nestedChildren);
+            // Also yield its nested content in reading order IF requested
+            if (includeNestedEditors) {
+                const nestedChildren = node.editorState?.root?.children;
+                if (nestedChildren) {
+                    yield* materializeFlatTokensFromSerialized(
+                        nestedChildren,
+                        options,
+                    );
+                }
             }
         } else if (isSerializedElementWithChildren(node)) {
             // Generic element wrappers (e.g. Lexical "paragraph") are not meaningful
             // tokens for downstream consumers; recurse into their children.
-            yield* materializeFlatTokensFromSerialized(node.children);
+            yield* materializeFlatTokensFromSerialized(node.children, options);
         } else {
             // Flat token or other node type - yield as-is
             yield node;
@@ -96,8 +107,9 @@ export function* materializeFlatTokensFromSerialized(
  */
 export function materializeFlatTokensArray(
     rootChildren: SerializedLexicalNode[],
+    options: MaterializeOptions = { includeNestedEditors: true },
 ): SerializedLexicalNode[] {
-    return [...materializeFlatTokensFromSerialized(rootChildren)];
+    return [...materializeFlatTokensFromSerialized(rootChildren, options)];
 }
 
 /**

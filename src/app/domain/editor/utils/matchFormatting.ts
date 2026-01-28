@@ -2,12 +2,12 @@ import type { SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
     POETRY_MARKERS,
     PRETTIFY_LINEBREAK_AFTER_MARKERS,
     PRETTIFY_LINEBREAK_BEFORE_MARKERS,
 } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
-import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 
 /**
@@ -119,8 +119,13 @@ export function matchFormattingToSource(
     targetNodes: SerializedLexicalNode[],
     sourceNodes: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
-    // Convert to array for backwards iteration
-    const allSourceNodes = [...walkNodes(sourceNodes)];
+    // Convert to flat arrays for processing
+    const allSourceNodes = materializeFlatTokensArray(sourceNodes, {
+        includeNestedEditors: false,
+    });
+    const allTargetNodes = materializeFlatTokensArray(targetNodes, {
+        includeNestedEditors: false,
+    });
 
     // Map: SID -> markers/structure that should appear before this verse
     const markersForSid = new Map<string, SerializedLexicalNode[]>();
@@ -194,7 +199,7 @@ export function matchFormattingToSource(
     const buffer: SerializedLexicalNode[] = [];
 
     // Iterate through Target nodes
-    for (const node of walkNodes(targetNodes)) {
+    for (const node of allTargetNodes) {
         if (isVerseMarker(node) && hasSid(node) && node.sid) {
             const sid = node.sid;
 
