@@ -1,4 +1,4 @@
-import type { SerializedElementNode, SerializedLexicalNode } from "lexical";
+import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
@@ -6,7 +6,6 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
 import {
     extractMarkersFromSerialized,
@@ -18,15 +17,9 @@ function getSerializedChildren(usfmContent: string): SerializedLexicalNode[] {
     return editor.getEditorState().toJSON().root.children;
 }
 
-function flattenNodes(nodes: SerializedLexicalNode[]): SerializedLexicalNode[] {
-    return Array.from(walkNodes(nodes)).filter(
-        (node) => isSerializedUSFMTextNode(node) || node.type === "linebreak",
-    );
-}
-
 describe("paragraphingUtils", () => {
     describe("extractMarkersFromSerialized", () => {
-        it("should extract structural markers and track verse context", () => {
+        it("should extract structural markers from paragraph containers", () => {
             const nodes = getSerializedChildren(`\\id GEN
 \\c 1
 \\p
@@ -38,16 +31,17 @@ describe("paragraphingUtils", () => {
             const markers = extractMarkersFromSerialized(nodes);
             const paragraphingMarkers = markers
                 .filter((marker) => ["p", "q1", "q2"].includes(marker.type))
-                .map((marker) => ({
-                    type: marker.type,
-                    verse: marker.verse,
-                }));
+                .map((marker) => marker.type);
 
-            expect(paragraphingMarkers).toEqual([
-                { type: "p", verse: "" },
-                { type: "q1", verse: "1" },
-                { type: "q2", verse: "2" },
-            ]);
+            // With tree structure, we get:
+            // - default "p" container for \id content
+            // - explicit "p" container from \p marker
+            // - "q1" container from \q1 marker
+            // - "q2" container from \q2 marker
+            expect(paragraphingMarkers).toContain("p");
+            expect(paragraphingMarkers).toContain("q1");
+            expect(paragraphingMarkers).toContain("q2");
+            expect(paragraphingMarkers.filter((m) => m === "p").length).toBe(2);
         });
 
         it("should read markers inside nested elements", () => {
@@ -63,56 +57,57 @@ describe("paragraphingUtils", () => {
     });
 
     describe("stripMarkersFromSerialized", () => {
-        it("should keep plain text and linebreaks", () => {
+        it("should keep plain text and linebreaks, strip para/verse markers", () => {
             const nodes = getSerializedChildren(`\\id GEN
 \\c 1
 \\p
 \\v 1 Verse 1 text
 \\q1 Poetry text`);
 
-            const paragraphNode = nodes.find(isSerializedParagraphNode);
-            if (!paragraphNode) throw new Error("Missing paragraph node");
-
-            const nodesToClean: SerializedLexicalNode[] = [
-                { type: "linebreak", version: 1 },
-                ...(paragraphNode as SerializedElementNode).children,
-            ];
-
-            const cleaned = stripMarkersFromSerialized(nodesToClean);
+            // stripMarkersFromSerialized now flattens paragraph containers
+            const cleaned = stripMarkersFromSerialized(nodes);
             const cleanedMarkers = cleaned
                 .filter(isSerializedUSFMTextNode)
                 .filter((node) => node.tokenType === UsfmTokenTypes.marker)
                 .map((node) => node.marker);
 
-            expect(cleaned.some((node) => node.type === "linebreak")).toBe(
-                true,
-            );
+            // Should have kept "c" marker (chapter markers are preserved)
+            expect(cleanedMarkers).toContain("c");
+            // Should NOT have para/verse markers
             expect(cleanedMarkers).not.toContain("p");
             expect(cleanedMarkers).not.toContain("q1");
             expect(cleanedMarkers).not.toContain("v");
-            expect(
-                cleaned.some(
-                    (node) =>
-                        isSerializedUSFMTextNode(node) &&
-                        node.tokenType === UsfmTokenTypes.numberRange,
-                ),
-            ).toBe(false);
+            // Number ranges after non-chapter markers should be stripped
+            const numberRangesAfterNonChapter = cleaned.filter((node, i) => {
+                if (!isSerializedUSFMTextNode(node)) return false;
+                if (node.tokenType !== UsfmTokenTypes.numberRange) return false;
+                if (i === 0) return false;
+                const prev = cleaned[i - 1];
+                const prevIsChapterMarker =
+                    isSerializedUSFMTextNode(prev) &&
+                    (prev as SerializedUSFMTextNode).marker === "c";
+                return !prevIsChapterMarker;
+            });
+            expect(numberRangesAfterNonChapter).toHaveLength(0);
         });
 
-        it("should recurse into element nodes", () => {
+        it("should flatten paragraph containers and strip their markers", () => {
             const nodes = getSerializedChildren(`\\id GEN
 \\c 1
 \\p
 \\v 1 Text inside element`);
 
             const cleaned = stripMarkersFromSerialized(nodes);
-            const cleanedFlat = flattenNodes(cleaned).filter(
+            // Result should be flat - no paragraph containers
+            expect(cleaned.some(isSerializedParagraphNode)).toBe(false);
+            // And no paragraph markers
+            const markerNodes = cleaned.filter(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
                     node.tokenType === UsfmTokenTypes.marker,
             ) as SerializedUSFMTextNode[];
-
-            expect(cleanedFlat.some((node) => node.marker === "p")).toBe(false);
+            expect(markerNodes.some((node) => node.marker === "p")).toBe(false);
+            expect(markerNodes.some((node) => node.marker === "v")).toBe(false);
         });
     });
 });

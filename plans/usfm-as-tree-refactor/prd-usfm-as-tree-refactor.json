@@ -151,7 +151,7 @@
       "id": "9",
       "category": "core",
       "description": "Update paragraphing utilities to use adapter",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [3]",
         "META touches: src/app/domain/editor/utils/paragraphingUtils.ts; src/app/domain/editor/utils/paragraphingUtils.test.ts",
@@ -160,7 +160,7 @@
         "Use the adapter output to extract markers",
         "Update tests to locate the correct paragraph nodes (new type)"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {

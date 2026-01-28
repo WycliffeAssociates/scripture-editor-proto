@@ -3,7 +3,7 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { Marker } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import {
     ALL_USFM_MARKERS,
@@ -64,7 +64,8 @@ export function extractMarkersFromSerialized(
         return textParts.slice(0, 3).join(" ").trim();
     };
 
-    const allNodes = [...walkNodes(nodes)];
+    // Use the flat token adapter to handle both flat and tree structures
+    const allNodes = materializeFlatTokensArray(nodes);
     for (let i = 0; i < allNodes.length; i++) {
         const node = allNodes[i];
         if (!isSerializedUSFMTextNode(node)) continue;
@@ -74,13 +75,8 @@ export function extractMarkersFromSerialized(
             node.marker &&
             STAMPABLE_MARKERS.has(node.marker)
         ) {
-            // Get the following text for context
-            const nodeArray = Array.from(walkNodes(nodes));
-            const currentIndex = nodeArray.indexOf(node);
-            const followingText =
-                currentIndex >= 0
-                    ? getFollowingText(currentIndex + 1, nodeArray)
-                    : "";
+            // Get the following text for context (use allNodes directly since it's already flat)
+            const followingText = getFollowingText(i + 1, allNodes);
 
             // Handle verse markers specially - get verse number immediately
             let verseNumber = "";
@@ -107,8 +103,11 @@ export function extractMarkersFromSerialized(
 }
 
 /**
- * Recursively removes structural markers and linebreaks from a serialized node tree.
+ * Recursively removes structural markers from a serialized node tree.
  * Used to create a "Clean Slate" for Paragraphing Mode.
+ *
+ * For paragraph containers (USFMParagraphNode), their children are flattened
+ * into the result (the container itself is not kept, only its stripped children).
  */
 export function stripMarkersFromSerialized(
     nodes: SerializedLexicalNode[],
@@ -162,16 +161,14 @@ export function stripMarkersFromSerialized(
         if (isSerializedParagraphNode(node)) {
             const elementNode = node as SerializedElementNode;
             if (elementNode.children) {
+                // Flatten children directly into result (don't keep the container)
                 const cleanedChildren = stripMarkersFromSerialized(
                     elementNode.children,
                 );
-                const newElementNode: SerializedElementNode = {
-                    ...elementNode,
-                    children: cleanedChildren,
-                };
-                result.push(newElementNode);
-            } else {
-                result.push(node);
+                result.push(...cleanedChildren);
+                if (cleanedChildren.length > 0) {
+                    prevNode = cleanedChildren[cleanedChildren.length - 1];
+                }
             }
         }
     }
