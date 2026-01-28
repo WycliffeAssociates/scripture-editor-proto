@@ -27,7 +27,7 @@
       "id": "2",
       "category": "core",
       "description": "Regular-mode root shape and wrapping during parse",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1]",
         "META touches: src/app/domain/editor/serialization/fromSerializedToLexical.ts",
@@ -39,7 +39,7 @@
         "Ensure nested editor tokens are handled as-is",
         "Add tests for parse output shape for a simple doc with \\\\p, \\\\q1 markers"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

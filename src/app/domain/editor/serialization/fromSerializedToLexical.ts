@@ -3,7 +3,12 @@ import type {
     SerializedLexicalNode,
     SerializedLineBreakNode,
 } from "lexical";
-import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    USFM_PARAGRAPH_NODE_TYPE,
+    USFM_TEXT_NODE_TYPE,
+    type USFMNodeJSON,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
@@ -11,25 +16,24 @@ import {
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { dedupeErrorMessagesList } from "@/core/data/usfm/lint.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export function parsedUsfmTokensToJsonLexicalNode(
     tokens: ParsedToken[],
     languageDirection: "ltr" | "rtl",
 ): SerializedEditorState<SerializedLexicalNode> {
-    const wrappedPara = {
-        type: "paragraph",
-        version: 1,
-        direction: languageDirection,
-        format: "start",
-        indent: 0,
-        children: tokens
-            .map((t) => serializeToken(t, languageDirection))
-            .filter(Boolean),
-    };
+    const flatNodes = tokens
+        .map((t) => serializeToken(t, languageDirection))
+        .filter(Boolean);
+
+    const paragraphNodes = groupFlatNodesIntoParagraphContainers(
+        flatNodes,
+        languageDirection,
+    );
     return {
         root: {
-            children: [wrappedPara],
+            children: paragraphNodes,
             type: "root",
             version: 1,
             direction: languageDirection,
@@ -38,6 +42,91 @@ export function parsedUsfmTokensToJsonLexicalNode(
         },
     };
 }
+
+function groupFlatNodesIntoParagraphContainers(
+    flatNodes: USFMNodeJSON[],
+    languageDirection: "ltr" | "rtl",
+): USFMNodeJSON[] {
+    type ParagraphContainer = {
+        type: typeof USFM_PARAGRAPH_NODE_TYPE;
+        version: 1;
+        direction: "ltr" | "rtl";
+        format: "start";
+        indent: 0;
+        tokenType: string;
+        id: string;
+        marker: string;
+        inPara: string;
+        children: USFMNodeJSON[];
+    };
+
+    const paragraphs: ParagraphContainer[] = [];
+    let current: ParagraphContainer | null = null;
+    let paraIndex = 0;
+
+    const startParagraph = (marker: string, id: string): ParagraphContainer => {
+        const next: ParagraphContainer = {
+            type: USFM_PARAGRAPH_NODE_TYPE,
+            version: 1,
+            direction: languageDirection,
+            format: "start",
+            indent: 0,
+            tokenType: UsfmTokenTypes.marker,
+            id,
+            marker,
+            inPara: marker,
+            children: [],
+        };
+        paragraphs.push(next);
+        current = next;
+        return next;
+    };
+
+    for (const node of flatNodes) {
+        const paraMarker = getParagraphMarkerFromNode(node);
+        if (paraMarker) {
+            startParagraph(paraMarker.marker, paraMarker.id);
+            continue;
+        }
+
+        if (!current) {
+            current = startParagraph("p", `default-para-${paraIndex++}`);
+        }
+
+        current.children.push(node);
+    }
+
+    // Ensure Regular mode always has at least one paragraph container.
+    if (paragraphs.length === 0) {
+        startParagraph("p", "default-para-0");
+    }
+
+    return paragraphs;
+}
+
+function getParagraphMarkerFromNode(
+    node: USFMNodeJSON,
+): { marker: string; id: string } | null {
+    // USFMTextNode serializes as Lexical's built-in `type: "text"`.
+    if (node.type !== "text") return null;
+    if ((node as { lexicalType?: string }).lexicalType !== USFM_TEXT_NODE_TYPE)
+        return null;
+
+    const maybe = node as {
+        tokenType?: string;
+        marker?: string;
+        id?: string;
+    };
+    if (maybe.tokenType !== UsfmTokenTypes.marker) return null;
+    if (!maybe.marker) return null;
+    if (!isValidParaMarker(maybe.marker)) return null;
+
+    return {
+        marker: maybe.marker,
+        id: maybe.id ?? `para-marker-${maybe.marker}`,
+    };
+}
+
 function serializeToken(
     token: ParsedToken,
     languageDirection: "ltr" | "rtl",

@@ -12,3 +12,5 @@
 - Note: PRD tasks were converted from the existing markdown PRD into plans/usfm-as-tree-refactor/prd-usfm-as-tree-refactor.json.
 
 - Completed Task 1: renamed USFMElementNode -> USFMParagraphNode, updated serialized type to usfm-paragraph-node, and updated registrations/guards/imports.
+
+- Completed Task 2: on initial parse, group flat parsed token nodes into top-level USFMParagraphNode containers based on paragraph markers (defaulting leading content to p).
