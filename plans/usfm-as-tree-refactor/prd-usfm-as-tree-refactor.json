@@ -98,7 +98,7 @@
       "id": "6",
       "category": "core",
       "description": "Regular-mode structural enforcement (maintainDocumentStructure)",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1, 2]",
         "META touches: src/app/domain/editor/listeners/maintainDocumentStructure.ts",
@@ -108,7 +108,7 @@
         "Ensure each paragraph has an editable fallback child",
         "Verify existing verse/numberRange invariants still apply inside paragraph containers"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

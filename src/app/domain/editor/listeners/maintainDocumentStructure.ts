@@ -4,19 +4,23 @@ import {
     $isLineBreakNode,
     type EditorState,
     type LexicalEditor,
+    type LexicalNode,
 } from "lexical";
 import {
     EDITOR_TAGS_USED,
-    EditorMarkersMutableStates,
     EditorModes,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
+    $createUSFMParagraphNode,
+    $isUSFMParagraphNode,
+    type USFMParagraphNode,
+} from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import {
     $createUSFMTextNode,
     $isUSFMTextNode,
-    $isVerseRangeTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
@@ -24,7 +28,7 @@ import {
     CHAPTER_VERSE_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
+import { markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 
 export type DocStructureFxnArgs = {
     node: USFMTextNode;
@@ -112,7 +116,102 @@ export function maintainDocumentStructure(
             `maintain document structure total updates: ${totalUpdates}`,
         );
     }
-    // console.timeEnd("maintainDocumentStructure");
+
+    // Regular-mode structural enforcement
+    if (appSettings.mode === EditorModes.WYSIWYG) {
+        enforceRegularModeParagraphStructure(editor);
+    }
+}
+
+/**
+ * Ensures Regular mode root children are all USFMParagraphNode containers.
+ * Stray nodes at root level are wrapped into a default paragraph container.
+ */
+function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
+    editor.update(
+        () => {
+            const root = $getRoot();
+            const children = root.getChildren();
+            const strayNodes: LexicalNode[] = [];
+            let lastParagraph: USFMParagraphNode | null = null;
+
+            for (const child of children) {
+                if ($isUSFMParagraphNode(child)) {
+                    // If we accumulated stray nodes, move them into the previous paragraph
+                    // or create a new default paragraph
+                    if (strayNodes.length > 0) {
+                        const targetParagraph =
+                            lastParagraph ??
+                            $createUSFMParagraphNode({
+                                id: guidGenerator(),
+                                marker: "p",
+                            });
+
+                        if (!lastParagraph) {
+                            // Insert new paragraph before current child
+                            child.insertBefore(targetParagraph);
+                        }
+
+                        // Move stray nodes into the paragraph
+                        for (const stray of strayNodes) {
+                            targetParagraph.append(stray);
+                        }
+                        strayNodes.length = 0;
+                    }
+                    lastParagraph = child;
+
+                    // Ensure paragraph has at least one editable child
+                    if (child.getChildrenSize() === 0) {
+                        const placeholder = $createUSFMTextNode(" ", {
+                            id: guidGenerator(),
+                            inPara: child.getMarker() ?? "p",
+                            tokenType: UsfmTokenTypes.text,
+                        });
+                        child.append(placeholder);
+                    }
+                } else {
+                    // Stray node at root - collect for wrapping
+                    strayNodes.push(child);
+                }
+            }
+
+            // Handle remaining stray nodes at the end
+            if (strayNodes.length > 0) {
+                const targetParagraph =
+                    lastParagraph ??
+                    $createUSFMParagraphNode({
+                        id: guidGenerator(),
+                        marker: "p",
+                    });
+
+                if (!lastParagraph) {
+                    root.append(targetParagraph);
+                }
+
+                for (const stray of strayNodes) {
+                    targetParagraph.append(stray);
+                }
+            }
+
+            // Ensure root has at least one paragraph
+            if (root.getChildrenSize() === 0) {
+                const defaultParagraph = $createUSFMParagraphNode({
+                    id: guidGenerator(),
+                    marker: "p",
+                });
+                const placeholder = $createUSFMTextNode(" ", {
+                    id: guidGenerator(),
+                    inPara: "p",
+                    tokenType: UsfmTokenTypes.text,
+                });
+                defaultParagraph.append(placeholder);
+                root.append(defaultParagraph);
+            }
+        },
+        {
+            tag: [EDITOR_TAGS_USED.historyMerge],
+        },
+    );
 }
 
 // This function shouldn't be run often. It's just to keep the dom size down by merging similar nodes and anythign else that isn't frame rate sensitive.. when it wasn't debounced, it was causing issues with copy/paste

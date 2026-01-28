@@ -20,3 +20,5 @@
 - Completed Task 4: updated serializeToUsfmString in src/app/domain/editor/serialization/lexicalToUsfm.ts to use the flat token adapter. Removed manual recursive traversal; now iterates over adapter output. Works for both flat and tree structures without branching.
 
 - Completed Task 5: implemented explicit tree↔flat transforms for mode switching. Added `flattenParagraphContainersToFlatTokens` (tree→flat for Source mode) and `groupFlatTokensIntoParagraphContainers` (flat→tree for Regular mode) in modeAdjustments.ts. Updated useModeSwitching.tsx to use these transforms. Node IDs preserved where possible.
+
+- Completed Task 6: added Regular-mode structural enforcement in maintainDocumentStructure.ts. New `enforceRegularModeParagraphStructure` function ensures root children are USFMParagraphNode containers, wraps stray nodes, and ensures paragraphs have editable fallback children. Added `$createUSFMParagraphNode` factory function.

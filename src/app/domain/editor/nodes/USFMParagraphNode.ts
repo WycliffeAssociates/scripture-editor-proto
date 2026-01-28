@@ -5,6 +5,7 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 import {
+    $create,
     $getState,
     $getStateChange,
     $setState,
@@ -174,4 +175,25 @@ export function isSerializedParagraphNode(
         node.type === "paragraph" ||
         node.type === "usfm-element-node"
     );
+}
+
+/* Factory */
+
+export type CreateUSFMParagraphNodeParams = {
+    id: string;
+    marker: string;
+    inPara?: string;
+    tokenType?: string;
+};
+
+export function $createUSFMParagraphNode(
+    params: CreateUSFMParagraphNodeParams,
+): USFMParagraphNode {
+    const node = $create(USFMParagraphNode);
+    const writable = node.getWritable();
+    $setState(writable, idState, params.id);
+    $setState(writable, markerState, params.marker);
+    $setState(writable, inParaState, params.inPara ?? params.marker);
+    $setState(writable, tokenTypeState, params.tokenType ?? "marker");
+    return node;
 }
