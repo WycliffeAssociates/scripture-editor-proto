@@ -1,7 +1,7 @@
 import { useDebouncedCallback } from "@mantine/hooks";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
-import { EDITOR_TAGS_USED, EditorModes } from "@/app/data/editor.ts";
+import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import {
     maintainDocumentStructure,
     maintainDocumentStructureDebounced,
@@ -21,7 +21,6 @@ const structuralUpdateDebounceMs = 500;
  */
 export function useEditorStructure(editor: LexicalEditor) {
     const { project } = useWorkspaceContext();
-    const { mode } = project.appSettings;
     const { bookCode } = project.pickedFile;
 
     const debouncedStructuralUpdates = useDebouncedCallback(
@@ -61,12 +60,6 @@ export function useEditorStructure(editor: LexicalEditor) {
     );
 
     useEffect(() => {
-        if (mode === EditorModes.SOURCE) {
-            console.log("mode === EditorModes.SOURCE");
-            // NOOOP NO EFFECTS IN THIS MODE
-            return;
-        }
-
         const maintainMetadata = editor.registerUpdateListener(
             ({
                 editorState,
@@ -125,10 +118,5 @@ export function useEditorStructure(editor: LexicalEditor) {
         };
 
         return cleanup;
-    }, [
-        mode,
-        editor,
-        debouncedEditorChangeListener,
-        debouncedStructuralUpdates,
-    ]);
+    }, [editor, debouncedEditorChangeListener, debouncedStructuralUpdates]);
 }

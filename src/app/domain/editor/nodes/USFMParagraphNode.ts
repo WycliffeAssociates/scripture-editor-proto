@@ -4,14 +4,7 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import {
-    $create,
-    $getState,
-    $getStateChange,
-    $setState,
-    ElementNode,
-    TextNode,
-} from "lexical";
+import { $create, $getState, $setState, ElementNode, TextNode } from "lexical";
 import { USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
 import {
     idState,
@@ -138,17 +131,29 @@ export class USFMParagraphNode extends ElementNode {
     updateDOM(
         prevNode: USFMParagraphNode,
         dom: HTMLElement,
-        config: EditorConfig,
+        _config: EditorConfig,
     ): boolean {
-        // super.updateDOM returns true if the text content or format has changed.
-        let needsUpdate = super.updateDOM(prevNode as this, dom, config);
-        [sidState, inParaState, markerState, tokenTypeState].forEach((s) => {
-            // biome-ignore lint/suspicious/noExplicitAny: <we dont' care about generic return of getStateChange which is mixed passed in from array
-            if ($getStateChange(this, prevNode, s as any)) {
-                needsUpdate = true;
+        const prev = prevNode.getAllStates();
+        const next = this.getAllStates();
+
+        const ds = dom.dataset as unknown as Record<string, string>;
+
+        (Object.keys(next) as Array<keyof typeof next>).forEach((key) => {
+            const nextVal = next[key];
+            const prevVal = prev[key];
+            if (nextVal === prevVal) return;
+
+            const dsKey = key as unknown as string;
+            if (nextVal == null || nextVal === "") {
+                delete ds[dsKey];
+                return;
             }
+
+            ds[dsKey] = String(nextVal);
         });
-        return needsUpdate;
+
+        // Returning false tells Lexical it can keep the existing DOM element.
+        return false;
     }
     canBeEmpty(): boolean {
         return true;

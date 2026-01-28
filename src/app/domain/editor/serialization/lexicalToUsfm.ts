@@ -21,6 +21,7 @@ import {
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
 // function $serializedLexicalToUsfm(editor: LexicalEditor) {

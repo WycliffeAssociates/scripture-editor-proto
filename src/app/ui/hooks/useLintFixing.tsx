@@ -100,8 +100,8 @@ export function useLintFixing({
                 chapter.lexicalState,
                 chapter.chapNumber,
             );
-            const ctx = initParseContext(flatTokens as any);
-            const newErrors = lintExistingUsfmTokens(flatTokens as any, ctx);
+            const ctx = initParseContext(flatTokens);
+            const newErrors = lintExistingUsfmTokens(flatTokens, ctx);
             updateLintErrors(file.bookCode, chapter.chapNumber, newErrors);
         }
     }

@@ -28,10 +28,10 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
-    const { editorRef } = useWorkspaceContext();
+    const { editorRef, project } = useWorkspaceContext();
 
     return (
-        <div className="p-2">
+        <div className="p-2" data-mode={project?.appSettings.mode}>
             <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div

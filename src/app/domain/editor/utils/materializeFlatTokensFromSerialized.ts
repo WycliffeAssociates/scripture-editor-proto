@@ -8,6 +8,12 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
+function isSerializedElementWithChildren(
+    node: SerializedLexicalNode,
+): node is SerializedLexicalNode & { children: SerializedLexicalNode[] } {
+    return Array.isArray((node as { children?: unknown }).children);
+}
+
 /**
  * Detect whether a serialized node is a USFMParagraphNode container.
  * This is the new tree-structured paragraph container (not the legacy Lexical "paragraph" or "usfm-element-node").
@@ -26,7 +32,7 @@ function createSyntheticParagraphMarkerToken(
     paragraphNode: USFMParagraphNodeJSON,
 ): SerializedUSFMTextNode {
     const marker = paragraphNode.marker ?? "p";
-    return createSerializedUSFMTextNode({
+    const token = createSerializedUSFMTextNode({
         text: `\\${marker} `,
         id: paragraphNode.id ?? guidGenerator(),
         sid: paragraphNode.sid ?? "",
@@ -35,7 +41,11 @@ function createSyntheticParagraphMarkerToken(
         inPara: marker,
         show: true,
         isMutable: true,
-    });
+    }) as SerializedUSFMTextNode & { isSyntheticParaMarker: true };
+
+    // Used by lint/autofix logic to avoid anchoring fixes to container-derived tokens.
+    token.isSyntheticParaMarker = true;
+    return token;
 }
 
 /**
@@ -69,6 +79,10 @@ export function* materializeFlatTokensFromSerialized(
             if (nestedChildren) {
                 yield* materializeFlatTokensFromSerialized(nestedChildren);
             }
+        } else if (isSerializedElementWithChildren(node)) {
+            // Generic element wrappers (e.g. Lexical "paragraph") are not meaningful
+            // tokens for downstream consumers; recurse into their children.
+            yield* materializeFlatTokensFromSerialized(node.children);
         } else {
             // Flat token or other node type - yield as-is
             yield node;

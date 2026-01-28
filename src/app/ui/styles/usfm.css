@@ -1,4 +1,6 @@
 body:not(.source-mode) {
+  line-height: 1.4;
+
   .verse-number,
   [data-marker="v"] {
     font-size: 0.8em;
@@ -10,7 +12,14 @@ body:not(.source-mode) {
   [data-token-type="endMarker"] {
     /* display: inline-block; */
     align-items: center;
+  }
+
+  [data-token-type="numberRange"] {
     color: var(--color-blue-700);
+  }
+
+  [data-token-type="text"] {
+    color: inherit;
   }
 
   [data-usfm-type="para"] {
@@ -116,14 +125,14 @@ body:not(.source-mode) {
 
   [data-marker-view-state="never"]
     :where(
-      [data-token-type="marker"][data-marker],
-      [data-token-type="endMarker"][data-marker]
+      span[data-token-type="marker"][data-marker],
+      span[data-token-type="endMarker"][data-marker]
     )
     + br,
   [data-marker-view-state="never"]
     :where(
-      [data-token-type="marker"][data-marker],
-      [data-token-type="endMarker"][data-marker]
+      span[data-token-type="marker"][data-marker],
+      span[data-token-type="endMarker"][data-marker]
     ) {
     display: none !important;
   }
@@ -145,13 +154,13 @@ body:not(.source-mode) {
 
   [data-marker-view-state="never"]
     :where(
-      [data-token-type="marker"][data-marker].paragraphing-reference-highlight,
-      [data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
+      span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
+      span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
     ),
   [data-marker-view-state="never"]
     :where(
-      [data-token-type="marker"][data-marker].paragraphing-reference-highlight,
-      [data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
+      span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
+      span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
     )
     + br {
     display: inline-block !important;
@@ -183,4 +192,19 @@ body:not(.source-mode) {
 }
 .nested-editor:has(+ .isParaMarker)::after {
   content: "";
+}
+
+/* Hide empty paragraph elements and those containing only markers */
+.editor-container
+  div[data-token-type="marker"]:not(:has([data-token-type="text"])):not(
+    :has([data-token-type="numberRange"])
+  ) {
+  display: none;
+}
+
+/* Special case: show paragraphs that have text content or number ranges */
+.editor-container div[data-token-type="marker"]:has([data-token-type="text"]),
+.editor-container
+  div[data-token-type="marker"]:has([data-token-type="numberRange"]) {
+  display: block;
 }

@@ -32,6 +32,7 @@ export type ParseContext<T extends LintableToken> = {
     prevToken: T | null;
     nextToken: T | null;
     twoFromCurrent: T | null;
+    tokenIndex: number;
     foundChapterLabels: {
         order: string[]; // in order of discovery
         map: Map<string, T[]>; // label -> tokens
@@ -68,6 +69,7 @@ export function initParseContext<T extends LintableToken>(
         prevToken: null,
         nextToken: null,
         twoFromCurrent: null,
+        tokenIndex: -1,
         foundChapterLabels: { order: [], map: new Map() },
         lintChapters: { seen: new Set(), list: [] },
         lintVerseNums: { byChapter: new Map() },
@@ -99,6 +101,7 @@ export function parseTokens<T extends LintableToken>(
         ctx.prevToken = ctx.parseTokens[i - 1] ?? null;
         ctx.nextToken = ctx.parseTokens[i + 1] ?? null;
         ctx.twoFromCurrent = ctx.parseTokens[i + 2] ?? null;
+        ctx.tokenIndex = i;
 
         [
             checkAndSetIfLastMarker,
@@ -150,13 +153,18 @@ function checkForHangingNoteStacks<T extends LintableToken>(
     if (!t) return;
     if (t.isParaMarker || t.tokenType === TokenMap.verticalWhitespace) {
         if (ctx.charStack.length || ctx.noteParent) {
+            const prevAnchorToken = findPrevAnchorToken(ctx);
             if (ctx.charStack.length) {
                 const marker = ctx.charStack[0];
+                // Prefer attaching the error to a real token node (avoid synthetic
+                // paragraph markers and other non-serialized boundary tokens).
+                const nodeIdForError =
+                    prevAnchorToken?.id ?? ctx.lastMarker?.id ?? t.id;
                 const err: LintError = {
                     message: `Character marker ${marker} left at opening of new paragraph at ${t.sid}`,
                     sid: t.sid ?? "",
                     msgKey: LintErrorKeys.charNotClosed,
-                    nodeId: t.id,
+                    nodeId: nodeIdForError,
                 };
                 ctx.errorMessages.push(err);
                 //   just push the error to the nearest paragraph node:
@@ -165,10 +173,9 @@ function checkForHangingNoteStacks<T extends LintableToken>(
             }
             if (ctx.noteParent) {
                 const marker = ctx.noteParent.marker ?? "";
-                const nodeIdForFix =
-                    t.tokenType === TokenMap.verticalWhitespace
-                        ? (ctx.prevToken?.id ?? "")
-                        : t.id;
+                // Insert the closing marker just before the paragraph break.
+                // (Paragraph markers / whitespace may be synthetic; always target a real token node.)
+                const nodeIdForFix = prevAnchorToken?.id ?? ctx.noteParent.id;
                 const err: LintError = {
                     message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${t.sid}`,
                     sid: t.sid ?? "",
@@ -192,6 +199,21 @@ function checkForHangingNoteStacks<T extends LintableToken>(
             ctx.noteParent = null;
         }
     }
+}
+
+function findPrevAnchorToken<T extends LintableToken>(
+    ctx: ParseContext<T>,
+): T | null {
+    // When linting Regular-mode trees, paragraph markers can be adapter-generated
+    // tokens (not present in the serialized editor state). Likewise, vertical
+    // whitespace tokens are synthetic. Autofixes must anchor to a real token id.
+    for (let i = ctx.tokenIndex - 1; i >= 0; i--) {
+        const candidate = ctx.parseTokens[i];
+        if (candidate.isSyntheticParaMarker) continue;
+        if (candidate.tokenType === TokenMap.verticalWhitespace) continue;
+        return candidate;
+    }
+    return null;
 }
 
 function checkIfValidParaMarker<T extends LintableToken>(ctx: ParseContext<T>) {

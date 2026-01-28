@@ -55,6 +55,8 @@ export type LintableToken = {
     marker?: string;
     lintErrors?: Array<LintError>;
     isParaMarker?: boolean;
+    /** True only for adapter-generated paragraph marker tokens (Regular mode containers). */
+    isSyntheticParaMarker?: boolean;
     inPara?: string;
     inChars?: Array<string>;
     id: string;

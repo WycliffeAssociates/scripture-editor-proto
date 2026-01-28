@@ -43,6 +43,11 @@ export function parsedUsfmTokensToJsonLexicalNode(
     };
 }
 
+const isSectionMarker = (marker: string) =>
+    marker === "s" || /^s\d+$/u.test(marker);
+const isContainerStartMarker = (marker: string) =>
+    isValidParaMarker(marker) || marker === "c" || isSectionMarker(marker);
+
 function groupFlatNodesIntoParagraphContainers(
     flatNodes: USFMNodeJSON[],
     languageDirection: "ltr" | "rtl",
@@ -64,6 +69,24 @@ function groupFlatNodesIntoParagraphContainers(
     let current: ParagraphContainer | null = null;
     let paraIndex = 0;
 
+    const dropLeadingEmptyDefaultParagraphIfNeeded = () => {
+        if (!current) return;
+        if (!current.id.startsWith("default-para-")) return;
+        if (current.marker !== "p") return;
+        if (current.children.length === 0) {
+            paragraphs.pop();
+            current = null;
+            return;
+        }
+        const hasOnlyLineBreaks = current.children.every(
+            (child) => (child as { type?: string }).type === "linebreak",
+        );
+        if (hasOnlyLineBreaks) {
+            paragraphs.pop();
+            current = null;
+        }
+    };
+
     const startParagraph = (marker: string, id: string): ParagraphContainer => {
         const next: ParagraphContainer = {
             type: USFM_PARAGRAPH_NODE_TYPE,
@@ -83,13 +106,21 @@ function groupFlatNodesIntoParagraphContainers(
     };
 
     for (const node of flatNodes) {
-        const paraMarker = getParagraphMarkerFromNode(node);
-        if (paraMarker) {
-            startParagraph(paraMarker.marker, paraMarker.id);
+        const containerStartMarker = getContainerStartMarkerFromNode(node);
+        if (containerStartMarker) {
+            // Avoid emitting a synthetic leading \p when the file starts with
+            // a top-level structural marker (like \c).
+            dropLeadingEmptyDefaultParagraphIfNeeded();
+            startParagraph(
+                containerStartMarker.marker,
+                containerStartMarker.id,
+            );
             continue;
         }
 
         if (!current) {
+            // Avoid creating a leading empty default paragraph for pure whitespace/linebreaks.
+            if ((node as { type?: string }).type === "linebreak") continue;
             current = startParagraph("p", `default-para-${paraIndex++}`);
         }
 
@@ -104,13 +135,16 @@ function groupFlatNodesIntoParagraphContainers(
     return paragraphs;
 }
 
-function getParagraphMarkerFromNode(
+function getContainerStartMarkerFromNode(
     node: USFMNodeJSON,
 ): { marker: string; id: string } | null {
-    // USFMTextNode serializes as Lexical's built-in `type: "text"`.
-    if (node.type !== "text") return null;
-    if ((node as { lexicalType?: string }).lexicalType !== USFM_TEXT_NODE_TYPE)
-        return null;
+    // Back-compat: older serialized states used `type: "text"` + `lexicalType`.
+    const isUsfmTextNode =
+        node.type === USFM_TEXT_NODE_TYPE ||
+        (node.type === "text" &&
+            (node as { lexicalType?: string }).lexicalType ===
+                USFM_TEXT_NODE_TYPE);
+    if (!isUsfmTextNode) return null;
 
     const maybe = node as {
         tokenType?: string;
@@ -119,7 +153,7 @@ function getParagraphMarkerFromNode(
     };
     if (maybe.tokenType !== UsfmTokenTypes.marker) return null;
     if (!maybe.marker) return null;
-    if (!isValidParaMarker(maybe.marker)) return null;
+    if (!isContainerStartMarker(maybe.marker)) return null;
 
     return {
         marker: maybe.marker,

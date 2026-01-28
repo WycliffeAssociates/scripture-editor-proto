@@ -1,7 +1,12 @@
 import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+
+function isSerializedElementWithChildren(
+    node: SerializedLexicalNode,
+): node is SerializedLexicalNode & { children: SerializedLexicalNode[] } {
+    return Array.isArray((node as { children?: unknown }).children);
+}
 
 /**
  * Generator to walk through all chapters in a set of files.
@@ -25,13 +30,13 @@ export function* walkNodes(
 ): Generator<SerializedLexicalNode> {
     for (const node of nodes) {
         yield node;
-        if (isSerializedParagraphNode(node)) {
-            yield* walkNodes(node.children || []);
-        } else if (isSerializedUSFMNestedEditorNode(node)) {
+        if (isSerializedUSFMNestedEditorNode(node)) {
             const children = node.editorState?.root?.children;
             if (children) {
                 yield* walkNodes(children);
             }
+        } else if (isSerializedElementWithChildren(node)) {
+            yield* walkNodes(node.children);
         }
     }
 }
@@ -52,13 +57,13 @@ function* walkNodesWithContext(
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
         yield { node, parentArray: nodes, index: i };
-        if (isSerializedParagraphNode(node)) {
-            yield* walkNodesWithContext(node.children || []);
-        } else if (isSerializedUSFMNestedEditorNode(node)) {
+        if (isSerializedUSFMNestedEditorNode(node)) {
             const children = node.editorState?.root?.children;
             if (children) {
                 yield* walkNodesWithContext(children);
             }
+        } else if (isSerializedElementWithChildren(node)) {
+            yield* walkNodesWithContext(node.children);
         }
     }
 }

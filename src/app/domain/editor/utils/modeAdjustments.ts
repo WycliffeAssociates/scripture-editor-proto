@@ -166,6 +166,25 @@ export function flattenParagraphContainersToFlatTokens(
 }
 
 /**
+ * Lexical root nodes can only contain ElementNode or DecoratorNode children.
+ * In Source/Raw mode we represent the document as a flat token stream, which
+ * includes Text/LineBreak nodes; those must be wrapped in an element.
+ */
+export function wrapFlatTokensInLexicalParagraph(
+    flatTokens: SerializedLexicalNode[],
+    languageDirection: "ltr" | "rtl" = "ltr",
+): SerializedElementNode {
+    return {
+        type: "paragraph",
+        version: 1,
+        direction: languageDirection,
+        format: "",
+        indent: 0,
+        children: flatTokens,
+    };
+}
+
+/**
  * Groups flat tokens into paragraph containers for Regular mode.
  * Scans for paragraph marker tokens and groups subsequent tokens into containers.
  */
@@ -181,12 +200,35 @@ export function groupFlatTokensIntoParagraphContainers(
     let current: ParagraphContainer | null = null;
     let paraIndex = 0;
 
+    const isSectionMarker = (marker: string) =>
+        marker === "s" || /^s\d+$/u.test(marker);
+    const isContainerStartMarker = (marker: string) =>
+        isValidParaMarker(marker) || marker === "c" || isSectionMarker(marker);
+
+    const dropLeadingEmptyDefaultParagraphIfNeeded = () => {
+        if (!current) return;
+        if (!current.id.startsWith("default-para-")) return;
+        if (current.marker !== "p") return;
+        if (current.children.length === 0) {
+            paragraphs.pop();
+            current = null;
+            return;
+        }
+        const hasOnlyLineBreaks = current.children.every(
+            (child) => (child as SerializedLexicalNode).type === "linebreak",
+        );
+        if (hasOnlyLineBreaks) {
+            paragraphs.pop();
+            current = null;
+        }
+    };
+
     const startParagraph = (marker: string, id: string): ParagraphContainer => {
         const next: ParagraphContainer = {
             type: USFM_PARAGRAPH_NODE_TYPE,
             version: 1,
             direction: languageDirection,
-            format: 0,
+            format: "",
             indent: 0,
             tokenType: UsfmTokenTypes.marker,
             id,
@@ -200,22 +242,28 @@ export function groupFlatTokensIntoParagraphContainers(
     };
 
     for (const node of flatTokens) {
-        // Check if this is a paragraph marker token
+        // Start a new container on certain marker tokens.
         if (isSerializedUSFMTextNode(node)) {
             const textNode = node as SerializedUSFMTextNode;
             if (
                 textNode.tokenType === UsfmTokenTypes.marker &&
                 textNode.marker &&
-                isValidParaMarker(textNode.marker)
+                isContainerStartMarker(textNode.marker)
             ) {
-                // Start new paragraph, use the marker token's ID
+                // If we created a default paragraph only to hold leading whitespace,
+                // drop it so we don't emit a synthetic leading \p.
+                dropLeadingEmptyDefaultParagraphIfNeeded();
+
+                // Start new container, use the marker token's ID.
                 startParagraph(textNode.marker, textNode.id);
                 continue;
             }
         }
 
-        // If no current paragraph, create default
+        // If no current paragraph, create default (only when we encounter content).
         if (!current) {
+            // Avoid creating a leading empty default paragraph for pure whitespace/linebreaks.
+            if (node.type === "linebreak") continue;
             current = startParagraph("p", `default-para-${paraIndex++}`);
         }
 

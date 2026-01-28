@@ -1,6 +1,7 @@
 import { $dfsIterator, type DFSNode } from "@lexical/utils";
 import {
     $getRoot,
+    $isElementNode,
     $isLineBreakNode,
     type EditorState,
     type LexicalEditor,
@@ -8,6 +9,7 @@ import {
 } from "lexical";
 import {
     EDITOR_TAGS_USED,
+    EditorMarkersMutableStates,
     EditorModes,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
@@ -21,6 +23,7 @@ import {
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
+    $isVerseRangeTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
@@ -28,7 +31,7 @@ import {
     CHAPTER_VERSE_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
+import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 
 export type DocStructureFxnArgs = {
     node: USFMTextNode;
@@ -132,66 +135,87 @@ function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
         () => {
             const root = $getRoot();
             const children = root.getChildren();
-            const strayNodes: LexicalNode[] = [];
-            let lastParagraph: USFMParagraphNode | null = null;
+            const strayRun: LexicalNode[] = [];
+
+            const ensureParagraphHasEditableFallback = (
+                para: USFMParagraphNode,
+            ) => {
+                if (para.getChildrenSize() > 0) return;
+                const placeholder = $createUSFMTextNode(" ", {
+                    id: guidGenerator(),
+                    inPara: para.getMarker() ?? "p",
+                    tokenType: UsfmTokenTypes.text,
+                });
+                para.append(placeholder);
+            };
+
+            const flushStrayRunBefore = (anchor: LexicalNode | null) => {
+                if (strayRun.length === 0) return;
+                const para = $createUSFMParagraphNode({
+                    id: guidGenerator(),
+                    marker: "p",
+                });
+
+                if (anchor) {
+                    anchor.insertBefore(para);
+                } else {
+                    root.append(para);
+                }
+
+                for (const stray of strayRun) {
+                    para.append(stray);
+                }
+                strayRun.length = 0;
+                ensureParagraphHasEditableFallback(para);
+            };
 
             for (const child of children) {
                 if ($isUSFMParagraphNode(child)) {
-                    // If we accumulated stray nodes, move them into the previous paragraph
-                    // or create a new default paragraph
-                    if (strayNodes.length > 0) {
-                        const targetParagraph =
-                            lastParagraph ??
-                            $createUSFMParagraphNode({
-                                id: guidGenerator(),
-                                marker: "p",
-                            });
-
-                        if (!lastParagraph) {
-                            // Insert new paragraph before current child
-                            child.insertBefore(targetParagraph);
-                        }
-
-                        // Move stray nodes into the paragraph
-                        for (const stray of strayNodes) {
-                            targetParagraph.append(stray);
-                        }
-                        strayNodes.length = 0;
-                    }
-                    lastParagraph = child;
-
-                    // Ensure paragraph has at least one editable child
-                    if (child.getChildrenSize() === 0) {
-                        const placeholder = $createUSFMTextNode(" ", {
-                            id: guidGenerator(),
-                            inPara: child.getMarker() ?? "p",
-                            tokenType: UsfmTokenTypes.text,
-                        });
-                        child.append(placeholder);
-                    }
-                } else {
-                    // Stray node at root - collect for wrapping
-                    strayNodes.push(child);
+                    flushStrayRunBefore(child);
+                    ensureParagraphHasEditableFallback(child);
+                    continue;
                 }
-            }
 
-            // Handle remaining stray nodes at the end
-            if (strayNodes.length > 0) {
-                const targetParagraph =
-                    lastParagraph ??
-                    $createUSFMParagraphNode({
+                if ($isElementNode(child) && child.getType() === "paragraph") {
+                    // Only treat Lexical built-in paragraph nodes as legacy wrappers.
+                    // Each wrapper becomes its own USFMParagraphNode (no cross-wrapper merges).
+                    flushStrayRunBefore(child);
+
+                    const wrapperChildren = child.getChildren();
+                    if (
+                        wrapperChildren.length === 1 &&
+                        $isUSFMParagraphNode(wrapperChildren[0])
+                    ) {
+                        // Legacy shape: root -> paragraph -> usfm-paragraph-node
+                        // Hoist the existing paragraph container without unwrapping anything else.
+                        child.insertBefore(wrapperChildren[0]);
+                        child.remove();
+                        ensureParagraphHasEditableFallback(
+                            wrapperChildren[0] as USFMParagraphNode,
+                        );
+                        continue;
+                    }
+
+                    const para = $createUSFMParagraphNode({
                         id: guidGenerator(),
                         marker: "p",
                     });
-
-                if (!lastParagraph) {
-                    root.append(targetParagraph);
+                    child.insertBefore(para);
+                    for (const wrapperChild of wrapperChildren) {
+                        para.append(wrapperChild);
+                    }
+                    child.remove();
+                    ensureParagraphHasEditableFallback(para);
+                    continue;
                 }
 
-                for (const stray of strayNodes) {
-                    targetParagraph.append(stray);
-                }
+                // Do not unwrap arbitrary root element nodes; preserve them as-is.
+                // If they are at root, wrap the entire node into a default paragraph container.
+                strayRun.push(child);
             }
+
+            // Handle remaining stray nodes at the end
+            flushStrayRunBefore(null);
 
             // Ensure root has at least one paragraph
             if (root.getChildrenSize() === 0) {
@@ -796,7 +820,7 @@ const splitCombinedMarkerAndNumberRange: MainDocumentStrutureFxn = ({
     );
     if (!match) return;
 
-    const [fullMatch, markerText, numberText] = match;
+    const [, markerText, numberText] = match;
     const cleanMarker = markerTrimNoSlash(markerText);
 
     // Only apply if it's a chapter/verse marker that expects a number

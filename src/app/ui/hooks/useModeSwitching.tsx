@@ -1,4 +1,4 @@
-import type { LexicalEditor } from "lexical";
+import type { LexicalEditor, SerializedLexicalNode } from "lexical";
 import { useRef } from "react";
 import {
     type EditorMarkersMutableState,
@@ -8,10 +8,12 @@ import {
 } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
     adjustSerializedLexicalNodes,
     flattenParagraphContainersToFlatTokens,
     groupFlatTokensIntoParagraphContainers,
+    wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { updateDomClassListWithMarkerViewState } from "./utils/domUtils.ts";
@@ -49,6 +51,18 @@ export function useModeSwitching({
 }) {
     const initializationRef = useRef(false);
 
+    function unwrapFlatTokensFromRootChildren(
+        rootChildren: SerializedLexicalNode[],
+    ): SerializedLexicalNode[] | null {
+        const onlyChild =
+            rootChildren.length === 1 ? rootChildren[0] : undefined;
+        if (onlyChild?.type !== "paragraph") return null;
+        const maybeChildren = (onlyChild as { children?: unknown }).children;
+        return Array.isArray(maybeChildren)
+            ? (maybeChildren as SerializedLexicalNode[])
+            : null;
+    }
+
     function toggleToSourceMode(args?: {
         isInitialLoad?: boolean;
         editor?: LexicalEditor;
@@ -63,12 +77,28 @@ export function useModeSwitching({
         let thisChapterUpdated: ParsedChapter | undefined;
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
-            // Use tree→flat conversion: flatten paragraph containers to flat tokens
-            const flatTokens = flattenParagraphContainersToFlatTokens(
-                chapter.lexicalState.root.children,
-                { show: true, isMutable: true },
-            );
-            chapter.lexicalState.root.children = flatTokens;
+            // Use tree→flat conversion: flatten paragraph containers to flat tokens.
+            // If we're already in Source mode shape (root -> paragraph -> flat tokens),
+            // unwrap that paragraph to avoid stacking wrappers.
+            const rootChildren = chapter.lexicalState.root
+                .children as SerializedLexicalNode[];
+            const alreadyWrappedFlatTokens =
+                unwrapFlatTokensFromRootChildren(rootChildren);
+
+            const flatTokens = alreadyWrappedFlatTokens
+                ? alreadyWrappedFlatTokens
+                : flattenParagraphContainersToFlatTokens(rootChildren, {
+                      show: true,
+                      isMutable: true,
+                  });
+
+            // Root can only contain Element/Decorator nodes; wrap flat tokens.
+            const direction = (chapter.lexicalState.root.direction ?? "ltr") as
+                | "ltr"
+                | "rtl";
+            chapter.lexicalState.root.children = [
+                wrapFlatTokensInLexicalParagraph(flatTokens, direction),
+            ];
             if (
                 chapter.chapNumber === currentChapter &&
                 file.bookCode === currentFileBibleIdentifier
@@ -99,8 +129,6 @@ export function useModeSwitching({
     }
 
     function adjustWysiwygMode(args: adjustWysiModeArgs) {
-        const isSwitchingFromSource = appSettings.mode === "source";
-
         const inProgress = args.duringLoad
             ? undefined
             : saveCurrentDirtyLexical();
@@ -118,6 +146,10 @@ export function useModeSwitching({
             markerViewState === EditorMarkersViewStates.NEVER ||
             markerViewState === EditorMarkersViewStates.WHEN_EDITING;
 
+        // Regular (hidden markers) uses paragraph containers; visible-markers WYSIWYG uses a flat token stream.
+        const targetWantsFlatStream =
+            markerViewState === EditorMarkersViewStates.ALWAYS;
+
         const isMutable =
             markerViewState === EditorMarkersViewStates.NEVER
                 ? EditorMarkersMutableStates.IMMUTABLE
@@ -131,15 +163,51 @@ export function useModeSwitching({
             const isMutableValue =
                 isMutable === EditorMarkersMutableStates.MUTABLE;
 
-            if (isSwitchingFromSource) {
-                // Use flat→tree conversion: rebuild paragraph containers from flat tokens
-                const direction = chapter.lexicalState.root.direction ?? "ltr";
+            const direction = (chapter.lexicalState.root.direction ?? "ltr") as
+                | "ltr"
+                | "rtl";
+            const rootChildren = chapter.lexicalState.root
+                .children as SerializedLexicalNode[];
+            const unwrappedFlatTokens =
+                unwrapFlatTokensFromRootChildren(rootChildren);
+            const isCurrentlyFlatWrapped = unwrappedFlatTokens !== null;
+
+            if (targetWantsFlatStream) {
+                // Tree→flat conversion: USFM (visible markers) stays a flat stream like Source mode.
+                const flatTokensRaw =
+                    unwrappedFlatTokens ??
+                    flattenParagraphContainersToFlatTokens(rootChildren, {
+                        show: showValue,
+                        isMutable: isMutableValue,
+                    });
+
+                const adjustedFlatTokens = flatTokensRaw.flatMap((node) =>
+                    adjustSerializedLexicalNodes(node, {
+                        show: showValue,
+                        isMutable: isMutableValue,
+                    }),
+                );
+
+                // Root can only contain Element/Decorator nodes; wrap flat tokens.
+                chapter.lexicalState.root.children = [
+                    wrapFlatTokensInLexicalParagraph(
+                        adjustedFlatTokens,
+                        direction,
+                    ),
+                ];
+            } else if (
+                isCurrentlyFlatWrapped ||
+                appSettings.mode === "source"
+            ) {
+                // Flat→tree conversion: rebuild paragraph containers for Regular mode.
+                const flatTokens =
+                    unwrappedFlatTokens ??
+                    materializeFlatTokensArray(rootChildren);
                 const paragraphContainers =
                     groupFlatTokensIntoParagraphContainers(
-                        chapter.lexicalState.root.children,
-                        direction as "ltr" | "rtl",
+                        flatTokens,
+                        direction,
                     );
-                // Apply show/mutable adjustments to children within containers
                 for (const container of paragraphContainers) {
                     if (
                         "children" in container &&
@@ -156,16 +224,14 @@ export function useModeSwitching({
                 }
                 chapter.lexicalState.root.children = paragraphContainers;
             } else {
-                // Already in paragraph-tree structure, just adjust show/mutable
-                const rootChildren = chapter.lexicalState.root.children.flatMap(
-                    (node) => {
-                        return adjustSerializedLexicalNodes(node, {
+                // Already in paragraph-tree structure, just adjust show/mutable.
+                chapter.lexicalState.root.children = rootChildren.flatMap(
+                    (node) =>
+                        adjustSerializedLexicalNodes(node, {
                             show: showValue,
                             isMutable: isMutableValue,
-                        });
-                    },
+                        }),
                 );
-                chapter.lexicalState.root.children = rootChildren;
             }
 
             if (

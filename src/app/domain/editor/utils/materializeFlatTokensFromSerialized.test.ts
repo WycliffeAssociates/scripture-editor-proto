@@ -44,7 +44,7 @@ function makeParagraphContainer(
         version: 1,
         children,
         direction: null,
-        format: 0,
+        format: "",
         indent: 0,
     };
 }
@@ -67,7 +67,7 @@ function makeNestedEditorNode(
                 version: 1,
                 children: innerChildren,
                 direction: null,
-                format: 0,
+                format: "",
                 indent: 0,
             },
         },
@@ -186,6 +186,33 @@ describe("materializeFlatTokensFromSerialized", () => {
             expect((result[1] as SerializedUSFMTextNode).text).toBe("Text");
             expect(result[2].type).toBe(USFM_NESTED_DECORATOR_TYPE);
             expect((result[3] as SerializedUSFMTextNode).text).toBe("Note");
+        });
+
+        it("unwraps Lexical paragraph wrappers inside nested editor states", () => {
+            const nested = makeNestedEditorNode("f", [makeTextNode("Inner")]);
+            // Simulate real nested editor shape: root.children -> paragraph -> tokens
+            const nestedWithEditorState = nested as unknown as {
+                editorState: unknown;
+            };
+            nestedWithEditorState.editorState = {
+                root: {
+                    type: "root",
+                    version: 1,
+                    children: [
+                        {
+                            type: "paragraph",
+                            version: 1,
+                            children: [makeTextNode("Inner")],
+                        },
+                    ],
+                },
+            };
+
+            const result = materializeFlatTokensArray([nested]);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].type).toBe(USFM_NESTED_DECORATOR_TYPE);
+            expect((result[1] as SerializedUSFMTextNode).text).toBe("Inner");
         });
     });
 

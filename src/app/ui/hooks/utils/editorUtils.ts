@@ -6,9 +6,8 @@ import {
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
 
 export type LintableTokenLike = LintableToken & {
@@ -18,33 +17,32 @@ export type LintableTokenLike = LintableToken & {
 export function getFlattenedEditorStateAsParseTokens(
     serializedEditorState: SerializedEditorState,
 ): Array<LintableTokenLike> {
-    const root = serializedEditorState.root;
-    const firstChild = root.children?.[0];
-    if (!isSerializedParagraphNode(firstChild)) return [];
-
     const tokens: Array<LintableTokenLike> = [];
-    let _lastSid = "";
+    let lastSid = "";
+    let linebreakId = 0;
 
-    for (const node of walkNodes(firstChild.children ?? [])) {
+    const rootChildren = serializedEditorState.root.children ?? [];
+    for (const node of materializeFlatTokensFromSerialized(rootChildren)) {
         if (node.type === "linebreak") {
             tokens.push({
                 tokenType: UsfmTokenTypes.verticalWhitespace,
                 text: "\n",
-                id: "",
-                sid: _lastSid,
+                id: `linebreak-${linebreakId++}`,
+                sid: lastSid,
             });
             continue;
         }
+
         if (isSerializedUSFMTextNode(node)) {
             tokens.push(node);
-            if (node.sid) _lastSid = node.sid;
+            if (node.sid) lastSid = node.sid;
             continue;
         }
 
         if (isSerializedUSFMNestedEditorNode(node)) {
-            const sid = (node as unknown as { sid?: string }).sid;
-            if (sid) _lastSid = sid;
             tokens.push(node as unknown as LintableTokenLike);
+            const sid = (node as unknown as { sid?: string }).sid;
+            if (sid) lastSid = sid;
         }
     }
 
