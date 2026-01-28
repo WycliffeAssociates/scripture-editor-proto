@@ -46,7 +46,7 @@
       "id": "3",
       "category": "core",
       "description": "Flat token adapter (materializeFlatTokensFromSerialized)",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [1]",
         "META touches: src/app/domain/editor/utils/(new) materializeFlatTokensFromSerialized.ts; src/app/domain/editor/utils/serializedTraversal.ts; unit tests (new)",
@@ -58,7 +58,7 @@
         "Add unit tests: flat input yields same tokens; tree input emits synthetic marker then children; nested editor nodes included in-order",
         "(Optional) Add walkFlatTokensSlidingWindow helper for linting"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "high"
     },
     {

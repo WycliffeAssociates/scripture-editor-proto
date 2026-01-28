@@ -14,3 +14,5 @@
 - Completed Task 1: renamed USFMElementNode -> USFMParagraphNode, updated serialized type to usfm-paragraph-node, and updated registrations/guards/imports.
 
 - Completed Task 2: on initial parse, group flat parsed token nodes into top-level USFMParagraphNode containers based on paragraph markers (defaulting leading content to p).
+
+- Completed Task 3: created materializeFlatTokensFromSerialized adapter in src/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts. The adapter handles both flat token streams and paragraph-tree structures, emitting synthetic paragraph marker tokens for containers. Added walkFlatTokensSlidingWindow helper for linting. 9 unit tests passing.
