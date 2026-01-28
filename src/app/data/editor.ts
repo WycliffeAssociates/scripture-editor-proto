@@ -53,10 +53,10 @@ export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
 export const USFM_ELEMENT_NODE_TYPE = "usfm-element-node" as const;
 
 export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
-    TokenMap.idMarker,
-    TokenMap.endMarker,
-    TokenMap.implicitClose,
-    TokenMap.marker,
+    // TokenMap.idMarker,
+    // TokenMap.endMarker,
+    // TokenMap.implicitClose,
+    // TokenMap.marker,
     // TokenMap.numberRange,
 ]);
 // type more loosel for includions checks

@@ -96,15 +96,31 @@ export function ReferenceEditor() {
         const target = candidates[0];
         if (!target) return;
         target.classList.add("paragraphing-reference-highlight");
-        // Only scroll if element is not already in view
+        // Only scroll if element is not already in view.
+        // The reference pane may be inside a scrollable column, so we compare
+        // against the nearest scrollable ancestor rather than the window.
         const rect = target.getBoundingClientRect();
+        const scrollParent = (() => {
+            let el: HTMLElement | null = target.parentElement;
+            while (el) {
+                const style = window.getComputedStyle(el);
+                const scrollableY =
+                    (style.overflowY === "auto" ||
+                        style.overflowY === "scroll") &&
+                    el.scrollHeight > el.clientHeight;
+                if (scrollableY) return el;
+                el = el.parentElement;
+            }
+            return null;
+        })();
+        const bounds = (
+            scrollParent ?? document.documentElement
+        ).getBoundingClientRect();
         const isInView =
-            rect.top >= 0 &&
-            rect.left >= 0 &&
-            rect.bottom <=
-                (window.innerHeight || document.documentElement.clientHeight) &&
-            rect.right <=
-                (window.innerWidth || document.documentElement.clientWidth);
+            rect.top >= bounds.top &&
+            rect.left >= bounds.left &&
+            rect.bottom <= bounds.bottom &&
+            rect.right <= bounds.right;
         if (!isInView) {
             target.scrollIntoView({
                 behavior: "smooth",
@@ -144,31 +160,29 @@ export function ReferenceEditor() {
         return <div>Failed to load {referenceProjectPath}</div>;
     }
     return (
-        <div className="h-full overflow-y-auto">
-            <LexicalComposer initialConfig={getIntialConfig()}>
-                <EditorRefPlugin editorRef={nestedEditorRef} />
-                <div
-                    data-testid={TESTING_IDS.refEditorContainer}
-                    data-testing-ref-chapter={referenceChapter?.chapNumber}
-                    data-testing-ref-bookcode={referenceProject?.referenceFile?.bookCode.toLowerCase()}
-                    data-js="reference-editor-container"
-                    className="editor-container relative h-full overflow-y-auto"
-                    ref={containerRef}
-                >
-                    <RichTextPlugin
-                        contentEditable={
-                            <ContentEditable
-                                className="min-h-full focus:outline-none p-4 w-full"
-                                aria-label={t`USFM Editor`}
-                            />
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
-                </div>
-                <USFMPlugin />
-                <UsfmStylesPlugin />
-            </LexicalComposer>
-        </div>
+        <LexicalComposer initialConfig={getIntialConfig()}>
+            <EditorRefPlugin editorRef={nestedEditorRef} />
+            <div
+                data-testid={TESTING_IDS.refEditorContainer}
+                data-testing-ref-chapter={referenceChapter?.chapNumber}
+                data-testing-ref-bookcode={referenceProject?.referenceFile?.bookCode.toLowerCase()}
+                data-js="reference-editor-container"
+                className="editor-container relative"
+                ref={containerRef}
+            >
+                <RichTextPlugin
+                    contentEditable={
+                        <ContentEditable
+                            className="focus:outline-none p-4 w-full"
+                            aria-label={t`USFM Editor`}
+                        />
+                    }
+                    ErrorBoundary={LexicalErrorBoundary}
+                />
+            </div>
+            <USFMPlugin />
+            <UsfmStylesPlugin />
+        </LexicalComposer>
     );
 }
 

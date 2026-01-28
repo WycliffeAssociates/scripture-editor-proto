@@ -6,15 +6,15 @@ import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 // Layout
 export const appLayout = style({
-    display: "grid",
-    gridTemplateRows: "auto 1fr",
-    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100vh",
 });
 
 export const appLayoutWithReference = style({
-    display: "grid",
-    gridTemplateRows: "auto auto 1fr",
-    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100vh",
 });
 
 // Navigation Ribbon
@@ -23,6 +23,16 @@ export const navRibbon = style({
     top: 0,
     zIndex: 40,
     padding: "0.25rem .5rem",
+    backgroundColor: vars.colors.body,
+    borderBottom: `1px solid ${vars.colors.gray[3]}`,
+});
+
+export const chapterRibbon = style({
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "0.5rem",
+    padding: "0.25rem 0.25rem 0.5rem 0.25rem",
     backgroundColor: vars.colors.body,
 });
 
@@ -48,11 +58,12 @@ export const editorWrapperDesktop = style({
     width: "100%",
     maxWidth: "65ch",
     margin: "0 auto",
-    gridColumn: 2,
+    justifySelf: "center",
+    alignSelf: "start",
+    paddingInline: "1rem",
 });
 
 export const editor = style({
-    gridColumn: 2,
     maxWidth: "75ch",
     width: "100%",
     margin: "0 auto",
@@ -107,32 +118,37 @@ export const mobileTabsBar = style({
 
 // Mobile Editors (Tab Switching)
 export const mobileEditorsContainer = style({
-    position: "relative",
-    height: "100%",
-    overflow: "hidden",
+    display: "block",
 });
 export const desktopContentGrid = style({
     display: "grid",
-    gridTemplateColumns: "30fr 40fr 30fr",
-    overflow: "hidden",
-    height: "100%",
+    gridTemplateColumns: "var(--project-columns, 1fr)",
+    alignItems: "start",
+    gap: "1rem",
+    paddingInline: "0.5rem",
+    paddingBlock: "0.5rem",
 });
 
 // Main and reference are *stacked* and toggled with CSS vars
 export const editorMainSmall = style({
-    position: "absolute",
-    inset: 0,
     paddingInline: "1rem",
-    overflowY: "auto",
     backgroundColor: vars.colors.body,
     display: "var(--show-main)",
 });
 
 export const editorReferenceSmall = style({
-    position: "absolute",
-    inset: 0,
     paddingInline: "1rem",
-    overflowY: "auto",
     backgroundColor: vars.colors.body,
     display: "var(--show-ref)",
+});
+
+export const referenceColumn = style({
+    position: "sticky",
+    top: "4.75rem",
+    alignSelf: "start",
+    height: "calc(100vh - 4.75rem)",
+    overflow: "auto",
+    paddingInline: "0.5rem",
+    borderLeft: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.body,
 });

@@ -31,18 +31,18 @@ export function MainEditor() {
     const { editorRef } = useWorkspaceContext();
 
     return (
-        <div className="h-full overflow-y-auto p-2">
+        <div className="p-2">
             <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js="editor-container"
                     data-testid={TESTING_IDS.mainEditorContainer}
-                    className="editor-container relative h-full overflow-y-auto"
+                    className="editor-container relative"
                 >
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className="min-h-full focus:outline-none p-1 w-full md:px-2"
+                                className="focus:outline-none p-1 w-full md:px-2"
                                 aria-label="USFM Editor"
                                 spellCheck={false}
                             />

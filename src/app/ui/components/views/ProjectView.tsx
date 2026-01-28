@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Group, ScrollArea, Tooltip } from "@mantine/core";
+import { Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { InfoIcon } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
@@ -15,9 +15,18 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 export function ProjectView() {
-    const { referenceProject } = useWorkspaceContext();
+    const { referenceProject, search } = useWorkspaceContext();
     const [opened, { open, close }] = useDisclosure(false);
     const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
+    const hasReferenceProject = Boolean(referenceProject.referenceProjectId);
+
+    const desktopColumns = (() => {
+        if (search.isSearchPaneOpen && hasReferenceProject)
+            return "30fr 40fr 30fr";
+        if (search.isSearchPaneOpen && !hasReferenceProject) return "30fr 70fr";
+        if (!search.isSearchPaneOpen && hasReferenceProject) return "70fr 30fr";
+        return "1fr";
+    })();
 
     return (
         <div
@@ -46,22 +55,24 @@ export function ProjectView() {
                 }
                 style={
                     isSm
-                        ? ({
-                              "--show-main":
-                                  mobileTab === "main" ? "block" : "none",
-                              "--show-ref":
-                                  mobileTab === "ref" ? "block" : "none",
+                        ? hasReferenceProject
+                            ? ({
+                                  "--show-main":
+                                      mobileTab === "main" ? "block" : "none",
+                                  "--show-ref":
+                                      mobileTab === "ref" ? "block" : "none",
+                              } as React.CSSProperties)
+                            : undefined
+                        : ({
+                              "--project-columns": desktopColumns,
                           } as React.CSSProperties)
-                        : undefined
                 }
             >
                 {/* Desktop search panel */}
                 <SearchPanel />
 
                 {/* Main editor area */}
-                <ScrollArea
-                    offsetScrollbars={"y"}
-                    type={isSm ? "always" : "hover"}
+                <div
                     className={
                         isSm
                             ? styles.editorMainSmall
@@ -69,30 +80,22 @@ export function ProjectView() {
                     }
                 >
                     <div className={styles.editor}>
-                        {!isSm && (
-                            <Group
-                                justify="space-between"
-                                classNames={{
-                                    root: "sticky top-0 z-50 bg-[var(--mantine-color-body)] py-1",
-                                }}
-                            >
-                                <PrevButton />
-                                <LintPopover wrapperClassNames="" />
-                                <NextButton />
-                            </Group>
-                        )}
                         <MainEditor />
                     </div>
-                </ScrollArea>
+                </div>
 
                 {/* Reference editor */}
-                <ScrollArea
-                    offsetScrollbars={"y"}
-                    className={isSm ? styles.editorReferenceSmall : ""}
-                    type={isSm ? "always" : "hover"}
-                >
-                    <ReferenceEditor />
-                </ScrollArea>
+                {hasReferenceProject && (
+                    <div
+                        className={
+                            isSm
+                                ? styles.editorReferenceSmall
+                                : styles.referenceColumn
+                        }
+                    >
+                        <ReferenceEditor />
+                    </div>
+                )}
             </div>
 
             <AppDrawer opened={opened} close={close} />
@@ -104,6 +107,15 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
     return (
         <nav className={styles.navRibbon}>
             <Toolbar openDrawer={props.openDrawer} />
+
+            {/* Keep chapter navigation accessible on desktop too */}
+            {!props.isSmall && (
+                <div className={styles.chapterRibbon}>
+                    <PrevButton />
+                    <LintPopover wrapperClassNames="relative" />
+                    <NextButton />
+                </div>
+            )}
 
             {props.isSmall && (
                 <div className={styles.mobileRibbon}>

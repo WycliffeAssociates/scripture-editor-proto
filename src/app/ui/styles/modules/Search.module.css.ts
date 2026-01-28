@@ -4,8 +4,10 @@ import { vars } from "../theme.css.ts";
 // Main search panel styles
 const searchPanel = style({
     maxWidth: "50ch",
-    borderLeft: `1px solid ${vars.colors.defaultBorder}`,
-    height: "100%",
+    borderRight: `1px solid ${vars.colors.defaultBorder}`,
+    height: "calc(100vh - 4.75rem)",
+    position: "sticky",
+    top: "4.75rem",
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",

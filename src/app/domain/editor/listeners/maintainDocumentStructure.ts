@@ -68,6 +68,7 @@ export function maintainDocumentStructure(
             const structureFixes = [
                 editCharOpenAndCloseTogether,
                 fixMalformedMarkerWithNumber,
+                splitCombinedMarkerAndNumberRange,
                 ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
                 ensurePlainTextNodeAlwaysFollowsNumberRange,
                 ensureCharOpensHaveEditableNextSibling,
@@ -679,4 +680,61 @@ const editCharOpenAndCloseTogether: MainDocumentStrutureFxn = ({
             });
         }
     }
+};
+const splitCombinedMarkerAndNumberRange: MainDocumentStrutureFxn = ({
+    node,
+    tokenType,
+    updates,
+}) => {
+    // Only process marker nodes
+    if (tokenType !== UsfmTokenTypes.marker) return;
+
+    const text = node.getTextContent();
+
+    // Regex matches: \marker + space + number (e.g., "\v 5", "\c 1", "\v 1-3")
+    const match = text.match(
+        /^(\\[a-zA-Z0-9]+)[\s\u00A0]+(\d+(?:-\d+)?[a-zA-Z0-9]*)$/,
+    );
+    if (!match) return;
+
+    const [fullMatch, markerText, numberText] = match;
+    const cleanMarker = markerTrimNoSlash(markerText);
+
+    // Only apply if it's a chapter/verse marker that expects a number
+    if (!CHAPTER_VERSE_MARKERS.has(cleanMarker)) return;
+
+    updates.push({
+        dbgLabel: "splitCombinedMarkerAndNumberRange",
+        run: () => {
+            // Update the current node to be just the marker
+            node.setTextContent(markerText);
+            node.setMarker(cleanMarker);
+
+            // Create a new numberRange node for the number
+            const numberRangeNode = $createUSFMTextNode(numberText, {
+                id: guidGenerator(),
+                sid: node.getSid().trim(),
+                inPara: node.getInPara(),
+                tokenType: UsfmTokenTypes.numberRange,
+            });
+
+            // Insert the number range after the marker
+            node.insertAfter(numberRangeNode);
+
+            // Ensure there's a text node after the number range
+            const nextSibling = numberRangeNode.getNextSibling();
+            if (
+                !$isUSFMTextNode(nextSibling) ||
+                nextSibling.getTokenType() !== UsfmTokenTypes.text
+            ) {
+                const textNode = $createUSFMTextNode(" ", {
+                    id: guidGenerator(),
+                    sid: node.getSid().trim(),
+                    inPara: node.getInPara(),
+                    tokenType: UsfmTokenTypes.text,
+                });
+                numberRangeNode.insertAfter(textNode);
+            }
+        },
+    });
 };
