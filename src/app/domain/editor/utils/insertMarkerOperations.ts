@@ -459,7 +459,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
     const newParagraph = $createUSFMParagraphNode({
         id: guidGenerator(),
         marker,
-        inPara: marker,
         tokenType: UsfmTokenTypes.marker,
     });
 
@@ -488,7 +487,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
 
         // Move right portion and all subsequent siblings to new paragraph
         if (right) {
-            right.setInPara(marker);
             right.setSid(context.newSid);
             const rightTrimmed = ` ${right.getTextContent().trimStart()}`;
             right.setTextContent(rightTrimmed);
@@ -500,9 +498,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
         for (let i = siblingIndex + 1; i < children.length; i++) {
             const sibling = children[i];
             if (sibling?.isAttached()) {
-                if ($isUSFMTextNode(sibling)) {
-                    sibling.setInPara(marker);
-                }
                 newParagraph.append(sibling);
             }
         }
@@ -516,15 +511,11 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
             );
             anchorNode.setTextContent(cleanText || " ");
         }
-        anchorNode.setInPara(marker);
 
         // Move anchor and all subsequent siblings to new paragraph
         for (let i = anchorIndex; i < children.length; i++) {
             const sibling = children[i];
             if (sibling?.isAttached()) {
-                if ($isUSFMTextNode(sibling)) {
-                    sibling.setInPara(marker);
-                }
                 newParagraph.append(sibling);
             }
         }
@@ -533,9 +524,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
         for (let i = anchorIndex + 1; i < children.length; i++) {
             const sibling = children[i];
             if (sibling?.isAttached()) {
-                if ($isUSFMTextNode(sibling)) {
-                    sibling.setInPara(marker);
-                }
                 newParagraph.append(sibling);
             }
         }
@@ -545,7 +533,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
     if (newParagraph.getChildrenSize() === 0) {
         const placeholder = $createUSFMTextNode(" ", {
             id: guidGenerator(),
-            inPara: marker,
             tokenType: UsfmTokenTypes.text,
             sid: context.currentSidAsString,
         });
@@ -556,7 +543,6 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
     if (parentParagraph.getChildrenSize() === 0) {
         const placeholder = $createUSFMTextNode(" ", {
             id: guidGenerator(),
-            inPara: parentParagraph.getMarker() ?? "p",
             tokenType: UsfmTokenTypes.text,
             sid: context.currentSidAsString,
         });

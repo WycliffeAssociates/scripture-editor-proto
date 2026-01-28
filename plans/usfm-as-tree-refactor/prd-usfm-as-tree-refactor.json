@@ -200,7 +200,7 @@
       "id": "12",
       "category": "core",
       "description": "Cleanup: remove/ignore USFMTextNode.inPara in Regular mode",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [6, 8]",
         "META touches: src/app/domain/editor/nodes/USFMTextNode.ts; insertion ops that set inPara",
@@ -209,7 +209,7 @@
         "Remove DOM dataset usage that relies on inPara",
         "Keep the field temporarily if other flows still serialize it, but mark as deprecated in code"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {

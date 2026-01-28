@@ -143,7 +143,6 @@ function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
                 if (para.getChildrenSize() > 0) return;
                 const placeholder = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
-                    inPara: para.getMarker() ?? "p",
                     tokenType: UsfmTokenTypes.text,
                 });
                 para.append(placeholder);
@@ -225,7 +224,6 @@ function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
                 });
                 const placeholder = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
-                    inPara: "p",
                     tokenType: UsfmTokenTypes.text,
                 });
                 defaultParagraph.append(placeholder);

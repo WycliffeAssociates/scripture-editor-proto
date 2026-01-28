@@ -113,7 +113,7 @@ export class USFMTextNode extends TextNode {
         return $getState(this.getLatest(), sidState);
     }
 
-    getInPara(): string {
+    getInPara(): string | undefined {
         return $getState(this.getLatest(), inParaState);
     }
 
@@ -172,7 +172,7 @@ export class USFMTextNode extends TextNode {
         return this;
     }
 
-    setInPara(inPara: string): this {
+    setInPara(inPara: string | undefined): this {
         $setState(this.getWritable(), inParaState, inPara);
         return this;
     }
@@ -415,7 +415,7 @@ export function isSerializedPlainTextUSFMTextNode(
 export type USFMTextNodeMetadata = {
     id: string;
     sid?: string;
-    inPara: string;
+    inPara?: string;
     inChars?: string[];
     tokenType?: string;
     show?: boolean;

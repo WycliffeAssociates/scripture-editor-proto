@@ -198,7 +198,7 @@ export function $createUSFMParagraphNode(
     const writable = node.getWritable();
     $setState(writable, idState, params.id);
     $setState(writable, markerState, params.marker);
-    $setState(writable, inParaState, params.inPara ?? params.marker);
+    $setState(writable, inParaState, params.inPara);
     $setState(writable, tokenTypeState, params.tokenType ?? "marker");
     return node;
 }

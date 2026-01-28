@@ -3,7 +3,7 @@
 ## 2026-01-28
 - Intent: refactor paragraph structure handling so Regular mode is structurally correct and visually consistent.
 - Replace the current flat token + forward-scanned flags approach (inPara / data-in-para) with real top-level paragraph containers.
-- Regular mode invariant: Lexical root children are only USFMParagraphNode blocks (type: usfm-paragraph-node) storing a paragraph marker (p, q1, etc.).
+- Regular mode invariant: Lexical root children are only USFMParagraphNode blocks (type: usfm-paragraph-node) storing the paragraph marker (p, q1, etc.).
 - USFM/Raw modes may remain a flat token stream, but should not force downstream code to become mode-aware.
 - Add a canonical adapter materializeFlatTokensFromSerialized(rootChildren) that produces a reading-order flat token view for both shapes, including nested editors.
 - Update mode switching to use deterministic, reversible transforms between flat and tree representations.
@@ -28,3 +28,10 @@
 - Completed Task 9: updated paragraphingUtils to use the flat token adapter. `extractMarkersFromSerialized` now uses `materializeFlatTokensArray` instead of `walkNodes`, which properly handles both flat and tree structures including synthetic paragraph markers from containers. `stripMarkersFromSerialized` now flattens paragraph containers (doesn't preserve the container, just the stripped children). Updated tests to reflect new behavior where tree structure produces synthetic markers for each container.
 
 - Completed Task 8: removed Regular-mode reliance on `data-in-para` by styling poetry/paragraph visuals off the paragraph container marker (`data-marker`). Dynamic poetry indentation helpers are now scoped to USFM mode only.
+
+- Completed Task 12: Cleanup - remove/ignore USFMTextNode.inPara in Regular mode.
+  - Updated `USFMTextNode` to make `inPara` optional and stop writing `data-in-para` to DOM.
+  - Updated `USFMParagraphNode` to make `inPara` optional and default to undefined.
+  - Updated `insertMarkerOperations` to stop setting `inPara` in Regular mode paragraph insertion.
+  - Updated `maintainDocumentStructure` to stop setting `inPara` in Regular mode structural enforcement.
+  - Updated `states.ts` to allow `inPara` to be undefined.

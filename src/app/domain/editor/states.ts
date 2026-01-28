@@ -22,7 +22,7 @@ const sidState = createState("sid", {
  * Defines the NodeState for 'inPara'. It stores the USFM paragraph marker (e.g., 'p', 'q1').
  */
 const inParaState = createState("inPara", {
-    parse: (value) => (typeof value === "string" ? value : ""),
+    parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
 const inCharsState = createState("inChars", {
