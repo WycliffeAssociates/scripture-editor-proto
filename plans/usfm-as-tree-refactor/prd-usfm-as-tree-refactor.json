@@ -65,7 +65,7 @@
       "id": "4",
       "category": "core",
       "description": "Update serialization/export to consume adapter",
-      "status": "todo",
+      "status": "done",
       "steps": [
         "META depends_on: [3]",
         "META touches: src/app/domain/editor/serialization/lexicalToUsfm.ts; any other \"serialize to plain text\" utilities",
@@ -74,7 +74,7 @@
         "Keep traverseForUsfmString recursive but feed it the flat list",
         "Add/adjust tests to cover Regular-mode paragraph container shape"
       ],
-      "passes": false,
+      "passes": true,
       "complexity": "medium"
     },
     {

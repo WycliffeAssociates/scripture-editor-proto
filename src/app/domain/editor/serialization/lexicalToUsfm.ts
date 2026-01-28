@@ -20,7 +20,7 @@ import {
     isSerializedNumberOrPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
 // function $serializedLexicalToUsfm(editor: LexicalEditor) {
@@ -75,49 +75,39 @@ function serializeNestedEditorState(
 
 /**
  * Serializes an array of Lexical nodes into a single, flat USFM string.
- * @param nodes - The array of serialized nodes from an editor state.
+ * Uses the flat token adapter to handle both flat and paragraph-tree structures uniformly.
+ * @param nodes - The array of serialized nodes from an editor state (root.children).
  * @returns A single string representing the complete USFM document.
  */
 export function serializeToUsfmString(nodes: SerializedLexicalNode[]): string {
-    const accumulator = { str: "" };
-    traverseForUsfmString(nodes, accumulator);
-    return accumulator.str;
-}
+    let result = "";
 
-function traverseForUsfmString(
-    nodes: SerializedLexicalNode[],
-    accumulator: { str: string },
-): void {
-    // This needs to be carefully refactored because walkNodes yields all nodes including nested ones,
-    // but serializeToUsfmString needs to handle the order and nested editor markers manually.
-    // Actually, walkNodes is a generic DFS, but the order of nested markers matters.
-    // Let's see if we can still use it for simple trees, but for USFM with markers it might be tricky.
-    // On second thought, traverseForUsfmString is recursive and handles node.marker for nested editors.
-    // If I use walkNodes, I lose the ability to insert markers at the right level easily without extra logic.
-    // I'll skip refactoring traverseForUsfmString for now as it's highly specific.
-    for (const node of nodes) {
+    // The adapter yields tokens in reading order, including:
+    // - Synthetic paragraph markers for USFMParagraphNode containers
+    // - Nested editor content (but we handle opening markers specially)
+    for (const node of materializeFlatTokensFromSerialized(nodes)) {
         if (node.type === "linebreak") {
-            accumulator.str += "\n";
+            result += "\n";
             continue;
         }
 
         if (isSerializedUSFMTextNode(node)) {
-            accumulator.str += node.text;
+            result += node.text;
             continue;
         }
 
         if (isSerializedUSFMNestedEditorNode(node)) {
-            // Handle nested content like footnotes by recursively processing them.
-            // the opening marker isn't currently captured as part of the node's internal structure. During lex then post parse, once hitting a nested node, it become {marker, children} where the close marker is in the children array, but openeing is not duplicated into it.
-            accumulator.str += `\\${node.marker} `;
-            traverseForUsfmString(node.editorState.root.children, accumulator);
-            continue;
+            // The adapter will yield nested content after this node,
+            // but we need to emit the opening marker here.
+            // The close marker is inside the nested content.
+            result += `\\${node.marker} `;
         }
 
-        if (isSerializedParagraphNode(node) && node.children) {
-            traverseForUsfmString(node.children, accumulator);
-        }
+        // Paragraph containers are already handled by the adapter
+        // (synthetic markers emitted), so we skip them here.
     }
+
+    return result;
 }
 
 //================================================================================
