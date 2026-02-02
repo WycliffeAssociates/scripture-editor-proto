@@ -32,6 +32,28 @@ test.describe("ContextMenu Plugin", () => {
         ).toBeVisible();
     });
 
+    test("opens on Tab keyboard shortcut", async ({ editorPage }) => {
+        // Focus editor first
+        await editorPage.getByTestId(TESTING_IDS.mainEditorContainer).click();
+
+        // Simulate Tab keydown (Playwright's keyboard.press('Tab') can move focus)
+        await editorPage
+            .getByRole("textbox", { name: "USFM Editor" })
+            .dispatchEvent("keydown", {
+                key: "Tab",
+                code: "Tab",
+                keyCode: 9,
+                which: 9,
+                bubbles: true,
+                cancelable: true,
+            });
+
+        // Verify context menu appears
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).toBeVisible();
+    });
+
     test("shows search action when text is selected", async ({
         editorPage: page,
     }) => {

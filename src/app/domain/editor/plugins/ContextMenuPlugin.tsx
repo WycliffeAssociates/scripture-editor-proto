@@ -10,9 +10,10 @@ import {
     KEY_DOWN_COMMAND,
     type LexicalEditor,
 } from "lexical";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useParagraphing } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
@@ -54,8 +55,20 @@ export function NodeContextMenuPlugin() {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [context, setContext] = useState<EditorContext | null>(null);
     const { isXs, isSm } = useWorkspaceMediaQuery();
+    const { isParagraphingActive } = useParagraphing();
     const { getContext } = useEditorContext();
     const clickOutsideRef = useClickOutside(() => setOpened(false));
+
+    const openedRef = useRef(opened);
+    const paragraphingActiveRef = useRef(isParagraphingActive);
+
+    useEffect(() => {
+        openedRef.current = opened;
+    }, [opened]);
+
+    useEffect(() => {
+        paragraphingActiveRef.current = isParagraphingActive;
+    }, [isParagraphingActive]);
 
     const handleOpen = useCallback(
         (x: number, y: number) => {
@@ -71,9 +84,15 @@ export function NodeContextMenuPlugin() {
     const showTooltipNearSelection = useCallback(
         (editor: LexicalEditor) => {
             const selection = $getSelection();
-            if (!$isRangeSelection(selection)) return;
+            if (!$isRangeSelection(selection)) {
+                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+                return true;
+            }
             const nativeSel = window.getSelection();
-            if (!nativeSel || nativeSel.rangeCount === 0) return;
+            if (!nativeSel || nativeSel.rangeCount === 0) {
+                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+                return true;
+            }
 
             const range = nativeSel.getRangeAt(0);
             let rect = range.getBoundingClientRect();
@@ -94,8 +113,12 @@ export function NodeContextMenuPlugin() {
                 }
             }
 
-            if (!rect || (rect.width === 0 && rect.height === 0)) return;
+            if (!rect || (rect.width === 0 && rect.height === 0)) {
+                handleOpen(window.innerWidth / 2, window.innerHeight / 2);
+                return true;
+            }
             handleOpen(rect.left + rect.width / 2, rect.bottom + 6);
+            return true;
         },
         [handleOpen],
     );
@@ -116,10 +139,23 @@ export function NodeContextMenuPlugin() {
         return editor.registerCommand(
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {
+                if (openedRef.current) return false;
+
                 const isCmdK =
                     (event.metaKey || event.ctrlKey) &&
                     event.key.toLowerCase() === "k";
-                if (!isCmdK) return false;
+                if (isCmdK) {
+                    event.preventDefault();
+                    editor.getEditorState().read(() => {
+                        showTooltipNearSelection(editor);
+                    });
+                    return true;
+                }
+
+                const isTab = event.key === "Tab";
+                if (!isTab) return false;
+                if (event.shiftKey) return false;
+                if (paragraphingActiveRef.current) return false;
 
                 event.preventDefault();
                 editor.getEditorState().read(() => {

@@ -49,6 +49,7 @@ export interface EditorAction {
     icon?: ReactNode;
     marker?: string; // For USFM markers
     isVisible: (context: EditorContext) => boolean;
+    isDisabled?: (context: EditorContext) => boolean;
     execute: (
         editor: LexicalEditor,
         context: EditorContext,

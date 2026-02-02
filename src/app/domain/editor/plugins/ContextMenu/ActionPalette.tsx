@@ -66,6 +66,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
     }, [filteredActions]);
 
     const handleSelectAction = (action: EditorAction) => {
+        if (action.isDisabled?.(context)) return;
         let result: undefined | ActionStep;
 
         // Capture SID for restoration after mode change
@@ -300,7 +301,9 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                 store={combobox}
                 onOptionSubmit={(val) => {
                     const action = visibleActions.find((a) => a.id === val);
-                    if (action) handleSelectAction(action);
+                    if (action && !action.isDisabled?.(context)) {
+                        handleSelectAction(action);
+                    }
                 }}
             >
                 <div className={classes.header}>
@@ -341,6 +344,9 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                                                     value={action.id}
                                                     key={action.id}
                                                     className={classes.item}
+                                                    disabled={action.isDisabled?.(
+                                                        context,
+                                                    )}
                                                     data-testid={
                                                         action.category ===
                                                         "Search"

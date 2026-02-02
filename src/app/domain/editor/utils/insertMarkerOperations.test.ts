@@ -1,9 +1,7 @@
 import { $dfsIterator } from "@lexical/utils";
 import type { LexicalEditor, SerializedLexicalNode } from "lexical";
-import { $getRoot } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
@@ -27,56 +25,43 @@ describe("$insertPara regular mode", () => {
                 "\\v 2 The kings of the earth take their stand together",
         );
 
-        editor.update(() => {
-            let target: USFMTextNode | null = null;
-            for (const { node } of $dfsIterator()) {
-                if (
-                    $isUSFMTextNode(node) &&
-                    node.getTokenType() === UsfmTokenTypes.text &&
-                    node
-                        .getTextContent()
-                        .includes("Why are the nations in turmoil")
-                ) {
-                    target = node;
-                    break;
+        editor.update(
+            () => {
+                let target: USFMTextNode | null = null;
+                for (const { node } of $dfsIterator()) {
+                    if (
+                        $isUSFMTextNode(node) &&
+                        node.getTokenType() === UsfmTokenTypes.text &&
+                        node
+                            .getTextContent()
+                            .includes("Why are the nations in turmoil")
+                    ) {
+                        target = node;
+                        break;
+                    }
                 }
-            }
-            expect(target).not.toBeNull();
-            if (!target) return;
+                expect(target).not.toBeNull();
+                if (!target) return;
 
-            const parent = target.getParent();
-            console.log(
-                "target parent type:",
-                parent?.getType(),
-                "isUsfmPara:",
-                parent ? $isUSFMParagraphNode(parent) : false,
-            );
+                const text = target.getTextContent();
+                const splitAt = text.indexOf("in turmoil");
+                expect(splitAt).toBeGreaterThan(0);
 
-            const text = target.getTextContent();
-            const splitAt = text.indexOf("in turmoil");
-            expect(splitAt).toBeGreaterThan(0);
-
-            // Place caret before "in turmoil" and insert a paragraph marker via UI path.
-            target.select(splitAt, splitAt);
-            $insertPara({
-                anchorNode: target,
-                anchorOffsetToUse: splitAt,
-                marker: "p",
-                isStartOfLine: false,
-                restOfText: "",
-                languageDirection: "ltr",
-                isTypedInsertion: false,
-                editorMode: "regular",
-            });
-
-            console.log(
-                "root types after:",
-                $getRoot()
-                    .getChildren()
-                    .map((n) => n.getType())
-                    .join(","),
-            );
-        });
+                // Place caret before "in turmoil" and insert a paragraph marker via UI path.
+                target.select(splitAt, splitAt);
+                $insertPara({
+                    anchorNode: target,
+                    anchorOffsetToUse: splitAt,
+                    marker: "p",
+                    isStartOfLine: false,
+                    restOfText: "",
+                    languageDirection: "ltr",
+                    isTypedInsertion: false,
+                    editorMode: "regular",
+                });
+            },
+            { discrete: true },
+        );
 
         const usfm = serializeEditor(editor);
         // Verse marker stays on the q line.
