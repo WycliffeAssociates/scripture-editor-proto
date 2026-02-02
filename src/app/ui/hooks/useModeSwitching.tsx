@@ -3,13 +3,12 @@ import { useRef } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
-import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
-import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
     flattenParagraphContainersToFlatTokens,
-    groupFlatTokensIntoParagraphContainers,
+    groupFlatNodesIntoParagraphContainers,
+    unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
-} from "@/app/domain/editor/utils/modeAdjustments.ts";
+} from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { updateDomForEditorMode } from "./utils/domUtils.ts";
 
@@ -41,26 +40,42 @@ export function useModeSwitching({
     const resolvedEditorMode =
         (appSettings.editorMode as EditorModeSetting) ?? "regular";
 
-    function unwrapFlatTokensFromRootChildren(
-        rootChildren: SerializedLexicalNode[],
-    ): SerializedLexicalNode[] | null {
-        const onlyChild =
-            rootChildren.length === 1 ? rootChildren[0] : undefined;
-        if (onlyChild?.type !== "paragraph") return null;
-        const maybeChildren = (onlyChild as { children?: unknown }).children;
-        return Array.isArray(maybeChildren)
-            ? (maybeChildren as SerializedLexicalNode[])
-            : null;
+    /**
+     * Initialize the editor with the current chapter content.
+     * No transformation needed - data is already in correct format from projectParamToParsed.
+     */
+    function initializeEditor(editor: LexicalEditor) {
+        if (initializationRef.current) return;
+        initializationRef.current = true;
+
+        // Just set the editor content for the current chapter
+        // The data is already in the correct format from the loader
+        const currentChapterData = mutWorkingFilesRef
+            .find((f) => f.bookCode === currentFileBibleIdentifier)
+            ?.chapters.find((c) => c.chapNumber === currentChapter);
+
+        if (currentChapterData) {
+            setEditorContent(
+                currentFileBibleIdentifier,
+                currentChapter,
+                currentChapterData,
+                editor,
+            );
+        }
+
+        updateDomForEditorMode({ editorMode: resolvedEditorMode });
     }
 
+    /**
+     * Switch editor mode and transform all chapters.
+     * This is expensive and should only be called when user explicitly switches modes.
+     */
     function setEditorMode(
         next: "regular" | "usfm" | "plain",
-        args?: { isInitialLoad?: boolean; editor?: LexicalEditor },
+        editor?: LexicalEditor,
     ) {
-        const { isInitialLoad = false, editor } = args ?? {};
-        const inProgress = isInitialLoad
-            ? undefined
-            : saveCurrentDirtyLexical();
+        // Save current state before transforming
+        const inProgress = saveCurrentDirtyLexical();
         const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ParsedChapter | undefined;
 
@@ -70,19 +85,41 @@ export function useModeSwitching({
                 | "rtl";
             const rootChildren = chapter.lexicalState.root
                 .children as SerializedLexicalNode[];
+
+            // Check if already in desired format to avoid unnecessary work
+            const isCurrentlyParagraphMode = rootChildren.some(
+                (child) =>
+                    (child as { type?: string }).type === "usfm-paragraph-node",
+            );
+            const wantsParagraphMode = next === "regular";
+
+            if (isCurrentlyParagraphMode === wantsParagraphMode) {
+                // Already in correct format, skip transformation
+                if (
+                    chapter.chapNumber === currentChapter &&
+                    file.bookCode === currentFileBibleIdentifier
+                ) {
+                    thisChapterUpdated = chapter;
+                }
+                continue;
+            }
+
+            // Transform to desired format
             const unwrappedFlatTokens =
                 unwrapFlatTokensFromRootChildren(rootChildren);
 
-            if (next === "regular") {
+            if (wantsParagraphMode) {
+                // Switching TO regular mode: wrap in paragraph containers
                 const flatTokens =
                     unwrappedFlatTokens ??
-                    materializeFlatTokensArray(rootChildren);
+                    flattenParagraphContainersToFlatTokens(rootChildren);
                 chapter.lexicalState.root.children =
                     groupFlatNodesIntoParagraphContainers(
                         flatTokens,
                         direction,
                     );
             } else {
+                // Switching TO usfm/plain mode: flatten to tokens
                 const flatTokens =
                     unwrappedFlatTokens ??
                     flattenParagraphContainersToFlatTokens(rootChildren);
@@ -99,6 +136,7 @@ export function useModeSwitching({
             }
         }
 
+        // Update editor content if current chapter was transformed
         if (thisChapterUpdated) {
             setEditorContent(
                 currentFileBibleIdentifier,
@@ -112,12 +150,6 @@ export function useModeSwitching({
             editorMode: next,
         });
         updateDomForEditorMode({ editorMode: next });
-    }
-
-    function initializeEditor(editor: LexicalEditor) {
-        if (initializationRef.current) return;
-        initializationRef.current = true;
-        setEditorMode(resolvedEditorMode, { isInitialLoad: true, editor });
     }
 
     return {

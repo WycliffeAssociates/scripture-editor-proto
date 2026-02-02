@@ -41,16 +41,16 @@ export function getPoetryStylesAsCssStyleSheet(
                     switch (dataPoetry) {
                         case "q1":
                         case "q":
-                            amount = "8px";
+                            amount = "12px";
                             break;
                         case "q2":
                             amount = "24px";
                             break;
                         case "q3":
-                            amount = "40px";
+                            amount = "36px";
                             break;
                         case "q4":
-                            amount = "56px";
+                            amount = "48px";
                             break;
                         default:
                             amount = "0";

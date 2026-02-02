@@ -1,96 +1,121 @@
+/* ============================================
+   USFM Editor Styles
+   ============================================ */
+
+/* -------------------------------------------
+   Base Styles (all modes)
+   ------------------------------------------- */
 body:not(.source-mode) {
-  line-height: 1.4;
+  line-height: 1.6;
+}
 
-  .verse-number,
-  [data-marker="v"] {
-    font-size: 0.8em;
-    font-weight: bold;
-    padding: 0 2px;
-  }
+/* Verse & Chapter Numbers */
+.verse-number,
+[data-marker="v"] {
+  font-size: 0.8em;
+  font-weight: bold;
+  padding: 0 2px;
+}
 
-  [data-token-type="marker"],
-  [data-token-type="endMarker"] {
-    /* display: inline-block; */
-    align-items: center;
-  }
+.chapter-number,
+[data-marker="c"],
+[data-marker="c"] + [data-token-type="numberRange"] {
+  font-size: 2em;
+  font-weight: bold;
+  text-align: center;
+  margin: 0.5em 0;
+  font-family: var(--font-serif);
+}
 
-  [data-token-type="numberRange"] {
-    color: var(--color-blue-700);
-  }
+.chapter-label,
+[data-marker="cl"],
+[data-marker="cl"] + [data-token-type="text"] {
+  font-size: 1.2em;
+  text-align: center;
+  margin: 0.5em 0;
+  font-family: var(--font-serif);
+}
 
-  [data-token-type="text"] {
-    color: inherit;
-  }
+/* Number ranges (verses/chapters) */
+[data-token-type="numberRange"] {
+  color: var(--color-blue-700);
+}
 
-  [data-usfm-type="para"] {
-    margin: 0.25em 0;
-  }
-  .chapter-number,
-  [data-marker="c"],
-  [data-marker="c"] + [data-token-type="numberRange"] {
-    font-size: 2em;
-    font-weight: bold;
-    text-align: center;
-    margin: 0.5em 0;
-    font-family: var(--font-serif);
-    /* user-select: none; */
-  }
-  .chapter-label,
-  [data-marker="cl"],
-  [data-marker="cl"] + [data-token-type="text"] {
-    font-size: 1.2em;
-    text-align: center;
-    margin: 0.5em 0;
-    font-family: var(--font-serif);
-  }
+/* Text content */
+[data-token-type="text"] {
+  color: inherit;
+}
 
-  /* Poetry markers should remain italic and keep spacing regardless of editor mode. */
-  .editor-container
-    :where(
-      div[data-token-type="marker"][data-marker^="q"],
-      [data-marker^="q"],
-      [data-in-para^="q"]
-    ) {
-    font-style: italic;
-  }
-  .editor-container
-    div[data-token-type="marker"][data-marker="q"],
-  .editor-container
-    div[data-token-type="marker"][data-marker="q1"] {
-    padding-inline-start: 8px;
-  }
-  .editor-container
-    div[data-token-type="marker"][data-marker="q2"] {
-    padding-inline-start: 24px;
-  }
-  .editor-container
-    div[data-token-type="marker"][data-marker="q3"] {
-    padding-inline-start: 40px;
-  }
-  .editor-container
-    div[data-token-type="marker"][data-marker="q4"] {
-    padding-inline-start: 56px;
-  }
-
-  #root[data-editor-mode="regular"]
-    :where(
+/* -------------------------------------------
+   Regular Mode: Clean WYSIWYG
+   - Hide markers (but keep their semantic line breaks)
+   ------------------------------------------- */
+#root[data-editor-mode="regular"] {
+  /* Hide markers and their following br elements */
+  :where(
+    span[data-token-type="marker"][data-marker],
+    span[data-token-type="endMarker"][data-marker]
+  ),
+  :where(
       span[data-token-type="marker"][data-marker],
       span[data-token-type="endMarker"][data-marker]
     )
-    + br,
-  #root[data-editor-mode="regular"]
-    :where(
-      span[data-token-type="marker"][data-marker],
-      span[data-token-type="endMarker"][data-marker]
-    ) {
+    + br {
     display: none !important;
   }
 
-  /* .isParaMarker:has(+ [data-marker]) {
-    display: block;
-    width: max-content;
-  } */
+  /* Poetry: Apply to paragraph containers (everything inside acts as block) */
+  .usfm-para-container {
+    margin: 0.25em 0;
 
+    /* Hide boundary linebreaks - prevents double spacing from br + para marker semantics */
+    & > br:first-child,
+    & > br:last-child,
+    /* When the browser/Lexical adds a trailing filler <br>, hide the preceding <br> too */
+    & > br:nth-last-child(2):has(+ br) {
+      display: none !important;
+    }
+
+    /* Poetry: hang verse numbers so the first letter aligns with indented lines */
+    &[data-marker^="q"] {
+      --poetry-indent: 0px;
+
+      span[data-token-type="marker"][data-marker="v"]
+        + span[data-token-type="numberRange"] {
+        display: inline-block;
+        text-align: end;
+        margin-inline-start: calc(-1 * var(--poetry-indent));
+        /* margin-inline-end: 0.35em; */
+      }
+    }
+
+    &[data-marker^="q"] {
+      font-style: italic;
+    }
+
+    &[data-marker="q"],
+    &[data-marker="q1"] {
+      --poetry-indent: 16px;
+      padding-inline-start: var(--poetry-indent);
+    }
+
+    &[data-marker="q2"] {
+      --poetry-indent: 32px;
+      padding-inline-start: var(--poetry-indent);
+    }
+
+    &[data-marker="q3"] {
+      --poetry-indent: 64px;
+      padding-inline-start: var(--poetry-indent);
+    }
+
+    &[data-marker="q4"] {
+      --poetry-indent: 96px;
+      padding-inline-start: var(--poetry-indent);
+    }
+  }
+
+  /* Paragraphing highlight (shown on hover/reference) */
   .paragraphing-reference-highlight {
     opacity: 1 !important;
     visibility: visible !important;
@@ -99,61 +124,127 @@ body:not(.source-mode) {
     outline: 2px solid rgba(255, 196, 0, 0.85) !important;
     outline-offset: 2px;
     border-radius: 2px;
+
+    &:is(
+      span[data-token-type="marker"][data-marker],
+      span[data-token-type="endMarker"][data-marker]
+    ),
+    &:is(
+        span[data-token-type="marker"][data-marker],
+        span[data-token-type="endMarker"][data-marker]
+      )
+      + br {
+      display: inline-block !important;
+    }
   }
 
-  #root[data-editor-mode="regular"]
-    :where(
-      span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
-      span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
-    ),
-  #root[data-editor-mode="regular"]
-    :where(
-      span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
-      span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
-    )
-    + br {
-    display: inline-block !important;
+  /* Prevent double spacing: keep the paragraph semantics, drop the preceding break */
+  br:has(+ .isParaMarker) {
+    display: none !important;
   }
 }
 
+/* -------------------------------------------
+   USFM Mode: Full USFM with Visual Focus
+   - Show all markers (smaller, blue)
+   - Number ranges also blue
+   - Clear text hierarchy
+   ------------------------------------------- */
+#root[data-editor-mode="usfm"] {
+  /* Markers: visible, smaller, blue for visual hierarchy */
+  [data-token-type="marker"],
+  [data-token-type="endMarker"] {
+    font-size: 0.75em;
+    color: var(--color-blue-700);
+    opacity: 0.9;
+  }
+
+  /* Number ranges: blue to match markers */
+  [data-token-type="numberRange"] {
+    color: var(--color-blue-700);
+    font-weight: 500;
+  }
+
+  /* In USFM mode, preserve explicit line breaks so markers don't run together. */
+
+  /* When multiple paragraph markers occur consecutively, stack them vertically */
+  .isParaMarker + .isParaMarker {
+    display: block;
+  }
+}
+
+/* -------------------------------------------
+   Lint Errors & Search Highlighting
+   - Dark mode aware
+   ------------------------------------------- */
+
+/* Lint Error States */
 .lint-error {
   background: var(--color-red-800);
   padding: 1px;
   color: var(--color-red-50);
   border-radius: 2px;
+
+  &.selected {
+    background: var(--color-yellow-300) !important;
+    color: var(--color-yellow-900) !important;
+  }
 }
-.lint-error.selected {
-  background: var(--color-yellow-300) !important;
-  color: var(--color-yellow-900) !important;
+
+/* Dark mode adjustments */
+[data-mantine-color-scheme="dark"] {
+  /* Lint errors - brighter in dark mode */
+  .lint-error {
+    background: var(--color-red-600);
+    color: var(--color-red-100);
+  }
+
+  /* Search highlighting - higher contrast in dark */
+  .search-highlight,
+  [data-search-match="true"] {
+    background: rgba(255, 214, 102, 0.25);
+    outline: 1px solid rgba(255, 196, 0, 0.5);
+  }
+
+  /* Paragraphing highlight - brighter in dark */
+  .paragraphing-reference-highlight {
+    background: rgba(255, 214, 102, 0.3) !important;
+    outline-color: rgba(255, 196, 0, 0.7) !important;
+  }
 }
-/* .verseRangeDuplicate {
-  background: var(--color-yellow-700);
-  color: var(--color-yellow-50);
-  border-radius: 2px;
+
+/* Light mode search highlighting */
+[data-mantine-color-scheme="light"] {
+  .search-highlight,
+  [data-search-match="true"] {
+    background: rgba(255, 214, 102, 0.45);
+    outline: 1px solid rgba(255, 196, 0, 0.85);
+  }
 }
-.verseRangeMalformed {
-  background: var(--color-pink-700);
-  color: var(--color-pink-50);
-  border-radius: 2px;
-} */
+
+/* -------------------------------------------
+   Nested Editor Support
+   ------------------------------------------- */
 .nested-editor {
   display: inline-flex;
 }
+
 .nested-editor:has(+ .isParaMarker)::after {
   content: "";
 }
 
-/* Hide empty paragraph elements and those containing only markers */
-.editor-container
+/* -------------------------------------------
+   Empty Paragraph Handling
+   ------------------------------------------- */
+.editor-container {
   div[data-token-type="marker"]:not(:has([data-token-type="text"])):not(
-    :has([data-token-type="numberRange"])
-  ) {
-  display: none;
-}
+      :has([data-token-type="numberRange"])
+    ) {
+    display: none;
+  }
 
-/* Special case: show paragraphs that have text content or number ranges */
-.editor-container div[data-token-type="marker"]:has([data-token-type="text"]),
-.editor-container
+  div[data-token-type="marker"]:has([data-token-type="text"]),
   div[data-token-type="marker"]:has([data-token-type="numberRange"]) {
-  display: block;
+    display: block;
+  }
 }

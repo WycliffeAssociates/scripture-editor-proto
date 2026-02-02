@@ -178,9 +178,7 @@ export const useWorkspaceActions = ({
 
         // Mode switching
         setEditorMode: (next: EditorModeSetting) =>
-            modeSwitching.setEditorMode(next, {
-                editor: editorRef.current ?? undefined,
-            }),
+            modeSwitching.setEditorMode(next, editorRef.current ?? undefined),
         initializeEditor: modeSwitching.initializeEditor,
 
         // Prettify operations

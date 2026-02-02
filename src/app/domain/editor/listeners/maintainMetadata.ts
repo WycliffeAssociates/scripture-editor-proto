@@ -1,5 +1,5 @@
 import { $dfsIterator } from "@lexical/utils";
-import type { EditorState, LexicalEditor } from "lexical";
+import { $getNodeByKey, type EditorState, type LexicalEditor } from "lexical";
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import {
@@ -10,7 +10,6 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { markerTrimNoSlash, numRangeRe } from "@/core/domain/usfm/lex.ts";
 import {
@@ -19,25 +18,26 @@ import {
 } from "@/core/domain/usfm/parseUtils.ts";
 
 export function maintainDocumentMetaData(
-    editorState: EditorState,
+    _editorState: EditorState,
     editor: LexicalEditor,
     bookCode: string,
     _appSettings: Settings,
 ) {
-    const updates: Array<{
-        dbgLabel: string;
-        dbgDetail?: string;
-        run: () => void;
-    }> = [];
+    // NOTE: This function is often invoked from an update listener that also runs
+    // structural fixes (which call `editor.update`). Computing metadata using the
+    // passed `editorState` snapshot can therefore become stale. We always compute
+    // against the editor's latest state, and apply changes by re-fetching nodes by key.
 
-    editorState.read(() => {
+    const markerUpdates: Array<{ key: string; marker: string | undefined }> =
+        [];
+    const inParaUpdates: Array<{ key: string; inPara: string }> = [];
+    const sidUpdates: Array<{ key: string; sid: string }> = [];
+
+    const derivedMarkerByKey = new Map<string, string | undefined>();
+
+    editor.getEditorState().read(() => {
         const allNodes = [...$dfsIterator()].map((n) => n.node);
-        //   .filter($isUSFMTextNode);
         const filteredNodes = allNodes.filter($isUSFMTextNode);
-
-        const tokenTypes: string[] = [];
-        const texts: string[] = [];
-        const derivedMarkers: Array<string | undefined> = [];
 
         // 1) Normalize markers (based on text) so downstream logic doesn't depend on stale state.
         for (const node of filteredNodes) {
@@ -51,39 +51,31 @@ export function maintainDocumentMetaData(
                     candidateMarker.split(" ")[0] || expectedMarker;
             }
 
-            // Marker updates are handled here, but we still compute with the derived marker immediately.
+            derivedMarkerByKey.set(node.getKey(), expectedMarker);
+
             const currentMarker = node.getMarker();
             if (expectedMarker && currentMarker !== expectedMarker) {
-                updates.push({
-                    dbgLabel: "maintainMetadata.marker",
-                    run: () => {
-                        node.setMarker(expectedMarker);
-                    },
+                markerUpdates.push({
+                    key: node.getKey(),
+                    marker: expectedMarker,
                 });
             }
-
-            tokenTypes.push(tokenType);
-            texts.push(rawText);
-            derivedMarkers.push(expectedMarker);
         }
 
         // 2) inPara forward propagation (uses the derived marker).
         let lastPara: string | null = null;
-        for (let i = 0; i < filteredNodes.length; i++) {
-            const node = filteredNodes[i];
-            const tokenType = tokenTypes[i];
-            const marker = derivedMarkers[i];
+        for (const node of filteredNodes) {
+            const tokenType = node.getTokenType();
+            const marker = derivedMarkerByKey.get(node.getKey());
 
             if (tokenType === UsfmTokenTypes.marker && marker) {
-                // Keep the old validation behavior for paragraph markers.
                 if (
                     isValidParaMarker(marker) ||
                     marker === "c" ||
                     marker === "v"
                 ) {
-                    // For para markers, propagate forward.
                     if (isValidParaMarker(marker)) lastPara = marker;
-                    // For chapter/verse markers, just validate the following number token if present.
+
                     if (marker === "c" || marker === "v") {
                         const nextSib = node.getNextSibling();
                         if (
@@ -106,13 +98,11 @@ export function maintainDocumentMetaData(
             }
 
             const targetInPara = lastPara || "";
-            const currentInPara = node.getInPara();
+            const currentInPara = node.getInPara() ?? "";
             if (currentInPara !== targetInPara) {
-                updates.push({
-                    dbgLabel: "maintainInPara",
-                    run: () => {
-                        node.setInPara(targetInPara);
-                    },
+                inParaUpdates.push({
+                    key: node.getKey(),
+                    inPara: targetInPara,
                 });
             }
         }
@@ -122,54 +112,66 @@ export function maintainDocumentMetaData(
             allNodes.filter(
                 (n) => $isUSFMTextNode(n) || $isUSFMParagraphNode(n),
             );
-        /* 
-    marker
-: 
-"c"
-text
-: 
-"\\c "
-tokenType
-: 
-"marker"
-    */
-        const tokenLikes: TokenForSidCalculation[] = sidNodes.map((n) => ({
-            tokenType: n.getTokenType(),
-            text: n.getTextContent(),
-            marker: n.getMarker(),
-        }));
+
+        const tokenLikes: TokenForSidCalculation[] = sidNodes.map((n) => {
+            if ($isUSFMTextNode(n)) {
+                return {
+                    tokenType: n.getTokenType(),
+                    text: n.getTextContent(),
+                    marker: derivedMarkerByKey.get(n.getKey()) ?? n.getMarker(),
+                };
+            }
+            return {
+                tokenType: n.getTokenType(),
+                text: n.getTextContent(),
+                marker: n.getMarker(),
+            };
+        });
 
         const targetSids = computeSidsReverse(tokenLikes, bookCode);
-
         for (let i = 0; i < sidNodes.length; i++) {
             const node = sidNodes[i];
             const currentSid = node.getSid();
             const targetSid = targetSids[i];
             if (currentSid !== targetSid) {
-                updates.push({
-                    dbgLabel: "maintainMetadata.sid",
-                    dbgDetail: `Id: ${node.getId()} Current sid: ${currentSid} Expected sid: ${targetSid}`,
-                    run: () => {
-                        node.setSid(targetSid);
-                    },
-                });
+                sidUpdates.push({ key: node.getKey(), sid: targetSid });
             }
         }
     });
 
-    if (updates.length) {
-        editor.update(
-            () => {
-                for (const u of updates) {
-                    u.run();
-                }
-            },
-            {
-                tag: [
-                    EDITOR_TAGS_USED.historyMerge,
-                    EDITOR_TAGS_USED.programaticIgnore,
-                ],
-            },
-        );
+    if (!markerUpdates.length && !inParaUpdates.length && !sidUpdates.length) {
+        return;
     }
+
+    editor.update(
+        () => {
+            for (const u of markerUpdates) {
+                const node = $getNodeByKey(u.key);
+                if (!node || !node.isAttached()) continue;
+                if (!$isUSFMTextNode(node)) continue;
+                node.setMarker(u.marker);
+            }
+
+            for (const u of inParaUpdates) {
+                const node = $getNodeByKey(u.key);
+                if (!node || !node.isAttached()) continue;
+                if (!$isUSFMTextNode(node)) continue;
+                node.setInPara(u.inPara);
+            }
+
+            for (const u of sidUpdates) {
+                const node = $getNodeByKey(u.key);
+                if (!node || !node.isAttached()) continue;
+                if (!$isUSFMTextNode(node) && !$isUSFMParagraphNode(node))
+                    continue;
+                node.setSid(u.sid);
+            }
+        },
+        {
+            tag: [
+                EDITOR_TAGS_USED.historyMerge,
+                EDITOR_TAGS_USED.programaticIgnore,
+            ],
+        },
+    );
 }

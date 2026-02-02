@@ -101,6 +101,7 @@ export function maintainDocumentStructure(
             );
             console.log(nodeUpdates);
             totalUpdates += nodeUpdates.length;
+            debugger;
             editor.update(
                 () => {
                     nodeUpdates.forEach((u) => {

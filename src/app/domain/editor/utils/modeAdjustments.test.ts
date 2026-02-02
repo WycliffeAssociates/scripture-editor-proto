@@ -1,6 +1,7 @@
 import type { SerializedLexicalNode, SerializedLineBreakNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { USFM_NESTED_DECORATOR_TYPE } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
@@ -56,5 +57,58 @@ describe("modeAdjustments grouping", () => {
 
         expect(markers[0]).toBe("c");
         expect(markers[0]).not.toBe("p");
+    });
+
+    it("should preserve paragraph container markerText when flattening", () => {
+        const container = {
+            type: USFM_PARAGRAPH_NODE_TYPE,
+            version: 1,
+            direction: "ltr" as const,
+            format: "start" as const,
+            indent: 0,
+            tokenType: UsfmTokenTypes.marker,
+            id: "para-1",
+            sid: "",
+            marker: "m",
+            inPara: "m",
+            markerText: "\\m",
+            children: [],
+        };
+
+        const flattened = flattenParagraphContainersToFlatTokens([
+            container as any,
+        ]);
+        const first = flattened[0];
+        expect(first && isSerializedUSFMTextNode(first)).toBe(true);
+        expect((first as any).text).toBe("\\m");
+    });
+
+    it("should preserve nested editor opening marker text when flattening", () => {
+        const nested = {
+            type: USFM_NESTED_DECORATOR_TYPE,
+            version: 1,
+            tokenType: UsfmTokenTypes.marker,
+            id: "nested-1",
+            text: "\\f",
+            marker: "f",
+            editorState: {
+                root: {
+                    type: "root",
+                    version: 1,
+                    direction: "ltr" as const,
+                    format: "",
+                    indent: 0,
+                    children: [],
+                },
+            },
+        };
+
+        const flattened = flattenParagraphContainersToFlatTokens([
+            nested as any,
+        ]);
+        expect(flattened[0] && isSerializedUSFMTextNode(flattened[0])).toBe(
+            true,
+        );
+        expect((flattened[0] as any).text).toBe("\\f");
     });
 });

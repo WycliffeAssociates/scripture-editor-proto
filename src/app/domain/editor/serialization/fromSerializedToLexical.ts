@@ -1,5 +1,6 @@
 import type {
     SerializedEditorState,
+    SerializedElementNode,
     SerializedLexicalNode,
     SerializedLineBreakNode,
 } from "lexical";
@@ -23,7 +24,7 @@ import {
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export interface LexicalStates {
-    /** Flat state for Save/Diff comparison (always flat token stream) */
+    /** Flat token stream state for Save/Diff comparison (root-safe paragraph wrapper) */
     loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
     /** Paragraph-wrapped state for WYSIWYG editor mode (paragraph containers) */
     lexicalState: SerializedEditorState<SerializedLexicalNode>;
@@ -47,9 +48,25 @@ export function parsedUsfmTokensToLexicalStates(
         .map((t) => serializeToken(t, languageDirection))
         .filter(Boolean);
 
-    const flatState: SerializedEditorState<SerializedLexicalNode> = {
+    const wrapFlatTokensInLexicalParagraph = (
+        flatTokens: SerializedLexicalNode[],
+    ): SerializedElementNode => {
+        return {
+            type: "paragraph",
+            version: 1,
+            direction: languageDirection,
+            format: "",
+            indent: 0,
+            children: flatTokens,
+        };
+    };
+
+    // Lexical RootNode only allows ElementNode or DecoratorNode children.
+    // Our USFM token stream includes text nodes, so any "flat" representation
+    // must be wrapped in an element (paragraph) before it can be parsed.
+    const wrappedFlatState: SerializedEditorState<SerializedLexicalNode> = {
         root: {
-            children: flatNodes,
+            children: [wrapFlatTokensInLexicalParagraph(flatNodes)],
             type: "root",
             version: 1,
             direction: languageDirection,
@@ -59,12 +76,15 @@ export function parsedUsfmTokensToLexicalStates(
     };
 
     if (!needsParagraphs) {
-        // For usfm/plain mode: both states are flat (separate objects for diff comparison)
+        // For usfm/plain mode: both states are paragraph-wrapped flat token streams
+        // (separate objects for diff comparison)
         return {
-            loadedLexicalState: flatState,
+            loadedLexicalState: wrappedFlatState,
             lexicalState: {
                 root: {
-                    children: [...flatNodes],
+                    children: [
+                        wrapFlatTokensInLexicalParagraph([...flatNodes]),
+                    ],
                     type: "root",
                     version: 1,
                     direction: languageDirection,
@@ -75,14 +95,14 @@ export function parsedUsfmTokensToLexicalStates(
         };
     }
 
-    // For regular mode: paragraph-wrapped lexicalState, flat loadedLexicalState
+    // For regular mode: paragraph container lexicalState, root-safe wrapped-flat loadedLexicalState
     const paragraphNodes = groupFlatNodesIntoParagraphContainers(
         flatNodes,
         languageDirection,
     );
 
     return {
-        loadedLexicalState: flatState,
+        loadedLexicalState: wrappedFlatState,
         lexicalState: {
             root: {
                 children: paragraphNodes,

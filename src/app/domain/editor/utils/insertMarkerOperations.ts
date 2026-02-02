@@ -420,6 +420,36 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
 
     const context = $getInsertionContext(anchorNode);
 
+    const ensureTrailingLineBreak = (para: LexicalNode) => {
+        if (!$isUSFMParagraphNode(para)) return;
+        const last = para.getLastChild();
+        if (!last || !$isLineBreakNode(last)) {
+            para.append($createLineBreakNode());
+        }
+    };
+
+    const moveSiblingsIntoNewParagraph = (start: LexicalNode | null) => {
+        if (!start) return;
+
+        // Paragraph containers in Regular mode typically end with a LineBreakNode.
+        // That newline is needed so the *next* container marker doesn't serialize
+        // on the same line (e.g. `\\q \\p ...`). Keep that terminator with the
+        // original paragraph and add a new terminator to the inserted paragraph.
+        const terminator = (() => {
+            const last = parentParagraph.getLastChild();
+            return last && $isLineBreakNode(last) ? last : null;
+        })();
+
+        let curr: LexicalNode | null = start;
+        while (curr && curr !== terminator) {
+            const nextSibling: LexicalNode | null = curr.getNextSibling();
+            if (curr.isAttached()) {
+                newParagraph.append(curr);
+            }
+            curr = nextSibling;
+        }
+    };
+
     // Determine if we need to split the anchor node itself
     const textContent = anchorNode.getTextContent();
     const needsSplit =
@@ -455,22 +485,9 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
             left.setTextContent(leftText);
         }
 
-        // Move right portion and all subsequent siblings to new paragraph
-        if (right) {
-            right.setSid(context.newSid);
-            const rightTrimmed = ` ${right.getTextContent().trimStart()}`;
-            right.setTextContent(rightTrimmed);
-            newParagraph.append(right);
-        }
-
-        // Move all siblings after the anchor to the new paragraph
-        const siblingIndex = children.indexOf(left || anchorNode);
-        for (let i = siblingIndex + 1; i < children.length; i++) {
-            const sibling = children[i];
-            if (sibling?.isAttached()) {
-                newParagraph.append(sibling);
-            }
-        }
+        // Move right portion and all subsequent siblings to new paragraph.
+        // Do NOT mutate SIDs here; paragraph markers do not create new verse SIDs.
+        moveSiblingsIntoNewParagraph(right ?? null);
     } else if (anchorOffsetToUse === 0) {
         // Caret at start of anchor node - move anchor and all subsequent siblings
         if (isTypedInsertion) {
@@ -482,21 +499,11 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
             anchorNode.setTextContent(cleanText || " ");
         }
 
-        // Move anchor and all subsequent siblings to new paragraph
-        for (let i = anchorIndex; i < children.length; i++) {
-            const sibling = children[i];
-            if (sibling?.isAttached()) {
-                newParagraph.append(sibling);
-            }
-        }
+        // Move anchor and all subsequent siblings to new paragraph (keep terminator on original)
+        moveSiblingsIntoNewParagraph(anchorNode);
     } else {
-        // Caret at end of anchor - move all subsequent siblings
-        for (let i = anchorIndex + 1; i < children.length; i++) {
-            const sibling = children[i];
-            if (sibling?.isAttached()) {
-                newParagraph.append(sibling);
-            }
-        }
+        // Caret at end of anchor - move all subsequent siblings (keep terminator on original)
+        moveSiblingsIntoNewParagraph(anchorNode.getNextSibling());
     }
 
     // Ensure the new paragraph has at least one editable child
@@ -518,6 +525,10 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
         });
         parentParagraph.append(placeholder);
     }
+
+    // Ensure both paragraphs remain line-terminated so subsequent markers don't run inline.
+    ensureTrailingLineBreak(parentParagraph);
+    ensureTrailingLineBreak(newParagraph);
 
     // Select the start of the new paragraph
     const firstChild = newParagraph.getFirstChild();

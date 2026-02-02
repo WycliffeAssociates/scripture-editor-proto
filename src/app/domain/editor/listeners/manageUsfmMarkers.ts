@@ -36,6 +36,9 @@ export function textNodeTransform({
     editorMode,
     languageDirection,
 }: TextNodeTransformParams) {
+    // Regular mode (WYSIWYG) currently inserts markers via UI actions, not typed USFM.
+    if (editorMode === "regular") return;
+
     const text = node.getTextContent();
     const tokenType = node.getTokenType();
     const selection = $getSelection();

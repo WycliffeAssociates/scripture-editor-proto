@@ -16,7 +16,10 @@ import { parsedUsfmTokensToLexicalStates } from "@/app/domain/editor/serializati
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
 
-export function createTestEditor(usfmContent: string): LexicalEditor {
+export function createTestEditor(
+    usfmContent: string,
+    opts: { needsParagraphs?: boolean } = {},
+): LexicalEditor {
     const editor = createHeadlessEditor({
         nodes: [
             USFMParagraphNode,
@@ -48,7 +51,7 @@ export function createTestEditor(usfmContent: string): LexicalEditor {
     const { lexicalState: serialized } = parsedUsfmTokensToLexicalStates(
         tokens,
         "ltr",
-        true, // paragraph-wrapped for testing
+        opts.needsParagraphs ?? true,
     );
     editor.setEditorState(editor.parseEditorState(serialized));
     return editor;

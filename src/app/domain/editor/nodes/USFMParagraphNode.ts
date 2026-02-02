@@ -144,6 +144,7 @@ export class USFMParagraphNode extends ElementNode {
 
     createDOM(_config: EditorConfig) {
         const el = document.createElement("div");
+        el.classList.add("usfm-para-container");
         const ds = el.dataset;
         const states = this.getAllStates();
         Object.entries(states).forEach(([k, v]) => {

@@ -3,6 +3,7 @@ import { Button, Group, Modal, rem, Text, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { Stamp } from "lucide-react";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import {
     extractMarkersFromSerialized,
     stripMarkersFromSerialized,
@@ -71,8 +72,10 @@ export function ParagraphingToggle() {
         const currentEditorState = editorRef.current.getEditorState();
         const serialized = currentEditorState.toJSON();
         const wasDirty =
-            JSON.stringify(serialized) !==
-            JSON.stringify(pickedChapter.loadedLexicalState);
+            serializeToUsfmString(serialized.root.children) !==
+            serializeToUsfmString(
+                pickedChapter.loadedLexicalState.root.children,
+            );
 
         setParagraphingSnapshot({
             fileBibleIdentifier: pickedFile.bookCode,
