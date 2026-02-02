@@ -285,7 +285,8 @@ export function makeSid({
     verseStart,
     verseEnd,
 }: MakeSidPart) {
-    if (!verseStart || !verseEnd) {
+    // Treat 0 as a valid value (we use verse 0 for chapter-level / intro material).
+    if (verseStart == null || verseEnd == null) {
         return `${bookId.toUpperCase()} ${chapter}`;
     }
     if (verseStart === verseEnd) {

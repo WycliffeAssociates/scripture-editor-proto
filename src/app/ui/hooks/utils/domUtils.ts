@@ -1,41 +1,27 @@
-import {
-    type EditorMarkersMutableState,
-    EditorMarkersViewStates,
-} from "@/app/data/editor.ts";
-
-export function updateDomClassListWithMarkerViewState({
-    viewState,
-    mutableState,
-    isSourceMode,
+export function updateDomForEditorMode({
+    editorMode,
 }: {
-    viewState: EditorMarkersViewStates;
-    mutableState: EditorMarkersMutableState;
-    isSourceMode: boolean;
+    editorMode: "regular" | "usfm" | "plain";
 }) {
-    if (isSourceMode) {
+    const root = document.querySelector("#root") as HTMLElement | null;
+    if (root) {
+        root.dataset.editorMode = editorMode;
+    }
+
+    if (editorMode === "plain") {
         document.body.classList.add("source-mode");
     } else {
         document.body.classList.remove("source-mode");
-        const root = document.querySelector("#root") as HTMLElement | null;
-        if (root) {
-            root.dataset.markerViewState = viewState;
-            root.dataset.markersMutableState = mutableState;
-        }
+    }
 
-        const body = document.body;
-        const appRoot = body.firstElementChild;
+    const appRoot = document.body.firstElementChild;
+    if (!appRoot) return;
 
-        if (appRoot) {
-            if (
-                viewState === EditorMarkersViewStates.NEVER ||
-                viewState === EditorMarkersViewStates.WHEN_EDITING
-            ) {
-                appRoot.classList.add("markers-hidden");
-                appRoot.classList.remove("markers-shown");
-            } else {
-                appRoot.classList.remove("markers-hidden");
-                appRoot.classList.add("markers-shown");
-            }
-        }
+    if (editorMode === "regular") {
+        appRoot.classList.add("markers-hidden");
+        appRoot.classList.remove("markers-shown");
+    } else {
+        appRoot.classList.add("markers-shown");
+        appRoot.classList.remove("markers-hidden");
     }
 }

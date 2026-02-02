@@ -5,7 +5,7 @@ import { matchFormattingToSource } from "@/app/domain/editor/utils/matchFormatti
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
 
-export type UseFormatMatchingHook = ReturnType<typeof useFormatMatching>;
+type UseFormatMatchingHook = ReturnType<typeof useFormatMatching>;
 
 export function useFormatMatching({
     mutWorkingFilesRef,

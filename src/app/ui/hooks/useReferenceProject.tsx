@@ -17,14 +17,16 @@ export const useReferenceProject = ({
     pickedChapterNumber,
 }: Props) => {
     const [referenceProjectId, setReferenceProjectId] = useState<string>();
-    const { md5Service } = useRouter().options.context;
+    const { md5Service, settingsManager } = useRouter().options.context;
+    const editorMode = settingsManager.get("editorMode");
     const referenceProjectQuery = useQuery({
-        queryKey: ["projectFiles", referenceProjectId],
+        queryKey: ["projectFiles", referenceProjectId, editorMode],
         queryFn: () =>
             projectParamToParsedFiles(
                 projectRepository,
                 referenceProjectId,
                 md5Service,
+                editorMode,
             ),
         enabled: !!referenceProjectId,
     });

@@ -57,7 +57,6 @@ export function getFlattenedFileTokens(
     if (!pickedFile) return [];
 
     const tokens: Array<LintableTokenLike> = [];
-
     for (const chapter of pickedFile.chapters) {
         const serializedState =
             chapter.chapNumber === currentChapter

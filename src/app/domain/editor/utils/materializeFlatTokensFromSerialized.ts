@@ -27,13 +27,19 @@ export function isSerializedUSFMParagraphContainer(
 /**
  * Creates a synthetic paragraph marker token from a paragraph container node.
  * This allows downstream consumers to treat paragraph containers as if they were flat tokens.
+ * Uses the original marker text if available to preserve whitespace for accurate diffing.
+ * Falls back to marker without trailing space for backwards compatibility with old data.
  */
 function createSyntheticParagraphMarkerToken(
     paragraphNode: USFMParagraphNodeJSON,
 ): SerializedUSFMTextNode {
     const marker = paragraphNode.marker ?? "p";
+    // Use original marker text if available, otherwise construct without trailing space
+    // (old paragraph containers don't have markerText, so no-space avoids spurious diffs)
+    const text = paragraphNode.markerText ?? `\\${marker}`;
+
     const token = createSerializedUSFMTextNode({
-        text: `\\${marker} `,
+        text,
         id: paragraphNode.id ?? guidGenerator(),
         sid: paragraphNode.sid ?? "",
         tokenType: UsfmTokenTypes.marker,

@@ -31,7 +31,7 @@ export function MainEditor() {
     const { editorRef, project } = useWorkspaceContext();
 
     return (
-        <div className="p-2" data-mode={project?.appSettings.mode}>
+        <div className="p-2" data-mode={project?.appSettings.editorMode}>
             <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div

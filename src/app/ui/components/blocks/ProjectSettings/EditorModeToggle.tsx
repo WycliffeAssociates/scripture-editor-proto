@@ -7,11 +7,6 @@ import {
     Text,
     Tooltip,
 } from "@mantine/core";
-import {
-    EditorMarkersMutableStates,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
@@ -20,7 +15,7 @@ import styles from "./Settings.module.css";
  *
  * Single segmented control that collapses marker/view/mode settings into three presets:
  * - regular: WYSIWYG, markers hidden (never), immutable
- * - raw: source mode (raw)
+ * - plain: source mode (fewer helpers)
  * - usfm: WYSIWYG, markers always visible, mutable
  *
  * This component mirrors the styling used by `DisplayThemeToggle` in Settings.
@@ -28,69 +23,17 @@ import styles from "./Settings.module.css";
 function EditorModeToggle() {
     const { project, actions } = useWorkspaceContext();
 
-    const { mode, markersViewState, markersMutableState } = project.appSettings;
-
-    const determineValue = () => {
-        if (mode === EditorModes.SOURCE) return "raw";
-        // mode is wysiwyg
-        if (
-            markersViewState === EditorMarkersViewStates.ALWAYS &&
-            markersMutableState === EditorMarkersMutableStates.MUTABLE
-        ) {
-            return "usfm";
-        }
-        // default to regular for other wysiwyg combinations (hidden/immutable, whenEditing, etc.)
-        return "regular";
-    };
-
-    const value = determineValue();
+    const value = project.appSettings.editorMode ?? "regular";
 
     const handleChange = (v: string) => {
-        switch (v) {
-            case "raw":
-                // switch to source mode preset (uses existing action that also updates settings & DOM)
-                if (actions.toggleToSourceMode) {
-                    actions.toggleToSourceMode();
-                } else {
-                    // fallback: directly update settings to source with typical source presets
-                    project.updateAppSettings({
-                        mode: EditorModes.SOURCE,
-                        markersMutableState: EditorMarkersMutableStates.MUTABLE,
-                        markersViewState: EditorMarkersViewStates.ALWAYS,
-                    });
-                }
-                break;
-            case "usfm":
-                if (actions.adjustWysiwygMode) {
-                    actions.adjustWysiwygMode({
-                        markersViewState: EditorMarkersViewStates.ALWAYS,
-                        markersMutableState: EditorMarkersMutableStates.MUTABLE,
-                    });
-                } else {
-                    project.updateAppSettings({
-                        mode: EditorModes.WYSIWYG,
-                        markersViewState: EditorMarkersViewStates.ALWAYS,
-                        markersMutableState: EditorMarkersMutableStates.MUTABLE,
-                    });
-                }
-                break;
-            case "regular":
-                if (actions.adjustWysiwygMode) {
-                    actions.adjustWysiwygMode({
-                        markersViewState: EditorMarkersViewStates.NEVER,
-                        markersMutableState:
-                            EditorMarkersMutableStates.IMMUTABLE,
-                    });
-                } else {
-                    project.updateAppSettings({
-                        mode: EditorModes.WYSIWYG,
-                        markersViewState: EditorMarkersViewStates.NEVER,
-                        markersMutableState:
-                            EditorMarkersMutableStates.IMMUTABLE,
-                    });
-                }
-                break;
+        const nextMode = v as "regular" | "plain" | "usfm";
+        if (actions.setEditorMode) {
+            actions.setEditorMode(nextMode);
+            return;
         }
+        project.updateAppSettings({
+            editorMode: nextMode,
+        });
     };
 
     return (
@@ -125,17 +68,17 @@ function EditorModeToggle() {
                         ),
                     },
                     {
-                        value: "raw",
+                        value: "plain",
                         label: (
                             <ModeLabel
-                                value="raw"
+                                value="plain"
                                 tooltip={
                                     <Trans>
-                                        Raw — shows the underlying markup; no
-                                        editor helpers.
+                                        Plain — shows the underlying markup;
+                                        fewer editor helpers.
                                     </Trans>
                                 }
-                                labelText={<Trans>Raw</Trans>}
+                                labelText={<Trans>Plain</Trans>}
                             />
                         ),
                     },
@@ -173,20 +116,7 @@ const ModeLabel = ({
     labelText: React.ReactNode;
 }) => {
     const { project } = useWorkspaceContext();
-    const { mode, markersViewState, markersMutableState } = project.appSettings;
-
-    const determineValue = () => {
-        if (mode === EditorModes.SOURCE) return "raw";
-        if (
-            markersViewState === EditorMarkersViewStates.ALWAYS &&
-            markersMutableState === EditorMarkersMutableStates.MUTABLE
-        ) {
-            return "usfm";
-        }
-        return "regular";
-    };
-
-    const current = determineValue();
+    const current = project.appSettings.editorMode ?? "regular";
     const isActive = value === current;
 
     return (

@@ -5,6 +5,7 @@ import type {
     RangeSelection,
 } from "lexical";
 import type { ReactNode } from "react";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { UseActionsHook } from "@/app/ui/hooks/useActions.tsx";
 import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
 
@@ -22,9 +23,7 @@ export interface EditorContext {
     nodePath: string[]; // Array of node types or markers in the hierarchy
     currentVerse?: string;
     currentMarker?: string;
-    mode: string;
-    markersViewState: string;
-    markersMutableState: string;
+    editorMode: EditorModeSetting;
     languageDirection: "ltr" | "rtl";
     actions: UseActionsHook; // Workspace actions
     searchApi: UseSearchReturn; // Search API

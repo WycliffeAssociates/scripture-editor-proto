@@ -35,7 +35,7 @@ export const POETRY_MARKERS = new Set([
  * Markers that should ALWAYS have linebreaks inserted BEFORE AND AFTER them during prettify.
  * These are structural markers like paragraphs, headings, and lists.
  */
-export const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
+const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
     // Major structural markers
     "p", // Standard paragraph
     "m", // Margin paragraph
@@ -69,7 +69,7 @@ export const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
  * Markers that should ONLY have a linebreak inserted BEFORE them (not after).
  * Examples: chapter labels, descriptors, and other markers that have inline content.
  */
-export const PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
+const PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
     "cl", // Chapter label
     "cd", // Chapter description
     "d", // Descriptive title
@@ -98,7 +98,7 @@ export const PRETTIFY_LINEBREAK_AFTER_MARKERS = new Set([
     ...PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
 ]);
 
-export type PrettifyContext = {
+type PrettifyContext = {
     previousSibling?: SerializedLexicalNode;
     nextSibling?: SerializedLexicalNode;
     poetryMarkers?: Set<string>;
@@ -635,7 +635,7 @@ export function ensureSpaceBetweenNodes(
 /**
  * Composes all the above transforms.
  */
-export function prettifySerializedNode(
+function prettifySerializedNode(
     node: SerializedLexicalNode,
     context: PrettifyContext,
 ): SerializedLexicalNode | SerializedLexicalNode[] {
@@ -834,7 +834,7 @@ export function applyPrettifyToNodeTree(
         if (isSerializedUSFMNestedEditorNode(node)) {
             // Recurse into nested editor
             const nestedState = node.editorState;
-            if (nestedState && nestedState.root && nestedState.root.children) {
+            if (nestedState?.root?.children) {
                 const newChildren = applyPrettifyToNodeTree(
                     nestedState.root.children,
                     poetryMarkers,

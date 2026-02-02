@@ -1,10 +1,5 @@
 import { Code, Eye, EyeOff } from "lucide-react";
 import React from "react";
-import {
-    EditorMarkersMutableStates,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor.ts";
 import type { EditorAction } from "./types.ts";
 
 export const MODE_ACTIONS: EditorAction[] = [
@@ -13,21 +8,9 @@ export const MODE_ACTIONS: EditorAction[] = [
         label: "Regular Mode",
         category: "Modes",
         icon: React.createElement(EyeOff, { size: 16 }),
-        isVisible: (context) => {
-            return !(
-                context.mode === EditorModes.WYSIWYG &&
-                context.markersViewState === EditorMarkersViewStates.NEVER &&
-                context.markersMutableState ===
-                    EditorMarkersMutableStates.IMMUTABLE
-            );
-        },
+        isVisible: (context) => context.editorMode !== "regular",
         execute: (_editor, context) => {
-            if (context.actions.adjustWysiwygMode) {
-                context.actions.adjustWysiwygMode({
-                    markersViewState: EditorMarkersViewStates.NEVER,
-                    markersMutableState: EditorMarkersMutableStates.IMMUTABLE,
-                });
-            }
+            context.actions.setEditorMode?.("regular");
             return undefined;
         },
     },
@@ -36,34 +19,20 @@ export const MODE_ACTIONS: EditorAction[] = [
         label: "USFM Mode",
         category: "Modes",
         icon: React.createElement(Eye, { size: 16 }),
-        isVisible: (context) => {
-            return !(
-                context.mode === EditorModes.WYSIWYG &&
-                context.markersViewState === EditorMarkersViewStates.ALWAYS &&
-                context.markersMutableState ===
-                    EditorMarkersMutableStates.MUTABLE
-            );
-        },
+        isVisible: (context) => context.editorMode !== "usfm",
         execute: (_editor, context) => {
-            if (context.actions.adjustWysiwygMode) {
-                context.actions.adjustWysiwygMode({
-                    markersViewState: EditorMarkersViewStates.ALWAYS,
-                    markersMutableState: EditorMarkersMutableStates.MUTABLE,
-                });
-            }
+            context.actions.setEditorMode?.("usfm");
             return undefined;
         },
     },
     {
-        id: "switch-raw",
-        label: "Raw Mode",
+        id: "switch-plain",
+        label: "Plain Mode",
         category: "Modes",
         icon: React.createElement(Code, { size: 16 }),
-        isVisible: (context) => context.mode !== EditorModes.SOURCE,
+        isVisible: (context) => context.editorMode !== "plain",
         execute: (_editor, context) => {
-            if (context.actions.toggleToSourceMode) {
-                context.actions.toggleToSourceMode();
-            }
+            context.actions.setEditorMode?.("plain");
             return undefined;
         },
     },

@@ -1,16 +1,18 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
+import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
+import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
+import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
+import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
+import { usePrettifyOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
 import type { LintError } from "@/core/data/usfm/lint.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { useEditorState } from "./useEditorState.tsx";
-import { useFormatMatching } from "./useFormatMatching.tsx";
-import { useLintFixing } from "./useLintFixing.tsx";
-import { useModeSwitching } from "./useModeSwitching.tsx";
-import { useNavigation } from "./useNavigation.tsx";
-import { usePrettifyOperations } from "./usePrettifyOperations.tsx";
 import {
+    getFlattenedEditorStateAsParseTokens,
     getFlattenedFileTokens,
     type LintableTokenLike,
 } from "./utils/editorUtils.ts";
@@ -157,23 +159,6 @@ export const useWorkspaceActions = ({
         );
     }
 
-    function getProjectAsFlatTokens(currentEditorState: SerializedEditorState) {
-        return mutWorkingFilesRef.flatMap((file) => {
-            return file.chapters.flatMap((chapter) => {
-                const editorState =
-                    chapter.chapNumber === currentChapter &&
-                    file.bookCode === currentFileBibleIdentifier
-                        ? currentEditorState
-                        : chapter.lexicalState;
-                return getFlattenedFileTokens(
-                    file,
-                    editorState,
-                    chapter.chapNumber,
-                );
-            });
-        });
-    }
-
     function goToReference(input: string): boolean {
         return navigation.goToReference(input, editorRef);
     }
@@ -192,8 +177,10 @@ export const useWorkspaceActions = ({
         goToReference,
 
         // Mode switching
-        toggleToSourceMode: modeSwitching.toggleToSourceMode,
-        adjustWysiwygMode: modeSwitching.adjustWysiwygMode,
+        setEditorMode: (next: EditorModeSetting) =>
+            modeSwitching.setEditorMode(next, {
+                editor: editorRef.current ?? undefined,
+            }),
         initializeEditor: modeSwitching.initializeEditor,
 
         // Prettify operations
@@ -211,7 +198,6 @@ export const useWorkspaceActions = ({
 
         // Utility functions
         getFlatFileTokens,
-        getProjectAsFlatTokens,
         toggleDiffModal: () =>
             toggleDiffModalCallback(() => saveCurrentDirtyLexicalWrapper()),
     };

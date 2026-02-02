@@ -1,6 +1,5 @@
 import {
     COMMAND_PRIORITY_HIGH,
-    COMMAND_PRIORITY_NORMAL,
     KEY_DOWN_COMMAND,
     type LexicalEditor,
 } from "lexical";
@@ -10,12 +9,6 @@ import {
     handleEnterOnStartOfVerse,
     moveToAdjacentNodesWhenSeemsAppropriate,
 } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
-import {
-    lockImmutableMarkersOnCopy,
-    lockImmutableMarkersOnCut,
-    lockImmutableMarkersOnPaste,
-    lockImutableMarkersOnType,
-} from "@/app/domain/editor/listeners/lockImmutableMarkers.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -35,7 +28,7 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 export function useEditorInput(editor: LexicalEditor) {
     const { project, projectLanguageDirection, search } = useWorkspaceContext();
     const { appSettings } = project;
-    const { markersMutableState, markersViewState, mode } = appSettings;
+    const editorModeSetting = appSettings.editorMode ?? "regular";
 
     useEffect(() => {
         // Register USFMTextNode transform
@@ -45,9 +38,7 @@ export function useEditorInput(editor: LexicalEditor) {
                 const arg = {
                     node,
                     editor,
-                    editorMode: mode,
-                    markersMutableState,
-                    markersViewState,
+                    editorMode: editorModeSetting,
                     languageDirection: projectLanguageDirection,
                 };
                 textNodeTransform(arg);
@@ -58,19 +49,6 @@ export function useEditorInput(editor: LexicalEditor) {
         // Redirect paragraph insertion to line break
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
-
-        // Register KEY_DOWN_COMMAND for locking immutable markers on type
-        const keyDownUnregister = editor.registerCommand(
-            KEY_DOWN_COMMAND,
-            (event: KeyboardEvent) => {
-                return lockImutableMarkersOnType({
-                    editor,
-                    event,
-                    markersMutableState,
-                });
-            },
-            COMMAND_PRIORITY_NORMAL,
-        );
 
         // Register KEY_DOWN_COMMAND for moving to adjacent nodes
         const moveToAdjacentNodesUnregister = editor.registerCommand(
@@ -95,43 +73,16 @@ export function useEditorInput(editor: LexicalEditor) {
             COMMAND_PRIORITY_HIGH,
         );
 
-        // Register PASTE_COMMAND for locking immutable markers
-        const pasteCommand = lockImmutableMarkersOnPaste(editor);
-
-        // Register COPY_COMMAND for handling verse markers
-        const lockOnCopy = lockImmutableMarkersOnCopy(
-            editor,
-            markersViewState,
-            markersMutableState,
-        );
-
-        // Register CUT_COMMAND for locking immutable markers
-        const lockImmutablesOnCut = lockImmutableMarkersOnCut(
-            editor,
-            markersViewState,
-            markersMutableState,
-        );
-
         // Cleanup function
         const cleanup = () => {
             unregisterTransformWhileTyping();
             redirectParaInsertionToLineBreakUnregister();
-            keyDownUnregister();
             moveToAdjacentNodesUnregister();
             handleEnterOnVerseUnregister();
-            pasteCommand();
-            lockOnCopy();
-            lockImmutablesOnCut();
         };
 
         return cleanup;
-    }, [
-        mode,
-        markersViewState,
-        editor,
-        markersMutableState,
-        projectLanguageDirection,
-    ]);
+    }, [editor, projectLanguageDirection, editorModeSetting]);
 
     //   FIND HOTKEY TO OPEN PANEL
     useEffect(() => {

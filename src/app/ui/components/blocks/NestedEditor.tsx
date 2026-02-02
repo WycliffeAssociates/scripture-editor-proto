@@ -10,7 +10,6 @@ import {
     $getRoot,
     type LexicalEditor,
     LineBreakNode,
-    type NodeKey,
     ParagraphNode,
     type SerializedEditorState,
     type SerializedLexicalNode,
@@ -18,8 +17,6 @@ import {
 } from "lexical";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorMarkersViewStates } from "@/app/data/editor.ts";
-import { toggleShowOnToggleableNodes } from "@/app/domain/editor/listeners/livePreviewToggleableNodes.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -57,10 +54,9 @@ export function NestedEditor({
 }: Props) {
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
-    const markersInPreview = useRef(new Set<NodeKey>());
     const { project, projectLanguageDirection } = useWorkspaceContext();
     const { appSettings } = project;
-    const { markersMutableState, markersViewState, mode } = appSettings;
+    const editorModeSetting = appSettings.editorMode ?? "regular";
     const [mainEditor] = useLexicalComposerContext();
     const [hasOpened, setHasOpened] = useState(false);
 
@@ -143,31 +139,13 @@ export function NestedEditor({
         if (!hasOpened) return;
         const editor = nestedEditorRef.current;
         if (!editor) return;
-        const wysiPreview = editor.registerUpdateListener(({ editorState }) => {
-            if (markersViewState !== EditorMarkersViewStates.WHEN_EDITING) {
-                return;
-            }
-            toggleShowOnToggleableNodes({
-                editor,
-                editorState,
-                markersViewState,
-                currentActive: markersInPreview.current,
-                markersMutableState,
-                setCurrentActive: (activeNodes) => {
-                    markersInPreview.current = activeNodes;
-                },
-            });
-        });
-
         const unregisterTransformWhileTyping = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {
                 const arg = {
                     node,
                     editor,
-                    editorMode: mode,
-                    markersMutableState,
-                    markersViewState,
+                    editorMode: editorModeSetting,
                     languageDirection: projectLanguageDirection,
                 };
                 textNodeTransform(arg);
@@ -176,16 +154,9 @@ export function NestedEditor({
         );
 
         return () => {
-            wysiPreview();
             unregisterTransformWhileTyping();
         };
-    }, [
-        markersViewState,
-        markersMutableState,
-        hasOpened,
-        mode,
-        projectLanguageDirection,
-    ]);
+    }, [hasOpened, projectLanguageDirection, editorModeSetting]);
 
     const hasErrors = lintErrors.length > 0;
     const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";

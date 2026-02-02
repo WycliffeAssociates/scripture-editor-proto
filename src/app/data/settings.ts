@@ -1,12 +1,6 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import {
-    type EditorMarkersMutableState,
-    type EditorMarkersViewState,
-    EditorMarkersViewStates,
-    type EditorMode,
-    EditorModes,
-} from "@/app/data/editor.ts";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 
 export const SUPPORTED_LOCALES = ["en", "es"];
 export const GET_LOCALES: () => Record<
@@ -36,9 +30,7 @@ export type Settings = {
     lastBookIdentifier: string | null;
     lastChapterNumber: number | null;
     restoreToLastProjectOnLaunch: true;
-    mode: EditorMode;
-    markersViewState: EditorMarkersViewState;
-    markersMutableState: EditorMarkersMutableState;
+    editorMode: EditorModeSetting;
     appLanguage: SupportedLocales;
     appDirection: "ltr" | "rtl";
     colorScheme: "light" | "dark";
@@ -54,9 +46,7 @@ export const settingsDefaults: Settings = {
     lastBookIdentifier: null,
     lastChapterNumber: null,
     restoreToLastProjectOnLaunch: true,
-    mode: EditorModes.WYSIWYG,
-    markersViewState: EditorMarkersViewStates.WHEN_EDITING,
-    markersMutableState: "mutable",
+    editorMode: "regular",
     appLanguage: "en",
     appDirection: "ltr",
     colorScheme: "light",

@@ -1,5 +1,6 @@
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
-import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { parsedUsfmTokensToLexicalStates } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import {
     getBookSlug,
     sortUsfmFilesByCanonicalOrder,
@@ -13,6 +14,7 @@ export async function projectParamToParsedFiles(
     projectRepository: IProjectRepository,
     project: string | undefined,
     md5Service: IMd5Service,
+    editorMode: EditorModeSetting,
 ) {
     if (project === "undefined") return;
     if (!project) return;
@@ -67,13 +69,16 @@ export async function projectParamToParsedFiles(
             title: book.name,
             bookCode: getBookSlug(book.code),
             chapters: Object.entries(usfm).map(([chapter, tokens]) => {
-                const initialState = parsedUsfmTokensToJsonLexicalNode(
-                    tokens,
-                    language.direction,
-                );
+                const needsParagraphs = editorMode === "regular";
+                const { lexicalState, loadedLexicalState } =
+                    parsedUsfmTokensToLexicalStates(
+                        tokens,
+                        language.direction,
+                        needsParagraphs,
+                    );
                 return {
-                    lexicalState: initialState,
-                    loadedLexicalState: structuredClone(initialState),
+                    lexicalState,
+                    loadedLexicalState,
                     chapNumber: Number(chapter),
                     dirty: false,
                 };

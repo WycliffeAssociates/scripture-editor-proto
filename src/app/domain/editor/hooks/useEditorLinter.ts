@@ -1,7 +1,6 @@
 import { useDebouncedCallback } from "@mantine/hooks";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
-import { EditorModes } from "@/app/data/editor.ts";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -13,7 +12,7 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  */
 export function useEditorLinter(editor: LexicalEditor) {
     const { actions, lint, project } = useWorkspaceContext();
-    const { mode } = project.appSettings;
+    const editorModeSetting = project.appSettings.editorMode ?? "regular";
     const lintDebounceMs = 300;
 
     const debouncedLint = useDebouncedCallback((editorState: EditorState) => {
@@ -26,7 +25,7 @@ export function useEditorLinter(editor: LexicalEditor) {
     }, lintDebounceMs);
 
     useEffect(() => {
-        if (mode !== EditorModes.WYSIWYG) {
+        if (editorModeSetting === "plain") {
             return;
         }
 
@@ -37,5 +36,5 @@ export function useEditorLinter(editor: LexicalEditor) {
         return () => {
             unregister();
         };
-    }, [editor, mode, debouncedLint]);
+    }, [editor, editorModeSetting, debouncedLint]);
 }

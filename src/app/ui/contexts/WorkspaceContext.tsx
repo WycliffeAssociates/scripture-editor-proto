@@ -63,6 +63,8 @@ type ProjectProviderProps = {
     allInitialLintErrors: LintError[];
     children: React.ReactNode;
     loadedProject: Project;
+    queryBookOverride?: string;
+    queryChapterOverride?: number;
 };
 const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
     undefined,
@@ -75,6 +77,8 @@ export const ProjectProvider = ({
     projectFiles,
     allInitialLintErrors,
     loadedProject,
+    queryBookOverride,
+    queryChapterOverride,
     children,
 }: ProjectProviderProps) => {
     const editorRef = useRef<LexicalEditor | null>(null);
@@ -86,7 +90,12 @@ export const ProjectProvider = ({
 
     const { settingsManager, projectRepository } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
-    const project = useWorkspaceState(settingsManager, projectFiles);
+    const project = useWorkspaceState(
+        settingsManager,
+        projectFiles,
+        queryBookOverride,
+        queryChapterOverride,
+    );
     const saveDiff = useProjectDiffs({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         // setWorkingFiles,
@@ -137,7 +146,7 @@ export const ProjectProvider = ({
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
         pickedFile: project.pickedFile,
-        pickedChapter: project.pickedChapter!,
+        pickedChapter: project.pickedChapter,
     });
 
     function bookCodeToProjectLocalizedTitle({

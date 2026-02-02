@@ -1,7 +1,8 @@
 # Progress: Lockless Modes
 
 ## Current Status
-- Not started.
+- Planning complete.
+- Plan + PRD validated.
 
 ## Decisions
 - `editorMode`: `regular | usfm | plain` stored on `project.appSettings`.
@@ -17,4 +18,4 @@
 - Keep Tier B conservative to avoid cursor jank.
 
 ## Next Steps
-1) Implement Slice 1 (settings + UI toggle).
+1) Start execution with Task 01 (Settings.editorMode) + Task 02 (callsite compile fixes).

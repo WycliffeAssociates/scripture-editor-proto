@@ -14,11 +14,7 @@ import {
     Type,
 } from "lucide-react";
 import React from "react";
-import type {
-    EditorMarkersMutableState,
-    EditorMarkersViewState,
-    EditorMode,
-} from "@/app/data/editor.ts";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
@@ -88,14 +84,10 @@ function insertMarker(
             anchorOffsetToUse: actualAnchorOffset,
             marker: markerNoSlash,
             isStartOfLine: isStartOfLineCalculated,
-            markersMutableState:
-                context.markersMutableState as EditorMarkersMutableState,
-            markersViewState:
-                context.markersViewState as EditorMarkersViewState,
             restOfText: "", // Not really used for button insertion in the same way?
             languageDirection: context.languageDirection,
             isTypedInsertion: false,
-            mode: context.mode as EditorMode,
+            editorMode: context.editorMode as EditorModeSetting,
         };
 
         switch (insertType) {

@@ -20,7 +20,10 @@ import {
     isSerializedNumberOrPlainTextUSFMTextNode,
     isSerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import {
+    materializeFlatTokensArray,
+    materializeFlatTokensFromSerialized,
+} from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 
@@ -309,8 +312,9 @@ type BuildState = {
 
 /**
  * Processes a chapter's node list into a rich, contextual SidContentMap.
- * This implementation correctly handles duplicate SIDs, nested elements (paragraphs),
- * and supports both structured and flattened (Source Mode) footnotes.
+ * This implementation canonicalizes the input to a flat token stream first,
+ * ensuring mode-independent comparison (Regular mode vs Source mode produce
+ * identical SidContentMaps for the same USFM content).
  *
  * @param chapterNodeList The `root.children` array from a chapter's lexical state.
  */
@@ -318,6 +322,12 @@ export function buildSidContentMapForChapter(
     chapterNodeList: SerializedLexicalNode[],
     _map?: SidContentMap,
 ): SidContentMap {
+    // Canonicalize to flat token stream - this makes the map mode-independent
+    // (paragraph containers become synthetic marker tokens + their children)
+    const flatNodes = materializeFlatTokensArray(chapterNodeList, {
+        includeNestedEditors: false,
+    });
+
     const state: BuildState = {
         activeVerseKey: null,
         activeFootnoteKey: null,
@@ -509,6 +519,9 @@ export function buildSidContentMapForChapter(
             }
 
             // --- Case 3: Recursion into Paragraph Nodes ---
+            // NOTE: With flat token canonicalization, paragraph containers are already
+            // expanded into synthetic markers + children, so this branch is rarely hit.
+            // Kept for safety in case non-canonicalized input is passed.
             if (isSerializedParagraphNode(node) && node.children) {
                 traverse(node.children, node.children);
                 continue;
@@ -526,7 +539,8 @@ export function buildSidContentMapForChapter(
         }
     }
 
-    traverse(chapterNodeList, chapterNodeList);
+    // Traverse the canonicalized flat token stream
+    traverse(flatNodes, flatNodes);
     return state.map;
 }
 

@@ -9,7 +9,7 @@ import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
 import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 import { getFlattenedFileTokens } from "./utils/editorUtils.ts";
 
-export type UseLintFixingHook = ReturnType<typeof useLintFixing>;
+type UseLintFixingHook = ReturnType<typeof useLintFixing>;
 
 export function useLintFixing({
     mutWorkingFilesRef,

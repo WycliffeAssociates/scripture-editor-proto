@@ -19,7 +19,7 @@ export function useEditorContext() {
         project,
         projectLanguageDirection,
     } = useWorkspaceContext();
-    const { mode, markersViewState, markersMutableState } = project.appSettings;
+    const editorMode = project.appSettings.editorMode ?? "regular";
 
     const getContext = useCallback((): EditorContext => {
         return editor.getEditorState().read(() => {
@@ -129,23 +129,13 @@ export function useEditorContext() {
                 nodePath,
                 currentVerse,
                 currentMarker,
-                mode,
-                markersViewState,
-                markersMutableState,
+                editorMode,
                 languageDirection: projectLanguageDirection,
                 actions,
                 searchApi,
             };
         });
-    }, [
-        editor,
-        mode,
-        markersViewState,
-        markersMutableState,
-        actions,
-        searchApi,
-        projectLanguageDirection,
-    ]);
+    }, [editor, editorMode, actions, searchApi, projectLanguageDirection]);
 
     return { getContext };
 }

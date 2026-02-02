@@ -16,10 +16,6 @@ import {
 } from "lexical";
 import { useEffect, useRef } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import {
-    EditorMarkersMutableStates,
-    EditorMarkersViewStates,
-} from "@/app/data/editor.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -28,20 +24,18 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
-import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
 import { useParagraphing } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
     const { t } = useLingui();
-    const { referenceProject, project } = useWorkspaceContext();
+    const { referenceProject } = useWorkspaceContext();
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { referenceQuery, referenceProjectId: referenceProjectPath } =
         referenceProject;
     const { referenceChapter } = referenceProject;
-    const { appSettings } = project;
     const { isParagraphingActive, currentParagraphingMarker } =
         useParagraphing();
 
@@ -50,31 +44,12 @@ export function ReferenceEditor() {
         const editor = nestedEditorRef.current;
         if (!editor) return;
 
-        const { markersViewState, markersMutableState } = appSettings;
+        const clonedState = structuredClone(referenceChapter.lexicalState);
 
-        const hide =
-            markersViewState === EditorMarkersViewStates.NEVER ||
-            markersViewState === EditorMarkersViewStates.WHEN_EDITING;
-
-        const isMutable =
-            markersViewState === EditorMarkersViewStates.NEVER
-                ? EditorMarkersMutableStates.IMMUTABLE
-                : markersMutableState;
-
-        const adjustedState = structuredClone(referenceChapter.lexicalState);
-        adjustedState.root.children = adjustedState.root.children.flatMap(
-            (node) => {
-                return adjustSerializedLexicalNodes(node, {
-                    show: !hide,
-                    isMutable: isMutable === EditorMarkersMutableStates.MUTABLE,
-                });
-            },
-        );
-
-        editor.setEditorState(editor.parseEditorState(adjustedState), {
+        editor.setEditorState(editor.parseEditorState(clonedState), {
             tag: HISTORY_MERGE_TAG,
         });
-    }, [referenceChapter, appSettings]);
+    }, [referenceChapter]);
 
     useEffect(() => {
         const container = containerRef.current;

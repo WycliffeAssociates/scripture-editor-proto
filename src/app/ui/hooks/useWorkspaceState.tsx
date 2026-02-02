@@ -8,6 +8,8 @@ export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 export const useWorkspaceState = (
     settingsManager: SettingsManager,
     allFiles: ParsedFile[],
+    queryBookOverride?: string,
+    queryChapterOverride?: number,
 ) => {
     // for accessing editor and it's state in various places
     const editorRef = useRef<LexicalEditor | null>(null);
@@ -25,11 +27,14 @@ export const useWorkspaceState = (
     );
     const [currentFileBibleIdentifier, setCurrentFileBibleIdentifier] =
         useState(
-            getSavedIfPrefersRestore("lastBookIdentifier") ||
+            queryBookOverride ||
+                getSavedIfPrefersRestore("lastBookIdentifier") ||
                 allFiles[0].bookCode,
         );
     const [currentChapter, setCurrentChapter] = useState(
-        getSavedIfPrefersRestore("lastChapterNumber") || 1,
+        queryChapterOverride ||
+            getSavedIfPrefersRestore("lastChapterNumber") ||
+            1,
     );
     const [referenceProjectPath, setReferenceProjectPath] = useState<
         string | null

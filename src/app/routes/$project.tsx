@@ -16,15 +16,24 @@ export const Route = createFileRoute("/$project")({
         </div>
     ),
     pendingMs: 100,
+    validateSearch: (
+        search: Partial<Record<string, unknown>>,
+    ): { book?: string; chapter?: number } => {
+        return {
+            book: search.book as string | undefined,
+            chapter: search.chapter ? Number(search.chapter) : undefined,
+        };
+    },
     loader: async ({ context, params }) => {
         console.time("total time");
-        // start here would prefer to wrap into a single abstraction
-        const { projectRepository, md5Service } = context;
+        const { projectRepository, md5Service, settingsManager } = context;
         const { project } = params;
+        const editorMode = settingsManager.get("editorMode");
         const result = await projectParamToParsedFiles(
             projectRepository,
             project,
             md5Service,
+            editorMode,
         );
         const { parsedFiles, allInitialLintErrors, loadedProject } = result || {
             parsedFiles: [],
@@ -44,6 +53,8 @@ function RouteComponent() {
         Route.useLoaderData();
 
     const { project } = Route.useParams();
+    const search = Route.useSearch();
+
     if (!loadedProject) return <Paper>Project not found</Paper>;
     return (
         <ProjectProvider
@@ -51,6 +62,8 @@ function RouteComponent() {
             projectFiles={projectFiles}
             allInitialLintErrors={allInitialLintErrors}
             loadedProject={loadedProject}
+            queryBookOverride={search.book}
+            queryChapterOverride={search.chapter}
         >
             <ParagraphingProvider>
                 <ProjectView />

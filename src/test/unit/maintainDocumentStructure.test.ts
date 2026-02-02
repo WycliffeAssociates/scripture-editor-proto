@@ -1,6 +1,7 @@
 import { createHeadlessEditor } from "@lexical/headless";
 import {
     $createParagraphNode,
+    $getNodeByKey,
     $getRoot,
     $isElementNode,
     ElementNode,
@@ -11,15 +12,20 @@ import {
     type Spread,
 } from "lexical";
 import { describe, expect, it, vi } from "vitest";
-import { EditorModes, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { settingsDefaults } from "@/app/data/settings.ts";
-import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import {
+    ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
+    maintainDocumentStructure,
+} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
+import {
+    $createUSFMParagraphNode,
     $isUSFMParagraphNode,
     USFMParagraphNode,
 } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
+    $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
@@ -87,11 +93,11 @@ function removeAllRootChildren() {
 
 function applyMaintainDocumentStructure(
     editor: LexicalEditor,
-    mode: "wysiwyg" | "source",
+    editorMode: "regular" | "plain",
 ) {
     maintainDocumentStructure(editor.getEditorState(), editor, {
         ...settingsDefaults,
-        mode,
+        editorMode,
     });
 }
 
@@ -137,7 +143,7 @@ describe("maintainDocumentStructure: enforceRegularModeParagraphStructure", () =
             $getRoot().append(wrapper1, wrapper2);
         });
 
-        applyMaintainDocumentStructure(editor, EditorModes.WYSIWYG);
+        applyMaintainDocumentStructure(editor, "regular");
         await flush(editor);
 
         editor.getEditorState().read(() => {
@@ -200,7 +206,7 @@ describe("maintainDocumentStructure: enforceRegularModeParagraphStructure", () =
             $getRoot().append(wrapper1, nonParagraphRoot, wrapper2);
         });
 
-        applyMaintainDocumentStructure(editor, EditorModes.WYSIWYG);
+        applyMaintainDocumentStructure(editor, "regular");
         await flush(editor);
 
         editor.getEditorState().read(() => {
@@ -244,7 +250,7 @@ describe("maintainDocumentStructure: enforceRegularModeParagraphStructure", () =
             $getRoot().append(wrapper);
         });
 
-        applyMaintainDocumentStructure(editor, EditorModes.SOURCE);
+        applyMaintainDocumentStructure(editor, "plain");
         await flush(editor);
 
         editor.getEditorState().read(() => {
@@ -261,5 +267,97 @@ describe("maintainDocumentStructure: enforceRegularModeParagraphStructure", () =
         });
 
         logSpy.mockRestore();
+    });
+
+    async function insertOrphanMarkerWithNumberRange(
+        editor: LexicalEditor,
+        paragraphId: string,
+    ) {
+        let markerKey = "";
+        await updateAndFlush(editor, () => {
+            removeAllRootChildren();
+
+            const paragraph = $createUSFMParagraphNode({
+                id: paragraphId,
+                marker: "p",
+            });
+
+            const marker = $createUSFMTextNode("\\v", {
+                id: `${paragraphId}-marker`,
+                sid: "tier-b",
+                tokenType: UsfmTokenTypes.marker,
+            });
+            marker.setMarker("v");
+            markerKey = marker.getKey();
+
+            const numberRange = $createUSFMTextNode("", {
+                id: `${paragraphId}-number`,
+                sid: "tier-b",
+                tokenType: UsfmTokenTypes.numberRange,
+            });
+
+            paragraph.append(marker, numberRange);
+            $getRoot().append(paragraph);
+        });
+        return markerKey;
+    }
+
+    it("Plain mode: Tier B skips orphan marker cleanup", async () => {
+        const editor = createEmptyTestEditor();
+        const markerKey = await insertOrphanMarkerWithNumberRange(
+            editor,
+            "plain-orphan-paragraph",
+        );
+        const updates: Array<{
+            dbgLabel: string;
+            run: () => void;
+        }> = [];
+        editor.getEditorState().read(() => {
+            const markerNode = $getNodeByKey(markerKey);
+            if (!markerNode || !$isUSFMTextNode(markerNode)) {
+                throw new Error("Marker node missing");
+            }
+            ensureNumberRangeAlwaysFollowsMarkerExpectingNum({
+                node: markerNode,
+                tokenType: markerNode.getTokenType(),
+                appSettings: {
+                    ...settingsDefaults,
+                    editorMode: "plain",
+                },
+                updates,
+            });
+        });
+        expect(updates).toHaveLength(0);
+    });
+
+    it("Regular mode: Tier B removes orphan chapter/verse markers", async () => {
+        const editor = createEmptyTestEditor();
+        const markerKey = await insertOrphanMarkerWithNumberRange(
+            editor,
+            "regular-orphan-paragraph",
+        );
+        const updates: Array<{
+            dbgLabel: string;
+            run: () => void;
+        }> = [];
+        editor.getEditorState().read(() => {
+            const markerNode = $getNodeByKey(markerKey);
+            if (!markerNode || !$isUSFMTextNode(markerNode)) {
+                throw new Error("Marker node missing");
+            }
+            ensureNumberRangeAlwaysFollowsMarkerExpectingNum({
+                node: markerNode,
+                tokenType: markerNode.getTokenType(),
+                appSettings: {
+                    ...settingsDefaults,
+                    editorMode: "regular",
+                },
+                updates,
+            });
+        });
+        expect(updates).toHaveLength(1);
+        expect(updates[0].dbgLabel).toContain(
+            "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
+        );
     });
 });

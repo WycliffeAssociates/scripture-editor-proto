@@ -113,7 +113,6 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     if (!token?.text) return;
     if (token.tokenType !== TokenMap.numberRange) return;
     if (!ctx.prevToken?.marker || ctx.prevToken.marker !== "v") return;
-
     const curChapter = parseSid(token.sid ?? "")?.chapter;
     if (!curChapter) return;
     const stringChap = String(curChapter);

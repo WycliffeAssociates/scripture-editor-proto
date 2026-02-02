@@ -8,11 +8,7 @@ import {
     KEY_TAB_COMMAND,
 } from "lexical";
 import { useEffect } from "react";
-import type {
-    EditorMarkersMutableState,
-    EditorMarkersViewState,
-    EditorMode,
-} from "@/app/data/editor.ts";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { useEditorContext } from "@/app/domain/editor/hooks/useEditorContext.ts";
 import {
     $isUSFMTextNode,
@@ -78,21 +74,17 @@ export function ParagraphingPlugin() {
                     anchorOffsetToUse: actualAnchorOffset,
                     marker: currentParagraphingMarker.type,
                     isStartOfLine: isStartOfLineCalculated,
-                    markersMutableState:
-                        context.markersMutableState as EditorMarkersMutableState,
-                    markersViewState:
-                        context.markersViewState as EditorMarkersViewState,
                     restOfText: "",
                     languageDirection: context.languageDirection,
                     isTypedInsertion: false,
-                    mode: context.mode as EditorMode,
+                    editorMode: context.editorMode as EditorModeSetting,
                 };
 
                 const insertType = mapMarkerToInsertionType(
                     currentParagraphingMarker.type,
                     false,
                 );
-                debugger;
+
                 switch (insertType) {
                     case InsertionTypes.verse: {
                         $insertVerse(

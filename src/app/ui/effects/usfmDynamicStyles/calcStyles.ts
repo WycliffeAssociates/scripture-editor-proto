@@ -1,10 +1,9 @@
-import {
-    type EditorMarkersViewState,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { UsfmTokenTypes } from "@/app/data/editor.ts";
+
+type MarkerViewState = "always" | "never" | "whenEditing";
 
 export function getPoetryStylesAsCssStyleSheet(
-    markerViewState: EditorMarkersViewState,
+    markerViewState: MarkerViewState,
 ) {
     // USFM mode uses Lexical <p> blocks; Regular mode uses paragraph containers
     // and should not rely on this dynamic indentation helper.

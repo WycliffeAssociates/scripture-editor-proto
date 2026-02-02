@@ -1,30 +1,20 @@
 import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
-import {
-    EditorMarkersMutableStates,
-    type EditorMarkersViewState,
-    EditorMarkersViewStates,
-    EditorModes,
-} from "@/app/data/editor.ts";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function UsfmStylesPlugin() {
     const { project } = useWorkspaceContext();
 
-    const { mode } = project.appSettings;
-    const { markersViewState, markersMutableState } = project.appSettings;
-
-    const isUsfmMode =
-        mode === EditorModes.WYSIWYG &&
-        markersViewState === EditorMarkersViewStates.ALWAYS &&
-        markersMutableState === EditorMarkersMutableStates.MUTABLE;
+    const editorModeSetting = project.appSettings.editorMode ?? "regular";
+    const isUsfmMode = editorModeSetting === "usfm";
     // Using useRef to hold the stylesheet instance to avoid re-creation on re-renders.
     const dynamicCssStyleSheet = useRef(new CSSStyleSheet()).current;
     const prevStyles = useRef<string>("");
 
     // The core logic for updating styles is wrapped in a throttled callback.
     // The wait time of 200ms can be adjusted based on your needs.
+    const viewState = "always";
     const throttledUpdateStyles = useThrottledCallback(() => {
         // console.time("usfmStylesPluginMutation");
         // Dynamic indentation helpers are USFM-mode-only.
@@ -36,14 +26,7 @@ export function UsfmStylesPlugin() {
             return;
         }
 
-        const rootEl = document.getElementById("root");
-        const viewState = rootEl?.getAttribute(
-            "data-marker-view-state",
-        ) as EditorMarkersViewState | null;
-
-        const styles = getPoetryStylesAsCssStyleSheet(
-            viewState as EditorMarkersViewState,
-        );
+        const styles = getPoetryStylesAsCssStyleSheet(viewState);
 
         if (styles && styles !== prevStyles.current) {
             dynamicCssStyleSheet.replaceSync(styles);

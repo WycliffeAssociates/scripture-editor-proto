@@ -285,6 +285,9 @@ export const VALID_PARA_MARKERS = new Set([
     "pb",
 ]);
 const DOCUMENT_MARKERS = new Set(["id", "usfm"]);
+export const isDocumentMarker = (marker: string) => {
+    return DOCUMENT_MARKERS.has(marker);
+};
 export const isValidParaMarker = (marker: string) => {
     return VALID_PARA_MARKERS.has(marker);
 };

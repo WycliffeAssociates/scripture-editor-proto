@@ -8,7 +8,7 @@ import {
     VALID_NOTE_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 
-export const STAMPABLE_MARKERS = new Set(
+const STAMPABLE_MARKERS = new Set(
     [...ALL_USFM_MARKERS].filter((marker) => {
         const dontInclude = ["s5", "c"];
         return !dontInclude.includes(marker) && !VALID_NOTE_MARKERS.has(marker);

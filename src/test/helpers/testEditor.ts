@@ -12,7 +12,7 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { parsedUsfmTokensToJsonLexicalNode } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { parsedUsfmTokensToLexicalStates } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
 
@@ -45,7 +45,11 @@ export function createTestEditor(usfmContent: string): LexicalEditor {
     // Try to get chapter 1 first, fall back to first available chapter
     const targetChapter = chapterKeys.includes(1) ? 1 : chapterKeys[0];
     const tokens = result.usfm[targetChapter] || [];
-    const serialized = parsedUsfmTokensToJsonLexicalNode(tokens, "ltr");
+    const { lexicalState: serialized } = parsedUsfmTokensToLexicalStates(
+        tokens,
+        "ltr",
+        true, // paragraph-wrapped for testing
+    );
     editor.setEditorState(editor.parseEditorState(serialized));
     return editor;
 }

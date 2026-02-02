@@ -503,12 +503,26 @@ function buildRichDiff(
     let wordDiff: Change[] | undefined;
     let isWhitespaceChange = false;
     if (status === "modified") {
-        wordDiff = diffWordsWithSpace(originalDisplayText, currentDisplayText);
-        // Check for whitespace-only changes
+        // Check for whitespace-only changes using untrimmed text first
         const strip = (s: string) => s.replace(/\s+/g, "");
-        if (strip(originalDisplayText) === strip(currentDisplayText)) {
-            isWhitespaceChange = true;
-        }
+        isWhitespaceChange =
+            strip(originalDisplayText) === strip(currentDisplayText);
+
+        // Only trim structural whitespace if it's NOT a whitespace-only change
+        // and USFM structure hasn't changed. This ensures whitespace-only changes
+        // are displayed clearly, while avoiding visual noise for content changes.
+        const shouldTrim = !structureHasChanged && !isWhitespaceChange;
+        const originalComparisonText = shouldTrim
+            ? originalDisplayText.trim()
+            : originalDisplayText;
+        const currentComparisonText = shouldTrim
+            ? currentDisplayText.trim()
+            : currentDisplayText;
+
+        wordDiff = diffWordsWithSpace(
+            originalComparisonText,
+            currentComparisonText,
+        );
     }
     const detail = current?.detail;
 
@@ -716,7 +730,6 @@ function updateChapterInDiffMap({
     const originalUsfm = serializeToUsfmString(
         chapToUpdate.loadedLexicalState.root.children,
     );
-
     if (currentUsfm === originalUsfm) {
         // Clear out any old diffs for this chapter from our copy
         for (const key in newDiffMap) {

@@ -1,11 +1,5 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
-import {
-    type EditorMarkersMutableState,
-    type EditorMarkersViewState,
-    type EditorMode,
-    EditorModes,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
@@ -34,20 +28,14 @@ const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\*?\s/;
 type TextNodeTransformParams = {
     node: USFMTextNode;
     editor: LexicalEditor;
-    editorMode: EditorMode;
-    markersMutableState: EditorMarkersMutableState;
-    markersViewState: EditorMarkersViewState;
+    editorMode: EditorModeSetting;
     languageDirection: "ltr" | "rtl";
 };
 export function textNodeTransform({
     node,
     editorMode,
-    markersMutableState,
-    markersViewState,
     languageDirection,
 }: TextNodeTransformParams) {
-    // noop in src mode
-    if (editorMode === EditorModes.SOURCE) return;
     const text = node.getTextContent();
     const tokenType = node.getTokenType();
     const selection = $getSelection();
@@ -140,12 +128,10 @@ export function textNodeTransform({
         anchorOffsetToUse,
         marker,
         isStartOfLine,
-        markersMutableState,
         restOfText,
-        markersViewState,
         languageDirection,
         isTypedInsertion: true,
-        mode: editorMode,
+        editorMode,
     };
 
     /* 

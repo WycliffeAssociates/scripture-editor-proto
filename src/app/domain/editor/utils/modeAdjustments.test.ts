@@ -6,10 +6,8 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import {
-    flattenParagraphContainersToFlatTokens,
-    groupFlatTokensIntoParagraphContainers,
-} from "./modeAdjustments.ts";
+import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { flattenParagraphContainersToFlatTokens } from "./modeAdjustments.ts";
 
 function createMarkerNode(marker: string, id: string): SerializedUSFMTextNode {
     return createSerializedUSFMTextNode({
@@ -19,8 +17,6 @@ function createMarkerNode(marker: string, id: string): SerializedUSFMTextNode {
         tokenType: UsfmTokenTypes.marker,
         marker,
         inPara: marker,
-        show: true,
-        isMutable: true,
     });
 }
 
@@ -30,8 +26,6 @@ function createNumberNode(text: string, id: string): SerializedUSFMTextNode {
         id,
         sid: "",
         tokenType: UsfmTokenTypes.numberRange,
-        show: true,
-        isMutable: true,
     });
 }
 
@@ -48,14 +42,11 @@ describe("modeAdjustments grouping", () => {
             createNumberNode("1", "nr-2"),
         ];
 
-        const grouped = groupFlatTokensIntoParagraphContainers(
+        const grouped = groupFlatNodesIntoParagraphContainers(
             flatTokens,
             "ltr",
         );
-        const flattened = flattenParagraphContainersToFlatTokens(grouped, {
-            show: true,
-            isMutable: true,
-        });
+        const flattened = flattenParagraphContainersToFlatTokens(grouped);
 
         const markers = flattened
             .filter(isSerializedUSFMTextNode)

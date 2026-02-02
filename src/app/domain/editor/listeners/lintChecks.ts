@@ -39,6 +39,9 @@ export function lintAll(
         },
         {} as Record<string, LintError[]>,
     );
+    //   if (Object.keys(withErrorsInThisBook).length) {
+    //
+    //   }
     const updateFxns: (() => void)[] = [];
     // ;
     dfsEditorStateForLint({

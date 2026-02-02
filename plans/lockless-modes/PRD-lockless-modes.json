@@ -1,0 +1,266 @@
+{
+  "feature": "lockless-modes",
+  "title": "Lockless Modes",
+  "status": "ready",
+  "highLevelOverview": "Replace the legacy editor mode matrix + per-node locking/visibility with a single global setting (editorMode = regular | usfm | plain). Editing must behave like a normal text editor in all modes. Marker visibility is CSS-driven by editorMode. Plain disables Tier B correctness assists as an escape hatch.",
+  "decisions": {
+    "persistence": "global",
+    "editorModeValues": ["regular", "usfm", "plain"],
+    "representation": {
+      "regular": "tree (paragraph containers)",
+      "usfm": "flat token stream wrapped in a Lexical paragraph",
+      "plain": "flat token stream wrapped in a Lexical paragraph"
+    },
+    "visibility": "no per-node show; CSS/root dataset only",
+    "locking": "no per-node isMutable; no locked traversal; no input interception",
+    "guardrails": {
+      "tierA": "always",
+      "tierB": "regular+usfm only (off in plain)"
+    }
+  },
+  "goals": [
+    "Introduce Settings.editorMode as the only persisted editor mode setting (default regular)",
+    "Remove all locking behavior: no interception of type/delete/cut/copy/paste around markers",
+    "Remove per-node isMutable and all lock-dependent helpers",
+    "Remove per-node show and all live preview toggling",
+    "Drive marker visibility purely from editorMode via root dataset + CSS",
+    "Keep existing tree/flat representation split and conversions",
+    "Split guardrails into Tier A (always) and Tier B (disabled in plain)",
+    "Update tests accordingly"
+  ],
+  "nonGoals": [
+    "Selection-based marker peek (may return later)",
+    "Reworking the USFM-as-tree representation/conversion logic",
+    "New lint rules or major UX redesign"
+  ],
+  "technicalConstraints": [
+    "Settings persistence remains in localStorage key app_preferences via SettingsManager",
+    "No schema migration; missing editorMode defaults to regular",
+    "Prefer deletion over compatibility layers"
+  ],
+  "tasks": [
+    {
+      "id": "task-01",
+      "title": "Introduce Settings.editorMode (global)",
+      "passes": false,
+      "complexity": "low",
+      "files": ["src/app/data/settings.ts", "src/app/data/editor.ts"],
+      "details": [
+        "In src/app/data/settings.ts remove mode/markersViewState/markersMutableState from Settings.",
+        "Add editorMode: 'regular' | 'usfm' | 'plain' with default 'regular'.",
+        "Add/reuse a shared type (e.g. export type EditorModeSetting) in src/app/data/editor.ts."
+      ],
+      "acceptance": [
+        "TypeScript compiles for Settings shape changes (may require downstream edits in later tasks)",
+        "Default editorMode is regular"
+      ]
+    },
+    {
+      "id": "task-02",
+      "title": "Update settings consumers to compile with editorMode",
+      "passes": false,
+      "complexity": "medium",
+      "files": ["src/app/ui/hooks/useWorkspaceState.tsx"],
+      "details": [
+        "Replace reads/writes of old mode fields with editorMode.",
+        "Ensure missing editorMode falls back to regular." 
+      ],
+      "acceptance": ["App boots and settings load without runtime exceptions"]
+    },
+    {
+      "id": "task-03",
+      "title": "Replace EditorModeToggle UI to write editorMode",
+      "passes": false,
+      "complexity": "low",
+      "files": ["src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx"],
+      "details": [
+        "Replace legacy preset logic (regular/raw/usfm) with editorMode (regular/usfm/plain).",
+        "Update labels/tooltips accordingly (plain = escape hatch).",
+        "Prefer calling an action (added in Task 04) like actions.setEditorMode(...)"
+      ],
+      "acceptance": ["UI toggle changes editorMode and persists"]
+    },
+    {
+      "id": "task-04",
+      "title": "Refactor mode switching hook to setEditorMode(...)",
+      "passes": false,
+      "complexity": "high",
+      "files": [
+        "src/app/ui/hooks/useModeSwitching.tsx",
+        "src/app/ui/hooks/utils/domUtils.ts"
+      ],
+      "details": [
+        "Replace toggleToSourceMode/adjustWysiwygMode with setEditorMode(next, {isInitialLoad, editor}).",
+        "Keep conversions: regular => tree; usfm/plain => flat wrapped in lexical paragraph.",
+        "Remove all show/isMutable adjustment logic from conversions.",
+        "Update DOM wiring: replace updateDomClassListWithMarkerViewState with updateDomForEditorMode that sets #root[data-editor-mode]."
+      ],
+      "acceptance": [
+        "Switching between modes still reshapes content correctly",
+        "Root dataset editorMode updates"
+      ]
+    },
+    {
+      "id": "task-05",
+      "title": "Remove locking input layer",
+      "passes": false,
+      "complexity": "low",
+      "files": [
+        "src/app/domain/editor/listeners/lockImmutableMarkers.ts",
+        "src/app/domain/editor/hooks/useEditorInput.ts"
+      ],
+      "details": [
+        "Delete lockImmutableMarkers listener module.",
+        "Remove its command registrations from useEditorInput."
+      ],
+      "acceptance": ["Backspace/delete/cut/copy/paste no longer have lock-specific interception"]
+    },
+    {
+      "id": "task-06",
+      "title": "Remove per-node isMutable and lock helpers",
+      "passes": false,
+      "complexity": "high",
+      "files": [
+        "src/app/domain/editor/states.ts",
+        "src/app/domain/editor/nodes/USFMTextNode.ts",
+        "src/app/data/editor.ts",
+        "src/app/domain/editor/utils/lexicalTreeTraversal.ts",
+        "src/app/domain/editor/utils/cursorCorrection.ts"
+      ],
+      "details": [
+        "Remove isMutableState from NodeState.",
+        "Remove isMutable from serialization and runtime API (getMutable/setMutable).",
+        "Remove TOKENS_TO_LOCK_FROM_EDITING and lock-related type guards.",
+        "Delete lock traversal + cursor correction utilities or refactor callers to not depend on them."
+      ],
+      "acceptance": ["No code branches on mutability/locking"]
+    },
+    {
+      "id": "task-07",
+      "title": "Remove per-node show and live preview",
+      "passes": false,
+      "complexity": "high",
+      "files": [
+        "src/app/domain/editor/states.ts",
+        "src/app/domain/editor/nodes/USFMTextNode.ts",
+        "src/app/domain/editor/listeners/livePreviewToggleableNodes.ts",
+        "src/app/domain/editor/listeners/maintainMetadata.ts",
+        "src/app/domain/editor/hooks/useEditorView.ts",
+        "src/app/ui/components/blocks/NestedEditor.tsx"
+      ],
+      "details": [
+        "Remove showState and show from serialization/runtime.",
+        "Delete livePreviewToggleableNodes.",
+        "Remove monitorMutabilityAndVisibility from maintainMetadata.",
+        "Remove update listeners that toggled show/mutable while editing."
+      ],
+      "acceptance": ["Marker visibility is no longer mutated at node level"]
+    },
+    {
+      "id": "task-08",
+      "title": "Update serialization/mode adjustment utilities (no show/isMutable)",
+      "passes": false,
+      "complexity": "high",
+      "files": [
+        "src/app/domain/editor/utils/modeAdjustments.ts",
+        "src/app/domain/editor/nodes/USFMTextNode.ts"
+      ],
+      "details": [
+        "Refactor adjustSerializedLexicalNodes to remove show/isMutable options.",
+        "Update createSerializedUSFMTextNode to no longer produce show/isMutable.",
+        "Update flattenParagraphContainersToFlatTokens signature accordingly."
+      ],
+      "acceptance": ["Mode conversions still work without show/isMutable fields"]
+    },
+    {
+      "id": "task-09",
+      "title": "Update marker insertion pipeline to be lockless",
+      "passes": false,
+      "complexity": "medium",
+      "files": [
+        "src/app/domain/editor/utils/insertMarkerOperations.ts",
+        "src/app/domain/editor/plugins/ParagraphingPlugin.tsx",
+        "src/app/domain/editor/actions/markerActions.ts"
+      ],
+      "details": [
+        "Remove markersViewState/markersMutableState from BaseInsertArgs.",
+        "Stop setting show/isMutable on newly created nodes.",
+        "Switch decision for para insertion: editorMode === regular => tree insertion; else flat insertion."
+      ],
+      "acceptance": ["Marker insertion works in all modes"]
+    },
+    {
+      "id": "task-10",
+      "title": "Update CSS + dynamic styles to depend on data-editor-mode",
+      "passes": false,
+      "complexity": "medium",
+      "files": ["src/app/ui/styles/usfm.css", "src/app/domain/editor/plugins/UsfmStylesPlugin.tsx"],
+      "details": [
+        "Replace data-marker-view-state/data-markers-mutable-state/data-show/data-is-mutable selectors with data-editor-mode.",
+        "Regular hides marker-ish tokens; usfm/plain show.",
+        "UsfmStylesPlugin: run only in editorMode === usfm and remove dependency on data-marker-view-state." 
+      ],
+      "acceptance": ["Marker visibility matches editorMode; no leftover old dataset selectors"]
+    },
+    {
+      "id": "task-11",
+      "title": "Split guardrails Tier A vs Tier B; disable Tier B in plain",
+      "passes": false,
+      "complexity": "medium",
+      "files": ["src/app/domain/editor/listeners/maintainDocumentStructure.ts"],
+      "details": [
+        "Replace mode checks with editorMode.",
+        "Implement explicit gate: if editorMode === plain, skip Tier B correctness assists.",
+        "Keep Tier A safety fixes always on."
+      ],
+      "acceptance": ["Plain mode does not perform correctness edits"]
+    },
+    {
+      "id": "task-12",
+      "title": "Update action palette context + mode actions",
+      "passes": false,
+      "complexity": "medium",
+      "files": [
+        "src/app/domain/editor/actions/types.ts",
+        "src/app/domain/editor/hooks/useEditorContext.ts",
+        "src/app/domain/editor/actions/modeActions.ts"
+      ],
+      "details": [
+        "Replace context fields with editorMode.",
+        "Update mode actions to switch regular/usfm/plain via setEditorMode."
+      ],
+      "acceptance": ["Action palette switches modes correctly"]
+    },
+    {
+      "id": "task-13",
+      "title": "Update ReferenceEditor + NestedEditor consumers",
+      "passes": false,
+      "complexity": "medium",
+      "files": ["src/app/ui/components/blocks/ReferenceEditor.tsx", "src/app/ui/components/blocks/NestedEditor.tsx"],
+      "details": [
+        "Remove adjustSerializedLexicalNodes show/isMutable usage in ReferenceEditor.",
+        "Ensure nested editors mirror #root data-editor-mode for CSS.",
+        "Remove any remaining live preview wiring."
+      ],
+      "acceptance": ["Reference/nested editor visuals match current editorMode"]
+    },
+    {
+      "id": "task-14",
+      "title": "Tests and cleanup",
+      "passes": false,
+      "complexity": "high",
+      "files": [
+        "src/test/unit/cursorCorrection.test.ts",
+        "src/test/unit/modeSwitching.test.ts",
+        "src/test/unit/maintainDocumentStructure.test.ts"
+      ],
+      "details": [
+        "Delete or rewrite cursorCorrection tests (locking removed).",
+        "Update modeSwitching tests for new serialization helpers.",
+        "Update maintainDocumentStructure tests for editorMode + Tier B gating.",
+        "Repo grep cleanup: remove remaining references to old settings keys and removed constants."
+      ],
+      "acceptance": ["Unit tests pass", "No dead references remain"]
+    }
+  ]
+}

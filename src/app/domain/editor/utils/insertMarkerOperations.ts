@@ -7,15 +7,7 @@ import {
     $isRangeSelection,
     type LexicalNode,
 } from "lexical";
-import {
-    type EditorMarkersMutableState,
-    EditorMarkersMutableStates,
-    type EditorMarkersViewState,
-    EditorMarkersViewStates,
-    type EditorMode,
-    EditorModes,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMParagraphNode,
@@ -53,12 +45,10 @@ export type BaseInsertArgs = {
     anchorOffsetToUse: number;
     marker: string;
     isStartOfLine: boolean;
-    markersMutableState: EditorMarkersMutableState;
-    markersViewState: EditorMarkersViewState;
     restOfText: string;
     languageDirection: "ltr" | "rtl";
     isTypedInsertion?: boolean;
-    mode?: EditorMode;
+    editorMode: EditorModeSetting;
 };
 
 type InsertContext = {
@@ -101,13 +91,11 @@ type CreatMarkerNodeArgs = {
     tokenType: (typeof UsfmTokenTypes)[keyof typeof UsfmTokenTypes];
     sid: string;
     inCharMarkers?: string[];
-    args: Pick<BaseInsertArgs, "markersMutableState" | "markersViewState">;
     isEndMarker?: boolean;
 };
 function $createMarkerNode({
     marker,
     context,
-    args,
     tokenType,
     sid,
     inCharMarkers,
@@ -121,11 +109,6 @@ function $createMarkerNode({
         marker,
         sid,
         inChars: inCharMarkers,
-        isMutable:
-            args.markersMutableState === EditorMarkersMutableStates.MUTABLE,
-        show:
-            args.markersViewState === EditorMarkersViewStates.ALWAYS ||
-            args.markersViewState === EditorMarkersViewStates.WHEN_EDITING,
     });
 }
 
@@ -234,7 +217,6 @@ export function $insertEndMarker(args: BaseInsertArgs): void {
     const markerNode = $createMarkerNode({
         marker,
         context,
-        args,
         tokenType: UsfmTokenTypes.endMarker,
         sid: anchorNode.getSid(),
         isEndMarker: true,
@@ -277,7 +259,6 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
     const markerNode = $createMarkerNode({
         marker,
         context,
-        args,
         tokenType: UsfmTokenTypes.marker,
         sid: context.newSid,
     });
@@ -287,10 +268,6 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
             text,
             context,
             tokenType: UsfmTokenTypes.numberRange,
-            extraProps: {
-                // Verse numbers should always be mutable, even if markers are locked
-                isMutable: true,
-            },
         });
 
     if (!isStartOfLine) {
@@ -350,7 +327,6 @@ export function $insertChapter(args: BaseInsertArgs): void {
     const markerNode = $createMarkerNode({
         marker,
         context,
-        args,
         tokenType: UsfmTokenTypes.marker,
         sid: context.currentSidAsString,
     });
@@ -360,10 +336,6 @@ export function $insertChapter(args: BaseInsertArgs): void {
             text: " ",
             context,
             tokenType: UsfmTokenTypes.numberRange,
-            extraProps: {
-                // Verse numbers should always be mutable, even if markers are locked
-                isMutable: true,
-            },
         });
 
     if (!isStartOfLine) {
@@ -416,10 +388,8 @@ export function $insertChapter(args: BaseInsertArgs): void {
 // ============================================================================
 
 export function $insertPara(args: BaseInsertArgs): void {
-    const { mode } = args;
-
     // Regular mode uses tree structure with USFMParagraphNode containers
-    if (mode === EditorModes.WYSIWYG) {
+    if (args.editorMode === "regular") {
         $insertParaRegularMode(args);
     } else {
         $insertParaSourceMode(args);
@@ -566,7 +536,6 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
     const markerNode = $createMarkerNode({
         marker,
         context,
-        args,
         tokenType: UsfmTokenTypes.marker,
         sid: context.currentSidAsString,
     });
@@ -642,10 +611,9 @@ export function $insertChar(args: BaseInsertArgs): void {
     const selection = $getSelection();
 
     if (!$isRangeSelection(selection)) return;
-    const common = {
+    const common: CreatMarkerNodeArgs = {
         marker,
         context,
-        args,
         tokenType: UsfmTokenTypes.marker,
         inCharMarkers: [marker],
         sid: context.currentSidAsString,
@@ -653,8 +621,8 @@ export function $insertChar(args: BaseInsertArgs): void {
     const openingMarker = $createMarkerNode(common);
     const closingMarker = $createMarkerNode({
         ...common,
-        marker: `${marker}`,
         tokenType: UsfmTokenTypes.endMarker,
+        isEndMarker: true,
     });
 
     if (selection.isCollapsed()) {

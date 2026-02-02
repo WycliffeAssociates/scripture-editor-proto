@@ -16,24 +16,40 @@ import {
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { dedupeErrorMessagesList } from "@/core/data/usfm/lint.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
-import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
+import {
+    isDocumentMarker,
+    isValidParaMarker,
+} from "@/core/data/usfm/tokens.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 
-export function parsedUsfmTokensToJsonLexicalNode(
+export interface LexicalStates {
+    /** Flat state for Save/Diff comparison (always flat token stream) */
+    loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
+    /** Paragraph-wrapped state for WYSIWYG editor mode (paragraph containers) */
+    lexicalState: SerializedEditorState<SerializedLexicalNode>;
+}
+
+/**
+ * Serializes USFM tokens to Lexical states efficiently.
+ * Tokens are only serialized once. Paragraph grouping only happens when needed.
+ *
+ * @param tokens - Parsed USFM tokens
+ * @param languageDirection - Text direction
+ * @param needsParagraphs - Whether to generate paragraph-wrapped state (true for 'regular' mode)
+ * @returns Object containing flat state and optionally paragraph-wrapped state
+ */
+export function parsedUsfmTokensToLexicalStates(
     tokens: ParsedToken[],
     languageDirection: "ltr" | "rtl",
-): SerializedEditorState<SerializedLexicalNode> {
+    needsParagraphs: boolean,
+): LexicalStates {
     const flatNodes = tokens
         .map((t) => serializeToken(t, languageDirection))
         .filter(Boolean);
 
-    const paragraphNodes = groupFlatNodesIntoParagraphContainers(
-        flatNodes,
-        languageDirection,
-    );
-    return {
+    const flatState: SerializedEditorState<SerializedLexicalNode> = {
         root: {
-            children: paragraphNodes,
+            children: flatNodes,
             type: "root",
             version: 1,
             direction: languageDirection,
@@ -41,14 +57,54 @@ export function parsedUsfmTokensToJsonLexicalNode(
             indent: 0,
         },
     };
+
+    if (!needsParagraphs) {
+        // For usfm/plain mode: both states are flat (separate objects for diff comparison)
+        return {
+            loadedLexicalState: flatState,
+            lexicalState: {
+                root: {
+                    children: [...flatNodes],
+                    type: "root",
+                    version: 1,
+                    direction: languageDirection,
+                    format: "start",
+                    indent: 0,
+                },
+            },
+        };
+    }
+
+    // For regular mode: paragraph-wrapped lexicalState, flat loadedLexicalState
+    const paragraphNodes = groupFlatNodesIntoParagraphContainers(
+        flatNodes,
+        languageDirection,
+    );
+
+    return {
+        loadedLexicalState: flatState,
+        lexicalState: {
+            root: {
+                children: paragraphNodes,
+                type: "root",
+                version: 1,
+                direction: languageDirection,
+                format: "start",
+                indent: 0,
+            },
+        },
+    };
 }
 
 const isSectionMarker = (marker: string) =>
     marker === "s" || /^s\d+$/u.test(marker);
 const isContainerStartMarker = (marker: string) =>
-    isValidParaMarker(marker) || marker === "c" || isSectionMarker(marker);
+    isValidParaMarker(marker) ||
+    isDocumentMarker(marker) ||
+    marker === "c" ||
+    isSectionMarker(marker);
 
-function groupFlatNodesIntoParagraphContainers(
+export function groupFlatNodesIntoParagraphContainers(
     flatNodes: USFMNodeJSON[],
     languageDirection: "ltr" | "rtl",
 ): USFMNodeJSON[] {
@@ -60,8 +116,10 @@ function groupFlatNodesIntoParagraphContainers(
         indent: 0;
         tokenType: string;
         id: string;
+        sid: string;
         marker: string;
         inPara: string;
+        markerText: string; // Original text of the marker token (e.g., "\\p " or "\\p\n")
         children: USFMNodeJSON[];
     };
 
@@ -87,7 +145,12 @@ function groupFlatNodesIntoParagraphContainers(
         }
     };
 
-    const startParagraph = (marker: string, id: string): ParagraphContainer => {
+    const startParagraph = (
+        marker: string,
+        id: string,
+        sid: string,
+        markerText: string,
+    ): ParagraphContainer => {
         const next: ParagraphContainer = {
             type: USFM_PARAGRAPH_NODE_TYPE,
             version: 1,
@@ -96,8 +159,10 @@ function groupFlatNodesIntoParagraphContainers(
             indent: 0,
             tokenType: UsfmTokenTypes.marker,
             id,
+            sid,
             marker,
             inPara: marker,
+            markerText,
             children: [],
         };
         paragraphs.push(next);
@@ -114,6 +179,8 @@ function groupFlatNodesIntoParagraphContainers(
             startParagraph(
                 containerStartMarker.marker,
                 containerStartMarker.id,
+                containerStartMarker.sid,
+                containerStartMarker.text,
             );
             continue;
         }
@@ -121,7 +188,13 @@ function groupFlatNodesIntoParagraphContainers(
         if (!current) {
             // Avoid creating a leading empty default paragraph for pure whitespace/linebreaks.
             if ((node as { type?: string }).type === "linebreak") continue;
-            current = startParagraph("p", `default-para-${paraIndex++}`);
+            // Default paragraphs get empty SID and default text (no trailing space)
+            current = startParagraph(
+                "p",
+                `default-para-${paraIndex++}`,
+                "",
+                "\\p",
+            );
         }
 
         current.children.push(node);
@@ -129,7 +202,7 @@ function groupFlatNodesIntoParagraphContainers(
 
     // Ensure Regular mode always has at least one paragraph container.
     if (paragraphs.length === 0) {
-        startParagraph("p", "default-para-0");
+        startParagraph("p", "default-para-0", "", "\\p");
     }
 
     return paragraphs;
@@ -137,7 +210,7 @@ function groupFlatNodesIntoParagraphContainers(
 
 function getContainerStartMarkerFromNode(
     node: USFMNodeJSON,
-): { marker: string; id: string } | null {
+): { marker: string; id: string; sid: string; text: string } | null {
     // Back-compat: older serialized states used `type: "text"` + `lexicalType`.
     const isUsfmTextNode =
         node.type === USFM_TEXT_NODE_TYPE ||
@@ -150,6 +223,8 @@ function getContainerStartMarkerFromNode(
         tokenType?: string;
         marker?: string;
         id?: string;
+        sid?: string;
+        text?: string;
     };
     if (maybe.tokenType !== UsfmTokenTypes.marker) return null;
     if (!maybe.marker) return null;
@@ -158,6 +233,8 @@ function getContainerStartMarkerFromNode(
     return {
         marker: maybe.marker,
         id: maybe.id ?? `para-marker-${maybe.marker}`,
+        sid: maybe.sid ?? "",
+        text: maybe.text ?? `\\${maybe.marker} `,
     };
 }
 

@@ -11,20 +11,13 @@ import {
     $setState,
     TextNode,
 } from "lexical";
-import {
-    TOKEN_TYPES_CAN_TOGGLE_HIDE,
-    TOKENS_TO_LOCK_FROM_EDITING,
-    USFM_TEXT_NODE_TYPE,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     idState,
     inCharsState,
     inParaState,
-    isMutableState,
     lintErrorsState,
     markerState,
-    showState,
     sidState,
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
@@ -46,8 +39,6 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
   */
     tokenType: string;
     sid?: string;
-    show: boolean;
-    isMutable: boolean;
     marker?: string;
     lexicalType: typeof USFM_TEXT_NODE_TYPE;
     lexicalKey?: string;
@@ -55,6 +46,7 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
     inChars?: string[];
     id: string;
     lintErrors?: LintError[];
+    [key: string]: unknown;
 };
 
 export class USFMTextNode extends TextNode {
@@ -74,8 +66,6 @@ export class USFMTextNode extends TextNode {
                 { flat: true, stateConfig: inParaState },
                 { flat: true, stateConfig: tokenTypeState },
                 { flat: true, stateConfig: markerState },
-                { flat: true, stateConfig: showState },
-                { flat: true, stateConfig: isMutableState },
                 { flat: true, stateConfig: lintErrorsState },
                 { flat: true, stateConfig: inCharsState },
             ],
@@ -90,8 +80,6 @@ export class USFMTextNode extends TextNode {
             lexicalType: USFM_TEXT_NODE_TYPE,
             tokenType: this.getTokenType(),
             id: this.getId(),
-            show: this.getShow(),
-            isMutable: this.getMutable(),
             lintErrors: [], //todo: decide do we want to serialize lint errors
             sid: this.getSid(),
             inPara: this.getInPara(),
@@ -124,12 +112,6 @@ export class USFMTextNode extends TextNode {
     getMarker(): string | undefined {
         return $getState(this.getLatest(), markerState);
     }
-    getMutable(): boolean {
-        return $getState(this.getLatest(), isMutableState);
-    }
-    getShow(): boolean {
-        return $getState(this.getLatest(), showState);
-    }
     getInChars(): Array<string> {
         return $getState(this.getLatest(), inCharsState);
     }
@@ -137,8 +119,6 @@ export class USFMTextNode extends TextNode {
     getAllScalarStates(): {
         id: string;
         tokenType: string;
-        show: boolean;
-        isMutable: boolean;
         sid?: string;
         inPara?: string;
         marker?: string;
@@ -147,8 +127,6 @@ export class USFMTextNode extends TextNode {
         return {
             id: this.getId(),
             tokenType: this.getTokenType(),
-            show: this.getShow(),
-            isMutable: this.getMutable(),
             sid: this.getSid(),
             inPara: this.getInPara(),
             marker: this.getMarker(),
@@ -184,15 +162,6 @@ export class USFMTextNode extends TextNode {
 
     setMarker(marker: string | undefined): this {
         $setState(this.getWritable(), markerState, marker);
-        return this;
-    }
-
-    setShow(show: boolean): this {
-        $setState(this.getWritable(), showState, show);
-        return this;
-    }
-    setMutable(isMutable: boolean): this {
-        $setState(this.getWritable(), isMutableState, isMutable);
         return this;
     }
     setInChars(inChars: Array<string>): this {
@@ -250,10 +219,8 @@ export class USFMTextNode extends TextNode {
         [
             inCharsState,
             inParaState,
-            isMutableState,
             lintErrorsState,
             markerState,
-            showState,
             sidState,
             tokenTypeState,
         ].forEach((s) => {
@@ -279,56 +246,6 @@ export class USFMTextNode extends TextNode {
 
         return needsUpdate;
     }
-    // functions for lock / unlock
-    remove(_preserveEmptyParent?: boolean): void {
-        const isLockable = $isToggleableUSFMTextNode(this);
-        const isShowing = $getState(this, showState);
-        if (isLockable || !isShowing) {
-            const isMutable = $getState(this, isMutableState);
-            if (isMutable === false) {
-                return;
-            }
-        }
-        super.remove();
-    }
-    // setTextContent(text: string): this {
-    //   // --- Decide if we should block the update ---
-    //   const isLockableTextNode = $isToggleableUSFMTextNode(this);
-    //   if (isLockableTextNode) {
-    //     const isMutable = $getState(this, isMutableState);
-
-    //     // If the node is lockable AND the editor is in "immutable" mode,
-    //     // block the update by exiting immediately.. This does prevent copying
-    //     if (isMutable === false) {
-    //       return this;
-    //     }
-    //   }e
-    //   super.setTextContent(text);
-    //   return this;
-    // }
-
-    canInsertTextBefore(): boolean {
-        const isLockable = $isToggleableUSFMTextNode(this);
-        if (isLockable) {
-            const isMutable = $getState(this, isMutableState);
-            if (isMutable === false) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    canInsertTextAfter(): boolean {
-        const isLockable = $isToggleableUSFMTextNode(this);
-        if (isLockable) {
-            const isMutable = $getState(this, isMutableState);
-            if (isMutable === false) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     // misc functionality:
     lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
         const current = this.getLintErrors().map((c) => c.message);
@@ -340,15 +257,6 @@ export class USFMTextNode extends TextNode {
 }
 
 /* type guards */
-export function $isToggleableUSFMTextNode(
-    node: LexicalNode,
-): node is USFMTextNode {
-    return (
-        node instanceof USFMTextNode &&
-        TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.getTokenType() ?? "")
-    );
-}
-
 export function isSerializedNumberOrPlainTextUSFMTextNode(
     node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
@@ -358,20 +266,10 @@ export function isSerializedNumberOrPlainTextUSFMTextNode(
             node.tokenType === UsfmTokenTypes.text)
     );
 }
-export function $isLockableUSFMTextNode(node: LexicalNode | null | undefined) {
-    return (
-        node instanceof USFMTextNode &&
-        // @ts-expect-error: tokenType is a string and checking set inclusion
-        TOKENS_TO_LOCK_FROM_EDITING.has(node.getTokenType() ?? "")
-    );
-}
 export function $isUSFMTextNode(
     node: LexicalNode | null | undefined,
 ): node is USFMTextNode {
     return node instanceof USFMTextNode;
-}
-export function $isLockedUSFMTextNode(node: LexicalNode | null | undefined) {
-    return $isUSFMTextNode(node) && node.getMutable() === false;
 }
 export function $isVerseRangeTextNode(
     node: LexicalNode | null | undefined,
@@ -385,23 +283,6 @@ export function isSerializedUSFMTextNode(
     node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {
     return node.type === USFM_TEXT_NODE_TYPE;
-}
-export function isSerializedToggleShowUSFMTextNode(
-    node: SerializedLexicalNode,
-): node is SerializedUSFMTextNode {
-    const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
-    if (!isSerializedUsfmNode) return false;
-    const isToggleable = TOKEN_TYPES_CAN_TOGGLE_HIDE.has(node.tokenType ?? "");
-    return isToggleable;
-}
-export function isSerializedToggleMutableUSFMTextNode(
-    node: SerializedLexicalNode,
-): node is SerializedUSFMTextNode {
-    const isSerializedUsfmNode = isSerializedUSFMTextNode(node);
-    if (!isSerializedUsfmNode) return false;
-    // @ts-expect-error: tokenType is a string and checking set inclusion
-    const isToggleable = TOKENS_TO_LOCK_FROM_EDITING.has(node.tokenType ?? "");
-    return isToggleable;
 }
 export function isSerializedPlainTextUSFMTextNode(
     node: SerializedLexicalNode,
@@ -418,10 +299,9 @@ export type USFMTextNodeMetadata = {
     inPara?: string;
     inChars?: string[];
     tokenType?: string;
-    show?: boolean;
     marker?: string;
     lintErrors?: LintError[];
-    isMutable?: boolean;
+    [key: string]: unknown;
 };
 export function $createUSFMTextNode(
     text: string,
@@ -434,15 +314,6 @@ export function $createUSFMTextNode(
     metadata.sid && $setState(writable, sidState, metadata.sid);
     $setState(writable, inParaState, metadata.inPara);
 
-    const show =
-        metadata.show ??
-        !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(metadata.tokenType ?? "");
-    const isMutable = metadata.isMutable ?? true;
-    // const isMutable =
-    //   metadata.isMutable ??
-    //   !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(metadata.tokenType ?? "");
-    $setState(writable, showState, show);
-    $setState(writable, isMutableState, isMutable);
     if (metadata.tokenType) {
         $setState(writable, tokenTypeState, metadata.tokenType);
     }
@@ -465,20 +336,12 @@ type CreateSerializedUSFMTextNodeParams = {
     inPara?: string;
     inChars?: string[];
     marker?: string;
-    show?: boolean;
     lintErrors?: LintError[];
-    isMutable?: boolean;
+    [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(
     params: CreateSerializedUSFMTextNodeParams,
 ): SerializedUSFMTextNode {
-    const show =
-        params.show || !TOKEN_TYPES_CAN_TOGGLE_HIDE.has(params.tokenType ?? "");
-    // We always need this to be true initialy for setTextContent. We can lock them after initial render I think;
-    // const isMutable = true;
-    const isMutable =
-        // @ts-expect-error: set inclusion check is fine
-        params.isMutable || !TOKENS_TO_LOCK_FROM_EDITING.has(params.tokenType);
     return {
         // yes, type and lexicalType are the same, but I like deserializing to explicty lexicalType vs parsed token type, and lexical create the node internall via it's regualar "type";
         type: USFM_TEXT_NODE_TYPE,
@@ -489,9 +352,7 @@ export function createSerializedUSFMTextNode(
         tokenType: params.tokenType,
         inChars: params.inChars,
         marker: params.marker,
-        isMutable: isMutable,
         lintErrors: params.lintErrors,
-        show,
         version: 1,
         text: params.text,
         detail: 0,
@@ -502,7 +363,7 @@ export function createSerializedUSFMTextNode(
 }
 
 // update in place for serialized /json nodes
-export function updateSerializedToggleableUSFMTextNode(
+function updateSerializedToggleableUSFMTextNode(
     node: SerializedUSFMTextNode,
     nodeUpdate: Partial<SerializedUSFMTextNode>,
 ): SerializedUSFMTextNode {

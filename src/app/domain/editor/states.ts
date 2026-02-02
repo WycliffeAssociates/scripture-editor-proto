@@ -56,12 +56,22 @@ const showState = createState("show", {
 const isMutableState = createState("isMutable", {
     parse: (value) => (typeof value === "boolean" ? value : true),
 });
+
 const lintErrorsState = createState("lintErrors", {
     parse: (value) =>
         typeof value === "object" && Array.isArray(value)
             ? (value as Array<LintError>)
             : ([] as Array<LintError>),
 });
+
+/**
+ * Defines the NodeState for 'markerText'. Stores the original text of a paragraph marker
+ * (e.g., "\\p " or "\\p\n") to preserve whitespace for accurate diffing.
+ */
+const markerTextState = createState("markerText", {
+    parse: (value) => (typeof value === "string" ? value : undefined),
+});
+
 export {
     idState,
     sidState,
@@ -72,4 +82,5 @@ export {
     showState,
     isMutableState,
     lintErrorsState,
+    markerTextState,
 };

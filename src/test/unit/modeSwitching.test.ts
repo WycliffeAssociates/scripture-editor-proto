@@ -17,10 +17,7 @@ describe("Mode Switching Data ID Preservation", () => {
         });
 
         // Apply mode adjustments (simulating switching from raw to regular mode)
-        const adjustedNodes = adjustSerializedLexicalNodes(serializedNode, {
-            show: false,
-            isMutable: false,
-        });
+        const adjustedNodes = adjustSerializedLexicalNodes(serializedNode);
 
         // Verify the ID is preserved
         expect(adjustedNodes).toHaveLength(1);
@@ -61,10 +58,7 @@ describe("Mode Switching Data ID Preservation", () => {
         };
 
         // Apply mode adjustments to the paragraph
-        const adjustedNodes = adjustSerializedLexicalNodes(paragraphElement, {
-            show: true,
-            isMutable: true,
-        });
+        const adjustedNodes = adjustSerializedLexicalNodes(paragraphElement);
 
         // Verify the structure and IDs are preserved
         expect(adjustedNodes).toHaveLength(1);

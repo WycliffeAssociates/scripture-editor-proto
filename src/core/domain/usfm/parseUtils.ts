@@ -10,6 +10,12 @@ import {
     type TokenNameSubset,
 } from "@/core/domain/usfm/lex.ts";
 
+export type TokenForSidCalculation = {
+    tokenType: string;
+    text: string;
+    marker?: string;
+};
+
 export const mergeHorizontalWhitespaceToAdjacent = (
     tokens: LintableToken[],
 ): LintableToken[] => {
@@ -82,19 +88,15 @@ export function prepareTokens<T extends LintableToken>(
     if (!bookCodeToUse) {
         throw new Error("No book code found");
     }
-    const { mutCurChap, mutCurVerse, mutCurSid } = getMutSidVals(bookCodeToUse);
 
     for (let i = 0; i < tokens.length; i++) {
         prepareLexedToken(tokens[i], i);
-        assignSid({
-            index: i,
-            currentToken: tokens[i],
-            tokens,
-            bookCode: bookCodeToUse,
-            mutCurChap,
-            mutCurVerse,
-            mutCurSid,
-        });
+    }
+
+    const sids = computeSidsReverse(tokens, bookCodeToUse);
+
+    for (let i = 0; i < tokens.length; i++) {
+        tokens[i].sid = sids[i];
     }
     return { tokens, bookCode: bookCodeToUse };
 }
@@ -107,19 +109,8 @@ export function preparedAlreadyGivenTokens<T extends LintableToken>(
     if (!bookCode) {
         throw new Error("No book code found");
     }
-    //   we need references and not values here, hence object wrapping
-    const { mutCurChap, mutCurVerse, mutCurSid } = getMutSidVals(bookCode);
     for (let i = 0; i < tokens.length; i++) {
         prepareLexedToken(tokens[i], i);
-        assignSid({
-            index: i,
-            currentToken: tokens[i],
-            tokens,
-            bookCode,
-            mutCurChap,
-            mutCurVerse,
-            mutCurSid,
-        });
     }
 
     return { tokens, bookCode };
@@ -168,60 +159,163 @@ function prepareLexedToken<T extends Token | LintableToken>(
     }
 }
 
-type AssignSidArgs<T extends LintableToken> = {
-    index: number;
-    currentToken: T;
-    tokens: T[];
-    bookCode: string;
-    mutCurChap: { val: string };
-    mutCurVerse: { val: string | null };
-    mutCurSid: { val: string };
-};
-function assignSid<T extends LintableToken>(args: AssignSidArgs<T>) {
-    // 1. Check if state needs updating based on current token
-    if (args.currentToken.tokenType === TokenMap.marker) {
-        const marker = args.currentToken.marker;
-        if (marker === "c") {
-            const { expectedNumRangeToken: expectedNumToken } =
-                skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
-            if (expectedNumToken?.tokenType === TokenMap.numberRange) {
-                const isValidNumRange = numRangeRe.test(
-                    expectedNumToken.text.trim(),
-                );
-                if (isValidNumRange) {
-                    args.mutCurChap.val = expectedNumToken.text;
-                    // chapters reset verses
-                    args.mutCurVerse.val = "0";
-                    const parsedNumRange = parseSid(
-                        `${args.bookCode} ${args.mutCurChap.val}:${args.mutCurVerse.val}`,
-                    );
-                    if (parsedNumRange) {
-                        args.mutCurSid.val = parsedNumRange.toSidString();
-                    }
+function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
+    tokens: T[],
+    markerIdx: number,
+) {
+    let idx = markerIdx + 1;
+    while (
+        idx < tokens.length &&
+        (tokens[idx]?.tokenType === TokenMap.horizontalWhitespace ||
+            tokens[idx]?.tokenType === TokenMap.verticalWhitespace)
+    ) {
+        idx++;
+    }
+    const t = tokens[idx];
+    if (t?.tokenType !== TokenMap.numberRange) return null;
+    const value = t.text.trim();
+    if (!value) return null;
+    return value;
+}
+
+function makeVerseSid(bookCode: string, chapter: number, verse: string) {
+    const parsed = parseSid(`${bookCode} ${chapter}:${verse}`);
+    if (parsed) return parsed.toSidString();
+    // Fallback: chapter-level marker if the verse value is malformed.
+    return makeSid({ bookId: bookCode, chapter, verseStart: 0, verseEnd: 0 });
+}
+
+/**
+ * Computes SIDs in reverse.
+ *
+ * Key behavior:
+ * - Markers between verses are attributed to the *following* verse (better for diff blocks).
+ * - Tokens before `\\v 1` in a chapter are attributed to chapter `:0`.
+ * - Tokens before the first chapter marker are attributed to `0:0` (intro material).
+ */
+export function computeSidsReverse<T extends TokenForSidCalculation>(
+    tokens: T[],
+    bookCode: string,
+): string[] {
+    const introSid = makeSid({
+        bookId: bookCode,
+        chapter: 0,
+        verseStart: 0,
+        verseEnd: 0,
+    });
+
+    if (!tokens.length) return [];
+
+    const result = Array.from({ length: tokens.length }, () => introSid);
+
+    // Identify chapter segments (we treat the `\\c` marker itself as part of the new chapter).
+    const chapterStarts: Array<{ idx: number; chap: number }> = [];
+    for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t?.tokenType !== TokenMap.marker) continue;
+        if (t.marker !== "c") continue;
+
+        const chapStr = getNumRangeAfterMarker(tokens, i);
+        if (!chapStr) continue;
+        if (!numRangeRe.test(chapStr)) continue;
+
+        const chapNum = Number.parseInt(chapStr, 10);
+        if (!Number.isFinite(chapNum)) continue;
+        chapterStarts.push({ idx: i, chap: chapNum });
+    }
+
+    if (!chapterStarts.length) {
+        // If there's no chapter marker at all, treat the entire file as intro material.
+        return result;
+    }
+
+    // Intro material before the first `\\c`.
+    for (let i = 0; i < chapterStarts[0].idx; i++) {
+        result[i] = introSid;
+    }
+
+    // Per-chapter reverse attribution.
+    for (let s = 0; s < chapterStarts.length; s++) {
+        const start = chapterStarts[s].idx;
+        const end =
+            s + 1 < chapterStarts.length
+                ? chapterStarts[s + 1].idx - 1
+                : tokens.length - 1;
+        const chapter = chapterStarts[s].chap;
+
+        const chapter0Sid = makeSid({
+            bookId: bookCode,
+            chapter,
+            verseStart: 0,
+            verseEnd: 0,
+        });
+
+        // Forward: map each index to the current verse number.
+        let curVerse = "0";
+        const verseForIndex = new Array<string>(end - start + 1);
+        for (let i = start; i <= end; i++) {
+            const t = tokens[i];
+            if (t?.tokenType === TokenMap.marker && t.marker === "v") {
+                const verseStr = getNumRangeAfterMarker(tokens, i);
+                if (verseStr && numRangeRe.test(verseStr)) {
+                    curVerse = verseStr.trim();
                 }
             }
-        } else if (marker === "v") {
-            const { expectedNumRangeToken: expectedNumToken } =
-                skipSpaceLookForNextNumRange(args.tokens, args.index + 1);
-            if (expectedNumToken?.tokenType === TokenMap.numberRange) {
-                const isValidNumRange = numRangeRe.test(
-                    expectedNumToken.text.trim(),
-                );
-                if (isValidNumRange) {
-                    args.mutCurVerse.val = expectedNumToken.text;
-                    const parsedNumRange = parseSid(
-                        `${args.bookCode} ${args.mutCurChap.val}:${expectedNumToken.text}`,
-                    );
-                    if (parsedNumRange) {
-                        args.mutCurSid.val = parsedNumRange.toSidString();
-                    }
+            verseForIndex[i - start] = curVerse;
+        }
+
+        // Reverse: attribute every token to the verse derived from the next text node.
+        let currentSid: string | null = null;
+        const pending: number[] = [];
+
+        for (let i = end; i >= start; i--) {
+            const t = tokens[i];
+
+            if (t?.tokenType === TokenMap.text) {
+                const verse = verseForIndex[i - start];
+                currentSid =
+                    verse && verse !== "0"
+                        ? makeVerseSid(bookCode, chapter, verse)
+                        : chapter0Sid;
+
+                // Anything after the last text token belongs to that SID.
+                for (const pendingIdx of pending) {
+                    result[pendingIdx] = currentSid;
+                }
+                pending.length = 0;
+            }
+
+            if (currentSid) {
+                result[i] = currentSid;
+            } else {
+                pending.push(i);
+            }
+
+            // Once we pass `\\v 1`, everything earlier in the chapter becomes chapter `:0`.
+            if (t?.tokenType === TokenMap.marker && t.marker === "v") {
+                const verse = verseForIndex[i - start];
+                const verseStart = Number.parseInt(verse, 10);
+                if (Number.isFinite(verseStart) && verseStart === 1) {
+                    currentSid = chapter0Sid;
                 }
             }
         }
+
+        // No text tokens in this chapter segment: default to chapter `:0`.
+        if (!currentSid) {
+            for (let i = start; i <= end; i++) {
+                result[i] = chapter0Sid;
+            }
+            continue;
+        }
+
+        // Remaining pending (edge case): use whatever SID we're currently in.
+        for (const pendingIdx of pending) {
+            result[pendingIdx] = currentSid;
+        }
     }
 
-    // 2. Apply current state to token
-    args.currentToken.sid = args.mutCurSid.val;
+    return result;
 }
 
 export type MutSidVals = ReturnType<typeof getMutSidVals>;
@@ -233,33 +327,9 @@ export function getMutSidVals(bookCode: string) {
             val: makeSid({
                 bookId: bookCode,
                 chapter: 0,
+                verseStart: 0,
+                verseEnd: 0,
             }),
         },
     };
-}
-function skipSpaceLookForNextNumRange<T extends LintableToken>(
-    tokens: T[],
-    idx: number,
-) {
-    if (idx >= tokens.length) return {};
-    let expectedNumRangeToken = tokens[idx];
-    // any time we go in the future, we need to do our normalization step btw token types
-    prepareLexedToken(expectedNumRangeToken, idx);
-    const tokensSeen: T[] = [];
-    tokensSeen.push(expectedNumRangeToken);
-    let tmpIdx = idx;
-    while (
-        (expectedNumRangeToken.tokenType === TokenMap.horizontalWhitespace ||
-            expectedNumRangeToken.tokenType === TokenMap.verticalWhitespace) &&
-        tmpIdx < tokens.length - 1
-    ) {
-        tmpIdx++;
-        expectedNumRangeToken = tokens[tmpIdx];
-        tokensSeen.push(expectedNumRangeToken);
-        prepareLexedToken(expectedNumRangeToken, tmpIdx);
-    }
-    if (expectedNumRangeToken.tokenType === TokenMap.numberRange) {
-        return { expectedNumRangeToken, tokensSeen };
-    }
-    return { tokensSeen };
 }

@@ -10,6 +10,7 @@ import {
     idState,
     inParaState,
     markerState,
+    markerTextState,
     sidState,
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
@@ -21,6 +22,7 @@ export type USFMParagraphNodeJSON = SerializedElementNode & {
     marker?: string;
     inPara?: string;
     sid?: string;
+    markerText?: string; // Original text of the marker token (e.g., "\\p " or "\\p\n")
     // attributes?: Record<string, string>;
     version: 1;
 };
@@ -42,10 +44,23 @@ export class USFMParagraphNode extends ElementNode {
                 { flat: true, stateConfig: inParaState },
                 { flat: true, stateConfig: tokenTypeState },
                 { flat: true, stateConfig: markerState },
+                { flat: true, stateConfig: markerTextState },
             ],
         });
     }
-    // not sure why $config not working for auto serialize
+    // not sure why $config not working for auto serialize/deserialize
+    static importJSON(json: USFMParagraphNodeJSON): USFMParagraphNode {
+        const node = $create(USFMParagraphNode);
+        const writable = node.getWritable();
+        $setState(writable, idState, json.id);
+        $setState(writable, sidState, json.sid ?? "");
+        $setState(writable, markerState, json.marker);
+        $setState(writable, inParaState, json.inPara);
+        $setState(writable, tokenTypeState, json.tokenType ?? "marker");
+        $setState(writable, markerTextState, json.markerText);
+        return node;
+    }
+
     exportJSON(): USFMParagraphNodeJSON {
         return {
             ...super.exportJSON(),
@@ -56,6 +71,7 @@ export class USFMParagraphNode extends ElementNode {
             marker: this.getMarker(),
             inPara: this.getInPara(),
             sid: this.getSid(),
+            markerText: this.getMarkerText(),
         };
     }
 
@@ -75,6 +91,10 @@ export class USFMParagraphNode extends ElementNode {
 
     getMarker(): string | undefined {
         return $getState(this.getLatest(), markerState);
+    }
+
+    getMarkerText(): string | undefined {
+        return $getState(this.getLatest(), markerTextState);
     }
     getAllStates(): {
         id: string;
@@ -111,6 +131,11 @@ export class USFMParagraphNode extends ElementNode {
 
     setMarker(marker: string | undefined): this {
         $setState(this.getWritable(), markerState, marker);
+        return this;
+    }
+
+    setMarkerText(markerText: string | undefined): this {
+        $setState(this.getWritable(), markerTextState, markerText);
         return this;
     }
     getInPara(): string | undefined {
@@ -189,6 +214,7 @@ export type CreateUSFMParagraphNodeParams = {
     marker: string;
     inPara?: string;
     tokenType?: string;
+    markerText?: string;
 };
 
 export function $createUSFMParagraphNode(
@@ -200,5 +226,11 @@ export function $createUSFMParagraphNode(
     $setState(writable, markerState, params.marker);
     $setState(writable, inParaState, params.inPara);
     $setState(writable, tokenTypeState, params.tokenType ?? "marker");
+    // Default markerText to "\marker " (with trailing space) for newly created paragraphs
+    $setState(
+        writable,
+        markerTextState,
+        params.markerText ?? `\\${params.marker} `,
+    );
     return node;
 }

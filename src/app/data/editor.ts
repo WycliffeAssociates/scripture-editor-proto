@@ -6,25 +6,9 @@ import {
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
+import type { TokenMap } from "@/core/domain/usfm/lex.ts";
 
-export type EditorMode = "wysiwyg" | "source";
-export const EditorModes = {
-    WYSIWYG: "wysiwyg",
-    SOURCE: "source",
-} as const;
-
-export type EditorMarkersViewState = "always" | "never" | "whenEditing";
-export type EditorMarkersMutableState = "mutable" | "immutable";
-export const EditorMarkersMutableStates = {
-    MUTABLE: "mutable",
-    IMMUTABLE: "immutable",
-} as const;
-export const EditorMarkersViewStates = {
-    ALWAYS: "always",
-    NEVER: "never",
-    WHEN_EDITING: "whenEditing",
-} as const;
+export type EditorModeSetting = "regular" | "usfm" | "plain";
 
 export const UsfmTokenTypes: Pick<
     typeof TokenMap,
@@ -52,21 +36,7 @@ export const EDITOR_TAGS_USED = {
 export const USFM_TEXT_NODE_TYPE = "usfm-text-node" as const;
 export const USFM_PARAGRAPH_NODE_TYPE = "usfm-paragraph-node" as const;
 
-export const TOKENS_TO_LOCK_FROM_EDITING = new Set([
-    TokenMap.idMarker,
-    TokenMap.endMarker,
-    TokenMap.implicitClose,
-    TokenMap.marker,
-    TokenMap.numberRange,
-]);
 // type more loosel for includions checks
-export const TOKEN_TYPES_CAN_TOGGLE_HIDE = new Set<string>([
-    TokenMap.idMarker,
-    TokenMap.endMarker,
-    TokenMap.implicitClose,
-    TokenMap.marker,
-]);
-
 export type USFMNodeJSON =
     | USFMParagraphNodeJSON
     | SerializedUSFMTextNode

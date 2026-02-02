@@ -59,28 +59,6 @@ export const ghostMarkerLabel = style({
     },
 });
 
-export const ghostMarkerContext = style({
-    color: vars.colors.gray[6],
-    fontSize: rem(10),
-    fontStyle: "italic",
-    selectors: {
-        "[data-mantine-color-scheme='dark'] &": {
-            color: vars.colors.gray[4],
-        },
-    },
-});
-
-export const ghostMarkerVerse = style({
-    fontSize: rem(12),
-    marginLeft: rem(4),
-    color: vars.colors.gray[6],
-    selectors: {
-        "[data-mantine-color-scheme='dark'] &": {
-            color: vars.colors.gray[4],
-        },
-    },
-});
-
 export const progressPanel = style({
     position: "fixed",
     top: rem(80),

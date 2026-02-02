@@ -44,92 +44,41 @@ body:not(.source-mode) {
     font-family: var(--font-serif);
   }
 
-  [data-show="true"] {
-    visibility: visible;
-    pointer-events: auto;
-  }
-  [data-is-mutable="false"] {
-    opacity: 0.5 !important;
-    /* pointer-events: none; */
-  }
-  [data-show="false"] {
-    /* display: none; */
-    opacity: 0;
-    /* visibility: hidden; */
-    /* position: absolute; */
-    /* pointer-events: none; */
-  }
-  /* [data-show="false"].isCharMarker,
-  [data-show="false"].isCharCloseMarker {
-    width: 0;
-    display: inline-block;
-    line-height: 0;
-  } */
-  [data-show="true"][data-token-type="marker"],
-  [data-show="true"][data-token-type="endMarker"] {
-    width: auto;
-    display: inline;
-    line-height: inherit;
-  }
-
-  /*
-   Regular mode (markers immutable): paragraph containers carry the marker on
-   the usfm-paragraph-node DOM element via data-marker.
-
-   USFM mode (markers mutable): fall back to token-level data-in-para for lines
-   that don't repeat paragraph markers.
-  */
-
-  #root[data-markers-mutable-state="immutable"]
-    :where(.editor-container div[data-token-type="marker"][data-marker^="q"]) {
+  /* Poetry markers should remain italic and keep spacing regardless of editor mode. */
+  .editor-container
+    :where(
+      div[data-token-type="marker"][data-marker^="q"],
+      [data-marker^="q"],
+      [data-in-para^="q"]
+    ) {
     font-style: italic;
   }
-  #root[data-markers-mutable-state="immutable"]
-    .editor-container
+  .editor-container
     div[data-token-type="marker"][data-marker="q"],
-  #root[data-markers-mutable-state="immutable"]
-    .editor-container
+  .editor-container
     div[data-token-type="marker"][data-marker="q1"] {
     padding-inline-start: 8px;
   }
-  #root[data-markers-mutable-state="immutable"]
-    .editor-container
+  .editor-container
     div[data-token-type="marker"][data-marker="q2"] {
     padding-inline-start: 24px;
   }
-  #root[data-markers-mutable-state="immutable"]
-    .editor-container
+  .editor-container
     div[data-token-type="marker"][data-marker="q3"] {
     padding-inline-start: 40px;
   }
-  #root[data-markers-mutable-state="immutable"]
-    .editor-container
+  .editor-container
     div[data-token-type="marker"][data-marker="q4"] {
     padding-inline-start: 56px;
   }
 
-  #root[data-markers-mutable-state="mutable"]
-    :where(
-      .editor-container [data-marker^="q"],
-      .editor-container [data-in-para^="q"]
-    ) {
-    font-style: italic;
-  }
-  /* [data-marker="b"] {
-    display: block !important;
-  } */
-  [data-marker="b"][data-show="false"] {
-    opacity: 0 !important;
-    /* pointer-events: none !important; */
-  }
-
-  [data-marker-view-state="never"]
+  #root[data-editor-mode="regular"]
     :where(
       span[data-token-type="marker"][data-marker],
       span[data-token-type="endMarker"][data-marker]
     )
     + br,
-  [data-marker-view-state="never"]
+  #root[data-editor-mode="regular"]
     :where(
       span[data-token-type="marker"][data-marker],
       span[data-token-type="endMarker"][data-marker]
@@ -152,12 +101,12 @@ body:not(.source-mode) {
     border-radius: 2px;
   }
 
-  [data-marker-view-state="never"]
+  #root[data-editor-mode="regular"]
     :where(
       span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
       span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight
     ),
-  [data-marker-view-state="never"]
+  #root[data-editor-mode="regular"]
     :where(
       span[data-token-type="marker"][data-marker].paragraphing-reference-highlight,
       span[data-token-type="endMarker"][data-marker].paragraphing-reference-highlight

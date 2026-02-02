@@ -7,12 +7,7 @@ import {
     type LexicalEditor,
     type LexicalNode,
 } from "lexical";
-import {
-    EDITOR_TAGS_USED,
-    EditorMarkersMutableStates,
-    EditorModes,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
@@ -52,6 +47,8 @@ export function maintainDocumentStructure(
     editor: LexicalEditor,
     appSettings: Settings,
 ) {
+    const editorModeSetting = appSettings.editorMode ?? "regular";
+    const tierBEnabled = editorModeSetting !== "plain";
     const allNodes = editorState.read(() => [...$dfsIterator()]);
     let totalUpdates = 0;
 
@@ -72,11 +69,17 @@ export function maintainDocumentStructure(
                 appSettings,
                 updates: nodeUpdates,
             };
-            const structureFixes = [
+            const structureFixes: MainDocumentStrutureFxn[] = [
                 editCharOpenAndCloseTogether,
                 fixMalformedMarkerWithNumber,
                 splitCombinedMarkerAndNumberRange,
-                ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
+            ];
+            if (tierBEnabled) {
+                structureFixes.push(
+                    ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
+                );
+            }
+            structureFixes.push(
                 ensurePlainTextNodeAlwaysFollowsNumberRange,
                 ensureCharOpensHaveEditableNextSibling,
                 ensureCharCloseHasEditableNextSibling,
@@ -84,7 +87,7 @@ export function maintainDocumentStructure(
                 //   ensureNodesSandwichedBetweenSameSidHasThatSid,
                 fixNumberRangeReparenting,
                 removeEmptyNumberRangeNotPrecededByMarker,
-            ];
+            );
 
             for (const fixFn of structureFixes) {
                 fixFn(args);
@@ -121,7 +124,7 @@ export function maintainDocumentStructure(
     }
 
     // Regular-mode structural enforcement
-    if (appSettings.mode === EditorModes.WYSIWYG) {
+    if (editorModeSetting === "regular") {
         enforceRegularModeParagraphStructure(editor);
     }
 }
@@ -405,13 +408,25 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
     // Look at the previous sibling to see if it's a marker expecting a number
     const previousSibling = node.getPreviousSibling();
     let isValidPredecessor = false;
-
     if ($isUSFMTextNode(previousSibling)) {
         const prevMarker = previousSibling.getMarker();
         if (
             previousSibling.getTokenType() === UsfmTokenTypes.marker &&
             prevMarker &&
             CHAPTER_VERSE_MARKERS.has(prevMarker)
+        ) {
+            isValidPredecessor = true;
+        }
+    }
+
+    //   See if it's parent is a valid marker as well
+    const parent = node.getParent();
+    if ($isUSFMParagraphNode(parent)) {
+        const parentMarker = parent.getMarker();
+        if (
+            parent.getTokenType() === UsfmTokenTypes.marker &&
+            parentMarker &&
+            CHAPTER_VERSE_MARKERS.has(parentMarker)
         ) {
             isValidPredecessor = true;
         }
@@ -494,8 +509,12 @@ const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
     }
 };
 
-const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn =
+export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn =
     ({ node, tokenType, updates, appSettings }) => {
+        const editorModeSetting = appSettings.editorMode ?? "regular";
+        const tierBEnabled = editorModeSetting !== "plain";
+        if (!tierBEnabled) return;
+
         const nextSibling = node.getNextSibling();
 
         const isMarker = tokenType === UsfmTokenTypes.marker;
@@ -504,10 +523,7 @@ const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn 
         if (!marker) return;
         if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
 
-        const isRegularMode =
-            appSettings.mode === EditorModes.WYSIWYG &&
-            appSettings.markersMutableState ===
-                EditorMarkersMutableStates.IMMUTABLE;
+        const isRegularMode = editorModeSetting === "regular";
 
         if (
             $isUSFMTextNode(nextSibling) &&
@@ -561,6 +577,7 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
     if (!$isVerseRangeTextNode(node)) return;
     const next = node.getNextSibling();
     const prev = node.getPreviousSibling();
+    const parent = node.getParent();
     if (
         prev &&
         $isUSFMTextNode(prev) &&
@@ -568,6 +585,10 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
         prev.getMarker() === "c"
     ) {
         // chapters numbers ranges don't need the plain text node following
+        return;
+    }
+    //   same check for chapter above, but for reuglar mode if the parent is a chapter
+    if (parent && $isUSFMParagraphNode(parent) && parent.getMarker() === "c") {
         return;
     }
     if (

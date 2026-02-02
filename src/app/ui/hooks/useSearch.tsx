@@ -30,7 +30,7 @@ type Props = {
     ) => ParsedChapter | undefined;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ParsedFile;
-    pickedChapter: ParsedChapter;
+    pickedChapter?: ParsedChapter;
 };
 
 type SearchResult = {
@@ -82,7 +82,7 @@ export function useProjectSearch({
 
     const currentChapterSid = makeSid({
         bookId: pickedFile.bookCode,
-        chapter: pickedChapter.chapNumber,
+        chapter: pickedChapter?.chapNumber || 1,
     });
 
     // Cleanup on unmount (close)

@@ -27,39 +27,19 @@ For larger flows we use a 3 file system.
 ## plan-<feature-name>.md
 - The result of a planning session or interview. It should contain mostly prose and high level context details the what / why / constraints / tradeoffs / etc. It can contain some technical examples and code, but mostly will be passed to the next step to generate the prd.
 
-## prd-<feature-name>.json
+## prd-<feature-name>.md
 This is the roadmap. It is a json file that contains the following:
-```json
-{
-  "epic_name": "feature-name",
-  "plan_overview": "Plain language overview of what and why. Not an entire recreation of plan, but short-mid summary that serves to anchor the prd and each of the tasks.",
-  "technical_context": "like the plan overview in that it's not a full spec, but should (optionally) note any existing code, anchors, or prior art relevant",
-  "tasks": [
-    {
-      "id": "1",
-      "category": "core", 
-      "description": "Implement X function.",
-      "steps": ["Step 1", "Step 2"],
-      "passes": false,
-      "complexity": "low|medium|high"
-    }
-  ]
-}
+```md
+# TABLE OF CONTENTS
+## HIGH LEVEL OVERVIEW (plain language, couple sentences, rationale)
+## GOALS
+## NON GOALS
+## TECHNICAL CONSTRAINTS (if needed)
+### TASKS
 ```
 ## progress-<feature-name>.md
 Location: ./plans/progress-<feature-name>.md
-Purpose: Short-term memory between context windows. A place for you to append your progress, decisions, and blockers, very brief notes for next suggested steps. 
-
-
-# The Loop Executed:
-1.  **Interview & Plan (@architect):** Discuss the goal, explore the codebase and external docs (if needed) (@explorer), and generate/update the needed plan.json. Then we'll move to generating the prd.json.
-2.  **The Loop (@manager):**
-    1.   Read `prd.json`. Decide which task to work on next. This should be the one YOU decide has the highest priority, not necessarily the first in the list.
-    2.   Check `plans/progress-<feature-name>.md` for context.
-    3.   Assign to **@builder**.
-    4.   (Optional) Assign to **@qa** Use your best judgement considering acceptance criteria and testing skills for whether to invoke QA. Was it complex? Has it been a few tasks since checking? Were many files touched? Were tests added? Should this have been tested, or is more of code that's probably covered in existing tests? Are static analysis tools (Lsp, biome, etc) showing any issues?
-    5.   If satisified: update `progress-<feature-name>.md` and `prd.json` and then make a conventional git commit / atomic of just that feature. (see "@making-commits")
-3.  **Completion:** When all items in `prd.json` are `passes: true`.
+Purpose: Short-term memory between context windows / runs. A place for you to append your progress, decisions, and blockers, very brief notes for next suggested steps. 
 
 
 # Architecture (Hexagonal)
@@ -69,31 +49,6 @@ Purpose: Short-term memory between context windows. A place for you to append yo
 *   **`src/tauri/`**: Desktop-specific Core implementations (Rust/TS).
 *   **`src/web/`**: Browser-specific Core implementations (OPFS).
 
-# Feature: Prettify
-The Prettify feature provides opinionated, opt-in formatting operations to normalize USFM files.
-
-## Formatting Operations
-1. **Linebreak after chapter**: Inserts a linebreak after `\c` markers.
-2. **Collapse whitespace**: Replaces multiple spaces/tabs with a single space in text nodes.
-3. **Linebreak before para markers**: Ensures paragraph markers (e.g., `\p`, `\q`) start on a new line.
-4. **Linebreak after para markers**: Ensures content following a paragraph marker starts on a new line.
-5. **Normalize spacing after para markers**: Ensures exactly one space after a paragraph marker before text.
-
-## Scopes
-- **Prettify Book**: Applies transformations to all chapters in the currently active book.
-- **Prettify Project**: Applies transformations to all chapters across all books in the project.
-
-## Architecture: Reduce/Pipe Pattern
-To maintain performance and simplicity, Prettify operations use a **Reduce/Pipe** pattern on `SerializedLexicalNode` objects:
-- **Direct Manipulation**: Instead of spinning up Lexical editor instances (which is heavy), we transform the JSON-serialized state directly.
-- **Recursive Pipeline**: A `prettifySerializedNode` function recursively traverses the node tree, applying a pipeline of transformation functions.
-- **Extensibility**: New formatting rules can be added by simply inserting a new function into the pipeline.
-
-## Undo & Revert Logic
-Since these operations can be destructive across many files:
-- **Cloning**: Before any transformation, the entire `mutWorkingFilesRef` is deep-cloned.
-- **Review**: Changes are marked as `dirty`, triggering the "Save & Review Changes" modal.
-- **Revert All**: A "Revert all changes" button in the DiffModal allows users to restore the project to the pre-cloned state, effectively undoing the entire Prettify operation.
 
 # Tech Stack & Standards
 *   **Language:** TypeScript (Strict), Rust (Tauri Backend).
