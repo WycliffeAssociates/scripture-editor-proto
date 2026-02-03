@@ -10,7 +10,6 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
     const { actions } = useWorkspaceContext();
-
     useEditorLinter(editor);
     useEditorStructure(editor);
     useEditorInput(editor);

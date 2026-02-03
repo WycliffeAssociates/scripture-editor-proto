@@ -18,11 +18,13 @@ import {
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import { ParagraphingGhost } from "@/app/domain/editor/plugins/ParagraphingGhost.tsx";
 import { ParagraphingPlugin } from "@/app/domain/editor/plugins/ParagraphingPlugin.tsx";
+import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import {
     MarkerTooltip,
     // ToolTipPlugin,
 } from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
+import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -89,6 +91,8 @@ export function MainEditor() {
                 <NodeContextMenuPlugin />
                 <ParagraphingPlugin />
                 <ParagraphingGhost />
+                <StructuralEmptyMarkerChipsPlugin />
+                <UsfmPeekOverlayPlugin />
             </LexicalComposer>
         </div>
     );

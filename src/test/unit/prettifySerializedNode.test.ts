@@ -2,21 +2,42 @@ import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
-    applyPrettifyToNodeTree,
     collapseWhitespaceInTextNode,
     distributeCombinedVerseText,
     ensureSpaceBetweenNodes,
+    insertDefaultParagraphAfterChapterIntro,
     insertLinebreakAfterChapterNumberRange,
     insertLinebreakAfterParaMarkers,
     insertLinebreakBeforeParaMarkers,
     normalizeSpacingAfterParaMarkers,
+    type PrettifyToken,
     recoverMalformedMarkers,
     removeDuplicateVerseNumbers,
     removeUnwantedLinebreaks,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+} from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 
-const createTextNode = (
+const createToken = (
+    text: string,
+    tokenType: string = UsfmTokenTypes.text,
+    marker?: string,
+) =>
+    ({
+        tokenType,
+        text,
+        marker,
+        id: "test-id",
+    }) as const;
+
+const createNl = () =>
+    ({
+        tokenType: TokenMap.verticalWhitespace,
+        text: "\n",
+    }) as const;
+
+const createSerializedTextNode = (
     text: string,
     tokenType: string = UsfmTokenTypes.text,
     marker?: string,
@@ -39,13 +60,13 @@ const createTextNode = (
 describe("prettifySerializedNode utils", () => {
     describe("collapseWhitespaceInTextNode", () => {
         it("should collapse multiple spaces into one", () => {
-            const node = createTextNode("  multiple    spaces  ");
+            const node = createToken("  multiple    spaces  ");
             const result = collapseWhitespaceInTextNode(node);
             expect(result.text).toBe(" multiple spaces ");
         });
 
         it("should not affect non-text tokens", () => {
-            const node = createTextNode("  1  ", UsfmTokenTypes.numberRange);
+            const node = createToken("  1  ", UsfmTokenTypes.numberRange);
             const result = collapseWhitespaceInTextNode(node);
             expect(result.text).toBe("  1  ");
         });
@@ -53,60 +74,45 @@ describe("prettifySerializedNode utils", () => {
 
     describe("ensureSpaceBetweenNodes", () => {
         it("should add space between Marker and Text if missing", () => {
-            const markerNode = createTextNode(
-                "\\v",
-                UsfmTokenTypes.marker,
-                "v",
-            );
-            const textNode = createTextNode("Text");
+            const markerNode = createToken("\\v", UsfmTokenTypes.marker, "v");
+            const textNode = createToken("Text");
             const result = ensureSpaceBetweenNodes(textNode, {
                 previousSibling: markerNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(" Text");
+            expect(result.text).toBe(" Text");
         });
 
         it("should add space between Marker and Marker if missing", () => {
-            const markerNode1 = createTextNode(
-                "\\p",
-                UsfmTokenTypes.marker,
-                "p",
-            );
+            const markerNode1 = createToken("\\p", UsfmTokenTypes.marker, "p");
             // Note: createTextNode sets text to first arg.
-            const markerNode2 = createTextNode(
-                "\\v",
-                UsfmTokenTypes.marker,
-                "v",
-            );
+            const markerNode2 = createToken("\\v", UsfmTokenTypes.marker, "v");
             const result = ensureSpaceBetweenNodes(markerNode2, {
                 previousSibling: markerNode1,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(" \\v");
+            expect(result.text).toBe(" \\v");
         });
 
         it("should NOT add space if previous sibling ends with space", () => {
-            const prevNode = createTextNode("Text ");
-            const node = createTextNode("More");
+            const prevNode = createToken("Text ");
+            const node = createToken("More");
             const result = ensureSpaceBetweenNodes(node, {
                 previousSibling: prevNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe("More");
+            expect(result.text).toBe("More");
         });
 
         it("should NOT add space if current node starts with space", () => {
-            const prevNode = createTextNode("Text");
-            const node = createTextNode(" More");
+            const prevNode = createToken("Text");
+            const node = createToken(" More");
             const result = ensureSpaceBetweenNodes(node, {
                 previousSibling: prevNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(" More");
+            expect(result.text).toBe(" More");
         });
 
         it("should ignore linebreaks", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const node = createTextNode("Text");
+            const linebreak = createNl();
+            const node = createToken("Text");
             const result = ensureSpaceBetweenNodes(node, {
                 previousSibling: linebreak,
             });
@@ -116,18 +122,15 @@ describe("prettifySerializedNode utils", () => {
 
     describe("recoverMalformedMarkers", () => {
         it("should recover malformed marker and split node", () => {
-            const node = createTextNode(
-                "\\ \\v 13 13 Text",
-                UsfmTokenTypes.text,
-            );
+            const node = createToken("\\ \\v 13 13 Text", UsfmTokenTypes.text);
             const result = recoverMalformedMarkers(node);
 
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
 
-                const markerNode = result[0] as SerializedUSFMTextNode;
-                const textNode = result[1] as SerializedUSFMTextNode;
+                const markerNode = result[0];
+                const textNode = result[1];
 
                 expect(markerNode.tokenType).toBe(UsfmTokenTypes.marker);
                 expect(markerNode.marker).toBe("v");
@@ -140,13 +143,13 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should return original node if no malformed marker found", () => {
-            const node = createTextNode("some text");
+            const node = createToken("some text");
             const result = recoverMalformedMarkers(node);
             expect(result).toBe(node);
         });
 
         it("should return original node if marker is invalid", () => {
-            const node = createTextNode("\\ \\invalid 123");
+            const node = createToken("\\ \\invalid 123");
             const result = recoverMalformedMarkers(node);
             expect(result).toBe(node);
         });
@@ -154,137 +157,113 @@ describe("prettifySerializedNode utils", () => {
 
     describe("insertLinebreakAfterChapterNumberRange", () => {
         it("should insert linebreak after chapter number range", () => {
-            const node = createTextNode("1", UsfmTokenTypes.numberRange, "c");
+            const node = createToken("1", UsfmTokenTypes.numberRange, "c");
             const result = insertLinebreakAfterChapterNumberRange(node, {});
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[1].type).toBe("linebreak");
+                expect(result[1].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
 
         it("should always insert linebreak even if one exists", () => {
-            const node = createTextNode("1", UsfmTokenTypes.numberRange, "c");
+            const node = createToken("1", UsfmTokenTypes.numberRange, "c");
             const result = insertLinebreakAfterChapterNumberRange(node, {
-                nextSibling: { type: "linebreak", version: 1 },
+                nextSibling: createNl(),
             });
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[1].type).toBe("linebreak");
+                expect(result[1].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
 
         it("should insert linebreak if marker is missing but previous sibling is \\c", () => {
-            const node = createTextNode("1", UsfmTokenTypes.numberRange); // No marker
-            const prevSibling = createTextNode(
-                "\\c",
-                UsfmTokenTypes.marker,
-                "c",
-            );
+            const node = createToken("1", UsfmTokenTypes.numberRange); // No marker
+            const prevSibling = createToken("\\c", UsfmTokenTypes.marker, "c");
             const result = insertLinebreakAfterChapterNumberRange(node, {
                 previousSibling: prevSibling,
             });
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[1].type).toBe("linebreak");
+                expect(result[1].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
     });
 
     describe("removeDuplicateVerseNumbers", () => {
         it("should remove duplicate verse number from text node", () => {
-            const verseNode = createTextNode(
-                "5",
-                UsfmTokenTypes.numberRange,
-                "v",
-            );
-            const textNode = createTextNode(" 5 Can a bird...");
+            const verseNode = createToken("5", UsfmTokenTypes.numberRange, "v");
+            const textNode = createToken(" 5 Can a bird...");
             const result = removeDuplicateVerseNumbers(textNode, {
                 previousSibling: verseNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(
-                "Can a bird...",
-            );
+            expect(result.text).toBe("Can a bird...");
         });
 
         it("should remove duplicate verse number even if no space after", () => {
-            const verseNode = createTextNode(
-                "5",
-                UsfmTokenTypes.numberRange,
-                "v",
-            );
-            const textNode = createTextNode("5Can a bird...");
+            const verseNode = createToken("5", UsfmTokenTypes.numberRange, "v");
+            const textNode = createToken("5Can a bird...");
             const result = removeDuplicateVerseNumbers(textNode, {
                 previousSibling: verseNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(
-                "Can a bird...",
-            );
+            expect(result.text).toBe("Can a bird...");
         });
 
         it("should remove duplicate verse number even if marker is missing on prev sibling", () => {
-            const verseNode = createTextNode(
+            const verseNode = createToken(
                 "5",
                 UsfmTokenTypes.numberRange,
                 // No marker
             );
-            const textNode = createTextNode(" 5 Can a bird...");
+            const textNode = createToken(" 5 Can a bird...");
             const result = removeDuplicateVerseNumbers(textNode, {
                 previousSibling: verseNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(
-                "Can a bird...",
-            );
+            expect(result.text).toBe("Can a bird...");
         });
 
         it("should not remove if number does not match", () => {
-            const verseNode = createTextNode(
-                "5",
-                UsfmTokenTypes.numberRange,
-                "v",
-            );
-            const textNode = createTextNode(" 6 Can a bird...");
+            const verseNode = createToken("5", UsfmTokenTypes.numberRange, "v");
+            const textNode = createToken(" 6 Can a bird...");
             const result = removeDuplicateVerseNumbers(textNode, {
                 previousSibling: verseNode,
             });
-            expect((result as SerializedUSFMTextNode).text).toBe(
-                " 6 Can a bird...",
-            );
+            expect(result.text).toBe(" 6 Can a bird...");
         });
     });
 
     describe("insertLinebreakBeforeParaMarkers", () => {
         it("should insert linebreak before para marker", () => {
-            const node = createTextNode("\\p", UsfmTokenTypes.marker, "p");
+            const node = createToken("\\p", UsfmTokenTypes.marker, "p");
             const result = insertLinebreakBeforeParaMarkers(node, {
-                previousSibling: createTextNode("some text"),
+                previousSibling: createToken("some text"),
             });
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[0].type).toBe("linebreak");
+                expect(result[0].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
 
         it("should insert linebreak for poetry markers (ALWAYS)", () => {
-            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const node = createToken("\\q", UsfmTokenTypes.marker, "q");
             const result = insertLinebreakBeforeParaMarkers(node, {
-                previousSibling: createTextNode("some text"),
+                previousSibling: createToken("some text"),
                 poetryMarkers: new Set(["q"]),
             });
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[0].type).toBe("linebreak");
+                expect(result[0].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
     });
 
     describe("insertLinebreakAfterParaMarkers", () => {
         it("should insert linebreak after normal para marker", () => {
-            const node = createTextNode("\\p", UsfmTokenTypes.marker, "p");
+            const node = createToken("\\p", UsfmTokenTypes.marker, "p");
             // Not poetry
             const result = insertLinebreakAfterParaMarkers(node, {
                 poetryMarkers: new Set(["q"]),
@@ -292,97 +271,76 @@ describe("prettifySerializedNode utils", () => {
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[1].type).toBe("linebreak");
+                expect(result[1].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
 
         it("should NOT insert linebreak after poetry marker if next sibling is text", () => {
-            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const node = createToken("\\q", UsfmTokenTypes.marker, "q");
             const result = insertLinebreakAfterParaMarkers(node, {
                 poetryMarkers: new Set(["q"]),
-                nextSibling: createTextNode("some poetry text"),
+                nextSibling: createToken("some poetry text"),
             });
             expect(Array.isArray(result)).toBe(false);
         });
 
         it("should insert linebreak after poetry marker if next sibling is MARKER", () => {
-            const node = createTextNode("\\q", UsfmTokenTypes.marker, "q");
+            const node = createToken("\\q", UsfmTokenTypes.marker, "q");
             const result = insertLinebreakAfterParaMarkers(node, {
                 poetryMarkers: new Set(["q"]),
-                nextSibling: createTextNode("\\v", UsfmTokenTypes.marker, "v"),
+                nextSibling: createToken("\\v", UsfmTokenTypes.marker, "v"),
             });
             expect(Array.isArray(result)).toBe(true);
             if (Array.isArray(result)) {
                 expect(result).toHaveLength(2);
-                expect(result[1].type).toBe("linebreak");
+                expect(result[1].tokenType).toBe(TokenMap.verticalWhitespace);
             }
         });
     });
 
     describe("normalizeSpacingAfterParaMarkers", () => {
         it("should normalize spacing after para marker", () => {
-            const markerNode = createTextNode(
-                "\\p",
-                UsfmTokenTypes.marker,
-                "p",
-            );
-            const textNode = createTextNode("    some text");
+            const markerNode = createToken("\\p", UsfmTokenTypes.marker, "p");
+            const textNode = createToken("    some text");
             const result = normalizeSpacingAfterParaMarkers(textNode, {
                 previousSibling: markerNode,
             });
             expect(Array.isArray(result)).toBe(false);
             if (!Array.isArray(result)) {
-                expect((result as SerializedUSFMTextNode).text).toBe(
-                    " some text",
-                );
+                expect(result.text).toBe(" some text");
             }
         });
 
         it("should normalize spacing after \\cl (BEFORE_ONLY marker)", () => {
-            const markerNode = createTextNode(
-                "\\cl",
-                UsfmTokenTypes.marker,
-                "cl",
-            );
-            const textNode = createTextNode("    some text");
+            const markerNode = createToken("\\cl", UsfmTokenTypes.marker, "cl");
+            const textNode = createToken("    some text");
             const result = normalizeSpacingAfterParaMarkers(textNode, {
                 previousSibling: markerNode,
             });
             expect(Array.isArray(result)).toBe(false);
             if (!Array.isArray(result)) {
-                expect((result as SerializedUSFMTextNode).text).toBe(
-                    " some text",
-                );
+                expect(result.text).toBe(" some text");
             }
         });
 
         it("should normalize spacing after poetry marker", () => {
-            const markerNode = createTextNode(
-                "\\q1",
-                UsfmTokenTypes.marker,
-                "q1",
-            );
-            const textNode = createTextNode("    some poetry");
+            const markerNode = createToken("\\q1", UsfmTokenTypes.marker, "q1");
+            const textNode = createToken("    some poetry");
             const result = normalizeSpacingAfterParaMarkers(textNode, {
                 previousSibling: markerNode,
                 poetryMarkers: new Set(["q1"]),
             });
             expect(Array.isArray(result)).toBe(false);
             if (!Array.isArray(result)) {
-                expect((result as SerializedUSFMTextNode).text).toBe(
-                    " some poetry",
-                );
+                expect(result.text).toBe(" some poetry");
             }
         });
     });
 
     describe("removeUnwantedLinebreaks", () => {
         it("should remove linebreak between verse and verse", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const nextVerse = createTextNode("\\v", UsfmTokenTypes.marker, "v");
+            const linebreak = createNl();
+            const nextVerse = createToken("\\v", UsfmTokenTypes.marker, "v");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextVerse,
@@ -393,11 +351,8 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should keep linebreak between verse and para", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const nextPara = createTextNode("\\p", UsfmTokenTypes.marker, "p");
+            const linebreak = createNl();
+            const nextPara = createToken("\\p", UsfmTokenTypes.marker, "p");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextPara,
@@ -407,12 +362,9 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should keep linebreak between para marker and verse marker", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const prevPara = createTextNode("\\p", UsfmTokenTypes.marker, "p");
-            const nextVerse = createTextNode("\\v", UsfmTokenTypes.marker, "v");
+            const linebreak = createNl();
+            const prevPara = createToken("\\p", UsfmTokenTypes.marker, "p");
+            const nextVerse = createToken("\\v", UsfmTokenTypes.marker, "v");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 previousSibling: prevPara,
@@ -423,11 +375,8 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should keep linebreak if next sibling is text", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const nextText = createTextNode("some text");
+            const linebreak = createNl();
+            const nextText = createToken("some text");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 nextSibling: nextText,
@@ -437,11 +386,8 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should remove linebreak after \\cl (BEFORE_ONLY marker)", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const prevCl = createTextNode("\\cl", UsfmTokenTypes.marker, "cl");
+            const linebreak = createNl();
+            const prevCl = createToken("\\cl", UsfmTokenTypes.marker, "cl");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 previousSibling: prevCl,
@@ -452,12 +398,9 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should remove linebreak after poetry marker if followed by text", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const prevQ1 = createTextNode("\\q1", UsfmTokenTypes.marker, "q1");
-            const nextText = createTextNode("poetry text");
+            const linebreak = createNl();
+            const prevQ1 = createToken("\\q1", UsfmTokenTypes.marker, "q1");
+            const nextText = createToken("poetry text");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 previousSibling: prevQ1,
@@ -470,12 +413,9 @@ describe("prettifySerializedNode utils", () => {
         });
 
         it("should KEEP linebreak after poetry marker if followed by another marker", () => {
-            const linebreak = {
-                type: "linebreak",
-                version: 1,
-            } as SerializedLexicalNode;
-            const prevQ1 = createTextNode("\\q1", UsfmTokenTypes.marker, "q1");
-            const nextV = createTextNode("\\v", UsfmTokenTypes.marker, "v");
+            const linebreak = createNl();
+            const prevQ1 = createToken("\\q1", UsfmTokenTypes.marker, "q1");
+            const nextV = createToken("\\v", UsfmTokenTypes.marker, "v");
 
             const result = removeUnwantedLinebreaks(linebreak, {
                 previousSibling: prevQ1,
@@ -490,12 +430,12 @@ describe("prettifySerializedNode utils", () => {
     describe("distributeCombinedVerseText", () => {
         it("should distribute combined verse text to respective verses", () => {
             // Input: \v 1 \v 2 1. TextOne 2. TextTwo
-            const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" 1. TextOne 2. TextTwo"),
+            const nodes = [
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("2", UsfmTokenTypes.numberRange, "v"),
+                createToken(" 1. TextOne 2. TextTwo"),
             ];
 
             const result = distributeCombinedVerseText(nodes);
@@ -514,64 +454,54 @@ describe("prettifySerializedNode utils", () => {
 
             expect(result).toHaveLength(7);
 
-            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\v");
-            expect((result[1] as SerializedUSFMTextNode).text).toBe("1");
+            expect(result[0].text).toBe("\\v");
+            expect(result[1].text).toBe("1");
 
             // The text node for verse 1
-            expect((result[2] as SerializedUSFMTextNode).text).toContain(
-                "TextOne",
-            );
-            expect((result[2] as SerializedUSFMTextNode).tokenType).toBe(
-                UsfmTokenTypes.text,
-            );
+            expect(result[2].text).toContain("TextOne");
+            expect(result[2].tokenType).toBe(UsfmTokenTypes.text);
 
-            expect((result[3] as SerializedUSFMTextNode).text).toBe("\\v");
-            expect((result[4] as SerializedUSFMTextNode).text).toBe("2");
+            expect(result[3].text).toBe("\\v");
+            expect(result[4].text).toBe("2");
 
             // The preText node
-            expect((result[5] as SerializedUSFMTextNode).text).toBe(" ");
+            expect(result[5].text).toBe(" ");
 
             // The text node for verse 2
-            expect((result[6] as SerializedUSFMTextNode).text).toContain(
-                "TextTwo",
-            );
-            expect((result[6] as SerializedUSFMTextNode).tokenType).toBe(
-                UsfmTokenTypes.text,
-            );
+            expect(result[6].text).toContain("TextTwo");
+            expect(result[6].tokenType).toBe(UsfmTokenTypes.text);
         });
 
         it("should handle three verses combined", () => {
             // Input: \v 1 \v 2 \v 3 1. One 2. Two 3. Three
-            const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("3", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" 1. One 2. Two 3. Three"),
+            const nodes = [
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("2", UsfmTokenTypes.numberRange, "v"),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("3", UsfmTokenTypes.numberRange, "v"),
+                createToken(" 1. One 2. Two 3. Three"),
             ];
 
             const result = distributeCombinedVerseText(nodes);
 
             // 3 verses * 2 nodes + 3 text nodes + 1 preText = 10
             expect(result).toHaveLength(10);
-            expect((result[2] as SerializedUSFMTextNode).text).toContain("One");
-            expect((result[5] as SerializedUSFMTextNode).text).toContain("Two");
+            expect(result[2].text).toContain("One");
+            expect(result[5].text).toContain("Two");
             // result[8] is preText " "
-            expect((result[9] as SerializedUSFMTextNode).text).toContain(
-                "Three",
-            );
+            expect(result[9].text).toContain("Three");
         });
 
         it("should handle leftover text", () => {
             // Input: \v 1 \v 2 1. One 2. Two Extra
-            const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" 1. One 2. Two Extra"),
+            const nodes = [
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("2", UsfmTokenTypes.numberRange, "v"),
+                createToken(" 1. One 2. Two Extra"),
             ];
 
             const result = distributeCombinedVerseText(nodes);
@@ -581,21 +511,19 @@ describe("prettifySerializedNode utils", () => {
             // \v 2 " " Two Extra
 
             expect(result).toHaveLength(7);
-            expect((result[2] as SerializedUSFMTextNode).text).toContain("One");
-            expect((result[6] as SerializedUSFMTextNode).text).toContain(
-                "Two Extra",
-            );
+            expect(result[2].text).toContain("One");
+            expect(result[6].text).toContain("Two Extra");
         });
 
         it("should not affect normal verses", () => {
             // Input: \v 1 TextOne \v 2 TextTwo
-            const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" TextOne "),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" TextTwo"),
+            const nodes = [
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken(" TextOne "),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("2", UsfmTokenTypes.numberRange, "v"),
+                createToken(" TextTwo"),
             ];
 
             const result = distributeCombinedVerseText(nodes);
@@ -609,15 +537,15 @@ describe("prettifySerializedNode utils", () => {
             // Note: Verse 2 is pending, Verse 3 is pending.
             // Text node "2. TextTwo 3. TextThree" comes after Verse 3.
 
-            const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" TextOne "),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("3", UsfmTokenTypes.numberRange, "v"),
-                createTextNode(" 2. TextTwo 3. TextThree"),
+            const nodes = [
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken(" TextOne "),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("2", UsfmTokenTypes.numberRange, "v"),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("3", UsfmTokenTypes.numberRange, "v"),
+                createToken(" 2. TextTwo 3. TextThree"),
             ];
 
             const result = distributeCombinedVerseText(nodes);
@@ -625,57 +553,106 @@ describe("prettifySerializedNode utils", () => {
             // v1 (2) + T1 (1) + v2 (2) + v3 (2) + T2 (1) + T3 (1) + preText (1) = 10
             expect(result).toHaveLength(10);
             // v 1 TextOne
-            expect((result[2] as SerializedUSFMTextNode).text).toBe(
-                " TextOne ",
-            );
+            expect(result[2].text).toBe(" TextOne ");
             // v 2 TextTwo
-            expect((result[5] as SerializedUSFMTextNode).text).toContain(
-                "TextTwo",
-            );
+            expect(result[5].text).toContain("TextTwo");
             // v 3 TextThree
             // result[8] is preText " "
-            expect((result[9] as SerializedUSFMTextNode).text).toContain(
-                "TextThree",
+            expect(result[9].text).toContain("TextThree");
+        });
+    });
+
+    describe("insertDefaultParagraphAfterChapterIntro", () => {
+        it("should insert a default \\p before first verse after chapter intro", () => {
+            const tokens = [
+                createToken("\\c", UsfmTokenTypes.marker, "c"),
+                createToken("1", UsfmTokenTypes.numberRange, "c"),
+                createNl(),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+                createToken(" Text"),
+            ];
+
+            const result = insertDefaultParagraphAfterChapterIntro(tokens);
+
+            const pIndex = result.findIndex(
+                (t: PrettifyToken) =>
+                    t.tokenType === UsfmTokenTypes.marker && t.marker === "p",
             );
+            expect(pIndex).toBeGreaterThanOrEqual(0);
+
+            const vIndex = result.findIndex(
+                (t: PrettifyToken) =>
+                    t.tokenType === UsfmTokenTypes.marker && t.marker === "v",
+            );
+            expect(pIndex).toBeLessThan(vIndex);
+            expect(result[pIndex].text).toBe("\\p ");
+        });
+
+        it("should not insert default \\p if an explicit paragraph marker exists", () => {
+            const tokens = [
+                createToken("\\c", UsfmTokenTypes.marker, "c"),
+                createToken("1", UsfmTokenTypes.numberRange, "c"),
+                createNl(),
+                createToken("\\p", UsfmTokenTypes.marker, "p"),
+                createNl(),
+                createToken("\\v", UsfmTokenTypes.marker, "v"),
+                createToken("1", UsfmTokenTypes.numberRange, "v"),
+            ];
+
+            const result = insertDefaultParagraphAfterChapterIntro(tokens);
+            const pMarkers = result.filter(
+                (t: PrettifyToken) =>
+                    t.tokenType === UsfmTokenTypes.marker && t.marker === "p",
+            );
+            expect(pMarkers).toHaveLength(1);
         });
     });
 
     describe("applyPrettifyToNodeTree", () => {
         it("should apply all transforms and remove duplicate linebreaks", () => {
             const nodes: SerializedLexicalNode[] = [
-                createTextNode("\\p", UsfmTokenTypes.marker, "p"),
-                createTextNode("    text with    spaces"),
+                createSerializedTextNode("\\p", UsfmTokenTypes.marker, "p"),
+                createSerializedTextNode("    text with    spaces"),
                 { type: "linebreak", version: 1 },
                 { type: "linebreak", version: 1 },
-                createTextNode("1", UsfmTokenTypes.numberRange, "c"),
+                createSerializedTextNode("1", UsfmTokenTypes.numberRange, "c"),
             ];
 
             const result = applyPrettifyToNodeTree(nodes);
 
-            expect(result.map((n) => n.type)).toContain("linebreak");
-            // Should not have consecutive linebreaks
-            for (let i = 0; i < result.length - 1; i++) {
-                if (result[i].type === "linebreak") {
-                    expect(result[i + 1].type).not.toBe("linebreak");
+            expect(result).toHaveLength(1);
+            expect(result[0].type).toBe("paragraph");
+            const children = (
+                result[0] as { children?: SerializedLexicalNode[] }
+            ).children as SerializedLexicalNode[];
+            expect(children.map((n) => n.type)).toContain("linebreak");
+            for (let i = 0; i < children.length - 1; i++) {
+                if (children[i].type === "linebreak") {
+                    expect(children[i + 1].type).not.toBe("linebreak");
                 }
             }
         });
 
         it("should remove linebreak between verses in full tree", () => {
             const nodes: SerializedLexicalNode[] = [
-                createTextNode("1", UsfmTokenTypes.numberRange, "v"),
+                createSerializedTextNode("1", UsfmTokenTypes.numberRange, "v"),
                 { type: "linebreak", version: 1 } as SerializedLexicalNode,
-                createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-                createTextNode("2", UsfmTokenTypes.numberRange, "v"),
+                createSerializedTextNode("\\v", UsfmTokenTypes.marker, "v"),
+                createSerializedTextNode("2", UsfmTokenTypes.numberRange, "v"),
             ];
 
             const result = applyPrettifyToNodeTree(nodes);
 
-            expect(result).toHaveLength(3);
-            expect(result[0].type).toBe(USFM_TEXT_NODE_TYPE);
-            expect(result[1].type).toBe(USFM_TEXT_NODE_TYPE);
-            // ensureSpaceBetweenNodes adds a space because "1" doesn't end with space
-            expect((result[1] as SerializedUSFMTextNode).text).toBe(" \\v");
+            expect(result).toHaveLength(1);
+            expect(result[0].type).toBe("paragraph");
+            const children = (
+                result[0] as { children?: SerializedLexicalNode[] }
+            ).children as SerializedLexicalNode[];
+            expect(children).toHaveLength(3);
+            expect(children[0].type).toBe(USFM_TEXT_NODE_TYPE);
+            expect(children[1].type).toBe(USFM_TEXT_NODE_TYPE);
+            expect((children[1] as SerializedUSFMTextNode).text).toBe(" \\v");
         });
     });
 
@@ -683,68 +660,57 @@ describe("prettifySerializedNode utils", () => {
         // Scenario: \v 1 Text \v 2
         // pendingVerses should be empty after "Text", so \v 1 doesn't match anything later.
 
-        const nodes: SerializedLexicalNode[] = [
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-            // Text that does NOT contain "1" followed by space/dot/paren
-            createTextNode(" Text for verse one "),
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("2", UsfmTokenTypes.numberRange, "v"),
-            // This text contains "1 " which would match verse 1 if it was still pending
-            createTextNode(" Text with number 1 inside "),
+        const nodes = [
+            createToken("\\v", UsfmTokenTypes.marker, "v"),
+            createToken("1", UsfmTokenTypes.numberRange, "v"),
+            createToken(" Text for verse one "),
+            createToken("\\v", UsfmTokenTypes.marker, "v"),
+            createToken("2", UsfmTokenTypes.numberRange, "v"),
+            createToken(" Text with number 1 inside "),
         ];
 
         const result = distributeCombinedVerseText(nodes);
 
         expect(result).toHaveLength(6);
-        expect((result[2] as SerializedUSFMTextNode).text).toBe(
-            " Text for verse one ",
-        );
-        expect((result[5] as SerializedUSFMTextNode).text).toBe(
-            " Text with number 1 inside ",
-        );
+        expect(result[2].text).toBe(" Text for verse one ");
+        expect(result[5].text).toBe(" Text with number 1 inside ");
     });
 
     it("should clear pending verses when encountering a non-verse marker", () => {
         // Scenario: \v 1 \p Text
         // \p should clear pending verses.
 
-        const nodes: SerializedLexicalNode[] = [
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("1", UsfmTokenTypes.numberRange, "v"),
-            createTextNode("\\p", UsfmTokenTypes.marker, "p"),
-            // Text containing "1 "
-            createTextNode(" Text 1 starts here"),
+        const nodes = [
+            createToken("\\v", UsfmTokenTypes.marker, "v"),
+            createToken("1", UsfmTokenTypes.numberRange, "v"),
+            createToken("\\p", UsfmTokenTypes.marker, "p"),
+            createToken(" Text 1 starts here"),
         ];
 
         const result = distributeCombinedVerseText(nodes);
 
         expect(result).toHaveLength(4);
-        expect((result[3] as SerializedUSFMTextNode).text).toBe(
-            " Text 1 starts here",
-        );
+        expect(result[3].text).toBe(" Text 1 starts here");
     });
 
     it("should not split text falsely when pending verses are cleared", () => {
         // Scenario: \v 5 ... 1,335 days
         // If \v 5 was processed and cleared, it shouldn't match "5 " in "1,335 days" later.
 
-        const nodes: SerializedLexicalNode[] = [
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("5", UsfmTokenTypes.numberRange, "v"),
-            createTextNode(" Normal text for five "),
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("6", UsfmTokenTypes.numberRange, "v"),
-            createTextNode(" 1,335 days "),
+        const nodes = [
+            createToken("\\v", UsfmTokenTypes.marker, "v"),
+            createToken("5", UsfmTokenTypes.numberRange, "v"),
+            createToken(" Normal text for five "),
+            createToken("\\v", UsfmTokenTypes.marker, "v"),
+            createToken("6", UsfmTokenTypes.numberRange, "v"),
+            createToken(" 1,335 days "),
         ];
 
         const result = distributeCombinedVerseText(nodes);
 
         expect(result).toHaveLength(6);
-        expect((result[2] as SerializedUSFMTextNode).text).toBe(
-            " Normal text for five ",
-        );
-        expect((result[5] as SerializedUSFMTextNode).text).toBe(" 1,335 days ");
+        expect(result[2].text).toBe(" Normal text for five ");
+        expect(result[5].text).toBe(" 1,335 days ");
     });
 
     it("should handle the complex poetry example from user requirements", () => {
@@ -764,37 +730,30 @@ describe("prettifySerializedNode utils", () => {
         */
 
         const nodes: SerializedLexicalNode[] = [
-            // q1 followed by text
-            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
-            createTextNode(' "Adah...voice;'),
-
-            // q2 followed by text
-            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
-            createTextNode(" you wives...words."),
-
-            // q1 followed by text
-            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
-            createTextNode(" For I have..."),
-
-            // q2 followed by text
-            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
-            createTextNode(" a young man..."),
-
-            // q1 followed by v marker (Empty q1 case)
-            createTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
-            createTextNode("\\v", UsfmTokenTypes.marker, "v"),
-            createTextNode("24", UsfmTokenTypes.numberRange, "v"),
-            createTextNode(" If Cain..."),
-
-            // q2 followed by text
-            createTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
-            createTextNode(" then Lamech..."),
+            createSerializedTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createSerializedTextNode(' "Adah...voice;'),
+            createSerializedTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createSerializedTextNode(" you wives...words."),
+            createSerializedTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createSerializedTextNode(" For I have..."),
+            createSerializedTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createSerializedTextNode(" a young man..."),
+            createSerializedTextNode("\\q1", UsfmTokenTypes.marker, "q1"),
+            createSerializedTextNode("\\v", UsfmTokenTypes.marker, "v"),
+            createSerializedTextNode("24", UsfmTokenTypes.numberRange, "v"),
+            createSerializedTextNode(" If Cain..."),
+            createSerializedTextNode("\\q2", UsfmTokenTypes.marker, "q2"),
+            createSerializedTextNode(" then Lamech..."),
         ];
 
         // We expect linebreaks to be inserted BEFORE all q and v markers (if not present)
         // We expect linebreaks AFTER q markers ONLY if followed by another marker (like the q1 -> v case)
 
         const result = applyPrettifyToNodeTree(nodes);
+        expect(result).toHaveLength(1);
+        expect(result[0].type).toBe("paragraph");
+        const children = (result[0] as { children?: SerializedLexicalNode[] })
+            .children as SerializedLexicalNode[];
 
         // Simplified expectations check
         // 1. \q1 -> No LB after
@@ -808,38 +767,38 @@ describe("prettifySerializedNode utils", () => {
 
         const i = 0;
         // First q1
-        expect(result[i]).toMatchObject({ marker: "q1" });
-        expect(result[i + 1]).toMatchObject({
+        expect(children[i]).toMatchObject({ marker: "q1" });
+        expect(children[i + 1]).toMatchObject({
             type: USFM_TEXT_NODE_TYPE,
             tokenType: UsfmTokenTypes.text,
         }); // Immediate text
 
         // Skip to next q2
         // We expect a linebreak BEFORE q2
-        const q2Index = result.findIndex(
+        const q2Index = children.findIndex(
             (n, idx) =>
                 idx > 0 && (n as SerializedUSFMTextNode).marker === "q2",
         );
-        expect(result[q2Index - 1].type).toBe("linebreak");
-        expect(result[q2Index + 1].type).toBe(USFM_TEXT_NODE_TYPE); // Text follows q2
+        expect(children[q2Index - 1].type).toBe("linebreak");
+        expect(children[q2Index + 1].type).toBe(USFM_TEXT_NODE_TYPE); // Text follows q2
 
         // Skip to the q1 explicitly followed by v
         // The last q1 in our list is index 4 in original 'nodes', but indices shift with linebreaks.
         // It's the q1 before \v 24
 
         // Find index of \v
-        const vIndex = result.findIndex(
+        const vIndex = children.findIndex(
             (n) => (n as SerializedUSFMTextNode).marker === "v",
         );
         expect(vIndex).toBeGreaterThan(0);
 
         // The node before \v should be a linebreak (because \v usually implies start of new chunk or q1 forced it)
-        expect(result[vIndex - 1].type).toBe("linebreak");
+        expect(children[vIndex - 1].type).toBe("linebreak");
 
         // The node before that linebreak should be q1
-        expect(result[vIndex - 2]).toMatchObject({ marker: "q1" });
+        expect(children[vIndex - 2]).toMatchObject({ marker: "q1" });
 
         // Verify that q1 did NOT have a linebreak before it if valid (it should have one BEFORE it, and one AFTER it in this specific case)
-        expect(result[vIndex - 3].type).toBe("linebreak");
+        expect(children[vIndex - 3].type).toBe("linebreak");
     });
 });

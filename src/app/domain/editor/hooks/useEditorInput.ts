@@ -1,16 +1,20 @@
 import {
+    $createLineBreakNode,
     $getSelection,
     $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
     KEY_BACKSPACE_COMMAND,
     KEY_DOWN_COMMAND,
+    KEY_ENTER_COMMAND,
     type LexicalEditor,
+    type LexicalNode,
 } from "lexical";
 import { useEffect } from "react";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     handleBackslashOnStartOfVerse,
     handleEnterOnStartOfVerse,
+    moveCaretIntoStructuralEmptyParagraphOnArrow,
     moveToAdjacentNodesWhenSeemsAppropriate,
 } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import {
@@ -18,13 +22,19 @@ import {
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
-import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
+    $createUSFMParagraphNode,
+    $isUSFMParagraphNode,
+} from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import {
+    $createUSFMTextNode,
     $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 /**
  * Hook that registers all editor input handling including:
@@ -140,6 +150,78 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
+        const insertParagraphAfterStructuralEmptyMarkerUnregister =
+            editor.registerCommand(
+                KEY_ENTER_COMMAND,
+                (event: KeyboardEvent) => {
+                    if (editorModeSetting !== "regular") return false;
+
+                    const selection = $getSelection();
+                    if (
+                        !$isRangeSelection(selection) ||
+                        !selection.isCollapsed()
+                    ) {
+                        return false;
+                    }
+
+                    const anchorNode = selection.anchor.getNode();
+
+                    // Allow Enter handling even when the caret lands on a linebreak or other
+                    // non-text node inside an otherwise-empty structural marker paragraph.
+                    let parent: LexicalNode | null = anchorNode;
+                    while (parent && !$isUSFMParagraphNode(parent)) {
+                        parent = parent.getParent();
+                    }
+                    if (!parent || !$isUSFMParagraphNode(parent)) return false;
+                    if (!parent.getIsStructuralEmpty()) return false;
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    editor.update(() => {
+                        // Heuristic: use the nearest previous para marker that isn't a heading;
+                        // otherwise fall back to \p.
+                        const nextMarker = (() => {
+                            let prev = parent.getPreviousSibling();
+                            while (prev && $isUSFMParagraphNode(prev)) {
+                                const m = prev.getMarker();
+                                if (
+                                    m &&
+                                    isValidParaMarker(m) &&
+                                    m !== "b" &&
+                                    !m.startsWith("s")
+                                ) {
+                                    return m;
+                                }
+                                prev = prev.getPreviousSibling();
+                            }
+                            return "p";
+                        })();
+
+                        const newPara = $createUSFMParagraphNode({
+                            id: guidGenerator(),
+                            marker: nextMarker,
+                            tokenType: UsfmTokenTypes.marker,
+                        });
+
+                        const placeholder = $createUSFMTextNode(" ", {
+                            id: guidGenerator(),
+                            tokenType: UsfmTokenTypes.text,
+                            sid: parent.getSid(),
+                            inPara: nextMarker,
+                        });
+
+                        newPara.append(placeholder);
+                        newPara.append($createLineBreakNode());
+                        parent.insertAfter(newPara);
+                        placeholder.selectStart();
+                    });
+
+                    return true;
+                },
+                COMMAND_PRIORITY_HIGH,
+            );
+
         // Register KEY_DOWN_COMMAND for handling Enter at start of verse
         const handleEnterOnVerseUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
@@ -160,6 +242,7 @@ export function useEditorInput(editor: LexicalEditor) {
             redirectParaInsertionToLineBreakUnregister();
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();
+            insertParagraphAfterStructuralEmptyMarkerUnregister();
             handleEnterOnVerseUnregister();
         };
 

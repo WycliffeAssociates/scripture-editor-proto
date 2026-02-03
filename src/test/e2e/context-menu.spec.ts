@@ -179,15 +179,15 @@ test.describe("ContextMenu Plugin", () => {
         // 2. Open Action Palette
         await editorPage.keyboard.press("Control+k");
 
-        // 3. Select "Change previous marker to..."
+        // 3. Select "Change previous paragraph marker to..."
         // We search for it to make sure it's filtered/selected
-        await editorPage.keyboard.type("Change previous");
+        await editorPage.keyboard.type("Change previous paragraph");
         await editorPage.keyboard.press("Enter");
 
         // 4. Verify Pill UI appeared
         await expect(editorPage.locator(".mantine-Pill-root")).toBeVisible();
         await expect(editorPage.locator(".mantine-Pill-root")).toContainText(
-            "Change previous marker to...",
+            "Change previous paragraph marker to...",
         );
 
         // 5. Select "Margin Paragraph" from the second step

@@ -1,5 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
+import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { wrapFlatTokensInLexicalParagraph } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import {
     hideNotification,
@@ -35,6 +39,21 @@ export function usePrettifyOperations({
 }) {
     const { t } = useLingui();
 
+    const ensureRootChildrenSafe = (
+        children: SerializedLexicalNode[],
+        direction: "ltr" | "rtl" = "ltr",
+    ): SerializedLexicalNode[] => {
+        const unsafe = children.some(
+            (c) => c.type === "usfm-text-node" || c.type === "linebreak",
+        );
+        if (!unsafe) return children;
+
+        const flat = materializeFlatTokensArray(children, {
+            nested: "preserve",
+        });
+        return [wrapFlatTokensInLexicalParagraph(flat, direction)];
+    };
+
     async function prettifyBook(bookCode?: string) {
         setIsProcessing(true);
         try {
@@ -58,13 +77,27 @@ export function usePrettifyOperations({
                 const originalChildren = chapter.lexicalState.root.children;
                 const newChildren = applyPrettifyToNodeTree(originalChildren);
 
-                // Check if anything changed
+                // Apply structural fixes even if USFM is unchanged (e.g. root wrapping),
+                // but compute `dirty` based on USFM equality.
                 if (
                     JSON.stringify(originalChildren) !==
                     JSON.stringify(newChildren)
                 ) {
-                    chapter.lexicalState.root.children = newChildren;
-                    chapter.dirty = true;
+                    const direction = (chapter.lexicalState.root.direction ??
+                        "ltr") as "ltr" | "rtl";
+                    const safeChildren = ensureRootChildrenSafe(
+                        newChildren as SerializedLexicalNode[],
+                        direction,
+                    );
+
+                    const afterUsfm = serializeToUsfmString(safeChildren);
+                    const baselineUsfm = serializeToUsfmString(
+                        chapter.loadedLexicalState.root
+                            .children as SerializedLexicalNode[],
+                    );
+
+                    chapter.lexicalState.root.children = safeChildren;
+                    chapter.dirty = afterUsfm !== baselineUsfm;
                     modifiedChapters.push({
                         bookCode: file.bookCode,
                         chapterNum: chapter.chapNumber,
@@ -149,9 +182,23 @@ export function usePrettifyOperations({
                                 JSON.stringify(originalChildren) !==
                                 JSON.stringify(newChildren)
                             ) {
+                                const direction = (chapter.lexicalState.root
+                                    .direction ?? "ltr") as "ltr" | "rtl";
+                                const safeChildren = ensureRootChildrenSafe(
+                                    newChildren as SerializedLexicalNode[],
+                                    direction,
+                                );
+
+                                const afterUsfm =
+                                    serializeToUsfmString(safeChildren);
+                                const baselineUsfm = serializeToUsfmString(
+                                    chapter.loadedLexicalState.root
+                                        .children as SerializedLexicalNode[],
+                                );
+
                                 chapter.lexicalState.root.children =
-                                    newChildren;
-                                chapter.dirty = true;
+                                    safeChildren;
+                                chapter.dirty = afterUsfm !== baselineUsfm;
                                 modifiedChapters.push({
                                     bookCode: file.bookCode,
                                     chapterNum: chapter.chapNumber,

@@ -4,6 +4,7 @@ import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFM
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     createSerializedUSFMTextNode,
+    isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -84,9 +85,30 @@ export function* materializeFlatTokensFromSerialized(
     for (const node of rootChildren) {
         if (isSerializedUSFMParagraphContainer(node)) {
             // Emit synthetic paragraph marker token
-            yield createSyntheticParagraphMarkerToken(node);
-            // Then recursively yield children
             const children = node.children ?? [];
+            const markerTokenBase = createSyntheticParagraphMarkerToken(node);
+
+            // If the marker token does not end with whitespace, but the paragraph contains
+            // plain text content immediately after the marker on the same line, normalize
+            // to a USFM-friendly `\\marker ` form for downstream serialization/diff.
+            const firstChild = children[0];
+            const shouldAddSpaceAfterMarker =
+                !/\s$/u.test(markerTokenBase.text ?? "") &&
+                firstChild &&
+                isSerializedUSFMTextNode(firstChild) &&
+                firstChild.tokenType === UsfmTokenTypes.text &&
+                firstChild.text.length > 0 &&
+                !/^\s/u.test(firstChild.text);
+
+            const markerToken = shouldAddSpaceAfterMarker
+                ? ({
+                      ...markerTokenBase,
+                      text: `${markerTokenBase.text} `,
+                  } as SerializedUSFMTextNode)
+                : markerTokenBase;
+
+            yield markerToken;
+            // Then recursively yield children
             yield* materializeFlatTokensFromSerialized(children, options);
         } else if (isSerializedUSFMNestedEditorNode(node)) {
             if (nested === "preserve") {

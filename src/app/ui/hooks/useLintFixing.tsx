@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import type { LexicalEditor } from "lexical";
+import type { LexicalEditor, SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { applyAutofixToSerializedState } from "@/app/domain/editor/utils/autofixSerializedNode.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { parseSid } from "@/core/data/bible/bible.ts";
@@ -8,8 +9,6 @@ import type { LintError } from "@/core/data/usfm/lint.ts";
 import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
 import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 import { getFlattenedFileTokens } from "./utils/editorUtils.ts";
-
-type UseLintFixingHook = ReturnType<typeof useLintFixing>;
 
 export function useLintFixing({
     mutWorkingFilesRef,
@@ -66,12 +65,21 @@ export function useLintFixing({
             return;
         }
 
-        // Apply fix to the serialized state directly
-        const originalChildren = chapter.lexicalState.root.children;
-        const fixed = applyAutofixToSerializedState(originalChildren, err);
+        // Apply fix to the serialized state directly (mutates nodes in-place)
+        const originalChildren = chapter.lexicalState.root
+            .children as SerializedLexicalNode[];
+        const applied = applyAutofixToSerializedState(originalChildren, err);
 
-        if (fixed) {
-            chapter.dirty = true;
+        if (applied) {
+            const baselineUsfm = serializeToUsfmString(
+                chapter.loadedLexicalState.root
+                    .children as SerializedLexicalNode[],
+            );
+            const afterUsfm = serializeToUsfmString(
+                chapter.lexicalState.root.children as SerializedLexicalNode[],
+            );
+
+            chapter.dirty = afterUsfm !== baselineUsfm;
             updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
 
             // If the fixed chapter is the current one, reload the editor content

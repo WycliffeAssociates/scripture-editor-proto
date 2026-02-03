@@ -1,11 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
+import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { matchFormattingToSource } from "@/app/domain/editor/utils/matchFormatting.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
-
-type UseFormatMatchingHook = ReturnType<typeof useFormatMatching>;
 
 export function useFormatMatching({
     mutWorkingFilesRef,
@@ -60,8 +60,24 @@ export function useFormatMatching({
         const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
 
         if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
-            targetPara.children = newNodes;
-            chapter.dirty = true;
+            const nextLexical = structuredClone(chapter.lexicalState);
+            const nextRootFirst = nextLexical.root
+                .children[0] as unknown as SerializedLexicalNode;
+            if (isSerializedParagraphNode(nextRootFirst)) {
+                nextRootFirst.children = newNodes;
+            }
+
+            const afterUsfm = serializeToUsfmString(
+                nextLexical.root.children as SerializedLexicalNode[],
+            );
+            const baselineUsfm = serializeToUsfmString(
+                chapter.loadedLexicalState.root
+                    .children as SerializedLexicalNode[],
+            );
+
+            // Compute dirty on USFM-to-disk equality.
+            chapter.lexicalState = nextLexical;
+            chapter.dirty = afterUsfm !== baselineUsfm;
             updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
             setEditorContent(
                 currentFileBibleIdentifier,
@@ -114,8 +130,23 @@ export function useFormatMatching({
             const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
 
             if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
-                targetPara.children = newNodes;
-                chapter.dirty = true;
+                const nextLexical = structuredClone(chapter.lexicalState);
+                const nextRootFirst = nextLexical.root
+                    .children[0] as unknown as SerializedLexicalNode;
+                if (isSerializedParagraphNode(nextRootFirst)) {
+                    nextRootFirst.children = newNodes;
+                }
+
+                const afterUsfm = serializeToUsfmString(
+                    nextLexical.root.children as SerializedLexicalNode[],
+                );
+                const baselineUsfm = serializeToUsfmString(
+                    chapter.loadedLexicalState.root
+                        .children as SerializedLexicalNode[],
+                );
+
+                chapter.lexicalState = nextLexical;
+                chapter.dirty = afterUsfm !== baselineUsfm;
                 updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
                 modifiedChaptersCount++;
                 if (chapter.chapNumber === currentChapter) {

@@ -1,5 +1,6 @@
-import { $dfsIterator } from "@lexical/utils";
+import { $dfsIterator, $reverseDfsIterator } from "@lexical/utils";
 import {
+    $getRoot,
     $getSelection,
     $isRangeSelection,
     type ElementNode,
@@ -12,10 +13,13 @@ import {
     Hash,
     IndentIncrease,
     Pilcrow,
+    Trash2,
     Type,
 } from "lucide-react";
 import React from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
@@ -33,7 +37,13 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
+
+function isWhitespaceOnly(text: string): boolean {
+    return /^[\s\u00A0\u200B]*$/.test(text);
+}
 
 function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
     const textNodes = [...$dfsIterator()]
@@ -69,7 +79,13 @@ function insertMarker(
         // The shared utils like $insertPara seem to handle splitText which implies collapsed or acting on anchor.
         // Let's rely on the shared utils which generally use anchorNode.
 
-        const anchorNode = selection.anchor.getNode();
+        // For range selections, treat the insertion point as the start of the selection.
+        // Lexical uses anchor/focus order based on selection direction.
+        const insertionPoint = selection.isBackward()
+            ? selection.focus
+            : selection.anchor;
+
+        const anchorNode = insertionPoint.getNode();
         if (!$isUSFMTextNode(anchorNode)) return;
 
         const isEndMarker = false; // Buttons usually insert start markers. End markers are implicit or specific actions?
@@ -90,7 +106,7 @@ function insertMarker(
         }
 
         // For manual insertion:
-        const anchorOffset = selection.anchor.offset;
+        const anchorOffset = insertionPoint.offset;
 
         const {
             isStartOfLine: isStartOfLineCalculated,
@@ -153,7 +169,6 @@ function createMarkerAction(
 }
 
 const AVAILABLE_MARKERS_FOR_CHANGE = [
-    { label: "Verse", value: "v" },
     { label: "Paragraph", value: "p" },
     { label: "Margin Paragraph", value: "m" },
     { label: "Chapter Label", value: "cl" },
@@ -166,7 +181,7 @@ const AVAILABLE_MARKERS_FOR_CHANGE = [
 
 const CHANGE_MARKER_ACTION: EditorAction = {
     id: "change-marker",
-    label: "Change previous marker to...",
+    label: "Change previous paragraph marker to...",
     category: "Markers",
     icon: React.createElement(Edit3, { size: 16 }),
     isVisible: (context) => !!context.currentMarker,
@@ -176,37 +191,199 @@ const CHANGE_MARKER_ACTION: EditorAction = {
         type: "select",
         options: AVAILABLE_MARKERS_FOR_CHANGE,
         onComplete: (newValue) => {
+            if (!VALID_PARA_MARKERS.has(newValue)) return;
+
             const selection = $getSelection();
             if (!$isRangeSelection(selection)) return;
 
             const anchorNode = selection.anchor.getNode();
-            let markerNode: USFMTextNode | null = null;
 
-            // Search backward for the nearest marker node
+            // Regular mode: paragraph markers live on the paragraph container.
+            // Treat the containing paragraph's marker as the "previous paragraph marker".
             let curr: LexicalNode | ElementNode | null = anchorNode;
             while (curr) {
-                if ($isUSFMTextNode(curr) && curr.getTokenType() === "marker") {
-                    markerNode = curr;
+                if ($isUSFMParagraphNode(curr)) {
+                    const marker = curr.getMarker();
+                    if (marker && VALID_PARA_MARKERS.has(marker)) {
+                        const prevText = curr.getMarkerText() ?? `\\${marker} `;
+                        const trailing = prevText.endsWith("\n") ? "\n" : " ";
+                        curr.setMarker(newValue);
+                        curr.setMarkerText(`\\${newValue}${trailing}`);
+                        return;
+                    }
                     break;
                 }
-                const prev: LexicalNode | null = curr.getPreviousSibling();
-                if (prev) {
-                    curr = prev;
-                } else {
-                    curr = curr.getParent();
-                }
+                curr = curr.getParent();
             }
 
-            if (markerNode) {
-                markerNode.setMarker(newValue);
-                markerNode.setTextContent(`\\${newValue} `);
+            // Walk backward in document order and find the nearest *paragraph* marker.
+            // - Regular mode: paragraph markers live on USFMParagraphNode containers
+            // - Source mode: paragraph markers are marker USFMTextNodes
+            let isFirst = true;
+            for (const { node } of $reverseDfsIterator(
+                anchorNode,
+                $getRoot(),
+            )) {
+                if (isFirst) {
+                    isFirst = false;
+                    continue; // ensure this is "previous", not the node at cursor
+                }
+
+                if ($isUSFMParagraphNode(node)) {
+                    const marker = node.getMarker();
+                    if (!marker || !VALID_PARA_MARKERS.has(marker)) continue;
+
+                    const prevText = node.getMarkerText() ?? `\\${marker} `;
+                    const trailing = prevText.endsWith("\n") ? "\n" : " ";
+
+                    node.setMarker(newValue);
+                    node.setMarkerText(`\\${newValue}${trailing}`);
+                    return;
+                }
+
+                if (
+                    $isUSFMTextNode(node) &&
+                    node.getTokenType() === "marker" &&
+                    VALID_PARA_MARKERS.has(node.getMarker() ?? "")
+                ) {
+                    node.setMarker(newValue);
+                    node.setTextContent(`\\${newValue} `);
+                    return;
+                }
             }
         },
     }),
 };
 
+const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
+    id: "remove-empty-verses",
+    label: "Remove empty verses",
+    category: "Formatting",
+    icon: React.createElement(Trash2, { size: 16 }),
+    isVisible: (context) =>
+        context.editorMode !== "plain" &&
+        !!parseSid(context.currentVerse ?? ""),
+    execute: (_editor, context) => {
+        const current = parseSid(context.currentVerse ?? "");
+        if (!current) return undefined;
+
+        const isInCurrentChapter = (sid: string | undefined) => {
+            if (!sid) return false;
+            const parsed = parseSid(sid);
+            if (!parsed) return false;
+            return (
+                parsed.book === current.book &&
+                parsed.chapter === current.chapter
+            );
+        };
+
+        const all = [...$dfsIterator()].map((n) => n.node);
+        const toRemove = new Set<string>();
+
+        for (let i = 0; i < all.length; i++) {
+            const node = all[i];
+            if (!$isUSFMTextNode(node)) continue;
+            if (node.getTokenType() !== UsfmTokenTypes.marker) continue;
+            if (node.getMarker() !== "v") continue;
+            if (!isInCurrentChapter(node.getSid())) continue;
+
+            const next = all[i + 1];
+            const numberNode =
+                next &&
+                $isUSFMTextNode(next) &&
+                next.getTokenType() === UsfmTokenTypes.numberRange
+                    ? next
+                    : null;
+
+            let j = i + 1;
+            if (numberNode) j++;
+
+            let hasContent = false;
+            for (; j < all.length; j++) {
+                const curr = all[j];
+
+                // Stop once we've left the paragraph container.
+                if ($isUSFMParagraphNode(curr)) break;
+
+                if ($isUSFMNestedEditorNode(curr)) {
+                    hasContent = true;
+                    break;
+                }
+
+                if ($isUSFMTextNode(curr)) {
+                    // If we crossed out of the current chapter, stop.
+                    if (!isInCurrentChapter(curr.getSid())) break;
+
+                    const tokenType = curr.getTokenType();
+
+                    if (tokenType === UsfmTokenTypes.verticalWhitespace) {
+                        continue;
+                    }
+
+                    if (tokenType === UsfmTokenTypes.marker) {
+                        const m = curr.getMarker() ?? "";
+                        if (
+                            m === "v" ||
+                            m === "c" ||
+                            VALID_PARA_MARKERS.has(m)
+                        ) {
+                            break;
+                        }
+                        hasContent = true;
+                        break;
+                    }
+
+                    if (tokenType === UsfmTokenTypes.text) {
+                        if (!isWhitespaceOnly(curr.getTextContent())) {
+                            hasContent = true;
+                            break;
+                        }
+                        continue;
+                    }
+
+                    // Any other token types (e.g. endMarker) count as content.
+                    hasContent = true;
+                    break;
+                }
+            }
+
+            if (hasContent) continue;
+
+            toRemove.add(node.getKey());
+            if (numberNode) toRemove.add(numberNode.getKey());
+
+            // Remove immediate whitespace-only text nodes following the verse number.
+            let k = i + (numberNode ? 2 : 1);
+            while (k < all.length) {
+                const curr = all[k];
+                if (
+                    $isUSFMTextNode(curr) &&
+                    curr.getTokenType() === UsfmTokenTypes.text
+                ) {
+                    if (isWhitespaceOnly(curr.getTextContent())) {
+                        toRemove.add(curr.getKey());
+                        k++;
+                        continue;
+                    }
+                }
+                break;
+            }
+        }
+
+        for (const n of all) {
+            if (!n.isAttached()) continue;
+            if (toRemove.has(n.getKey())) {
+                n.remove();
+            }
+        }
+
+        return undefined;
+    },
+};
+
 export const MARKER_ACTIONS: EditorAction[] = [
     CHANGE_MARKER_ACTION,
+    REMOVE_EMPTY_VERSES_ACTION,
     createMarkerAction(
         "insert-v",
         "Verse",

@@ -265,7 +265,18 @@ export function maintainDocumentStructureDebounced(
             updates,
             appSettings,
         });
+
+        // if (editorModeSetting === "regular") {
+        //     for (const { node } of allNodes) {
+        //         if (!$isUSFMParagraphNode(node)) continue;
+        //         const hasAnyTextNode = node.getChildren().some($isUSFMTextNode);
+        //         if (!hasAnyTextNode) {
+        //             paraKeysNeedingEditableFallback.push(node.getKey());
+        //         }
+        //     }
+        // }
     });
+
     if (updates.length) {
         console.log(
             `maintain documnet structure debounced updates ${updates.length}`,

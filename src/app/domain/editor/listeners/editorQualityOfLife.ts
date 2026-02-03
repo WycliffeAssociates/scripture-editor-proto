@@ -3,8 +3,10 @@ import {
     $getSelection,
     $isRangeSelection,
     type LexicalEditor,
+    type LexicalNode,
 } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,

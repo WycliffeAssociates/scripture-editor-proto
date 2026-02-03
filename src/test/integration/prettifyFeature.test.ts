@@ -112,6 +112,31 @@ Some text
             expect(paraFlattened[pTextIndex - 1]?.type).toBe("linebreak");
             expect(paraFlattened[pTextIndex - 2]?.type).toBe("linebreak");
         });
+
+        it("should not produce root-unsafe children in usfm/plain mode", () => {
+            const ugly =
+                '\\c 1 \\v 1 \\v 2 \\v 3 1. James, a servant of God and of the Lord Jesus Christ, to the twelve tribes scattered among the nations: Greetings. 2. Consider it pure joy, my brothers and sisters, whenever you face trials of many kinds, 3. because you know that the testing of your faith produces\n\\v 5 \\v 4 Let perseverance finish\n\\v 12 \\v 13 12. Blessed is the one who perseveres under trial because, having stood the test, that person will receive the crown of life that the Lord has promised to those who love him. \\p 13. When tempted, no one should say, "God is tempting me."';
+
+            const editor = createTestEditor(ugly, { needsParagraphs: false });
+            const serialized = editor.getEditorState().toJSON();
+            const rootChildren = serialized.root
+                .children as SerializedLexicalNode[];
+
+            const prettifiedChildren = applyPrettifyToNodeTree(rootChildren);
+
+            expect(prettifiedChildren).toHaveLength(1);
+            expect(prettifiedChildren[0]?.type).toBe("paragraph");
+
+            const nextState = {
+                ...serialized,
+                root: {
+                    ...serialized.root,
+                    children: prettifiedChildren,
+                },
+            };
+
+            expect(() => editor.parseEditorState(nextState)).not.toThrow();
+        });
     });
 
     describe("Prettify Project", () => {

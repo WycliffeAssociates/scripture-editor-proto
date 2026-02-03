@@ -1,3 +1,4 @@
+import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { USFM_NESTED_DECORATOR_TYPE } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -144,6 +145,36 @@ describe("materializeFlatTokensFromSerialized", () => {
 
             expect((result[0] as SerializedUSFMTextNode).marker).toBe("p");
             expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
+        });
+
+        it("adds a space after paragraph marker when markerText has none and text follows", () => {
+            const input = [
+                {
+                    type: USFM_PARAGRAPH_NODE_TYPE,
+                    id: "p1",
+                    tokenType: UsfmTokenTypes.marker,
+                    marker: "s5",
+                    // Simulate older/typed state where markerText has no trailing space
+                    markerText: "\\s5",
+                    sid: "PSA 1:1",
+                    children: [
+                        {
+                            type: "usfm-text-node",
+                            id: "t1",
+                            tokenType: UsfmTokenTypes.text,
+                            sid: "PSA 1:1",
+                            text: "Heading text",
+                        },
+                    ],
+                    version: 1,
+                },
+            ] as unknown as SerializedLexicalNode[];
+
+            const result = materializeFlatTokensArray(input);
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\s5 ");
+            expect((result[1] as SerializedUSFMTextNode).text).toBe(
+                "Heading text",
+            );
         });
     });
 

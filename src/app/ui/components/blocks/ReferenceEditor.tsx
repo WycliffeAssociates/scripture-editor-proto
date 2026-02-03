@@ -22,6 +22,7 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { useParagraphing } from "@/app/ui/contexts/ParagraphingContext.tsx";
@@ -156,6 +157,7 @@ export function ReferenceEditor() {
                 />
             </div>
             <USFMPlugin />
+            <StructuralEmptyMarkerChipsPlugin />
             <UsfmStylesPlugin />
         </LexicalComposer>
     );

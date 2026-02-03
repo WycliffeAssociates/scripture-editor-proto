@@ -45,6 +45,14 @@ body:not(.source-mode) {
 [data-token-type="text"] {
   color: inherit;
 }
+.usfm-peek-active
+  .usfm-para-container[data-is-structural-empty="true"][data-marker] {
+  opacity: 0;
+}
+.usfm-peek-active
+  .usfm-para-container[data-is-structural-empty="true"][data-marker]::before {
+  opacity: 0;
+}
 
 /* -------------------------------------------
    Regular Mode: Clean WYSIWYG
@@ -82,12 +90,12 @@ body:not(.source-mode) {
 
       /* Only hang verse numbers when the verse marker starts a new visual line.
          Inline verse markers (e.g. "... \\v 13 ...") should not be exdented. */
-      br + span[data-token-type="marker"][data-marker="v"]
+      br
+        + span[data-token-type="marker"][data-marker="v"]
         + span[data-token-type="numberRange"] {
         display: inline-block;
         text-align: end;
-        margin-inline-start: calc(-1 * var(--poetry-indent));
-        /* margin-inline-end: 0.35em; */
+        margin-inline-start: calc(-0.25 * var(--poetry-indent));
       }
     }
 
@@ -124,7 +132,7 @@ body:not(.source-mode) {
   }
 
   .usfm-para-container[data-is-structural-empty="true"][data-marker]::before {
-    content: "\\" attr(data-marker);
+    content: attr(data-marker-label);
     position: absolute;
     inset-inline-start: 0;
     top: 50%;
@@ -269,9 +277,9 @@ body:not(.source-mode) {
    Empty Paragraph Handling
    ------------------------------------------- */
 .editor-container {
-  div[data-token-type="marker"]:not([data-is-structural-empty="true"]):not(:has([data-token-type="text"])):not(
-      :has([data-token-type="numberRange"])
-    ) {
+  div[data-token-type="marker"]:not([data-is-structural-empty="true"]):not(
+      :has([data-token-type="text"])
+    ):not(:has([data-token-type="numberRange"])) {
     display: none;
   }
 

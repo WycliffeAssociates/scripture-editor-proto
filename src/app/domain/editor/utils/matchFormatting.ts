@@ -3,12 +3,12 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 import {
     POETRY_MARKERS,
     PRETTIFY_LINEBREAK_AFTER_MARKERS,
     PRETTIFY_LINEBREAK_BEFORE_MARKERS,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
+} from "@/core/domain/usfm/prettify/prettifyMarkers.ts";
 
 /**
  * Para markers that should NOT be copied from source to target.

@@ -25,8 +25,8 @@ export function calculateIsStartOfLine(
     actualAnchorNode: USFMTextNode;
     actualAnchorOffset: number;
 } {
-    const actualAnchorNode = anchorNode;
-    const actualAnchorOffset = anchorOffset;
+    let actualAnchorNode = anchorNode;
+    let actualAnchorOffset = anchorOffset;
 
     const isDomHidden = (node: LexicalNode) => {
         const editor = opts?.editor;
@@ -57,7 +57,69 @@ export function calculateIsStartOfLine(
         };
     }
 
-    let prev = anchorNode.getPreviousSibling();
+    // If the caret is sitting at the end of a hidden structural marker (e.g. `\v `)
+    // in regular mode, treat that as the start of the line for insertion purposes.
+    if (
+        opts?.editorMode === "regular" &&
+        anchorIsHidden &&
+        (anchorNode.getTokenType() === "marker" ||
+            anchorNode.getTokenType() === "endMarker")
+    ) {
+        const m = anchorNode.getMarker();
+        if (
+            (m === "v" || m === "c") &&
+            anchorOffset >= anchorNode.getTextContent().length
+        ) {
+            actualAnchorOffset = 0;
+        }
+    }
+
+    // In regular mode, the caret can be visually at the start of a line while the
+    // selection is anchored on the first visible token (e.g. verse number), with one
+    // or more hidden marker nodes immediately before it (e.g. `\v `). If we insert
+    // at the visible token, we can end up splitting `\v` from its number.
+    //
+    // When we're at a start-of-line candidate, shift the anchor backward to the
+    // earliest contiguous hidden marker immediately preceding the anchor.
+    if (
+        opts?.editorMode === "regular" &&
+        anchorOffset === 0 &&
+        !anchorIsHidden
+    ) {
+        let prev = anchorNode.getPreviousSibling();
+        let targetStructuralMarker: USFMTextNode | null = null;
+
+        while (prev) {
+            if (prev.getType() === "linebreak") {
+                break;
+            }
+
+            if (!$isUSFMTextNode(prev)) {
+                break;
+            }
+
+            const tt = prev.getTokenType();
+            if (tt !== "marker" && tt !== "endMarker") {
+                break;
+            }
+
+            if (tt === "marker") {
+                const m = prev.getMarker();
+                if (m === "v" || m === "c") {
+                    targetStructuralMarker = prev;
+                }
+            }
+
+            prev = prev.getPreviousSibling();
+        }
+
+        if (targetStructuralMarker) {
+            actualAnchorNode = targetStructuralMarker;
+            actualAnchorOffset = 0;
+        }
+    }
+
+    let prev = actualAnchorNode.getPreviousSibling();
     while (prev) {
         // A visible linebreak is a hard start-of-line boundary.
         if (prev.getType() === "linebreak") {
