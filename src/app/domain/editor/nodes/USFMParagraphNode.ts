@@ -9,6 +9,7 @@ import { USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
 import {
     idState,
     inParaState,
+    isStructuralEmptyState,
     markerState,
     markerTextState,
     sidState,
@@ -23,6 +24,7 @@ export type USFMParagraphNodeJSON = SerializedElementNode & {
     inPara?: string;
     sid?: string;
     markerText?: string; // Original text of the marker token (e.g., "\\p " or "\\p\n")
+    isStructuralEmpty?: boolean;
     // attributes?: Record<string, string>;
     version: 1;
 };
@@ -45,6 +47,7 @@ export class USFMParagraphNode extends ElementNode {
                 { flat: true, stateConfig: tokenTypeState },
                 { flat: true, stateConfig: markerState },
                 { flat: true, stateConfig: markerTextState },
+                { flat: true, stateConfig: isStructuralEmptyState },
             ],
         });
     }
@@ -58,6 +61,11 @@ export class USFMParagraphNode extends ElementNode {
         $setState(writable, inParaState, json.inPara);
         $setState(writable, tokenTypeState, json.tokenType ?? "marker");
         $setState(writable, markerTextState, json.markerText);
+        $setState(
+            writable,
+            isStructuralEmptyState,
+            json.isStructuralEmpty ?? false,
+        );
         return node;
     }
 
@@ -72,6 +80,7 @@ export class USFMParagraphNode extends ElementNode {
             inPara: this.getInPara(),
             sid: this.getSid(),
             markerText: this.getMarkerText(),
+            isStructuralEmpty: this.getIsStructuralEmpty(),
         };
     }
 
@@ -96,20 +105,49 @@ export class USFMParagraphNode extends ElementNode {
     getMarkerText(): string | undefined {
         return $getState(this.getLatest(), markerTextState);
     }
+
+    getIsStructuralEmpty(): boolean {
+        return $getState(this.getLatest(), isStructuralEmptyState);
+    }
+
+    private static getAllStatesFromNode(node: USFMParagraphNode): {
+        id: string;
+        tokenType: string;
+        sid?: string;
+        inPara?: string;
+        marker?: string;
+        isStructuralEmpty?: boolean;
+    } {
+        // IMPORTANT: In updateDOM, `prevNode` represents a previous snapshot.
+        // Read state from the node instance itself (not via `getLatest()`),
+        // otherwise prev/next comparisons collapse.
+        const id = $getState(node, idState);
+        const tokenType = $getState(node, tokenTypeState);
+        const sid = $getState(node, sidState) || undefined;
+        const inPara = $getState(node, inParaState);
+        const marker = $getState(node, markerState);
+        const isStructuralEmpty = $getState(node, isStructuralEmptyState)
+            ? true
+            : undefined;
+
+        return {
+            id,
+            tokenType,
+            sid,
+            inPara,
+            marker,
+            isStructuralEmpty,
+        };
+    }
     getAllStates(): {
         id: string;
         tokenType: string;
         sid?: string;
         inPara?: string;
         marker?: string;
+        isStructuralEmpty?: boolean;
     } {
-        return {
-            id: this.getId(),
-            tokenType: this.getTokenType(),
-            sid: this.getSid(),
-            inPara: this.getInPara(),
-            marker: this.getMarker(),
-        };
+        return USFMParagraphNode.getAllStatesFromNode(this.getLatest());
     }
 
     // --- Setters ---
@@ -138,6 +176,15 @@ export class USFMParagraphNode extends ElementNode {
         $setState(this.getWritable(), markerTextState, markerText);
         return this;
     }
+
+    setIsStructuralEmpty(isStructuralEmpty: boolean): this {
+        $setState(
+            this.getWritable(),
+            isStructuralEmptyState,
+            isStructuralEmpty,
+        );
+        return this;
+    }
     getInPara(): string | undefined {
         return $getState(this.getLatest(), inParaState);
     }
@@ -146,7 +193,10 @@ export class USFMParagraphNode extends ElementNode {
         const el = document.createElement("div");
         el.classList.add("usfm-para-container");
         const ds = el.dataset;
-        const states = this.getAllStates();
+        const states = USFMParagraphNode.getAllStatesFromNode(this);
+        if (states.isStructuralEmpty) {
+            el.classList.add("is-structural-empty");
+        }
         Object.entries(states).forEach(([k, v]) => {
             if (v) {
                 ds[k] = v.toString();
@@ -159,23 +209,34 @@ export class USFMParagraphNode extends ElementNode {
         dom: HTMLElement,
         _config: EditorConfig,
     ): boolean {
-        const prev = prevNode.getAllStates();
-        const next = this.getAllStates();
+        // NOTE: With Lexical NodeState, "prevNode" isn't a reliable source of prior state
+        // during DOM reconciliation; treat the DOM/dataset as the prior surface of truth.
+        void prevNode;
 
+        const next = this.getAllStates();
         const ds = dom.dataset as unknown as Record<string, string>;
+
+        if (next.isStructuralEmpty) {
+            dom.classList.add("is-structural-empty");
+        } else {
+            dom.classList.remove("is-structural-empty");
+        }
 
         (Object.keys(next) as Array<keyof typeof next>).forEach((key) => {
             const nextVal = next[key];
-            const prevVal = prev[key];
-            if (nextVal === prevVal) return;
-
             const dsKey = key as unknown as string;
+
             if (nextVal == null || nextVal === "") {
-                delete ds[dsKey];
+                if (ds[dsKey] != null) {
+                    delete ds[dsKey];
+                }
                 return;
             }
 
-            ds[dsKey] = String(nextVal);
+            const target = String(nextVal);
+            if (ds[dsKey] !== target) {
+                ds[dsKey] = target;
+            }
         });
 
         // Returning false tells Lexical it can keep the existing DOM element.
@@ -184,8 +245,8 @@ export class USFMParagraphNode extends ElementNode {
     canBeEmpty(): boolean {
         return true;
     }
-    remove() {
-        return false;
+    remove(preserveEmptyParent?: boolean): void {
+        super.remove(preserveEmptyParent);
     }
 }
 

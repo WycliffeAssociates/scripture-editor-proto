@@ -13,7 +13,7 @@ import {
 import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { markerTrimNoSlash, numRangeRe } from "@/core/domain/usfm/lex.ts";
 import {
-    computeSidsReverse,
+    mutAddSids,
     type TokenForSidCalculation,
 } from "@/core/domain/usfm/parseUtils.ts";
 
@@ -32,6 +32,10 @@ export function maintainDocumentMetaData(
         [];
     const inParaUpdates: Array<{ key: string; inPara: string }> = [];
     const sidUpdates: Array<{ key: string; sid: string }> = [];
+    const structuralEmptyUpdates: Array<{
+        key: string;
+        isStructuralEmpty: boolean;
+    }> = [];
 
     const derivedMarkerByKey = new Map<string, string | undefined>();
 
@@ -128,18 +132,52 @@ export function maintainDocumentMetaData(
             };
         });
 
-        const targetSids = computeSidsReverse(tokenLikes, bookCode);
+        mutAddSids(tokenLikes, bookCode);
         for (let i = 0; i < sidNodes.length; i++) {
             const node = sidNodes[i];
             const currentSid = node.getSid();
-            const targetSid = targetSids[i];
+            const targetSid = tokenLikes[i]?.sid ?? "";
             if (currentSid !== targetSid) {
                 sidUpdates.push({ key: node.getKey(), sid: targetSid });
             }
         }
+        // 4) Structural-empty paragraph markers (for regular-mode UI affordances).
+        const paraNodes = allNodes.filter($isUSFMParagraphNode);
+
+        for (const para of paraNodes) {
+            const children = para.getChildren();
+            let hasMeaningfulContent = false;
+
+            for (const child of children) {
+                if ($isUSFMTextNode(child)) {
+                    const tt = child.getTokenType();
+                    if (tt !== UsfmTokenTypes.text) {
+                        hasMeaningfulContent = true;
+                        break;
+                    }
+                    if (child.getTextContent().trim().length > 0) {
+                        hasMeaningfulContent = true;
+                        break;
+                    }
+                }
+            }
+
+            const isStructuralEmpty = !hasMeaningfulContent;
+            if (para.getIsStructuralEmpty() !== isStructuralEmpty) {
+                structuralEmptyUpdates.push({
+                    key: para.getKey(),
+                    isStructuralEmpty,
+                });
+            }
+        }
     });
 
-    if (!markerUpdates.length && !inParaUpdates.length && !sidUpdates.length) {
+    if (
+        !markerUpdates.length &&
+        !inParaUpdates.length &&
+        !sidUpdates.length &&
+        !structuralEmptyUpdates.length
+    ) {
         return;
     }
 
@@ -165,6 +203,13 @@ export function maintainDocumentMetaData(
                 if (!$isUSFMTextNode(node) && !$isUSFMParagraphNode(node))
                     continue;
                 node.setSid(u.sid);
+            }
+            //   debugger;
+            for (const u of structuralEmptyUpdates) {
+                const node = $getNodeByKey(u.key);
+                if (!node || !node.isAttached()) continue;
+                if (!$isUSFMParagraphNode(node)) continue;
+                node.setIsStructuralEmpty(u.isStructuralEmpty);
             }
         },
         {

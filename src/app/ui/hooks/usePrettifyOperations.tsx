@@ -17,7 +17,7 @@ export function usePrettifyOperations({
     currentFileBibleIdentifier,
     currentChapter,
     setIsProcessing,
-    updateDiffMapForChapters,
+    updateDiffMapForChapter,
     setEditorContent,
     saveCurrentDirtyLexical,
 }: {
@@ -25,9 +25,7 @@ export function usePrettifyOperations({
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
-    updateDiffMapForChapters: (
-        chapters: Array<{ bookCode: string; chapterNum: number }>,
-    ) => Promise<void>;
+    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -81,7 +79,11 @@ export function usePrettifyOperations({
             });
 
             if (modifiedChapters.length > 0) {
-                await updateDiffMapForChapters(modifiedChapters);
+                // Bump "unsaved changes" + keep diffs fresh if review modal is open.
+                updateDiffMapForChapter(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                );
             }
 
             if (currentChapterModified) {
@@ -169,11 +171,11 @@ export function usePrettifyOperations({
             }
 
             if (modifiedChapters.length > 0) {
-                updateProgressNotification(notificationId, {
-                    title: t`Prettifying Project`,
-                    message: t`Updating diff view...`,
-                });
-                await updateDiffMapForChapters(modifiedChapters);
+                // Bump "unsaved changes" + keep diffs fresh if review modal is open.
+                updateDiffMapForChapter(
+                    currentFileBibleIdentifier,
+                    currentChapter,
+                );
             }
 
             const modifiedBooksCount = mutWorkingFilesRef.filter((f) =>
@@ -228,12 +230,7 @@ export function usePrettifyOperations({
             );
         }
 
-        await updateDiffMapForChapters([
-            {
-                bookCode: currentFileBibleIdentifier,
-                chapterNum: currentChapter,
-            },
-        ]);
+        updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
     }
 
     return {

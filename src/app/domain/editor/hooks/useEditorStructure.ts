@@ -68,14 +68,13 @@ export function useEditorStructure(editor: LexicalEditor) {
                 prevEditorState,
                 tags,
             }) => {
-                const wasOnlySelChange =
-                    dirtyElements.size === 0 && dirtyLeaves.size === 0;
-                if (
-                    wasOnlySelChange &&
-                    !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
-                ) {
-                    return;
-                }
+                // const wasOnlySelChange =
+                //   dirtyElements.size === 0 && dirtyLeaves.size === 0;
+                // if (
+                //   !tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
+                // ) {
+                //   return;
+                // }
                 if (prevEditorState.isEmpty()) {
                     return;
                 }

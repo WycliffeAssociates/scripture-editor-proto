@@ -227,9 +227,14 @@ export interface ParsedReference {
     getNewParsedReference(args: Partial<ParsedReference>): ParsedReference;
 }
 export function parseSid(sid: string): ParsedReference | null {
-    const fullVerseSid = SID_REGEX.exec(sid.toUpperCase());
+    const cleanedSid = sid
+        .toUpperCase()
+        // Allow locally-unique SIDs like "GEN 1:1_dup_1".
+        .replace(/_DUP_\d+$/u, "");
+
+    const fullVerseSid = SID_REGEX.exec(cleanedSid);
     if (!fullVerseSid) {
-        const bookChapOnly = SID_REGEX_BOOK_CHAP_ONLY.exec(sid.toUpperCase());
+        const bookChapOnly = SID_REGEX_BOOK_CHAP_ONLY.exec(cleanedSid);
         if (!bookChapOnly) return null;
         const [, book, chap] = bookChapOnly;
         if (!BIBLE_ORDER_MAP.has(book)) return null;

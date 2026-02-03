@@ -36,7 +36,7 @@ function createSyntheticParagraphMarkerToken(
     const marker = paragraphNode.marker ?? "p";
     // Use original marker text if available, otherwise construct without trailing space
     // (old paragraph containers don't have markerText, so no-space avoids spurious diffs)
-    const text = paragraphNode.markerText ?? `\\${marker}`;
+    const text = paragraphNode.markerText ?? `\\${marker} `;
 
     const token = createSerializedUSFMTextNode({
         text,
@@ -55,7 +55,12 @@ function createSyntheticParagraphMarkerToken(
 }
 
 export type MaterializeOptions = {
-    includeNestedEditors?: boolean;
+    /**
+     * How to handle nested editor nodes (e.g. footnotes/crossrefs).
+     * - "flatten" (default): replace nested node with marker token + nested token stream
+     * - "preserve": keep nested editor node as an atomic token (do not descend)
+     */
+    nested?: "flatten" | "preserve";
 };
 
 /**
@@ -73,9 +78,9 @@ export type MaterializeOptions = {
  */
 export function* materializeFlatTokensFromSerialized(
     rootChildren: SerializedLexicalNode[],
-    options: MaterializeOptions = { includeNestedEditors: true },
+    options: MaterializeOptions = { nested: "flatten" },
 ): Generator<SerializedLexicalNode> {
-    const { includeNestedEditors = true } = options;
+    const { nested = "flatten" } = options;
     for (const node of rootChildren) {
         if (isSerializedUSFMParagraphContainer(node)) {
             // Emit synthetic paragraph marker token
@@ -84,17 +89,31 @@ export function* materializeFlatTokensFromSerialized(
             const children = node.children ?? [];
             yield* materializeFlatTokensFromSerialized(children, options);
         } else if (isSerializedUSFMNestedEditorNode(node)) {
-            // Yield the nested editor node itself
-            yield node;
-            // Also yield its nested content in reading order IF requested
-            if (includeNestedEditors) {
-                const nestedChildren = node.editorState?.root?.children;
-                if (nestedChildren) {
-                    yield* materializeFlatTokensFromSerialized(
-                        nestedChildren,
-                        options,
-                    );
-                }
+            if (nested === "preserve") {
+                yield node;
+                continue;
+            }
+
+            // Flatten: opening marker token + nested content tokens.
+            yield createSerializedUSFMTextNode({
+                text: node.text ?? `\\${node.marker} `,
+                id: node.id,
+                sid: node.sid ?? "",
+                tokenType: UsfmTokenTypes.marker,
+                marker: node.marker,
+                inPara: node.inPara,
+                inChars: node.inChars,
+                attributes: node.attributes,
+                show: true,
+                isMutable: true,
+            });
+
+            const nestedChildren = node.editorState?.root?.children;
+            if (nestedChildren) {
+                yield* materializeFlatTokensFromSerialized(
+                    nestedChildren,
+                    options,
+                );
             }
         } else if (isSerializedElementWithChildren(node)) {
             // Generic element wrappers (e.g. Lexical "paragraph") are not meaningful
@@ -113,7 +132,7 @@ export function* materializeFlatTokensFromSerialized(
  */
 export function materializeFlatTokensArray(
     rootChildren: SerializedLexicalNode[],
-    options: MaterializeOptions = { includeNestedEditors: true },
+    options: MaterializeOptions = { nested: "flatten" },
 ): SerializedLexicalNode[] {
     return [...materializeFlatTokensFromSerialized(rootChildren, options)];
 }

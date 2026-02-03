@@ -4,8 +4,8 @@ import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import {
-    flattenParagraphContainersToFlatTokens,
     groupFlatNodesIntoParagraphContainers,
+    materializeFlatTokensArray,
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -112,7 +112,9 @@ export function useModeSwitching({
                 // Switching TO regular mode: wrap in paragraph containers
                 const flatTokens =
                     unwrappedFlatTokens ??
-                    flattenParagraphContainersToFlatTokens(rootChildren);
+                    materializeFlatTokensArray(rootChildren, {
+                        nested: "flatten",
+                    });
                 chapter.lexicalState.root.children =
                     groupFlatNodesIntoParagraphContainers(
                         flatTokens,
@@ -122,7 +124,9 @@ export function useModeSwitching({
                 // Switching TO usfm/plain mode: flatten to tokens
                 const flatTokens =
                     unwrappedFlatTokens ??
-                    flattenParagraphContainersToFlatTokens(rootChildren);
+                    materializeFlatTokensArray(rootChildren, {
+                        nested: "flatten",
+                    });
                 chapter.lexicalState.root.children = [
                     wrapFlatTokensInLexicalParagraph(flatTokens, direction),
                 ];

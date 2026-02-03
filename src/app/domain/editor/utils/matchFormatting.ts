@@ -121,10 +121,10 @@ export function matchFormattingToSource(
 ): SerializedLexicalNode[] {
     // Convert to flat arrays for processing
     const allSourceNodes = materializeFlatTokensArray(sourceNodes, {
-        includeNestedEditors: false,
+        nested: "preserve",
     });
     const allTargetNodes = materializeFlatTokensArray(targetNodes, {
-        includeNestedEditors: false,
+        nested: "preserve",
     });
 
     // Map: SID -> markers/structure that should appear before this verse

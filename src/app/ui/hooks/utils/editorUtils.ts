@@ -5,7 +5,6 @@ import {
 } from "lexical";
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
@@ -22,7 +21,9 @@ export function getFlattenedEditorStateAsParseTokens(
     let linebreakId = 0;
 
     const rootChildren = serializedEditorState.root.children ?? [];
-    for (const node of materializeFlatTokensFromSerialized(rootChildren)) {
+    for (const node of materializeFlatTokensFromSerialized(rootChildren, {
+        nested: "flatten",
+    })) {
         if (node.type === "linebreak") {
             tokens.push({
                 tokenType: UsfmTokenTypes.verticalWhitespace,
@@ -36,14 +37,9 @@ export function getFlattenedEditorStateAsParseTokens(
         if (isSerializedUSFMTextNode(node)) {
             tokens.push(node);
             if (node.sid) lastSid = node.sid;
-            continue;
         }
 
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            tokens.push(node as unknown as LintableTokenLike);
-            const sid = (node as unknown as { sid?: string }).sid;
-            if (sid) lastSid = sid;
-        }
+        // Nested editors are flattened by the adapter.
     }
 
     return tokens;
@@ -96,18 +92,20 @@ export function setEditorContent(
         targetFile?.chapters.find((c) => c.chapNumber === chapter);
     if (!chapterState) return;
 
+    // Avoid wrapping setEditorState in editor.update(). Lexical treats setEditorState
+    // as its own kind of update, and nesting it can interfere with history behavior.
+    editor.setEditorState(editor.parseEditorState(chapterState.lexicalState), {
+        tag: EDITOR_TAGS_USED.programaticIgnore,
+    });
+
+    // We intentionally load with `programaticIgnore` to avoid expensive maintenance work
+    // running during hydration, then immediately trigger one tagged update so
+    // listeners can compute derived metadata (e.g. structural-empty marker lines).
     editor.update(
         () => {
-            editor.setEditorState(
-                editor.parseEditorState(chapterState.lexicalState),
-            );
+            // no-op
         },
-        {
-            tag: [
-                EDITOR_TAGS_USED.historyMerge,
-                EDITOR_TAGS_USED.programaticIgnore,
-            ],
-        },
+        { tag: EDITOR_TAGS_USED.programmaticDoRunChanges },
     );
     editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
 }

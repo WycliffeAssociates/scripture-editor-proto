@@ -1,5 +1,6 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
 export type UseEditorStateHook = ReturnType<typeof useEditorState>;
@@ -33,7 +34,12 @@ export function useEditorState({
         const chapToUpdate = file.chapters.find((c) => c.chapNumber === chap);
         if (!chapToUpdate) return;
         chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.dirty = isDirty ?? true;
+        chapToUpdate.dirty =
+            isDirty ??
+            serializeToUsfmString(newLexical.root.children) !==
+                serializeToUsfmString(
+                    chapToUpdate.loadedLexicalState.root.children,
+                );
         updateDiffMapForChapter(file.bookCode, chap);
         return mutWorkingFilesRef;
     }

@@ -103,7 +103,6 @@ export const ProjectProvider = ({
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter || null,
         loadedProject,
-        setIsProcessing: project.setIsProcessing,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 
@@ -135,7 +134,6 @@ export const ProjectProvider = ({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: saveDiff.toggleDiffModal,
         updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
-        updateDiffMapForChapters: saveDiff.updateDiffMapForChapters,
         updateLintErrors: lint.updateErrorsForChapter,
         referenceProject,
         setIsProcessing: project.setIsProcessing,

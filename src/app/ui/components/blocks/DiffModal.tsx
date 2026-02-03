@@ -15,8 +15,9 @@ import {
 } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
+import { diffWordsWithSpace } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
-import { useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -88,9 +89,30 @@ function DiffItem({
 }: DiffItemProps) {
     const { isSm, isLg } = useWorkspaceMediaQuery();
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
-    const isAddition = diff.original === null;
-    const isDeletion = diff.current === null;
-    const isModification = !isAddition && !isDeletion;
+    const isAddition = diff.status === "added";
+    const isDeletion = diff.status === "deleted";
+    const isModification = diff.status === "modified";
+
+    const wordDiff = useMemo(() => {
+        if (!isModification) return undefined;
+
+        const shouldTrim = !diff.isWhitespaceChange;
+        const originalComparisonText = shouldTrim
+            ? diff.originalDisplayText.trim()
+            : diff.originalDisplayText;
+        const currentComparisonText = shouldTrim
+            ? diff.currentDisplayText.trim()
+            : diff.currentDisplayText;
+        return diffWordsWithSpace(
+            originalComparisonText,
+            currentComparisonText,
+        );
+    }, [
+        diff.currentDisplayText,
+        diff.isWhitespaceChange,
+        diff.originalDisplayText,
+        isModification,
+    ]);
 
     function scrollToClickedRef(diff: ProjectDiff) {
         switchBookOrChapter(diff.bookCode, diff.chapterNum);
@@ -202,11 +224,6 @@ function DiffItem({
                         </Badge>
                     )}
                 </Group>
-                {diff.detail && (
-                    <Text className={styles.diffDetailWarning}>
-                        {diff.detail}
-                    </Text>
-                )}
             </Group>
 
             {isLg ? (
@@ -241,9 +258,9 @@ function DiffItem({
                                     {diff.originalDisplayText}
                                 </pre>
                             )}
-                            {isModification && diff.wordDiff && (
+                            {isModification && wordDiff && (
                                 <HighlightedDiffText
-                                    changes={diff.wordDiff}
+                                    changes={wordDiff}
                                     viewType="original"
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
@@ -275,9 +292,9 @@ function DiffItem({
                                     {diff.currentDisplayText}
                                 </pre>
                             )}
-                            {isModification && diff.wordDiff && (
+                            {isModification && wordDiff && (
                                 <HighlightedDiffText
-                                    changes={diff.wordDiff}
+                                    changes={wordDiff}
                                     viewType="current"
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
@@ -312,9 +329,9 @@ function DiffItem({
                                     {diff.originalDisplayText}
                                 </pre>
                             )}
-                            {isModification && diff.wordDiff && (
+                            {isModification && wordDiff && (
                                 <HighlightedDiffText
-                                    changes={diff.wordDiff}
+                                    changes={wordDiff}
                                     viewType="original"
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
@@ -343,9 +360,9 @@ function DiffItem({
                                     {diff.currentDisplayText}
                                 </pre>
                             )}
-                            {isModification && diff.wordDiff && (
+                            {isModification && wordDiff && (
                                 <HighlightedDiffText
-                                    changes={diff.wordDiff}
+                                    changes={wordDiff}
                                     viewType="current"
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
@@ -391,7 +408,11 @@ function VirtualizedDiffList({
     });
 
     return (
-        <div ref={scrollContainerRef} className={styles.diffScrollArea}>
+        <div
+            ref={scrollContainerRef}
+            className={styles.diffScrollArea}
+            data-diff-scroll-container="true"
+        >
             <div
                 style={{
                     height: `${virtualizer.getTotalSize()}px`,
@@ -442,6 +463,30 @@ function DiffViewerModal({
     const hasChanges = diffs && diffs.length > 0;
     const { saveDiff } = useWorkspaceContext();
 
+    const copyDiffsJson = useCallback(async () => {
+        const payload = {
+            generatedAt: new Date().toISOString(),
+            diffs: (diffs ?? []).map((d) => ({
+                uniqueKey: d.uniqueKey,
+                semanticSid: d.semanticSid,
+                status: d.status,
+                bookCode: d.bookCode,
+                chapterNum: d.chapterNum,
+                isWhitespaceChange: d.isWhitespaceChange ?? false,
+                original: d.originalDisplayText,
+                current: d.currentDisplayText,
+            })),
+        };
+
+        try {
+            await navigator.clipboard.writeText(
+                JSON.stringify(payload, null, 2),
+            );
+        } catch (e) {
+            console.error("Failed to copy diffs JSON", e);
+        }
+    }, [diffs]);
+
     // Responsive modal size - bigger on mobile
     const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
 
@@ -480,6 +525,15 @@ function DiffViewerModal({
                         >
                             <Trans>Revert all changes</Trans>
                         </Button>
+                        {import.meta.env.DEV && hasChanges && (
+                            <Button
+                                variant="subtle"
+                                size="xs"
+                                onClick={copyDiffsJson}
+                            >
+                                <Trans>Copy diffs (JSON)</Trans>
+                            </Button>
+                        )}
                     </Group>
                 </div>
 
@@ -523,7 +577,7 @@ export function SaveAndReviewChanges() {
                 isOpen={saveDiff.openDiffModal}
                 onClose={saveDiff.closeModal}
                 diffs={sorted}
-                isCalculating={false}
+                isCalculating={saveDiff.isCalculatingDiffs}
                 revertDiff={saveDiff.handleRevert}
                 isSm={isSm}
                 isXs={isXs}

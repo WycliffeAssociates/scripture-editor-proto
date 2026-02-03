@@ -89,7 +89,10 @@ export function serializeToUsfmString(nodes: SerializedLexicalNode[]): string {
     // The adapter yields tokens in reading order, including:
     // - Synthetic paragraph markers for USFMParagraphNode containers
     // - Nested editor content (but we handle opening markers specially)
-    for (const node of materializeFlatTokensFromSerialized(nodes)) {
+    // Use the canonical flattener with nested editors flattened into raw tokens.
+    for (const node of materializeFlatTokensFromSerialized(nodes, {
+        nested: "flatten",
+    })) {
         if (node.type === "linebreak") {
             result += "\n";
             continue;
@@ -97,18 +100,9 @@ export function serializeToUsfmString(nodes: SerializedLexicalNode[]): string {
 
         if (isSerializedUSFMTextNode(node)) {
             result += node.text;
-            continue;
         }
 
-        if (isSerializedUSFMNestedEditorNode(node)) {
-            // The adapter will yield nested content after this node,
-            // but we need to emit the opening marker here.
-            // The close marker is inside the nested content.
-            result += `\\${node.marker} `;
-        }
-
-        // Paragraph containers are already handled by the adapter
-        // (synthetic markers emitted), so we skip them here.
+        // Nested editors are flattened by the adapter; no special handling needed here.
     }
 
     return result;
@@ -325,7 +319,7 @@ export function buildSidContentMapForChapter(
     // Canonicalize to flat token stream - this makes the map mode-independent
     // (paragraph containers become synthetic marker tokens + their children)
     const flatNodes = materializeFlatTokensArray(chapterNodeList, {
-        includeNestedEditors: false,
+        nested: "preserve",
     });
 
     const state: BuildState = {

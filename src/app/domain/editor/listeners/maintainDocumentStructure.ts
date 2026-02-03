@@ -1,5 +1,6 @@
 import { $dfsIterator, type DFSNode } from "@lexical/utils";
 import {
+    $getNodeByKey,
     $getRoot,
     $isElementNode,
     $isLineBreakNode,
@@ -101,7 +102,6 @@ export function maintainDocumentStructure(
             );
             console.log(nodeUpdates);
             totalUpdates += nodeUpdates.length;
-            debugger;
             editor.update(
                 () => {
                     nodeUpdates.forEach((u) => {
@@ -117,7 +117,6 @@ export function maintainDocumentStructure(
             );
         }
     }
-
     if (totalUpdates > 0) {
         console.log(
             `maintain document structure total updates: ${totalUpdates}`,
@@ -125,16 +124,18 @@ export function maintainDocumentStructure(
     }
 
     // Regular-mode structural enforcement
-    if (editorModeSetting === "regular") {
-        enforceRegularModeParagraphStructure(editor);
-    }
+    //   if (editorModeSetting === "regular") {
+    //     enforceRegularModeParagraphStructure(editor);
+    //   }
 }
 
 /**
  * Ensures Regular mode root children are all USFMParagraphNode containers.
  * Stray nodes at root level are wrapped into a default paragraph container.
  */
-function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
+export function enforceRegularModeParagraphStructure(
+    editor: LexicalEditor,
+): void {
     editor.update(
         () => {
             const root = $getRoot();
@@ -144,7 +145,8 @@ function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
             const ensureParagraphHasEditableFallback = (
                 para: USFMParagraphNode,
             ) => {
-                if (para.getChildrenSize() > 0) return;
+                const hasAnyTextNode = para.getChildren().some($isUSFMTextNode);
+                if (hasAnyTextNode) return;
                 const placeholder = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
                     tokenType: UsfmTokenTypes.text,
@@ -406,8 +408,29 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
     const isNumberRange = tokenType === UsfmTokenTypes.numberRange;
     if (!isNumberRange) return;
 
-    // Look at the previous sibling to see if it's a marker expecting a number
-    const previousSibling = node.getPreviousSibling();
+    const isWhitespaceOnlyTextNode = (n: LexicalNode) =>
+        $isUSFMTextNode(n) &&
+        n.getTokenType() === UsfmTokenTypes.text &&
+        n.getTextContent().trim().length === 0;
+
+    const findPrevSignificantSibling = (start: LexicalNode | null) => {
+        let cur = start;
+        while (cur) {
+            if ($isLineBreakNode(cur) || isWhitespaceOnlyTextNode(cur)) {
+                cur = cur.getPreviousSibling();
+                continue;
+            }
+            return cur;
+        }
+        return null;
+    };
+
+    // Look at the previous meaningful sibling to see if it's a marker expecting a number.
+    // We intentionally skip linebreaks + whitespace-only placeholders, because in regular mode
+    // certain edits can temporarily separate `\\v` and its numberRange.
+    const previousSibling = findPrevSignificantSibling(
+        node.getPreviousSibling(),
+    );
     let isValidPredecessor = false;
     if ($isUSFMTextNode(previousSibling)) {
         const prevMarker = previousSibling.getMarker();
@@ -417,6 +440,28 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
             CHAPTER_VERSE_MARKERS.has(prevMarker)
         ) {
             isValidPredecessor = true;
+        }
+
+        // Repairable split case: `\\v` + empty numberRange + <br> + populated numberRange.
+        // In this situation, the populated numberRange should not be converted to text.
+        if (
+            !isValidPredecessor &&
+            previousSibling.getTokenType() === UsfmTokenTypes.numberRange &&
+            previousSibling.getTextContent().trim().length === 0
+        ) {
+            const maybeMarker = findPrevSignificantSibling(
+                previousSibling.getPreviousSibling(),
+            );
+            if ($isUSFMTextNode(maybeMarker)) {
+                const m = maybeMarker.getMarker();
+                if (
+                    maybeMarker.getTokenType() === UsfmTokenTypes.marker &&
+                    m &&
+                    CHAPTER_VERSE_MARKERS.has(m)
+                ) {
+                    isValidPredecessor = true;
+                }
+            }
         }
     }
 
@@ -436,19 +481,25 @@ const removeEmptyNumberRangeNotPrecededByMarker: MainDocumentStrutureFxn = ({
     if (!isValidPredecessor) {
         // If it's an orphaned numberRange (not preceded by a valid marker)
         if (!node.getTextContent().trim().length) {
+            const nodeKey = node.getKey();
             // If empty, remove it
             updates.push({
                 dbgLabel: "removeOrphanedEmptyNumberRange",
                 run: () => {
-                    node.remove();
+                    const n = $getNodeByKey(nodeKey);
+                    if (n?.isAttached()) n.remove();
                 },
             });
         } else {
+            const nodeKey = node.getKey();
             // If it has content, convert it to plain text so it's not lost but doesn't break structure
             updates.push({
                 dbgLabel: "convertOrphanedNumberRangeToText",
                 run: () => {
-                    node.setTokenType(UsfmTokenTypes.text);
+                    const n = $getNodeByKey(nodeKey);
+                    if (!n?.isAttached()) return;
+                    if (!$isUSFMTextNode(n)) return;
+                    n.setTokenType(UsfmTokenTypes.text);
                 },
             });
         }
@@ -526,18 +577,119 @@ export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrut
 
         const isRegularMode = editorModeSetting === "regular";
 
+        // Regular mode only: if a chapter/verse marker is separated from its numberRange by
+        // one or more linebreaks (e.g. "\\v" then Enter, resulting in "\\v\n13"), treat that as accidental.
+        // Move the linebreak(s) before the marker so the marker stays attached to its number.
+        // NOTE: don't capture sibling references across updates; re-read from the marker node at run-time.
+
+        if (isRegularMode && $isLineBreakNode(nextSibling)) {
+            const markerKey = node.getKey();
+            updates.push({
+                dbgLabel:
+                    "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:moveLineBreakBeforeMarker",
+                run: () => {
+                    const markerNode = $getNodeByKey(markerKey);
+                    if (!markerNode?.isAttached()) return;
+                    if (!$isUSFMTextNode(markerNode)) return;
+
+                    const breaks: LexicalNode[] = [];
+                    let cursor: LexicalNode | null =
+                        markerNode.getNextSibling();
+                    while (cursor && $isLineBreakNode(cursor)) {
+                        breaks.push(cursor);
+                        cursor = cursor.getNextSibling();
+                    }
+
+                    if (
+                        cursor &&
+                        $isUSFMTextNode(cursor) &&
+                        cursor.getTokenType() === UsfmTokenTypes.numberRange
+                    ) {
+                        for (const br of breaks) {
+                            markerNode.insertBefore(br);
+                        }
+                        return;
+                    }
+
+                    // Still no numberRange after the marker; remove the orphaned marker.
+                    markerNode.remove();
+                },
+            });
+            return;
+        }
+
         if (
             $isUSFMTextNode(nextSibling) &&
             nextSibling.getTokenType() === UsfmTokenTypes.numberRange
         ) {
             // If the number range is empty and we are in regular mode, we should delete both
             if (isRegularMode && !nextSibling.getTextContent().trim().length) {
+                const markerKey = node.getKey();
                 updates.push({
                     dbgLabel:
                         "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker",
                     run: () => {
-                        nextSibling.remove();
-                        node.remove();
+                        const markerNode = $getNodeByKey(markerKey);
+                        if (!markerNode?.isAttached()) return;
+                        if (!$isUSFMTextNode(markerNode)) return;
+
+                        const nr1 = markerNode.getNextSibling();
+                        if (!$isUSFMTextNode(nr1)) return;
+                        if (nr1.getTokenType() !== UsfmTokenTypes.numberRange)
+                            return;
+
+                        // Special-case recovery: `\\v` + empty numberRange + linebreak(s) + populated numberRange.
+                        // This happens via certain edits in regular mode, and we should repair rather than delete.
+                        if (!nr1.getTextContent().trim().length) {
+                            const breaks: LexicalNode[] = [];
+                            const whitespaceTextNodes: USFMTextNode[] = [];
+                            let cursor: LexicalNode | null =
+                                nr1.getNextSibling();
+
+                            while (cursor) {
+                                if ($isLineBreakNode(cursor)) {
+                                    breaks.push(cursor);
+                                    cursor = cursor.getNextSibling();
+                                    continue;
+                                }
+
+                                if ($isUSFMTextNode(cursor)) {
+                                    const tt = cursor.getTokenType();
+                                    const trimmed = cursor
+                                        .getTextContent()
+                                        .trim();
+
+                                    if (
+                                        tt === UsfmTokenTypes.text &&
+                                        trimmed.length === 0
+                                    ) {
+                                        whitespaceTextNodes.push(cursor);
+                                        cursor = cursor.getNextSibling();
+                                        continue;
+                                    }
+
+                                    if (
+                                        tt === UsfmTokenTypes.numberRange &&
+                                        trimmed.length > 0
+                                    ) {
+                                        nr1.remove();
+                                        for (const t of whitespaceTextNodes) {
+                                            t.remove();
+                                        }
+                                        for (const br of breaks) {
+                                            markerNode.insertBefore(br);
+                                        }
+                                        return;
+                                    }
+                                }
+
+                                break;
+                            }
+
+                            // True orphaned case: remove empty numberRange + marker.
+                            nr1.remove();
+                            markerNode.remove();
+                        }
                     },
                 });
             }
@@ -547,26 +699,35 @@ export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrut
         // If we reach here, there is no numberRange following the marker.
         // In regular mode, if the number is gone, the marker should be gone too.
         if (isRegularMode) {
+            const markerKey = node.getKey();
             updates.push({
                 dbgLabel:
                     "ensureNumberRangeAlwaysFollowsMarkerExpectingNum:removeOrphanedMarker(noNumberRange)",
                 run: () => {
-                    node.remove();
+                    const markerNode = $getNodeByKey(markerKey);
+                    if (markerNode?.isAttached()) markerNode.remove();
                 },
             });
             return;
         }
 
+        const markerKey = node.getKey();
+        const sid = node.getSid().trim();
+        const inPara = node.getInPara();
         updates.push({
             dbgLabel: "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
             run: () => {
+                const markerNode = $getNodeByKey(markerKey);
+                if (!markerNode || !markerNode.isAttached()) return;
+                if (!$isUSFMTextNode(markerNode)) return;
+
                 const emptySibling = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
-                    sid: node.getSid().trim(),
-                    inPara: node.getInPara(),
+                    sid,
+                    inPara,
                     tokenType: UsfmTokenTypes.numberRange,
                 });
-                node.insertAfter(emptySibling);
+                markerNode.insertAfter(emptySibling);
                 emptySibling.selectEnd();
             },
         });
@@ -597,24 +758,42 @@ const ensurePlainTextNodeAlwaysFollowsNumberRange: MainDocumentStrutureFxn = ({
         !$isUSFMTextNode(next) ||
         next.getTokenType() !== UsfmTokenTypes.text
     ) {
+        const nrKey = node.getKey();
+        const sid = node.getSid().trim();
+        const inPara = node.getInPara();
         updates.push({
             dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
             run: () => {
+                const nrNode = $getNodeByKey(nrKey);
+                if (!nrNode?.isAttached()) return;
+                if (!$isUSFMTextNode(nrNode)) return;
+
+                const nextNow = nrNode.getNextSibling();
+                if (
+                    $isUSFMTextNode(nextNow) &&
+                    nextNow.getTokenType() === UsfmTokenTypes.text
+                ) {
+                    return;
+                }
                 const emptySibling = $createUSFMTextNode(" ", {
                     id: guidGenerator(),
-                    sid: node.getSid().trim(),
-                    inPara: node.getInPara(),
+                    sid,
+                    inPara,
                     tokenType: UsfmTokenTypes.text,
                 });
-                node.insertAfter(emptySibling);
+                nrNode.insertAfter(emptySibling);
             },
         });
     }
     if (next && $isUSFMTextNode(next) && !next.getTextContent().length) {
+        const nextKey = next.getKey();
         updates.push({
             dbgLabel: "ensurePlainTextNodeAlwaysFollowsNumberRange",
             run: () => {
-                next.setTextContent(" ");
+                const nextNode = $getNodeByKey(nextKey);
+                if (!nextNode?.isAttached()) return;
+                if (!$isUSFMTextNode(nextNode)) return;
+                nextNode.setTextContent(" ");
             },
         });
     }

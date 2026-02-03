@@ -131,7 +131,7 @@ function $createContextTextNode({
         id: guidGenerator(),
         inPara: context.nearestParaMarker,
         tokenType: tokenType,
-        sid: context.newSid,
+        sid: context.currentSidAsString,
         ...extraProps,
     });
 }
@@ -268,6 +268,7 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
             text,
             context,
             tokenType: UsfmTokenTypes.numberRange,
+            extraProps: { sid: context.newSid },
         });
 
     if (!isStartOfLine) {
@@ -340,7 +341,7 @@ export function $insertChapter(args: BaseInsertArgs): void {
 
     if (!isStartOfLine) {
         // Chapter must be at start of line - split and insert linebreak
-        const [left, right] = anchorNode.splitText(args.anchorOffsetToUse);
+        const [left] = anchorNode.splitText(args.anchorOffsetToUse);
         const textContent = left.getTextContent().trimEnd();
         const woMarker = isTypedInsertion
             ? textContent.slice(0, -markerNode.getTextContentSize())
@@ -352,7 +353,7 @@ export function $insertChapter(args: BaseInsertArgs): void {
         left.insertAfter(lineBreakNode);
         lineBreakNode.insertAfter(markerNode);
 
-        if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+        // Let maintainMetadata recompute SIDs from markers; do not force a new SID.
 
         const numberRange = createEmptyNumberRange();
         markerNode.insertAfter(numberRange);
@@ -567,7 +568,6 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
         $ensureLineBreakBefore(markerNode);
 
         if ($isUSFMTextNode(right)) {
-            right.setSid(context.newSid);
             right.setInPara(marker);
             right.selectStart();
         }
@@ -661,8 +661,6 @@ export function $insertChar(args: BaseInsertArgs): void {
                 : `${textContent} `;
             left?.setTextContent(woMarker);
 
-            if ($isUSFMTextNode(right)) right.setSid(context.newSid);
-
             left.insertAfter(openingMarker);
             openingMarker.insertAfter(emptyTextNode);
             emptyTextNode.insertAfter(closingMarker);
@@ -682,7 +680,7 @@ export function $insertChar(args: BaseInsertArgs): void {
             emptyTextNode.insertAfter(closingMarker);
 
             if (sibling && $isUSFMTextNode(sibling)) {
-                sibling.setSid(context.newSid);
+                // No SID changes for char wrapping; maintainMetadata will keep things consistent.
             }
 
             emptyTextNode.select();
@@ -719,17 +717,13 @@ export function $insertChar(args: BaseInsertArgs): void {
 
             // Split at adjusted selection boundaries
             const [before, middle] = anchorNode.splitText(adjustedStart);
-            const [selected, after] = (middle || before).splitText(
+            const [selected] = (middle || before).splitText(
                 adjustedEnd - adjustedStart,
             );
 
             // Insert markers around selection
             selected.insertBefore(openingMarker);
             selected.insertAfter(closingMarker);
-
-            // Update SIDs
-            if ($isUSFMTextNode(selected)) selected.setSid(context.newSid);
-            if ($isUSFMTextNode(after)) after.setSid(context.newSid);
 
             // Restore selection
             selected.select();

@@ -101,8 +101,8 @@ describe("materializeFlatTokensFromSerialized", () => {
             const result = materializeFlatTokensArray(input);
 
             expect(result).toHaveLength(2);
-            // First token should be synthetic paragraph marker (no trailing space when markerText missing)
-            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p");
+            // First token should be synthetic paragraph marker
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
             expect((result[0] as SerializedUSFMTextNode).tokenType).toBe(
                 UsfmTokenTypes.marker,
             );
@@ -122,11 +122,11 @@ describe("materializeFlatTokensFromSerialized", () => {
             const result = materializeFlatTokensArray(input);
 
             expect(result).toHaveLength(4);
-            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p");
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
             expect((result[1] as SerializedUSFMTextNode).text).toBe(
                 "Normal para",
             );
-            expect((result[2] as SerializedUSFMTextNode).text).toBe("\\q1");
+            expect((result[2] as SerializedUSFMTextNode).text).toBe("\\q1 ");
             expect((result[3] as SerializedUSFMTextNode).text).toBe(
                 "Poetry line",
             );
@@ -143,12 +143,12 @@ describe("materializeFlatTokensFromSerialized", () => {
             const result = materializeFlatTokensArray(input);
 
             expect((result[0] as SerializedUSFMTextNode).marker).toBe("p");
-            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p");
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
         });
     });
 
     describe("nested editor nodes", () => {
-        it("includes nested editor content in reading order", () => {
+        it("flattens nested editor nodes by default", () => {
             const input = [
                 makeTextNode("Before"),
                 makeNestedEditorNode("f", [makeTextNode("Footnote content")]),
@@ -157,14 +157,31 @@ describe("materializeFlatTokensFromSerialized", () => {
 
             const result = materializeFlatTokensArray(input);
 
-            // Before + nested node + nested content + After
+            // Before + opening marker + nested content + After
             expect(result).toHaveLength(4);
             expect((result[0] as SerializedUSFMTextNode).text).toBe("Before");
-            expect(result[1].type).toBe(USFM_NESTED_DECORATOR_TYPE);
+            expect((result[1] as SerializedUSFMTextNode).text).toBe("\\f");
             expect((result[2] as SerializedUSFMTextNode).text).toBe(
                 "Footnote content",
             );
             expect((result[3] as SerializedUSFMTextNode).text).toBe("After");
+        });
+
+        it("preserves nested editor nodes when nested:'preserve'", () => {
+            const input = [
+                makeTextNode("Before"),
+                makeNestedEditorNode("f", [makeTextNode("Footnote content")]),
+                makeTextNode("After"),
+            ];
+
+            const result = materializeFlatTokensArray(input, {
+                nested: "preserve",
+            });
+
+            expect(result).toHaveLength(3);
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("Before");
+            expect(result[1].type).toBe(USFM_NESTED_DECORATOR_TYPE);
+            expect((result[2] as SerializedUSFMTextNode).text).toBe("After");
         });
 
         it("handles nested editors inside paragraph containers", () => {
@@ -180,11 +197,11 @@ describe("materializeFlatTokensFromSerialized", () => {
 
             const result = materializeFlatTokensArray(input);
 
-            // synthetic marker + Text + nested node + nested content
+            // synthetic marker + Text + opening marker + nested content
             expect(result).toHaveLength(4);
-            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p");
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
             expect((result[1] as SerializedUSFMTextNode).text).toBe("Text");
-            expect(result[2].type).toBe(USFM_NESTED_DECORATOR_TYPE);
+            expect((result[2] as SerializedUSFMTextNode).text).toBe("\\f");
             expect((result[3] as SerializedUSFMTextNode).text).toBe("Note");
         });
 
@@ -211,7 +228,7 @@ describe("materializeFlatTokensFromSerialized", () => {
             const result = materializeFlatTokensArray([nested]);
 
             expect(result).toHaveLength(2);
-            expect(result[0].type).toBe(USFM_NESTED_DECORATOR_TYPE);
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\f");
             expect((result[1] as SerializedUSFMTextNode).text).toBe("Inner");
         });
     });
@@ -252,15 +269,15 @@ describe("materializeFlatTokensFromSerialized", () => {
             const windows = [...walkFlatTokensSlidingWindow(input)];
 
             expect(windows).toHaveLength(2);
-            // synthetic marker -> content (no trailing space when markerText missing)
+            // synthetic marker -> content
             expect((windows[0].curr as SerializedUSFMTextNode).text).toBe(
-                "\\p",
+                "\\p ",
             );
             expect((windows[0].next as SerializedUSFMTextNode).text).toBe(
                 "Content",
             );
             expect((windows[1].prev as SerializedUSFMTextNode).text).toBe(
-                "\\p",
+                "\\p ",
             );
             expect((windows[1].curr as SerializedUSFMTextNode).text).toBe(
                 "Content",

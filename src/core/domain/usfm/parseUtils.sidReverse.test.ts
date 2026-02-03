@@ -12,8 +12,17 @@ function findFirstMarkerSid(
     )?.sid;
 }
 
-describe("computeSidsReverse (via prepareTokens)", () => {
-    it("attributes markers between verses to the following verse (e.g. \\q before \\v 2 => 2)", () => {
+function findMarkerSids(
+    tokens: Array<{ tokenType: string; marker?: string; sid?: string }>,
+    marker: string,
+) {
+    return tokens
+        .filter((t) => t.tokenType === TokenMap.marker && t.marker === marker)
+        .map((t) => t.sid);
+}
+
+describe("mutAddSids (via prepareTokens)", () => {
+    it("attributes markers between verses to the previous verse (e.g. \\q before \\v 2 => 1)", () => {
         const usfm = `\\id GEN
 \\c 8
 \\p
@@ -36,13 +45,13 @@ describe("computeSidsReverse (via prepareTokens)", () => {
             makeSid({ bookId: "GEN", chapter: 8, verseStart: 0, verseEnd: 0 }),
         );
 
-        // The \\q before \\v 2 should belong to verse 2.
+        // The \\q before \\v 2 should belong to verse 1.
         expect(findFirstMarkerSid(tokens, "q")).toBe(
-            makeSid({ bookId: "GEN", chapter: 8, verseStart: 2, verseEnd: 2 }),
+            makeSid({ bookId: "GEN", chapter: 8, verseStart: 1, verseEnd: 1 }),
         );
     });
 
-    it("attributes paragraph markers before a later verse to that later verse (e.g. \\p before \\v 24 => 24)", () => {
+    it("attributes paragraph markers before a later verse to the current verse (e.g. \\p before \\v 24 but after \\v 23 => 23)", () => {
         const usfm = `\\id GEN
 \\c 2
 \\v 23 The man said,
@@ -53,14 +62,36 @@ describe("computeSidsReverse (via prepareTokens)", () => {
 
         const { tokens } = prepareTokens(usfm, lexUsfm, "GEN");
 
-        // There is no chapter-start paragraph marker here; \\p should attach to verse 24.
+        // \\p appears between verses and should attach to the previous verse.
         expect(findFirstMarkerSid(tokens, "p")).toBe(
             makeSid({
                 bookId: "GEN",
                 chapter: 2,
-                verseStart: 24,
-                verseEnd: 24,
+                verseStart: 23,
+                verseEnd: 23,
             }),
         );
+    });
+
+    it("mangles repeated verse numbers within a chapter (e.g. second \\v 1 => 1_dup_1)", () => {
+        const usfm = `\\id GEN
+\\c 1
+\\v 1 First.
+\\v 2 Second.
+\\v 1 Duplicate one.`;
+
+        const { tokens } = prepareTokens(usfm, lexUsfm, "GEN");
+        const vMarkerSids = findMarkerSids(tokens, "v");
+
+        expect(vMarkerSids).toEqual([
+            makeSid({ bookId: "GEN", chapter: 1, verseStart: 1, verseEnd: 1 }),
+            makeSid({ bookId: "GEN", chapter: 1, verseStart: 2, verseEnd: 2 }),
+            `${makeSid({
+                bookId: "GEN",
+                chapter: 1,
+                verseStart: 1,
+                verseEnd: 1,
+            })}_dup_1`,
+        ]);
     });
 });

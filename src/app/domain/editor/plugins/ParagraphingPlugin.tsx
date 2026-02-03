@@ -67,6 +67,10 @@ export function ParagraphingPlugin() {
                 } = calculateIsStartOfLine(
                     anchorNode as USFMTextNode,
                     anchorOffset,
+                    {
+                        editor,
+                        editorMode: context.editorMode as EditorModeSetting,
+                    },
                 );
 
                 const args: BaseInsertArgs = {

@@ -4,10 +4,15 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 
+import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+
 // Re-export shared utilities from their canonical locations
 export { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
-export { isSerializedUSFMParagraphContainer } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-export { flattenParagraphContainersToFlatTokens } from "@/app/domain/editor/utils/modeAdjustments.ts";
+export {
+    isSerializedUSFMParagraphContainer,
+    materializeFlatTokensArray,
+} from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 /**
  * Detects if root children are wrapped in a single paragraph container (Source/Plain mode)
@@ -47,14 +52,6 @@ export function transformToMode(
     state: SerializedEditorState,
     targetMode: "regular" | "usfm" | "plain",
 ): SerializedEditorState {
-    // Import here to avoid circular dependencies
-    const {
-        groupFlatNodesIntoParagraphContainers,
-    } = require("@/app/domain/editor/serialization/fromSerializedToLexical.ts");
-    const {
-        flattenParagraphContainersToFlatTokens,
-    } = require("@/app/domain/editor/utils/modeAdjustments.ts");
-
     const direction = (state.root.direction ?? "ltr") as "ltr" | "rtl";
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
@@ -75,7 +72,8 @@ export function transformToMode(
     if (wantsParagraphMode) {
         // Transform TO regular mode (paragraph containers)
         const flatTokens =
-            unwrapped ?? flattenParagraphContainersToFlatTokens(rootChildren);
+            unwrapped ??
+            materializeFlatTokensArray(rootChildren, { nested: "flatten" });
         return {
             ...state,
             root: {
@@ -89,7 +87,8 @@ export function transformToMode(
     } else {
         // Transform TO usfm/plain mode (flat tokens wrapped in paragraph)
         const flatTokens =
-            unwrapped ?? flattenParagraphContainersToFlatTokens(rootChildren);
+            unwrapped ??
+            materializeFlatTokensArray(rootChildren, { nested: "flatten" });
         return {
             ...state,
             root: {

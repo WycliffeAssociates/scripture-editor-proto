@@ -72,6 +72,10 @@ const markerTextState = createState("markerText", {
     parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
+const isStructuralEmptyState = createState("isStructuralEmpty", {
+    parse: (value) => (typeof value === "boolean" ? value : false),
+});
+
 export {
     idState,
     sidState,
@@ -83,4 +87,5 @@ export {
     isMutableState,
     lintErrorsState,
     markerTextState,
+    isStructuralEmptyState,
 };

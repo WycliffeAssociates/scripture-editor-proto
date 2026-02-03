@@ -1,3 +1,4 @@
+import { $dfsIterator } from "@lexical/utils";
 import {
     $getSelection,
     $isRangeSelection,
@@ -31,7 +32,25 @@ import {
     mapMarkerToInsertionType,
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
+
+function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
+    const textNodes = [...$dfsIterator()]
+        .map((n) => n.node)
+        .filter($isUSFMTextNode);
+    const anchorIndex = textNodes.findIndex(
+        (n) => n.getKey() === anchorNode.getKey(),
+    );
+    return deriveVerseNumberForInsertionFromTokens({
+        tokens: textNodes.map((n) => ({
+            tokenType: n.getTokenType(),
+            marker: n.getMarker(),
+            text: n.getTextContent(),
+        })),
+        anchorIndex,
+    });
+}
 
 function insertMarker(
     editor: LexicalEditor,
@@ -77,7 +96,10 @@ function insertMarker(
             isStartOfLine: isStartOfLineCalculated,
             actualAnchorNode,
             actualAnchorOffset,
-        } = calculateIsStartOfLine(anchorNode as USFMTextNode, anchorOffset);
+        } = calculateIsStartOfLine(anchorNode as USFMTextNode, anchorOffset, {
+            editor,
+            editorMode: context.editorMode as EditorModeSetting,
+        });
 
         const args: BaseInsertArgs = {
             anchorNode: actualAnchorNode,
@@ -92,7 +114,10 @@ function insertMarker(
 
         switch (insertType) {
             case InsertionTypes.verse:
-                return $insertVerse(args);
+                return $insertVerse(
+                    args,
+                    deriveVerseNumberForInsertion(actualAnchorNode),
+                );
             case InsertionTypes.chapter:
                 return $insertChapter(args);
             case InsertionTypes.para:

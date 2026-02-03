@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { adjustSerializedLexicalNodes } from "@/app/domain/editor/utils/modeAdjustments.ts";
+import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 describe("Mode Switching Data ID Preservation", () => {
     it("should preserve data-id when adjusting serialized nodes", () => {
@@ -16,8 +16,9 @@ describe("Mode Switching Data ID Preservation", () => {
             marker: "p",
         });
 
-        // Apply mode adjustments (simulating switching from raw to regular mode)
-        const adjustedNodes = adjustSerializedLexicalNodes(serializedNode);
+        const adjustedNodes = materializeFlatTokensArray([serializedNode], {
+            nested: "flatten",
+        });
 
         // Verify the ID is preserved
         expect(adjustedNodes).toHaveLength(1);
@@ -57,14 +58,13 @@ describe("Mode Switching Data ID Preservation", () => {
             children: [node1, node2],
         };
 
-        // Apply mode adjustments to the paragraph
-        const adjustedNodes = adjustSerializedLexicalNodes(paragraphElement);
+        const adjustedNodes = materializeFlatTokensArray([paragraphElement], {
+            nested: "flatten",
+        });
 
         // Verify the structure and IDs are preserved
-        expect(adjustedNodes).toHaveLength(1);
-        const adjustedParagraph = adjustedNodes[0] as any;
-        expect(adjustedParagraph.children).toHaveLength(2);
-        expect(adjustedParagraph.children[0].id).toBe(originalId1);
-        expect(adjustedParagraph.children[1].id).toBe(originalId2);
+        expect(adjustedNodes).toHaveLength(2);
+        expect((adjustedNodes[0] as any).id).toBe(originalId1);
+        expect((adjustedNodes[1] as any).id).toBe(originalId2);
     });
 });

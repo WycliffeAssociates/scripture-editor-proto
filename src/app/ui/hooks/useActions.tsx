@@ -12,7 +12,6 @@ import type { LintError } from "@/core/data/usfm/lint.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { useEditorState } from "./useEditorState.tsx";
 import {
-    getFlattenedEditorStateAsParseTokens,
     getFlattenedFileTokens,
     type LintableTokenLike,
 } from "./utils/editorUtils.ts";
@@ -33,9 +32,6 @@ type Props = {
     pickedFile: ParsedFile | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    updateDiffMapForChapters: (
-        chapters: Array<{ bookCode: string; chapterNum: number }>,
-    ) => Promise<void>;
     updateLintErrors: (
         book: string,
         chapter: number,
@@ -57,7 +53,6 @@ export const useWorkspaceActions = ({
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
-    updateDiffMapForChapters,
     updateLintErrors,
     referenceProject,
     setIsProcessing,
@@ -122,7 +117,7 @@ export const useWorkspaceActions = ({
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
-        updateDiffMapForChapters,
+        updateDiffMapForChapter,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });

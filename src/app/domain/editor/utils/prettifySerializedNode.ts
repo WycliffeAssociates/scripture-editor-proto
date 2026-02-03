@@ -794,7 +794,7 @@ export function applyPrettifyToNodeTree(
 
     // 2. Flatten the input (exclude nested editors)
     const flatTokens = materializeFlatTokensArray(nodes, {
-        includeNestedEditors: false,
+        nested: "preserve",
     });
 
     // 3. Distribute combined verse text
