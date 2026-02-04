@@ -17,7 +17,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
 import { BookIcon, RotateCw, Save } from "lucide-react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -462,6 +462,13 @@ function DiffViewerModal({
 }: DiffViewerModalProps) {
     const hasChanges = diffs && diffs.length > 0;
     const { saveDiff } = useWorkspaceContext();
+    const [hideWhitespaceOnly, setHideWhitespaceOnly] = useState(false);
+
+    const visibleDiffs = useMemo(() => {
+        if (!diffs) return diffs;
+        if (!hideWhitespaceOnly) return diffs;
+        return diffs.filter((diff) => !diff.isWhitespaceChange);
+    }, [diffs, hideWhitespaceOnly]);
 
     const copyDiffsJson = useCallback(async () => {
         const payload = {
@@ -489,6 +496,7 @@ function DiffViewerModal({
 
     // Responsive modal size - bigger on mobile
     const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
+    const hasVisibleDiffs = (visibleDiffs?.length ?? 0) > 0;
 
     return (
         <Modal
@@ -515,6 +523,15 @@ function DiffViewerModal({
                             data-testid={TESTING_IDS.save.saveAllButton}
                         >
                             <Trans>Save all changes</Trans>
+                        </Button>
+                        <Button
+                            variant={hideWhitespaceOnly ? "filled" : "outline"}
+                            size="xs"
+                            onClick={() =>
+                                setHideWhitespaceOnly((value) => !value)
+                            }
+                        >
+                            <Trans>Hide whitespace-only diffs</Trans>
                         </Button>
                         <Button
                             variant="outline"
@@ -551,9 +568,17 @@ function DiffViewerModal({
                     </Center>
                 )}
 
-                {!isCalculating && hasChanges && (
+                {!isCalculating && hasChanges && !hasVisibleDiffs && (
+                    <Center className={styles.fullHeight}>
+                        <Text data-testid={TESTING_IDS.save.noChangesMessage}>
+                            <Trans>No changes detected.</Trans>
+                        </Text>
+                    </Center>
+                )}
+
+                {!isCalculating && hasChanges && hasVisibleDiffs && (
                     <VirtualizedDiffList
-                        diffs={diffs}
+                        diffs={visibleDiffs ?? []}
                         revertDiff={revertDiff}
                     />
                 )}

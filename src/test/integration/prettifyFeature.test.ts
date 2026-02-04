@@ -1,14 +1,26 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import {
+    lexicalRootChildrenToPrettifyTokenStream,
+    prettifyTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
+
+function applyPrettifyToNodeTree(
+    nodes: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const envelope = lexicalRootChildrenToPrettifyTokenStream(nodes);
+    const prettifiedTokens = prettifyTokenStream(envelope.tokens);
+    return prettifyTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
+}
 
 const createSerializedState = (usfmContent: string): SerializedEditorState => {
     const editor = createTestEditor(usfmContent);
@@ -66,13 +78,23 @@ describe("Prettify Feature Integration", () => {
             const newChildren = applyPrettifyToNodeTree(originalChildren);
             const flattened = flattenNodes(newChildren);
 
-            const chapterNumberIndex = flattened.findIndex(
+            const chapterPara = newChildren.find(
+                (n) =>
+                    n.type === USFM_PARAGRAPH_NODE_TYPE &&
+                    (n as { marker?: string }).marker === "c",
+            );
+            expect(chapterPara).toBeTruthy();
+            const chapterChildren = (chapterPara as { children?: unknown })
+                .children as SerializedLexicalNode[];
+            const chapterNumberIndex = chapterChildren.findIndex(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
                     node.tokenType === UsfmTokenTypes.numberRange &&
-                    node.text === "1",
+                    node.text.trim() === "1",
             );
-            expect(flattened[chapterNumberIndex + 1]?.type).toBe("linebreak");
+            expect(chapterChildren[chapterNumberIndex + 1]?.type).toBe(
+                "linebreak",
+            );
 
             const v2TextNode = flattened.find(
                 (node) =>
@@ -100,17 +122,24 @@ Some text
 \\p Paragraph text`).root.children;
             const prettifiedPara = applyPrettifyToNodeTree(nodesWithPara);
             const paraFlattened = flattenNodes(prettifiedPara);
+            const someTextIndex = paraFlattened.findIndex(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.trim() === "Some text",
+            );
             const pTextIndex = paraFlattened.findIndex(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
-                    node.text === "Paragraph text",
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.trim() === "Paragraph text",
             );
-            // In tree mode, \p marker is consumed by paragraph container.
-            // Linebreak before \p goes to end of previous paragraph.
-            // Linebreak after \p goes to start of new paragraph.
-            // So we expect two linebreaks before the text.
-            expect(paraFlattened[pTextIndex - 1]?.type).toBe("linebreak");
-            expect(paraFlattened[pTextIndex - 2]?.type).toBe("linebreak");
+            expect(someTextIndex).toBeGreaterThan(-1);
+            expect(pTextIndex).toBeGreaterThan(-1);
+            // \p is a structural break; ensure there's a linebreak boundary between the
+            // preceding paragraph content and the new paragraph's text.
+            const between = paraFlattened.slice(someTextIndex + 1, pTextIndex);
+            expect(between.some((n) => n.type === "linebreak")).toBe(true);
         });
 
         it("should not produce root-unsafe children in usfm/plain mode", () => {
@@ -173,13 +202,25 @@ These are the   names`,
             const genNodes = flattenNodes(
                 file1.chapters[0].lexicalState.root.children,
             );
-            const genChapterIndex = genNodes.findIndex(
+            const genChapterPara =
+                file1.chapters[0].lexicalState.root.children.find(
+                    (n) =>
+                        n.type === USFM_PARAGRAPH_NODE_TYPE &&
+                        (n as { marker?: string }).marker === "c",
+                );
+            expect(genChapterPara).toBeTruthy();
+            const genChapterChildren = (
+                genChapterPara as { children?: unknown }
+            ).children as SerializedLexicalNode[];
+            const genChapterIndex = genChapterChildren.findIndex(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
                     node.tokenType === UsfmTokenTypes.numberRange &&
-                    node.text === "1",
+                    node.text.trim() === "1",
             );
-            expect(genNodes[genChapterIndex + 1]?.type).toBe("linebreak");
+            expect(genChapterChildren[genChapterIndex + 1]?.type).toBe(
+                "linebreak",
+            );
             const genText = genNodes.find(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
@@ -190,13 +231,25 @@ These are the   names`,
             const exoNodes = flattenNodes(
                 file2.chapters[0].lexicalState.root.children,
             );
-            const exoChapterIndex = exoNodes.findIndex(
+            const exoChapterPara =
+                file2.chapters[0].lexicalState.root.children.find(
+                    (n) =>
+                        n.type === USFM_PARAGRAPH_NODE_TYPE &&
+                        (n as { marker?: string }).marker === "c",
+                );
+            expect(exoChapterPara).toBeTruthy();
+            const exoChapterChildren = (
+                exoChapterPara as { children?: unknown }
+            ).children as SerializedLexicalNode[];
+            const exoChapterIndex = exoChapterChildren.findIndex(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
                     node.tokenType === UsfmTokenTypes.numberRange &&
-                    node.text === "1",
+                    node.text.trim() === "1",
             );
-            expect(exoNodes[exoChapterIndex + 1]?.type).toBe("linebreak");
+            expect(exoChapterChildren[exoChapterIndex + 1]?.type).toBe(
+                "linebreak",
+            );
             const exoText = exoNodes.find(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&

@@ -58,7 +58,7 @@ body:not(.source-mode) {
    Regular Mode: Clean WYSIWYG
    - Hide markers (but keep their semantic line breaks)
    ------------------------------------------- */
-#root[data-editor-mode="regular"] {
+[data-editor-mode="regular"] {
   /* Hide markers and their following br elements */
   :where(
     span[data-token-type="marker"][data-marker],
@@ -190,7 +190,7 @@ body:not(.source-mode) {
    - Number ranges also blue
    - Clear text hierarchy
    ------------------------------------------- */
-#root[data-editor-mode="usfm"] {
+[data-editor-mode="usfm"] {
   /* Markers: visible, smaller, blue for visual hierarchy */
   [data-token-type="marker"],
   [data-token-type="endMarker"] {

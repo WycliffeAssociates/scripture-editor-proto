@@ -65,12 +65,13 @@ export function useLintFixing({
             return;
         }
 
-        // Apply fix to the serialized state directly (mutates nodes in-place)
-        const originalChildren = chapter.lexicalState.root
-            .children as SerializedLexicalNode[];
-        const applied = applyAutofixToSerializedState(originalChildren, err);
+        const nextState = applyAutofixToSerializedState(
+            chapter.lexicalState,
+            err,
+        );
 
-        if (applied) {
+        if (nextState) {
+            chapter.lexicalState = nextState;
             const baselineUsfm = serializeToUsfmString(
                 chapter.loadedLexicalState.root
                     .children as SerializedLexicalNode[],

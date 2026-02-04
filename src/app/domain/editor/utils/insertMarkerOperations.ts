@@ -265,7 +265,10 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
 
     const createNumberRange = (text: string) =>
         $createContextTextNode({
-            text,
+            text:
+                /^\s/u.test(text) || text.trim().length === 0
+                    ? text
+                    : ` ${text}`,
             context,
             tokenType: UsfmTokenTypes.numberRange,
             extraProps: { sid: context.newSid },
@@ -531,6 +534,21 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
     ensureTrailingLineBreak(parentParagraph);
     ensureTrailingLineBreak(newParagraph);
 
+    // Canonical whitespace placement: if the paragraph begins with plain text,
+    // ensure it carries the separator whitespace as leading whitespace.
+    const firstEditable = newParagraph
+        .getChildren()
+        .find(
+            (c) =>
+                $isUSFMTextNode(c) && c.getTokenType() === UsfmTokenTypes.text,
+        ) as USFMTextNode | undefined;
+    if (firstEditable) {
+        const content = firstEditable.getTextContent();
+        if (content.length > 0 && !/^\s/u.test(content)) {
+            firstEditable.setTextContent(` ${content}`);
+        }
+    }
+
     // Select the start of the new paragraph
     const firstChild = newParagraph.getFirstChild();
     if (firstChild && $isUSFMTextNode(firstChild)) {
@@ -596,6 +614,13 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
         }
 
         if ($isUSFMTextNode(nextSibling)) {
+            if (
+                nextSibling.getTokenType() === UsfmTokenTypes.text &&
+                nextSibling.getTextContent().length > 0 &&
+                !/^\s/u.test(nextSibling.getTextContent())
+            ) {
+                nextSibling.setTextContent(` ${nextSibling.getTextContent()}`);
+            }
             nextSibling.selectStart();
         } else {
             // No suitable sibling - create empty text node
@@ -743,9 +768,83 @@ export function $insertNote(args: BaseInsertArgs): void {
 
     if (!$isRangeSelection(selection)) return;
 
+    if (args.editorMode !== "regular") {
+        // In USFM/Plain mode, notes are edited inline as flat tokens (no nested decorator).
+        // Insert a minimal `\f + \f*` scaffold and place the cursor inside.
+        const openingMarker = $createUSFMTextNode(`\\${marker} `, {
+            id: guidGenerator(),
+            inPara: context.nearestParaMarker,
+            tokenType: UsfmTokenTypes.marker,
+            marker,
+            sid: context.currentSidAsString,
+        });
+        const caller = $createContextTextNode({
+            text: "+",
+            context,
+            tokenType: UsfmTokenTypes.text,
+        });
+        const inner = $createContextTextNode({
+            text: " ",
+            context,
+            tokenType: UsfmTokenTypes.text,
+        });
+        const closingMarker = $createUSFMTextNode(`\\${marker}*`, {
+            id: guidGenerator(),
+            inPara: context.nearestParaMarker,
+            tokenType: UsfmTokenTypes.endMarker,
+            marker,
+            sid: context.currentSidAsString,
+        });
+
+        const offset = selection.anchor.offset;
+
+        if (!isStartOfLine) {
+            const letterAtOffset = anchorNode.getTextContent().charAt(offset);
+            const trueOffset =
+                isTypedInsertion && letterAtOffset === "\\"
+                    ? offset + openingMarker.getTextContentSize()
+                    : offset;
+            const [left, right] = anchorNode.splitText(trueOffset);
+            const textContent = left.getTextContent().trimEnd();
+            const woMarker = isTypedInsertion
+                ? `${textContent.slice(0, -openingMarker.getTextContentSize())}`
+                : textContent;
+            left?.setTextContent(woMarker);
+
+            left.insertAfter(openingMarker);
+            openingMarker.insertAfter(caller);
+            caller.insertAfter(inner);
+            inner.insertAfter(closingMarker);
+
+            right?.setTextContent(` ${right.getTextContent().trimStart()}`);
+            inner.select();
+        } else {
+            const sibling = anchorNode.getNextSibling();
+
+            if (isTypedInsertion) {
+                anchorNode.replace(openingMarker);
+            } else {
+                anchorNode.insertBefore(openingMarker);
+            }
+
+            openingMarker.insertAfter(caller);
+            caller.insertAfter(inner);
+            inner.insertAfter(closingMarker);
+
+            if (sibling && $isUSFMTextNode(sibling)) {
+                sibling.setTextContent(
+                    ` ${sibling.getTextContent().trimStart()}`,
+                );
+            }
+            inner.select();
+        }
+
+        return;
+    }
+
     // Notes often use implicit closure (e.g., \f...\f*)
     const noteNode = $createUSFMNestedEditorNode({
-        text: `\\${marker}`,
+        text: `\\${marker} `,
         marker,
         id: guidGenerator(),
         usfmType: marker,

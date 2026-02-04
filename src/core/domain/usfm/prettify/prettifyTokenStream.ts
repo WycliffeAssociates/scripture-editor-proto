@@ -5,9 +5,9 @@ import {
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
     POETRY_MARKERS,
-    PRETTIFY_LINEBREAK_AFTER_MARKERS,
+    PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
+    PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS,
     PRETTIFY_LINEBREAK_BEFORE_MARKERS,
-    PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS,
 } from "./prettifyMarkers.ts";
 
 export type PrettifyToken = {
@@ -44,14 +44,92 @@ const isTextLike = (t: PrettifyToken): boolean =>
     t.tokenType === TokenMap.text;
 
 /**
- * Scans for malformed markers in text/error tokens and splits them.
+ * Inserts a default paragraph marker (`\\p`) after chapter intro material when the
+ * chapter begins with a verse marker and there is no explicit paragraph marker
+ * in between.
  *
- * Example:
- * in : [{ tokenType: "text", text: "\\ \\v 13 13 Text" }]
- * out: [
- *   { tokenType: "marker", marker: "v", text: "\\v" },
- *   { tokenType: "text", text: " 13 13 Text" }
- * ]
+ * This is a structural normalization helper used by editor-side prettify flows.
+ * It intentionally does NOT add trailing whitespace to the marker token; downstream
+ * spacing transforms should ensure separators where needed.
+ */
+export function insertDefaultParagraphAfterChapterIntro(
+    tokens: PrettifyToken[],
+): PrettifyToken[] {
+    const out: PrettifyToken[] = [];
+
+    let inChapterIntro = false;
+    let sawParaMarkerInIntro = false;
+    let sawChapterMarker = false;
+    let sawChapterNumber = false;
+
+    const isChapterMarker = (t: PrettifyToken) =>
+        t.tokenType === TokenMap.marker && t.marker === "c";
+    const isVerseMarker = (t: PrettifyToken) =>
+        t.tokenType === TokenMap.marker && t.marker === "v";
+    const isParaMarker = (t: PrettifyToken) =>
+        t.tokenType === TokenMap.marker &&
+        !!t.marker &&
+        VALID_PARA_MARKERS.has(t.marker);
+
+    for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+
+        if (isChapterMarker(t)) {
+            // Reset for the new chapter.
+            sawChapterMarker = true;
+            sawChapterNumber = false;
+            inChapterIntro = false;
+            sawParaMarkerInIntro = false;
+            out.push(t);
+            continue;
+        }
+
+        // After \c we expect a chapter numberRange, then usually a linebreak.
+        if (sawChapterMarker && !sawChapterNumber) {
+            if (t.tokenType === TokenMap.numberRange) {
+                sawChapterNumber = true;
+            }
+            out.push(t);
+            continue;
+        }
+
+        if (sawChapterMarker && sawChapterNumber && !inChapterIntro) {
+            // Start intro region once we hit the first token after chapter number.
+            inChapterIntro = true;
+        }
+
+        if (inChapterIntro) {
+            if (isParaMarker(t)) {
+                sawParaMarkerInIntro = true;
+            }
+
+            if (isVerseMarker(t) && !sawParaMarkerInIntro) {
+                out.push({
+                    tokenType: TokenMap.marker,
+                    text: "\\p",
+                    marker: "p",
+                    sid: t.sid,
+                    inPara: "p",
+                });
+                // Only insert once per chapter intro.
+                sawParaMarkerInIntro = true;
+            }
+
+            // Stop intro once we hit the first verse marker (or another chapter marker).
+            if (isVerseMarker(t)) {
+                inChapterIntro = false;
+            }
+        }
+
+        out.push(t);
+    }
+
+    return out;
+}
+
+/**
+ * Scans for malformed markers (e.g. "\\ \\v ") in text/error tokens.
+ * If found and valid, splits the token into a Marker token and a Text token.
  */
 export function recoverMalformedMarkers(
     token: PrettifyToken,
@@ -94,11 +172,7 @@ export function recoverMalformedMarkers(
 }
 
 /**
- * Collapses consecutive spaces/tabs within a text token.
- *
- * Example:
- * in : { tokenType: "text", text: "  multiple    spaces\t\t" }
- * out: { tokenType: "text", text: " multiple spaces " }
+ * Replaces multiple horizontal spaces/tabs with a single space.
  */
 export function collapseWhitespaceInTextNode(
     token: PrettifyToken,
@@ -111,10 +185,6 @@ export function collapseWhitespaceInTextNode(
 
 /**
  * Ensures at least one space exists between adjacent inline tokens.
- *
- * Example:
- * in : [ { text: "1" }, { text: "\\v" } ]
- * out: [ { text: "1" }, { text: " \\v" } ]
  */
 export function ensureSpaceBetweenNodes(
     token: PrettifyToken,
@@ -134,11 +204,7 @@ export function ensureSpaceBetweenNodes(
 }
 
 /**
- * Removes duplicated verse numbers at the start of a verse text token.
- *
- * Example:
- * in : [ { tokenType: "numberRange", text: "5" }, { tokenType: "text", text: " 5 Hello" } ]
- * out: [ { tokenType: "numberRange", text: "5" }, { tokenType: "text", text: "Hello" } ]
+ * Detects the pattern "\\v 5 5" and removes the duplicate number from the text token.
  */
 export function removeDuplicateVerseNumbers(
     token: PrettifyToken,
@@ -155,11 +221,7 @@ export function removeDuplicateVerseNumbers(
 }
 
 /**
- * Normalizes leading spaces after certain markers (paragraphs/headings/poetry/etc).
- *
- * Example:
- * in : [ { tokenType: "marker", marker: "p" }, { tokenType: "text", text: "    Paragraph" } ]
- * out: [ { tokenType: "marker", marker: "p" }, { tokenType: "text", text: " Paragraph" } ]
+ * Reduce multiple spaces between a paragraph marker and its content to a single space.
  */
 export function normalizeSpacingAfterParaMarkers(
     token: PrettifyToken,
@@ -171,12 +233,7 @@ export function normalizeSpacingAfterParaMarkers(
     if (prev.tokenType !== TokenMap.marker) return token;
     if (!prev.marker) return token;
 
-    const poetryMarkers = context.poetryMarkers ?? POETRY_MARKERS;
-    if (
-        PRETTIFY_LINEBREAK_AFTER_MARKERS.has(prev.marker) ||
-        PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS.has(prev.marker) ||
-        poetryMarkers.has(prev.marker)
-    ) {
+    if (PRETTIFY_LINEBREAK_BEFORE_MARKERS.has(prev.marker)) {
         const newText = token.text.replace(/^ +/, " ");
         if (newText === token.text) return token;
         return { ...token, text: newText };
@@ -187,13 +244,6 @@ export function normalizeSpacingAfterParaMarkers(
 
 /**
  * Removes vertical whitespace tokens when they are unwanted.
- *
- * Examples:
- * in : ["\\v 1", "\n", "\\v 2"]
- * out: ["\\v 1", "\\v 2"]
- *
- * in : ["\\p", "\n", "Text"]
- * out: ["\\p", "\n", "Text"]
  */
 export function removeUnwantedLinebreaks(
     token: PrettifyToken,
@@ -203,26 +253,30 @@ export function removeUnwantedLinebreaks(
 
     const prev = context.previousSibling;
     const next = context.nextSibling;
-    const poetryMarkers = context.poetryMarkers ?? POETRY_MARKERS;
-
     const prevMarker =
         prev?.tokenType === TokenMap.marker ? prev.marker : undefined;
     const nextIsMarker = next?.tokenType === TokenMap.marker;
     const nextMarker = nextIsMarker ? next.marker : undefined;
 
     // Keep after structural markers
-    if (prevMarker && PRETTIFY_LINEBREAK_AFTER_MARKERS.has(prevMarker)) {
+    if (
+        prevMarker &&
+        PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS.has(prevMarker)
+    ) {
         return token;
     }
 
-    // Poetry logic
-    if (prevMarker && poetryMarkers.has(prevMarker)) {
+    // Conditional-after markers (ex: poetry)
+    if (
+        prevMarker &&
+        PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS.has(prevMarker)
+    ) {
         if (nextIsMarker) return token;
         return [];
     }
 
-    // Remove after inline-only markers
-    if (prevMarker && PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS.has(prevMarker)) {
+    // Remove after markers that only require a linebreak before
+    if (prevMarker && PRETTIFY_LINEBREAK_BEFORE_MARKERS.has(prevMarker)) {
         return [];
     }
 
@@ -243,78 +297,8 @@ export type PendingVerse = {
 };
 
 /**
- * Inserts a default paragraph marker (\p ) after chapter intro when verse content starts.
- *
- * Goal: avoid having verse content live inside the chapter paragraph container.
- *
- * Example:
- * in : ["\\c","1","\n","\\v","1"," Text"]
- * out: ["\\c","1","\n","\\p ","\n","\\v","1"," Text"]
- */
-export function insertDefaultParagraphAfterChapterIntro(
-    tokens: PrettifyToken[],
-): PrettifyToken[] {
-    const out: PrettifyToken[] = [];
-
-    let seenChapter = false;
-    let insertedDefaultPForCurrentChapter = false;
-    let seenAnyParaMarkerSinceChapter = false;
-
-    const isMarker = (t: PrettifyToken, marker: string) =>
-        t.tokenType === TokenMap.marker && t.marker === marker;
-
-    for (let i = 0; i < tokens.length; i++) {
-        const t = tokens[i];
-
-        if (t.tokenType === TokenMap.marker && t.marker === "c") {
-            seenChapter = true;
-            insertedDefaultPForCurrentChapter = false;
-            seenAnyParaMarkerSinceChapter = false;
-            out.push(t);
-            continue;
-        }
-
-        if (
-            seenChapter &&
-            t.tokenType === TokenMap.marker &&
-            t.marker &&
-            VALID_PARA_MARKERS.has(t.marker)
-        ) {
-            seenAnyParaMarkerSinceChapter = true;
-            out.push(t);
-            continue;
-        }
-
-        if (
-            seenChapter &&
-            !insertedDefaultPForCurrentChapter &&
-            !seenAnyParaMarkerSinceChapter &&
-            isMarker(t, "v")
-        ) {
-            const next = tokens[i + 1];
-            if (next && next.tokenType === TokenMap.numberRange) {
-                out.push({
-                    tokenType: TokenMap.marker,
-                    marker: "p",
-                    text: "\\p ",
-                });
-                insertedDefaultPForCurrentChapter = true;
-            }
-        }
-
-        out.push(t);
-    }
-
-    return out;
-}
-
-/**
  * Distributes combined verse text (e.g. "\\v 1 \\v 2 1. TextOne 2. TextTwo")
  * to their respective verse markers.
- *
- * Example:
- * in : ["\\v","1","\\v","2"," 1. One 2. Two"]
- * out: ["\\v","1"," 1. One ","\\v","2"," 2. Two"]
  */
 export function distributeCombinedVerseText(
     tokens: PrettifyToken[],
@@ -429,29 +413,27 @@ export function distributeCombinedVerseText(
 function insertLinebreakBeforeParaMarkersInternal(
     token: PrettifyToken,
     prev: PrettifyToken | undefined,
-    poetryMarkers: Set<string>,
 ): PrettifyToken[] {
     if (token.tokenType !== TokenMap.marker || !token.marker) return [token];
     if (!PRETTIFY_LINEBREAK_BEFORE_MARKERS.has(token.marker)) return [token];
     if (!prev) return [token];
     if (isNlToken(prev)) return [token];
-    // Poetry markers should ALWAYS have a linebreak before.
-    void poetryMarkers;
     return [createNlToken(), token];
 }
 
 function insertLinebreakAfterParaMarkersInternal(
     token: PrettifyToken,
     next: PrettifyToken | undefined,
-    poetryMarkers: Set<string>,
 ): PrettifyToken[] {
     if (token.tokenType !== TokenMap.marker || !token.marker) return [token];
 
     const marker = token.marker;
-    const isPoetry = poetryMarkers.has(marker);
-    const isAlwaysAfter = PRETTIFY_LINEBREAK_AFTER_MARKERS.has(marker);
+    const isAlwaysAfter =
+        PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS.has(marker);
+    const isAfterIfNextMarker =
+        PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS.has(marker);
 
-    if (isPoetry) {
+    if (isAfterIfNextMarker) {
         const nextIsMarker = next?.tokenType === TokenMap.marker;
         if (!nextIsMarker) return [token];
         if (next && isNlToken(next)) return [token];
@@ -484,11 +466,9 @@ export function insertLinebreakBeforeParaMarkers(
     token: PrettifyToken,
     context: PrettifyContext,
 ): PrettifyToken | PrettifyToken[] {
-    const poetryMarkers = context.poetryMarkers ?? POETRY_MARKERS;
     const res = insertLinebreakBeforeParaMarkersInternal(
         token,
         context.previousSibling,
-        poetryMarkers,
     );
     return res.length === 1 ? res[0] : res;
 }
@@ -497,11 +477,9 @@ export function insertLinebreakAfterParaMarkers(
     token: PrettifyToken,
     context: PrettifyContext,
 ): PrettifyToken | PrettifyToken[] {
-    const poetryMarkers = context.poetryMarkers ?? POETRY_MARKERS;
     const res = insertLinebreakAfterParaMarkersInternal(
         token,
         context.nextSibling,
-        poetryMarkers,
     );
     return res.length === 1 ? res[0] : res;
 }
@@ -532,13 +510,8 @@ function collapseConsecutiveLinebreaks(
 }
 
 /**
- * Main prettify entry.
- *
- * Input: flat token stream for a chapter.
- * Output: flat token stream with opinionated formatting fixes.
- *
- * Note: this also recurses into `token.content` so nested notes (e.g. footnotes)
- * get prettified without merging tokens across the nested boundary.
+ * Main prettify entry: operates on a flat token stream and returns a new flat token stream.
+ * Recurses into `content` (notes) as well.
  */
 export function prettifyTokenStream(
     tokens: PrettifyToken[],
@@ -547,19 +520,18 @@ export function prettifyTokenStream(
     // 0. Recurse into nested content first
     const withNested = tokens.map((t) => {
         if (!t.content || !Array.isArray(t.content)) return t;
-        return { ...t, content: prettifyTokenStream(t.content, poetryMarkers) };
+        const nextContent = prettifyTokenStream(t.content, poetryMarkers);
+        // Preserve object identity if nothing changed.
+        if (nextContent === t.content) return t;
+        return { ...t, content: nextContent };
     });
 
     // 1. Distribute combined verse text
     const distributed = distributeCombinedVerseText(withNested);
 
-    // 1.5 Insert a default paragraph marker after chapter intro when verse content starts.
-    const withDefaultParagraphs =
-        insertDefaultParagraphAfterChapterIntro(distributed);
-
     // 2. Merge adjacent text tokens with same sid+marker+tokenType
     const merged: PrettifyToken[] = [];
-    for (const t of withDefaultParagraphs) {
+    for (const t of distributed) {
         const last = merged[merged.length - 1];
         if (
             last &&
@@ -629,11 +601,7 @@ export function prettifyTokenStream(
         const token = cleaned[i];
         const prev = withBefore[withBefore.length - 1];
         withBefore.push(
-            ...insertLinebreakBeforeParaMarkersInternal(
-                token,
-                prev,
-                poetryMarkers,
-            ),
+            ...insertLinebreakBeforeParaMarkersInternal(token, prev),
         );
     }
 
@@ -642,13 +610,7 @@ export function prettifyTokenStream(
     for (let i = 0; i < withBefore.length; i++) {
         const token = withBefore[i];
         const next = withBefore[i + 1];
-        withAfter.push(
-            ...insertLinebreakAfterParaMarkersInternal(
-                token,
-                next,
-                poetryMarkers,
-            ),
-        );
+        withAfter.push(...insertLinebreakAfterParaMarkersInternal(token, next));
     }
 
     // 6. Ensure linebreak after chapter number range

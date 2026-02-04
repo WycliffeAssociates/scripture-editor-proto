@@ -1,4 +1,4 @@
-import type { SerializedLexicalNode } from "lexical";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     isSerializedUSFMTextNode,
@@ -12,31 +12,38 @@ import type { LintError } from "@/core/data/usfm/lint.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function applyAutofixToSerializedState(
-    nodes: SerializedLexicalNode[],
+    state: SerializedEditorState<SerializedLexicalNode>,
     error: LintError,
-): boolean {
-    if (!error.fix) return false;
+): SerializedEditorState<SerializedLexicalNode> | null {
+    if (!error.fix) return null;
     const { type, data } = error.fix;
 
     const SUPPORTED_TYPES = ["insertEndMarker", "convertToMarkerAndText"];
-    if (!SUPPORTED_TYPES.includes(type)) return false;
+    if (!SUPPORTED_TYPES.includes(type)) return null;
 
     const { nodeId, marker } = data;
+
+    const nextState = structuredClone(state);
+    const nodes = nextState.root.children as SerializedLexicalNode[];
 
     const context = findNodeWithContext(
         nodes,
         (node) => isSerializedUSFMTextNode(node) && node.id === nodeId,
     );
-    if (!context) return false;
+    if (!context) return null;
 
     switch (type) {
         case "insertEndMarker":
-            return fixEndMarkerLint({ error, context, marker });
+            return fixEndMarkerLint({ error, context, marker })
+                ? nextState
+                : null;
         case "convertToMarkerAndText":
-            return fixConvertToMarkerAndText({ error, context, marker });
+            return fixConvertToMarkerAndText({ error, context, marker })
+                ? nextState
+                : null;
     }
 
-    return false;
+    return null;
 }
 
 type FixFunctionArgs = {
@@ -52,7 +59,7 @@ function fixEndMarkerLint({ context, marker }: FixFunctionArgs) {
     const markerNode: SerializedUSFMTextNode = {
         type: USFM_TEXT_NODE_TYPE,
         text: `\\${marker}*`, // e.g. \f*
-        marker: `${marker}*`,
+        marker,
         tokenType: UsfmTokenTypes.endMarker,
         version: 1,
         id: guidGenerator(),

@@ -37,7 +37,7 @@ function createSyntheticParagraphMarkerToken(
     const marker = paragraphNode.marker ?? "p";
     // Use original marker text if available, otherwise construct without trailing space
     // (old paragraph containers don't have markerText, so no-space avoids spurious diffs)
-    const text = paragraphNode.markerText ?? `\\${marker} `;
+    const text = paragraphNode.markerText ?? `\\${marker}`;
 
     const token = createSerializedUSFMTextNode({
         text,
@@ -88,26 +88,73 @@ export function* materializeFlatTokensFromSerialized(
             const children = node.children ?? [];
             const markerTokenBase = createSyntheticParagraphMarkerToken(node);
 
-            // If the marker token does not end with whitespace, but the paragraph contains
-            // plain text content immediately after the marker on the same line, normalize
-            // to a USFM-friendly `\\marker ` form for downstream serialization/diff.
+            // Canonical whitespace placement:
+            // Prefer leading whitespace on the first visible token after the paragraph marker,
+            // rather than trailing whitespace on the (often hidden) marker token.
             const firstChild = children[0];
-            const shouldAddSpaceAfterMarker =
-                !/\s$/u.test(markerTokenBase.text ?? "") &&
+            const markerText = markerTokenBase.text ?? "";
+            const markerHasTrailingWs = /[ \t]+$/u.test(markerText);
+            const markerEndsWithAnyWs = /\s$/u.test(markerText);
+
+            const firstChildIsText =
                 firstChild &&
                 isSerializedUSFMTextNode(firstChild) &&
-                firstChild.tokenType === UsfmTokenTypes.text &&
-                firstChild.text.length > 0 &&
-                !/^\s/u.test(firstChild.text);
+                (firstChild.tokenType === UsfmTokenTypes.text ||
+                    firstChild.tokenType === UsfmTokenTypes.numberRange) &&
+                typeof firstChild.text === "string" &&
+                firstChild.text.length > 0;
 
-            const markerToken = shouldAddSpaceAfterMarker
-                ? ({
-                      ...markerTokenBase,
-                      text: `${markerTokenBase.text} `,
-                  } as SerializedUSFMTextNode)
-                : markerTokenBase;
+            const firstChildStartsWithWs =
+                firstChildIsText && /^\s/u.test(firstChild.text);
+
+            const trailingWsMatch = markerText.match(/[ \t]+$/u);
+            const trailingWs = trailingWsMatch?.[0] ?? "";
+            const markerTextTrimmed = markerHasTrailingWs
+                ? markerText.slice(0, -trailingWs.length)
+                : markerText;
+
+            const shouldPushMarkerTrailingWsToFirstChild =
+                markerHasTrailingWs &&
+                firstChildIsText &&
+                !firstChildStartsWithWs;
+
+            const shouldEnsureSeparatorSpace =
+                !markerEndsWithAnyWs &&
+                firstChildIsText &&
+                !firstChildStartsWithWs;
+
+            const markerToken: SerializedUSFMTextNode =
+                shouldPushMarkerTrailingWsToFirstChild
+                    ? ({
+                          ...markerTokenBase,
+                          text: markerTextTrimmed,
+                      } as SerializedUSFMTextNode)
+                    : markerTokenBase;
 
             yield markerToken;
+
+            if (children.length === 0) continue;
+
+            // Yield children, patching the very first child as needed.
+            if (
+                firstChildIsText &&
+                (shouldPushMarkerTrailingWsToFirstChild ||
+                    shouldEnsureSeparatorSpace)
+            ) {
+                const prefix = shouldPushMarkerTrailingWsToFirstChild
+                    ? trailingWs
+                    : " ";
+                yield {
+                    ...(firstChild as SerializedUSFMTextNode),
+                    text: `${prefix}${(firstChild as SerializedUSFMTextNode).text}`,
+                } as SerializedLexicalNode;
+                yield* materializeFlatTokensFromSerialized(
+                    children.slice(1),
+                    options,
+                );
+                continue;
+            }
+
             // Then recursively yield children
             yield* materializeFlatTokensFromSerialized(children, options);
         } else if (isSerializedUSFMNestedEditorNode(node)) {

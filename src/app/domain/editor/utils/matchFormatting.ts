@@ -5,8 +5,8 @@ import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 import {
-    POETRY_MARKERS,
-    PRETTIFY_LINEBREAK_AFTER_MARKERS,
+    PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
+    PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS,
     PRETTIFY_LINEBREAK_BEFORE_MARKERS,
 } from "@/core/domain/usfm/prettify/prettifyMarkers.ts";
 
@@ -255,9 +255,15 @@ export function matchFormattingToSource(
                 if (marker) {
                     let shouldInsertAfter = false;
 
-                    if (PRETTIFY_LINEBREAK_AFTER_MARKERS.has(marker)) {
+                    if (
+                        PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS.has(marker)
+                    ) {
                         shouldInsertAfter = true;
-                    } else if (POETRY_MARKERS.has(marker)) {
+                    } else if (
+                        PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS.has(
+                            marker,
+                        )
+                    ) {
                         // For poetry, we usually only want a linebreak after if it's followed by another marker.
                         // Since we are inserting this BEFORE a verse marker (\v), the "next" node is effectively \v.
                         // So yes, we want a linebreak.

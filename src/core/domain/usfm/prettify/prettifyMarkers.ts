@@ -17,10 +17,10 @@ export const POETRY_MARKERS = new Set([
 ]);
 
 /**
- * Markers that should ALWAYS have a linebreak inserted BEFORE AND AFTER.
+ * Markers that should ALWAYS start on a new line AND have a linebreak AFTER.
  * These are structural markers like paragraphs, headings, and lists.
  */
-const LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
+export const PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
     // Major structural markers
     "p",
     "m",
@@ -29,13 +29,6 @@ const LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
     "pi2",
     "pi3",
     "pi4",
-    // Section headings
-    "s",
-    "s1",
-    "s2",
-    "s3",
-    "s4",
-    "s5",
     "ms",
     "ms1",
     "ms2",
@@ -51,7 +44,7 @@ const LINEBREAK_BEFORE_AND_AFTER_MARKERS = new Set([
 ]);
 
 /**
- * Markers that should ONLY have a linebreak inserted BEFORE them (not after).
+ * Markers that should ALWAYS start on a new line.
  * Examples: chapter labels, descriptors, and other markers that have inline content.
  */
 const LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
@@ -62,25 +55,27 @@ const LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
     "r",
     "mr",
     "sr",
+    // Section headings
+    "s",
+    "s1",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
 ]);
 
 /**
- * All markers that should have a linebreak BEFORE them.
+ * Markers that should start on a new line IF followed by another marker.
+ */
+export const PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS = POETRY_MARKERS;
+
+/**
+ * All markers that should start on a new line.
  */
 export const PRETTIFY_LINEBREAK_BEFORE_MARKERS = new Set([
-    ...LINEBREAK_BEFORE_AND_AFTER_MARKERS,
+    ...PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,
     ...LINEBREAK_BEFORE_ONLY_MARKERS,
-    ...POETRY_MARKERS,
+    ...PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS,
 ]);
-
-/**
- * Markers that should ALWAYS get a linebreak AFTER them (unconditionally).
- */
-export const PRETTIFY_LINEBREAK_AFTER_MARKERS = new Set([
-    ...LINEBREAK_BEFORE_AND_AFTER_MARKERS,
-]);
-
-export const PRETTIFY_LINEBREAK_BEFORE_ONLY_MARKERS =
-    LINEBREAK_BEFORE_ONLY_MARKERS;
 
 export const PRETTIFY_VALID_PARA_MARKERS = VALID_PARA_MARKERS;

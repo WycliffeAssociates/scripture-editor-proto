@@ -3,7 +3,7 @@ import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
 
 const project = style({
-    padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+    padding: "4px 8px",
     color: "var(--mantine-primary-color-filled)",
     borderRadius: "var(--mantine-radius-md)",
     cursor: "pointer",
@@ -93,8 +93,8 @@ const newProject = style({
 });
 
 const languageLabel = style({
-    paddingTop: "var(--mantine-spacing-xs)",
-    paddingBottom: "var(--mantine-spacing-xs)",
+    paddingTop: "2px",
+    paddingBottom: "2px",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
 });

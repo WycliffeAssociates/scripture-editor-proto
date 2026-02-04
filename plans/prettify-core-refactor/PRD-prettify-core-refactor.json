@@ -1,0 +1,88 @@
+{
+  "tableOfContents": [
+    "HIGH LEVEL OVERVIEW",
+    "GOALS",
+    "NON GOALS",
+    "TECHNICAL CONSTRAINTS",
+    "TASKS"
+  ],
+  "highLevelOverview": "Move all prettification behavior into src/core as a pure token-stream transform (tokens in, tokens out). Keep Lexical/paragraphing conversions in src/app as adapters, and keep saving/diffing/editor-refresh/notifications in a thin React hook orchestration layer.",
+  "goals": [
+    "Core prettify is a pure function: token stream in → token stream out.",
+    "Core prettify is metadata-preserving (keeps sid/id/attributes/etc) and tolerant of unknown token types.",
+    "App provides pure adapters between Lexical serialized nodes and core token streams.",
+    "UI hook owns all app-specific orchestration: save dirty editor, progress reporting, diff updates, and editor content refresh.",
+    "Prettify Chapter/Book/Project output remains stable."
+  ],
+  "nonGoals": [
+    "Changing formatting rules/heuristics.",
+    "Implementing new formatting features (beyond the existing chapter/book/project scopes).",
+    "Refactoring unrelated editor utilities."
+  ],
+  "technicalConstraints": [
+    "Hexagonal architecture: src/core must not import from src/app or src/app/ui.",
+    "TypeScript strict mode; keep public APIs typed.",
+    "Keep conversions Lexical-specific in src/app (not core).",
+    "Minimize churn: prefer additive APIs + incremental migration, then remove legacy helpers."
+  ],
+  "tasks": [
+    {
+      "id": "core-prettify-public-api",
+      "title": "Establish core prettify entrypoint",
+      "description": "Ensure a single exported core prettifier is used everywhere and preserves unknown tokens and metadata.",
+      "files": [
+        "src/core/domain/usfm/prettify/prettifyTokenStream.ts"
+      ],
+      "acceptance": [
+        "No imports from src/app in core prettify.",
+        "Unknown token types pass through unchanged.",
+        "Nested `content` is prettified recursively without losing metadata."
+      ]
+    },
+    {
+      "id": "core-prettify-tests",
+      "title": "Add/strengthen core unit tests",
+      "description": "Add unit tests validating whitespace normalization, malformed marker recovery, linebreak rules, and recursion.",
+      "files": [
+        "src/core/domain/usfm/prettify/*",
+        "src/test/unit/* (or existing core test location)"
+      ]
+    },
+    {
+      "id": "app-adapter-extraction",
+      "title": "Extract Lexical ⇄ token adapter helpers",
+      "description": "Refactor `prettifySerializedNode.ts` into composable adapter functions so the prettify pipeline is assembled by the hook/orchestrator.",
+      "files": [
+        "src/app/domain/editor/utils/prettifySerializedNode.ts"
+      ],
+      "acceptance": [
+        "Adapter exposes both directions: Lexical children → tokens and tokens → Lexical children.",
+        "Paragraph/root-shape wrapping remains in app domain (not in core)."
+      ]
+    },
+    {
+      "id": "ui-hook-orchestration",
+      "title": "Make prettify hook a thin orchestrator",
+      "description": "Hook performs save/diff/notifications and calls adapter + core prettifier. Book/project are loops over chapter-level operations.",
+      "files": [
+        "src/app/ui/hooks/usePrettifyOperations.tsx",
+        "src/app/ui/hooks/useActions.tsx",
+        "src/app/domain/editor/actions/prettifyActions.ts"
+      ],
+      "acceptance": [
+        "Hook is the only layer that calls saveCurrentDirtyLexical/updateDiffMapForChapter/setEditorContent/notifications.",
+        "Book/project scopes are loops over chapter prettify."
+      ]
+    },
+    {
+      "id": "cleanup-legacy-helpers",
+      "title": "Remove unused prettify helpers",
+      "description": "Remove or deprecate legacy convenience helpers (e.g. applyPrettifyToNodeTree) once call sites are migrated.",
+      "files": [
+        "src/app/domain/editor/utils/prettifySerializedNode.ts",
+        "src/app/domain/editor/utils/prettifyLexicalState.ts"
+      ]
+    }
+  ]
+}
+

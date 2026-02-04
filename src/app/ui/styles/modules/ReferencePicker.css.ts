@@ -6,8 +6,6 @@ import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 export const dropdown = style({
     display: "flex",
     flexDirection: "column",
-    height: "400px",
-    overflowY: "hidden", // Let the specific parts scroll if needed, or outer
 });
 
 // Search Input

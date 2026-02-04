@@ -1,5 +1,5 @@
 import { type NotificationData, notifications } from "@mantine/notifications";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Info, Loader2, X } from "lucide-react";
 import * as styles from "@/app/ui/styles/modules/Notifications.module.css.ts";
 
 type NotificationProps = {
@@ -38,22 +38,19 @@ export function ShowNotificationSuccess({
     });
     return id;
 }
-// function ShowNotificationInfo({
-//     notification,
-//     // store,
-// }: NotificationProps) {
-//     const id = notifications.show({
-//         ...notification,
-//         classNames: {
-//             root: styles.infoRoot,
-//             icon: styles.infoIcon,
-//             closeButton: styles.infoCloseButton,
-//             description: styles.message,
-//         },
-//         icon: <Info size={16} />,
-//     });
-//     return id;
-// }
+export function ShowNotificationInfo({ notification }: NotificationProps) {
+    const id = notifications.show({
+        ...notification,
+        classNames: {
+            root: styles.infoRoot,
+            icon: styles.infoIcon,
+            closeButton: styles.infoCloseButton,
+            description: styles.message,
+        },
+        icon: <Info size={16} />,
+    });
+    return id;
+}
 
 export function ShowImportStartedNotification({
     notification,

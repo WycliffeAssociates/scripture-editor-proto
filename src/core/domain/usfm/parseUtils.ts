@@ -21,21 +21,23 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     tokens: LintableToken[],
 ): LintableToken[] => {
     const wsTypes: TokenNameSubset = new Set([TokenMap.horizontalWhitespace]);
-    const avoidPushingPrevTo: TokenNameSubset = new Set([
-        TokenMap.endMarker,
-        TokenMap.implicitClose,
-    ]);
 
     for (let i = 0; i < tokens.length; i++) {
         const t = tokens[i];
         if (t?.tokenType && wsTypes.has(t.tokenType as TokenName)) {
             const prev = tokens[i - 1];
             const next = tokens[i + 1];
-            if (!prev) continue;
-            if (avoidPushingPrevTo.has(prev.tokenType as TokenName) && next) {
+            // Canonical whitespace placement:
+            // Prefer leading whitespace on the *next* token so whitespace remains visible
+            // even when the previous token (e.g. a marker) is hidden in some editor modes.
+            // Fallback to trailing whitespace on the previous token only when we can't
+            // push forward (e.g., end-of-stream or linebreak boundary).
+            if (next && next.tokenType !== TokenMap.verticalWhitespace) {
                 next.text = `${t.text}${next.text}`;
-            } else {
+            } else if (prev) {
                 prev.text += t.text;
+            } else {
+                continue;
             }
             tokens.splice(i, 1);
             i--;

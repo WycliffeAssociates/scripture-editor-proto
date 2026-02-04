@@ -7,10 +7,97 @@ type OverlayItem = {
     x: number;
     y: number;
     text: string;
+    kind: "para" | "v" | "c";
 };
 
 function clamp(n: number, min: number, max: number) {
     return Math.min(Math.max(n, min), max);
+}
+
+function groupNearbyItems(items: OverlayItem[]) {
+    const Y_THRESHOLD_PX = 6;
+    const X_THRESHOLD_PX = 80;
+
+    const kindOrder: Record<OverlayItem["kind"], number> = {
+        c: 0,
+        para: 1,
+        v: 2,
+    };
+
+    const sorted = [...items].sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y;
+        if (a.x !== b.x) return a.x - b.x;
+        return a.text.localeCompare(b.text);
+    });
+
+    type Cluster = { x: number; y: number; items: OverlayItem[] };
+    const clusters: Cluster[] = [];
+
+    for (const item of sorted) {
+        const last = clusters.length > 0 ? clusters[clusters.length - 1] : null;
+        const canJoin =
+            last != null &&
+            Math.abs(item.y - last.y) <= Y_THRESHOLD_PX &&
+            Math.abs(item.x - last.x) <= X_THRESHOLD_PX;
+
+        if (!canJoin) {
+            clusters.push({ x: item.x, y: item.y, items: [item] });
+            continue;
+        }
+
+        last.items.push(item);
+        last.x = Math.min(last.x, item.x);
+        last.y = Math.min(last.y, item.y);
+    }
+
+    const grouped: OverlayItem[] = [];
+    for (const cluster of clusters) {
+        if (cluster.items.length === 1) {
+            grouped.push(cluster.items[0]);
+            continue;
+        }
+
+        const kinds = new Set(cluster.items.map((i) => i.kind));
+        const shouldCompound =
+            kinds.has("para") && (kinds.has("v") || kinds.has("c"));
+        if (!shouldCompound) {
+            grouped.push(
+                ...[...cluster.items].sort((a, b) => {
+                    if (a.y !== b.y) return a.y - b.y;
+                    if (a.x !== b.x) return a.x - b.x;
+                    return a.text.localeCompare(b.text);
+                }),
+            );
+            continue;
+        }
+
+        const parts = [...cluster.items].sort((a, b) => {
+            const ka = kindOrder[a.kind];
+            const kb = kindOrder[b.kind];
+            if (ka !== kb) return ka - kb;
+            return a.text.localeCompare(b.text);
+        });
+
+        const compoundPartText = (part: OverlayItem) => {
+            if (part.kind === "v" || part.kind === "c") {
+                return part.text.replace(/^\\([vc])\s+/, "\\$1");
+            }
+            return part.text;
+        };
+
+        grouped.push({
+            key: `grp:${parts
+                .map((p) => p.key)
+                .sort()
+                .join("|")}`,
+            x: cluster.x,
+            y: cluster.y,
+            text: parts.map(compoundPartText).join(" "),
+            kind: parts[0].kind,
+        });
+    }
+
+    return grouped;
 }
 
 export function UsfmPeekOverlayPlugin() {
@@ -73,6 +160,7 @@ export function UsfmPeekOverlayPlugin() {
                 x,
                 y,
                 text,
+                kind: "para",
             });
         }
 
@@ -107,10 +195,11 @@ export function UsfmPeekOverlayPlugin() {
                 x,
                 y,
                 text,
+                kind: marker,
             });
         }
 
-        setItems(nextItems);
+        setItems(groupNearbyItems(nextItems));
     }, [editor, getContainerEl]);
 
     const scheduleRecompute = useCallback(() => {

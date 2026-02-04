@@ -35,6 +35,10 @@ export function ReferencePicker() {
         pickedFile,
     } = project;
     const { isSm } = useWorkspaceMediaQuery();
+    const handleTriggerMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setOpen((o) => !o);
+    };
 
     const currentBook = pickedFile?.bookCode ?? t`Select`;
     const currentDisplay =
@@ -42,17 +46,25 @@ export function ReferencePicker() {
             ? `${currentBook} ${currentChapter === 0 ? t`Introduction` : currentChapter}`
             : currentBook;
 
+    const filesWithSearchMeta = useMemo(() => {
+        return workingFiles.map((f) => ({
+            ...f,
+            _titleLower: f.title?.toLocaleLowerCase() ?? "",
+            _bookCodeLower: f.bookCode?.toLocaleLowerCase() ?? "",
+            _chaptersSorted: [...f.chapters].sort(
+                (a, b) => a.chapNumber - b.chapNumber,
+            ),
+        }));
+    }, [workingFiles]);
+
     const uniqueFilesStartsWith = useMemo(() => {
-        return workingFiles.filter(
+        const searchLower = debouncedSearch.toLocaleLowerCase();
+        return filesWithSearchMeta.filter(
             (f) =>
-                f.title
-                    ?.toLocaleLowerCase()
-                    .startsWith(debouncedSearch.toLocaleLowerCase()) ||
-                f.bookCode
-                    ?.toLocaleLowerCase()
-                    .startsWith(debouncedSearch.toLocaleLowerCase()),
+                f._titleLower.startsWith(searchLower) ||
+                f._bookCodeLower.startsWith(searchLower),
         );
-    }, [workingFiles, debouncedSearch]);
+    }, [filesWithSearchMeta, debouncedSearch]);
 
     return (
         <Popover
@@ -71,13 +83,13 @@ export function ReferencePicker() {
                     <ActionIconSimple
                         aria-label={t`Open reference picker`}
                         title={currentDisplay}
-                        onClick={() => setOpen((o) => !o)}
+                        onMouseDown={handleTriggerMouseDown}
                     >
                         <BookIcon size={16} />
                     </ActionIconSimple>
                 ) : (
                     <Button
-                        onClick={() => setOpen((o) => !o)}
+                        onMouseDown={handleTriggerMouseDown}
                         variant="default"
                         className={classes.triggerButton}
                         leftSection={<BookIcon size={16} />}
@@ -94,7 +106,7 @@ export function ReferencePicker() {
             <Transition
                 mounted={open}
                 transition="fade"
-                duration={100}
+                duration={50}
                 timingFunction="ease"
             >
                 {(transitionStyle) => (
@@ -140,6 +152,8 @@ function ReferencePickerDropdown({
     setOpen: (open: boolean) => void;
     transitionStyle: React.CSSProperties;
 }) {
+    const [openBook, setOpenBook] = useState<string | null>(null);
+
     return (
         <Popover.Dropdown
             p={0}
@@ -155,6 +169,8 @@ function ReferencePickerDropdown({
             <ScrollArea style={{ flex: 1 }}>
                 <Accordion
                     variant="none"
+                    value={openBook}
+                    onChange={setOpenBook}
                     data-testid={TESTING_IDS.reference.booksAccordion}
                     classNames={{
                         item: classes.accordionItem,
@@ -164,7 +180,7 @@ function ReferencePickerDropdown({
                 >
                     {uniqueFilesStartsWith.map((file) => (
                         <BookAccordionItem
-                            key={file.title}
+                            key={file.bookCode}
                             file={file}
                             currentFileBibleIdentifier={
                                 currentFileBibleIdentifier
@@ -172,6 +188,7 @@ function ReferencePickerDropdown({
                             currentChapter={currentChapter}
                             actions={actions}
                             setOpen={setOpen}
+                            isOpen={openBook === (file.title || file.bookCode)}
                         />
                     ))}
                 </Accordion>
@@ -226,11 +243,13 @@ function BookAccordionItem({
     currentChapter,
     actions,
     setOpen,
+    isOpen,
 }: {
     file: {
         title: string;
         bookCode: string;
         chapters: Array<{ chapNumber: number }>;
+        _chaptersSorted: Array<{ chapNumber: number }>;
     };
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -239,13 +258,15 @@ function BookAccordionItem({
         goToReference: (input: string) => boolean;
     };
     setOpen: (open: boolean) => void;
+    isOpen: boolean;
 }) {
     const { t } = useLingui();
     const fileTitle = file.title || file.bookCode;
     const isCurrentBook = currentFileBibleIdentifier === file.bookCode;
+    debugger;
 
     return (
-        <Accordion.Item key={file.title} value={fileTitle}>
+        <Accordion.Item key={file.bookCode} value={fileTitle}>
             <Accordion.Control
                 data-testid={TESTING_IDS.reference.bookControl}
                 className={
@@ -263,10 +284,9 @@ function BookAccordionItem({
             <Accordion.Panel
                 data-testid={TEST_ID_GENERATORS.bookChapterPanel(file.bookCode)}
             >
-                <Grid gutter="xs" justify="flex-start">
-                    {file.chapters
-                        .sort((a, b) => a.chapNumber - b.chapNumber)
-                        .map((chap) => (
+                {isOpen ? (
+                    <Grid gutter="xs" justify="flex-start">
+                        {file._chaptersSorted.map((chap) => (
                             <Grid.Col span="content" key={chap.chapNumber}>
                                 <Button
                                     size="xs"
@@ -279,12 +299,14 @@ function BookAccordionItem({
                                         chap.chapNumber,
                                     )}
                                     variant={
-                                        chap.chapNumber === currentChapter
+                                        chap.chapNumber === currentChapter &&
+                                        isCurrentBook
                                             ? "filled"
                                             : "subtle"
                                     }
                                     className={
-                                        chap.chapNumber === currentChapter
+                                        chap.chapNumber === currentChapter &&
+                                        isCurrentBook
                                             ? classes.activeChapter
                                             : undefined
                                     }
@@ -309,7 +331,8 @@ function BookAccordionItem({
                                 </Button>
                             </Grid.Col>
                         ))}
-                </Grid>
+                    </Grid>
+                ) : null}
             </Accordion.Panel>
         </Accordion.Item>
     );

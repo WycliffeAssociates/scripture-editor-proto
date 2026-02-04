@@ -23,8 +23,11 @@ export interface EditorContext {
     nodePath: string[]; // Array of node types or markers in the hierarchy
     currentVerse?: string;
     currentMarker?: string;
+    canMakeVerseMarkerFromCursor?: boolean;
+    makeVerseMarkerNumber?: string;
     editorMode: EditorModeSetting;
     languageDirection: "ltr" | "rtl";
+    colorScheme: "light" | "dark";
     actions: UseActionsHook; // Workspace actions
     searchApi: UseSearchReturn; // Search API
 }

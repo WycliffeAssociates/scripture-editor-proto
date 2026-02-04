@@ -6,6 +6,7 @@ import type { Settings } from "@/app/data/settings.ts";
 import {
     groupFlatNodesIntoParagraphContainers,
     materializeFlatTokensArray,
+    rewrapNestedEditorNodesFromFlatTokens,
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -115,9 +116,13 @@ export function useModeSwitching({
                     materializeFlatTokensArray(rootChildren, {
                         nested: "flatten",
                     });
+                const withNested = rewrapNestedEditorNodesFromFlatTokens(
+                    flatTokens,
+                    direction,
+                );
                 chapter.lexicalState.root.children =
                     groupFlatNodesIntoParagraphContainers(
-                        flatTokens,
+                        withNested,
                         direction,
                     );
             } else {

@@ -1,3 +1,4 @@
+import { useMantineColorScheme } from "@mantine/core";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
@@ -57,6 +58,8 @@ export const useWorkspaceActions = ({
     referenceProject,
     setIsProcessing,
 }: Props) => {
+    const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
+
     // Wrapper functions to handle null editor
     const saveCurrentDirtyLexicalWrapper = () => {
         if (editorRef.current) {
@@ -158,6 +161,11 @@ export const useWorkspaceActions = ({
         return navigation.goToReference(input, editorRef);
     }
 
+    const setColorScheme = (value: "light" | "dark") => {
+        updateAppSettings({ colorScheme: value });
+        setMantineColorScheme(value);
+    };
+
     // Return same interface as before for backward compatibility
     return {
         // Editor state management
@@ -177,6 +185,7 @@ export const useWorkspaceActions = ({
         initializeEditor: modeSwitching.initializeEditor,
 
         // Prettify operations
+        prettifyChapter: prettifyOperations.prettifyChapter,
         prettifyBook: prettifyOperations.prettifyBook,
         prettifyProject: prettifyOperations.prettifyProject,
         revertPrettify: prettifyOperations.revertPrettify,
@@ -193,5 +202,6 @@ export const useWorkspaceActions = ({
         getFlatFileTokens,
         toggleDiffModal: () =>
             toggleDiffModalCallback(() => saveCurrentDirtyLexicalWrapper()),
+        setColorScheme,
     };
 };

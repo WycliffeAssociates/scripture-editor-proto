@@ -159,6 +159,9 @@ function ReferenceProjectList() {
                 </Menu.Target>
                 <Menu.Dropdown
                     data-testid={TESTING_IDS.referenceProjectDropdown}
+                    classNames={{
+                        dropdown: "max-h-[50vh] overflow-y-auto",
+                    }}
                 >
                     <Menu.Item
                         onClick={() => {
@@ -237,7 +240,12 @@ function ReferenceProjectList() {
                     {selected}
                 </Button>
             </Menu.Target>
-            <Menu.Dropdown data-testid={TESTING_IDS.referenceProjectDropdown}>
+            <Menu.Dropdown
+                data-testid={TESTING_IDS.referenceProjectDropdown}
+                classNames={{
+                    dropdown: "max-h-[50vh] overflow-y-auto",
+                }}
+            >
                 <Menu.Item
                     onClick={() => {
                         referenceProject.setReferenceProjectId(undefined);

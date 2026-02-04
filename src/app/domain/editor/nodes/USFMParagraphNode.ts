@@ -288,11 +288,12 @@ export function $createUSFMParagraphNode(
     $setState(writable, markerState, params.marker);
     $setState(writable, inParaState, params.inPara);
     $setState(writable, tokenTypeState, params.tokenType ?? "marker");
-    // Default markerText to "\marker " (with trailing space) for newly created paragraphs
+    // Canonical whitespace placement: keep markerText free of trailing horizontal whitespace.
+    // Any required separator whitespace should live on the first child token as leading whitespace.
     $setState(
         writable,
         markerTextState,
-        params.markerText ?? `\\${params.marker} `,
+        params.markerText ?? `\\${params.marker}`,
     );
     return node;
 }

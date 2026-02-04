@@ -39,10 +39,6 @@ export function ProjectList() {
         );
     }, [allProjects]);
 
-    const currentProject = allProjects.find((p) =>
-        p.projectDirectoryPath.includes(currentProjectRoute),
-    );
-
     const navigateToProject = (projectPath: string) => {
         const diskProjectName = projectPath.split("/").pop();
         if (!diskProjectName) {
@@ -86,7 +82,7 @@ export function ProjectList() {
 
     return (
         <div data-testid={TESTING_IDS.appDrawer.projectsList}>
-            <Stack gap="xs">
+            <Stack gap={4}>
                 {Object.entries(groupedProjects).map(
                     ([languageName, projects]) => (
                         <div key={languageName}>
@@ -98,10 +94,14 @@ export function ProjectList() {
                             >
                                 {languageName}
                             </Text>
-                            <Stack gap="xs">
+                            <Stack gap={4}>
                                 {projects.map((proj) => {
+                                    const diskProjectName =
+                                        proj.projectDirectoryPath
+                                            .split("/")
+                                            .pop() ?? "";
                                     const picked =
-                                        currentProject?.name === proj.name;
+                                        diskProjectName === currentProjectRoute;
                                     return (
                                         <Group
                                             key={proj.projectDirectoryPath}

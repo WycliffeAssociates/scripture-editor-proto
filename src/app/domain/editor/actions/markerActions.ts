@@ -36,6 +36,7 @@ import {
     mapMarkerToInsertionType,
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
 import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
@@ -43,6 +44,39 @@ import type { EditorAction, EditorContext } from "./types.ts";
 
 function isWhitespaceOnly(text: string): boolean {
     return /^[\s\u00A0\u200B]*$/.test(text);
+}
+
+const SELECTED_VERSE_NUMBER_PATTERN = /^\d+(?:-\d+)?$/;
+
+function parseVerseNumberSelection(
+    selection: ReturnType<typeof $getSelection>,
+): {
+    anchorNode: USFMTextNode;
+    startOffset: number;
+    endOffset: number;
+    verseNumber: string;
+} | null {
+    if (!selection || !$isRangeSelection(selection)) return null;
+    if (selection.isCollapsed()) return null;
+
+    const anchorNode = selection.anchor.getNode();
+    const focusNode = selection.focus.getNode();
+    if (anchorNode !== focusNode || !$isUSFMTextNode(anchorNode)) return null;
+    if (anchorNode.getTokenType() !== UsfmTokenTypes.text) return null;
+
+    const selectedText = selection.getTextContent();
+    const verseNumber = selectedText.trim();
+    if (!SELECTED_VERSE_NUMBER_PATTERN.test(verseNumber)) return null;
+
+    const startOffset = Math.min(
+        selection.anchor.offset,
+        selection.focus.offset,
+    );
+    const endOffset = Math.max(selection.anchor.offset, selection.focus.offset);
+    const textContent = anchorNode.getTextContent();
+    if (!isWhitespaceOnly(textContent.slice(0, startOffset))) return null;
+
+    return { anchorNode, startOffset, endOffset, verseNumber };
 }
 
 function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
@@ -255,6 +289,108 @@ const CHANGE_MARKER_ACTION: EditorAction = {
     }),
 };
 
+const MAKE_VERSE_MARKER_ACTION: EditorAction = {
+    id: "make-verse-marker",
+    label: (context) => {
+        const number = context.makeVerseMarkerNumber?.trim();
+        if (number) {
+            return `Make ${number} a verse marker?`;
+        }
+        return "Make # a verse marker?";
+    },
+    category: "Markers",
+    icon: React.createElement(Hash, { size: 16 }),
+    isVisible: (context) => {
+        if (context.editorMode !== "regular") return false;
+        if (context.canMakeVerseMarkerFromCursor) return true;
+        if (context.selectedText) {
+            return SELECTED_VERSE_NUMBER_PATTERN.test(
+                context.selectedText.trim(),
+            );
+        }
+        return false;
+    },
+    execute: (editor, context) => {
+        editor.update(() => {
+            const selection = $getSelection();
+            if (!selection || !$isRangeSelection(selection)) return;
+
+            const anchorNode = selection.anchor.getNode();
+            if (selection.isCollapsed() && $isUSFMTextNode(anchorNode)) {
+                const parsed = canPromoteLeadingVerseNumber(anchorNode);
+                if (parsed) {
+                    anchorNode.setTextContent(
+                        `${parsed.leadingWhitespace}${parsed.rest}`,
+                    );
+
+                    const {
+                        isStartOfLine: isStartOfLineCalculated,
+                        actualAnchorNode,
+                        actualAnchorOffset,
+                    } = calculateIsStartOfLine(anchorNode, 0, {
+                        editor,
+                        editorMode: context.editorMode as EditorModeSetting,
+                    });
+
+                    const args: BaseInsertArgs = {
+                        anchorNode: actualAnchorNode,
+                        anchorOffsetToUse: actualAnchorOffset,
+                        marker: "v",
+                        isStartOfLine: isStartOfLineCalculated,
+                        restOfText: "",
+                        languageDirection: context.languageDirection,
+                        isTypedInsertion: false,
+                        editorMode: context.editorMode as EditorModeSetting,
+                    };
+
+                    $insertVerse(args, parsed.verseNumber);
+                    return;
+                }
+            }
+
+            const parsed = parseVerseNumberSelection(selection);
+            if (!parsed) return;
+
+            const {
+                anchorNode: parsedNode,
+                startOffset,
+                endOffset,
+                verseNumber,
+            } = parsed;
+            const textContent = parsedNode.getTextContent();
+            const before = textContent.slice(0, startOffset);
+            let after = textContent.slice(endOffset);
+            if (after.startsWith(" ")) {
+                after = after.slice(1);
+            }
+            parsedNode.setTextContent(before + after);
+
+            const {
+                isStartOfLine: isStartOfLineCalculated,
+                actualAnchorNode,
+                actualAnchorOffset,
+            } = calculateIsStartOfLine(parsedNode, startOffset, {
+                editor,
+                editorMode: context.editorMode as EditorModeSetting,
+            });
+
+            const args: BaseInsertArgs = {
+                anchorNode: actualAnchorNode,
+                anchorOffsetToUse: actualAnchorOffset,
+                marker: "v",
+                isStartOfLine: isStartOfLineCalculated,
+                restOfText: "",
+                languageDirection: context.languageDirection,
+                isTypedInsertion: false,
+                editorMode: context.editorMode as EditorModeSetting,
+            };
+
+            $insertVerse(args, verseNumber);
+        });
+        return undefined;
+    },
+};
+
 const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
     id: "remove-empty-verses",
     label: "Remove empty verses",
@@ -383,6 +519,7 @@ const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
 
 export const MARKER_ACTIONS: EditorAction[] = [
     CHANGE_MARKER_ACTION,
+    MAKE_VERSE_MARKER_ACTION,
     REMOVE_EMPTY_VERSES_ACTION,
     createMarkerAction(
         "insert-v",

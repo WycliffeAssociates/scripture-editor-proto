@@ -8,8 +8,14 @@ import {
 import { useCallback } from "react";
 import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    canPromoteLeadingVerseNumber,
+    getLeadingVerseNumberFromText,
+} from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import type { EditorContext } from "../actions/types.ts";
+
+const SELECTED_VERSE_NUMBER_PATTERN = /^\d+(?:-\d+)?$/;
 
 export function useEditorContext() {
     const [editor] = useLexicalComposerContext();
@@ -20,6 +26,7 @@ export function useEditorContext() {
         projectLanguageDirection,
     } = useWorkspaceContext();
     const editorMode = project.appSettings.editorMode ?? "regular";
+    const colorScheme = project.appSettings.colorScheme ?? "light";
 
     const getContext = useCallback((): EditorContext => {
         return editor.getEditorState().read(() => {
@@ -31,7 +38,6 @@ export function useEditorContext() {
             if (nativeSelection && nativeSelection.rangeCount > 0) {
                 selectedText = nativeSelection.toString().trim();
             }
-
             if (!selectedText && $isRangeSelection(selection)) {
                 selectedText = selection.getTextContent().trim();
             }
@@ -65,9 +71,28 @@ export function useEditorContext() {
             const nodePath: string[] = [];
             let currentVerse: string | undefined;
             let currentMarker: string | undefined;
+            let canMakeVerseMarkerFromCursor = false;
+            let makeVerseMarkerNumber: string | undefined;
 
             if ($isRangeSelection(selection)) {
                 const node = selection.anchor.getNode();
+                if ($isUSFMTextNode(node)) {
+                    if (selection.isCollapsed()) {
+                        const parsed = canPromoteLeadingVerseNumber(node);
+                        canMakeVerseMarkerFromCursor = !!parsed;
+                        makeVerseMarkerNumber = parsed?.verseNumber;
+                    } else if (
+                        selectedText &&
+                        SELECTED_VERSE_NUMBER_PATTERN.test(selectedText)
+                    ) {
+                        makeVerseMarkerNumber = selectedText;
+                    } else if (selectedText) {
+                        makeVerseMarkerNumber =
+                            getLeadingVerseNumberFromText(
+                                selectedText,
+                            )?.verseNumber;
+                    }
+                }
 
                 // 1. Traverse up to build node path and find metadata
                 let curr: LexicalNode | ElementNode | null = node;
@@ -129,13 +154,23 @@ export function useEditorContext() {
                 nodePath,
                 currentVerse,
                 currentMarker,
+                canMakeVerseMarkerFromCursor,
+                makeVerseMarkerNumber,
                 editorMode,
                 languageDirection: projectLanguageDirection,
+                colorScheme,
                 actions,
                 searchApi,
             };
         });
-    }, [editor, editorMode, actions, searchApi, projectLanguageDirection]);
+    }, [
+        editor,
+        editorMode,
+        actions,
+        searchApi,
+        projectLanguageDirection,
+        colorScheme,
+    ]);
 
     return { getContext };
 }

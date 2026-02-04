@@ -14,7 +14,11 @@ import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    createSerializedUSFMTextNode,
+    isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { dedupeErrorMessagesList } from "@/core/data/usfm/lint.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import {
@@ -30,6 +34,8 @@ export interface LexicalStates {
     lexicalState: SerializedEditorState<SerializedLexicalNode>;
 }
 
+type NestedEditorSerialization = "decorator" | "flat";
+
 /**
  * Serializes USFM tokens to Lexical states efficiently.
  * Tokens are only serialized once. Paragraph grouping only happens when needed.
@@ -43,10 +49,12 @@ export function parsedUsfmTokensToLexicalStates(
     tokens: ParsedToken[],
     languageDirection: "ltr" | "rtl",
     needsParagraphs: boolean,
+    opts: { nestedEditors?: NestedEditorSerialization } = {},
 ): LexicalStates {
-    const flatNodes = tokens
-        .map((t) => serializeToken(t, languageDirection))
-        .filter(Boolean);
+    const nestedEditors =
+        opts.nestedEditors ?? (needsParagraphs ? "decorator" : "flat");
+
+    const flatNodes = serializeTokens(tokens, languageDirection, nestedEditors);
 
     const wrapFlatTokensInLexicalParagraph = (
         flatTokens: SerializedLexicalNode[],
@@ -116,6 +124,78 @@ export function parsedUsfmTokensToLexicalStates(
     };
 }
 
+function serializeTokens(
+    tokens: ParsedToken[],
+    languageDirection: "ltr" | "rtl",
+    nestedEditors: NestedEditorSerialization,
+): USFMNodeJSON[] {
+    const out: USFMNodeJSON[] = [];
+    for (const token of tokens) {
+        out.push(
+            ...serializeTokenToNodes(token, languageDirection, nestedEditors),
+        );
+    }
+    return out;
+}
+
+function serializeTokenToNodes(
+    token: ParsedToken,
+    languageDirection: "ltr" | "rtl",
+    nestedEditors: NestedEditorSerialization,
+): USFMNodeJSON[] {
+    const marker = token.marker ?? "";
+    const isNestedEditorMarker = nestedEditorMarkers.has(marker);
+    const isClosingToken = token.tokenType === UsfmTokenTypes.endMarker;
+
+    if (isNestedEditorMarker && !isClosingToken) {
+        if (nestedEditors === "decorator") {
+            return [
+                getSerializedNestedEditorNode({
+                    token,
+                    childrenCb: () =>
+                        serializeTokens(
+                            token.content ?? [],
+                            languageDirection,
+                            nestedEditors,
+                        ),
+                    languageDirection,
+                }),
+            ];
+        }
+
+        // Flat: expand nested token stream inline in reading order.
+        return [
+            createSerializedUSFMTextNode({
+                text: token.text,
+                id: token.id,
+                sid: token.sid || "",
+                tokenType: token.tokenType,
+                marker: token.marker,
+                inPara: token.inPara,
+                inChars: token.inChars,
+                attributes: token.attributes,
+                lintErrors: token.lintErrors?.length
+                    ? dedupeErrorMessagesList(token.lintErrors)
+                    : [],
+            }),
+            ...serializeTokens(
+                token.content ?? [],
+                languageDirection,
+                nestedEditors,
+            ),
+        ];
+    }
+
+    return [serializeLeafToken(token, languageDirection)];
+}
+
+function serializeLeafToken(
+    token: ParsedToken,
+    languageDirection: "ltr" | "rtl",
+): USFMNodeJSON {
+    return serializeToken(token, languageDirection);
+}
+
 const isSectionMarker = (marker: string) =>
     marker === "s" || /^s\d+$/u.test(marker);
 const isContainerStartMarker = (marker: string) =>
@@ -146,6 +226,7 @@ export function groupFlatNodesIntoParagraphContainers(
     const paragraphs: ParagraphContainer[] = [];
     let current: ParagraphContainer | null = null;
     let paraIndex = 0;
+    let pendingLeadingWhitespaceAfterMarker: string | null = null;
 
     const dropLeadingEmptyDefaultParagraphIfNeeded = () => {
         if (!current) return;
@@ -190,18 +271,61 @@ export function groupFlatNodesIntoParagraphContainers(
         return next;
     };
 
-    for (const node of flatNodes) {
+    for (let i = 0; i < flatNodes.length; i++) {
+        const node = flatNodes[i];
         const containerStartMarker = getContainerStartMarkerFromNode(node);
         if (containerStartMarker) {
             // Avoid emitting a synthetic leading \p when the file starts with
             // a top-level structural marker (like \c).
             dropLeadingEmptyDefaultParagraphIfNeeded();
+            const markerTextRaw = containerStartMarker.text;
+            const trailingWsMatch = markerTextRaw.match(/[ \t]+$/u);
+            const trailingWs = trailingWsMatch?.[0] ?? "";
+            const markerTextTrimmed =
+                trailingWs.length > 0
+                    ? markerTextRaw.slice(0, -trailingWs.length)
+                    : markerTextRaw;
+
+            const nextNode = flatNodes[i + 1];
+            const nextIsSuitableWhitespaceTarget =
+                !!nextNode &&
+                (nextNode as unknown as { type?: string }).type ===
+                    USFM_TEXT_NODE_TYPE &&
+                (nextNode as unknown as { tokenType?: string }).tokenType !==
+                    UsfmTokenTypes.marker &&
+                (nextNode as unknown as { tokenType?: string }).tokenType !==
+                    UsfmTokenTypes.endMarker &&
+                ((nextNode as unknown as { tokenType?: string }).tokenType ===
+                    UsfmTokenTypes.text ||
+                    (nextNode as unknown as { tokenType?: string })
+                        .tokenType === UsfmTokenTypes.numberRange);
+
+            // Preserve user-provided trailing whitespace on the marker when there is no
+            // suitable "visible" child token to carry it (e.g. empty paragraph marker lines).
+            // This avoids whitespace-only diffs on load for inputs like "\\q1 \\n".
+            const shouldPreserveTrailingWsOnMarker =
+                trailingWs.length > 0 && !nextIsSuitableWhitespaceTarget;
+
             startParagraph(
                 containerStartMarker.marker,
                 containerStartMarker.id,
                 containerStartMarker.sid,
-                containerStartMarker.text,
+                shouldPreserveTrailingWsOnMarker
+                    ? markerTextRaw
+                    : markerTextTrimmed,
             );
+            // Canonical whitespace placement:
+            // Any horizontal whitespace after a paragraph marker should be stored as
+            // leading whitespace on the first visible child token.
+            if (shouldPreserveTrailingWsOnMarker) {
+                pendingLeadingWhitespaceAfterMarker = null;
+            } else if (trailingWs.length > 0) {
+                pendingLeadingWhitespaceAfterMarker = trailingWs;
+            } else if (!/\s$/u.test(markerTextRaw)) {
+                pendingLeadingWhitespaceAfterMarker = " ";
+            } else {
+                pendingLeadingWhitespaceAfterMarker = null;
+            }
             continue;
         }
 
@@ -215,6 +339,40 @@ export function groupFlatNodesIntoParagraphContainers(
                 "",
                 "\\p",
             );
+        }
+
+        if ((node as { type?: string }).type === "linebreak") {
+            // Do not carry "marker + space" expectations across hard line boundaries.
+            pendingLeadingWhitespaceAfterMarker = null;
+            current.children.push(node);
+            continue;
+        }
+
+        if (pendingLeadingWhitespaceAfterMarker) {
+            if (
+                isSerializedUSFMTextNode(
+                    node as unknown as SerializedLexicalNode,
+                ) &&
+                ((node as unknown as SerializedUSFMTextNode).tokenType ===
+                    UsfmTokenTypes.text ||
+                    (node as unknown as SerializedUSFMTextNode).tokenType ===
+                        UsfmTokenTypes.numberRange)
+            ) {
+                const asText = node as unknown as SerializedUSFMTextNode;
+                if (asText.text.length > 0 && !/^\s/u.test(asText.text)) {
+                    current.children.push({
+                        ...asText,
+                        text: `${pendingLeadingWhitespaceAfterMarker}${asText.text}`,
+                    });
+                    pendingLeadingWhitespaceAfterMarker = null;
+                    continue;
+                }
+                // The next token already has leading whitespace; don't carry expectations further.
+                pendingLeadingWhitespaceAfterMarker = null;
+            } else {
+                // If the first child isn't a suitable text/numberRange token, don't carry whitespace further.
+                pendingLeadingWhitespaceAfterMarker = null;
+            }
         }
 
         current.children.push(node);
@@ -254,7 +412,7 @@ function getContainerStartMarkerFromNode(
         marker: maybe.marker,
         id: maybe.id ?? `para-marker-${maybe.marker}`,
         sid: maybe.sid ?? "",
-        text: maybe.text ?? `\\${maybe.marker} `,
+        text: maybe.text ?? `\\${maybe.marker}`,
     };
 }
 

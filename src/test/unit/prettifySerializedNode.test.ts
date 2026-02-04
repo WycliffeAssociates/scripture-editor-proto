@@ -2,7 +2,10 @@ import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { applyPrettifyToNodeTree } from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+import {
+    lexicalRootChildrenToPrettifyTokenStream,
+    prettifyTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
     collapseWhitespaceInTextNode,
@@ -14,10 +17,19 @@ import {
     insertLinebreakBeforeParaMarkers,
     normalizeSpacingAfterParaMarkers,
     type PrettifyToken,
+    prettifyTokenStream,
     recoverMalformedMarkers,
     removeDuplicateVerseNumbers,
     removeUnwantedLinebreaks,
 } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
+
+function applyPrettifyToNodeTree(
+    nodes: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const envelope = lexicalRootChildrenToPrettifyTokenStream(nodes);
+    const prettifiedTokens = prettifyTokenStream(envelope.tokens);
+    return prettifyTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
+}
 
 const createToken = (
     text: string,
@@ -586,7 +598,7 @@ describe("prettifySerializedNode utils", () => {
                     t.tokenType === UsfmTokenTypes.marker && t.marker === "v",
             );
             expect(pIndex).toBeLessThan(vIndex);
-            expect(result[pIndex].text).toBe("\\p ");
+            expect(result[pIndex].text).toBe("\\p");
         });
 
         it("should not insert default \\p if an explicit paragraph marker exists", () => {

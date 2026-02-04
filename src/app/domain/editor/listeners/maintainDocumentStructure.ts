@@ -260,6 +260,11 @@ export function maintainDocumentStructureDebounced(
             updates,
             appSettings,
         });
+        pushTrailingHorizontalWhitespaceToNextSibling({
+            allNodes,
+            updates,
+            appSettings,
+        });
         ensureSiblingsHaveAtLeastOneSpace({
             allNodes,
             updates,
@@ -298,6 +303,64 @@ export function maintainDocumentStructureDebounced(
     // console.timeEnd("maintainDocumentStructure");
 }
 
+const pushTrailingHorizontalWhitespaceToNextSibling = ({
+    allNodes,
+    updates,
+}: DebouncedStructuralUpdatesArgs) => {
+    for (const dfsNode of allNodes) {
+        const node = dfsNode.node;
+        if (!$isUSFMTextNode(node)) continue;
+
+        const tokenType = node.getTokenType();
+        const canBeHidden =
+            tokenType === UsfmTokenTypes.marker ||
+            tokenType === UsfmTokenTypes.endMarker;
+        if (!canBeHidden) continue;
+
+        const nextSibling = node.getNextSibling();
+        if (!nextSibling || !$isUSFMTextNode(nextSibling)) continue;
+
+        const nodeText = node.getTextContent();
+        const nextText = nextSibling.getTextContent();
+
+        const trailingWsMatch = nodeText.match(/[ \t]+$/u);
+        const trailingWs = trailingWsMatch?.[0] ?? "";
+        if (!trailingWs.length) continue;
+        if (/^\s/u.test(nextText)) continue;
+
+        const nodeKey = node.getKey();
+        const nextKey = nextSibling.getKey();
+        updates.push({
+            dbgLabel: "pushTrailingHorizontalWhitespaceToNextSibling",
+            run: () => {
+                const latestNode = $getNodeByKey(nodeKey);
+                const latestNext = $getNodeByKey(nextKey);
+                if (!latestNode?.isAttached() || !latestNext?.isAttached())
+                    return;
+                if (
+                    !$isUSFMTextNode(latestNode) ||
+                    !$isUSFMTextNode(latestNext)
+                )
+                    return;
+
+                const latestNodeText = latestNode.getTextContent();
+                const latestNextText = latestNext.getTextContent();
+                const latestTrailingWsMatch = latestNodeText.match(/[ \t]+$/u);
+                const latestTrailingWs = latestTrailingWsMatch?.[0] ?? "";
+                if (!latestTrailingWs.length) return;
+                if (/^\s/u.test(latestNextText)) return;
+
+                latestNode.setTextContent(
+                    latestNodeText.slice(0, -latestTrailingWs.length),
+                );
+                latestNext.setTextContent(
+                    `${latestTrailingWs}${latestNextText}`,
+                );
+            },
+        });
+    }
+};
+
 const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
     node,
     tokenType,
@@ -332,7 +395,7 @@ const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
                 nextSibling.setTextContent(` ${numberText}`);
             } else {
                 // Create new number node
-                const newNumberNode = $createUSFMTextNode(numberText, {
+                const newNumberNode = $createUSFMTextNode(` ${numberText}`, {
                     id: guidGenerator(),
                     sid: node.getSid().trim(),
                     inPara: node.getInPara(),
@@ -557,7 +620,7 @@ const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
                         if (!numberMatch) return;
 
                         // Move only the number to the empty numberRange
-                        node.setTextContent(numberMatch[1]);
+                        node.setTextContent(` ${numberMatch[1]}`);
                         node.selectEnd();
 
                         // Clear the next sibling (now empty)
@@ -1044,7 +1107,7 @@ const splitCombinedMarkerAndNumberRange: MainDocumentStrutureFxn = ({
             node.setMarker(cleanMarker);
 
             // Create a new numberRange node for the number
-            const numberRangeNode = $createUSFMTextNode(numberText, {
+            const numberRangeNode = $createUSFMTextNode(` ${numberText}`, {
                 id: guidGenerator(),
                 sid: node.getSid().trim(),
                 inPara: node.getInPara(),

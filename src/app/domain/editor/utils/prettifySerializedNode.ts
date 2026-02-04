@@ -12,11 +12,9 @@ import {
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
-import {
-    type PrettifyToken,
-    prettifyTokenStream,
-} from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
+import type { PrettifyToken } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 
 function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     for (const n of nodes) {
@@ -26,7 +24,7 @@ function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     return "ltr";
 }
 
-type RootShape = "regularTree" | "wrappedFlat" | "unknown";
+export type RootShape = "regularTree" | "wrappedFlat" | "unknown";
 
 function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
     if (nodes.some((n) => n.type === USFM_PARAGRAPH_NODE_TYPE)) {
@@ -37,6 +35,67 @@ function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
         return "wrappedFlat";
     }
     return "unknown";
+}
+
+export type LexicalPrettifyTokenStream = {
+    tokens: PrettifyToken[];
+    direction: "ltr" | "rtl";
+    shape: RootShape;
+    wrapper?: SerializedElementNode;
+};
+
+export function lexicalRootChildrenToPrettifyTokenStream(
+    nodes: SerializedLexicalNode[],
+): LexicalPrettifyTokenStream {
+    const shape = detectRootShape(nodes);
+    const direction = detectDirection(nodes);
+
+    const unwrapped =
+        shape === "wrappedFlat"
+            ? unwrapFlatTokensFromRootChildren(nodes)
+            : null;
+    const base = unwrapped ?? nodes;
+
+    const flatSerialized = materializeFlatTokensArray(base, {
+        nested: "preserve",
+    });
+    const tokens = flatSerialized.map(lexicalNodeToPrettifyToken);
+
+    const wrapper =
+        shape === "wrappedFlat" && nodes.length === 1
+            ? (nodes[0] as SerializedElementNode)
+            : undefined;
+
+    return { tokens, direction, shape, wrapper };
+}
+
+export function prettifyTokenStreamToLexicalRootChildren(
+    tokens: PrettifyToken[],
+    meta: Pick<LexicalPrettifyTokenStream, "direction" | "shape" | "wrapper">,
+): SerializedLexicalNode[] {
+    const direction = meta.direction;
+    const shape = meta.shape;
+
+    const serializedFlat = tokens
+        .map(prettifyTokenToLexicalNode)
+        .filter(Boolean) as SerializedLexicalNode[];
+
+    if (shape === "regularTree") {
+        return groupFlatNodesIntoParagraphContainers(serializedFlat, direction);
+    }
+
+    if (shape === "wrappedFlat") {
+        const wrapper =
+            meta.wrapper ?? wrapFlatTokensInLexicalParagraph([], direction);
+        return [
+            {
+                ...(wrapper as SerializedElementNode),
+                children: serializedFlat,
+            } as SerializedLexicalNode,
+        ];
+    }
+
+    return [wrapFlatTokensInLexicalParagraph(serializedFlat, direction)];
 }
 
 function lexicalNodeToPrettifyToken(
@@ -120,11 +179,7 @@ function prettifyTokenToLexicalNode(
                 lexicalType: "usfm-text-node",
                 tokenType: UsfmTokenTypes.text,
                 text: token.text,
-                id:
-                    token.id ??
-                    (typeof crypto !== "undefined"
-                        ? crypto.randomUUID()
-                        : Math.random().toString(36).slice(2)),
+                id: token.id ?? guidGenerator(),
                 sid: token.sid ?? "",
                 version: 1,
                 detail: 0,
@@ -231,44 +286,5 @@ function prettifyTokenToLexicalNode(
     } as unknown as SerializedLexicalNode;
 }
 
-/**
- * Prettifies serialized Lexical root children while preserving the chapter's current shape.
- */
-export function applyPrettifyToNodeTree(
-    nodes: SerializedLexicalNode[],
-): SerializedLexicalNode[] {
-    const shape = detectRootShape(nodes);
-    const direction = detectDirection(nodes);
-
-    // Flatten to a token stream for core processing.
-    const flatSerialized = materializeFlatTokensArray(nodes, {
-        nested: "preserve",
-    });
-    const coreTokens = flatSerialized.map(lexicalNodeToPrettifyToken);
-    const prettified = prettifyTokenStream(coreTokens);
-    const prettifiedSerializedFlat = prettified
-        .map(prettifyTokenToLexicalNode)
-        .filter(Boolean) as SerializedLexicalNode[];
-
-    // Re-wrap/rehydrate back to the original root shape.
-    if (shape === "regularTree") {
-        return groupFlatNodesIntoParagraphContainers(
-            prettifiedSerializedFlat,
-            direction,
-        );
-    }
-
-    if (shape === "wrappedFlat") {
-        const wrapper = nodes[0] as SerializedElementNode;
-        return [
-            {
-                ...(wrapper as SerializedElementNode),
-                children: prettifiedSerializedFlat,
-            } as SerializedLexicalNode,
-        ];
-    }
-
-    return [
-        wrapFlatTokensInLexicalParagraph(prettifiedSerializedFlat, direction),
-    ];
-}
+// Note: prettification (token-stream transform) lives in `src/core`.
+// This module is an adapter between Lexical serialized nodes and core token streams.
