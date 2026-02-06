@@ -40,3 +40,12 @@ export const projectItemContent = style({
     alignItems: "center",
     gap: "0.25rem", // gap-1 equivalent
 });
+
+export const viewOnlyActive = style({
+    backgroundColor: vars.colors.orange[0],
+    selectors: {
+        [`${darkSelector} &`]: {
+            backgroundColor: vars.colors.orange[9],
+        },
+    },
+});

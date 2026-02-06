@@ -103,6 +103,15 @@ body:not(.source-mode) {
       font-style: italic;
     }
 
+    /* Paragraph indent defaults */
+    &[data-marker="p"] {
+      text-indent: 1.5em;
+    }
+
+    &[data-marker="m"] {
+      text-indent: 0;
+    }
+
     &[data-marker="q"],
     &[data-marker="q1"] {
       --poetry-indent: 16px;
@@ -123,6 +132,12 @@ body:not(.source-mode) {
       --poetry-indent: 96px;
       padding-inline-start: var(--poetry-indent);
     }
+  }
+
+  /* Blank line marker: force a full empty line */
+  .usfm-para-container[data-marker="b"] {
+    min-height: 1.2em;
+    margin: 0.6em 0;
   }
 
   /* Show subtle chips for structural-empty paragraph marker lines */
@@ -153,6 +168,12 @@ body:not(.source-mode) {
     color: color-mix(in srgb, currentColor 75%, transparent);
     background: color-mix(in srgb, currentColor 12%, transparent);
     border-color: color-mix(in srgb, currentColor 22%, transparent);
+  }
+
+  /* View-only: keep the structural spacing but hide the "empty marker" chips */
+  #root[data-editor-read-only="true"][data-editor-mode="regular"]
+    .usfm-para-container[data-is-structural-empty="true"][data-marker]::before {
+    display: none !important;
   }
 
   /* Paragraphing highlight (shown on hover/reference) */

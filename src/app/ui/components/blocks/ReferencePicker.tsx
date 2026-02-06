@@ -263,7 +263,6 @@ function BookAccordionItem({
     const { t } = useLingui();
     const fileTitle = file.title || file.bookCode;
     const isCurrentBook = currentFileBibleIdentifier === file.bookCode;
-    debugger;
 
     return (
         <Accordion.Item key={file.bookCode} value={fileTitle}>

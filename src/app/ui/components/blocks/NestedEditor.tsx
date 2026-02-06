@@ -62,7 +62,7 @@ export function NestedEditor({
 
     const nestedConfig = {
         namespace: `nested-${outerMarker}-${id}`,
-        editable: true,
+        editable: editorModeSetting !== "view",
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
@@ -85,6 +85,12 @@ export function NestedEditor({
             console.error("Nested editor error:", error);
         },
     };
+
+    useEffect(() => {
+        const editor = nestedEditorRef.current;
+        if (!editor) return;
+        editor.setEditable(editorModeSetting !== "view");
+    }, [editorModeSetting]);
 
     const handleSave = useCallback(() => {
         const editor = nestedEditorRef.current;

@@ -50,7 +50,6 @@ export function StructuralEmptyMarkerChipsPlugin() {
         void currentLocale;
 
         const updateChips = () => {
-            if (editorMode !== "regular") return;
             const root = editor.getRootElement();
             if (!root) return;
 
@@ -64,6 +63,19 @@ export function StructuralEmptyMarkerChipsPlugin() {
                 if (el.title) {
                     el.title = "";
                 }
+            }
+
+            if (editorMode !== "regular") {
+                const labeled = root.querySelectorAll<HTMLElement>(
+                    ".usfm-para-container[data-marker-label]",
+                );
+                for (const el of labeled) {
+                    delete el.dataset.markerLabel;
+                    if (el.title) {
+                        el.title = "";
+                    }
+                }
+                return;
             }
 
             const els = root.querySelectorAll<HTMLElement>(

@@ -72,7 +72,7 @@ export function useModeSwitching({
      * This is expensive and should only be called when user explicitly switches modes.
      */
     function setEditorMode(
-        next: "regular" | "usfm" | "plain",
+        next: "regular" | "usfm" | "plain" | "view",
         editor?: LexicalEditor,
     ) {
         // Save current state before transforming
@@ -92,7 +92,7 @@ export function useModeSwitching({
                 (child) =>
                     (child as { type?: string }).type === "usfm-paragraph-node",
             );
-            const wantsParagraphMode = next === "regular";
+            const wantsParagraphMode = next === "regular" || next === "view";
 
             if (isCurrentlyParagraphMode === wantsParagraphMode) {
                 // Already in correct format, skip transformation

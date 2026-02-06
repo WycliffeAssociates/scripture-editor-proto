@@ -26,7 +26,7 @@ function EditorModeToggle() {
     const value = project.appSettings.editorMode ?? "regular";
 
     const handleChange = (v: string) => {
-        const nextMode = v as "regular" | "plain" | "usfm";
+        const nextMode = v as "regular" | "plain" | "usfm" | "view";
         if (actions.setEditorMode) {
             actions.setEditorMode(nextMode);
             return;
@@ -64,6 +64,21 @@ function EditorModeToggle() {
                                     </Trans>
                                 }
                                 labelText={<Trans>Regular</Trans>}
+                            />
+                        ),
+                    },
+                    {
+                        value: "view",
+                        label: (
+                            <ModeLabel
+                                value="view"
+                                tooltip={
+                                    <Trans>
+                                        View — read-only, regular layout with
+                                        markers hidden.
+                                    </Trans>
+                                }
+                                labelText={<Trans>View</Trans>}
                             />
                         ),
                     },

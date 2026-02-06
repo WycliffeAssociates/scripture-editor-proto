@@ -50,6 +50,9 @@ export function useEditorInput(editor: LexicalEditor) {
     const editorModeSetting = appSettings.editorMode ?? "regular";
 
     useEffect(() => {
+        if (editorModeSetting === "view") {
+            return;
+        }
         // Register USFMTextNode transform
         const unregisterTransformWhileTyping = editor.registerNodeTransform(
             USFMTextNode,

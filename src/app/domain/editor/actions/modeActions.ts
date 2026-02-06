@@ -36,6 +36,20 @@ export const MODE_ACTIONS: EditorAction[] = [
         },
     },
     {
+        id: "switch-view",
+        label: (context) =>
+            context.editorMode === "view" ? "View Mode (Current)" : "View Mode",
+        category: "Modes",
+        icon: React.createElement(Eye, { size: 16 }),
+        isVisible: () => true,
+        isDisabled: (context) => context.editorMode === "view",
+        execute: (_editor, context) => {
+            if (context.editorMode === "view") return undefined;
+            context.actions.setEditorMode?.("view");
+            return undefined;
+        },
+    },
+    {
         id: "switch-usfm",
         label: (context) =>
             context.editorMode === "usfm" ? "USFM Mode (Current)" : "USFM Mode",

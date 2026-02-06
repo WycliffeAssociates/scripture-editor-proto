@@ -69,7 +69,8 @@ export async function projectParamToParsedFiles(
             title: book.name,
             bookCode: getBookSlug(book.code),
             chapters: Object.entries(usfm).map(([chapter, tokens]) => {
-                const needsParagraphs = editorMode === "regular";
+                const needsParagraphs =
+                    editorMode === "regular" || editorMode === "view";
                 const { lexicalState, loadedLexicalState } =
                     parsedUsfmTokensToLexicalStates(
                         tokens,

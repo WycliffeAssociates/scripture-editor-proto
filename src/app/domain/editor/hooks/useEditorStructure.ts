@@ -22,6 +22,7 @@ const structuralUpdateDebounceMs = 500;
 export function useEditorStructure(editor: LexicalEditor) {
     const { project } = useWorkspaceContext();
     const { bookCode } = project.pickedFile;
+    const editorModeSetting = project.appSettings.editorMode ?? "regular";
 
     const debouncedStructuralUpdates = useDebouncedCallback(
         (editorState: EditorState) => {
@@ -60,6 +61,9 @@ export function useEditorStructure(editor: LexicalEditor) {
     );
 
     useEffect(() => {
+        if (editorModeSetting === "view") {
+            return;
+        }
         const maintainMetadata = editor.registerUpdateListener(
             ({
                 editorState,
@@ -117,5 +121,10 @@ export function useEditorStructure(editor: LexicalEditor) {
         };
 
         return cleanup;
-    }, [editor, debouncedEditorChangeListener, debouncedStructuralUpdates]);
+    }, [
+        editor,
+        debouncedEditorChangeListener,
+        debouncedStructuralUpdates,
+        editorModeSetting,
+    ]);
 }

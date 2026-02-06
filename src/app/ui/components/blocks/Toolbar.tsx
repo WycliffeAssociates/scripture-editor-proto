@@ -6,6 +6,8 @@ import {
     ChevronDown,
     FileStack,
     Menu as IconMenu,
+    Lock,
+    Unlock,
 } from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
@@ -20,8 +22,9 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions, isProcessing } = useWorkspaceContext();
+    const { actions, isProcessing, project } = useWorkspaceContext();
     const { t } = useLingui();
+    const isViewOnly = (project.appSettings.editorMode ?? "regular") === "view";
 
     return (
         <Group className={classes.toolbar}>
@@ -35,6 +38,31 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
             {/* Undo / Redo */}
             <HistoryButtons />
+
+            <Tooltip
+                label={
+                    isViewOnly
+                        ? t`View-only mode (click to edit)`
+                        : t`Edit mode (click for view-only)`
+                }
+                withArrow
+                position="top"
+            >
+                <ActionIconSimple
+                    aria-label={isViewOnly ? t`View-only mode` : t`Edit mode`}
+                    title={isViewOnly ? t`View-only mode` : t`Edit mode`}
+                    className={isViewOnly ? classes.viewOnlyActive : undefined}
+                    onClick={() =>
+                        actions.setEditorMode?.(isViewOnly ? "regular" : "view")
+                    }
+                >
+                    {isViewOnly ? (
+                        <Lock size={rem(14)} />
+                    ) : (
+                        <Unlock size={rem(14)} />
+                    )}
+                </ActionIconSimple>
+            </Tooltip>
 
             <ReferencePicker />
 

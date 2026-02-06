@@ -8,7 +8,7 @@ import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagr
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { TokenMap } from "@/core/domain/usfm/lex.ts";
 
-export type EditorModeSetting = "regular" | "usfm" | "plain";
+export type EditorModeSetting = "regular" | "usfm" | "plain" | "view";
 
 export const UsfmTokenTypes: Pick<
     typeof TokenMap,
