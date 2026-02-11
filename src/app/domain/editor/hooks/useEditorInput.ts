@@ -3,6 +3,8 @@ import {
     $getSelection,
     $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
+    COPY_COMMAND,
+    CUT_COMMAND,
     KEY_BACKSPACE_COMMAND,
     KEY_DOWN_COMMAND,
     KEY_ENTER_COMMAND,
@@ -14,7 +16,6 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     handleBackslashOnStartOfVerse,
     handleEnterOnStartOfVerse,
-    moveCaretIntoStructuralEmptyParagraphOnArrow,
     moveToAdjacentNodesWhenSeemsAppropriate,
 } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import {
@@ -31,6 +32,7 @@ import {
     $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { expandSelectionToIncludePrecedingVerseMarker } from "@/app/domain/editor/utils/expandSelectionToIncludeVerseMarker.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
@@ -225,6 +227,125 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
+        const expandVerseCopySelectionUnregister = editor.registerCommand(
+            COPY_COMMAND,
+            (payload) => {
+                if (editorModeSetting !== "regular") return false;
+
+                const event =
+                    payload instanceof Event
+                        ? (payload as ClipboardEvent | KeyboardEvent)
+                        : null;
+
+                let restore: {
+                    anchor: {
+                        key: string;
+                        offset: number;
+                        type: "text" | "element";
+                    };
+                    focus: {
+                        key: string;
+                        offset: number;
+                        type: "text" | "element";
+                    };
+                    format: number;
+                    style: string;
+                } | null = null;
+
+                editor.update(
+                    () => {
+                        const selection = $getSelection();
+                        if (
+                            !$isRangeSelection(selection) ||
+                            selection.isCollapsed()
+                        ) {
+                            return;
+                        }
+
+                        const snapshot = selection.clone();
+                        const didExpand =
+                            expandSelectionToIncludePrecedingVerseMarker(
+                                selection,
+                            );
+                        if (!didExpand) return;
+
+                        restore = {
+                            anchor: {
+                                key: snapshot.anchor.key,
+                                offset: snapshot.anchor.offset,
+                                type: snapshot.anchor.type,
+                            },
+                            focus: {
+                                key: snapshot.focus.key,
+                                offset: snapshot.focus.offset,
+                                type: snapshot.focus.type,
+                            },
+                            format: snapshot.format,
+                            style: snapshot.style,
+                        };
+                    },
+                    { discrete: true, event },
+                );
+
+                if (restore) {
+                    queueMicrotask(() => {
+                        editor.update(
+                            () => {
+                                const selection = $getSelection();
+                                if (!$isRangeSelection(selection)) return;
+
+                                selection.anchor.set(
+                                    restore.anchor.key,
+                                    restore.anchor.offset,
+                                    restore.anchor.type,
+                                );
+                                selection.focus.set(
+                                    restore.focus.key,
+                                    restore.focus.offset,
+                                    restore.focus.type,
+                                );
+                                selection.setFormat(restore.format);
+                                selection.setStyle(restore.style);
+                            },
+                            { discrete: true },
+                        );
+                    });
+                }
+
+                return false;
+            },
+            COMMAND_PRIORITY_HIGH,
+        );
+
+        const expandVerseCutSelectionUnregister = editor.registerCommand(
+            CUT_COMMAND,
+            (payload) => {
+                if (editorModeSetting !== "regular") return false;
+
+                const event =
+                    payload instanceof Event
+                        ? (payload as ClipboardEvent | KeyboardEvent)
+                        : null;
+
+                editor.update(
+                    () => {
+                        const selection = $getSelection();
+                        if (
+                            !$isRangeSelection(selection) ||
+                            selection.isCollapsed()
+                        ) {
+                            return;
+                        }
+                        expandSelectionToIncludePrecedingVerseMarker(selection);
+                    },
+                    { discrete: true, event },
+                );
+
+                return false;
+            },
+            COMMAND_PRIORITY_HIGH,
+        );
+
         // Register KEY_DOWN_COMMAND for handling Enter at start of verse
         const handleEnterOnVerseUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
@@ -246,6 +367,8 @@ export function useEditorInput(editor: LexicalEditor) {
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();
             insertParagraphAfterStructuralEmptyMarkerUnregister();
+            expandVerseCopySelectionUnregister();
+            expandVerseCutSelectionUnregister();
             handleEnterOnVerseUnregister();
         };
 

@@ -19,10 +19,6 @@ import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPl
 import { ParagraphingGhost } from "@/app/domain/editor/plugins/ParagraphingGhost.tsx";
 import { ParagraphingPlugin } from "@/app/domain/editor/plugins/ParagraphingPlugin.tsx";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
-import {
-    MarkerTooltip,
-    // ToolTipPlugin,
-} from "@/app/domain/editor/plugins/ToolTipPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
@@ -34,7 +30,6 @@ export function MainEditor() {
 
     return (
         <div className="p-2" data-mode={project?.appSettings.editorMode}>
-            <MarkerTooltip />
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js="editor-container"
