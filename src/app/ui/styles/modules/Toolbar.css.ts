@@ -3,11 +3,43 @@ import { darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
 export const toolbar = style({
     display: "flex",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
-    padding: "var(--mantine-spacing-xs) 0",
+    padding: "0.35rem 0",
     gap: "var(--mantine-spacing-md)",
     borderBottom: "1px solid var(--mantine-color-default-border)",
+    width: "100%",
+});
+
+export const toolbarSection = style({
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--mantine-spacing-xs)",
+    flexWrap: "nowrap",
+    minWidth: 0,
+    "@media": {
+        // On small screens, allow wrapping so controls remain reachable.
+        "screen and (max-width: 48em)": {
+            flexWrap: "wrap",
+        },
+    },
+});
+
+export const referenceDropdown = style({
+    maxHeight: "50vh",
+    overflowY: "auto",
+});
+
+export const referenceProjectButton = style({
+    maxWidth: "18rem",
+    minWidth: 0,
+    flexShrink: 1,
+});
+
+export const referenceProjectLabel = style({
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
 });
 
 export const clearReferenceProject = style({

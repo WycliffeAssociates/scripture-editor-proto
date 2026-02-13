@@ -1,234 +1,321 @@
-import { darken, lighten } from "@mantine/core";
+import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
 import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
-/**
- * Styles for the ProjectCreator block.
- *
- * Designed to replace the Tailwind-based styles and to be reused in other places
- * (e.g. modals). Uses theme variables from `theme.css.ts` and supports dark mode
- * via `darkSelector`.
- */
-
-/* Outer container */
 export const container = style({
-    padding: "1.5rem",
-    borderRadius: "8px",
+    padding: "2rem",
+    borderRadius: "14px",
     backgroundColor: virtualVars.surface,
     border: `1px solid ${vars.colors.gray[3]}`,
     boxShadow: `0 1px 2px ${vars.colors.shadow}`,
-    // subtle dark-mode adjustments
-    // selectors: {
-    //   [`${darkSelector} &`]: {
-    //     backgroundColor: vars.colors.surface,
-    //     border: `1px solid ${vars.colors.gray[8]}`,
-    //     boxShadow: `0 1px 2px ${darken(vars.colors.gray[9], 0.02)}`,
-    //   },
-    // },
-});
-
-/* Title / header */
-export const title = style({
-    margin: 0,
-    marginBottom: "0.75rem",
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    color: vars.colors.text,
-});
-
-/* Responsive layout: column on small, row on large */
-export const layout = style({
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-    alignItems: "stretch",
     "@media": {
-        "screen and (min-width: 1024px)": {
-            flexDirection: "row",
-            alignItems: "flex-start",
+        "screen and (max-width: 768px)": {
+            padding: "1.25rem",
         },
     },
 });
 
-/* Left column (repo search / download) */
+export const title = style({
+    margin: 0,
+    marginBottom: "1.5rem",
+    fontSize: "2.35rem",
+    lineHeight: "1.1",
+    letterSpacing: "-0.02em",
+    color: vars.colors.primary[9],
+    "@media": {
+        "screen and (max-width: 768px)": {
+            fontSize: "1.9rem",
+        },
+    },
+});
+
+export const layout = style({
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: "2rem",
+    alignItems: "start",
+    "@media": {
+        "screen and (min-width: 1024px)": {
+            gridTemplateColumns: "minmax(0, 2.2fr) minmax(260px, 1fr)",
+            gap: "2.5rem",
+        },
+    },
+});
+
 export const leftCol = style({
-    flex: "1 1 auto",
-    maxWidth: "60ch",
+    minWidth: 0,
 });
 
-/* Left column heading */
 export const leftHeading = style({
-    margin: "0 0 0.5rem 0",
-    fontSize: "1rem",
-    fontWeight: 500,
-    color: vars.colors.text,
+    margin: "0 0 0.75rem 0",
+    fontSize: "1.95rem",
+    lineHeight: "1.1",
+    letterSpacing: "-0.02em",
+    color: vars.colors.primary[9],
+    "@media": {
+        "screen and (max-width: 768px)": {
+            fontSize: "1.45rem",
+        },
+    },
 });
 
-/* Repo container (where LanguageApiImporter mounts) */
 export const repoContainer = style({
     width: "100%",
 });
 
-/* Right column (upload controls) */
 export const rightCol = style({
     width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
+    maxWidth: "100%",
     "@media": {
         "screen and (min-width: 1024px)": {
-            width: "18rem", // ~288px like w-72
-            marginLeft: "1.5rem",
+            maxWidth: "26rem",
         },
     },
 });
 
-/* Group wrapper for each control block */
+export const compactControls = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.25rem",
+});
+
 export const controlGroup = style({
     display: "flex",
     flexDirection: "column",
-    gap: "0.5rem",
+    gap: "0.55rem",
 });
 
-/* Label for inputs */
 export const label = style({
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: vars.colors.text,
+    fontSize: "1.15rem",
+    fontWeight: 700,
+    lineHeight: "1.1",
+    color: vars.colors.primary[9],
+    "@media": {
+        "screen and (max-width: 768px)": {
+            fontSize: "1.05rem",
+        },
+    },
 });
 
-/* Action row to hold button and description */
 export const actionRow = style({
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "auto 1fr",
+    gap: "1rem",
     alignItems: "center",
-    gap: "0.75rem",
 });
 
-/* Primary file-button (Select Folder / Choose ZIP) */
 export const fileButton = style({
-    padding: "0.45rem 0.75rem",
-    borderRadius: "6px",
-    border: `1px solid ${vars.colors.gray[3]}`,
+    minWidth: "9.5rem",
+    minHeight: "5.5rem",
+    padding: "0.75rem",
+    borderRadius: "12px",
+    border: `1px solid ${vars.colors.gray[4]}`,
     backgroundColor: vars.colors.gray[0],
     fontSize: "0.9rem",
+    lineHeight: "1.2",
+    letterSpacing: "-0.01em",
+    fontWeight: 500,
     cursor: "pointer",
-    color: vars.colors.text,
+    color: vars.colors.primary[9],
     selectors: {
         "&:hover": {
-            backgroundColor: lighten(vars.colors.gray[0], 0.03),
+            backgroundColor: vars.colors.primary[0],
+            borderColor: vars.colors.primary[3],
+        },
+        "&:disabled": {
+            cursor: "not-allowed",
+            opacity: 0.65,
         },
         [`${darkSelector} &`]: {
             backgroundColor: vars.colors.gray[9],
-            border: `1px solid ${vars.colors.gray[8]}`,
-            color: vars.colors.text,
+            borderColor: vars.colors.gray[7],
         },
     },
 });
 
-/* Secondary descriptive text next to button */
 export const actionDescription = style({
-    fontSize: "0.875rem",
+    fontSize: "0.95rem",
+    lineHeight: "1.35",
     color: vars.colors.gray[6],
-    selectors: {
-        [`${darkSelector} &`]: {
-            color: vars.colors.gray[5],
-        },
-    },
+    maxWidth: "20rem",
 });
 
-/* Hidden file input */
 export const hiddenInput = style({
     display: "none",
 });
 
-/* Utility: compact container for the two upload controls on narrow screens */
-export const compactControls = style({
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-    "@media": {
-        "screen and (min-width: 640px)": {
-            flexDirection: "column",
-        },
-    },
-});
-
-/**
- * Input used for repository URL / search inputs.
- * Uses theme vars and supports dark mode via darkSelector.
- */
 export const repoInput = style({
-    padding: "0.5rem 0.6rem",
-    borderRadius: "6px",
-    border: `1px solid ${vars.colors.gray[3]}`,
+    padding: "0.8rem 0.95rem",
+    borderRadius: "10px",
+    border: `1px solid ${vars.colors.gray[4]}`,
     backgroundColor: vars.colors.gray[0],
-    color: vars.colors.text,
-    fontSize: "0.95rem",
-    flex: "1 1 auto",
+    color: vars.colors.primary[9],
+    fontSize: "1rem",
+    lineHeight: "1.3",
     width: "100%",
     selectors: {
+        "&::placeholder": {
+            color: vars.colors.gray[5],
+        },
         "&:focus": {
             outline: "none",
-            boxShadow: `0 0 0 3px ${vars.colors.primary[4]}`,
-            border: `1px solid ${vars.colors.primary[6]}`,
+            boxShadow: `0 0 0 3px ${vars.colors.primary[2]}`,
+            borderColor: vars.colors.primary[5],
         },
         [`${darkSelector} &`]: {
-            backgroundColor: lighten(virtualVars.surface, 0.1),
-            border: `1px solid ${vars.colors.gray[8]}`,
-            color: vars.colors.text,
-        },
-        [`${darkSelector} &:focus`]: {
-            outline: "none",
-            boxShadow: `0 0 0 3px ${vars.colors.primary[6]}`,
-            border: `1px solid ${vars.colors.primary[7]}`,
+            backgroundColor: vars.colors.gray[9],
+            borderColor: vars.colors.gray[7],
+            color: vars.colors.gray[1],
         },
     },
 });
 
-/**
- * Button used to trigger download action for repo import.
- * Styled with theme tokens and with focus/disabled states.
- */
 export const downloadButton = style({
-    padding: "0.45rem 0.75rem",
-    borderRadius: "6px",
-    border: `1px solid ${vars.colors.primary[7]}`,
-    backgroundColor: vars.colors.primary[6],
+    marginTop: "0.9rem",
+    minHeight: "3rem",
+    padding: "0.45rem 1.1rem",
+    borderRadius: "10px",
+    border: `1px solid ${vars.colors.gray[4]}`,
+    backgroundColor: vars.colors.gray[4],
     color: vars.colors.white,
-    fontSize: "0.95rem",
+    fontSize: "1rem",
+    lineHeight: "1.2",
+    letterSpacing: "-0.01em",
     cursor: "pointer",
     selectors: {
-        "&:hover": {
-            backgroundColor: vars.colors.primary[7],
-        },
-        "&:focus": {
-            outline: "none",
-            boxShadow: `0 0 0 3px ${vars.colors.primary[5]}`,
+        "&:hover:not(:disabled)": {
+            backgroundColor: vars.colors.primary[6],
+            borderColor: vars.colors.primary[7],
         },
         "&:disabled": {
-            opacity: 0.8,
             cursor: "not-allowed",
-            backgroundColor: vars.colors.gray[4],
-            border: `1px solid ${vars.colors.gray[3]}`,
-        },
-        [`${darkSelector} &`]: {
-            backgroundColor: vars.colors.primary[7],
-            border: `1px solid ${vars.colors.primary[8]}`,
-            color: vars.colors.white,
-        },
-        [`${darkSelector} &:hover`]: {
-            backgroundColor: vars.colors.primary[8],
-        },
-        [`${darkSelector} &:disabled`]: {
-            opacity: 0.6,
-            cursor: "not-allowed",
-            backgroundColor: vars.colors.gray[9],
-            border: `1px solid ${vars.colors.gray[8]}`,
+            opacity: 0.95,
         },
     },
 });
 
-/* Autocomplete / dropdown styles used by AutocompleteInput */
+export const searchLabel = style({
+    margin: 0,
+    marginBottom: "0.7rem",
+    fontSize: "1.75rem",
+    lineHeight: "1.2",
+    fontWeight: 600,
+    color: vars.colors.primary[9],
+});
+
+export const searchInputShell = style({
+    position: "relative",
+    marginBottom: "0.8rem",
+});
+
+export const searchIcon = style({
+    position: "absolute",
+    top: "50%",
+    left: "0.75rem",
+    transform: "translateY(-50%)",
+    color: vars.colors.gray[6],
+    pointerEvents: "none",
+});
+
+export const searchInput = style([
+    repoInput,
+    {
+        paddingLeft: "2.5rem",
+    },
+]);
+
+export const searchTable = style({
+    borderRadius: "12px",
+    border: `1px solid ${vars.colors.gray[3]}`,
+    overflow: "hidden",
+});
+
+export const tableHeader = style({
+    display: "grid",
+    gridTemplateColumns:
+        "minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) auto",
+    gap: "0.5rem",
+    padding: "0.75rem 0.9rem",
+    backgroundColor: vars.colors.gray[1],
+    borderBottom: `1px solid ${vars.colors.gray[3]}`,
+    fontSize: "0.95rem",
+    fontWeight: 600,
+    color: vars.colors.primary[9],
+});
+
+export const tableBody = style({
+    maxHeight: "23rem",
+    overflowY: "auto",
+    backgroundColor: virtualVars.surface,
+});
+
+export const tableRow = style({
+    display: "grid",
+    gridTemplateColumns:
+        "minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) auto",
+    gap: "0.5rem",
+    alignItems: "center",
+    padding: "0.7rem 0.9rem",
+    borderBottom: `1px solid ${vars.colors.gray[2]}`,
+    fontSize: "0.95rem",
+    color: vars.colors.primary[9],
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.primary[0],
+        },
+    },
+});
+
+export const selectedRow = style({
+    backgroundColor: vars.colors.primary[0],
+});
+
+export const tableCellStrong = style({
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+});
+
+export const tableCell = style({
+    color: vars.colors.gray[7],
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+});
+
+export const addAction = style({
+    border: "none",
+    background: "transparent",
+    color: vars.colors.primary[6],
+    fontSize: "1rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    selectors: {
+        "&:hover:not(:disabled)": {
+            color: vars.colors.primary[8],
+        },
+        "&:disabled": {
+            color: vars.colors.gray[5],
+            cursor: "not-allowed",
+        },
+    },
+});
+
+export const emptyState = style({
+    padding: "1.25rem",
+    color: vars.colors.gray[6],
+    fontSize: "1rem",
+});
+
+export const errorState = style({
+    marginBottom: "0.75rem",
+    padding: "0.65rem 0.75rem",
+    borderRadius: "8px",
+    color: vars.colors.error[7],
+    backgroundColor: vars.colors.error[0],
+});
+
 export const acContainer = style({
     width: "100%",
     position: "relative",
@@ -242,6 +329,7 @@ export const acLabel = style({
     fontWeight: 600,
     color: vars.colors.text,
 });
+
 export const acItemContent = style({
     display: "flex",
     alignItems: "center",
@@ -284,17 +372,6 @@ export const acClearButton = style({
     color: vars.colors.red[6],
     cursor: "pointer",
     fontSize: "0.9rem",
-    selectors: {
-        "&:hover": {
-            color: vars.colors.red[7],
-        },
-        [`${darkSelector} &`]: {
-            color: vars.colors.red[5],
-        },
-        [`${darkSelector} &:hover`]: {
-            color: vars.colors.red[6],
-        },
-    },
 });
 
 export const acDropdown = style({
@@ -308,13 +385,6 @@ export const acDropdown = style({
     marginTop: "0.5rem",
     maxHeight: "12rem",
     overflowY: "auto",
-    selectors: {
-        [`${darkSelector} &`]: {
-            // backgroundColor: vars.colors.surfaceDark[0] ?? vars.colors.surface,
-            border: `1px solid ${virtualVars.border}`,
-            boxShadow: `0 6px 18px rgba(2, 6, 23, 0.6)`,
-        },
-    },
 });
 
 export const acListItem = style({
@@ -350,12 +420,6 @@ export const acLoading = style({
     padding: "0.5rem",
     color: vars.colors.gray[6],
     backgroundColor: virtualVars.surface,
-    selectors: {
-        [`${darkSelector} &`]: {
-            color: vars.colors.gray[5],
-            backgroundColor: vars.colors.surfaceDark[0],
-        },
-    },
 });
 
 export const acError = style({
@@ -363,14 +427,8 @@ export const acError = style({
     color: vars.colors.error[6],
     backgroundColor: vars.colors.error[0],
     borderRadius: "6px",
-    selectors: {
-        [`${darkSelector} &`]: {
-            backgroundColor: vars.colors.error[1],
-        },
-    },
 });
 
-/* Highlighted state for keyboard navigation */
 export const acHighlighted = style({
     backgroundColor: vars.colors.primary[1],
     selectors: {
@@ -380,7 +438,6 @@ export const acHighlighted = style({
     },
 });
 
-/* Group header for autocomplete groups */
 export const acGroupHeader = style({
     padding: "0.25rem 0.75rem",
     fontSize: "0.8rem",
@@ -389,9 +446,4 @@ export const acGroupHeader = style({
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     cursor: "default",
-    selectors: {
-        [`${darkSelector} &`]: {
-            color: vars.colors.gray[5],
-        },
-    },
 });

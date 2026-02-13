@@ -13,12 +13,8 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:490
-#~ msgid " No results "
-#~ msgstr " Sin resultados "
-
-#: src/app/ui/components/blocks/Toolbar.tsx:211
-#: src/app/ui/components/blocks/Toolbar.tsx:287
+#: src/app/ui/components/blocks/Toolbar.tsx:239
+#: src/app/ui/components/blocks/Toolbar.tsx:320
 msgid "(Current)"
 msgstr "(Actual)"
 
@@ -39,63 +35,29 @@ msgstr "(Verso eliminado)"
 msgid "{0}"
 msgstr "{0}"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:327
-#~ msgid "{baseLabel} before verse {verseNumber}"
-#~ msgstr "{baseLabel} antes del versículo {verseNumber}"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:325
-#~ msgid "{baseLabel} before verse {verseNumber}: \"{contextText}\""
-#~ msgstr "{baseLabel} antes del versículo {verseNumber}: \"{contextText}\""
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:322
-msgid "{baseLabel} v{verseNumber}"
-msgstr "{baseLabel} v{verseNumber}"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:320
-msgid "{baseLabel} v{verseNumber}: \"{contextText}\""
-msgstr "{baseLabel} v{verseNumber}: \"{contextText}\""
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:326
-msgid "{baseLabel}: \"{contextText}\""
-msgstr "{baseLabel}: \"{contextText}\""
-
-#: src/app/routes/$project.tsx:13
+#: src/app/routes/$project.tsx:12
 #: src/app/routes/index.tsx:30
 msgid "<0>Loading...</0>"
 msgstr "<0>Cargando...</0>"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:556
-#~ msgid "Actions"
-#~ msgstr "Acciones"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:211
-#~ msgid "Always"
-#~ msgstr "Siempre"
 
 #: src/app/routes/scaffold.tsx:99
 #: src/app/routes/scaffold.tsx:107
 msgid "An unknown error occurred"
 msgstr "Ocurrió un error desconocido"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:234
-#~ msgid "App language"
-#~ msgstr "Idioma de la aplicación"
-
 #: src/app/ui/components/blocks/ProjectRow.tsx:200
 msgid "Are you sure you want to delete the project:"
 msgstr "¿Estás seguro de que deseas eliminar el proyecto:"
 
 #. placeholder {0}: err.msgKey
-#: src/app/ui/hooks/useLintFixing.tsx:101
+#: src/app/ui/hooks/useLintFixing.tsx:102
 msgid "Autofix applied for {0}"
 msgstr "Corrección automática aplicada para {0}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:138
+#: src/app/ui/hooks/usePrettifyOperations.tsx:191
 msgid "Book Prettified"
 msgstr "Libro formateado"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:204
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:148
 #: src/app/ui/components/blocks/ProjectRow.tsx:187
 #: src/app/ui/components/blocks/ProjectRow.tsx:210
 msgid "Cancel"
@@ -105,36 +67,20 @@ msgstr "Cancelar"
 msgid "Case mismatches first"
 msgstr "Desajustes de mayúsculas primero"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:301
-#~ msgid "Change markers to always visible"
-#~ msgstr "Cambiar marcadores a siempre visibles"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:321
-#~ msgid "Change markers to never visible"
-#~ msgstr "Cambiar marcadores a nunca visibles"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:311
-#~ msgid "Change markers to visible when editing"
-#~ msgstr "Cambiar marcadores a visibles al editar"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:282
-msgid "Chapter label"
-msgstr "Etiqueta de capítulo"
-
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:157
-msgid "Clean Slate"
-msgstr "Empezar de cero"
+#: src/app/ui/hooks/usePrettifyOperations.tsx:127
+msgid "Chapter Prettified"
+msgstr ""
 
 #: src/app/ui/components/import/AutoCompleteInput.tsx:174
 msgid "Clear"
 msgstr "Limpiar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:171
-#: src/app/ui/components/blocks/Toolbar.tsx:249
+#: src/app/ui/components/blocks/Toolbar.tsx:199
+#: src/app/ui/components/blocks/Toolbar.tsx:282
 msgid "Clear Reference Project"
 msgstr "Limpiar proyecto de referencia"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:534
+#: src/app/ui/components/blocks/DiffModal.tsx:551
 msgid "Copy diffs (JSON)"
 msgstr "Copiar diferencias (JSON)"
 
@@ -147,11 +93,11 @@ msgstr "Crear un nuevo proyecto"
 msgid "Current"
 msgstr "Actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:101
+#: src/app/ui/components/blocks/Toolbar.tsx:126
 msgid "Current Book"
 msgstr "Libro actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:98
+#: src/app/ui/components/blocks/Toolbar.tsx:123
 msgid "Current Chapter"
 msgstr "Capítulo actual"
 
@@ -191,10 +137,6 @@ msgstr "Descargar repositorio"
 msgid "Download Started"
 msgstr "Descarga iniciada"
 
-#: src/app/ui/components/import/RepoDownload.tsx:248
-#~ msgid "Downloading repository"
-#~ msgstr "Descargando repositorio"
-
 #: src/app/routes/index.tsx:86
 msgid "Downloading repository..."
 msgstr "Descargando repositorio..."
@@ -203,15 +145,20 @@ msgstr "Descargando repositorio..."
 msgid "Downloading scaffold ZIP..."
 msgstr "Descargando ZIP de andamiaje..."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:160
-#~ msgid "Editor mode"
-#~ msgstr "Modo del editor"
+#: src/app/ui/components/blocks/Toolbar.tsx:51
+#: src/app/ui/components/blocks/Toolbar.tsx:52
+msgid "Edit mode"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:45
+msgid "Edit mode (click for view-only)"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:42
 msgid "Editor Mode"
 msgstr "Modo del editor"
 
-#: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:79
+#: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:91
 msgid "Empty {label}. Type to add text, or press Enter to insert below."
 msgstr "{label} vacío. Escribe para añadir texto o presiona Enter para insertar debajo."
 
@@ -219,18 +166,9 @@ msgstr "{label} vacío. Escribe para añadir texto o presiona Enter para inserta
 msgid "English"
 msgstr "Inglés"
 
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:137
-msgid "Enter Paragraphing Mode"
-msgstr "Entrar en modo de párrafos"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:104
+#: src/app/ui/components/blocks/Toolbar.tsx:129
 msgid "Entire Project"
 msgstr "Proyecto completo"
-
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:45
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:64
-msgid "Error"
-msgstr "Error"
 
 #. placeholder {0}: props.errorMessage || t`Failed to fetch suggestions.`
 #: src/app/ui/components/import/AutoCompleteInput.tsx:187
@@ -261,17 +199,9 @@ msgstr "No se pudo importar el archivo"
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:223
-#~ msgid "Find \"{0}\""
-#~ msgstr "Buscar \"{0}\""
-
-#: src/app/ui/hooks/useLintFixing.tsx:100
+#: src/app/ui/hooks/useLintFixing.tsx:101
 msgid "Fix Applied"
 msgstr "Corrección aplicada"
-
-#: src/app/ui/components/blocks/ProjectSettings/FontPicker.tsx:47
-#~ msgid "Font"
-#~ msgstr "Fuente"
 
 #: src/app/ui/hooks/useFormatMatching.tsx:90
 #: src/app/ui/hooks/useFormatMatching.tsx:174
@@ -286,6 +216,10 @@ msgstr "Agrupar desajustes de mayúsculas"
 #: src/app/routes/create.tsx:11
 msgid "Hello \"/create\"!"
 msgstr "¡Hola \"/create\"!"
+
+#: src/app/ui/components/blocks/DiffModal.tsx:534
+msgid "Hide whitespace-only diffs"
+msgstr ""
 
 #: src/app/routes/index.tsx:152
 #: src/app/routes/index.tsx:189
@@ -309,34 +243,6 @@ msgstr "Importando archivo..."
 msgid "Include USFM markers"
 msgstr "Incluir marcadores USFM"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:249
-#~ msgid "Insert chapter label"
-#~ msgstr "Insertar etiqueta de capítulo"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:243
-#~ msgid "Insert paragraph marker"
-#~ msgstr "Insertar marcador de párrafo"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:255
-#~ msgid "Insert paragraph marker (at margin)"
-#~ msgstr "Insertar marcador de párrafo (en el margen)"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:261
-#~ msgid "Insert poetry marker (one level indent)"
-#~ msgstr "Insertar marcador de poesía (sangría de un nivel)"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:273
-#~ msgid "Insert poetry marker (three level indent)"
-#~ msgstr "Insertar marcador de poesía (sangría de tres niveles)"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:267
-#~ msgid "Insert poetry marker (two level indent)"
-#~ msgstr "Insertar marcador de poesía (sangría de dos niveles)"
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:237
-#~ msgid "Insert verse marker"
-#~ msgstr "Insertar marcador de verso"
-
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:10
 msgid "Intentional Line Break"
 msgstr "Salto de línea intencional"
@@ -345,17 +251,13 @@ msgstr "Salto de línea intencional"
 msgid "Interface Localization"
 msgstr "Localización de la interfaz"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:42
+#: src/app/ui/components/blocks/ReferencePicker.tsx:46
 #: src/app/ui/components/views/ProjectView.tsx:182
 #: src/app/ui/components/views/ProjectView.tsx:215
 #: src/app/ui/hooks/useNavigation.tsx:99
 #: src/app/ui/hooks/useNavigation.tsx:134
 msgid "Introduction"
 msgstr "Introducción"
-
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:154
-msgid "Keep Formatting"
-msgstr "Mantener formato"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:83
 msgid "Light"
@@ -365,36 +267,21 @@ msgstr "Claro"
 msgid "Loading..."
 msgstr "Cargando..."
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:280
-#~ msgid "Lock markers"
-#~ msgstr "Bloquear marcadores"
-
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:12
 msgid "Margin"
 msgstr "Margen"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:268
-msgid "Margin paragraph"
-msgstr "Párrafo de margen"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:284
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:34
 msgid "Marker"
 msgstr "Marcador"
-
-#. placeholder {0}: currentParagraphingQueueIndex + 1
-#. placeholder {1}: paragraphingMarkerQueue.length
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:193
-msgid "Marker {0} / {1}"
-msgstr "Marcador {0} / {1}"
 
 #: src/app/ui/components/blocks/Search.tsx:163
 msgid "Match Case"
 msgstr "Coincidir mayúsculas/minúsculas"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:83
-#: src/app/ui/components/blocks/Toolbar.tsx:88
-#: src/app/ui/components/blocks/Toolbar.tsx:96
+#: src/app/ui/components/blocks/Toolbar.tsx:108
+#: src/app/ui/components/blocks/Toolbar.tsx:113
+#: src/app/ui/components/blocks/Toolbar.tsx:121
 msgid "Match Formatting to Source"
 msgstr "Igualar formato al origen"
 
@@ -411,25 +298,14 @@ msgstr "Formato igualado para {modifiedChaptersCount} capítulos en {0}"
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Formato igualado para el capítulo {currentChapter}"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:219
-#~ msgid "Never"
-#~ msgstr "Nunca"
-
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
 msgstr "Nuevo proyecto"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:200
-#~ msgid "Next: {0}"
-#~ msgstr "Siguiente: {0}"
-
-#: src/app/ui/components/blocks/DiffModal.tsx:549
+#: src/app/ui/components/blocks/DiffModal.tsx:566
+#: src/app/ui/components/blocks/DiffModal.tsx:574
 msgid "No changes detected."
 msgstr "No se detectaron cambios."
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:591
-#~ msgid "No results"
-#~ msgstr "Sin resultados"
 
 #. placeholder {0}: search.searchTerm
 #: src/app/ui/components/blocks/Search.tsx:326
@@ -440,21 +316,19 @@ msgstr "No se encontraron resultados para <0>{0}</0>"
 msgid "Normal — shows only the bible text and verse numbers."
 msgstr "Normal — muestra solo el texto bíblico y los números de versículo."
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:115
-#~ msgid "Normal — shows only the bible text."
-#~ msgstr "Normal — muestra solo el texto bíblico."
+#: src/app/ui/hooks/usePrettifyOperations.tsx:101
+#: src/app/ui/hooks/usePrettifyOperations.tsx:162
+#: src/app/ui/hooks/usePrettifyOperations.tsx:248
+msgid "Nothing changed"
+msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:72
+#: src/app/ui/components/blocks/ReferencePicker.tsx:84
 msgid "Open reference picker"
 msgstr "Abrir selector de referencia"
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:74
 msgid "Or select a ZIP file"
 msgstr "O selecciona un archivo ZIP"
-
-#: src/app/ui/components/import/RepoDownload.tsx:214
-#~ msgid "Organization or User"
-#~ msgstr "Organización o usuario"
 
 #: src/app/ui/components/blocks/DiffModal.tsx:240
 #: src/app/ui/components/blocks/DiffModal.tsx:311
@@ -465,27 +339,13 @@ msgstr "Original"
 msgid "Paragraph"
 msgstr "Párrafo"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:266
-msgid "Paragraph marker"
-msgstr "Marcador de párrafo"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:190
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:120
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:126
-msgid "Paragraphing Mode"
-msgstr "Modo de párrafos"
-
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:81
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:96
 msgid "Plain"
 msgstr "Plano"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:76
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:91
 msgid "Plain — shows the underlying markup; fewer editor helpers."
 msgstr "Plano — muestra el marcado subyacente; menos ayudas del editor."
-
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:46
-msgid "Please select a reference project first."
-msgstr "Primero selecciona un proyecto de referencia."
 
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:16
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:18
@@ -504,46 +364,43 @@ msgstr "Poesía 3"
 msgid "Poetry 4"
 msgstr "Poesía 4"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:274
-msgid "Poetry line"
-msgstr "Línea de poesía"
-
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:139
+#: src/app/ui/hooks/usePrettifyOperations.tsx:192
 msgid "Prettified {0}"
 msgstr "Formateado {0}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:252
+#. placeholder {0}: file.title || file.bookCode
+#: src/app/ui/hooks/usePrettifyOperations.tsx:128
+msgid "Prettified {0} {targetChapterNumber}"
+msgstr ""
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:280
 msgid "Prettified {modifiedBooksCount} book(s)"
 msgstr "Se formatearon {modifiedBooksCount} libro(s)"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:50
-#: src/app/ui/components/blocks/Toolbar.tsx:54
+#: src/app/ui/components/blocks/Toolbar.tsx:77
+#: src/app/ui/components/blocks/Toolbar.tsx:81
 msgid "Prettify Project"
 msgstr "Formatear proyecto"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:153
-#: src/app/ui/hooks/usePrettifyOperations.tsx:169
+#: src/app/ui/hooks/usePrettifyOperations.tsx:201
+#: src/app/ui/hooks/usePrettifyOperations.tsx:213
 msgid "Prettifying Project"
 msgstr "Formateando proyecto"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:170
+#: src/app/ui/hooks/usePrettifyOperations.tsx:214
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Procesando {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:154
+#: src/app/ui/hooks/usePrettifyOperations.tsx:202
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Procesando libro 1 de {totalBooks}..."
 
 #: src/app/routes/scaffold.tsx:56
 msgid "Processing scaffold ZIP..."
 msgstr "Procesando ZIP de andamiaje..."
-
-#: src/app/ui/components/blocks/Toolbar.tsx:90
-#~ msgid "Project & Settings"
-#~ msgstr "Proyecto y ajustes"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
 msgid "Project display name"
@@ -553,21 +410,13 @@ msgstr "Nombre visible del proyecto"
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:251
+#: src/app/ui/hooks/usePrettifyOperations.tsx:279
 msgid "Project Prettified"
 msgstr "Proyecto formateado"
 
 #: src/app/ui/components/blocks/AppDrawer.tsx:32
 msgid "Projects"
 msgstr "Proyectos"
-
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:138
-#~ msgid "Raw"
-#~ msgstr "Crudo"
-
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:133
-#~ msgid "Raw — shows the underlying markup; no editor helpers."
-#~ msgstr "Crudo — muestra el marcado subyacente; sin ayudas del editor."
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:66
 msgid "Regular"
@@ -581,10 +430,6 @@ msgstr "Quitar orden"
 msgid "Replace"
 msgstr "Reemplazar"
 
-#: src/app/ui/components/blocks/Search.tsx:192
-#~ msgid "Replace All"
-#~ msgstr "Reemplazar todo"
-
 #: src/app/ui/components/blocks/Search.tsx:222
 msgid "Replace all in this chapter"
 msgstr "Reemplazar todo en este capítulo"
@@ -597,25 +442,21 @@ msgstr "Reemplazar con:"
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
-#: src/app/ui/components/import/RepoDownload.tsx:228
-#~ msgid "Repository"
-#~ msgstr "Repositorio"
-
-#: src/app/ui/components/blocks/DiffModal.tsx:526
+#: src/app/ui/components/blocks/DiffModal.tsx:543
 msgid "Revert all changes"
 msgstr "Revertir todos los cambios"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:607
+#: src/app/ui/components/blocks/DiffModal.tsx:632
 msgid "Review & Save"
 msgstr "Revisar y guardar"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:588
-#: src/app/ui/components/blocks/DiffModal.tsx:595
-#: src/app/ui/components/blocks/DiffModal.tsx:596
+#: src/app/ui/components/blocks/DiffModal.tsx:613
+#: src/app/ui/components/blocks/DiffModal.tsx:620
+#: src/app/ui/components/blocks/DiffModal.tsx:621
 msgid "Review and save changes"
 msgstr "Revisar y guardar cambios"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:497
+#: src/app/ui/components/blocks/DiffModal.tsx:505
 msgid "Review Changes Before Saving"
 msgstr "Revisar cambios antes de guardar"
 
@@ -623,12 +464,11 @@ msgstr "Revisar cambios antes de guardar"
 msgid "S5 chunk marker"
 msgstr "Marcador de fragmento S5"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:207
 #: src/app/ui/components/blocks/ProjectRow.tsx:177
 msgid "Save"
 msgstr "Guardar"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:517
+#: src/app/ui/components/blocks/DiffModal.tsx:525
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
@@ -657,7 +497,7 @@ msgstr "¡Proyecto de andamiaje creado con éxito! Ahora navegaremos al proyecto
 msgid "Search"
 msgstr "Buscar"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:213
+#: src/app/ui/components/blocks/ReferencePicker.tsx:230
 msgid "Search (e.g. Mat 9, 1Co 1)"
 msgstr "Buscar (p. ej., Mat 9, 1Co 1)"
 
@@ -665,48 +505,28 @@ msgstr "Buscar (p. ej., Mat 9, 1Co 1)"
 msgid "Search by language"
 msgstr "Buscar por idioma"
 
-#: src/app/ui/components/import/RepoDownload.tsx:229
-#~ msgid "Search for a repository..."
-#~ msgstr "Buscar un repositorio..."
-
 #: src/app/ui/components/blocks/ProjectCreator.tsx:49
 msgid "Search for a scripture repository"
 msgstr "Buscar un repositorio de Escrituras"
-
-#: src/app/ui/components/import/RepoDownload.tsx:215
-#~ msgid "Search for an organization or user..."
-#~ msgstr "Buscar una organización o usuario..."
-
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:562
-#~ msgid "Search…"
-#~ msgstr "Buscar…"
 
 #. placeholder {0}: search.searchTerm
 #: src/app/ui/components/blocks/Search.tsx:317
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:280
-msgid "Section heading"
-msgstr "Encabezado de sección"
-
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:30
 msgid "Section Title"
 msgstr "Título de sección"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:39
+#: src/app/ui/components/blocks/ReferencePicker.tsx:43
 msgid "Select"
 msgstr "Seleccionar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:327
-#~ msgid "Select Project"
-#~ msgstr "Seleccionar proyecto"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:155
+#: src/app/ui/components/blocks/Toolbar.tsx:180
 msgid "Select reference project"
 msgstr "Seleccionar proyecto de referencia"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:143
+#: src/app/ui/components/blocks/Toolbar.tsx:168
 msgid "Select Reference Project"
 msgstr "Seleccionar proyecto de referencia"
 
@@ -714,29 +534,12 @@ msgstr "Seleccionar proyecto de referencia"
 msgid "Settings"
 msgstr "Ajustes"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:250
-msgid "Skip"
-msgstr "Omitir"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:240
-msgid "Stamp"
-msgstr "Aplicar"
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:313
-msgid "Start of verse {verseNumber}"
-msgstr "Inicio del versículo {verseNumber}"
-
 #: src/app/routes/index.tsx:103
 #: src/app/routes/index.tsx:142
 #: src/app/routes/index.tsx:179
 #: src/app/routes/scaffold.tsx:74
 msgid "Success"
 msgstr "Éxito"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:169
-#: src/app/ui/components/blocks/Toolbar.tsx:176
-#~ msgid "Switch to source mode"
-#~ msgstr "Cambiar al modo fuente"
 
 #: src/app/ui/components/blocks/DiffModal.tsx:154
 #: src/app/ui/components/blocks/DiffModal.tsx:161
@@ -749,39 +552,31 @@ msgstr "Cambiar a este capítulo"
 msgid "Text size"
 msgstr "Tamaño del texto"
 
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:65
-msgid "The editor is not ready yet. Please try again."
-msgstr "El editor aún no está listo. Inténtalo de nuevo."
+#: src/app/ui/hooks/usePrettifyOperations.tsx:163
+msgid "This book is already formatted"
+msgstr ""
 
-#: src/app/ui/components/blocks/Toolbar.tsx:260
-#~ msgid "Theme"
-#~ msgstr "Tema"
+#: src/app/ui/hooks/usePrettifyOperations.tsx:102
+msgid "This chapter is already formatted"
+msgstr ""
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:302
+#: src/app/ui/components/blocks/ReferencePicker.tsx:323
 #: src/app/ui/components/views/ProjectView.tsx:193
 #: src/app/ui/components/views/ProjectView.tsx:226
 msgid "This is introductory material for this book"
 msgstr "Este es material introductorio para este libro"
 
-#: src/app/ui/components/blocks/ParagraphingToggle.tsx:140
-msgid "This mode allows you to apply formatting from the reference text. Do you want to strip existing formatting (Clean Slate) or keep it?"
-msgstr "Este modo te permite aplicar el formato del texto de referencia. ¿Quieres quitar el formato existente (Empezar de cero) o mantenerlo?"
+#: src/app/ui/hooks/usePrettifyOperations.tsx:249
+msgid "This project is already formatted"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:204
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "Esto eliminará archivos del disco y borrará los metadatos del proyecto de la base de datos local."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:268
-#~ msgid "Toggle dark theme"
-#~ msgstr "Cambiar al tema oscuro"
-
 #: src/app/ui/components/import/LanguageApiImporter.tsx:139
 msgid "Type to search for a language..."
 msgstr "Escribe para buscar un idioma..."
-
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:227
-msgid "Undo"
-msgstr "Deshacer"
 
 #: src/app/ui/components/blocks/DiffModal.tsx:168
 #: src/app/ui/components/blocks/DiffModal.tsx:175
@@ -790,45 +585,42 @@ msgstr "Deshacer"
 msgid "Undo Change"
 msgstr "Deshacer cambio"
 
-#: src/app/domain/editor/plugins/ContextMenuPlugin.tsx:291
-#~ msgid "Unlock markers"
-#~ msgstr "Desbloquear marcadores"
-
-#: src/app/ui/hooks/usePrettifyOperations.tsx:174
-#~ msgid "Updating diff view..."
-#~ msgstr "Actualizando vista de diferencias..."
-
 #: src/app/ui/components/blocks/ProjectCreator.tsx:67
 msgid "Upload a folder"
 msgstr "Subir una carpeta"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:97
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:112
 msgid "USFM"
 msgstr "USFM"
 
-#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:91
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:106
 msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 msgstr "USFM — muestra metadatos especiales (como marcadores de capítulo y verso) y permite editarlos."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:153
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:74
 msgid "USFM Editor"
 msgstr "Editor USFM"
 
-#: src/app/domain/editor/plugins/ParagraphingGhost.tsx:264
-msgid "Verse marker"
-msgstr "Marcador de versículo"
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:81
+msgid "View"
+msgstr ""
+
+#: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:76
+msgid "View — read-only, regular layout with markers hidden."
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:51
+#: src/app/ui/components/blocks/Toolbar.tsx:52
+msgid "View-only mode"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:44
+msgid "View-only mode (click to edit)"
+msgstr ""
 
 #: src/app/routes/scaffold.tsx:154
 msgid "WACS ZIP URL"
 msgstr "URL del ZIP de WACS"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:280
-#~ msgid "Webview zoom"
-#~ msgstr "Zoom de la vista web"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:215
-#~ msgid "When editing"
-#~ msgstr "Al editar"
 
 #: src/app/ui/components/blocks/DiffModal.tsx:223
 msgid "Whitespace Only"

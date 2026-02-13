@@ -1,19 +1,18 @@
 import { Trans } from "@lingui/react/macro";
-import { Paper } from "@mantine/core";
+import { Center, Paper } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { projectParamToParsedFiles } from "@/app/domain/api/projectToParsed.tsx";
 import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
-import { ParagraphingProvider } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 export const Route = createFileRoute("/$project")({
     component: RouteComponent,
     pendingComponent: () => (
-        <div className="h-screen w-screen grid place-items-center">
+        <Center style={{ height: "100vh", width: "100vw" }}>
             <Trans>
-                <Paper>Loading...</Paper>
+                <Paper p="md">Loading...</Paper>
             </Trans>
-        </div>
+        </Center>
     ),
     pendingMs: 100,
     validateSearch: (
@@ -65,9 +64,7 @@ function RouteComponent() {
             queryBookOverride={search.book}
             queryChapterOverride={search.chapter}
         >
-            <ParagraphingProvider>
-                <ProjectView />
-            </ParagraphingProvider>
+            <ProjectView />
         </ProjectProvider>
     );
 }

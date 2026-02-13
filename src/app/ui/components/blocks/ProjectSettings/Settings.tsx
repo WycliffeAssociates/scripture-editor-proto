@@ -76,7 +76,12 @@ function DisplayThemeToggle() {
                         value: "light",
                         label: (
                             <Center
-                                className={`flex gap-2 ${project.appSettings.colorScheme === "light" ? styles.chosenToggle : ""}`}
+                                style={{ display: "flex", gap: "0.5rem" }}
+                                className={
+                                    project.appSettings.colorScheme === "light"
+                                        ? styles.chosenToggle
+                                        : undefined
+                                }
                             >
                                 <Sun size="1.5rem" />
                                 <Box>
@@ -89,7 +94,12 @@ function DisplayThemeToggle() {
                         value: "dark",
                         label: (
                             <Center
-                                className={`flex gap-2 ${project.appSettings.colorScheme === "dark" ? styles.chosenToggle : ""}`}
+                                style={{ display: "flex", gap: "0.5rem" }}
+                                className={
+                                    project.appSettings.colorScheme === "dark"
+                                        ? styles.chosenToggle
+                                        : undefined
+                                }
                             >
                                 <Moon size="1.5rem" />
                                 <Box>

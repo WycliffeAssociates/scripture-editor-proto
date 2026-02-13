@@ -1,6 +1,5 @@
 onlyBuiltDependencies:
   - '@ast-grep/cli'
-  - '@tailwindcss/oxide'
   - electron
   - esbuild
   - lefthook

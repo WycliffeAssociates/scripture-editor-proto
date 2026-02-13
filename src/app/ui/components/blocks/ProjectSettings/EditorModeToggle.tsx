@@ -137,7 +137,13 @@ const ModeLabel = ({
     return (
         <Tooltip label={tooltip} position="top" withArrow>
             <Center
-                className={`flex gap-2 ${isActive ? "text-(--mantine-primary-color-filled) font-bold" : ""}`}
+                style={{
+                    gap: "0.5rem",
+                    color: isActive
+                        ? "var(--mantine-primary-color-filled)"
+                        : undefined,
+                    fontWeight: isActive ? 700 : undefined,
+                }}
             >
                 <Box>{labelText}</Box>
             </Center>

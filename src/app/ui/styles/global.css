@@ -1,14 +1,20 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-
 * {
   transition-behavior: allow-discrete;
 }
 ::highlight(matched-search) {
   background-color: yellow;
 }
+
+::highlight(matched-search-current) {
+  background-color: orange;
+}
+
 [data-mantine-color-scheme="dark"] ::highlight(matched-search) {
   background-color: rgb(109, 109, 6);
+}
+
+[data-mantine-color-scheme="dark"] ::highlight(matched-search-current) {
+  background-color: rgb(190, 120, 20);
 }
 body {
   line-height: 1.7;

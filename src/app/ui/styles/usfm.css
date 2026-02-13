@@ -170,39 +170,16 @@ body:not(.source-mode) {
     border-color: color-mix(in srgb, currentColor 22%, transparent);
   }
 
-  /* View-only: keep the structural spacing but hide the "empty marker" chips */
-  #root[data-editor-read-only="true"][data-editor-mode="regular"]
-    .usfm-para-container[data-is-structural-empty="true"][data-marker]::before {
-    display: none !important;
-  }
-
-  /* Paragraphing highlight (shown on hover/reference) */
-  .paragraphing-reference-highlight {
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: inline !important;
-    background: rgba(255, 214, 102, 0.45) !important;
-    outline: 2px solid rgba(255, 196, 0, 0.85) !important;
-    outline-offset: 2px;
-    border-radius: 2px;
-
-    &:is(
-      span[data-token-type="marker"][data-marker],
-      span[data-token-type="endMarker"][data-marker]
-    ),
-    &:is(
-        span[data-token-type="marker"][data-marker],
-        span[data-token-type="endMarker"][data-marker]
-      )
-      + br {
-      display: inline-block !important;
-    }
-  }
-
   /* Prevent double spacing: keep the paragraph semantics, drop the preceding break */
   br:has(+ .isParaMarker) {
     display: none !important;
   }
+}
+
+/* View-only: keep the structural spacing but hide the "empty marker" chips */
+#root[data-editor-read-only="true"]
+  .usfm-para-container[data-is-structural-empty="true"][data-marker] {
+  display: none;
 }
 
 /* -------------------------------------------
@@ -265,12 +242,6 @@ body:not(.source-mode) {
   [data-search-match="true"] {
     background: rgba(255, 214, 102, 0.25);
     outline: 1px solid rgba(255, 196, 0, 0.5);
-  }
-
-  /* Paragraphing highlight - brighter in dark */
-  .paragraphing-reference-highlight {
-    background: rgba(255, 214, 102, 0.3) !important;
-    outline-color: rgba(255, 196, 0, 0.7) !important;
   }
 }
 

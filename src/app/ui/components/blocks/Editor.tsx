@@ -16,30 +16,32 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
-import { ParagraphingGhost } from "@/app/domain/editor/plugins/ParagraphingGhost.tsx";
-import { ParagraphingPlugin } from "@/app/domain/editor/plugins/ParagraphingPlugin.tsx";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
     const { editorRef, project } = useWorkspaceContext();
 
     return (
-        <div className="p-2" data-mode={project?.appSettings.editorMode}>
+        <div
+            className={shellStyles.editorOuter}
+            data-mode={project?.appSettings.editorMode}
+        >
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js="editor-container"
                     data-testid={TESTING_IDS.mainEditorContainer}
-                    className="editor-container relative"
+                    className={`editor-container ${shellStyles.editorContainer}`}
                 >
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className="focus:outline-none p-1 w-full md:px-2"
+                                className={shellStyles.contentEditable}
                                 aria-label="USFM Editor"
                                 spellCheck={false}
                             />
@@ -84,8 +86,6 @@ export function MainEditor() {
                 <USFMPlugin />
                 <UsfmStylesPlugin />
                 <NodeContextMenuPlugin />
-                <ParagraphingPlugin />
-                <ParagraphingGhost />
                 <StructuralEmptyMarkerChipsPlugin />
                 <UsfmPeekOverlayPlugin />
             </LexicalComposer>

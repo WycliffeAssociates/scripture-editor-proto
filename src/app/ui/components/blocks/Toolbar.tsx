@@ -7,19 +7,20 @@ import {
     FileStack,
     Menu as IconMenu,
     Lock,
+    MoreHorizontal,
     Unlock,
 } from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
-import { ParagraphingToggle } from "@/app/ui/components/blocks/ParagraphingToggle.tsx";
+import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { SearchInput } from "@/app/ui/components/blocks/SearchTrigger.tsx";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { HistoryButtons } from "@/app/ui/components/primitives/HistoryButton.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import * as classes from "@/app/ui/styles/modules/Toolbar.css.ts";
+import * as styles from "@/app/ui/styles/modules/Toolbar.css.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
     const { actions, isProcessing, project } = useWorkspaceContext();
@@ -27,110 +28,118 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
     const isViewOnly = (project.appSettings.editorMode ?? "regular") === "view";
 
     return (
-        <Group className={classes.toolbar}>
-            <ActionIconSimple
-                data-testid={TESTING_IDS.settings.drawerOpenButton}
-                onClick={openDrawer}
-                aria-label="Open project drawer"
-            >
-                <IconMenu size={rem(14)} />
-            </ActionIconSimple>
-
-            {/* Undo / Redo */}
-            <HistoryButtons />
-
-            <Tooltip
-                label={
-                    isViewOnly
-                        ? t`View-only mode (click to edit)`
-                        : t`Edit mode (click for view-only)`
-                }
-                withArrow
-                position="top"
-            >
+        <div className={styles.toolbar}>
+            <Group gap="xs" className={styles.toolbarSection}>
                 <ActionIconSimple
-                    aria-label={isViewOnly ? t`View-only mode` : t`Edit mode`}
-                    title={isViewOnly ? t`View-only mode` : t`Edit mode`}
-                    className={isViewOnly ? classes.viewOnlyActive : undefined}
-                    onClick={() =>
-                        actions.setEditorMode?.(isViewOnly ? "regular" : "view")
-                    }
+                    data-testid={TESTING_IDS.settings.drawerOpenButton}
+                    onClick={openDrawer}
+                    aria-label={t`Open project drawer`}
                 >
-                    {isViewOnly ? (
-                        <Lock size={rem(14)} />
-                    ) : (
-                        <Unlock size={rem(14)} />
-                    )}
+                    <IconMenu size={rem(14)} />
                 </ActionIconSimple>
-            </Tooltip>
 
-            <ReferencePicker />
+                <HistoryButtons />
 
-            {/* Keep reference project selector visible */}
-            <ReferenceProjectList />
-
-            {/* Search and save remain in toolbar */}
-            <SearchInput />
-
-            {/* Match Formatting Menu */}
-            <MatchFormattingMenu />
-
-            <Tooltip label={t`Prettify Project`} withArrow position="top">
-                <ActionIconSimple
-                    data-testid={TESTING_IDS.prettify.projectButton}
-                    onClick={() => actions.prettifyProject()}
-                    aria-label={t`Prettify Project`}
-                    disabled={isProcessing}
-                >
-                    {isProcessing ? (
-                        <Loader size={rem(14)} />
-                    ) : (
-                        <FileStack size={rem(14)} />
-                    )}
-                </ActionIconSimple>
-            </Tooltip>
-
-            <ParagraphingToggle />
-
-            <SaveAndReviewChanges />
-        </Group>
-    );
-}
-
-/* ---------------- Reference Project ---------------- */
-function MatchFormattingMenu() {
-    const { t } = useLingui();
-    const { actions, referenceProject } = useWorkspaceContext();
-
-    if (!referenceProject?.referenceProjectId) return null;
-
-    return (
-        <Menu shadow="md" width={200} position="bottom-end">
-            <Menu.Target>
                 <Tooltip
-                    label={t`Match Formatting to Source`}
+                    label={
+                        isViewOnly
+                            ? t`View-only mode (click to edit)`
+                            : t`Edit mode (click for view-only)`
+                    }
                     withArrow
                     position="top"
                 >
                     <ActionIconSimple
-                        aria-label={t`Match Formatting to Source`}
+                        aria-label={
+                            isViewOnly ? t`View-only mode` : t`Edit mode`
+                        }
+                        title={isViewOnly ? t`View-only mode` : t`Edit mode`}
+                        className={
+                            isViewOnly ? styles.viewOnlyActive : undefined
+                        }
+                        onClick={() =>
+                            actions.setEditorMode?.(
+                                isViewOnly ? "regular" : "view",
+                            )
+                        }
                     >
-                        <AlignLeft size={rem(14)} />
+                        {isViewOnly ? (
+                            <Lock size={rem(14)} />
+                        ) : (
+                            <Unlock size={rem(14)} />
+                        )}
+                    </ActionIconSimple>
+                </Tooltip>
+
+                <ReferencePicker />
+                <ReferenceProjectList />
+            </Group>
+
+            <Group gap="xs" className={styles.toolbarSection}>
+                <SearchInput />
+                <LintPopover wrapperClassNames="relative" />
+                <SaveAndReviewChanges />
+                <SecondaryActionsMenu isProcessing={isProcessing} />
+            </Group>
+        </div>
+    );
+}
+
+function SecondaryActionsMenu(props: { isProcessing: boolean }) {
+    const { t } = useLingui();
+    const { actions, referenceProject } = useWorkspaceContext();
+
+    return (
+        <Menu shadow="md" width={240} position="bottom-end">
+            <Menu.Target>
+                <Tooltip label={t`More actions`} withArrow position="top">
+                    <ActionIconSimple aria-label={t`More actions`}>
+                        <MoreHorizontal size={rem(14)} />
                     </ActionIconSimple>
                 </Tooltip>
             </Menu.Target>
 
             <Menu.Dropdown>
-                <Menu.Label>{t`Match Formatting to Source`}</Menu.Label>
-                <Menu.Item onClick={() => actions.matchFormattingChapter()}>
-                    <Trans>Current Chapter</Trans>
+                <Menu.Label>{t`Tools`}</Menu.Label>
+                <Menu.Item
+                    leftSection={
+                        props.isProcessing ? (
+                            <Loader size={rem(14)} />
+                        ) : (
+                            <FileStack size={rem(14)} />
+                        )
+                    }
+                    data-testid={TESTING_IDS.prettify.projectButton}
+                    onClick={() => actions.prettifyProject()}
+                    disabled={props.isProcessing}
+                >
+                    <Trans>Prettify Project</Trans>
                 </Menu.Item>
-                <Menu.Item onClick={() => actions.matchFormattingBook()}>
-                    <Trans>Current Book</Trans>
-                </Menu.Item>
-                <Menu.Item onClick={() => actions.matchFormattingProject()}>
-                    <Trans>Entire Project</Trans>
-                </Menu.Item>
+
+                {referenceProject?.referenceProjectId && (
+                    <>
+                        <Menu.Divider />
+                        <Menu.Label>{t`Match Formatting`}</Menu.Label>
+                        <Menu.Item
+                            leftSection={<AlignLeft size={rem(14)} />}
+                            onClick={() => actions.matchFormattingChapter()}
+                        >
+                            <Trans>Current Chapter</Trans>
+                        </Menu.Item>
+                        <Menu.Item
+                            leftSection={<AlignLeft size={rem(14)} />}
+                            onClick={() => actions.matchFormattingBook()}
+                        >
+                            <Trans>Current Book</Trans>
+                        </Menu.Item>
+                        <Menu.Item
+                            leftSection={<AlignLeft size={rem(14)} />}
+                            onClick={() => actions.matchFormattingProject()}
+                        >
+                            <Trans>Entire Project</Trans>
+                        </Menu.Item>
+                    </>
+                )}
             </Menu.Dropdown>
         </Menu>
     );
@@ -167,8 +176,10 @@ function ReferenceProjectList() {
     };
 
     const selected =
-        allProjects.find((p) => p.id === referenceProject?.referenceProjectId)
-            ?.name ?? t`Select Reference Project`;
+        allProjects.find(
+            (p) =>
+                p.projectDirectoryPath === referenceProject?.referenceProjectId,
+        )?.name ?? t`Select Reference Project`;
 
     if (isSm) {
         return (
@@ -188,7 +199,7 @@ function ReferenceProjectList() {
                 <Menu.Dropdown
                     data-testid={TESTING_IDS.referenceProjectDropdown}
                     classNames={{
-                        dropdown: "max-h-[50vh] overflow-y-auto",
+                        dropdown: styles.referenceDropdown,
                     }}
                 >
                     <Menu.Item
@@ -197,14 +208,14 @@ function ReferenceProjectList() {
                             setMobileTab("main");
                         }}
                         data-testid={TESTING_IDS.referenceProjectClear}
-                        className={classes.clearReferenceProject}
+                        className={styles.clearReferenceProject}
                     >
                         {t`Clear Reference Project`}
                     </Menu.Item>
                     {Object.entries(groupedProjects).map(
                         ([languageName, projects]) => (
                             <div key={languageName}>
-                                <Menu.Label className={classes.languageLabel}>
+                                <Menu.Label className={styles.languageLabel}>
                                     {languageName}
                                 </Menu.Label>
                                 {projects.map((project) => {
@@ -225,18 +236,18 @@ function ReferenceProjectList() {
                                             color={
                                                 isCurrent ? "gray" : undefined
                                             }
-                                            className={classes.projectItem}
+                                            className={styles.projectItem}
                                         >
                                             <span
                                                 className={
-                                                    classes.projectItemContent
+                                                    styles.projectItemContent
                                                 }
                                             >
                                                 {project.name}
                                                 {isCurrent && (
                                                     <span
                                                         className={
-                                                            classes.currentProjectIndicator
+                                                            styles.currentProjectIndicator
                                                         }
                                                     >
                                                         <Trans>(Current)</Trans>
@@ -264,6 +275,10 @@ function ReferenceProjectList() {
                 <Button
                     variant="light"
                     rightSection={<ChevronDown size={16} />}
+                    className={styles.referenceProjectButton}
+                    classNames={{
+                        label: styles.referenceProjectLabel,
+                    }}
                 >
                     {selected}
                 </Button>
@@ -271,7 +286,7 @@ function ReferenceProjectList() {
             <Menu.Dropdown
                 data-testid={TESTING_IDS.referenceProjectDropdown}
                 classNames={{
-                    dropdown: "max-h-[50vh] overflow-y-auto",
+                    dropdown: styles.referenceDropdown,
                 }}
             >
                 <Menu.Item
@@ -280,14 +295,14 @@ function ReferenceProjectList() {
                         setMobileTab("main");
                     }}
                     data-testid={TESTING_IDS.referenceProjectClear}
-                    className={classes.clearReferenceProject}
+                    className={styles.clearReferenceProject}
                 >
                     <Trans>Clear Reference Project</Trans>
                 </Menu.Item>
                 {Object.entries(groupedProjects).map(
                     ([languageName, projects]) => (
                         <div key={languageName}>
-                            <Menu.Label className={classes.languageLabel}>
+                            <Menu.Label className={styles.languageLabel}>
                                 {languageName}
                             </Menu.Label>
                             {projects.map((project) => {
@@ -306,18 +321,18 @@ function ReferenceProjectList() {
                                         }
                                         disabled={isCurrent}
                                         color={isCurrent ? "gray" : undefined}
-                                        className={classes.projectItem}
+                                        className={styles.projectItem}
                                     >
                                         <span
                                             className={
-                                                classes.projectItemContent
+                                                styles.projectItemContent
                                             }
                                         >
                                             {project.name}
                                             {isCurrent && (
                                                 <span
                                                     className={
-                                                        classes.currentProjectIndicator
+                                                        styles.currentProjectIndicator
                                                     }
                                                 >
                                                     <Trans>(Current)</Trans>

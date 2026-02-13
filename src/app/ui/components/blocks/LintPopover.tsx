@@ -6,7 +6,10 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
     lintErrorDetails,
     lintErrorItem,
+    lintErrorList,
+    lintErrorListItem,
     lintPopoverButton,
+    lintPopoverDropdown,
 } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
@@ -48,9 +51,9 @@ export function LintPopover({ wrapperClassNames }: Props) {
                     </Button>
                 </Popover.Target>
 
-                <Popover.Dropdown className="max-h-64 overflow-y-auto">
+                <Popover.Dropdown className={lintPopoverDropdown}>
                     <ul
-                        className="space-y-2 text-sm flex flex-col items-start"
+                        className={lintErrorList}
                         data-testid={TESTING_IDS.lintPopover.container}
                     >
                         {lint.messages.map((msg) => (
@@ -111,7 +114,8 @@ function LintMessageItem({
         const sidParsed = parseSid(msg.sid);
         if (!sidParsed) return;
         const currentBook = project.pickedFile.bookCode;
-        const currentChapter = project.pickedChapter.chapNumber;
+        const currentChapter =
+            project.pickedChapter?.chapNumber ?? project.currentChapter;
         if (
             sidParsed.book === currentBook &&
             sidParsed.chapter === currentChapter
@@ -126,7 +130,7 @@ function LintMessageItem({
     };
 
     return (
-        <li className="w-full">
+        <li className={lintErrorListItem}>
             <Box
                 className={lintErrorItem}
                 data-testid={TESTING_IDS.lintPopover.errorItem}

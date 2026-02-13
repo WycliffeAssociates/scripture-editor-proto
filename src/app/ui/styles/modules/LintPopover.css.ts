@@ -48,3 +48,23 @@ export const lintErrorDetails = style({
     gap: "var(--mantine-spacing-xs)",
     textAlign: "start",
 });
+
+export const lintPopoverDropdown = style({
+    maxHeight: "16rem",
+    overflowY: "auto",
+});
+
+export const lintErrorList = style({
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+    alignItems: "stretch",
+    fontSize: "var(--mantine-font-size-sm)",
+});
+
+export const lintErrorListItem = style({
+    width: "100%",
+});

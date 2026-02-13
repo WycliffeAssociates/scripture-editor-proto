@@ -1,13 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+    Accordion,
     ActionIcon,
     Button,
     Checkbox,
     Drawer,
-    darken,
     Group,
     Loader,
-    type MantineTheme,
     Stack,
     Text,
     TextInput,
@@ -22,6 +21,7 @@ import {
     ChevronRight,
     Replace,
     Search,
+    SlidersHorizontal,
     X,
 } from "lucide-react";
 import { useRef } from "react";
@@ -34,7 +34,7 @@ import searchClassNames from "@/app/ui/styles/modules/Search.module.css.ts";
 
 export function SearchPanel() {
     const { search } = useWorkspaceContext();
-    const { isSm, theme, isDarkTheme } = useWorkspaceMediaQuery();
+    const { isSm, isDarkTheme } = useWorkspaceMediaQuery();
 
     if (!search.isSearchPaneOpen) return null;
 
@@ -54,12 +54,7 @@ export function SearchPanel() {
             >
                 <div className={searchClassNames.drawerContent}>
                     <SearchControls search={search} />
-                    <SearchResults
-                        search={search}
-                        theme={theme}
-                        isDark={isDarkTheme}
-                        isMobile={isSm}
-                    />
+                    <SearchResults search={search} isMobile={isSm} />
                 </div>
             </Drawer>
         );
@@ -67,13 +62,8 @@ export function SearchPanel() {
 
     return (
         <aside
-            style={{
-                backgroundColor: isDarkTheme
-                    ? darken(theme.colors.surfaceDark[0], 0.2)
-                    : theme.colors.primary[0],
-            }}
             className={searchClassNames.searchPanel}
-            data-dark={isDarkTheme}
+            data-dark={isDarkTheme ? "true" : undefined}
         >
             <div className={searchClassNames.header}>
                 <Text fw={700} size="xl">
@@ -89,12 +79,7 @@ export function SearchPanel() {
             </div>
 
             <SearchControls search={search} />
-            <SearchResults
-                search={search}
-                theme={theme}
-                isDark={isDarkTheme}
-                isMobile={false}
-            />
+            <SearchResults search={search} isMobile={false} />
         </aside>
     );
 }
@@ -156,72 +141,6 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                         )
                     }
                 />
-
-                <Group gap="md">
-                    <Checkbox
-                        data-testid={TESTING_IDS.matchCaseCheckbox}
-                        label={t`Match Case`}
-                        checked={search.matchCase}
-                        onChange={(e) =>
-                            search.setMatchCase(e.currentTarget.checked)
-                        }
-                        size="xs"
-                    />
-                    <Checkbox
-                        data-testid={TESTING_IDS.matchWholeWordCheckbox}
-                        label={t`Whole Word`}
-                        checked={search.matchWholeWord}
-                        onChange={(e) =>
-                            search.setMatchWholeWord(e.currentTarget.checked)
-                        }
-                        size="xs"
-                    />
-                    <Checkbox
-                        data-testid={TESTING_IDS.includeUSFMMarkersCheckbox}
-                        label={t`Include USFM markers`}
-                        checked={search.searchUSFM}
-                        onChange={(e) =>
-                            search.setSearchUSFM(e.currentTarget.checked)
-                        }
-                        size="xs"
-                    />
-                </Group>
-            </div>
-
-            <div className={searchClassNames.replaceSection}>
-                <Text>
-                    <Trans>Replace With:</Trans>
-                </Text>
-                <TextInput
-                    data-testid={TESTING_IDS.replaceInput}
-                    size="sm"
-                    value={search.replaceTerm}
-                    onChange={(e) =>
-                        search.setReplaceTerm(e.currentTarget.value)
-                    }
-                    placeholder={t`Replace with...`}
-                    leftSection={<Replace size={14} />}
-                />
-                <Group grow>
-                    <Button
-                        data-testid={TESTING_IDS.replaceButton}
-                        size="xs"
-                        variant="default"
-                        onClick={search.replaceCurrentMatch}
-                        disabled={!search.totalMatches}
-                    >
-                        {t`Replace`}
-                    </Button>
-                    <Button
-                        data-testid={TESTING_IDS.replaceAllButton}
-                        size="xs"
-                        variant="default"
-                        onClick={search.replaceAllInChapter}
-                        disabled={!search.totalMatches}
-                    >
-                        {t`Replace all in this chapter`}
-                    </Button>
-                </Group>
             </div>
 
             <div className={searchClassNames.stats}>
@@ -275,19 +194,111 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                     </span>
                 </Stack>
             </div>
+
+            <Accordion
+                className={searchClassNames.optionsAccordion}
+                variant="filled"
+                radius="md"
+                chevronPosition="right"
+            >
+                <Accordion.Item value="options">
+                    <Accordion.Control icon={<SlidersHorizontal size={16} />}>
+                        <Trans>Options</Trans>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                        <Stack gap="sm">
+                            <Group gap="md">
+                                <Checkbox
+                                    data-testid={TESTING_IDS.matchCaseCheckbox}
+                                    label={t`Match Case`}
+                                    checked={search.matchCase}
+                                    onChange={(e) =>
+                                        search.setMatchCase(
+                                            e.currentTarget.checked,
+                                        )
+                                    }
+                                    size="xs"
+                                />
+                                <Checkbox
+                                    data-testid={
+                                        TESTING_IDS.matchWholeWordCheckbox
+                                    }
+                                    label={t`Whole Word`}
+                                    checked={search.matchWholeWord}
+                                    onChange={(e) =>
+                                        search.setMatchWholeWord(
+                                            e.currentTarget.checked,
+                                        )
+                                    }
+                                    size="xs"
+                                />
+                                <Checkbox
+                                    data-testid={
+                                        TESTING_IDS.includeUSFMMarkersCheckbox
+                                    }
+                                    label={t`Include USFM markers`}
+                                    checked={search.searchUSFM}
+                                    onChange={(e) =>
+                                        search.setSearchUSFM(
+                                            e.currentTarget.checked,
+                                        )
+                                    }
+                                    size="xs"
+                                />
+                            </Group>
+
+                            <div className={searchClassNames.replaceSection}>
+                                <Text fw={600} size="sm">
+                                    <Trans>Replace</Trans>
+                                </Text>
+                                <TextInput
+                                    data-testid={TESTING_IDS.replaceInput}
+                                    size="sm"
+                                    value={search.replaceTerm}
+                                    onChange={(e) =>
+                                        search.setReplaceTerm(
+                                            e.currentTarget.value,
+                                        )
+                                    }
+                                    placeholder={t`Replace with...`}
+                                    leftSection={<Replace size={14} />}
+                                />
+                                <Group grow>
+                                    <Button
+                                        data-testid={TESTING_IDS.replaceButton}
+                                        size="xs"
+                                        variant="default"
+                                        onClick={search.replaceCurrentMatch}
+                                        disabled={!search.totalMatches}
+                                    >
+                                        {t`Replace`}
+                                    </Button>
+                                    <Button
+                                        data-testid={
+                                            TESTING_IDS.replaceAllButton
+                                        }
+                                        size="xs"
+                                        variant="default"
+                                        onClick={search.replaceAllInChapter}
+                                        disabled={!search.totalMatches}
+                                    >
+                                        {t`Replace all in this chapter`}
+                                    </Button>
+                                </Group>
+                            </div>
+                        </Stack>
+                    </Accordion.Panel>
+                </Accordion.Item>
+            </Accordion>
         </div>
     );
 }
 
 function SearchResults({
     search,
-    theme,
-    isDark,
     isMobile,
 }: {
     search: UseSearchReturn;
-    theme: MantineTheme;
-    isDark: boolean;
     isMobile: boolean;
 }) {
     const parentRef = useRef<HTMLDivElement>(null);
@@ -329,32 +340,6 @@ function SearchResults({
             </div>
         );
     }
-
-    const getStyles = (isActive: boolean) => {
-        const base = isDark
-            ? {
-                  bg: isActive ? theme.colors.primary[8] : theme.colors.dark[8],
-                  text: theme.colors.textDark[0],
-                  hoverBg: isActive
-                      ? theme.colors.primary[8]
-                      : darken(theme.colors.primary[8], 0.3),
-              }
-            : {
-                  bg: isActive ? theme.colors.primary[8] : "",
-                  text: isActive
-                      ? theme.colors.textDark[0]
-                      : theme.colors.textLight[0],
-                  hoverBg: isActive
-                      ? theme.colors.primary[8]
-                      : darken(theme.colors.primary[0], 0.1),
-              };
-
-        return {
-            "--data-bg": base.bg,
-            "--data-text": base.text,
-            "--data-hover-bg": base.hoverBg,
-        };
-    };
 
     return (
         <div
@@ -400,7 +385,6 @@ function SearchResults({
                                 }
                             }}
                             style={{
-                                ...getStyles(isActive),
                                 position: "absolute",
                                 top: 0,
                                 left: 0,
@@ -420,17 +404,7 @@ function SearchResults({
                                 alignItems: "stretch",
                                 textAlign: "left",
                             }}
-                            data-active={isActive}
-                            data-bg={
-                                isDark
-                                    ? theme.colors.primary[8]
-                                    : theme.colors.gray[1]
-                            }
-                            data-text={
-                                isDark
-                                    ? theme.colors.gray[1]
-                                    : theme.colors.gray[700]
-                            }
+                            data-active={isActive ? "true" : "false"}
                             className={searchClassNames.searchResult}
                         >
                             <span

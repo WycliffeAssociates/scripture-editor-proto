@@ -1,14 +1,211 @@
-import { Trans } from "@lingui/react/macro";
-import { createFileRoute } from "@tanstack/react-router";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { Button, Container, Group, Stack, Title } from "@mantine/core";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import {
+    handleDownload,
+    handleOpenDirectory,
+    handleOpenFile,
+} from "@/app/domain/api/import.tsx";
+import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
+import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
+import {
+    ShowErrorNotification,
+    ShowImportStartedNotification,
+    ShowNotificationSuccess,
+} from "@/app/ui/components/primitives/Notifications.tsx";
+import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
+import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 
 export const Route = createFileRoute("/create")({
-    component: RouteComponent,
+    component: CreateProject,
 });
 
-function RouteComponent() {
+function CreateProject() {
+    const { t } = useLingui();
+    const router = useRouter();
+    const invalidateRouterAndReload = () => router.invalidate();
+
+    const {
+        settingsManager,
+        directoryProvider,
+        projectRepository,
+        md5Service,
+    } = router.options.context;
+
+    const [currentLanguage, setCurrentLanguage] = useState<string | null>(
+        settingsManager.get("appLanguage"),
+    );
+    const [isImporting, setIsImporting] = useState(false);
+    const projectImporter = new ProjectImporter(directoryProvider);
+
+    const onDownload = async (url: string) => {
+        try {
+            setIsImporting(true);
+            ShowImportStartedNotification({
+                notification: {
+                    message: t`Downloading repository...`,
+                    title: t`Download Started`,
+                },
+            });
+
+            await handleDownload(
+                {
+                    importer: projectImporter,
+                    projectRepository,
+                    md5Service,
+                    invalidateRouterAndReload,
+                },
+                url,
+            );
+            ShowNotificationSuccess({
+                notification: {
+                    message: t`Project downloaded successfully!`,
+                    title: t`Success`,
+                },
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Failed to download project`,
+                    title: t`Download Error`,
+                },
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    const onOpenDirectory = async (
+        event: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        try {
+            setIsImporting(true);
+            ShowImportStartedNotification({
+                notification: {
+                    message: t`Importing directory...`,
+                    title: t`Import Started`,
+                },
+            });
+
+            await handleOpenDirectory(event, {
+                directoryProvider,
+                projectImporter,
+                projectRepository,
+                md5Service,
+                invalidateRouterAndReload,
+            });
+            ShowNotificationSuccess({
+                notification: {
+                    message: t`Directory imported successfully!`,
+                    title: t`Success`,
+                },
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Failed to import directory`,
+                    title: t`Import Error`,
+                },
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setIsImporting(true);
+            ShowImportStartedNotification({
+                notification: {
+                    message: t`Importing file...`,
+                    title: t`Import Started`,
+                },
+            });
+
+            await handleOpenFile(event, {
+                directoryProvider,
+                projectImporter,
+                projectRepository,
+                md5Service,
+                invalidateRouterAndReload,
+            });
+            ShowNotificationSuccess({
+                notification: {
+                    message: t`File imported successfully!`,
+                    title: t`Success`,
+                },
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Failed to import file`,
+                    title: t`Import Error`,
+                },
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
     return (
-        <div>
-            <Trans>Hello "/create"!</Trans>
-        </div>
+        <Container size="xl" className={styles.pageContainer}>
+            <Stack gap="lg">
+                <Group justify="space-between" align="flex-start" gap="xl">
+                    <Group
+                        gap="xl"
+                        align="center"
+                        className={styles.titleBlock}
+                    >
+                        <Button
+                            component={Link}
+                            to="/"
+                            variant="subtle"
+                            leftSection={<ArrowLeft size={16} />}
+                            aria-label={t`Back to projects`}
+                            className={styles.backButton}
+                        >
+                            <Trans>Projects</Trans>
+                        </Button>
+                        <Title order={1} className={styles.pageTitle}>
+                            <Trans>New Project</Trans>
+                        </Title>
+                    </Group>
+
+                    <div className={styles.localizationBlock}>
+                        <LanguageSelector
+                            onChange={async (val) => {
+                                if (val) {
+                                    settingsManager.set("appLanguage", val);
+                                    await loadLocale(val);
+                                    settingsManager.applySettings?.();
+                                    setCurrentLanguage(val);
+                                }
+                            }}
+                            value={currentLanguage}
+                        />
+                    </div>
+                </Group>
+
+                <ProjectCreator
+                    onDownload={onDownload}
+                    onOpenDirectory={onOpenDirectory}
+                    onOpenFile={onOpenFile}
+                    isDownloadDisabled={isImporting}
+                    isImporting={isImporting}
+                />
+            </Stack>
+        </Container>
     );
 }

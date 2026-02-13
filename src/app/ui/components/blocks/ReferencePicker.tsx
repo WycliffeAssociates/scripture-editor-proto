@@ -21,6 +21,13 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 // Styles
 import * as classes from "@/app/ui/styles/modules/ReferencePicker.css.ts";
 
+type ReferencePickerFile = {
+    title: string;
+    bookCode: string;
+    chapters: Array<{ chapNumber: number }>;
+    _chaptersSorted: Array<{ chapNumber: number }>;
+};
+
 export function ReferencePicker() {
     const { t } = useLingui();
     const [search, setSearch] = useState("");
@@ -46,7 +53,7 @@ export function ReferencePicker() {
             ? `${currentBook} ${currentChapter === 0 ? t`Introduction` : currentChapter}`
             : currentBook;
 
-    const filesWithSearchMeta = useMemo(() => {
+    const filesWithSearchMeta = useMemo<ReferencePickerFile[]>(() => {
         return workingFiles.map((f) => ({
             ...f,
             _titleLower: f.title?.toLocaleLowerCase() ?? "",
@@ -138,11 +145,7 @@ function ReferencePickerDropdown({
 }: {
     search: string;
     setSearch: (value: string) => void;
-    uniqueFilesStartsWith: Array<{
-        title: string;
-        bookCode: string;
-        chapters: Array<{ chapNumber: number }>;
-    }>;
+    uniqueFilesStartsWith: ReferencePickerFile[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     actions: {
@@ -245,12 +248,7 @@ function BookAccordionItem({
     setOpen,
     isOpen,
 }: {
-    file: {
-        title: string;
-        bookCode: string;
-        chapters: Array<{ chapNumber: number }>;
-        _chaptersSorted: Array<{ chapNumber: number }>;
-    };
+    file: ReferencePickerFile;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     actions: {

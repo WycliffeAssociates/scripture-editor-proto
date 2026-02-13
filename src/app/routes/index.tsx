@@ -1,4 +1,5 @@
-import { Trans, useLingui } from "@lingui/react/macro";
+import { Trans } from "@lingui/react/macro";
+import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
 import {
     createFileRoute,
     useLoaderData,
@@ -6,20 +7,8 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
-import {
-    handleDownload,
-    handleOpenDirectory,
-    handleOpenFile,
-} from "@/app/domain/api/import.tsx";
-import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
 import ProjectRow from "@/app/ui/components/blocks/ProjectRow.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
-import {
-    ShowErrorNotification,
-    ShowImportStartedNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
-import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 import { loadLocale } from "../ui/i18n/loadLocale.tsx";
 
@@ -33,12 +22,6 @@ export const Route = createFileRoute("/")({
         </div>
     ),
     pendingMs: 100,
-    loader: async ({ context }) => {
-        console.time("total time");
-        // start here would prefer to wrap into a single abstraction
-        const { directoryProvider } = context;
-        return { directoryProvider: directoryProvider };
-    },
 });
 
 declare module "react" {
@@ -49,21 +32,16 @@ declare module "react" {
 
 // ls the app data dir and show as projects
 function Index() {
-    const { t } = useLingui();
-    const { directoryProvider } = Route.useLoaderData();
     const router = useRouter();
     const invalidateRouterAndReload = () => router.invalidate();
 
     const { projects } = useLoaderData({ from: "__root__" });
 
     // Pull context values early so nested components can reference them.
-    const { settingsManager, projectRepository, md5Service } =
-        useRouter().options.context;
+    const { settingsManager } = useRouter().options.context;
     const [currentLanguage, setCurrentLanguage] = useState<string | null>(
         settingsManager.get("appLanguage"),
     );
-    const [isImporting, setIsImporting] = useState(false);
-    const projectImporter = new ProjectImporter(directoryProvider);
 
     const groupedIntoLangName = projects.reduce(
         (acc, project) => {
@@ -78,184 +56,102 @@ function Index() {
         {} as Record<string, ListedProject[]>,
     );
 
-    const onDownload = async (url: string) => {
-        try {
-            setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Downloading repository...`,
-                    title: t`Download Started`,
-                },
-            });
-
-            await handleDownload(
-                {
-                    importer: projectImporter,
-                    projectRepository,
-                    md5Service,
-                    invalidateRouterAndReload,
-                },
-                url,
-            );
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`Project downloaded successfully!`,
-                    title: t`Success`,
-                },
-            });
-        } catch (error) {
-            ShowErrorNotification({
-                notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to download project`,
-                    title: t`Download Error`,
-                },
-            });
-        } finally {
-            setIsImporting(false);
-        }
-    };
-    const onOpenDirectory = async (
-        event: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-        try {
-            setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Importing directory...`,
-                    title: t`Import Started`,
-                },
-            });
-
-            await handleOpenDirectory(event, {
-                directoryProvider,
-                projectImporter,
-                projectRepository,
-                md5Service,
-                invalidateRouterAndReload,
-            });
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`Directory imported successfully!`,
-                    title: t`Success`,
-                },
-            });
-        } catch (error) {
-            ShowErrorNotification({
-                notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to import directory`,
-                    title: t`Import Error`,
-                },
-            });
-        } finally {
-            setIsImporting(false);
-        }
-    };
-    const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        try {
-            setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Importing file...`,
-                    title: t`Import Started`,
-                },
-            });
-
-            await handleOpenFile(event, {
-                directoryProvider,
-                projectImporter,
-                projectRepository,
-                md5Service,
-                invalidateRouterAndReload,
-            });
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`File imported successfully!`,
-                    title: t`Success`,
-                },
-            });
-        } catch (error) {
-            ShowErrorNotification({
-                notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to import file`,
-                    title: t`Import Error`,
-                },
-            });
-        } finally {
-            setIsImporting(false);
-        }
-    };
-
     return (
-        <div className="p-8">
-            <div className="flex items-center justify-between mb-3">
-                <h1 className="text-2xl font-bold">
-                    <Trans>Current Projects</Trans>
-                </h1>
-                <div className="ml-4">
-                    <LanguageSelector
-                        onChange={async (val) => {
-                            if (val) {
-                                settingsManager.set("appLanguage", val);
-                                await loadLocale(val);
-                                settingsManager.applySettings?.();
-                                setCurrentLanguage(val);
-                            }
-                        }}
-                        value={currentLanguage}
-                    />
-                </div>
-            </div>
-            <ul className="flex flex-col gap-3">
-                {Object.entries(groupedIntoLangName).map(
-                    ([langName, langProjects]) => (
-                        <li key={langName}>
-                            <h2
-                                data-testid={TEST_ID_GENERATORS.projectListGroup(
-                                    langName,
-                                )}
-                                className="text-xl font-semibold"
-                            >
-                                {langName}
-                            </h2>
-                            <ul
-                                className="ml-4"
-                                data-testid={TESTING_IDS.project.list}
-                            >
-                                {langProjects.map((project) => (
-                                    <li key={project.projectDirectoryPath}>
-                                        <ProjectRow
-                                            project={project}
-                                            invalidateRouterAndReload={
-                                                invalidateRouterAndReload
-                                            }
-                                            settingsManager={settingsManager}
-                                        />
-                                    </li>
-                                ))}
-                            </ul>
-                        </li>
-                    ),
-                )}
-            </ul>
+        <Container size="lg" p="xl">
+            <Stack gap="lg">
+                <Group justify="space-between" align="flex-start" gap="md">
+                    <div>
+                        <Title order={1}>
+                            <Trans>Projects</Trans>
+                        </Title>
+                        <Text c="dimmed">
+                            <Trans>
+                                Open an existing project, or create a new one.
+                            </Trans>
+                        </Text>
+                    </div>
 
-            <div className="mt-8">
-                <ProjectCreator
-                    onDownload={onDownload}
-                    onOpenDirectory={onOpenDirectory}
-                    onOpenFile={onOpenFile}
-                    isDownloadDisabled={isImporting}
-                    isImporting={isImporting}
-                />
-            </div>
-        </div>
+                    <Group gap="md">
+                        <Button
+                            onClick={() => router.navigate({ to: "/create" })}
+                            data-testid={
+                                TESTING_IDS.onboarding.newProjectButton
+                            }
+                        >
+                            <Trans>New Project</Trans>
+                        </Button>
+
+                        <LanguageSelector
+                            onChange={async (val) => {
+                                if (val) {
+                                    settingsManager.set("appLanguage", val);
+                                    await loadLocale(val);
+                                    settingsManager.applySettings?.();
+                                    setCurrentLanguage(val);
+                                }
+                            }}
+                            value={currentLanguage}
+                        />
+                    </Group>
+                </Group>
+
+                {projects.length === 0 ? (
+                    <Stack gap="sm" maw={560}>
+                        <Title order={2}>
+                            <Trans>No projects yet</Trans>
+                        </Title>
+                        <Text c="dimmed">
+                            <Trans>
+                                Create a project by searching for a repository,
+                                uploading a folder, or selecting a ZIP file.
+                            </Trans>
+                        </Text>
+                        <Button
+                            onClick={() => router.navigate({ to: "/create" })}
+                            w="max-content"
+                        >
+                            <Trans>Create your first project</Trans>
+                        </Button>
+                    </Stack>
+                ) : (
+                    <Stack gap="lg">
+                        {Object.entries(groupedIntoLangName).map(
+                            ([langName, langProjects]) => (
+                                <Stack gap="xs" key={langName}>
+                                    <Title
+                                        order={3}
+                                        data-testid={TEST_ID_GENERATORS.projectListGroup(
+                                            langName,
+                                        )}
+                                    >
+                                        {langName}
+                                    </Title>
+
+                                    <Stack
+                                        gap="xs"
+                                        data-testid={TESTING_IDS.project.list}
+                                    >
+                                        {langProjects.map((project) => (
+                                            <ProjectRow
+                                                key={
+                                                    project.projectDirectoryPath
+                                                }
+                                                project={project}
+                                                invalidateRouterAndReload={
+                                                    invalidateRouterAndReload
+                                                }
+                                                settingsManager={
+                                                    settingsManager
+                                                }
+                                            />
+                                        ))}
+                                    </Stack>
+                                </Stack>
+                            ),
+                        )}
+                    </Stack>
+                )}
+            </Stack>
+        </Container>
     );
 }

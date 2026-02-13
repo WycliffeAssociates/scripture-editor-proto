@@ -13,7 +13,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import { useParagraphing } from "@/app/ui/contexts/ParagraphingContext.tsx";
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
@@ -55,20 +54,14 @@ export function NodeContextMenuPlugin() {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [context, setContext] = useState<EditorContext | null>(null);
     const { isXs, isSm } = useWorkspaceMediaQuery();
-    const { isParagraphingActive } = useParagraphing();
     const { getContext } = useEditorContext();
     const clickOutsideRef = useClickOutside(() => setOpened(false));
 
     const openedRef = useRef(opened);
-    const paragraphingActiveRef = useRef(isParagraphingActive);
 
     useEffect(() => {
         openedRef.current = opened;
     }, [opened]);
-
-    useEffect(() => {
-        paragraphingActiveRef.current = isParagraphingActive;
-    }, [isParagraphingActive]);
 
     const handleOpen = useCallback(
         (x: number, y: number) => {
@@ -155,7 +148,6 @@ export function NodeContextMenuPlugin() {
                 const isTab = event.key === "Tab";
                 if (!isTab) return false;
                 if (event.shiftKey) return false;
-                if (paragraphingActiveRef.current) return false;
 
                 event.preventDefault();
                 editor.getEditorState().read(() => {

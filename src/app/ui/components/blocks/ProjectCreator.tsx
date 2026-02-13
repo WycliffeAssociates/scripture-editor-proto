@@ -1,12 +1,10 @@
-import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
+import { FileArchive, FolderOpen } from "lucide-react";
 import type React from "react";
+import { useRef } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import LanguageApiImporter from "@/app/ui/components/import/LanguageApiImporter.tsx";
-import {
-    DirImporter,
-    FileImporter,
-} from "@/app/ui/components/primitives/FileDirImporter.tsx";
-import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
+import * as styles from "@/app/ui/styles/modules/newProjectSearch.css.ts";
 
 type ProjectCreatorProps = {
     onDownload: (url: string) => void;
@@ -36,47 +34,71 @@ export default function ProjectCreator({
     isImporting = false,
     className = "",
 }: ProjectCreatorProps) {
+    const dirInputRef = useRef<HTMLInputElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+
     return (
-        <section className={`${styles.container} ${className}`}>
-            <h2 className={styles.title}>
-                <Trans>Create a new project</Trans>
-            </h2>
+        <section className={`${className}`}>
+            <LanguageApiImporter
+                onDownload={onDownload}
+                isDownloadDisabled={isDownloadDisabled || isImporting}
+                headerActions={
+                    <>
+                        <button
+                            type="button"
+                            className={styles.topActionButton}
+                            onClick={() => dirInputRef.current?.click()}
+                            disabled={isImporting}
+                        >
+                            <FolderOpen size={18} />
+                            <Trans>Folder</Trans>
+                        </button>
 
-            <div className={styles.layout}>
-                {/* Left column: remote repo importer */}
-                <div className={styles.leftCol}>
-                    <h3 className={styles.leftHeading}>
-                        <Trans>Search for a scripture repository</Trans>
-                    </h3>
+                        <button
+                            type="button"
+                            className={styles.topActionButton}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isImporting}
+                        >
+                            <FileArchive size={18} />
+                            <Trans>ZIP</Trans>
+                        </button>
 
-                    <div className={styles.repoContainer}>
-                        <LanguageApiImporter
-                            onDownload={onDownload}
-                            isDownloadDisabled={
-                                isDownloadDisabled || isImporting
-                            }
-                        />
-                    </div>
-                </div>
-
-                {/* Right column: local upload controls */}
-                <aside className={styles.rightCol}>
-                    <div className={styles.compactControls}>
-                        <DirImporter
-                            onOpenDirectory={onOpenDirectory}
-                            label={t`Upload a folder`}
+                        <input
+                            data-testid={TESTING_IDS.import.dirImporter}
+                            ref={dirInputRef}
+                            type="file"
+                            webkitdirectory="true"
+                            multiple
+                            className={styles.hiddenInput}
+                            style={{
+                                position: "absolute",
+                                opacity: 0,
+                                width: 1,
+                                height: 1,
+                            }}
+                            onChange={onOpenDirectory}
                             disabled={isImporting}
                         />
 
-                        <FileImporter
-                            onOpenFile={onOpenFile}
+                        <input
+                            data-testid={TESTING_IDS.import.importer}
+                            ref={fileInputRef}
+                            type="file"
                             accept=".zip"
-                            label={t`Or select a ZIP file`}
+                            className={styles.hiddenInput}
+                            style={{
+                                position: "absolute",
+                                opacity: 0,
+                                width: 1,
+                                height: 1,
+                            }}
+                            onChange={onOpenFile}
                             disabled={isImporting}
                         />
-                    </div>
-                </aside>
-            </div>
+                    </>
+                }
+            />
         </section>
     );
 }

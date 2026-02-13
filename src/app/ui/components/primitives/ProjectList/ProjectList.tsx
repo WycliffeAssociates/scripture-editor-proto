@@ -214,7 +214,7 @@ export function ProjectList() {
             </Stack>
 
             <Center mt="xs">
-                <Link to="/" className={classnames.newProject}>
+                <Link to="/create" className={classnames.newProject}>
                     <Group
                         gap="xs"
                         align="center"

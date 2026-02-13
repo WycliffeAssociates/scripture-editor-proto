@@ -14,6 +14,7 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { deleteProjectByPath, upsertProject } from "@/app/db/api.ts";
 import { Route as projectRoute } from "@/app/routes/$project.tsx";
+import * as styles from "@/app/ui/styles/modules/ProjectRow.css.ts";
 import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 
 type Props = {
@@ -113,7 +114,7 @@ export default function ProjectRow({
     }
     return (
         <>
-            <div className={`flex items-center gap-2 py-1 ${className}`}>
+            <div className={`${styles.row} ${className}`}>
                 {!isEditing ? (
                     <>
                         <Link
@@ -125,7 +126,7 @@ export default function ProjectRow({
                                         project.projectDirectoryPath,
                                 });
                             }}
-                            className="block flex-1 p-1 rounded-md hover:bg-(--mantine-color-gray-0)"
+                            className={styles.projectLink}
                             aria-label={`Open project ${project.name}`}
                             data-testid={TESTING_IDS.project.rowLink}
                         >
@@ -158,15 +159,16 @@ export default function ProjectRow({
                         </Group>
                     </>
                 ) : (
-                    <Group className="w-full" gap="sm">
-                        <TextInput
-                            className="flex-1"
-                            data-testid={TESTING_IDS.project.nameInput}
-                            value={name}
-                            onChange={(e) => setName(e.currentTarget.value)}
-                            placeholder={t`Project display name`}
-                            aria-label={`Project display name for ${project.projectDirectoryPath}`}
-                        />
+                    <div className={styles.editRow}>
+                        <div className={styles.editInput}>
+                            <TextInput
+                                data-testid={TESTING_IDS.project.nameInput}
+                                value={name}
+                                onChange={(e) => setName(e.currentTarget.value)}
+                                placeholder={t`Project display name`}
+                                aria-label={`Project display name for ${project.projectDirectoryPath}`}
+                            />
+                        </div>
                         <Button
                             leftSection={<Check />}
                             color="green"
@@ -186,7 +188,7 @@ export default function ProjectRow({
                         >
                             {t`Cancel`}
                         </Button>
-                    </Group>
+                    </div>
                 )}
             </div>
 

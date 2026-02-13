@@ -1,21 +1,23 @@
 import { style } from "@vanilla-extract/css";
-import { vars } from "../theme.css.ts";
+import { appHeaderOffsetVar } from "@/app/ui/styles/layoutVars.css.ts";
+import { darkSelector, vars, virtualVars } from "../theme.css.ts";
 
 // Main search panel styles
 const searchPanel = style({
-    maxWidth: "50ch",
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
     borderRight: `1px solid ${vars.colors.defaultBorder}`,
-    height: "calc(100vh - 4.75rem)",
+    height: `calc(100vh - ${appHeaderOffsetVar})`,
     position: "sticky",
-    top: "4.75rem",
+    top: appHeaderOffsetVar,
+    zIndex: 30,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
+    backgroundColor: vars.colors.body,
     boxShadow:
         "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-    vars: {
-        "--search-bg": "var(--mantine-color-body)",
-    },
     selectors: {
         "&:where([data-dark])": {
             boxShadow: "none",
@@ -37,7 +39,7 @@ const controls = style({
     width: "100%",
     padding:
         "0 var(--mantine-spacing-md) var(--mantine-spacing-xs) var(--mantine-spacing-md)",
-    borderBottom: "1px solid var(--mantine-color-gray-2)",
+    borderBottom: "1px solid var(--mantine-color-default-border)",
     display: "flex",
     flexDirection: "column",
     gap: "var(--mantine-spacing-md)",
@@ -66,6 +68,13 @@ const stats = style({
     marginTop: "var(--mantine-spacing-xs)",
 });
 
+const optionsAccordion = style({
+    border: `1px solid ${vars.colors.defaultBorder}`,
+    borderRadius: vars.radius.md,
+    overflow: "hidden",
+    backgroundColor: vars.colors.body,
+});
+
 // Mobile drawer content
 const drawerContent = style({
     display: "flex",
@@ -77,6 +86,7 @@ const drawerContent = style({
 // Results container
 const resultsContainer = style({
     flex: 1,
+    backgroundColor: "inherit",
 });
 
 // Results list
@@ -103,8 +113,8 @@ const noResultsState = style({
 
 // Search result item (keeping the existing logic but in vanilla extract)
 const searchResult = style({
-    background: "var(--data-bg)",
-    color: "var(--data-text)",
+    backgroundColor: "transparent",
+    color: virtualVars.text,
     padding: "var(--mantine-spacing-md)",
     borderBottom: "1px solid var(--mantine-color-default-border)",
     transition: "background 0.15s ease, color 0.15s ease",
@@ -114,7 +124,17 @@ const searchResult = style({
     cursor: "pointer",
     selectors: {
         "&:hover": {
-            background: "var(--data-hover-bg)",
+            backgroundColor: vars.colors.gray[0],
+        },
+        [`${darkSelector} &:hover`]: {
+            backgroundColor: vars.colors.gray[9],
+        },
+        "&[data-active='true']": {
+            backgroundColor: vars.colors.primary[8],
+            color: vars.colors.textDark[0],
+        },
+        "&[data-active='true']:hover": {
+            backgroundColor: vars.colors.primary[8],
         },
         "&:focus-visible": {
             outline: "2px solid var(--mantine-primary-color-filled)",
@@ -143,7 +163,7 @@ const resultSid = style({
 const resultArrow = style({
     opacity: 0,
     selectors: {
-        ".searchResult:hover &": {
+        [`${searchResult}:hover &`]: {
             opacity: 1,
         },
     },
@@ -173,6 +193,7 @@ const classes = {
     searchInputSection,
     replaceSection,
     stats,
+    optionsAccordion,
     drawerContent,
     resultsContainer,
     resultsList,

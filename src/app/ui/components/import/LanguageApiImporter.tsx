@@ -1,40 +1,34 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useDebouncedValue } from "@mantine/hooks";
+import { FileText, Globe, Search, UserRound, X } from "lucide-react";
 import type React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import * as styles from "@/app/ui/styles/modules/newProjectSearch.css.ts";
+import type { ConsolidatedRepo } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import {
-    type AutocompleteGroup,
-    AutocompleteInput,
-    type AutocompleteItem,
-} from "@/app/ui/components/import/AutoCompleteInput.tsx";
-import * as styles from "@/app/ui/styles/modules/projectCreate.css.ts";
-import {
-    type ConsolidatedRepo,
     fetchConsolidatedRepos,
-    formatRepoDisplay,
     getZipUrl,
 } from "@/core/domain/project/import/LanguageApiImporter.ts";
 
 interface LanguageApiImporterProps {
     onDownload: (zipUrl: string) => void;
     isDownloadDisabled: boolean;
-}
-
-interface AutocompleteRepoItem extends AutocompleteItem {
-    repo: ConsolidatedRepo;
+    headerActions?: React.ReactNode;
 }
 
 const LanguageApiImporter: React.FC<LanguageApiImporterProps> = (props) => {
     const { t } = useLingui();
+    const searchInputId = useId();
     const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearchTerm] = useDebouncedValue(searchTerm, 300);
     const [fetchedRepos, setFetchedRepos] = useState<ConsolidatedRepo[] | null>(
         null,
     );
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedRepo, setSelectedRepo] = useState<ConsolidatedRepo | null>(
+        null,
+    );
+    const [downloadingRepoId, setDownloadingRepoId] = useState<string | null>(
         null,
     );
 
@@ -58,107 +52,233 @@ const LanguageApiImporter: React.FC<LanguageApiImporterProps> = (props) => {
         }
     }, [hasFetched]);
 
-    const handleSearchChange = useCallback(
-        (value: string) => {
-            setSearchTerm(value);
-            if (!hasFetched && value.length > 0) {
-                handleFetch();
-            }
-        },
-        [hasFetched, handleFetch],
-    );
+    const filteredRepos = useMemo(() => {
+        if (!fetchedRepos || searchTerm.trim().length === 0) return [];
 
-    const filteredResults = useMemo<AutocompleteGroup[]>(() => {
-        if (!fetchedRepos) return [];
-
-        const term = debouncedSearchTerm.toLowerCase();
+        const term = searchTerm.toLowerCase().trim();
         const filtered = fetchedRepos.filter(
             (repo) =>
                 repo.language_ietf.toLowerCase().includes(term) ||
                 repo.language_name.toLowerCase().includes(term) ||
-                repo.language_english_name.toLowerCase().includes(term),
+                repo.language_english_name.toLowerCase().includes(term) ||
+                repo.username.toLowerCase().includes(term) ||
+                repo.repo_name.toLowerCase().includes(term) ||
+                repo.title?.toLowerCase().includes(term),
         );
 
-        // Group by language_english_name
-        const groups: Record<string, ConsolidatedRepo[]> = {};
-        for (const repo of filtered) {
-            const lang = repo.language_english_name;
-            if (!groups[lang]) groups[lang] = [];
-            groups[lang].push(repo);
-        }
+        return filtered.slice(0, 80);
+    }, [fetchedRepos, searchTerm]);
 
-        return Object.entries(groups).map(([group, repos]) => ({
-            group,
-            items: repos.map((repo) => ({
-                id: `${repo.username}/${repo.repo_name}`,
-                name: formatRepoDisplay(repo, repos),
-                repo,
-            })),
-        }));
-    }, [fetchedRepos, debouncedSearchTerm]);
+    const hasResults = filteredRepos.length > 0;
 
-    const handleSelect = useCallback((item: AutocompleteItem | null) => {
-        if (!item) {
-            setSelectedRepo(null);
-            setSearchTerm("");
-            return;
-        }
-        const repoItem = item as AutocompleteRepoItem;
-        setSelectedRepo(repoItem.repo);
-        setSearchTerm(repoItem.name);
-    }, []);
-
-    const selectedItem = useMemo<AutocompleteRepoItem | null>(() => {
-        if (!selectedRepo || !fetchedRepos) return null;
-        return {
-            id: `${selectedRepo.username}/${selectedRepo.repo_name}`,
-            name: formatRepoDisplay(selectedRepo, fetchedRepos),
-            repo: selectedRepo,
-        };
-    }, [selectedRepo, fetchedRepos]);
-
-    const handleDownload = useCallback(async () => {
-        if (!selectedRepo) return;
-
-        try {
-            const zipUrl = await getZipUrl(selectedRepo);
-            props.onDownload(zipUrl);
-        } catch (err) {
-            setError(
-                err instanceof Error
-                    ? err.message
-                    : "Failed to get download URL",
-            );
-        }
-    }, [selectedRepo, props]);
+    const downloadRepo = useCallback(
+        async (repo: ConsolidatedRepo) => {
+            const repoId = `${repo.username}/${repo.repo_name}`;
+            try {
+                setDownloadingRepoId(repoId);
+                setError(null);
+                setSelectedRepo(repo);
+                const zipUrl = await getZipUrl(repo);
+                props.onDownload(zipUrl);
+            } catch (err) {
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to get download URL",
+                );
+            } finally {
+                setDownloadingRepoId(null);
+            }
+        },
+        [props],
+    );
 
     return (
-        <div data-testid={TESTING_IDS.language.apiImporter}>
-            <AutocompleteInput
-                label={t`Search by language`}
-                placeholder={t`Type to search for a language...`}
-                searchTerm={searchTerm}
-                setSearchTerm={handleSearchChange}
-                results={filteredResults}
-                onSelect={handleSelect}
-                selectedItem={selectedItem}
-                showAvatar={false}
-                isLoading={isLoading}
-                isError={!!error}
-                errorMessage={error || undefined}
-                showOnFocus={true}
-                isDisabled={props.isDownloadDisabled}
-            />
+        <div
+            className={styles.shell}
+            data-testid={TESTING_IDS.language.apiImporter}
+        >
+            <div className={styles.topBar}>
+                <h2 className={styles.topBarTitle}>
+                    <Trans>Search Projects</Trans>
+                </h2>
 
-            <button
-                type="button"
-                data-testid={TESTING_IDS.language.importerDownload}
-                onClick={handleDownload}
-                disabled={props.isDownloadDisabled || !selectedRepo}
-                className={styles.downloadButton}
-            >
-                <Trans>Download repository</Trans>
-            </button>
+                <div className={styles.topBarRight}>
+                    <div className={styles.searchField}>
+                        <Search size={18} className={styles.searchIcon} />
+                        <input
+                            id={searchInputId}
+                            type="text"
+                            value={searchTerm}
+                            onFocus={() => {
+                                if (
+                                    !hasFetched &&
+                                    searchTerm.trim().length > 0
+                                ) {
+                                    void handleFetch();
+                                }
+                            }}
+                            onChange={(event) => {
+                                const next = event.currentTarget.value;
+                                setSearchTerm(next);
+                                if (!hasFetched && next.trim().length > 0) {
+                                    void handleFetch();
+                                }
+                            }}
+                            placeholder={t`Search for projects or authors...`}
+                            className={styles.searchInput}
+                            disabled={props.isDownloadDisabled}
+                            aria-label={t`Search projects`}
+                        />
+
+                        {searchTerm.trim().length > 0 && (
+                            <button
+                                type="button"
+                                className={styles.clearButton}
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setSelectedRepo(null);
+                                }}
+                                aria-label={t`Clear search`}
+                                data-testid={TESTING_IDS.language.importerClear}
+                            >
+                                <X size={18} />
+                            </button>
+                        )}
+                    </div>
+
+                    {props.headerActions}
+                </div>
+            </div>
+
+            {error && <div className={styles.errorState}>{error}</div>}
+
+            <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                    <thead className={styles.thead}>
+                        <tr>
+                            <th className={`${styles.th} ${styles.thDivider}`}>
+                                <span className={styles.thInner}>
+                                    <Globe size={18} />
+                                    <Trans>Project</Trans>
+                                </span>
+                            </th>
+                            <th className={`${styles.th} ${styles.thDivider}`}>
+                                <span className={styles.thInner}>
+                                    <FileText size={18} />
+                                    <Trans>Resource</Trans>
+                                </span>
+                            </th>
+                            <th className={`${styles.th} ${styles.thDivider}`}>
+                                <span className={styles.thInner}>
+                                    <UserRound size={18} />
+                                    <Trans>Author</Trans>
+                                </span>
+                            </th>
+                            <th className={styles.th} aria-hidden />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {isLoading && (
+                            <tr>
+                                <td className={styles.td} colSpan={4}>
+                                    <div className={styles.emptyState}>
+                                        <Trans>Loading...</Trans>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {!isLoading && searchTerm.trim().length === 0 && (
+                            <tr>
+                                <td className={styles.td} colSpan={4}>
+                                    <div className={styles.emptyState}>
+                                        <Trans>
+                                            Search a language to see projects.
+                                        </Trans>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {!isLoading &&
+                            searchTerm.trim().length > 0 &&
+                            hasFetched &&
+                            !hasResults && (
+                                <tr>
+                                    <td className={styles.td} colSpan={4}>
+                                        <div className={styles.emptyState}>
+                                            <Trans>No matching projects</Trans>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+
+                        {!isLoading &&
+                            filteredRepos.map((repo) => {
+                                const repoId = `${repo.username}/${repo.repo_name}`;
+                                const isSelected =
+                                    selectedRepo?.username === repo.username &&
+                                    selectedRepo?.repo_name === repo.repo_name;
+                                const isDownloading =
+                                    downloadingRepoId === repoId;
+
+                                return (
+                                    <tr
+                                        key={repoId}
+                                        className={`${styles.tbodyRow} ${isSelected ? styles.selectedRow : ""}`}
+                                        onClick={() => setSelectedRepo(repo)}
+                                    >
+                                        <td className={styles.td}>
+                                            <span
+                                                className={styles.projectCell}
+                                            >
+                                                {repo.language_english_name}
+                                            </span>
+                                        </td>
+                                        <td className={styles.td}>
+                                            <span className={styles.mutedCell}>
+                                                {repo.title || repo.repo_name}
+                                            </span>
+                                        </td>
+                                        <td className={styles.td}>
+                                            <span className={styles.mutedCell}>
+                                                {repo.username}
+                                            </span>
+                                        </td>
+                                        <td className={styles.td}>
+                                            <button
+                                                type="button"
+                                                className={styles.addButton}
+                                                disabled={
+                                                    props.isDownloadDisabled ||
+                                                    Boolean(downloadingRepoId)
+                                                }
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    void downloadRepo(repo);
+                                                }}
+                                                data-testid={
+                                                    isSelected
+                                                        ? TESTING_IDS.language
+                                                              .importerDownload
+                                                        : undefined
+                                                }
+                                                aria-label={t`Add project`}
+                                            >
+                                                <Trans>
+                                                    {isDownloading
+                                                        ? "Adding..."
+                                                        : "Add"}
+                                                </Trans>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };

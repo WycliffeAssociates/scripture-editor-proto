@@ -27,6 +27,7 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import * as nestedStyles from "@/app/ui/styles/modules/NestedEditor.css.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
@@ -165,7 +166,6 @@ export function NestedEditor({
     }, [hasOpened, projectLanguageDirection, editorModeSetting]);
 
     const hasErrors = lintErrors.length > 0;
-    const errorClasses = hasErrors ? "border-red-500 text-red-600" : "";
     const errorTitle =
         lintErrors.map((e) => e.message).join("; ") || "Open nested editor";
 
@@ -193,14 +193,17 @@ export function NestedEditor({
                     data-is-lint-error={hasErrors}
                     data-is-nested-editor-button="true"
                     title={errorTitle}
-                    className={`inline-block ${errorClasses}`}
+                    style={{ display: "inline-flex" }}
                 >
                     <Plus size={14} />
                 </Button>
             </Popover.Target>
 
             <Popover.Dropdown p="xs" className="">
-                <div className="space-y-2" ref={editorWrapperDomElRef}>
+                <div
+                    className={nestedStyles.editorWrapper}
+                    ref={editorWrapperDomElRef}
+                >
                     <LexicalComposer initialConfig={nestedConfig}>
                         <RichTextPlugin
                             ErrorBoundary={LexicalErrorBoundary}
@@ -208,11 +211,11 @@ export function NestedEditor({
                                 <ContentEditable
                                     data-id={id}
                                     data-js="editor-container"
-                                    className="outline-none min-h-[100px] p-1 border rounded"
+                                    className={nestedStyles.contentEditable}
                                 />
                             }
                             placeholder={
-                                <span className="text-gray-400">
+                                <span className={nestedStyles.placeholder}>
                                     Enter note…
                                 </span>
                             }

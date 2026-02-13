@@ -5,7 +5,6 @@ import { InfoIcon } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
-import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { SearchPanel } from "@/app/ui/components/blocks/Search.tsx";
 import { Toolbar } from "@/app/ui/components/blocks/Toolbar.tsx";
@@ -22,9 +21,11 @@ export function ProjectView() {
 
     const desktopColumns = (() => {
         if (search.isSearchPaneOpen && hasReferenceProject)
-            return "30fr 40fr 30fr";
-        if (search.isSearchPaneOpen && !hasReferenceProject) return "30fr 70fr";
-        if (!search.isSearchPaneOpen && hasReferenceProject) return "70fr 30fr";
+            return "minmax(20rem, 24rem) minmax(0, 1fr) minmax(20rem, 28rem)";
+        if (search.isSearchPaneOpen && !hasReferenceProject)
+            return "minmax(20rem, 24rem) minmax(0, 1fr)";
+        if (!search.isSearchPaneOpen && hasReferenceProject)
+            return "minmax(0, 1fr) minmax(20rem, 28rem)";
         return "1fr";
     })();
 
@@ -54,18 +55,7 @@ export function ProjectView() {
                         : styles.desktopContentGrid
                 }
                 style={
-                    isSm
-                        ? hasReferenceProject
-                            ? ({
-                                  "--show-main":
-                                      mobileTab === "main" ? "block" : "none",
-                                  "--show-ref":
-                                      mobileTab === "ref" ? "block" : "none",
-                              } as React.CSSProperties)
-                            : undefined
-                        : ({
-                              "--project-columns": desktopColumns,
-                          } as React.CSSProperties)
+                    isSm ? undefined : { gridTemplateColumns: desktopColumns }
                 }
             >
                 {/* Desktop search panel */}
@@ -77,6 +67,14 @@ export function ProjectView() {
                         isSm
                             ? styles.editorMainSmall
                             : styles.editorWrapperDesktop
+                    }
+                    style={
+                        isSm && hasReferenceProject
+                            ? {
+                                  display:
+                                      mobileTab === "main" ? "block" : "none",
+                              }
+                            : undefined
                     }
                 >
                     <div className={styles.editor}>
@@ -91,6 +89,16 @@ export function ProjectView() {
                             isSm
                                 ? styles.editorReferenceSmall
                                 : styles.referenceColumn
+                        }
+                        style={
+                            isSm
+                                ? {
+                                      display:
+                                          mobileTab === "ref"
+                                              ? "block"
+                                              : "none",
+                                  }
+                                : undefined
                         }
                     >
                         <ReferenceEditor />
@@ -108,12 +116,15 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
         <nav className={styles.navRibbon}>
             <Toolbar openDrawer={props.openDrawer} />
 
-            {/* Keep chapter navigation accessible on desktop too */}
             {!props.isSmall && (
-                <div className={styles.chapterRibbon}>
-                    <PrevButton />
-                    <LintPopover wrapperClassNames="relative" />
-                    <NextButton />
+                <div className={styles.chapterNavRow}>
+                    <div className={styles.chapterNavLeft}>
+                        <PrevButton />
+                    </div>
+                    <LocationIndicator />
+                    <div className={styles.chapterNavRight}>
+                        <NextButton />
+                    </div>
                 </div>
             )}
 
@@ -123,7 +134,7 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
                         <PrevButton />
                     </div>
 
-                    <LintPopover wrapperClassNames="relative" />
+                    <LocationIndicator isCompact />
 
                     <div className={styles.mobileRibbonRight}>
                         <NextButton />
@@ -131,6 +142,38 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
                 </div>
             )}
         </nav>
+    );
+}
+
+function LocationIndicator(props: { isCompact?: boolean }) {
+    const { project, bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
+    const { t } = useLingui();
+
+    const chapter =
+        project.pickedChapter?.chapNumber ?? project.currentChapter ?? 0;
+
+    const bookTitle = bookCodeToProjectLocalizedTitle({
+        bookCode: project.pickedFile.bookCode,
+    });
+
+    const chapterLabel = chapter === 0 ? t`Introduction` : t`${chapter}`;
+
+    return (
+        <div className={styles.locationPill}>
+            <div>
+                <div className={styles.locationPrimary}>
+                    {props.isCompact ? project.pickedFile.bookCode : bookTitle}
+                    &nbsp;
+                    <span>
+                        {props.isCompact
+                            ? chapter === 0
+                                ? t`Intro`
+                                : `${chapter}`
+                            : chapterLabel}
+                    </span>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -147,7 +190,11 @@ function MobileReferenceTabs(props: {
                 <button
                     type="button"
                     data-testid={TESTING_IDS.mobile.mainEditorTab}
-                    className={props.mobileTab === "main" ? "activeTab" : ""}
+                    className={`${styles.mobileTabButton} ${
+                        props.mobileTab === "main"
+                            ? styles.mobileTabButtonActive
+                            : ""
+                    }`}
                     onClick={() => props.setMobileTab("main")}
                 >
                     Editor
@@ -155,7 +202,11 @@ function MobileReferenceTabs(props: {
                 <button
                     type="button"
                     data-testid={TESTING_IDS.mobile.referenceEditorTab}
-                    className={props.mobileTab === "ref" ? "activeTab" : ""}
+                    className={`${styles.mobileTabButton} ${
+                        props.mobileTab === "ref"
+                            ? styles.mobileTabButtonActive
+                            : ""
+                    }`}
                     onClick={() => props.setMobileTab("ref")}
                 >
                     Reference

@@ -21,17 +21,23 @@ export const searchInput = style({
 
 // Trigger Button (Desktop)
 export const triggerButton = style({
-    width: "250px",
+    width: "clamp(10rem, 18vw, 15.5rem)",
+    minWidth: 0,
+    flexShrink: 1,
     justifyContent: "space-between",
 });
 
 export const triggerInner = style({
     justifyContent: "space-between",
     width: "100%",
+    minWidth: 0,
 });
 
 export const triggerLabel = style({
     fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
 });
 
 // Accordion Styles

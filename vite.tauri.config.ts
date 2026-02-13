@@ -1,6 +1,5 @@
 import path from "node:path";
 import { lingui } from "@lingui/vite-plugin";
-import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
@@ -23,7 +22,6 @@ export default defineConfig({
             },
         }),
         lingui(),
-        tailwindcss(),
         vanillaExtractPlugin(),
     ],
     resolve: {

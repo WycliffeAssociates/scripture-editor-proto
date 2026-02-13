@@ -20,15 +20,13 @@ test.describe("home page (empty state)", () => {
         await page.waitForLoadState("load");
         await page.waitForTimeout(500);
 
-        await expect(page.locator("text=Create a new project")).toBeVisible();
+        await expect(page.locator("text=Projects")).toBeVisible();
+        await expect(page.locator("text=No projects yet")).toBeVisible();
         await expect(
-            page.locator("text=Search for a scripture repository"),
+            page.locator("text=Create your first project"),
         ).toBeVisible();
-        await expect(page.locator("text=Upload a folder")).toBeVisible();
-        await expect(page.locator("text=Or select a ZIP file")).toBeVisible();
 
-        const projectListItems = page.locator("ul.flex.flex-col.gap-3 > li");
-        await expect(projectListItems).toHaveCount(0);
+        await expect(page.getByTestId(TESTING_IDS.project.list)).toHaveCount(0);
     });
 
     test("has accessible heading and basic layout", async ({ page }) => {
@@ -36,18 +34,19 @@ test.describe("home page (empty state)", () => {
         await page.waitForLoadState("load");
         await page.waitForTimeout(500);
 
-        await expect(page.locator("text=Current Projects")).toBeVisible();
+        await expect(page.locator("text=Projects")).toBeVisible();
 
-        const createHeading = page.getByRole("heading", {
-            name: /Create a new project/i,
-        });
-        await expect(createHeading).toBeVisible();
+        await expect(
+            page.getByRole("heading", { name: /^Projects$/i }),
+        ).toBeVisible();
     });
 });
 
 test.describe("home page - load projects", () => {
     test("loads project from zip", async ({ page }) => {
-        await page.goto(BASE_URL);
+        await page.goto(`${BASE_URL}/create`, {
+            waitUntil: "domcontentloaded",
+        });
         const resolvedPath = path.resolve(
             dirname,
             "../",
@@ -57,6 +56,8 @@ test.describe("home page - load projects", () => {
         await page
             .getByTestId(TESTING_IDS.import.importer)
             .setInputFiles(resolvedPath);
+
+        await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
         const projectList = page.getByTestId(TESTING_IDS.project.list);
         await expect(projectList).toHaveCount(1);
         await page.reload({
@@ -70,7 +71,9 @@ test.describe("home page - load projects", () => {
         ).toBe("Lauan");
     });
     test("delete Project removes from ui", async ({ page }) => {
-        await page.goto(BASE_URL);
+        await page.goto(`${BASE_URL}/create`, {
+            waitUntil: "domcontentloaded",
+        });
         const resolvedPath = path.resolve(
             dirname,
             "../",
@@ -80,6 +83,8 @@ test.describe("home page - load projects", () => {
         await page
             .getByTestId(TESTING_IDS.import.importer)
             .setInputFiles(resolvedPath);
+
+        await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
         const projectList = page.getByTestId(TESTING_IDS.project.list);
         await expect(projectList).toHaveCount(1);
         await page
@@ -104,7 +109,9 @@ test.describe("home page - load projects", () => {
         await expect(projectList).toHaveCount(0);
     });
     test("loads project from unzipped folder", async ({ page }) => {
-        await page.goto(BASE_URL);
+        await page.goto(`${BASE_URL}/create`, {
+            waitUntil: "domcontentloaded",
+        });
 
         const resolvedPath = path.resolve(
             dirname,
@@ -115,6 +122,8 @@ test.describe("home page - load projects", () => {
         await page
             .getByTestId(TESTING_IDS.import.dirImporter)
             .setInputFiles(resolvedPath);
+
+        await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
         const projectList = page.getByTestId(TESTING_IDS.project.list);
         await expect(projectList).toHaveCount(1);
     });
@@ -129,31 +138,35 @@ test("home page localization works", async ({ page }) => {
 
 test.describe("Language API Importer", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto(BASE_URL);
+        await page.goto(`${BASE_URL}/create`, {
+            waitUntil: "domcontentloaded",
+        });
     });
 
     test("searches for language and displays results", async ({ page }) => {
-        await page
-            .getByTestId(TESTING_IDS.language.apiImporter)
-            .locator('input[type="text"]')
-            .fill("english");
+        const importer = page.getByTestId(TESTING_IDS.language.apiImporter);
+        await importer.locator('input[type="text"]').fill("english");
 
         await expect(
-            page.getByTestId(TESTING_IDS.language.apiImporter).locator("ul"),
-        ).toBeVisible();
+            importer
+                .locator("tbody")
+                .getByRole("button", { name: "Add" })
+                .first(),
+        ).toBeVisible({ timeout: 15_000 });
     });
 
     test("enables download button after selecting a repo", async ({ page }) => {
-        await page
-            .getByTestId(TESTING_IDS.language.apiImporter)
-            .locator('input[type="text"]')
-            .fill("spanish");
+        const importer = page.getByTestId(TESTING_IDS.language.apiImporter);
+        await importer.locator('input[type="text"]').fill("spanish");
 
-        await page
-            .getByTestId(TESTING_IDS.language.apiImporter)
-            .locator("ul li")
-            .nth(2)
-            .click();
+        const firstDataRow = importer
+            .locator("tbody tr")
+            .filter({
+                has: importer.getByRole("button", { name: "Add" }),
+            })
+            .first();
+        await expect(firstDataRow).toBeVisible({ timeout: 15_000 });
+        await firstDataRow.click();
 
         await expect(
             page.getByTestId(TESTING_IDS.language.importerDownload),
@@ -161,10 +174,8 @@ test.describe("Language API Importer", () => {
     });
 
     test("shows loading state while fetching repos", async ({ page }) => {
-        await page
-            .getByTestId(TESTING_IDS.language.apiImporter)
-            .locator('input[type="text"]')
-            .fill("e");
+        const importer = page.getByTestId(TESTING_IDS.language.apiImporter);
+        await importer.locator('input[type="text"]').fill("e");
 
         await expect(
             page
@@ -178,8 +189,14 @@ test.describe("Language API Importer", () => {
         await importer.locator('input[type="text"]').fill("spanish");
 
         // Wait for results to appear before clicking
-        await expect(importer.locator("ul li").nth(2)).toBeVisible();
-        await importer.locator("ul li").nth(2).click();
+        const firstDataRow = importer
+            .locator("tbody tr")
+            .filter({
+                has: importer.getByRole("button", { name: "Add" }),
+            })
+            .first();
+        await expect(firstDataRow).toBeVisible({ timeout: 15_000 });
+        await firstDataRow.click();
 
         // Wait for clear button to be visible (appears after selection)
         const clearButton = page.getByTestId(

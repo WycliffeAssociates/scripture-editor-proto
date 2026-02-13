@@ -2,6 +2,7 @@
 
 import { darken, lighten } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
+import { appHeaderOffsetVar } from "@/app/ui/styles/layoutVars.css.ts";
 import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 // Layout
@@ -9,12 +10,25 @@ export const appLayout = style({
     display: "flex",
     flexDirection: "column",
     minHeight: "100vh",
+    vars: { [appHeaderOffsetVar]: "6.75rem" },
+    "@media": {
+        // On small screens the side panels are not sticky; keep a smaller value as a sane default.
+        "screen and (max-width: 48em)": {
+            vars: { [appHeaderOffsetVar]: "4.75rem" },
+        },
+    },
 });
 
 export const appLayoutWithReference = style({
     display: "flex",
     flexDirection: "column",
     minHeight: "100vh",
+    vars: { [appHeaderOffsetVar]: "6.75rem" },
+    "@media": {
+        "screen and (max-width: 48em)": {
+            vars: { [appHeaderOffsetVar]: "4.75rem" },
+        },
+    },
 });
 
 // Navigation Ribbon
@@ -22,7 +36,7 @@ export const navRibbon = style({
     position: "sticky",
     top: 0,
     zIndex: 40,
-    padding: "0.25rem .5rem",
+    padding: "0.5rem 0.75rem",
     backgroundColor: vars.colors.body,
     borderBottom: `1px solid ${vars.colors.gray[3]}`,
 });
@@ -34,6 +48,40 @@ export const chapterRibbon = style({
     gap: "0.5rem",
     padding: "0.25rem 0.25rem 0.5rem 0.25rem",
     backgroundColor: vars.colors.body,
+});
+
+export const chapterNavRow = style({
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.4rem 0.25rem 0.6rem 0.25rem",
+});
+
+export const chapterNavLeft = style({
+    justifySelf: "start",
+    display: "flex",
+    alignItems: "center",
+});
+
+export const chapterNavRight = style({
+    justifySelf: "end",
+    display: "flex",
+    alignItems: "center",
+});
+
+export const locationPill = style({
+    justifySelf: "center",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    color: virtualVars.text,
+});
+
+export const locationPrimary = style({
+    fontWeight: 700,
+    letterSpacing: "-0.01em",
+    lineHeight: 1.1,
 });
 
 export const mobileRibbon = style({
@@ -56,6 +104,7 @@ export const mobileRibbonRight = style([mobileRibbonLeft]);
 
 export const editorWrapperDesktop = style({
     width: "100%",
+    minWidth: 0,
     maxWidth: "65ch",
     margin: "0 auto",
     justifySelf: "center",
@@ -116,37 +165,54 @@ export const mobileTabsBar = style({
     backgroundColor: vars.colors.body,
 });
 
+export const mobileTabButton = style({
+    flex: 1,
+    padding: "0.5rem 0.75rem",
+    background: "transparent",
+    border: 0,
+    cursor: "pointer",
+    color: virtualVars.text,
+    opacity: 0.75,
+    fontWeight: 600,
+});
+
+export const mobileTabButtonActive = style({
+    opacity: 1,
+    color: "var(--mantine-primary-color-filled)",
+});
+
 // Mobile Editors (Tab Switching)
 export const mobileEditorsContainer = style({
     display: "block",
 });
 export const desktopContentGrid = style({
     display: "grid",
-    gridTemplateColumns: "var(--project-columns, 1fr)",
+    gridTemplateColumns: "1fr",
     alignItems: "start",
     gap: "1rem",
     paddingInline: "0.5rem",
-    paddingBlock: "0.5rem",
 });
 
-// Main and reference are *stacked* and toggled with CSS vars
+// Main and reference are stacked on mobile; visibility is toggled via inline `display` in `ProjectView`.
 export const editorMainSmall = style({
     paddingInline: "1rem",
     backgroundColor: vars.colors.body,
-    display: "var(--show-main)",
+    display: "block",
 });
 
 export const editorReferenceSmall = style({
     paddingInline: "1rem",
     backgroundColor: vars.colors.body,
-    display: "var(--show-ref)",
+    display: "block",
 });
 
 export const referenceColumn = style({
     position: "sticky",
-    top: "4.75rem",
+    top: appHeaderOffsetVar,
     alignSelf: "start",
-    height: "calc(100vh - 4.75rem)",
+    height: `calc(100vh - ${appHeaderOffsetVar})`,
+    minWidth: 0,
+    width: "100%",
     overflow: "auto",
     paddingInline: "0.5rem",
     borderLeft: `1px solid ${vars.colors.gray[3]}`,

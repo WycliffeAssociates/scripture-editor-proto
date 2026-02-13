@@ -11,7 +11,7 @@ import {
 } from "@/app/domain/search/search.utils.ts";
 import {
     clearHighlights,
-    highlightMatch,
+    highlightMatches,
     type MatchInNode,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import {
@@ -343,6 +343,7 @@ export function useProjectSearch({
 
                 setCurrentMatches(searchMatches);
 
+                let activeMatch: MatchInNode | undefined;
                 if (searchMatches.length > 0) {
                     const firstOfSid = searchMatches.find(
                         (m) =>
@@ -351,16 +352,12 @@ export function useProjectSearch({
                     );
 
                     if (firstOfSid) {
-                        highlightMatch(
-                            firstOfSid,
-                            editor,
-                            activeSearchTerm,
-                            matchWholeWord,
-                            matchCase,
-                        );
+                        activeMatch = firstOfSid;
                         setCurrentMatchIndex(searchMatches.indexOf(firstOfSid));
                     }
                 }
+
+                highlightMatches(searchMatches, editor, activeMatch);
             });
         });
     }

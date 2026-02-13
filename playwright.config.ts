@@ -1,4 +1,4 @@
-import {defineConfig, devices} from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Read environment variables from file.
@@ -39,12 +39,16 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: {...devices["Desktop Chrome"]},
+      // Local dev: use system Chrome so Playwright doesn't require bundled browser downloads.
+      // CI: keep Playwright-managed browsers for reproducibility.
+      use: process.env.CI
+        ? { ...devices["Desktop Chrome"] }
+        : { ...devices["Desktop Chrome"], channel: "chrome" },
     },
 
     {
       name: "firefox",
-      use: {...devices["Desktop Firefox"]},
+      use: { ...devices["Desktop Firefox"] },
     },
     // !: NOTE: NO WEBKIT. AUTOMATED BROWSERS RUN AS PRIVATE, AND OPFS does not work in private browsers for webkit.
 
@@ -56,7 +60,9 @@ export default defineConfig({
     /* Test against mobile viewports. */
     {
       name: "Mobile Chrome",
-      use: {...devices["Pixel 5"]},
+      use: process.env.CI
+        ? { ...devices["Pixel 5"] }
+        : { ...devices["Pixel 5"], channel: "chrome" },
     },
     // {
     //   name: "Mobile Safari",

@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { Accordion, Drawer } from "@mantine/core";
+import { Accordion, Drawer, Group, Text } from "@mantine/core";
 import { Book, Settings } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { SettingsPanel } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
@@ -15,37 +15,40 @@ export function AppDrawer({ opened, close }: AppDrawerProps) {
         <Drawer
             opened={opened}
             onClose={close}
-            className="border-0"
             classNames={{
                 close: styles.drawerClose,
             }}
         >
             <Accordion defaultValue="Projects" p="0">
-                <Accordion.Item value="Projects" className="border-0" bd="none">
+                <Accordion.Item value="Projects" bd="none">
                     <Accordion.Control
                         data-testid={
                             TESTING_IDS.settings.accordionControlProjects
                         }
                     >
-                        <h2 className="font-bold flex gap-(--mantine-spacing-xs)">
-                            <Book />
-                            <Trans>Projects</Trans>
-                        </h2>
+                        <Group gap="xs" align="center">
+                            <Book size={16} />
+                            <Text fw={700}>
+                                <Trans>Projects</Trans>
+                            </Text>
+                        </Group>
                     </Accordion.Control>
                     <Accordion.Panel>
                         <ProjectList />
                     </Accordion.Panel>
                 </Accordion.Item>
-                <Accordion.Item value="Settings" className="border-0" bd="none">
+                <Accordion.Item value="Settings" bd="none">
                     <Accordion.Control
                         data-testid={
                             TESTING_IDS.settings.accordionControlSettings
                         }
                     >
-                        <h2 className="font-bold flex gap-(--mantine-spacing-xs)">
-                            <Settings />
-                            <Trans>Settings</Trans>
-                        </h2>
+                        <Group gap="xs" align="center">
+                            <Settings size={16} />
+                            <Text fw={700}>
+                                <Trans>Settings</Trans>
+                            </Text>
+                        </Group>
                     </Accordion.Control>
                     <Accordion.Panel>
                         <SettingsPanel />
