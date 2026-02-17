@@ -42,7 +42,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
                 <Popover.Target>
                     <Button
                         onClick={() => setLintPopoverIsOpen(!lintPopoverIsOpen)}
-                        size="xs"
+                        size="sm"
                         variant="filled"
                         color="red"
                         className={lintPopoverButton}
@@ -56,9 +56,9 @@ export function LintPopover({ wrapperClassNames }: Props) {
                         className={lintErrorList}
                         data-testid={TESTING_IDS.lintPopover.container}
                     >
-                        {lint.messages.map((msg) => (
+                        {lint.messages.map((msg, index) => (
                             <LintMessageItem
-                                key={msg.nodeId}
+                                key={`${msg.nodeId}-${msg.sid}-${msg.msgKey}-${index}`}
                                 msg={msg}
                                 editorRef={editorRef}
                                 prevDomElSelected={prevDomElSelected}

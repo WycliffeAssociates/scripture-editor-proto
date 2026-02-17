@@ -12,8 +12,8 @@ This project is organized into three main directories:
 
 ## Key Features
 
-### Prettify
-The Prettify feature allows users to normalize USFM formatting across a book or the entire project. It uses a high-performance **Reduce/Pipe** architecture to transform Lexical's serialized state directly, ensuring consistency without the overhead of full editor instances.
+### Format
+The Format feature allows users to normalize USFM formatting across a book or the entire project. It uses a high-performance **Reduce/Pipe** architecture to transform Lexical's serialized state directly, ensuring consistency without the overhead of full editor instances.
 
 - **Operations**: Whitespace collapse, linebreak normalization, and paragraph marker spacing.
 - **Safety**: All operations are reversible via a "Revert All" option in the change review modal.

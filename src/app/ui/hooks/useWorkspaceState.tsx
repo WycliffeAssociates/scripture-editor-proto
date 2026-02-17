@@ -2,6 +2,8 @@ import type { LexicalEditor } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
+import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
+import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 
 export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 
@@ -40,6 +42,14 @@ export const useWorkspaceState = (
         string | null
     >(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [formatMatchReport, setFormatMatchReport] =
+        useState<FormatMatchingRunReport | null>(null);
+    const [isFormatMatchSuggestionsOpen, setIsFormatMatchSuggestionsOpen] =
+        useState(false);
+    const [autoOpenFormatMatchSuggestions, setAutoOpenFormatMatchSuggestions] =
+        useState(true);
+    const [targetMarkerPreservationMode, setTargetMarkerPreservationMode] =
+        useState<TargetMarkerPreservationMode>("recommended");
 
     const updateAppSettings = useCallback(
         (newSettings: Partial<Settings>) => {
@@ -101,5 +111,13 @@ export const useWorkspaceState = (
         pickedChapter,
         isProcessing,
         setIsProcessing,
+        formatMatchReport,
+        setFormatMatchReport,
+        isFormatMatchSuggestionsOpen,
+        setIsFormatMatchSuggestionsOpen,
+        autoOpenFormatMatchSuggestions,
+        setAutoOpenFormatMatchSuggestions,
+        targetMarkerPreservationMode,
+        setTargetMarkerPreservationMode,
     };
 };

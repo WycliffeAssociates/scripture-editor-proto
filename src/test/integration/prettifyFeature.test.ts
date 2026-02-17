@@ -6,20 +6,20 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import {
-    lexicalRootChildrenToPrettifyTokenStream,
-    prettifyTokenStreamToLexicalRootChildren,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import {
+    lexicalRootChildrenToUsfmTokenStream,
+    usfmTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
 
 function applyPrettifyToNodeTree(
     nodes: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
-    const envelope = lexicalRootChildrenToPrettifyTokenStream(nodes);
+    const envelope = lexicalRootChildrenToUsfmTokenStream(nodes);
     const prettifiedTokens = prettifyTokenStream(envelope.tokens);
-    return prettifyTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
+    return usfmTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
 }
 
 const createSerializedState = (usfmContent: string): SerializedEditorState => {
@@ -165,6 +165,35 @@ Some text
             };
 
             expect(() => editor.parseEditorState(nextState)).not.toThrow();
+        });
+
+        it("bridges consecutive verse markers and strips leading enumerator in bridged text", () => {
+            const input =
+                "\\c 1 \\v 1 \\v 2 \\v 3 1. James, a servant of God and of the Lord Jesus Christ, to the twelve tribes scattered among the nations: Greetings.";
+
+            const editor = createTestEditor(input, { needsParagraphs: false });
+            const serialized = editor.getEditorState().toJSON();
+            const rootChildren = serialized.root
+                .children as SerializedLexicalNode[];
+
+            const prettifiedChildren = applyPrettifyToNodeTree(rootChildren);
+            const flattened = flattenNodes(prettifiedChildren);
+
+            const bridgedVerse = flattened.find(
+                (node) =>
+                    isSerializedUSFMTextNode(node) &&
+                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    node.text.trim() === "1-3",
+            ) as SerializedUSFMTextNode | undefined;
+            expect(bridgedVerse).toBeTruthy();
+
+            const bridgedIndex = flattened.indexOf(bridgedVerse);
+            const nextTextNode = flattened[bridgedIndex + 1] as
+                | SerializedUSFMTextNode
+                | undefined;
+
+            expect(nextTextNode?.tokenType).toBe(UsfmTokenTypes.text);
+            expect(nextTextNode?.text.startsWith(" 1.")).toBe(false);
         });
     });
 

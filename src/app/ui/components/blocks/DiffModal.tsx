@@ -628,6 +628,7 @@ export function SaveAndReviewChanges() {
                     data-testid={TESTING_IDS.save.trigger}
                     color="primary.7"
                     onClick={actions.toggleDiffModal}
+                    size="sm"
                 >
                     <Trans>Review &amp; Save</Trans>
                 </Button>

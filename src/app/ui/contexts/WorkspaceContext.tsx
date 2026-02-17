@@ -137,6 +137,12 @@ export const ProjectProvider = ({
         updateLintErrors: lint.updateErrorsForChapter,
         referenceProject,
         setIsProcessing: project.setIsProcessing,
+        setFormatMatchReport: project.setFormatMatchReport,
+        autoOpenFormatMatchSuggestions: project.autoOpenFormatMatchSuggestions,
+        setIsFormatMatchSuggestionsOpen:
+            project.setIsFormatMatchSuggestionsOpen,
+        projectLanguageDirection,
+        targetMarkerPreservationMode: project.targetMarkerPreservationMode,
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,

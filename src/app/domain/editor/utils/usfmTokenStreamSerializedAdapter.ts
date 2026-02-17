@@ -37,26 +37,19 @@ function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
     return "unknown";
 }
 
-export type LexicalPrettifyTokenStream = {
+export type LexicalUsfmTokenStream = {
     tokens: PrettifyToken[];
     direction: "ltr" | "rtl";
     shape: RootShape;
     wrapper?: SerializedElementNode;
 };
 
-export function lexicalRootChildrenToPrettifyTokenStream(
+export function lexicalRootChildrenToUsfmTokenStream(
     nodes: SerializedLexicalNode[],
-): LexicalPrettifyTokenStream {
+): LexicalUsfmTokenStream {
     const shape = detectRootShape(nodes);
     const direction = detectDirection(nodes);
-
-    const unwrapped =
-        shape === "wrappedFlat"
-            ? unwrapFlatTokensFromRootChildren(nodes)
-            : null;
-    const base = unwrapped ?? nodes;
-
-    const flatSerialized = materializeFlatTokensArray(base, {
+    const flatSerialized = materializeFlatTokensArray(nodes, {
         nested: "preserve",
     });
     const tokens = flatSerialized.map(lexicalNodeToPrettifyToken);
@@ -69,9 +62,9 @@ export function lexicalRootChildrenToPrettifyTokenStream(
     return { tokens, direction, shape, wrapper };
 }
 
-export function prettifyTokenStreamToLexicalRootChildren(
+export function usfmTokenStreamToLexicalRootChildren(
     tokens: PrettifyToken[],
-    meta: Pick<LexicalPrettifyTokenStream, "direction" | "shape" | "wrapper">,
+    meta: Pick<LexicalUsfmTokenStream, "direction" | "shape" | "wrapper">,
 ): SerializedLexicalNode[] {
     const direction = meta.direction;
     const shape = meta.shape;
@@ -120,8 +113,6 @@ function lexicalNodeToPrettifyToken(
         });
         const nestedTokens = nestedFlat.map(lexicalNodeToPrettifyToken);
 
-        // Represent nested editor as an atomic token in this stream, but still carry its
-        // content so core prettify can recurse into it.
         return {
             tokenType: "__nested__",
             text: node.text ?? `\\${node.marker} `,
@@ -151,7 +142,6 @@ function lexicalNodeToPrettifyToken(
         };
     }
 
-    // Preserve unknown nodes as atomic passthrough tokens.
     return {
         tokenType: "__unknown__",
         text: "",
@@ -173,7 +163,6 @@ function prettifyTokenToLexicalNode(
             }
         ).__serialized;
         if (!original || !isSerializedUSFMNestedEditorNode(original)) {
-            // Should not happen; fallback to a text node if we lose the nested wrapper.
             return {
                 type: "usfm-text-node",
                 lexicalType: "usfm-text-node",
@@ -261,8 +250,6 @@ function prettifyTokenToLexicalNode(
         } as SerializedLexicalNode;
     }
 
-    // Fallback: emit a new USFM text node shape.
-    // Note: this is only used for newly created tokens (e.g. splits/inserts).
     return {
         type: "usfm-text-node",
         lexicalType: "usfm-text-node",
@@ -285,6 +272,3 @@ function prettifyTokenToLexicalNode(
         style: "",
     } as unknown as SerializedLexicalNode;
 }
-
-// Note: prettification (token-stream transform) lives in `src/core`.
-// This module is an adapter between Lexical serialized nodes and core token streams.

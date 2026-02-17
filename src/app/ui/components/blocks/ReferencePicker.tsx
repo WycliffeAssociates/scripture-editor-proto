@@ -5,7 +5,6 @@ import {
     Grid,
     Popover,
     rem,
-    ScrollArea,
     TextInput,
     Tooltip,
     Transition,
@@ -169,7 +168,7 @@ function ReferencePickerDropdown({
                 actions={actions}
                 setOpen={setOpen}
             />
-            <ScrollArea style={{ flex: 1 }}>
+            <div className={classes.booksScrollRegion}>
                 <Accordion
                     variant="none"
                     value={openBook}
@@ -195,7 +194,7 @@ function ReferencePickerDropdown({
                         />
                     ))}
                 </Accordion>
-            </ScrollArea>
+            </div>
         </Popover.Dropdown>
     );
 }

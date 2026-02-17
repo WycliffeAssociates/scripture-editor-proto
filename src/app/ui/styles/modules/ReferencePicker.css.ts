@@ -6,6 +6,9 @@ import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 export const dropdown = style({
     display: "flex",
     flexDirection: "column",
+    // Keep the popover inside the viewport so the list can scroll.
+    maxHeight: "min(36rem, calc(100dvh - 8rem))",
+    overflow: "hidden",
 });
 
 // Search Input
@@ -17,6 +20,14 @@ export const searchInput = style({
             borderBottom: `1px solid ${vars.colors.gray[7]}`,
         },
     },
+});
+
+export const booksScrollRegion = style({
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
 });
 
 // Trigger Button (Desktop)

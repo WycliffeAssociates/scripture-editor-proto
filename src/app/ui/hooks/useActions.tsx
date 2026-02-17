@@ -1,15 +1,18 @@
 import { useMantineColorScheme } from "@mantine/core";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
+import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
+import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
 import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
 import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
-import { usePrettifyOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
+import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
 import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { useEditorState } from "./useEditorState.tsx";
 import {
@@ -40,6 +43,13 @@ type Props = {
     ) => void;
     referenceProject: ReferenceProjectHook;
     setIsProcessing: (isProcessing: boolean) => void;
+    setFormatMatchReport: Dispatch<
+        SetStateAction<FormatMatchingRunReport | null>
+    >;
+    autoOpenFormatMatchSuggestions: boolean;
+    setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
+    projectLanguageDirection: "ltr" | "rtl";
+    targetMarkerPreservationMode: TargetMarkerPreservationMode;
 };
 
 export const useWorkspaceActions = ({
@@ -57,6 +67,11 @@ export const useWorkspaceActions = ({
     updateLintErrors,
     referenceProject,
     setIsProcessing,
+    setFormatMatchReport,
+    autoOpenFormatMatchSuggestions,
+    setIsFormatMatchSuggestionsOpen,
+    projectLanguageDirection,
+    targetMarkerPreservationMode,
 }: Props) => {
     const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
 
@@ -115,12 +130,13 @@ export const useWorkspaceActions = ({
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
 
-    const prettifyOperations = usePrettifyOperations({
+    const prettifyOperations = useFormatOperations({
         mutWorkingFilesRef,
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
         updateDiffMapForChapter,
+        updateLintErrors,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
@@ -133,6 +149,13 @@ export const useWorkspaceActions = ({
         updateDiffMapForChapter,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
+        setFormatMatchReport,
+        autoOpenFormatMatchSuggestions,
+        setIsFormatMatchSuggestionsOpen,
+        editorRef,
+        editorMode: appSettings.editorMode ?? "regular",
+        languageDirection: projectLanguageDirection,
+        targetMarkerPreservationMode,
     });
 
     const lintFixing = useLintFixing({
@@ -188,12 +211,14 @@ export const useWorkspaceActions = ({
         prettifyChapter: prettifyOperations.prettifyChapter,
         prettifyBook: prettifyOperations.prettifyBook,
         prettifyProject: prettifyOperations.prettifyProject,
-        revertPrettify: prettifyOperations.revertPrettify,
+        revertPrettify: prettifyOperations.revertFormat,
 
         // Format matching
         matchFormattingChapter: formatMatching.matchFormattingChapter,
         matchFormattingBook: formatMatching.matchFormattingBook,
         matchFormattingProject: formatMatching.matchFormattingProject,
+        applyMatchFormattingSuggestion:
+            formatMatching.applyMatchFormattingSuggestion,
 
         // Lint fixing
         fixLintError: lintFixing.fixLintError,

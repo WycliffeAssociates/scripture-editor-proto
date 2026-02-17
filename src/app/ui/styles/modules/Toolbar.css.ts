@@ -2,12 +2,17 @@ import { style } from "@vanilla-extract/css";
 import { darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
 export const toolbar = style({
+    width: "100%",
+});
+
+export const toolbarInner = style({
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0.35rem 0",
+    //   padding: "0.35rem 0",
+    padding: "0.5rem 1rem",
     gap: "var(--mantine-spacing-md)",
-    borderBottom: "1px solid var(--mantine-color-default-border)",
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
     width: "100%",
 });
 
@@ -80,4 +85,9 @@ export const viewOnlyActive = style({
             backgroundColor: vars.colors.orange[9],
         },
     },
+});
+
+export const formatMatchNotice = style({
+    whiteSpace: "normal",
+    lineHeight: 1.3,
 });

@@ -4,14 +4,14 @@ import type { EditorAction } from "./types.ts";
 
 function scheduleOutsideLexicalUpdate(fn: () => void) {
     // ActionPalette executes actions inside `editor.update(...)`.
-    // These prettify actions can call `editor.setEditorState(...)` via hook orchestration,
+    // These formatting actions can call `editor.setEditorState(...)` via hook orchestration,
     // which must not run inside an existing Lexical update.
     setTimeout(fn, 0);
 }
 
 const PRETTIFY_CHAPTER_ACTION: EditorAction = {
     id: "prettify-chapter",
-    label: "Prettify Chapter",
+    label: "Format Chapter",
     category: "Formatting",
     icon: React.createElement(BookOpen, { size: 16 }),
     isVisible: () => true,
@@ -25,7 +25,7 @@ const PRETTIFY_CHAPTER_ACTION: EditorAction = {
 
 const PRETTIFY_BOOK_ACTION: EditorAction = {
     id: "prettify-book",
-    label: "Prettify Book",
+    label: "Format Book",
     category: "Formatting",
     icon: React.createElement(Wand2, { size: 16 }),
     isVisible: () => true,
@@ -39,7 +39,7 @@ const PRETTIFY_BOOK_ACTION: EditorAction = {
 
 const PRETTIFY_PROJECT_ACTION: EditorAction = {
     id: "prettify-project",
-    label: "Prettify Project",
+    label: "Format Project",
     category: "Formatting",
     icon: React.createElement(FileStack, { size: 16 }),
     isVisible: () => true,

@@ -291,125 +291,6 @@ export function removeUnwantedLinebreaks(
     return token;
 }
 
-export type PendingVerse = {
-    verseNumber: string;
-    resultIndex: number;
-};
-
-/**
- * Distributes combined verse text (e.g. "\\v 1 \\v 2 1. TextOne 2. TextTwo")
- * to their respective verse markers.
- */
-export function distributeCombinedVerseText(
-    tokens: PrettifyToken[],
-): PrettifyToken[] {
-    const result: PrettifyToken[] = [];
-    const pendingVerses: PendingVerse[] = [];
-
-    const isVerseMarkerToken = (t: PrettifyToken) =>
-        t.tokenType === TokenMap.marker && t.marker === "v";
-
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-
-        // Clear pending verses if we encounter a marker that is not a verse marker
-        if (token.tokenType === TokenMap.marker && token.marker !== "v") {
-            pendingVerses.length = 0;
-        } else if (
-            token.tokenType !== TokenMap.marker &&
-            token.tokenType !== TokenMap.text &&
-            token.tokenType !== TokenMap.numberRange &&
-            token.tokenType !== TokenMap.error &&
-            !isNlToken(token)
-        ) {
-            // Clear pending verses on non-usfm tokens (except vertical whitespace)
-            pendingVerses.length = 0;
-        }
-
-        // Check for Verse Marker + Number
-        if (token.tokenType === TokenMap.numberRange) {
-            const prev = result[result.length - 1];
-            if (prev && isVerseMarkerToken(prev)) {
-                result.push(token);
-                pendingVerses.push({
-                    verseNumber: token.text.trim(),
-                    resultIndex: result.length,
-                });
-                continue;
-            }
-        }
-
-        // Text node after pending verses
-        if (token.tokenType === TokenMap.text && pendingVerses.length > 0) {
-            const text = token.text;
-            const matches: { verse: string; start: number }[] = [];
-
-            for (const pv of pendingVerses) {
-                const escapedVerse = pv.verseNumber.replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    "\\$&",
-                );
-                const regex = new RegExp(`${escapedVerse}[. )]`);
-                const match = regex.exec(text);
-                if (match) {
-                    matches.push({ verse: pv.verseNumber, start: match.index });
-                }
-            }
-
-            if (matches.length > 0) {
-                matches.sort((a, b) => a.start - b.start);
-                const preText = text.slice(0, matches[0].start);
-
-                if (preText.length > 0) {
-                    const remainingToken: PrettifyToken = {
-                        ...token,
-                        text: preText,
-                    };
-                    const insertionIndex = result.length;
-                    result.push(remainingToken);
-                    for (const p of pendingVerses) {
-                        if (p.resultIndex >= insertionIndex) p.resultIndex++;
-                    }
-                }
-
-                for (let m = 0; m < matches.length; m++) {
-                    const match = matches[m];
-                    const nextStart = matches[m + 1]?.start ?? text.length;
-                    const segmentText = text.slice(match.start, nextStart);
-
-                    const pvIndex = pendingVerses.findIndex(
-                        (p) => p.verseNumber === match.verse,
-                    );
-                    if (pvIndex !== -1) {
-                        const pv = pendingVerses[pvIndex];
-                        const newToken: PrettifyToken = {
-                            ...token,
-                            text: segmentText,
-                        };
-
-                        result.splice(pv.resultIndex, 0, newToken);
-
-                        for (const p of pendingVerses) {
-                            if (p.resultIndex >= pv.resultIndex)
-                                p.resultIndex++;
-                        }
-                        pendingVerses.splice(pvIndex, 1);
-                    }
-                }
-
-                continue;
-            }
-
-            // No matches => clear pending verses to prevent false matches later
-            pendingVerses.length = 0;
-        }
-
-        result.push(token);
-    }
-
-    return result;
-}
-
 function insertLinebreakBeforeParaMarkersInternal(
     token: PrettifyToken,
     prev: PrettifyToken | undefined,
@@ -509,6 +390,219 @@ function collapseConsecutiveLinebreaks(
     return out;
 }
 
+function normalizeMarkerWhitespaceAtLineStart(
+    tokens: PrettifyToken[],
+): PrettifyToken[] {
+    return tokens.map((token, index) => {
+        if (token.tokenType !== TokenMap.marker) return token;
+        const prev = index > 0 ? tokens[index - 1] : undefined;
+        const atLineStart = !prev || isNlToken(prev);
+        if (!atLineStart) return token;
+        const trimmed = token.text.replace(/^\s+/, "");
+        if (trimmed === token.text) return token;
+        return { ...token, text: trimmed };
+    });
+}
+
+function bridgeConsecutiveVerseMarkers(
+    tokens: PrettifyToken[],
+): PrettifyToken[] {
+    const out: PrettifyToken[] = [];
+
+    const parseIntVerse = (token: PrettifyToken): number | null => {
+        if (token.tokenType !== TokenMap.numberRange) return null;
+        const trimmed = token.text.trim();
+        if (!/^\d+$/.test(trimmed)) return null;
+        return Number.parseInt(trimmed, 10);
+    };
+
+    const withOriginalSpacing = (
+        original: string,
+        normalizedVerseRange: string,
+    ): string => {
+        const leading = original.match(/^\s*/)?.[0] ?? "";
+        const trailing = original.match(/\s*$/)?.[0] ?? "";
+        return `${leading}${normalizedVerseRange}${trailing}`;
+    };
+
+    for (let i = 0; i < tokens.length; i++) {
+        const marker = tokens[i];
+        const number = tokens[i + 1];
+
+        const isVersePair =
+            marker?.tokenType === TokenMap.marker &&
+            marker.marker === "v" &&
+            number?.tokenType === TokenMap.numberRange;
+        if (!isVersePair) {
+            out.push(marker);
+            continue;
+        }
+
+        const firstVerse = parseIntVerse(number);
+        if (firstVerse == null) {
+            out.push(marker, number);
+            i += 1;
+            continue;
+        }
+
+        let endVerse = firstVerse;
+        let j = i + 2;
+
+        while (j + 1 < tokens.length) {
+            let candidateMarkerIndex = j;
+            while (
+                candidateMarkerIndex < tokens.length &&
+                tokens[candidateMarkerIndex]?.tokenType === TokenMap.text &&
+                tokens[candidateMarkerIndex].text.trim() === ""
+            ) {
+                candidateMarkerIndex++;
+            }
+
+            const nextMarker = tokens[candidateMarkerIndex];
+            const nextNumber = tokens[candidateMarkerIndex + 1];
+            if (
+                nextMarker?.tokenType !== TokenMap.marker ||
+                nextMarker.marker !== "v" ||
+                nextNumber?.tokenType !== TokenMap.numberRange
+            ) {
+                break;
+            }
+
+            const nextVerse = parseIntVerse(nextNumber);
+            if (nextVerse == null || nextVerse !== endVerse + 1) break;
+
+            endVerse = nextVerse;
+            j = candidateMarkerIndex + 2;
+        }
+
+        if (endVerse === firstVerse) {
+            out.push(marker, number);
+            i += 1;
+            continue;
+        }
+
+        out.push(marker, {
+            ...number,
+            text: withOriginalSpacing(number.text, `${firstVerse}-${endVerse}`),
+        });
+        i = j - 1;
+    }
+
+    return out;
+}
+
+function removeOrphanEmptyVerseBeforeContentfulVerse(
+    tokens: PrettifyToken[],
+): PrettifyToken[] {
+    const out: PrettifyToken[] = [];
+
+    const isVerseMarker = (token: PrettifyToken | undefined): boolean =>
+        token?.tokenType === TokenMap.marker && token.marker === "v";
+    const isNumberRange = (token: PrettifyToken | undefined): boolean =>
+        token?.tokenType === TokenMap.numberRange;
+    const isWhitespaceOnlyText = (token: PrettifyToken | undefined): boolean =>
+        token?.tokenType === TokenMap.text && token.text.trim() === "";
+    const isContentfulText = (token: PrettifyToken | undefined): boolean =>
+        token?.tokenType === TokenMap.text && token.text.trim().length > 0;
+
+    for (let i = 0; i < tokens.length; i++) {
+        const marker = tokens[i];
+        const number = tokens[i + 1];
+
+        if (!isVerseMarker(marker) || !isNumberRange(number)) {
+            out.push(marker);
+            continue;
+        }
+
+        let nextMarkerIndex = i + 2;
+        while (isWhitespaceOnlyText(tokens[nextMarkerIndex])) {
+            nextMarkerIndex++;
+        }
+
+        const nextMarker = tokens[nextMarkerIndex];
+        const nextNumber = tokens[nextMarkerIndex + 1];
+        const nextText = tokens[nextMarkerIndex + 2];
+        const shouldDropCurrentVerse =
+            isVerseMarker(nextMarker) &&
+            isNumberRange(nextNumber) &&
+            isContentfulText(nextText);
+
+        if (shouldDropCurrentVerse) {
+            i = nextMarkerIndex - 1;
+            continue;
+        }
+
+        out.push(marker);
+    }
+
+    return out;
+}
+
+function removeBridgeVerseEnumerators(
+    tokens: PrettifyToken[],
+): PrettifyToken[] {
+    const out = [...tokens];
+
+    const parseBridgeRange = (
+        text: string,
+    ): { start: number; end: number } | null => {
+        const match = text.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+        if (!match) return null;
+        const start = Number.parseInt(match[1], 10);
+        const end = Number.parseInt(match[2], 10);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+        if (start > end) return null;
+        return { start, end };
+    };
+
+    const LEADING_NUMBER_PUNCTUATION =
+        /^(\s*)(\d+)\s*([!"#$%&'()*+,./:;<=>?@[\\\]^_`{|}~-])\s*/;
+    const INLINE_NUMBER_PUNCTUATION =
+        /(^|[\s(])(\d+)\s*([!"#$%&'()*+,./:;<=>?@[\\\]^_`{|}~-])\s+/g;
+
+    for (let i = 0; i < out.length - 1; i++) {
+        const marker = out[i];
+        const rangeToken = out[i + 1];
+        const next = out[i + 2];
+
+        if (
+            marker?.tokenType !== TokenMap.marker ||
+            marker.marker !== "v" ||
+            rangeToken?.tokenType !== TokenMap.numberRange ||
+            next?.tokenType !== TokenMap.text
+        ) {
+            continue;
+        }
+
+        const range = parseBridgeRange(rangeToken.text);
+        if (!range) continue;
+
+        const match = next.text.match(LEADING_NUMBER_PUNCTUATION);
+        if (!match) continue;
+
+        const candidateVerse = Number.parseInt(match[2], 10);
+        if (candidateVerse < range.start || candidateVerse > range.end)
+            continue;
+
+        let replacement = `${match[1]}${next.text.slice(match[0].length)}`;
+
+        replacement = replacement.replace(
+            INLINE_NUMBER_PUNCTUATION,
+            (full, prefix: string, verseNumRaw: string) => {
+                const verseNum = Number.parseInt(verseNumRaw, 10);
+                if (verseNum >= range.start && verseNum <= range.end) {
+                    return `${prefix}`;
+                }
+                return full;
+            },
+        );
+
+        out[i + 2] = { ...next, text: replacement };
+    }
+
+    return out;
+}
+
 /**
  * Main prettify entry: operates on a flat token stream and returns a new flat token stream.
  * Recurses into `content` (notes) as well.
@@ -526,8 +620,8 @@ export function prettifyTokenStream(
         return { ...t, content: nextContent };
     });
 
-    // 1. Distribute combined verse text
-    const distributed = distributeCombinedVerseText(withNested);
+    // 1. Keep verse token order as-is; bridging/cleanup handles malformed runs.
+    const distributed = withNested;
 
     // 2. Merge adjacent text tokens with same sid+marker+tokenType
     const merged: PrettifyToken[] = [];
@@ -595,17 +689,37 @@ export function prettifyTokenStream(
         cleaned.push(current);
     }
 
-    // 4. Insert linebreaks before markers
+    // 4. Convert runs like "\v 1 \v 2 \v 3" into "\v 1-3"
+    // after duplicate number cleanup has already happened.
+    const withVerseBridges = bridgeConsecutiveVerseMarkers(cleaned);
+
+    // 5. Drop empty/orphan verse markers when the next verse marker carries the text
+    // e.g. "\v 5 \v 4 Let..." -> "\v 4 Let...".
+    const withOrphanVerseCleanup =
+        removeOrphanEmptyVerseBeforeContentfulVerse(withVerseBridges);
+
+    // 6. Remove duplicated leading verse enumerators from bridged verse text,
+    // e.g. "\v 1-3 1. Text" -> "\v 1-3 Text".
+    const withBridgeEnumeratorCleanup = removeBridgeVerseEnumerators(
+        withOrphanVerseCleanup,
+    );
+
+    // 7. Ensure default \p exists before the first verse after chapter intro.
+    const withDefaultParagraphs = insertDefaultParagraphAfterChapterIntro(
+        withBridgeEnumeratorCleanup,
+    );
+
+    // 8. Insert linebreaks before markers
     const withBefore: PrettifyToken[] = [];
-    for (let i = 0; i < cleaned.length; i++) {
-        const token = cleaned[i];
+    for (let i = 0; i < withDefaultParagraphs.length; i++) {
+        const token = withDefaultParagraphs[i];
         const prev = withBefore[withBefore.length - 1];
         withBefore.push(
             ...insertLinebreakBeforeParaMarkersInternal(token, prev),
         );
     }
 
-    // 5. Insert linebreaks after markers
+    // 9. Insert linebreaks after markers
     const withAfter: PrettifyToken[] = [];
     for (let i = 0; i < withBefore.length; i++) {
         const token = withBefore[i];
@@ -613,7 +727,7 @@ export function prettifyTokenStream(
         withAfter.push(...insertLinebreakAfterParaMarkersInternal(token, next));
     }
 
-    // 6. Ensure linebreak after chapter number range
+    // 10. Ensure linebreak after chapter number range
     const withChapterBreak: PrettifyToken[] = [];
     for (let i = 0; i < withAfter.length; i++) {
         const token = withAfter[i];
@@ -628,8 +742,11 @@ export function prettifyTokenStream(
         );
     }
 
-    // 7. Remove duplicate linebreaks
-    return collapseConsecutiveLinebreaks(withChapterBreak);
+    // 11. Remove duplicate linebreaks
+    const dedupedLinebreaks = collapseConsecutiveLinebreaks(withChapterBreak);
+
+    // 12. Markers at line-start should not carry inherited leading spaces.
+    return normalizeMarkerWhitespaceAtLineStart(dedupedLinebreaks);
 }
 
 /**

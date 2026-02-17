@@ -1,4 +1,4 @@
-# Formatting (Prettify)
+# Formatting (Format)
 
 ## What this feature does
 - Applies best-effort USFM normalization to reduce noisy formatting inconsistencies.
@@ -6,7 +6,7 @@
   - Chapter
   - Book
   - Project
-- Current toolbar entry is project-level `Prettify Project`; chapter/book actions are available through editor actions.
+- Current toolbar entry is project-level `Format Project`; chapter/book actions are available through editor actions.
 - Typical transformations include:
   - Marker recovery from malformed text where possible
   - Whitespace normalization
@@ -16,18 +16,18 @@
   - Insertion of default paragraph markers in specific intro-to-verse cases
 
 ## How to access it in the app
-- Toolbar: click the `Prettify Project` icon.
-- Editor action palette: `Prettify Chapter`, `Prettify Book`, `Prettify Project`.
+- Toolbar: click the `Format Project` icon.
+- Editor action palette: `Format Chapter`, `Format Book`, `Format Project`.
 
 ## Typical user flow
-1. Trigger prettify at desired scope.
+1. Trigger format at desired scope.
 2. App converts current serialized editor content to a flat token stream envelope.
-3. Core prettify transforms run on tokens.
+3. Core format transforms run on tokens.
 4. Tokens are converted back to the current editor root shape.
 5. Changed chapters are marked dirty and included in `Review & Save`.
 
 ## Current limits and non-goals
-- Prettify is best-effort normalization, not full semantic rewriting of complex USFM.
+- Format is best-effort normalization, not full semantic rewriting of complex USFM.
 - It does not auto-save; user still saves through diff/save flow.
 - Unknown/unsupported serialized nodes are preserved when possible rather than aggressively rewritten.
 

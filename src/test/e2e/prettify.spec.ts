@@ -1,8 +1,8 @@
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
 
-test.describe("Prettify Feature", () => {
-    test("Prettify Book via Action Palette", async ({ editorPage }) => {
+test.describe("Format Feature", () => {
+    test("Format Book via Action Palette", async ({ editorPage }) => {
         const editor = editorPage.getByRole("textbox", { name: "USFM Editor" });
 
         // 1. Type messy USFM: chapter number without linebreak
@@ -17,24 +17,24 @@ test.describe("Prettify Feature", () => {
         );
         await expect(actionPaletteSearch).toBeVisible();
 
-        // 3. Select "Prettify Book"
-        await actionPaletteSearch.fill("Prettify Book");
+        // 3. Select "Format Book"
+        await actionPaletteSearch.fill("Format Book");
         await editorPage.keyboard.press("Enter");
 
         // 4. Verify content is updated
-        // Prettify should add a linebreak after \c 99
+        // Format should add a linebreak after \c 99
         // innerText should represent linebreaks as \n
         await expect(editor).toContainText("\\c 99");
         await expect(editor).toContainText("\\v 1 test");
 
         // Check for the notification as well
-        await expect(editorPage.getByText("Book Prettified")).toBeVisible();
+        await expect(editorPage.getByText("Book Formatted")).toBeVisible();
     });
 
-    test("Prettify Project via Toolbar", async ({
+    test("Format Project via Toolbar", async ({
         editorWithTwoProjects: page,
     }) => {
-        // 1. Click Prettify Project button in toolbar
+        // 1. Click Format Project button in toolbar
         const prettifyButton = page.getByTestId(
             TESTING_IDS.prettify.projectButton,
         );

@@ -1,11 +1,52 @@
 import { useLingui } from "@lingui/react/macro";
-import type { SerializedLexicalNode } from "lexical";
+import type { LexicalEditor, SerializedLexicalNode } from "lexical";
+import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
-import { matchFormattingToSource } from "@/app/domain/editor/utils/matchFormatting.ts";
+import { insertParagraphMarkerAtCursor } from "@/app/domain/editor/utils/insertParagraphMarkerAtCursor.ts";
+import {
+    lexicalRootChildrenToUsfmTokenStream,
+    usfmTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
+import {
+    type MatchFormattingScope,
+    matchFormattingByVerseAnchors,
+    type SkippedMarkerSuggestion,
+    type TargetMarkerPreservationMode,
+    type VerseAnchorMatchStats,
+} from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
+
+const ZERO_STATS: VerseAnchorMatchStats = {
+    matchedVerses: 0,
+    sourceOnlyVerses: 0,
+    targetOnlyVerses: 0,
+    insertedBoundaryMarkers: 0,
+    skippedSuggestions: 0,
+};
+
+type ChapterMatchApplyResult = {
+    changed: boolean;
+    stats: VerseAnchorMatchStats;
+    suggestions: SkippedMarkerSuggestion[];
+};
+
+function sumStats(
+    left: VerseAnchorMatchStats,
+    right: VerseAnchorMatchStats,
+): VerseAnchorMatchStats {
+    return {
+        matchedVerses: left.matchedVerses + right.matchedVerses,
+        sourceOnlyVerses: left.sourceOnlyVerses + right.sourceOnlyVerses,
+        targetOnlyVerses: left.targetOnlyVerses + right.targetOnlyVerses,
+        insertedBoundaryMarkers:
+            left.insertedBoundaryMarkers + right.insertedBoundaryMarkers,
+        skippedSuggestions: left.skippedSuggestions + right.skippedSuggestions,
+    };
+}
 
 export function useFormatMatching({
     mutWorkingFilesRef,
@@ -15,6 +56,13 @@ export function useFormatMatching({
     updateDiffMapForChapter,
     setEditorContent,
     saveCurrentDirtyLexical,
+    setFormatMatchReport,
+    autoOpenFormatMatchSuggestions,
+    setIsFormatMatchSuggestionsOpen,
+    editorRef,
+    editorMode,
+    languageDirection,
+    targetMarkerPreservationMode,
 }: {
     mutWorkingFilesRef: ParsedFile[];
     currentFileBibleIdentifier: string;
@@ -27,8 +75,96 @@ export function useFormatMatching({
         chapterContent: ParsedChapter | undefined,
     ) => void;
     saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    setFormatMatchReport: Dispatch<
+        SetStateAction<FormatMatchingRunReport | null>
+    >;
+    autoOpenFormatMatchSuggestions: boolean;
+    setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
+    editorRef: RefObject<LexicalEditor | null>;
+    editorMode: EditorModeSetting;
+    languageDirection: "ltr" | "rtl";
+    targetMarkerPreservationMode: TargetMarkerPreservationMode;
 }) {
     const { t } = useLingui();
+
+    const publishReport = (report: FormatMatchingRunReport) => {
+        setFormatMatchReport(report);
+        if (report.suggestions.length > 0 && autoOpenFormatMatchSuggestions) {
+            setIsFormatMatchSuggestionsOpen(true);
+            return;
+        }
+        if (report.suggestions.length === 0) {
+            setIsFormatMatchSuggestionsOpen(false);
+        }
+    };
+
+    const applyChapterMatchInPlace = ({
+        chapter,
+        sourceChapter,
+        scope,
+        bookCode,
+        targetMarkerPreservation,
+    }: {
+        chapter: ParsedChapter;
+        sourceChapter: ParsedChapter;
+        scope: MatchFormattingScope;
+        bookCode: string;
+        targetMarkerPreservation: TargetMarkerPreservationMode;
+    }): ChapterMatchApplyResult => {
+        const targetRootChildren = chapter.lexicalState.root
+            .children as SerializedLexicalNode[];
+        const sourceRootChildren = sourceChapter.lexicalState.root
+            .children as SerializedLexicalNode[];
+
+        const targetEnvelope =
+            lexicalRootChildrenToUsfmTokenStream(targetRootChildren);
+        const sourceEnvelope =
+            lexicalRootChildrenToUsfmTokenStream(sourceRootChildren);
+
+        const matchResult = matchFormattingByVerseAnchors({
+            targetTokens: targetEnvelope.tokens,
+            sourceTokens: sourceEnvelope.tokens,
+            scope,
+            targetMarkerPreservation,
+        });
+
+        const nextRootChildren = usfmTokenStreamToLexicalRootChildren(
+            matchResult.tokens,
+            targetEnvelope,
+        );
+
+        if (
+            JSON.stringify(targetRootChildren) ===
+            JSON.stringify(nextRootChildren)
+        ) {
+            return {
+                changed: false,
+                stats: matchResult.stats,
+                suggestions: matchResult.suggestions,
+            };
+        }
+
+        const nextLexical = structuredClone(chapter.lexicalState);
+        nextLexical.root.children =
+            nextRootChildren as typeof nextLexical.root.children;
+
+        const afterUsfm = serializeToUsfmString(
+            nextLexical.root.children as SerializedLexicalNode[],
+        );
+        const baselineUsfm = serializeToUsfmString(
+            chapter.loadedLexicalState.root.children as SerializedLexicalNode[],
+        );
+
+        chapter.lexicalState = nextLexical;
+        chapter.dirty = afterUsfm !== baselineUsfm;
+        updateDiffMapForChapter(bookCode, chapter.chapNumber);
+
+        return {
+            changed: true,
+            stats: matchResult.stats,
+            suggestions: matchResult.suggestions,
+        };
+    };
 
     async function matchFormattingChapter() {
         if (!referenceProject.referenceChapter) return;
@@ -41,50 +177,37 @@ export function useFormatMatching({
         const chapter = file?.chapters.find(
             (c) => c.chapNumber === currentChapter,
         );
+        const sourceChapter =
+            referenceProject.referenceFile?.chapters.find(
+                (c) => c.chapNumber === currentChapter,
+            ) ?? referenceProject.referenceChapter;
 
-        if (!chapter) return;
+        if (!chapter || !sourceChapter) return;
 
-        const targetPara = chapter.lexicalState.root.children[0];
-        const sourcePara =
-            referenceProject.referenceChapter.lexicalState.root.children[0];
+        const result = applyChapterMatchInPlace({
+            chapter,
+            sourceChapter,
+            scope: "chapter",
+            bookCode: currentFileBibleIdentifier,
+            targetMarkerPreservation: targetMarkerPreservationMode,
+        });
 
-        if (
-            !isSerializedParagraphNode(targetPara) ||
-            !isSerializedParagraphNode(sourcePara)
-        ) {
-            return;
-        }
+        publishReport({
+            generatedAt: new Date().toISOString(),
+            scope: "chapter",
+            chaptersScanned: 1,
+            chaptersModified: result.changed ? 1 : 0,
+            booksModified: result.changed ? 1 : 0,
+            stats: result.stats,
+            suggestions: result.suggestions,
+        });
 
-        const targetNodes = targetPara.children;
-        const sourceNodes = sourcePara.children;
-        const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
-
-        if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
-            const nextLexical = structuredClone(chapter.lexicalState);
-            const nextRootFirst = nextLexical.root
-                .children[0] as unknown as SerializedLexicalNode;
-            if (isSerializedParagraphNode(nextRootFirst)) {
-                nextRootFirst.children = newNodes;
-            }
-
-            const afterUsfm = serializeToUsfmString(
-                nextLexical.root.children as SerializedLexicalNode[],
-            );
-            const baselineUsfm = serializeToUsfmString(
-                chapter.loadedLexicalState.root
-                    .children as SerializedLexicalNode[],
-            );
-
-            // Compute dirty on USFM-to-disk equality.
-            chapter.lexicalState = nextLexical;
-            chapter.dirty = afterUsfm !== baselineUsfm;
-            updateDiffMapForChapter(currentFileBibleIdentifier, currentChapter);
+        if (result.changed) {
             setEditorContent(
                 currentFileBibleIdentifier,
                 currentChapter,
                 chapter,
             );
-
             ShowNotificationSuccess({
                 notification: {
                     title: t`Formatting Matched`,
@@ -108,51 +231,42 @@ export function useFormatMatching({
 
         let currentChapterModified = false;
         let modifiedChaptersCount = 0;
+        let aggregateStats = ZERO_STATS;
+        const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
+        let chaptersScanned = 0;
 
         file.chapters.forEach((chapter) => {
             const refChapter = referenceProject.referenceFile?.chapters.find(
                 (rc) => rc.chapNumber === chapter.chapNumber,
             );
             if (!refChapter) return;
+            chaptersScanned++;
 
-            const targetPara = chapter.lexicalState.root.children[0];
-            const sourcePara = refChapter.lexicalState.root.children[0];
+            const result = applyChapterMatchInPlace({
+                chapter,
+                sourceChapter: refChapter,
+                scope: "book",
+                bookCode: file.bookCode,
+                targetMarkerPreservation: targetMarkerPreservationMode,
+            });
+            aggregateStats = sumStats(aggregateStats, result.stats);
+            aggregateSuggestions.push(...result.suggestions);
 
-            if (
-                !isSerializedParagraphNode(targetPara) ||
-                !isSerializedParagraphNode(sourcePara)
-            ) {
-                return;
+            if (!result.changed) return;
+            modifiedChaptersCount++;
+            if (chapter.chapNumber === currentChapter) {
+                currentChapterModified = true;
             }
+        });
 
-            const targetNodes = targetPara.children;
-            const sourceNodes = sourcePara.children;
-            const newNodes = matchFormattingToSource(targetNodes, sourceNodes);
-
-            if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
-                const nextLexical = structuredClone(chapter.lexicalState);
-                const nextRootFirst = nextLexical.root
-                    .children[0] as unknown as SerializedLexicalNode;
-                if (isSerializedParagraphNode(nextRootFirst)) {
-                    nextRootFirst.children = newNodes;
-                }
-
-                const afterUsfm = serializeToUsfmString(
-                    nextLexical.root.children as SerializedLexicalNode[],
-                );
-                const baselineUsfm = serializeToUsfmString(
-                    chapter.loadedLexicalState.root
-                        .children as SerializedLexicalNode[],
-                );
-
-                chapter.lexicalState = nextLexical;
-                chapter.dirty = afterUsfm !== baselineUsfm;
-                updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
-                modifiedChaptersCount++;
-                if (chapter.chapNumber === currentChapter) {
-                    currentChapterModified = true;
-                }
-            }
+        publishReport({
+            generatedAt: new Date().toISOString(),
+            scope: "book",
+            chaptersScanned,
+            chaptersModified: modifiedChaptersCount,
+            booksModified: modifiedChaptersCount > 0 ? 1 : 0,
+            stats: aggregateStats,
+            suggestions: aggregateSuggestions,
         });
 
         if (currentChapterModified) {
@@ -187,6 +301,10 @@ export function useFormatMatching({
         const backup = structuredClone(mutWorkingFilesRef);
         let currentChapterModified = false;
         let modifiedBooksCount = 0;
+        let modifiedChaptersCount = 0;
+        let aggregateStats = ZERO_STATS;
+        const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
+        let chaptersScanned = 0;
 
         for (const targetFile of mutWorkingFilesRef) {
             const refFile =
@@ -201,38 +319,26 @@ export function useFormatMatching({
                     (rc) => rc.chapNumber === chapter.chapNumber,
                 );
                 if (!refChapter) return;
+                chaptersScanned++;
 
-                const targetPara = chapter.lexicalState.root.children[0];
-                const sourcePara = refChapter.lexicalState.root.children[0];
+                const result = applyChapterMatchInPlace({
+                    chapter,
+                    sourceChapter: refChapter,
+                    scope: "project",
+                    bookCode: targetFile.bookCode,
+                    targetMarkerPreservation: targetMarkerPreservationMode,
+                });
+                aggregateStats = sumStats(aggregateStats, result.stats);
+                aggregateSuggestions.push(...result.suggestions);
 
+                if (!result.changed) return;
+                fileModified = true;
+                modifiedChaptersCount++;
                 if (
-                    !isSerializedParagraphNode(targetPara) ||
-                    !isSerializedParagraphNode(sourcePara)
+                    targetFile.bookCode === currentFileBibleIdentifier &&
+                    chapter.chapNumber === currentChapter
                 ) {
-                    return;
-                }
-
-                const targetNodes = targetPara.children;
-                const sourceNodes = sourcePara.children;
-                const newNodes = matchFormattingToSource(
-                    targetNodes,
-                    sourceNodes,
-                );
-
-                if (JSON.stringify(targetNodes) !== JSON.stringify(newNodes)) {
-                    targetPara.children = newNodes;
-                    chapter.dirty = true;
-                    updateDiffMapForChapter(
-                        targetFile.bookCode,
-                        chapter.chapNumber,
-                    );
-                    fileModified = true;
-                    if (
-                        targetFile.bookCode === currentFileBibleIdentifier &&
-                        chapter.chapNumber === currentChapter
-                    ) {
-                        currentChapterModified = true;
-                    }
+                    currentChapterModified = true;
                 }
             });
 
@@ -240,6 +346,16 @@ export function useFormatMatching({
                 modifiedBooksCount++;
             }
         }
+
+        publishReport({
+            generatedAt: new Date().toISOString(),
+            scope: "project",
+            chaptersScanned,
+            chaptersModified: modifiedChaptersCount,
+            booksModified: modifiedBooksCount,
+            stats: aggregateStats,
+            suggestions: aggregateSuggestions,
+        });
 
         if (currentChapterModified) {
             const currentFile = mutWorkingFilesRef.find(
@@ -269,9 +385,50 @@ export function useFormatMatching({
         return backup;
     }
 
+    async function applyMatchFormattingSuggestion(
+        suggestion: SkippedMarkerSuggestion,
+    ) {
+        const editor = editorRef.current;
+        if (!editor) return false;
+        const inserted = insertParagraphMarkerAtCursor({
+            editor,
+            marker: suggestion.marker,
+            languageDirection,
+            editorMode,
+        });
+        if (!inserted) {
+            return false;
+        }
+        saveCurrentDirtyLexical();
+
+        setFormatMatchReport((prev) => {
+            if (!prev) return prev;
+            const nextSuggestions = prev.suggestions.filter(
+                (candidate) =>
+                    candidate.id !== suggestion.id ||
+                    candidate.marker !== suggestion.marker ||
+                    candidate.verse !== suggestion.verse ||
+                    candidate.chapter !== suggestion.chapter ||
+                    candidate.bookCode !== suggestion.bookCode,
+            );
+            return {
+                ...prev,
+                generatedAt: new Date().toISOString(),
+                suggestions: nextSuggestions,
+                stats: {
+                    ...prev.stats,
+                    skippedSuggestions: nextSuggestions.length,
+                },
+            };
+        });
+
+        return true;
+    }
+
     return {
         matchFormattingChapter,
         matchFormattingBook,
         matchFormattingProject,
+        applyMatchFormattingSuggestion,
     };
 }

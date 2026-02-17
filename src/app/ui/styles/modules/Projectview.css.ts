@@ -36,9 +36,8 @@ export const navRibbon = style({
     position: "sticky",
     top: 0,
     zIndex: 40,
-    padding: "0.5rem 0.75rem",
     backgroundColor: vars.colors.body,
-    borderBottom: `1px solid ${vars.colors.gray[3]}`,
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
 });
 
 export const chapterRibbon = style({
@@ -55,7 +54,7 @@ export const chapterNavRow = style({
     gridTemplateColumns: "1fr auto 1fr",
     alignItems: "center",
     gap: "0.75rem",
-    padding: "0.4rem 0.25rem 0.6rem 0.25rem",
+    padding: "0.5rem 1rem",
 });
 
 export const chapterNavLeft = style({
@@ -122,7 +121,6 @@ export const editor = style({
 export const editorNavButton = style({
     alignSelf: "stretch",
     width: "max-content",
-    margin: "0 1rem",
     cursor: "pointer",
     display: "flex",
     justifyContent: "center",

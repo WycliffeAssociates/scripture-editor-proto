@@ -35,10 +35,10 @@ export function syncReferencePaneSid(
             );
             if (!sidInThatPanel) return wasHandled;
             if (sidInThatPanel) {
-                sidInThatPanel.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
+                // sidInThatPanel.scrollIntoView({
+                //     behavior: "smooth",
+                //     block: "start",
+                // });
             }
             return wasHandled;
         },

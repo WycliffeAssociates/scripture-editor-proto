@@ -3,9 +3,9 @@ import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import {
-    lexicalRootChildrenToPrettifyTokenStream,
-    prettifyTokenStreamToLexicalRootChildren,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+    lexicalRootChildrenToUsfmTokenStream,
+    usfmTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     hideNotification,
     ShowNotificationInfo,
@@ -13,18 +13,20 @@ import {
     showProgressNotification,
     updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
+import { getFlattenedEditorStateAsParseTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
+import type { LintError } from "@/core/data/usfm/lint.ts";
+import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
 import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
+import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 
-export type UsePrettifyOperationsHook = ReturnType<
-    typeof usePrettifyOperations
->;
-
-export function usePrettifyOperations({
+export function useFormatOperations({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
     currentChapter,
     setIsProcessing,
     updateDiffMapForChapter,
+    updateLintErrors,
     setEditorContent,
     saveCurrentDirtyLexical,
 }: {
@@ -33,6 +35,11 @@ export function usePrettifyOperations({
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
+    updateLintErrors: (
+        book: string,
+        chapter: number,
+        newErrors: LintError[],
+    ) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -42,14 +49,33 @@ export function usePrettifyOperations({
 }) {
     const { t } = useLingui();
 
-    type PrettifyScope = "chapter" | "book" | "project";
+    type FormatScope = "chapter" | "book" | "project";
+
+    const refreshLintForFile = (file: ParsedFile) => {
+        const fileTokens = file.chapters.flatMap((chapter) =>
+            getFlattenedEditorStateAsParseTokens(chapter.lexicalState),
+        );
+        const ctx = initParseContext(fileTokens);
+        const allErrors = lintExistingUsfmTokens(fileTokens, ctx);
+
+        for (const chapter of file.chapters) {
+            const chapterErrors = allErrors.filter((err) => {
+                const parsed = parseSid(err.sid);
+                if (!parsed) return false;
+                return (
+                    parsed.book === file.bookCode &&
+                    parsed.chapter === chapter.chapNumber
+                );
+            });
+            updateLintErrors(file.bookCode, chapter.chapNumber, chapterErrors);
+        }
+    };
 
     const prettifyChapterInPlace = (chapter: ParsedChapter) => {
         const originalChildren = chapter.lexicalState.root.children;
-        const envelope =
-            lexicalRootChildrenToPrettifyTokenStream(originalChildren);
+        const envelope = lexicalRootChildrenToUsfmTokenStream(originalChildren);
         const nextTokens = prettifyTokenStream(envelope.tokens);
-        const nextChildren = prettifyTokenStreamToLexicalRootChildren(
+        const nextChildren = usfmTokenStreamToLexicalRootChildren(
             nextTokens,
             envelope,
         );
@@ -70,7 +96,7 @@ export function usePrettifyOperations({
     };
 
     async function prettify(
-        scope: PrettifyScope,
+        scope: FormatScope,
         bookCode?: string,
         chapterNumber?: number,
     ) {
@@ -110,6 +136,7 @@ export function usePrettifyOperations({
                     currentFileBibleIdentifier,
                     currentChapter,
                 );
+                refreshLintForFile(file);
 
                 if (
                     file.bookCode === currentFileBibleIdentifier &&
@@ -124,8 +151,8 @@ export function usePrettifyOperations({
 
                 ShowNotificationSuccess({
                     notification: {
-                        title: t`Chapter Prettified`,
-                        message: t`Prettified ${file.title || file.bookCode} ${targetChapterNumber}`,
+                        title: t`Chapter Formatted`,
+                        message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
                     },
                 });
                 return;
@@ -147,7 +174,6 @@ export function usePrettifyOperations({
                     if (!result.changed) continue;
 
                     anyModified = true;
-
                     if (
                         file.bookCode === currentFileBibleIdentifier &&
                         chapter.chapNumber === currentChapter
@@ -165,6 +191,8 @@ export function usePrettifyOperations({
                     });
                     return;
                 }
+
+                refreshLintForFile(file);
 
                 // Bump "unsaved changes" + keep diffs fresh if review modal is open.
                 updateDiffMapForChapter(
@@ -188,8 +216,8 @@ export function usePrettifyOperations({
 
                 ShowNotificationSuccess({
                     notification: {
-                        title: t`Book Prettified`,
-                        message: t`Prettified ${file.title || file.bookCode}`,
+                        title: t`Book Formatted`,
+                        message: t`Formatted ${file.title || file.bookCode}`,
                     },
                 });
                 return;
@@ -198,7 +226,7 @@ export function usePrettifyOperations({
             // scope === "project"
             const totalBooks = mutWorkingFilesRef.length;
             notificationId = showProgressNotification({
-                title: t`Prettifying Project`,
+                title: t`Formatting Project`,
                 message: t`Processing book 1 of ${totalBooks}...`,
             });
 
@@ -210,16 +238,18 @@ export function usePrettifyOperations({
                 const file = mutWorkingFilesRef[i];
 
                 updateProgressNotification(notificationId, {
-                    title: t`Prettifying Project`,
+                    title: t`Formatting Project`,
                     message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
                 });
 
                 await new Promise<void>((resolve) => {
                     setTimeout(() => {
+                        let fileModified = false;
                         for (const chapter of file.chapters) {
                             const result = prettifyChapterInPlace(chapter);
                             if (result.changed) {
                                 anyModified = true;
+                                fileModified = true;
                                 if (
                                     file.bookCode ===
                                         currentFileBibleIdentifier &&
@@ -228,6 +258,9 @@ export function usePrettifyOperations({
                                     currentChapterModified = true;
                                 }
                             }
+                        }
+                        if (fileModified) {
+                            refreshLintForFile(file);
                         }
                         resolve();
                     }, 0);
@@ -276,8 +309,8 @@ export function usePrettifyOperations({
             notificationId = null;
             ShowNotificationSuccess({
                 notification: {
-                    title: t`Project Prettified`,
-                    message: t`Prettified ${modifiedBooksCount} book(s)`,
+                    title: t`Project Formatted`,
+                    message: t`Formatted ${modifiedBooksCount} book(s)`,
                 },
             });
 
@@ -288,7 +321,7 @@ export function usePrettifyOperations({
         }
     }
 
-    async function revertPrettify(backup: ParsedFile[]) {
+    async function revertFormat(backup: ParsedFile[]) {
         mutWorkingFilesRef.length = 0;
         mutWorkingFilesRef.push(...backup);
 
@@ -314,6 +347,6 @@ export function usePrettifyOperations({
             prettify("chapter", bookCode, chapterNumber),
         prettifyBook: (bookCode?: string) => prettify("book", bookCode),
         prettifyProject: () => prettify("project"),
-        revertPrettify,
+        revertFormat,
     };
 }

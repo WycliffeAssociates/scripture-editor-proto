@@ -3,13 +3,12 @@ import { describe, expect, it } from "vitest";
 import { USFM_TEXT_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
-    lexicalRootChildrenToPrettifyTokenStream,
-    prettifyTokenStreamToLexicalRootChildren,
-} from "@/app/domain/editor/utils/prettifySerializedNode.ts";
+    lexicalRootChildrenToUsfmTokenStream,
+    usfmTokenStreamToLexicalRootChildren,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
     collapseWhitespaceInTextNode,
-    distributeCombinedVerseText,
     ensureSpaceBetweenNodes,
     insertDefaultParagraphAfterChapterIntro,
     insertLinebreakAfterChapterNumberRange,
@@ -26,9 +25,9 @@ import {
 function applyPrettifyToNodeTree(
     nodes: SerializedLexicalNode[],
 ): SerializedLexicalNode[] {
-    const envelope = lexicalRootChildrenToPrettifyTokenStream(nodes);
+    const envelope = lexicalRootChildrenToUsfmTokenStream(nodes);
     const prettifiedTokens = prettifyTokenStream(envelope.tokens);
-    return prettifyTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
+    return usfmTokenStreamToLexicalRootChildren(prettifiedTokens, envelope);
 }
 
 const createToken = (
@@ -439,141 +438,6 @@ describe("prettifySerializedNode utils", () => {
         });
     });
 
-    describe("distributeCombinedVerseText", () => {
-        it("should distribute combined verse text to respective verses", () => {
-            // Input: \v 1 \v 2 1. TextOne 2. TextTwo
-            const nodes = [
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("1", UsfmTokenTypes.numberRange, "v"),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("2", UsfmTokenTypes.numberRange, "v"),
-                createToken(" 1. TextOne 2. TextTwo"),
-            ];
-
-            const result = distributeCombinedVerseText(nodes);
-
-            // Expected: \v 1 TextOne \v 2 TextTwo
-            // Note: The implementation preserves the leading whitespace as a separate node
-            // attached to the current context (verse 2).
-
-            // 0: \v
-            // 1: 1
-            // 2: TextOne (inserted)
-            // 3: \v
-            // 4: 2
-            // 5: " " (preText)
-            // 6: TextTwo (inserted)
-
-            expect(result).toHaveLength(7);
-
-            expect(result[0].text).toBe("\\v");
-            expect(result[1].text).toBe("1");
-
-            // The text node for verse 1
-            expect(result[2].text).toContain("TextOne");
-            expect(result[2].tokenType).toBe(UsfmTokenTypes.text);
-
-            expect(result[3].text).toBe("\\v");
-            expect(result[4].text).toBe("2");
-
-            // The preText node
-            expect(result[5].text).toBe(" ");
-
-            // The text node for verse 2
-            expect(result[6].text).toContain("TextTwo");
-            expect(result[6].tokenType).toBe(UsfmTokenTypes.text);
-        });
-
-        it("should handle three verses combined", () => {
-            // Input: \v 1 \v 2 \v 3 1. One 2. Two 3. Three
-            const nodes = [
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("1", UsfmTokenTypes.numberRange, "v"),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("2", UsfmTokenTypes.numberRange, "v"),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("3", UsfmTokenTypes.numberRange, "v"),
-                createToken(" 1. One 2. Two 3. Three"),
-            ];
-
-            const result = distributeCombinedVerseText(nodes);
-
-            // 3 verses * 2 nodes + 3 text nodes + 1 preText = 10
-            expect(result).toHaveLength(10);
-            expect(result[2].text).toContain("One");
-            expect(result[5].text).toContain("Two");
-            // result[8] is preText " "
-            expect(result[9].text).toContain("Three");
-        });
-
-        it("should handle leftover text", () => {
-            // Input: \v 1 \v 2 1. One 2. Two Extra
-            const nodes = [
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("1", UsfmTokenTypes.numberRange, "v"),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("2", UsfmTokenTypes.numberRange, "v"),
-                createToken(" 1. One 2. Two Extra"),
-            ];
-
-            const result = distributeCombinedVerseText(nodes);
-
-            // Expected:
-            // \v 1 One
-            // \v 2 " " Two Extra
-
-            expect(result).toHaveLength(7);
-            expect(result[2].text).toContain("One");
-            expect(result[6].text).toContain("Two Extra");
-        });
-
-        it("should not affect normal verses", () => {
-            // Input: \v 1 TextOne \v 2 TextTwo
-            const nodes = [
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("1", UsfmTokenTypes.numberRange, "v"),
-                createToken(" TextOne "),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("2", UsfmTokenTypes.numberRange, "v"),
-                createToken(" TextTwo"),
-            ];
-
-            const result = distributeCombinedVerseText(nodes);
-
-            expect(result).toHaveLength(6);
-            expect(result).toEqual(nodes);
-        });
-
-        it("should handle mixed cases", () => {
-            // Input: \v 1 TextOne \v 2 \v 3 2. TextTwo 3. TextThree
-            // Note: Verse 2 is pending, Verse 3 is pending.
-            // Text node "2. TextTwo 3. TextThree" comes after Verse 3.
-
-            const nodes = [
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("1", UsfmTokenTypes.numberRange, "v"),
-                createToken(" TextOne "),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("2", UsfmTokenTypes.numberRange, "v"),
-                createToken("\\v", UsfmTokenTypes.marker, "v"),
-                createToken("3", UsfmTokenTypes.numberRange, "v"),
-                createToken(" 2. TextTwo 3. TextThree"),
-            ];
-
-            const result = distributeCombinedVerseText(nodes);
-
-            // v1 (2) + T1 (1) + v2 (2) + v3 (2) + T2 (1) + T3 (1) + preText (1) = 10
-            expect(result).toHaveLength(10);
-            // v 1 TextOne
-            expect(result[2].text).toBe(" TextOne ");
-            // v 2 TextTwo
-            expect(result[5].text).toContain("TextTwo");
-            // v 3 TextThree
-            // result[8] is preText " "
-            expect(result[9].text).toContain("TextThree");
-        });
-    });
-
     describe("insertDefaultParagraphAfterChapterIntro", () => {
         it("should insert a default \\p before first verse after chapter intro", () => {
             const tokens = [
@@ -666,63 +530,6 @@ describe("prettifySerializedNode utils", () => {
             expect(children[1].type).toBe(USFM_TEXT_NODE_TYPE);
             expect((children[1] as SerializedUSFMTextNode).text).toBe(" \\v");
         });
-    });
-
-    it("should clear pending verses after processing text with no matches", () => {
-        // Scenario: \v 1 Text \v 2
-        // pendingVerses should be empty after "Text", so \v 1 doesn't match anything later.
-
-        const nodes = [
-            createToken("\\v", UsfmTokenTypes.marker, "v"),
-            createToken("1", UsfmTokenTypes.numberRange, "v"),
-            createToken(" Text for verse one "),
-            createToken("\\v", UsfmTokenTypes.marker, "v"),
-            createToken("2", UsfmTokenTypes.numberRange, "v"),
-            createToken(" Text with number 1 inside "),
-        ];
-
-        const result = distributeCombinedVerseText(nodes);
-
-        expect(result).toHaveLength(6);
-        expect(result[2].text).toBe(" Text for verse one ");
-        expect(result[5].text).toBe(" Text with number 1 inside ");
-    });
-
-    it("should clear pending verses when encountering a non-verse marker", () => {
-        // Scenario: \v 1 \p Text
-        // \p should clear pending verses.
-
-        const nodes = [
-            createToken("\\v", UsfmTokenTypes.marker, "v"),
-            createToken("1", UsfmTokenTypes.numberRange, "v"),
-            createToken("\\p", UsfmTokenTypes.marker, "p"),
-            createToken(" Text 1 starts here"),
-        ];
-
-        const result = distributeCombinedVerseText(nodes);
-
-        expect(result).toHaveLength(4);
-        expect(result[3].text).toBe(" Text 1 starts here");
-    });
-
-    it("should not split text falsely when pending verses are cleared", () => {
-        // Scenario: \v 5 ... 1,335 days
-        // If \v 5 was processed and cleared, it shouldn't match "5 " in "1,335 days" later.
-
-        const nodes = [
-            createToken("\\v", UsfmTokenTypes.marker, "v"),
-            createToken("5", UsfmTokenTypes.numberRange, "v"),
-            createToken(" Normal text for five "),
-            createToken("\\v", UsfmTokenTypes.marker, "v"),
-            createToken("6", UsfmTokenTypes.numberRange, "v"),
-            createToken(" 1,335 days "),
-        ];
-
-        const result = distributeCombinedVerseText(nodes);
-
-        expect(result).toHaveLength(6);
-        expect(result[2].text).toBe(" Normal text for five ");
-        expect(result[5].text).toBe(" 1,335 days ");
     });
 
     it("should handle the complex poetry example from user requirements", () => {
