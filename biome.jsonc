@@ -33,6 +33,11 @@
                     "options": {
                         "style": "auto"
                     }
+                },
+                "noNonNullAssertion": {
+                    "level": "error",
+                    "fix": "none",
+                    "options": {}
                 }
             },
             "correctness": {

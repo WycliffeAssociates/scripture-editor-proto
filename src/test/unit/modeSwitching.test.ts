@@ -64,7 +64,13 @@ describe("Mode Switching Data ID Preservation", () => {
 
         // Verify the structure and IDs are preserved
         expect(adjustedNodes).toHaveLength(2);
-        expect((adjustedNodes[0] as any).id).toBe(originalId1);
-        expect((adjustedNodes[1] as any).id).toBe(originalId2);
+        if (!("id" in adjustedNodes[0])) {
+            throw new Error("adjustedNodes[0] does not have an id property");
+        }
+        expect(adjustedNodes[0].id).toBe(originalId1);
+        if (!("id" in adjustedNodes[1])) {
+            throw new Error("adjustedNodes[1] does not have an id property");
+        }
+        expect(adjustedNodes[1].id).toBe(originalId2);
     });
 });

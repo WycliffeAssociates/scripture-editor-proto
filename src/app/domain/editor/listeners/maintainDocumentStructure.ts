@@ -2,7 +2,6 @@ import { $dfsIterator, type DFSNode } from "@lexical/utils";
 import {
     $getNodeByKey,
     $getRoot,
-    $isElementNode,
     $isLineBreakNode,
     type EditorState,
     type LexicalEditor,
@@ -11,11 +10,7 @@ import {
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import {
-    $createUSFMParagraphNode,
-    $isUSFMParagraphNode,
-    type USFMParagraphNode,
-} from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
+import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
@@ -133,9 +128,7 @@ export function maintainDocumentStructure(
  * Ensures Regular mode root children are all USFMParagraphNode containers.
  * Stray nodes at root level are wrapped into a default paragraph container.
  */
-export function enforceRegularModeParagraphStructure(
-    editor: LexicalEditor,
-): void {
+/* function enforceRegularModeParagraphStructure(editor: LexicalEditor): void {
     editor.update(
         () => {
             const root = $getRoot();
@@ -240,7 +233,7 @@ export function enforceRegularModeParagraphStructure(
             tag: [EDITOR_TAGS_USED.historyMerge],
         },
     );
-}
+} */
 
 // This function shouldn't be run often. It's just to keep the dom size down by merging similar nodes and anythign else that isn't frame rate sensitive.. when it wasn't debounced, it was causing issues with copy/paste
 export function maintainDocumentStructureDebounced(

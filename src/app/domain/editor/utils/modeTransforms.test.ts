@@ -1,4 +1,4 @@
-import type { SerializedLexicalNode } from "lexical";
+import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -19,10 +19,12 @@ describe("modeTransforms nested editor round-trip", () => {
             { needsParagraphs: true },
         );
 
-        const start = editor.getEditorState().toJSON() as unknown as {
-            root: { children: SerializedLexicalNode[] };
-        };
-        const startUsfm = serializeToUsfmString(start.root.children);
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+        const startUsfm = serializeToUsfmString(
+            start.root.children as SerializedLexicalNode[],
+        );
 
         const toUsfmMode = transformToMode(structuredClone(start), "usfm");
         const backToRegular = transformToMode(
@@ -63,9 +65,9 @@ describe("modeTransforms nested editor round-trip", () => {
             { needsParagraphs: false },
         );
 
-        const start = editor.getEditorState().toJSON() as unknown as {
-            root: { children: SerializedLexicalNode[] };
-        };
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
         const toRegular = transformToMode(structuredClone(start), "regular");
         const usfm = serializeToUsfmString(toRegular.root.children);
 

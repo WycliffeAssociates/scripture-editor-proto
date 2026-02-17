@@ -65,13 +65,7 @@ export function useEditorStructure(editor: LexicalEditor) {
             return;
         }
         const maintainMetadata = editor.registerUpdateListener(
-            ({
-                editorState,
-                dirtyElements,
-                dirtyLeaves,
-                prevEditorState,
-                tags,
-            }) => {
+            ({ editorState, prevEditorState, tags }) => {
                 // const wasOnlySelChange =
                 //   dirtyElements.size === 0 && dirtyLeaves.size === 0;
                 // if (

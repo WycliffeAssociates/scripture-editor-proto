@@ -341,12 +341,12 @@ export function useProjectDiffs({
                 );
                 if (Object.keys(chapterDiffs).length === 0) {
                     delete next[bookCode]?.[chapterNum];
-                } else {
-                    next[bookCode]![chapterNum] = chapterDiffs;
+                } else if (next[bookCode]) {
+                    next[bookCode][chapterNum] = chapterDiffs;
                 }
                 if (
                     next[bookCode] &&
-                    Object.keys(next[bookCode]!).length === 0
+                    Object.keys(next[bookCode]).length === 0
                 ) {
                     delete next[bookCode];
                 }
@@ -440,7 +440,7 @@ export function useProjectDiffs({
             const chapterDiffs = calculateDiffsForChapter(bookCode, chapterNum);
             if (Object.keys(chapterDiffs).length === 0) continue;
             if (!next[bookCode]) next[bookCode] = {};
-            next[bookCode]![chapterNum] = chapterDiffs;
+            next[bookCode][chapterNum] = chapterDiffs;
         }
 
         setDiffsByChapter(next);

@@ -396,7 +396,7 @@ const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<LintableToken> = (
         const potentialMarker = match[1];
         const textAfter = match[2];
         const maxLenTextAfter =
-            textAfter.length > 10 ? textAfter.slice(0, 10) + "..." : textAfter;
+            textAfter.length > 10 ? `${textAfter.slice(0, 10)}...` : textAfter;
         if (ALL_USFM_MARKERS.has(potentialMarker)) {
             err.fix = {
                 label: `Insert space: \\${potentialMarker} ${maxLenTextAfter}`,

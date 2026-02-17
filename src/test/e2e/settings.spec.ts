@@ -1,20 +1,26 @@
+import type { Page } from "@playwright/test";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
 
+async function openDrawer(editorPage: Page) {
+    await editorPage.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
+}
+
+async function openSettingsAccordion(editorPage: Page) {
+    await editorPage
+        .getByTestId(TESTING_IDS.settings.accordionControlSettings)
+        .click();
+}
+
 test.describe("Settings Panel", () => {
+    test.beforeEach(async ({ editorPage }) => {
+        await openDrawer(editorPage);
+        await openSettingsAccordion(editorPage);
+    });
+
     test("theme toggle switches between light and dark modes", async ({
         editorPage,
     }) => {
-        // Open drawer
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.drawerOpenButton)
-            .click();
-
-        // Open settings accordion
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.accordionControlSettings)
-            .click();
-
         // Get theme toggle
         const themeToggle = editorPage.getByTestId(
             TESTING_IDS.settings.themeToggle,
@@ -46,16 +52,6 @@ test.describe("Settings Panel", () => {
     test("language selector changes interface language", async ({
         editorPage,
     }) => {
-        // Open drawer
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.drawerOpenButton)
-            .click();
-
-        // Open settings accordion
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.accordionControlSettings)
-            .click();
-
         // Get language selector
         const languageSelector = editorPage.getByTestId(
             TESTING_IDS.settings.languageSelector,
@@ -81,16 +77,6 @@ test.describe("Settings Panel", () => {
     test("font size control increments and decrements", async ({
         editorPage,
     }) => {
-        // Open drawer
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.drawerOpenButton)
-            .click();
-
-        // Open settings accordion
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.accordionControlSettings)
-            .click();
-
         // Get font size input
         const fontSizeInput = editorPage.getByTestId(
             TESTING_IDS.settings.fontSizeInput,
@@ -113,16 +99,6 @@ test.describe("Settings Panel", () => {
     });
 
     test("font size control accepts typed input", async ({ editorPage }) => {
-        // Open drawer
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.drawerOpenButton)
-            .click();
-
-        // Open settings accordion
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.accordionControlSettings)
-            .click();
-
         // Get font size input
         const fontSizeInput = editorPage.getByTestId(
             TESTING_IDS.settings.fontSizeInput,
@@ -136,16 +112,6 @@ test.describe("Settings Panel", () => {
     });
 
     test("font size control clamps values", async ({ editorPage }) => {
-        // Open drawer
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.drawerOpenButton)
-            .click();
-
-        // Open settings accordion
-        await editorPage
-            .getByTestId(TESTING_IDS.settings.accordionControlSettings)
-            .click();
-
         // Get font size input
         const fontSizeInput = editorPage.getByTestId(
             TESTING_IDS.settings.fontSizeInput,

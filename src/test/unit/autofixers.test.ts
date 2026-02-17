@@ -115,6 +115,19 @@ function makeEditorStateFromRootChildren(
     } as unknown as SerializedEditorState;
 }
 
+function applyAutofixToRootChildren(
+    rootChildren: SerializedLexicalNode[],
+    error: LintError,
+): SerializedLexicalNode[] | null {
+    const nextState = applyAutofixToSerializedState(
+        makeEditorStateFromRootChildren(rootChildren),
+        error,
+    );
+    return nextState
+        ? (nextState.root.children as SerializedLexicalNode[])
+        : null;
+}
+
 describe("applyAutofixToSerializedState", () => {
     it("should insert end marker after the target node", () => {
         const targetId = "target-node-id";
@@ -144,10 +157,9 @@ describe("applyAutofixToSerializedState", () => {
             },
         };
 
-        const result = applyAutofixToSerializedState(nodes, error);
-
-        expect(result).toBe(true);
-        expect(nodes.length).toBe(4);
+        const result = applyAutofixToRootChildren(nodes, error);
+        expect(result).toBeTruthy();
+        expect(result).toHaveLength(4);
 
         // Check inserted node
         // It should be inserted AFTER the target node.
@@ -156,8 +168,8 @@ describe("applyAutofixToSerializedState", () => {
         // Index 2: f* (inserted)
         // Index 3: content
 
-        const inserted = nodes[2] as SerializedUSFMTextNode;
-        expect(inserted.marker).toBe("f*");
+        const inserted = result?.[2] as SerializedUSFMTextNode;
+        expect(inserted.marker).toBe("f");
         expect(inserted.text).toMatch(/\\f\*/);
         expect(inserted.tokenType).toBe(UsfmTokenTypes.endMarker);
     });
@@ -179,8 +191,8 @@ describe("applyAutofixToSerializedState", () => {
             },
         };
 
-        const result = applyAutofixToSerializedState(nodes, error);
-        expect(result).toBe(false);
+        const result = applyAutofixToRootChildren(nodes, error);
+        expect(result).toBeNull();
         expect(nodes.length).toBe(1);
     });
 
@@ -211,12 +223,13 @@ describe("applyAutofixToSerializedState", () => {
             },
         };
 
-        const result = applyAutofixToSerializedState(nodes, error);
-        expect(result).toBe(true);
-        expect(elementNode.children.length).toBe(2);
-        expect((elementNode.children[1] as SerializedUSFMTextNode).marker).toBe(
-            "add*",
-        );
+        const result = applyAutofixToRootChildren(nodes, error);
+        expect(result).toBeTruthy();
+        const updatedElement = result?.[0] as SerializedElementNode;
+        expect(updatedElement.children.length).toBe(2);
+        expect(
+            (updatedElement.children[1] as SerializedUSFMTextNode).marker,
+        ).toBe("add");
     });
 
     it("should split unknown token into marker and text with space", () => {
@@ -246,17 +259,16 @@ describe("applyAutofixToSerializedState", () => {
             },
         };
 
-        const result = applyAutofixToSerializedState(nodes, error);
+        const result = applyAutofixToRootChildren(nodes, error);
+        expect(result).toBeTruthy();
+        expect(result).toHaveLength(2);
 
-        expect(result).toBe(true);
-        expect(nodes.length).toBe(2);
-
-        const markerNode = nodes[0] as SerializedUSFMTextNode;
+        const markerNode = result?.[0] as SerializedUSFMTextNode;
         expect(markerNode.text).toBe("\\m");
         expect(markerNode.marker).toBe("m");
         expect(markerNode.tokenType).toBe(UsfmTokenTypes.marker);
 
-        const textNode = nodes[1] as SerializedUSFMTextNode;
+        const textNode = result?.[1] as SerializedUSFMTextNode;
         expect(textNode.text).toBe(" (for");
         expect(textNode.tokenType).toBe(UsfmTokenTypes.text);
     });
@@ -328,13 +340,14 @@ describe("applyAutofixToSerializedState", () => {
         expect(err?.fix?.data.nodeId).not.toBe(para2Id);
         expect(err?.fix?.data.nodeId).not.toBe(para1Id);
 
-        const didFix = applyAutofixToSerializedState(
-            rootChildren,
+        const fixedState = applyAutofixToSerializedState(
+            editorState,
             err as LintError,
         );
-        expect(didFix).toBe(true);
+        expect(fixedState).toBeTruthy();
 
-        const para1 = rootChildren[0] as USFMParagraphNodeJSON;
+        const para1 = (fixedState?.root.children?.[0] ??
+            rootChildren[0]) as USFMParagraphNodeJSON;
         const nestedAfterFix = para1.children[1] as unknown as {
             editorState: {
                 root: {
@@ -354,7 +367,7 @@ describe("applyAutofixToSerializedState", () => {
             targetIdx + 1
         ] as SerializedUSFMTextNode;
         expect(inserted.tokenType).toBe(UsfmTokenTypes.endMarker);
-        expect(inserted.marker).toBe("f*");
+        expect(inserted.marker).toBe("f");
         expect(inserted.text).toBe("\\f*");
     });
 
@@ -417,13 +430,14 @@ describe("applyAutofixToSerializedState", () => {
         expect(err?.fix?.data.nodeId).toBe(targetId);
         expect(err?.fix?.data.nodeId).not.toBe(para2Id);
 
-        const didFix = applyAutofixToSerializedState(
-            rootChildren,
+        const fixedState = applyAutofixToSerializedState(
+            editorState,
             err as LintError,
         );
-        expect(didFix).toBe(true);
+        expect(fixedState).toBeTruthy();
 
-        const wrapper = rootChildren[0] as SerializedElementNode;
+        const wrapper = (fixedState?.root.children?.[0] ??
+            rootChildren[0]) as SerializedElementNode;
         const para1AfterFix = wrapper.children[0] as USFMParagraphNodeJSON;
         const nestedAfterFix = para1AfterFix.children[1] as unknown as {
             editorState: {
@@ -440,7 +454,7 @@ describe("applyAutofixToSerializedState", () => {
         expect(idx).toBeGreaterThanOrEqual(0);
 
         const inserted = inner[idx + 1] as SerializedUSFMTextNode;
-        expect(inserted.marker).toBe("f*");
+        expect(inserted.marker).toBe("f");
         expect(inserted.tokenType).toBe(UsfmTokenTypes.endMarker);
     });
 });

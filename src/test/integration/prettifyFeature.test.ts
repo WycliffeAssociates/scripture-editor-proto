@@ -186,6 +186,9 @@ Some text
                     node.text.trim() === "1-3",
             ) as SerializedUSFMTextNode | undefined;
             expect(bridgedVerse).toBeTruthy();
+            if (!bridgedVerse) {
+                throw new Error("Expected bridged verse range token");
+            }
 
             const bridgedIndex = flattened.indexOf(bridgedVerse);
             const nextTextNode = flattened[bridgedIndex + 1] as

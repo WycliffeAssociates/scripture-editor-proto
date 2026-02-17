@@ -47,16 +47,6 @@ const markerState = createState("marker", {
     parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
-/**
- * Defines the NodeState for 'show'. It controls the node's visibility.
- */
-const showState = createState("show", {
-    parse: (value) => (typeof value === "boolean" ? value : true),
-});
-const isMutableState = createState("isMutable", {
-    parse: (value) => (typeof value === "boolean" ? value : true),
-});
-
 const lintErrorsState = createState("lintErrors", {
     parse: (value) =>
         typeof value === "object" && Array.isArray(value)
@@ -83,8 +73,6 @@ export {
     inCharsState,
     tokenTypeState,
     markerState,
-    showState,
-    isMutableState,
     lintErrorsState,
     markerTextState,
     isStructuralEmptyState,

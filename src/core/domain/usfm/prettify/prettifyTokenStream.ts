@@ -748,28 +748,3 @@ export function prettifyTokenStream(
     // 12. Markers at line-start should not carry inherited leading spaces.
     return normalizeMarkerWhitespaceAtLineStart(dedupedLinebreaks);
 }
-
-/**
- * Rehydrates a flat list of tokens back into paragraph-grouped token streams.
- * This is for core token streams only (NOT Lexical paragraph containers).
- */
-export function groupFlatTokensIntoParagraphRuns(
-    tokens: PrettifyToken[],
-): PrettifyToken[][] {
-    const runs: PrettifyToken[][] = [];
-    let current: PrettifyToken[] = [];
-    for (const t of tokens) {
-        if (
-            t.tokenType === TokenMap.marker &&
-            t.marker &&
-            VALID_PARA_MARKERS.has(t.marker)
-        ) {
-            if (current.length) runs.push(current);
-            current = [t];
-            continue;
-        }
-        current.push(t);
-    }
-    if (current.length) runs.push(current);
-    return runs;
-}

@@ -1,5 +1,3 @@
-import { $reverseDfsIterator } from "@lexical/utils";
-import { $getRoot } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
@@ -11,23 +9,6 @@ const LEADING_VERSE_NUMBER_WITH_TEXT_PATTERN = /^(\s*)(\d+(?:-\d+)?)(\s+)(.*)$/;
 
 function isMarkerExpectingNumberRange(marker: string | undefined): boolean {
     return !!marker && CHAPTER_VERSE_MARKERS.has(marker);
-}
-
-function findPreviousMarkerNode(anchorNode: USFMTextNode): USFMTextNode | null {
-    let isFirst = true;
-    for (const { node } of $reverseDfsIterator(anchorNode, $getRoot())) {
-        if (isFirst) {
-            isFirst = false;
-            continue;
-        }
-        if (
-            $isUSFMTextNode(node) &&
-            node.getTokenType() === UsfmTokenTypes.marker
-        ) {
-            return node;
-        }
-    }
-    return null;
 }
 
 export function getLeadingVerseNumberFromText(text: string): {

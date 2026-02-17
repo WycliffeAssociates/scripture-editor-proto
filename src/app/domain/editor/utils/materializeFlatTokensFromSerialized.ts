@@ -19,7 +19,7 @@ function isSerializedElementWithChildren(
  * Detect whether a serialized node is a USFMParagraphNode container.
  * This is the new tree-structured paragraph container (not the legacy Lexical "paragraph" or "usfm-element-node").
  */
-export function isSerializedUSFMParagraphContainer(
+function isSerializedUSFMParagraphContainer(
     node: SerializedLexicalNode,
 ): node is USFMParagraphNodeJSON {
     return node.type === USFM_PARAGRAPH_NODE_TYPE;

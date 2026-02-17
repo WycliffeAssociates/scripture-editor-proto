@@ -26,5 +26,6 @@
         }
     },
     "include": ["src", "src/tauri/persistence/.ts"],
+    "exclude": ["node_modules", "dist", "dist-web"],
     "references": [{ "path": "./tsconfig.node.json" }]
 }

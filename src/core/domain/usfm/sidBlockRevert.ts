@@ -1,13 +1,13 @@
 import { type BuildSidBlocksOptions, buildSidBlocks } from "./sidBlocks.ts";
 
-export type ApplyRevertArgs<T> = {
+export type ApplyRevertArgs<T extends object> = {
     diffBlockId: string;
     baselineTokens: T[];
     currentTokens: T[];
     buildOptions?: BuildSidBlocksOptions<T>;
 };
 
-function deepCloneSlice<T>(slice: T[]): T[] {
+function deepCloneSlice<T extends object>(slice: T[]): T[] {
     // structuredClone preserves object graphs and is available in modern runtimes.
     return slice.map((x) => structuredClone(x));
 }
@@ -17,7 +17,7 @@ function deepCloneSlice<T>(slice: T[]): T[] {
  *
  * This is mode-agnostic: callers adapt to/from any editor tree format.
  */
-export function applyRevertByBlockId<T>({
+export function applyRevertByBlockId<T extends object>({
     diffBlockId,
     baselineTokens,
     currentTokens,

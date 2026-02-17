@@ -86,8 +86,3 @@ export const viewOnlyActive = style({
         },
     },
 });
-
-export const formatMatchNotice = style({
-    whiteSpace: "normal",
-    lineHeight: 1.3,
-});

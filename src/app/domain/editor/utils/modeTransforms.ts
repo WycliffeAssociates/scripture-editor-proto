@@ -24,10 +24,7 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 // Re-export shared utilities from their canonical locations
 export { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
-export {
-    isSerializedUSFMParagraphContainer,
-    materializeFlatTokensArray,
-} from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+export { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 /**
  * Detects if root children are wrapped in a single paragraph container (Source/Plain mode)

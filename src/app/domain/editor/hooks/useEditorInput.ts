@@ -237,20 +237,24 @@ export function useEditorInput(editor: LexicalEditor) {
                         ? (payload as ClipboardEvent | KeyboardEvent)
                         : null;
 
-                let restore: {
-                    anchor: {
-                        key: string;
-                        offset: number;
-                        type: "text" | "element";
-                    };
-                    focus: {
-                        key: string;
-                        offset: number;
-                        type: "text" | "element";
-                    };
-                    format: number;
-                    style: string;
-                } | null = null;
+                const restoreRef: {
+                    current: {
+                        anchor: {
+                            key: string;
+                            offset: number;
+                            type: "text" | "element";
+                        };
+                        focus: {
+                            key: string;
+                            offset: number;
+                            type: "text" | "element";
+                        };
+                        format: number;
+                        style: string;
+                    } | null;
+                } = {
+                    current: null,
+                };
 
                 editor.update(
                     () => {
@@ -269,7 +273,7 @@ export function useEditorInput(editor: LexicalEditor) {
                             );
                         if (!didExpand) return;
 
-                        restore = {
+                        restoreRef.current = {
                             anchor: {
                                 key: snapshot.anchor.key,
                                 offset: snapshot.anchor.offset,
@@ -287,7 +291,8 @@ export function useEditorInput(editor: LexicalEditor) {
                     { discrete: true, event },
                 );
 
-                if (restore) {
+                const restoreSelection = restoreRef.current;
+                if (restoreSelection) {
                     queueMicrotask(() => {
                         editor.update(
                             () => {
@@ -295,17 +300,17 @@ export function useEditorInput(editor: LexicalEditor) {
                                 if (!$isRangeSelection(selection)) return;
 
                                 selection.anchor.set(
-                                    restore.anchor.key,
-                                    restore.anchor.offset,
-                                    restore.anchor.type,
+                                    restoreSelection.anchor.key,
+                                    restoreSelection.anchor.offset,
+                                    restoreSelection.anchor.type,
                                 );
                                 selection.focus.set(
-                                    restore.focus.key,
-                                    restore.focus.offset,
-                                    restore.focus.type,
+                                    restoreSelection.focus.key,
+                                    restoreSelection.focus.offset,
+                                    restoreSelection.focus.type,
                                 );
-                                selection.setFormat(restore.format);
-                                selection.setStyle(restore.style);
+                                selection.setFormat(restoreSelection.format);
+                                selection.setStyle(restoreSelection.style);
                             },
                             { discrete: true },
                         );

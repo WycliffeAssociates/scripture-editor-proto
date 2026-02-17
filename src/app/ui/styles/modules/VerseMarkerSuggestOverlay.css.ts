@@ -15,9 +15,12 @@ export const underline = style({
     position: "absolute",
     left: 0,
     top: 0,
+    border: "none",
     borderBottom: "2px solid #f08c00",
-    width: "100%",
-    height: "100%",
+    background: "transparent",
+    padding: 0,
+    margin: 0,
+    cursor: "pointer",
 });
 
 export const bubble = style({

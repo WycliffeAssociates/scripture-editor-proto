@@ -40,15 +40,6 @@ export const navRibbon = style({
     borderBottom: `1px solid ${vars.colors.defaultBorder}`,
 });
 
-export const chapterRibbon = style({
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "0.5rem",
-    padding: "0.25rem 0.25rem 0.5rem 0.25rem",
-    backgroundColor: vars.colors.body,
-});
-
 export const chapterNavRow = style({
     display: "grid",
     gridTemplateColumns: "1fr auto 1fr",

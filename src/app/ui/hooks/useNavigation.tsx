@@ -6,10 +6,9 @@ import {
     type LexicalNode,
 } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
-
-export type UseNavigationHook = ReturnType<typeof useNavigation>;
 
 export function useNavigation({
     mutWorkingFilesRef,
@@ -27,7 +26,7 @@ export function useNavigation({
     currentChapter: number;
     setCurrentFileBibleIdentifier: (file: string) => void;
     setCurrentChapter: (chapter: number) => void;
-    updateAppSettings: (newSettings: any) => void;
+    updateAppSettings: (newSettings: Partial<Settings>) => void;
     pickedFile: ParsedFile | null;
     setEditorContent: (
         fileBibleIdentifier: string,

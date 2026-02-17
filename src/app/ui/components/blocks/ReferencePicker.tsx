@@ -25,6 +25,8 @@ type ReferencePickerFile = {
     bookCode: string;
     chapters: Array<{ chapNumber: number }>;
     _chaptersSorted: Array<{ chapNumber: number }>;
+    _titleLower: string;
+    _bookCodeLower: string;
 };
 
 export function ReferencePicker() {

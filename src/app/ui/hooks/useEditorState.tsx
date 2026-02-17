@@ -3,8 +3,6 @@ import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
-export type UseEditorStateHook = ReturnType<typeof useEditorState>;
-
 export function useEditorState({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,

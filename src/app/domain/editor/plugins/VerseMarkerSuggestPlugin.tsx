@@ -1,7 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $dfsIterator } from "@lexical/utils";
 import { Button } from "@mantine/core";
-import { $getNodeByKey } from "lexical";
+import { $getNodeByKey, type LexicalNode } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
@@ -50,28 +50,27 @@ export function VerseMarkerSuggestPlugin() {
         return root.closest<HTMLElement>('[data-js="editor-container"]');
     }, [editor]);
 
-    type DecoratorProducer = (node: {
-        getKey: () => string;
-    }) => Suggestion | null;
+    type DecoratorProducer = (node: LexicalNode) => Suggestion | null;
 
-    const buildVerseMarkerSuggestion: DecoratorProducer = (node) => {
-        if (!$isUSFMTextNode(node)) return null;
-        if (node.getTokenType() !== UsfmTokenTypes.text) return null;
-        const parsed = canPromoteLeadingVerseNumber(node);
-        if (!parsed) return null;
-        const leading = parsed.leadingWhitespace.length;
-        const startOffset = leading;
-        const endOffset = leading + parsed.verseNumber.length;
-        return {
-            key: `verse-suggest:${node.getKey()}:${startOffset}`,
-            nodeKey: node.getKey(),
-            verseNumber: parsed.verseNumber,
-            startOffset,
-            endOffset,
-        };
-    };
-
-    const decoratorProducers = useMemo(() => [buildVerseMarkerSuggestion], []);
+    const buildVerseMarkerSuggestion = useCallback<DecoratorProducer>(
+        (node) => {
+            if (!$isUSFMTextNode(node)) return null;
+            if (node.getTokenType() !== UsfmTokenTypes.text) return null;
+            const parsed = canPromoteLeadingVerseNumber(node);
+            if (!parsed) return null;
+            const leading = parsed.leadingWhitespace.length;
+            const startOffset = leading;
+            const endOffset = leading + parsed.verseNumber.length;
+            return {
+                key: `verse-suggest:${node.getKey()}:${startOffset}`,
+                nodeKey: node.getKey(),
+                verseNumber: parsed.verseNumber,
+                startOffset,
+                endOffset,
+            };
+        },
+        [],
+    );
 
     const recomputeSuggestions = useCallback(() => {
         const editorMode = project.appSettings.editorMode ?? "regular";
@@ -82,14 +81,12 @@ export function VerseMarkerSuggestPlugin() {
         editor.getEditorState().read(() => {
             const next: Suggestion[] = [];
             for (const { node } of $dfsIterator()) {
-                for (const producer of decoratorProducers) {
-                    const suggestion = producer(node);
-                    if (suggestion) next.push(suggestion);
-                }
+                const suggestion = buildVerseMarkerSuggestion(node);
+                if (suggestion) next.push(suggestion);
             }
             setSuggestions(next);
         });
-    }, [editor, project.appSettings.editorMode, decoratorProducers]);
+    }, [editor, project.appSettings.editorMode, buildVerseMarkerSuggestion]);
 
     useEffect(() => {
         return editor.registerUpdateListener(() => {
@@ -133,7 +130,7 @@ export function VerseMarkerSuggestPlugin() {
         return () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
-    }, [recomputePositions, suggestions]);
+    }, [recomputePositions]);
 
     useEffect(() => {
         const container = getContainerEl();
@@ -194,7 +191,7 @@ export function VerseMarkerSuggestPlugin() {
             });
             setActiveKey(null);
         },
-        [editor],
+        [editor, project.appSettings.editorMode, projectLanguageDirection],
     );
 
     const clearCloseTimer = useCallback(() => {
@@ -220,31 +217,34 @@ export function VerseMarkerSuggestPlugin() {
                 key={item.key}
                 className={styles.suggestion}
                 style={{ left: item.x, top: item.y }}
-                onMouseEnter={() => {
-                    clearCloseTimer();
-                    setActiveKey(item.key);
-                }}
-                onMouseLeave={() => {
-                    scheduleClose(item.key);
-                }}
-                onClick={() => {
-                    clearCloseTimer();
-                    setActiveKey((key) => (key === item.key ? null : item.key));
-                }}
             >
-                <span
+                <button
+                    type="button"
                     className={styles.underline}
                     style={{ width: item.width, height: item.height }}
+                    aria-label={`Open verse marker suggestion for verse ${item.verseNumber}`}
+                    aria-expanded={activeKey === item.key}
+                    onMouseEnter={() => {
+                        clearCloseTimer();
+                        setActiveKey(item.key);
+                    }}
+                    onMouseLeave={() => {
+                        scheduleClose(item.key);
+                    }}
+                    onClick={() => {
+                        clearCloseTimer();
+                        setActiveKey((key) =>
+                            key === item.key ? null : item.key,
+                        );
+                    }}
                 />
                 {activeKey === item.key ? (
-                    <div
-                        className={styles.bubble}
-                        onMouseEnter={() => clearCloseTimer()}
-                        onMouseLeave={() => scheduleClose(item.key)}
-                    >
+                    <div className={styles.bubble}>
                         <Button
                             size="xs"
                             variant="filled"
+                            onMouseEnter={() => clearCloseTimer()}
+                            onMouseLeave={() => scheduleClose(item.key)}
                             onClick={(event) => {
                                 event.stopPropagation();
                                 handleConvert(item);
@@ -256,7 +256,7 @@ export function VerseMarkerSuggestPlugin() {
                 ) : null}
             </div>
         ));
-    }, [activeKey, handleConvert, positioned]);
+    }, [activeKey, handleConvert, positioned, clearCloseTimer, scheduleClose]);
 
     if (!overlayHostEl) return null;
     return createPortal(rendered, overlayHostEl);

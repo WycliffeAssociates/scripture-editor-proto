@@ -4,7 +4,6 @@ import { db as mockedDb } from "@/app/db/__mocks__/db.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
-import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 // import type {IFileWriter} from "@/core/io/IFileWriter.ts";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
@@ -16,13 +15,6 @@ vi.mock("@/app/db/db.ts", () => {
 });
 
 // Mock implementations for dependencies
-let inMemoryFiles: Map<string, string> = new Map();
-const _mockFileWriter: IFileWriter = {
-    writeFile: vi.fn(async (filename: string, content: string) => {
-        inMemoryFiles.set(filename, content);
-    }),
-};
-
 const mockMd5Service: IMd5Service = {
     calculateMd5: vi.fn((text: string) => Promise.resolve(`mock-md5-${text}`)),
 };
@@ -213,7 +205,6 @@ describe("ProjectRepository", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        inMemoryFiles = new Map();
         projectRepository = new ProjectRepository(
             mockDirectoryProvider,
             mockMd5Service,

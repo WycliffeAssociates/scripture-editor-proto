@@ -61,12 +61,13 @@ describe("sidBlockDiff + sidBlockRevert", () => {
         const diffs = diffSidBlocks(baselineBlocks, currentBlocks);
         expect(diffs).toHaveLength(1);
         expect(diffs[0]?.status).toBe("modified");
-
-        const next = applyRevertByBlockId({
-            diffBlockId: diffs[0]!.blockId,
-            baselineTokens: baseline,
-            currentTokens: current,
-        });
-        expect(next.map((t) => t.text).join("")).toBe("Hello worldOk");
+        if (diffs[0]?.blockId) {
+            const next = applyRevertByBlockId({
+                diffBlockId: diffs[0].blockId,
+                baselineTokens: baseline,
+                currentTokens: current,
+            });
+            expect(next.map((t) => t.text).join("")).toBe("Hello worldOk");
+        }
     });
 });

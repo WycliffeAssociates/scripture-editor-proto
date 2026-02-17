@@ -361,14 +361,3 @@ export function createSerializedUSFMTextNode(
         style: "",
     };
 }
-
-// update in place for serialized /json nodes
-function updateSerializedToggleableUSFMTextNode(
-    node: SerializedUSFMTextNode,
-    nodeUpdate: Partial<SerializedUSFMTextNode>,
-): SerializedUSFMTextNode {
-    return {
-        ...node,
-        ...nodeUpdate,
-    };
-}

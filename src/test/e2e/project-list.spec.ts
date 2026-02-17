@@ -1,122 +1,70 @@
+import type { Page } from "@playwright/test";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 
-test.describe("ProjectList Component", () => {
-    test("opens app drawer and displays project list", async ({
+async function openProjectDrawer(page: Page) {
+    await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
+}
+
+test.describe("Project Drawer Workflows", () => {
+    test("lists projects and supports export + open actions", async ({
         editorPage: page,
     }) => {
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
+        await openProjectDrawer(page);
 
-        // Verify Projects accordion is open by default
-        await expect(page.getByText("Projects")).toBeVisible();
+        const projectsList = page.getByTestId(
+            TESTING_IDS.appDrawer.projectsList,
+        );
+        await expect(projectsList).toBeVisible();
 
-        // Verify project list items are present
-        await expect(
-            page.getByTestId(TESTING_IDS.appDrawer.projectsList),
-        ).toBeVisible();
-    });
+        const exportButton = projectsList
+            .getByTestId(TESTING_IDS.appDrawer.itemExport)
+            .first();
+        await expect(exportButton).toBeVisible();
+        const downloadPromise = page.waitForEvent("download");
+        await exportButton.click();
+        const download = await downloadPromise;
+        expect(download).toBeTruthy();
 
-    test("navigates to project when clicking project item button", async ({
-        editorPage: page,
-    }) => {
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
-
-        // Click on the project button
-        await page
+        await projectsList
             .getByTestId(TESTING_IDS.project.listItemButton)
             .first()
             .click();
-
-        // Verify navigation occurred - should be on the project page
         await expect(
             page.getByTestId(TESTING_IDS.mainEditorContainer),
         ).toBeVisible();
-
-        // Verify URL contains the project name
         expect(page.url()).toContain("/llx_reg");
     });
 
-    test("shows export button when opener is available", async ({
+    test("navigates to create route from new project action", async ({
         editorPage: page,
     }) => {
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
-
-        // Verify export button is present
-        await expect(
-            page.getByTestId(TESTING_IDS.appDrawer.itemExport).first(),
-        ).toBeVisible();
-    });
-
-    test("triggers export when clicking download icon", async ({
-        editorPage: page,
-    }) => {
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
-        const downloadPromise = page.waitForEvent("download");
-
-        // Click the export button
-        await page
-            .getByTestId(TESTING_IDS.appDrawer.itemExport)
-            .first()
-            .click();
-        const download = await downloadPromise;
-        download.suggestedFilename();
-        expect(download).toBeTruthy();
-        // Note: The actual download might not work in test environment due to file system restrictions,
-        // but we can verify the click action and that no errors occur
-        // In a real implementation, you might need to mock the opener.export function
-    });
-
-    test("shows new project link at bottom of list", async ({
-        editorPage: page,
-    }) => {
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
-
-        // Verify "New Project" link is present
+        await openProjectDrawer(page);
         await expect(page.getByText("New Project")).toBeVisible();
-
-        // Click the new project link
         await page.getByTestId(TESTING_IDS.appDrawer.newProject).click();
-
-        // Should navigate to home page
-        expect(page.url()).toBe(`${BASE_URL}/`);
+        expect(page.url()).toBe(`${BASE_URL}/create`);
     });
 
-    test("handles multiple projects correctly", async ({
+    test("handles multiple projects in drawer", async ({
         editorWithTwoProjects: page,
     }) => {
-        // This test assumes multiple projects are loaded
-        // For now, we'll test with whatever projects are available
+        await openProjectDrawer(page);
 
-        // Open the app drawer
-        await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
-
-        // Count project items in the app drawer
-        const appDrawerProjectsList = page.getByTestId(
+        const projectsList = page.getByTestId(
             TESTING_IDS.appDrawer.projectsList,
         );
-        const projectItems = await appDrawerProjectsList
+        const projectItems = await projectsList
             .locator('[data-testid^="project-list-item-"]')
             .all();
-        const count = projectItems.length;
+        expect(projectItems.length).toBeGreaterThan(1);
 
-        // Should have at least one project
-        expect(count).toBeGreaterThan(1);
-
-        // Each project should have a button
-        const projectButtons = appDrawerProjectsList.getByTestId(
-            TESTING_IDS.project.listItemButton,
-        );
-        await expect(projectButtons.first()).toBeVisible();
-
-        // Each project should have an export button
-        const exportButtons = appDrawerProjectsList.getByTestId(
-            TESTING_IDS.appDrawer.itemExport,
-        );
-        await expect(exportButtons.first()).toBeVisible();
+        await expect(
+            projectsList
+                .getByTestId(TESTING_IDS.project.listItemButton)
+                .first(),
+        ).toBeVisible();
+        await expect(
+            projectsList.getByTestId(TESTING_IDS.appDrawer.itemExport).first(),
+        ).toBeVisible();
     });
 });

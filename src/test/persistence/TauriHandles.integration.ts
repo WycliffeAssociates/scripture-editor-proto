@@ -18,6 +18,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import {
     afterAll,
+    afterEach,
     beforeAll,
     beforeEach,
     describe,
@@ -63,6 +64,7 @@ vi.mock("@tauri-apps/api/path", () => {
 
 const fileStore = new Map<string, string>();
 const mockDirectories = new Set<string>();
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
     BaseDirectory: vi.fn(() => "mock-base-directory"),
@@ -189,6 +191,24 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
         }
         return content;
     }),
+    readFile: vi.fn(async (path: string) => {
+        const normalizedPath = await normalize(path);
+        if (mockDirectories.has(normalizedPath)) {
+            throw new Error(
+                `EISDIR: illegal operation on a directory, read ${normalizedPath}`,
+            );
+        }
+
+        const content = fileStore.get(normalizedPath);
+        if (content === undefined) {
+            throw new Error(`File not found: ${normalizedPath}`);
+        }
+        if (Array.isArray(content)) {
+            return content;
+        }
+
+        return new TextEncoder().encode(content);
+    }),
 
     exists: vi.fn(async (path: string) => {
         const normalizedPath = await normalize(path);
@@ -275,6 +295,14 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
         return entries;
     }),
 }));
+
+beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
+afterEach(() => {
+    consoleErrorSpy.mockRestore();
+});
 
 describe("TauriFileHandle Integration Tests (LIVE FS I/O)", () => {
     beforeAll(async () => {

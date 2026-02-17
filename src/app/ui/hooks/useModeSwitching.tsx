@@ -13,8 +13,6 @@ import {
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { updateDomForEditorMode } from "./utils/domUtils.ts";
 
-export type UseModeSwitchingHook = ReturnType<typeof useModeSwitching>;
-
 export function useModeSwitching({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,

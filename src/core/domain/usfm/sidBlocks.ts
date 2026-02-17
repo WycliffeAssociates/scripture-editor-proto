@@ -27,15 +27,18 @@ export type BuildSidBlocksOptions<T> = {
  * - If the first token in a block has a stable id, blockId = `${sid}::${id}`
  * - Otherwise, blockId = `${sid}#${occurrenceIndex}` (per-sid occurrence in this chapter)
  */
-export function buildSidBlocks<T>(
+export function buildSidBlocks<T extends object>(
     tokens: T[],
     options: BuildSidBlocksOptions<T> = {},
 ): SidBlock[] {
-    const getSid = options.getSid ?? ((t: any) => String(t.sid ?? ""));
-    const getText = options.getText ?? ((t: any) => String(t.text ?? ""));
+    const getSid =
+        options.getSid ?? ((ty) => ("sid" in ty ? String(ty.sid ?? "") : ""));
+    const getText =
+        options.getText ??
+        ((ty) => ("text" in ty ? String(ty.text ?? "") : ""));
     const getId =
         options.getId ??
-        ((t: any) => (typeof t.id === "string" ? t.id : undefined));
+        ((ty) => ("id" in ty && typeof ty.id === "string" ? ty.id : undefined));
 
     if (tokens.length === 0) return [];
 

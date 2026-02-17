@@ -252,19 +252,3 @@ export function mutAddSids<T extends TokenForSidCalculation>(
         t.sid = currentSid;
     }
 }
-
-export type MutSidVals = ReturnType<typeof getMutSidVals>;
-export function getMutSidVals(bookCode: string) {
-    return {
-        mutCurChap: { val: "0" },
-        mutCurVerse: { val: null } as { val: string | null },
-        mutCurSid: {
-            val: makeSid({
-                bookId: bookCode,
-                chapter: 0,
-                verseStart: 0,
-                verseEnd: 0,
-            }),
-        },
-    };
-}

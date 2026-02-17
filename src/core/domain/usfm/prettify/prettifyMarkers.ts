@@ -1,5 +1,3 @@
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
-
 export const POETRY_MARKERS = new Set([
     "q",
     "q1",
@@ -67,7 +65,9 @@ const LINEBREAK_BEFORE_ONLY_MARKERS = new Set([
 /**
  * Markers that should start on a new line IF followed by another marker.
  */
-export const PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS = POETRY_MARKERS;
+export const PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS = new Set(
+    POETRY_MARKERS,
+);
 
 /**
  * All markers that should start on a new line.
@@ -77,5 +77,3 @@ export const PRETTIFY_LINEBREAK_BEFORE_MARKERS = new Set([
     ...LINEBREAK_BEFORE_ONLY_MARKERS,
     ...PRETTIFY_LINEBREAK_BEFORE_IF_NEXT_MARKER_MARKERS,
 ]);
-
-export const PRETTIFY_VALID_PARA_MARKERS = VALID_PARA_MARKERS;

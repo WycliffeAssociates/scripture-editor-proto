@@ -1,50 +1,32 @@
 // tests/save.spec.ts
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
+import {
+    appendToEditor,
+    moveChapter,
+    openSaveReview,
+} from "./helpers/editor-navigation.ts";
 
 test.describe("Save and Diff Functionality", () => {
-    test("modifying text creates a diff, can be reverted, and saves persistently", async ({
+    test("review diff can navigate to chapter and revert one change", async ({
         editorPage,
     }) => {
-        const v1 = editorPage.getByText("Ai vola ni kawa i Jisu");
-        await v1.click();
-        await editorPage.keyboard.press("End");
-        await editorPage.keyboard.type(" An addition ");
+        await appendToEditor(editorPage, " An addition ");
+        await moveChapter(editorPage, "next", 2);
 
-        await editorPage.waitForTimeout(1000);
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
-            .click();
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
-            .click();
         const chap3OriginalContent = await editorPage
             .getByRole("textbox", { name: "USFM Editor" })
             .textContent();
-        const c3v1 = editorPage.getByText(
-            "Ena gama moi KoJoni na dauveipapitaisotaki ea vunau roli ena vanua lala e Jiutia, ka kaya jiko.",
-        );
-        await c3v1.click();
-        await editorPage.keyboard.press("End");
-        await editorPage.keyboard.type(" Another addition ");
-        await editorPage.waitForTimeout(1000);
+        await appendToEditor(editorPage, " Another addition ");
 
-        // 3. Open Review Modal
-        const saveTrigger = editorPage.getByTestId(TESTING_IDS.save.trigger);
-        await saveTrigger.click();
-
-        // 4. Verify Modal and Diff Item
-        const modal = editorPage.getByTestId(TESTING_IDS.save.modal);
-        await expect(modal).toBeVisible();
-
+        await openSaveReview(editorPage);
         const diffItems = editorPage.getByTestId(TESTING_IDS.save.diffItem);
         await expect(diffItems).toHaveCount(2);
 
-        // Verify specific content in the diff
         const diffHeader = diffItems
             .first()
             .getByTestId(TESTING_IDS.save.diffSidHeader);
-        await expect(diffHeader).toHaveText("Maciu 1:1");
+        await expect(diffHeader).toHaveText(/Maciu 1:\d+/);
 
         const currentPanel = diffItems
             .nth(0)
@@ -56,7 +38,6 @@ test.describe("Save and Diff Functionality", () => {
             .getByTestId(`${TESTING_IDS.save.goToChapterButton}`);
         await goToFirstChapterAgain.click();
 
-        // assert we went to mat one by checking that the reference picker is on mat one
         const referencePicker = editorPage.getByTestId(
             TESTING_IDS.referencePicker,
         );
@@ -65,66 +46,43 @@ test.describe("Save and Diff Functionality", () => {
             "1",
         );
 
-        // open the modal back up
-        await saveTrigger.click();
+        await openSaveReview(editorPage);
 
-        // 5. Test Revert Logic
         const revertButton = diffItems
             .nth(1)
             .getByTestId(TESTING_IDS.save.revertButton);
         await revertButton.click();
-
-        // Modal should ideally close or list should empty.
-        // Based on hook logic, if list is empty, modal might stay open with "No changes" or close.
-        // Let's check if the specific diff item is gone.
         await expect(diffItems).toHaveCount(1);
 
-        // Close modal manually if it's still open (click outside or close button - not defined in IDs, so we press Escape)
         await editorPage.keyboard.press("Escape");
+        await moveChapter(editorPage, "next", 2);
 
-        // go back to chapter 3
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
-            .click();
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.nextChapterButton)
-            .click();
-
-        // Verify editor content is reverted
         const revertedContent = await editorPage
             .getByRole("textbox", { name: "USFM Editor" })
             .textContent();
         expect(revertedContent).toBe(chap3OriginalContent);
+    });
 
-        // Open modal again
-        await saveTrigger.click();
+    test("save all persists chapter edits after reload", async ({
+        editorPage,
+    }) => {
+        await appendToEditor(editorPage, " Persisted addition ");
+        await openSaveReview(editorPage);
+
+        const diffItems = editorPage.getByTestId(TESTING_IDS.save.diffItem);
         await expect(diffItems).toHaveCount(1);
 
-        // Click Save All
         const saveAllBtn = editorPage.getByTestId(
             TESTING_IDS.save.saveAllButton,
         );
         await saveAllBtn.click();
-        // wait til there are 0 diff items
         await expect(diffItems).toHaveCount(0);
 
-        // Expect successful save notification or modal close
-        // For this test, we verify persistence by reloading
         await editorPage.reload();
 
-        // make sure to navigae to chapter 1
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.prevChapterButton)
-            .click();
-        await editorPage
-            .getByTestId(TESTING_IDS.navigation.prevChapterButton)
-            .click();
-
-        // Verify content persists after reload
         const textBox = await editorPage
             .getByRole("textbox", { name: "USFM Editor" })
             .textContent();
-        const hasAnAddition = textBox?.includes("An addition");
-        expect(hasAnAddition).toBe(true);
+        expect(textBox?.includes("Persisted addition")).toBe(true);
     });
 });

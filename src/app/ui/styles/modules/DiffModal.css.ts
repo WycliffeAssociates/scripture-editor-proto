@@ -110,11 +110,6 @@ export const diffSidHeader = style({
 });
 
 // Detail Warning Text
-export const diffDetailWarning = style({
-    color: vars.colors.orange[6],
-    fontSize: "0.75rem",
-    fontWeight: 700,
-});
 
 // Preformatted text styles (the actual verse content)
 export const diffPre = style({
