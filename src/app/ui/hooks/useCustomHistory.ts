@@ -110,7 +110,10 @@ export function useCustomHistory({
     const baselineSelectionByChapterRef = useRef(
         new Map<string, SerializedSelectionState>(),
     );
-    const nextTypingLabelRef = useRef<string | null>(null);
+    const nextTypingLabelRef = useRef<{
+        label: string;
+        forceNewEntry: boolean;
+    } | null>(null);
     const undoRedoListenersRef = useRef(
         new Set<(event: UndoRedoEvent) => void>(),
     );
@@ -484,10 +487,12 @@ export function useCustomHistory({
                 return;
             }
 
-            const label = nextTypingLabelRef.current ?? t`Edit`;
+            const queuedTypingLabel = nextTypingLabelRef.current;
+            const label = queuedTypingLabel?.label ?? t`Edit`;
             nextTypingLabelRef.current = null;
             managerRef.current.recordTypingChange({
                 label,
+                forceNewEntry: queuedTypingLabel?.forceNewEntry,
                 change: {
                     chapter: chapterRef,
                     before: beforeSnapshot,
@@ -612,9 +617,15 @@ export function useCustomHistory({
         ],
     );
 
-    const setNextTypingLabel = useCallback((label: string) => {
-        nextTypingLabelRef.current = label;
-    }, []);
+    const setNextTypingLabel = useCallback(
+        (label: string, options?: { forceNewEntry?: boolean }) => {
+            nextTypingLabelRef.current = {
+                label,
+                forceNewEntry: options?.forceNewEntry ?? false,
+            };
+        },
+        [],
+    );
 
     const undo = useCallback(() => {
         const entry = managerRef.current.undo();

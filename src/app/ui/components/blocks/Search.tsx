@@ -1,13 +1,12 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
-    Accordion,
     ActionIcon,
+    Badge,
     Button,
-    Checkbox,
     Drawer,
     Group,
     Loader,
-    Stack,
+    Popover,
     Text,
     TextInput,
     Tooltip,
@@ -17,14 +16,17 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
     ArrowRight,
     ArrowUpDown,
+    Braces,
+    CaseSensitive,
     ChevronLeft,
     ChevronRight,
+    CornerRightDown,
     Replace,
     Search,
-    SlidersHorizontal,
+    WholeWord,
     X,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Highlighter from "react-highlight-words";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -65,232 +67,438 @@ export function SearchPanel() {
             className={searchClassNames.searchPanel}
             data-dark={isDarkTheme ? "true" : undefined}
         >
-            <div className={searchClassNames.header}>
-                <Text fw={700} size="xl">
-                    Search
+            <div className={searchClassNames.resultsHeader}>
+                <Text fw={700} size="sm" c="white">
+                    <Trans>All search results</Trans>
                 </Text>
-                <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => search.setIsSearchPaneOpen(false)}
-                >
-                    <X size={24} />
-                </ActionIcon>
             </div>
-
-            <SearchControls search={search} />
             <SearchResults search={search} isMobile={false} />
         </aside>
     );
 }
 
-function SearchControls({ search }: { search: UseSearchReturn }) {
+export function SearchControls({ search }: { search: UseSearchReturn }) {
     const { t } = useLingui();
     const isSortActive = search.currentSort === "caseMismatch";
+    const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
+    const [suppressedTooltip, setSuppressedTooltip] = useState<string | null>(
+        null,
+    );
+
+    function handleTooltipEnter(id: string) {
+        if (suppressedTooltip === id) return;
+        setHoveredTooltip(id);
+    }
+
+    function handleTooltipLeave(id: string) {
+        if (hoveredTooltip === id) {
+            setHoveredTooltip(null);
+        }
+        if (suppressedTooltip === id) {
+            setSuppressedTooltip(null);
+        }
+    }
+
+    function handleTooltipAction(id: string, action: () => void) {
+        setHoveredTooltip(null);
+        setSuppressedTooltip(id);
+        action();
+    }
 
     return (
         <div className={searchClassNames.controls}>
-            {/* SEARCH INPUT */}
-            <div className={searchClassNames.searchInputSection}>
-                <TextInput
-                    size="md"
-                    radius="md"
-                    // 1. Bind to the local state (controlled)
-                    value={search.searchTerm}
-                    data-testid={TESTING_IDS.searchInput}
-                    data-js="search-input"
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            search.onSearchChange(search.searchTerm);
-                        }
-                    }}
-                    // 2. Use the new handler that updates local state AND triggers debounce
-                    onChange={(e) =>
-                        search.onSearchChange(e.currentTarget.value)
-                    }
-                    placeholder={t`Search`}
-                    leftSection={<Search size={18} className="" />}
-                    // 3. Right section now handles Loading OR Navigation
-                    rightSectionWidth={search.isSearching ? 40 : 70}
-                    rightSection={
-                        search.isSearching ? (
-                            <Loader size={20} />
-                        ) : (
-                            <Group gap={0} mr={4}>
-                                <ActionIcon
-                                    data-testid={TESTING_IDS.searchPrevButton}
-                                    onClick={search.prevMatch}
-                                    disabled={!search.hasPrev}
-                                    variant="transparent"
-                                    color="gray"
-                                >
-                                    <ChevronLeft size={18} />
-                                </ActionIcon>
-                                <ActionIcon
-                                    data-testid={TESTING_IDS.searchNextButton}
-                                    onClick={() => {
-                                        search.nextMatch();
-                                    }}
-                                    disabled={!search.hasNext}
-                                    variant="transparent"
-                                    color="gray"
-                                >
-                                    <ChevronRight size={18} />
-                                </ActionIcon>
-                            </Group>
-                        )
-                    }
-                />
-            </div>
-
-            <div className={searchClassNames.stats}>
-                {/* Sort Toggle */}
-                <Group gap={6}>
-                    <Tooltip
-                        label={
-                            isSortActive
-                                ? t`Remove sort`
-                                : t`Group case mismatches`
-                        }
-                        withArrow
-                        position="top"
-                    >
-                        <ActionIcon
-                            data-testid={TESTING_IDS.sortToggleButton}
-                            size="sm"
-                            variant={isSortActive ? "filled" : "light"}
-                            color={isSortActive ? "orange" : "gray"}
-                            onClick={() =>
-                                search.sortBy(
-                                    isSortActive ? "canonical" : "caseMismatch",
-                                )
+            <div className={searchClassNames.compactLayout}>
+                <div className={searchClassNames.inputStack}>
+                    <TextInput
+                        size="sm"
+                        radius="md"
+                        value={search.searchTerm}
+                        data-testid={TESTING_IDS.searchInput}
+                        data-js="search-input"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                search.submitSearchNow();
                             }
-                            disabled={!search.totalMatches}
-                        >
-                            <ArrowUpDown size={14} />
-                        </ActionIcon>
-                    </Tooltip>
+                        }}
+                        onChange={(e) =>
+                            search.onSearchChange(e.currentTarget.value)
+                        }
+                        placeholder={t`Search`}
+                        leftSection={<Search size={16} className="" />}
+                        rightSectionWidth={62}
+                        rightSection={
+                            <Group wrap="nowrap">
+                                {search.isSearching ? (
+                                    <Loader size={14} />
+                                ) : null}
+                                <Tooltip
+                                    label={t`Run search`}
+                                    withArrow
+                                    opened={hoveredTooltip === "run-search"}
+                                >
+                                    <ActionIcon
+                                        size="sm"
+                                        variant="light"
+                                        color="blue"
+                                        data-testid={
+                                            TESTING_IDS.searchRunButton
+                                        }
+                                        aria-label={t`Run search`}
+                                        onMouseEnter={() =>
+                                            handleTooltipEnter("run-search")
+                                        }
+                                        onMouseLeave={() =>
+                                            handleTooltipLeave("run-search")
+                                        }
+                                        onClick={() =>
+                                            handleTooltipAction(
+                                                "run-search",
+                                                search.submitSearchNow,
+                                            )
+                                        }
+                                    >
+                                        <CornerRightDown size={13} />
+                                    </ActionIcon>
+                                </Tooltip>
+                            </Group>
+                        }
+                    />
 
-                    {isSortActive && (
+                    <TextInput
+                        data-testid={TESTING_IDS.replaceInput}
+                        size="xs"
+                        value={search.replaceTerm}
+                        onChange={(e) =>
+                            search.setReplaceTerm(e.currentTarget.value)
+                        }
+                        placeholder={t`Replace with...`}
+                        leftSection={<Replace size={13} />}
+                    />
+                </div>
+
+                <div className={searchClassNames.controlRail}>
+                    <div className={searchClassNames.statsAndNavRow}>
                         <Text
-                            data-testid={TESTING_IDS.searchCaseMismatchLabel}
                             size="xs"
-                            c="orange"
                             fw={600}
-                            style={{ lineHeight: 1 }}
+                            className={searchClassNames.statsText}
                         >
-                            {t`Case mismatches first`} (
-                            {search.numCaseMismatches})
+                            <span data-testid={TESTING_IDS.searchStats}>
+                                {search.pickedResultIdx >= 0
+                                    ? `${search.pickedResultIdx + 1} of ${search.results.length} results`
+                                    : `${search.results.length} results`}
+                            </span>
                         </Text>
-                    )}
-                </Group>
+                        <Tooltip
+                            label={t`Previous result`}
+                            withArrow
+                            opened={hoveredTooltip === "prev-result"}
+                        >
+                            <ActionIcon
+                                data-testid={TESTING_IDS.searchPrevButton}
+                                onClick={() =>
+                                    handleTooltipAction(
+                                        "prev-result",
+                                        search.prevMatch,
+                                    )
+                                }
+                                disabled={!search.hasPrev}
+                                variant="transparent"
+                                color="gray"
+                                aria-label={t`Previous result`}
+                                onMouseEnter={() =>
+                                    handleTooltipEnter("prev-result")
+                                }
+                                onMouseLeave={() =>
+                                    handleTooltipLeave("prev-result")
+                                }
+                            >
+                                <ChevronLeft size={16} />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                            label={t`Next result`}
+                            withArrow
+                            opened={hoveredTooltip === "next-result"}
+                        >
+                            <ActionIcon
+                                data-testid={TESTING_IDS.searchNextButton}
+                                onClick={() => {
+                                    handleTooltipAction(
+                                        "next-result",
+                                        search.nextMatch,
+                                    );
+                                }}
+                                disabled={!search.hasNext}
+                                variant="transparent"
+                                color="gray"
+                                aria-label={t`Next result`}
+                                onMouseEnter={() =>
+                                    handleTooltipEnter("next-result")
+                                }
+                                onMouseLeave={() =>
+                                    handleTooltipLeave("next-result")
+                                }
+                            >
+                                <ChevronRight size={16} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </div>
 
-                {/* Counts */}
-                <Stack gap={0}>
-                    <span data-testid={TESTING_IDS.searchStats}>
-                        {search.pickedResultIdx >= 0
-                            ? `${search.pickedResultIdx + 1} of ${search.results.length} results`
-                            : `${search.results.length} results`}
-                    </span>
-                </Stack>
+                    <div className={searchClassNames.filterIconsRow}>
+                        <Tooltip
+                            label={
+                                isSortActive
+                                    ? t`Remove sort`
+                                    : t`Group case mismatches`
+                            }
+                            withArrow
+                            opened={hoveredTooltip === "sort"}
+                        >
+                            <ActionIcon
+                                data-testid={TESTING_IDS.sortToggleButton}
+                                size="sm"
+                                variant={isSortActive ? "filled" : "light"}
+                                color={isSortActive ? "orange" : "gray"}
+                                onClick={() =>
+                                    handleTooltipAction("sort", () =>
+                                        search.sortBy(
+                                            isSortActive
+                                                ? "canonical"
+                                                : "caseMismatch",
+                                        ),
+                                    )
+                                }
+                                disabled={!search.totalMatches}
+                                aria-label={
+                                    isSortActive
+                                        ? t`Remove sort`
+                                        : t`Group case mismatches`
+                                }
+                                onMouseEnter={() => handleTooltipEnter("sort")}
+                                onMouseLeave={() => handleTooltipLeave("sort")}
+                            >
+                                <ArrowUpDown size={14} />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                            label={
+                                search.matchCase
+                                    ? t`Disable match case`
+                                    : t`Match case`
+                            }
+                            withArrow
+                            opened={hoveredTooltip === "match-case"}
+                        >
+                            <ActionIcon
+                                data-testid={TESTING_IDS.matchCaseCheckbox}
+                                size="sm"
+                                variant={search.matchCase ? "filled" : "light"}
+                                color={search.matchCase ? "blue" : "gray"}
+                                onClick={() =>
+                                    handleTooltipAction("match-case", () =>
+                                        search.setMatchCase(!search.matchCase),
+                                    )
+                                }
+                                aria-label={
+                                    search.matchCase
+                                        ? t`Disable match case`
+                                        : t`Match case`
+                                }
+                                onMouseEnter={() =>
+                                    handleTooltipEnter("match-case")
+                                }
+                                onMouseLeave={() =>
+                                    handleTooltipLeave("match-case")
+                                }
+                            >
+                                <CaseSensitive size={14} />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                            label={
+                                search.matchWholeWord
+                                    ? t`Disable whole word`
+                                    : t`Whole word`
+                            }
+                            withArrow
+                            opened={hoveredTooltip === "whole-word"}
+                        >
+                            <ActionIcon
+                                data-testid={TESTING_IDS.matchWholeWordCheckbox}
+                                size="sm"
+                                variant={
+                                    search.matchWholeWord ? "filled" : "light"
+                                }
+                                color={search.matchWholeWord ? "blue" : "gray"}
+                                onClick={() =>
+                                    handleTooltipAction("whole-word", () =>
+                                        search.setMatchWholeWord(
+                                            !search.matchWholeWord,
+                                        ),
+                                    )
+                                }
+                                aria-label={
+                                    search.matchWholeWord
+                                        ? t`Disable whole word`
+                                        : t`Whole word`
+                                }
+                                onMouseEnter={() =>
+                                    handleTooltipEnter("whole-word")
+                                }
+                                onMouseLeave={() =>
+                                    handleTooltipLeave("whole-word")
+                                }
+                            >
+                                <WholeWord size={14} />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                            label={
+                                search.searchUSFM
+                                    ? t`Disable USFM markers`
+                                    : t`Include USFM markers`
+                            }
+                            withArrow
+                            opened={hoveredTooltip === "search-usfm"}
+                        >
+                            <ActionIcon
+                                data-testid={
+                                    TESTING_IDS.includeUSFMMarkersCheckbox
+                                }
+                                size="sm"
+                                variant={search.searchUSFM ? "filled" : "light"}
+                                color={search.searchUSFM ? "blue" : "gray"}
+                                onClick={() =>
+                                    handleTooltipAction("search-usfm", () =>
+                                        search.setSearchUSFM(
+                                            !search.searchUSFM,
+                                        ),
+                                    )
+                                }
+                                aria-label={
+                                    search.searchUSFM
+                                        ? t`Disable USFM markers`
+                                        : t`Include USFM markers`
+                                }
+                                onMouseEnter={() =>
+                                    handleTooltipEnter("search-usfm")
+                                }
+                                onMouseLeave={() =>
+                                    handleTooltipLeave("search-usfm")
+                                }
+                            >
+                                <Braces size={14} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </div>
+                </div>
             </div>
 
-            <Accordion
-                className={searchClassNames.optionsAccordion}
-                variant="filled"
-                radius="md"
-                chevronPosition="right"
-            >
-                <Accordion.Item value="options">
-                    <Accordion.Control icon={<SlidersHorizontal size={16} />}>
-                        <Trans>Options</Trans>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                        <Stack gap="sm">
-                            <Group gap="md">
-                                <Checkbox
-                                    data-testid={TESTING_IDS.matchCaseCheckbox}
-                                    label={t`Match Case`}
-                                    checked={search.matchCase}
-                                    onChange={(e) =>
-                                        search.setMatchCase(
-                                            e.currentTarget.checked,
-                                        )
-                                    }
-                                    size="xs"
-                                />
-                                <Checkbox
-                                    data-testid={
-                                        TESTING_IDS.matchWholeWordCheckbox
-                                    }
-                                    label={t`Whole Word`}
-                                    checked={search.matchWholeWord}
-                                    onChange={(e) =>
-                                        search.setMatchWholeWord(
-                                            e.currentTarget.checked,
-                                        )
-                                    }
-                                    size="xs"
-                                />
-                                <Checkbox
-                                    data-testid={
-                                        TESTING_IDS.includeUSFMMarkersCheckbox
-                                    }
-                                    label={t`Include USFM markers`}
-                                    checked={search.searchUSFM}
-                                    onChange={(e) =>
-                                        search.setSearchUSFM(
-                                            e.currentTarget.checked,
-                                        )
-                                    }
-                                    size="xs"
-                                />
-                            </Group>
+            {isSortActive && (
+                <div className={searchClassNames.sortBadgeRow}>
+                    <Badge
+                        data-testid={TESTING_IDS.searchCaseMismatchLabel}
+                        color="orange"
+                        variant="light"
+                    >
+                        {t`Case mismatches first`} ({search.numCaseMismatches})
+                    </Badge>
+                </div>
+            )}
 
-                            <div className={searchClassNames.replaceSection}>
-                                <Text fw={600} size="sm">
-                                    <Trans>Replace</Trans>
-                                </Text>
-                                <TextInput
-                                    data-testid={TESTING_IDS.replaceInput}
-                                    size="sm"
-                                    value={search.replaceTerm}
-                                    onChange={(e) =>
-                                        search.setReplaceTerm(
-                                            e.currentTarget.value,
-                                        )
-                                    }
-                                    placeholder={t`Replace with...`}
-                                    leftSection={<Replace size={14} />}
-                                />
-                                <Group grow>
-                                    <Button
-                                        data-testid={TESTING_IDS.replaceButton}
-                                        size="xs"
-                                        variant="default"
-                                        onClick={search.replaceCurrentMatch}
-                                        disabled={!search.totalMatches}
-                                    >
-                                        {t`Replace`}
-                                    </Button>
-                                    <Button
-                                        data-testid={
-                                            TESTING_IDS.replaceAllButton
-                                        }
-                                        size="xs"
-                                        variant="default"
-                                        onClick={search.replaceAllInChapter}
-                                        disabled={!search.totalMatches}
-                                    >
-                                        {t`Replace all in this chapter`}
-                                    </Button>
-                                </Group>
-                            </div>
-                        </Stack>
-                    </Accordion.Panel>
-                </Accordion.Item>
-            </Accordion>
+            <div className={searchClassNames.buttonStack}>
+                <Group grow wrap="nowrap">
+                    <Button
+                        data-testid={TESTING_IDS.replaceAllButton}
+                        size="xs"
+                        variant="default"
+                        onClick={search.replaceAllInChapter}
+                        disabled={
+                            !search.totalMatches ||
+                            search.replaceTerm.trim().length === 0
+                        }
+                    >
+                        {t`Replace all in this chapter`}
+                    </Button>
+                    <Button
+                        data-testid={TESTING_IDS.replaceButton}
+                        size="xs"
+                        variant="filled"
+                        onClick={search.replaceCurrentMatch}
+                        disabled={
+                            !search.totalMatches ||
+                            search.replaceTerm.trim().length === 0
+                        }
+                    >
+                        {t`Replace`}
+                    </Button>
+                </Group>
+            </div>
         </div>
+    );
+}
+
+export function SearchPopoverControls() {
+    const { search, project, bookCodeToProjectLocalizedTitle } =
+        useWorkspaceContext();
+    const { t } = useLingui();
+    const activeBookCode =
+        search.pickedResult?.bibleIdentifier ?? project.pickedFile.bookCode;
+    const activeChapter =
+        search.pickedResult?.chapNum ??
+        project.pickedChapter?.chapNumber ??
+        project.currentChapter;
+    const chapterResults = search.results.filter(
+        (result) =>
+            result.bibleIdentifier === activeBookCode &&
+            result.chapNum === activeChapter,
+    );
+    const chapterTotalMatches = chapterResults.length;
+    const chapterMatchIndex = search.pickedResult
+        ? chapterResults.findIndex(
+              (result) =>
+                  result.sid === search.pickedResult?.sid &&
+                  result.sidOccurrenceIndex ===
+                      search.pickedResult?.sidOccurrenceIndex,
+          )
+        : -1;
+    const chapterMatchNumber =
+        chapterMatchIndex >= 0 ? chapterMatchIndex + 1 : 0;
+    const activeBookTitle = bookCodeToProjectLocalizedTitle({
+        bookCode: activeBookCode,
+    });
+    const chapterLabel =
+        activeChapter === 0 ? t`Introduction` : String(activeChapter);
+
+    return (
+        <Popover.Dropdown className={searchClassNames.popoverDropdown} p="sm">
+            <div className={searchClassNames.popoverHeader}>
+                <div className={searchClassNames.popoverHeaderInfo}>
+                    <Text fw={700} size="sm">
+                        <Trans>Search</Trans>
+                    </Text>
+                    <Text
+                        size="xs"
+                        className={searchClassNames.popoverHelpText}
+                    >
+                        <Trans>
+                            Match {chapterMatchNumber} of {chapterTotalMatches}{" "}
+                            in {activeBookTitle} {chapterLabel}
+                        </Trans>
+                    </Text>
+                </div>
+                <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => search.setIsSearchPaneOpen(false)}
+                    aria-label={t`Close search`}
+                >
+                    <X size={18} />
+                </ActionIcon>
+            </div>
+            <SearchControls search={search} />
+        </Popover.Dropdown>
     );
 }
 

@@ -36,8 +36,5 @@ export async function fillSearchQuery(page: Page, query: string) {
 
 export async function ensureSearchOptionsExpanded(page: Page) {
     const replaceInput = page.getByTestId(TESTING_IDS.replaceInput);
-    if (await replaceInput.isVisible()) return;
-
-    await page.getByRole("button", { name: /options/i }).click();
     await expect(replaceInput).toBeVisible();
 }

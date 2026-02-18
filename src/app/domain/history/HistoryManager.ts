@@ -32,6 +32,7 @@ type HistoryManagerOptions = {
 type RecordTypingChangeArgs<TSnapshot> = {
     label: string;
     change: HistorySnapshotChange<TSnapshot>;
+    forceNewEntry?: boolean;
 };
 
 type PushTransactionArgs<TSnapshot> = {
@@ -76,6 +77,7 @@ export class HistoryManager<TSnapshot> {
         const timestamp = this.now();
         const latest = this.entries[this.cursor - 1];
         const canMerge =
+            !args.forceNewEntry &&
             latest &&
             latest.source === "typing" &&
             latest.label === args.label &&

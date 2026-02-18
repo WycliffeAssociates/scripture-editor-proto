@@ -25,54 +25,105 @@ const searchPanel = style({
     },
 });
 
-// Header area
-const header = style({
-    padding:
-        "var(--mantine-spacing-md) var(--mantine-spacing-md) var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+const resultsHeader = style({
+    padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+    backgroundColor: "var(--mantine-primary-color-filled)",
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
+});
+
+const popoverDropdown = style({
+    width: "min(48rem, calc(100vw - 2rem))",
+    border: `1px solid ${vars.colors.defaultBorder}`,
+    borderRadius: vars.radius.md,
+    backgroundColor: vars.colors.body,
+    padding: 0,
+});
+
+const popoverHeader = style({
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    padding:
+        "calc(var(--mantine-spacing-xs) * 0.5) var(--mantine-spacing-xs) 0 var(--mantine-spacing-xs)",
+});
+
+const popoverHeaderInfo = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: 0,
+});
+
+const popoverHelpText = style({
+    color: vars.colors.gray[6],
+    fontSize: ".7rem",
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+    overflow: "hidden",
 });
 
 // Controls container
 const controls = style({
     width: "100%",
     padding:
-        "0 var(--mantine-spacing-md) var(--mantine-spacing-xs) var(--mantine-spacing-md)",
+        "0 var(--mantine-spacing-xs) var(--mantine-spacing-xs) var(--mantine-spacing-xs)",
     borderBottom: "1px solid var(--mantine-color-default-border)",
     display: "flex",
     flexDirection: "column",
-    gap: "var(--mantine-spacing-md)",
+    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
 });
 
-// Search input section
-const searchInputSection = style({
-    display: "flex",
-    flexDirection: "column",
+const compactLayout = style({
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
     gap: "var(--mantine-spacing-xs)",
+    alignItems: "start",
 });
 
-// Replace section
-const replaceSection = style({
+const inputStack = style({
     display: "flex",
     flexDirection: "column",
-    gap: "calc(var(--mantine-spacing-xs) * 1.5)",
+    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
+    minWidth: 0,
 });
 
-// Stats section
-const stats = style({
+const controlRail = style({
     display: "flex",
-    justifyContent: "space-between",
+    flexDirection: "column",
     alignItems: "flex-end",
-    fontSize: "var(--mantine-font-size-xs)",
-    marginTop: "var(--mantine-spacing-xs)",
+    gap: "calc(var(--mantine-spacing-xs) * 0.6)",
+    minWidth: "13rem",
 });
 
-const optionsAccordion = style({
-    border: `1px solid ${vars.colors.defaultBorder}`,
-    borderRadius: vars.radius.md,
-    overflow: "hidden",
-    backgroundColor: vars.colors.body,
+const statsAndNavRow = style({
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "calc(var(--mantine-spacing-xs) * 0.5)",
+});
+
+const filterIconsRow = style({
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "calc(var(--mantine-spacing-xs) * 0.5)",
+});
+
+const statsText = style({
+    fontSize: "var(--mantine-font-size-md)",
+    color: vars.colors.gray[6],
+    whiteSpace: "nowrap",
+});
+
+const sortBadgeRow = style({
+    minHeight: "22px",
+});
+
+const buttonStack = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
 });
 
 // Mobile drawer content
@@ -188,12 +239,20 @@ const highlight = style({
 // Default  to mimic CSS module import
 const classes = {
     searchPanel,
-    header,
+    resultsHeader,
+    popoverDropdown,
+    popoverHeader,
+    popoverHeaderInfo,
+    popoverHelpText,
     controls,
-    searchInputSection,
-    replaceSection,
-    stats,
-    optionsAccordion,
+    compactLayout,
+    inputStack,
+    controlRail,
+    statsAndNavRow,
+    filterIconsRow,
+    statsText,
+    sortBadgeRow,
+    buttonStack,
     drawerContent,
     resultsContainer,
     resultsList,

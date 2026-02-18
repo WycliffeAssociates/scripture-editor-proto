@@ -117,6 +117,36 @@ describe("HistoryManager", () => {
         });
     });
 
+    it("does not coalesce when forceNewEntry is true", () => {
+        let nowMs = 0;
+        const manager = new HistoryManager<Snapshot>({
+            maxEntries: 200,
+            coalesceWindowMs: 2500,
+            now: () => nowMs,
+        });
+
+        manager.recordTypingChange({
+            label: "Replace (Inline Match)",
+            forceNewEntry: true,
+            change: makeChange("a", "A"),
+        });
+
+        nowMs = 1000;
+        manager.recordTypingChange({
+            label: "Replace (Inline Match)",
+            forceNewEntry: true,
+            change: makeChange("A", "AA"),
+        });
+
+        const firstUndo = manager.undo();
+        expect(firstUndo?.changes[0]?.before.value).toBe("A");
+        expect(firstUndo?.changes[0]?.after.value).toBe("AA");
+
+        const secondUndo = manager.undo();
+        expect(secondUndo?.changes[0]?.before.value).toBe("a");
+        expect(secondUndo?.changes[0]?.after.value).toBe("A");
+    });
+
     it("clears redo branch when a new edit is recorded after undo", () => {
         let nowMs = 0;
         const manager = new HistoryManager<Snapshot>({

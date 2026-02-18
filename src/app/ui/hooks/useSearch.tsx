@@ -57,6 +57,11 @@ type SearchRunResult = {
     searchMatches: SearchMatch[];
 };
 type SearchRunScope = "project" | "currentChapter";
+type SearchRunOptionOverrides = {
+    matchCase?: boolean;
+    matchWholeWord?: boolean;
+    searchUSFM?: boolean;
+};
 export type SortOption = "canonical" | "caseMismatch";
 
 export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
@@ -86,7 +91,7 @@ export function useProjectSearch({
     const searchAbortController = useRef<AbortController | null>(null);
 
     // Navigation/Highlight State
-    const [currentMatches, setCurrentMatches] = useState<MatchInNode[]>([]);
+    const [currentMatches, setCurrentMatches] = useState<SearchMatch[]>([]);
     const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(0);
     const [pickedResult, setPickedResult] = useState<SearchResult | null>(null);
 
@@ -102,9 +107,12 @@ export function useProjectSearch({
     });
 
     const collectMatchesInCurrentEditor = useCallback(
-        (activeSearchTerm: string) => {
+        (activeSearchTerm: string, options: SearchRunOptionOverrides = {}) => {
             const editor = editorRef.current;
             if (!editor) return [];
+            const effectiveMatchCase = options.matchCase ?? matchCase;
+            const effectiveMatchWholeWord =
+                options.matchWholeWord ?? matchWholeWord;
 
             const searchMatches: SearchMatch[] = [];
             const sidOccurrenceMap = new Map<string, number>();
@@ -116,11 +124,11 @@ export function useProjectSearch({
                         ? node.getSid()
                         : undefined;
 
-                    if (matchWholeWord) {
+                    if (effectiveMatchWholeWord) {
                         const escapedTerm = escapeRegex(activeSearchTerm);
                         const regex = new RegExp(
                             `\\b${escapedTerm}\\b`,
-                            matchCase ? "g" : "gi",
+                            effectiveMatchCase ? "g" : "gi",
                         );
 
                         let match: RegExpExecArray | null;
@@ -144,10 +152,10 @@ export function useProjectSearch({
                             });
                         }
                     } else {
-                        const textToSearch = matchCase
+                        const textToSearch = effectiveMatchCase
                             ? text
                             : text.toLowerCase();
-                        const termToSearch = matchCase
+                        const termToSearch = effectiveMatchCase
                             ? activeSearchTerm
                             : activeSearchTerm.toLowerCase();
 
@@ -278,9 +286,21 @@ export function useProjectSearch({
     const runSearchLogic = useCallback(
         async (
             query: string,
-            options: { autoPick?: boolean; scope?: SearchRunScope } = {},
+            options: {
+                autoPick?: boolean;
+                scope?: SearchRunScope;
+                overrides?: SearchRunOptionOverrides;
+            } = {},
         ): Promise<SearchRunResult | null> => {
-            const { autoPick = true, scope = "project" } = options;
+            const {
+                autoPick = true,
+                scope = "project",
+                overrides = {},
+            } = options;
+            const effectiveMatchCase = overrides.matchCase ?? matchCase;
+            const effectiveMatchWholeWord =
+                overrides.matchWholeWord ?? matchWholeWord;
+            const effectiveSearchUSFM = overrides.searchUSFM ?? searchUSFM;
             // 1. Abort previous search
             if (searchAbortController.current) {
                 searchAbortController.current.abort();
@@ -327,14 +347,14 @@ export function useProjectSearch({
                 const serializedNodes = chapter.lexicalState.root.children;
                 const sidRecord = reduceSerializedNodesToText(
                     serializedNodes,
-                    searchUSFM,
+                    effectiveSearchUSFM,
                 );
 
                 for (const [sid, text] of Object.entries(sidRecord)) {
                     const matches = findAllMatches({
-                        matchCase,
+                        matchCase: effectiveMatchCase,
                         searchTerm: query,
-                        matchWholeWord,
+                        matchWholeWord: effectiveMatchWholeWord,
                         textToSearch: text,
                     });
                     for (
@@ -405,7 +425,10 @@ export function useProjectSearch({
             setResults(sortedResults);
 
             if (!autoPick) {
-                const searchMatches = collectMatchesInCurrentEditor(query);
+                const searchMatches = collectMatchesInCurrentEditor(
+                    query,
+                    overrides,
+                );
                 setCurrentMatches(searchMatches);
                 setCurrentMatchIndex(0);
                 setPickedResult(null);
@@ -488,7 +511,25 @@ export function useProjectSearch({
         handleSearchDebounced(value);
     };
 
+    const submitSearchNow = useCallback(() => {
+        const query = searchTerm.trim();
+        if (!query) {
+            if (searchAbortController.current) {
+                searchAbortController.current.abort();
+            }
+            clearHighlights();
+            setResults([]);
+            setCurrentMatches([]);
+            setCurrentMatchIndex(0);
+            setPickedResult(null);
+            setIsSearching(false);
+            return;
+        }
+        void runSearchLogic(searchTerm);
+    }, [runSearchLogic, searchTerm]);
+
     const rerunForCurrentChapter = useCallback(() => {
+        if (!isSearchPaneOpen) return;
         if (!searchTerm.trim()) return;
         setTimeout(() => {
             void runSearchLogic(searchTerm, {
@@ -496,13 +537,17 @@ export function useProjectSearch({
                 scope: "currentChapter",
             });
         }, 0);
-    }, [runSearchLogic, searchTerm]);
+    }, [isSearchPaneOpen, runSearchLogic, searchTerm]);
 
     const setMatchCase = useCallback(
         (next: boolean) => {
             setMatchCaseState(next);
             if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, { autoPick: false });
+                void runSearchLogic(searchTerm, {
+                    autoPick: false,
+                    scope: "project",
+                    overrides: { matchCase: next },
+                });
             }
         },
         [runSearchLogic, searchTerm],
@@ -512,7 +557,11 @@ export function useProjectSearch({
         (next: boolean) => {
             setMatchWholeWordState(next);
             if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, { autoPick: false });
+                void runSearchLogic(searchTerm, {
+                    autoPick: false,
+                    scope: "project",
+                    overrides: { matchWholeWord: next },
+                });
             }
         },
         [runSearchLogic, searchTerm],
@@ -522,7 +571,11 @@ export function useProjectSearch({
         (next: boolean) => {
             setSearchUSFMState(next);
             if (searchTerm.trim()) {
-                void runSearchLogic(searchTerm, { autoPick: false });
+                void runSearchLogic(searchTerm, {
+                    autoPick: false,
+                    scope: "project",
+                    overrides: { searchUSFM: next },
+                });
             }
         },
         [runSearchLogic, searchTerm],
@@ -592,6 +645,73 @@ export function useProjectSearch({
         // editor.read(() => {
         //   highlightAndScrollToMatch(currentMatches[prevIndex], editor, searchTerm);
         // });
+    }
+
+    function findMatchIndex(target: MatchInNode) {
+        return currentMatches.findIndex(
+            (candidate) =>
+                candidate.node.getKey() === target.node.getKey() &&
+                candidate.start === target.start &&
+                candidate.end === target.end,
+        );
+    }
+
+    async function replaceMatch(targetMatch: MatchInNode) {
+        if (!replaceTerm || !searchTerm.trim()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+
+        const matchedIndex = findMatchIndex(targetMatch);
+        if (matchedIndex === -1) return;
+
+        const match = currentMatches[matchedIndex];
+        history.setNextTypingLabel("Replace (Inline Match)", {
+            forceNewEntry: true,
+        });
+        editor.update(
+            () => {
+                const node = match.node;
+                if (!$isUSFMTextNode(node)) return;
+
+                const text = node.getTextContent();
+                const newText =
+                    text.slice(0, match.start) +
+                    replaceTerm +
+                    text.slice(match.end);
+
+                node.setTextContent(newText);
+            },
+            { discrete: true },
+        );
+
+        const rerunResult = await runSearchLogic(searchTerm, {
+            autoPick: false,
+            scope: "currentChapter",
+        });
+        if (!rerunResult) return;
+
+        const { searchMatches, sortedResults } = rerunResult;
+        if (searchMatches.length === 0) {
+            setPickedResult(null);
+            return;
+        }
+
+        const nextIndex = Math.min(matchedIndex, searchMatches.length - 1);
+        const nextActiveMatch = searchMatches[nextIndex];
+        setCurrentMatchIndex(nextIndex);
+
+        if (editorRef.current) {
+            highlightMatches(searchMatches, editorRef.current, nextActiveMatch);
+        }
+
+        const nextResult = sortedResults.find(
+            (r) =>
+                r.sid === nextActiveMatch.sid &&
+                r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
+                r.bibleIdentifier === pickedFile.bookCode &&
+                r.chapNum === pickedChapter?.chapNumber,
+        );
+        setPickedResult(nextResult ?? null);
     }
 
     async function replaceCurrentMatch() {
@@ -715,6 +835,7 @@ export function useProjectSearch({
     return {
         searchTerm,
         onSearchChange,
+        submitSearchNow,
         isSearching,
         replaceTerm,
         setReplaceTerm,
@@ -726,7 +847,9 @@ export function useProjectSearch({
         prevMatch,
         replaceCurrentMatch,
         replaceAllInChapter,
+        replaceMatch,
         rerunForCurrentChapter,
+        currentMatches,
         currentMatchIndex,
         totalMatches: currentMatches.length,
         numCaseMismatches: results.filter((r) => r.isCaseMismatch).length,

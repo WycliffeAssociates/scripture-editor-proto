@@ -47,7 +47,8 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * @param editor - The LexicalEditor instance
  */
 export function useEditorInput(editor: LexicalEditor) {
-    const { project, projectLanguageDirection, search } = useWorkspaceContext();
+    const { project, projectLanguageDirection, search, history } =
+        useWorkspaceContext();
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode ?? "regular";
 
@@ -383,6 +384,28 @@ export function useEditorInput(editor: LexicalEditor) {
     //   FIND HOTKEY TO OPEN PANEL
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
+            const rootEl = editor.getRootElement();
+            const isEditorFocused =
+                !!rootEl && rootEl.contains(document.activeElement);
+            const isUndo =
+                (event.metaKey || event.ctrlKey) && event.key === "z";
+            const isRedo =
+                (event.metaKey || event.ctrlKey) &&
+                ((event.shiftKey && event.key === "Z") || event.key === "y");
+
+            // Route undo/redo through custom history so post-undo listeners
+            // (search highlight/result rerun) always execute on keyboard shortcuts.
+            if (isEditorFocused && isUndo) {
+                event.preventDefault();
+                history.undo();
+                return;
+            }
+            if (isEditorFocused && isRedo) {
+                event.preventDefault();
+                history.redo();
+                return;
+            }
+
             if (
                 (event.metaKey || event.ctrlKey) &&
                 event.key.toLowerCase() === "f"
@@ -411,5 +434,5 @@ export function useEditorInput(editor: LexicalEditor) {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [search]);
+    }, [editor, history, search]);
 }

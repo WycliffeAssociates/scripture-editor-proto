@@ -31,6 +31,7 @@ export const TESTING_IDS = {
     refEditorContainer: "ref-editor-container",
     referencePicker: "reference-picker",
     searchInput: "search-input",
+    searchRunButton: "search-run-button",
     searchPrevButton: "search-prev-button",
     searchNextButton: "search-next-button",
     matchCaseCheckbox: "search-match-case-checkbox",
@@ -45,6 +46,8 @@ export const TESTING_IDS = {
     searchTrigger: "search-trigger",
     searchStats: "search-stats",
     searchCaseMismatchLabel: "search-case-mismatch-label",
+    searchInlineReplaceTrigger: "search-inline-replace-trigger",
+    searchInlineReplaceButton: "search-inline-replace-button",
     appDrawer: {
         projectsList: "app-drawer-projects-list",
         itemExport: "project-list-item-export",

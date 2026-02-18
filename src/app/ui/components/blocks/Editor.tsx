@@ -25,7 +25,7 @@ import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function MainEditor() {
-    const { editorRef, project } = useWorkspaceContext();
+    const { editorRef, project, search } = useWorkspaceContext();
 
     return (
         <div
@@ -41,7 +41,11 @@ export function MainEditor() {
                     <RichTextPlugin
                         contentEditable={
                             <ContentEditable
-                                className={shellStyles.contentEditable}
+                                className={`${shellStyles.contentEditable} ${
+                                    search.isSearchPaneOpen
+                                        ? shellStyles.contentEditableSearchOpen
+                                        : ""
+                                }`}
                                 aria-label="USFM Editor"
                                 spellCheck={false}
                             />

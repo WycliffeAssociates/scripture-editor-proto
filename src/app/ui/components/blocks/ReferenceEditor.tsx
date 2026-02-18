@@ -30,7 +30,7 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export function ReferenceEditor() {
     const { t } = useLingui();
-    const { referenceProject } = useWorkspaceContext();
+    const { referenceProject, search } = useWorkspaceContext();
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const { referenceQuery, referenceProjectId: referenceProjectPath } =
         referenceProject;
@@ -79,7 +79,11 @@ export function ReferenceEditor() {
                 <RichTextPlugin
                     contentEditable={
                         <ContentEditable
-                            className={shellStyles.contentEditableReference}
+                            className={`${shellStyles.contentEditableReference} ${
+                                search.isSearchPaneOpen
+                                    ? shellStyles.contentEditableReferenceSearchOpen
+                                    : ""
+                            }`}
                             aria-label={t`USFM Editor`}
                         />
                     }

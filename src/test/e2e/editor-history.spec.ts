@@ -107,4 +107,111 @@ test.describe("Editor History", () => {
             String(startingCount),
         );
     });
+
+    test("reruns search when keyboard undo happens in editor", async ({
+        editorPage,
+    }) => {
+        await openSearchPanel(editorPage);
+        await fillSearchQuery(editorPage, "Jisu");
+
+        const resultsContainer = editorPage.getByTestId(
+            TESTING_IDS.searchResultsContainer,
+        );
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            /[1-9]\d*/,
+        );
+        const startingCount = Number(
+            await resultsContainer.getAttribute("data-num-search-results"),
+        );
+
+        await ensureSearchOptionsExpanded(editorPage);
+        await editorPage
+            .getByTestId(TESTING_IDS.replaceInput)
+            .fill("HistorySearchRefreshToken");
+        await editorPage.getByTestId(TESTING_IDS.replaceButton).click();
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount - 1),
+        );
+
+        await editorPage.getByRole("textbox", { name: "USFM Editor" }).click();
+        await editorPage.keyboard.press("Control+z");
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount),
+        );
+    });
+
+    test("inline replace popup creates one undo step per click", async ({
+        editorPage,
+    }) => {
+        const undoButton = editorPage.getByLabel("Undo");
+
+        await openSearchPanel(editorPage);
+        await fillSearchQuery(editorPage, "of");
+        await ensureSearchOptionsExpanded(editorPage);
+        await editorPage
+            .getByTestId(TESTING_IDS.replaceInput)
+            .fill("INLINE_REPLACE_TOKEN");
+
+        const resultsContainer = editorPage.getByTestId(
+            TESTING_IDS.searchResultsContainer,
+        );
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            /(?:[2-9]|[1-9]\d+)/,
+        );
+        const startingCount = Number(
+            await resultsContainer.getAttribute("data-num-search-results"),
+        );
+
+        const firstTrigger = editorPage
+            .getByTestId(TESTING_IDS.searchInlineReplaceTrigger)
+            .first();
+        await firstTrigger.hover();
+        await expect(
+            editorPage
+                .getByTestId(TESTING_IDS.searchInlineReplaceButton)
+                .first(),
+        ).toBeVisible();
+        await editorPage
+            .getByTestId(TESTING_IDS.searchInlineReplaceButton)
+            .first()
+            .click();
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount - 1),
+        );
+
+        const secondTrigger = editorPage
+            .getByTestId(TESTING_IDS.searchInlineReplaceTrigger)
+            .first();
+        await secondTrigger.hover();
+        await expect(
+            editorPage
+                .getByTestId(TESTING_IDS.searchInlineReplaceButton)
+                .first(),
+        ).toBeVisible();
+        await editorPage
+            .getByTestId(TESTING_IDS.searchInlineReplaceButton)
+            .first()
+            .click();
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount - 2),
+        );
+
+        await undoButton.click();
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount - 1),
+        );
+
+        await undoButton.click();
+        await expect(resultsContainer).toHaveAttribute(
+            "data-num-search-results",
+            String(startingCount),
+        );
+    });
 });

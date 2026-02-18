@@ -500,16 +500,25 @@ test.describe("Search Functionality", () => {
         expect(Number(afterCase)).toBeLessThanOrEqual(Number(beforeCase));
 
         await fillSearchQuery(editorPage, "in");
+        const wholeWordToggle = editorPage.getByTestId(
+            TESTING_IDS.matchWholeWordCheckbox,
+        );
+        const wholeWordLabel = await wholeWordToggle.getAttribute("aria-label");
+        if (wholeWordLabel?.toLowerCase().includes("disable")) {
+            await wholeWordToggle.click();
+        }
+
         const beforeWholeWord = await editorPage
-            .getByTestId(TESTING_IDS.searchResultItem)
-            .count();
-        await editorPage
-            .getByTestId(TESTING_IDS.matchWholeWordCheckbox)
-            .click();
+            .getByTestId(TESTING_IDS.searchResultsContainer)
+            .getAttribute("data-num-search-results");
+        if (!beforeWholeWord) {
+            throw new Error("Pre-toggle whole-word result count not found");
+        }
+        await wholeWordToggle.click();
         const afterWholeWord = await editorPage
-            .getByTestId(TESTING_IDS.searchResultItem)
-            .count();
-        expect(afterWholeWord).toBeLessThanOrEqual(beforeWholeWord);
+            .getByTestId(TESTING_IDS.searchResultsContainer)
+            .getAttribute("data-num-search-results");
+        expect(Number(afterWholeWord)).not.toBe(Number(beforeWholeWord));
 
         await expect(
             editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
