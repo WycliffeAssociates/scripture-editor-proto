@@ -36,7 +36,6 @@ function Index() {
     const invalidateRouterAndReload = () => router.invalidate();
 
     const { projects } = useLoaderData({ from: "__root__" });
-
     // Pull context values early so nested components can reference them.
     const { settingsManager } = useRouter().options.context;
     const [currentLanguage, setCurrentLanguage] = useState<string | null>(

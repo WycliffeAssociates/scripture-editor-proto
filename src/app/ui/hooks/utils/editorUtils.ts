@@ -1,8 +1,4 @@
-import {
-    CLEAR_HISTORY_COMMAND,
-    type LexicalEditor,
-    type SerializedEditorState,
-} from "lexical";
+import type { LexicalEditor, SerializedEditorState } from "lexical";
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -74,6 +70,8 @@ export function setEditorContent(
     chapter: number,
     chapterContent: ParsedChapter | undefined,
     mutWorkingFilesRef: ParsedFile[],
+    selectionOverride?: unknown,
+    editorStateOverride?: SerializedEditorState,
 ) {
     if (!editor) {
         console.error(
@@ -94,9 +92,21 @@ export function setEditorContent(
 
     // Avoid wrapping setEditorState in editor.update(). Lexical treats setEditorState
     // as its own kind of update, and nesting it can interfere with history behavior.
-    editor.setEditorState(editor.parseEditorState(chapterState.lexicalState), {
+    const baseEditorState = editorStateOverride ?? chapterState.lexicalState;
+    const nextEditorState =
+        selectionOverride === undefined
+            ? baseEditorState
+            : ({
+                  ...baseEditorState,
+                  selection: selectionOverride,
+              } as SerializedEditorState);
+
+    editor.setEditorState(editor.parseEditorState(nextEditorState), {
         tag: EDITOR_TAGS_USED.programaticIgnore,
     });
+    if (selectionOverride !== undefined) {
+        editor.focus();
+    }
 
     // We intentionally load with `programaticIgnore` to avoid expensive maintenance work
     // running during hydration, then immediately trigger one tagged update so
@@ -107,5 +117,4 @@ export function setEditorContent(
         },
         { tag: EDITOR_TAGS_USED.programmaticDoRunChanges },
     );
-    editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
 }

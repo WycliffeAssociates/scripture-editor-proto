@@ -5,7 +5,6 @@ import {
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { TESTING_IDS } from "@/app/data/constants.ts";
@@ -16,6 +15,7 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
+import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
@@ -52,7 +52,7 @@ export function MainEditor() {
                 <EditorRefPlugin editorRef={editorRef} />
                 {/* <DecoratorFocusPlugin /> */}
                 {/* <UseLineBreaks /> */}
-                <HistoryPlugin />
+                <CustomHistoryPlugin />
                 {/* <LivePreviewSelectedNodesPlugin /> */}
                 {/* <CustomOnChangePlugin
               ignoreHistoryMergeTagChange={true}

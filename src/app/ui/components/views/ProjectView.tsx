@@ -217,7 +217,7 @@ function MobileReferenceTabs(props: {
 }
 
 function PrevButton() {
-    const { actions } = useWorkspaceContext();
+    const { actions, search } = useWorkspaceContext();
     const { t } = useLingui();
 
     if (!actions.prevChapter.hasPrev) {
@@ -237,7 +237,10 @@ function PrevButton() {
             type="button"
             data-testid={TESTING_IDS.navigation.prevChapterButton}
             disabled={!actions.prevChapter.hasPrev}
-            onClick={actions.prevChapter.go}
+            onClick={() => {
+                actions.prevChapter.go();
+                search.rerunForCurrentChapter();
+            }}
             className={`${styles.editorNavButton}`}
         >
             {isIntroduction ? (
@@ -251,7 +254,7 @@ function PrevButton() {
     );
 }
 function NextButton() {
-    const { actions } = useWorkspaceContext();
+    const { actions, search } = useWorkspaceContext();
     const { t } = useLingui();
 
     if (!actions.nextChapter.hasNext) {
@@ -270,7 +273,10 @@ function NextButton() {
             type="button"
             data-testid={TESTING_IDS.navigation.nextChapterButton}
             disabled={!actions.nextChapter.hasNext}
-            onClick={actions.nextChapter.go}
+            onClick={() => {
+                actions.nextChapter.go();
+                search.rerunForCurrentChapter();
+            }}
             className={`${styles.editorNavButton}`}
         >
             {isIntroduction ? (

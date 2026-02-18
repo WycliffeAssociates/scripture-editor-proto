@@ -6,8 +6,10 @@ import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagr
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     escapeRegex,
+    findAllMatches,
     findMatch,
     reduceSerializedNodesToText,
+    replaceMatchesInText,
 } from "@/app/domain/search/search.utils.ts";
 
 describe("escapeRegex", () => {
@@ -247,6 +249,28 @@ describe("findMatch", () => {
             });
             expect(result).toEqual({ isMatch: false, matchedTerm: null });
         });
+    });
+});
+
+describe("findAllMatches", () => {
+    it("returns all case-insensitive substring occurrences", () => {
+        const matches = findAllMatches({
+            textToSearch: "Of of oF",
+            searchTerm: "of",
+            matchCase: false,
+            matchWholeWord: false,
+        });
+        expect(matches).toHaveLength(3);
+    });
+
+    it("respects whole-word matching", () => {
+        const matches = findAllMatches({
+            textToSearch: "fox foxhole FOX",
+            searchTerm: "fox",
+            matchCase: false,
+            matchWholeWord: true,
+        });
+        expect(matches).toHaveLength(2);
     });
 });
 
@@ -535,5 +559,40 @@ describe("reduceSerializedNodesToText", () => {
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result["verse-1"]).toBe("ABC DEF");
+    });
+});
+
+describe("replaceMatchesInText", () => {
+    it("replaces all matches case-insensitively when matchCase is false", () => {
+        const result = replaceMatchesInText({
+            text: "Of of oF OFF",
+            searchTerm: "of",
+            replaceTerm: "REPLACE",
+            matchCase: false,
+            matchWholeWord: false,
+        });
+        expect(result).toBe("REPLACE REPLACE REPLACE REPLACEF");
+    });
+
+    it("replaces only exact-case matches when matchCase is true", () => {
+        const result = replaceMatchesInText({
+            text: "Of of oF",
+            searchTerm: "of",
+            replaceTerm: "REPLACE",
+            matchCase: true,
+            matchWholeWord: false,
+        });
+        expect(result).toBe("Of REPLACE oF");
+    });
+
+    it("respects whole-word matching", () => {
+        const result = replaceMatchesInText({
+            text: "fox foxhole FOX",
+            searchTerm: "fox",
+            replaceTerm: "cat",
+            matchCase: false,
+            matchWholeWord: true,
+        });
+        expect(result).toBe("cat foxhole cat");
     });
 });

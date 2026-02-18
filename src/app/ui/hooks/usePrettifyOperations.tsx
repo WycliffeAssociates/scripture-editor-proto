@@ -13,9 +13,11 @@ import {
     showProgressNotification,
     updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
+import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { getFlattenedEditorStateAsParseTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
 import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
@@ -29,6 +31,7 @@ export function useFormatOperations({
     updateLintErrors,
     setEditorContent,
     saveCurrentDirtyLexical,
+    history,
 }: {
     mutWorkingFilesRef: ParsedFile[];
     currentFileBibleIdentifier: string;
@@ -46,10 +49,19 @@ export function useFormatOperations({
         chapterContent: ParsedChapter | undefined,
     ) => void;
     saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
 
-    type FormatScope = "chapter" | "book" | "project";
+    type FormatScope = MatchFormattingScope;
+    const toChapterRefs = (file: ParsedFile) =>
+        file.chapters.map((chapter) => ({
+            bookCode: file.bookCode,
+            chapterNum: chapter.chapNumber,
+        }));
+
+    const allChapterRefs = () =>
+        mutWorkingFilesRef.flatMap((file) => toChapterRefs(file));
 
     const refreshLintForFile = (file: ParsedFile) => {
         const fileTokens = file.chapters.flatMap((chapter) =>
@@ -114,45 +126,55 @@ export function useFormatOperations({
                 );
                 if (!file) return;
 
-                const chapter = file.chapters.find(
-                    (c) => c.chapNumber === targetChapterNumber,
-                );
-                if (!chapter) return;
-
-                const result = prettifyChapterInPlace(chapter);
-
-                if (!result.changed) {
-                    ShowNotificationInfo({
-                        notification: {
-                            title: t`Nothing changed`,
-                            message: t`This chapter is already formatted`,
+                await history.runTransaction({
+                    label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
+                    candidates: [
+                        {
+                            bookCode: targetBookCode,
+                            chapterNum: targetChapterNumber,
                         },
-                    });
-                    return;
-                }
+                    ],
+                    run: async () => {
+                        const chapter = file.chapters.find(
+                            (c) => c.chapNumber === targetChapterNumber,
+                        );
+                        if (!chapter) return;
 
-                // Bump "unsaved changes" + keep diffs fresh if review modal is open.
-                updateDiffMapForChapter(
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                );
-                refreshLintForFile(file);
+                        const result = prettifyChapterInPlace(chapter);
 
-                if (
-                    file.bookCode === currentFileBibleIdentifier &&
-                    chapter.chapNumber === currentChapter
-                ) {
-                    setEditorContent(
-                        currentFileBibleIdentifier,
-                        currentChapter,
-                        chapter,
-                    );
-                }
+                        if (!result.changed) {
+                            ShowNotificationInfo({
+                                notification: {
+                                    title: t`Nothing changed`,
+                                    message: t`This chapter is already formatted`,
+                                },
+                            });
+                            return;
+                        }
 
-                ShowNotificationSuccess({
-                    notification: {
-                        title: t`Chapter Formatted`,
-                        message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
+                        updateDiffMapForChapter(
+                            currentFileBibleIdentifier,
+                            currentChapter,
+                        );
+                        refreshLintForFile(file);
+
+                        if (
+                            file.bookCode === currentFileBibleIdentifier &&
+                            chapter.chapNumber === currentChapter
+                        ) {
+                            setEditorContent(
+                                currentFileBibleIdentifier,
+                                currentChapter,
+                                chapter,
+                            );
+                        }
+
+                        ShowNotificationSuccess({
+                            notification: {
+                                title: t`Chapter Formatted`,
+                                message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
+                            },
+                        });
                     },
                 });
                 return;
@@ -166,58 +188,62 @@ export function useFormatOperations({
                 );
                 if (!file) return;
 
-                let currentChapterModified = false;
-                let anyModified = false;
+                await history.runTransaction({
+                    label: t`Format Book (${targetBookCode})`,
+                    candidates: toChapterRefs(file),
+                    run: async () => {
+                        let currentChapterModified = false;
+                        let anyModified = false;
 
-                for (const chapter of file.chapters) {
-                    const result = prettifyChapterInPlace(chapter);
-                    if (!result.changed) continue;
+                        for (const chapter of file.chapters) {
+                            const result = prettifyChapterInPlace(chapter);
+                            if (!result.changed) continue;
 
-                    anyModified = true;
-                    if (
-                        file.bookCode === currentFileBibleIdentifier &&
-                        chapter.chapNumber === currentChapter
-                    ) {
-                        currentChapterModified = true;
-                    }
-                }
+                            anyModified = true;
+                            if (
+                                file.bookCode === currentFileBibleIdentifier &&
+                                chapter.chapNumber === currentChapter
+                            ) {
+                                currentChapterModified = true;
+                            }
+                        }
 
-                if (!anyModified) {
-                    ShowNotificationInfo({
-                        notification: {
-                            title: t`Nothing changed`,
-                            message: t`This book is already formatted`,
-                        },
-                    });
-                    return;
-                }
+                        if (!anyModified) {
+                            ShowNotificationInfo({
+                                notification: {
+                                    title: t`Nothing changed`,
+                                    message: t`This book is already formatted`,
+                                },
+                            });
+                            return;
+                        }
 
-                refreshLintForFile(file);
-
-                // Bump "unsaved changes" + keep diffs fresh if review modal is open.
-                updateDiffMapForChapter(
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                );
-
-                if (currentChapterModified) {
-                    const currentChap = file.chapters.find(
-                        (c) => c.chapNumber === currentChapter,
-                    );
-
-                    if (currentChap) {
-                        setEditorContent(
+                        refreshLintForFile(file);
+                        updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
-                            currentChap,
                         );
-                    }
-                }
 
-                ShowNotificationSuccess({
-                    notification: {
-                        title: t`Book Formatted`,
-                        message: t`Formatted ${file.title || file.bookCode}`,
+                        if (currentChapterModified) {
+                            const currentChap = file.chapters.find(
+                                (c) => c.chapNumber === currentChapter,
+                            );
+
+                            if (currentChap) {
+                                setEditorContent(
+                                    currentFileBibleIdentifier,
+                                    currentChapter,
+                                    currentChap,
+                                );
+                            }
+                        }
+
+                        ShowNotificationSuccess({
+                            notification: {
+                                title: t`Book Formatted`,
+                                message: t`Formatted ${file.title || file.bookCode}`,
+                            },
+                        });
                     },
                 });
                 return;
@@ -229,88 +255,99 @@ export function useFormatOperations({
                 title: t`Formatting Project`,
                 message: t`Processing book 1 of ${totalBooks}...`,
             });
+            const progressNotificationId = notificationId;
+            if (!progressNotificationId) return;
 
-            const backup = structuredClone(mutWorkingFilesRef);
-            let currentChapterModified = false;
-            let anyModified = false;
+            const backup = await history.runTransaction({
+                label: t`Format Project`,
+                candidates: allChapterRefs(),
+                run: async () => {
+                    const previous = structuredClone(mutWorkingFilesRef);
+                    let currentChapterModified = false;
+                    let anyModified = false;
 
-            for (let i = 0; i < mutWorkingFilesRef.length; i++) {
-                const file = mutWorkingFilesRef[i];
+                    for (let i = 0; i < mutWorkingFilesRef.length; i++) {
+                        const file = mutWorkingFilesRef[i];
 
-                updateProgressNotification(notificationId, {
-                    title: t`Formatting Project`,
-                    message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
-                });
+                        updateProgressNotification(progressNotificationId, {
+                            title: t`Formatting Project`,
+                            message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
+                        });
 
-                await new Promise<void>((resolve) => {
-                    setTimeout(() => {
-                        let fileModified = false;
-                        for (const chapter of file.chapters) {
-                            const result = prettifyChapterInPlace(chapter);
-                            if (result.changed) {
-                                anyModified = true;
-                                fileModified = true;
-                                if (
-                                    file.bookCode ===
-                                        currentFileBibleIdentifier &&
-                                    chapter.chapNumber === currentChapter
-                                ) {
-                                    currentChapterModified = true;
+                        await new Promise<void>((resolve) => {
+                            setTimeout(() => {
+                                let fileModified = false;
+                                for (const chapter of file.chapters) {
+                                    const result =
+                                        prettifyChapterInPlace(chapter);
+                                    if (result.changed) {
+                                        anyModified = true;
+                                        fileModified = true;
+                                        if (
+                                            file.bookCode ===
+                                                currentFileBibleIdentifier &&
+                                            chapter.chapNumber ===
+                                                currentChapter
+                                        ) {
+                                            currentChapterModified = true;
+                                        }
+                                    }
                                 }
-                            }
+                                if (fileModified) {
+                                    refreshLintForFile(file);
+                                }
+                                resolve();
+                            }, 0);
+                        });
+                    }
+
+                    if (anyModified) {
+                        updateDiffMapForChapter(
+                            currentFileBibleIdentifier,
+                            currentChapter,
+                        );
+                    } else {
+                        hideNotification(progressNotificationId);
+                        notificationId = null;
+                        ShowNotificationInfo({
+                            notification: {
+                                title: t`Nothing changed`,
+                                message: t`This project is already formatted`,
+                            },
+                        });
+                        return previous;
+                    }
+
+                    const modifiedBooksCount = mutWorkingFilesRef.filter((f) =>
+                        f.chapters.some((c) => c.dirty),
+                    ).length;
+
+                    if (currentChapterModified) {
+                        const currentFile = mutWorkingFilesRef.find(
+                            (f) => f.bookCode === currentFileBibleIdentifier,
+                        );
+                        const currentChap = currentFile?.chapters.find(
+                            (c) => c.chapNumber === currentChapter,
+                        );
+                        if (currentChap) {
+                            setEditorContent(
+                                currentFileBibleIdentifier,
+                                currentChapter,
+                                currentChap,
+                            );
                         }
-                        if (fileModified) {
-                            refreshLintForFile(file);
-                        }
-                        resolve();
-                    }, 0);
-                });
-            }
+                    }
 
-            if (anyModified) {
-                // Bump "unsaved changes" + keep diffs fresh if review modal is open.
-                updateDiffMapForChapter(
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                );
-            } else {
-                hideNotification(notificationId);
-                notificationId = null;
-                ShowNotificationInfo({
-                    notification: {
-                        title: t`Nothing changed`,
-                        message: t`This project is already formatted`,
-                    },
-                });
-                return backup;
-            }
+                    hideNotification(progressNotificationId);
+                    notificationId = null;
+                    ShowNotificationSuccess({
+                        notification: {
+                            title: t`Project Formatted`,
+                            message: t`Formatted ${modifiedBooksCount} book(s)`,
+                        },
+                    });
 
-            const modifiedBooksCount = mutWorkingFilesRef.filter((f) =>
-                f.chapters.some((c) => c.dirty),
-            ).length;
-
-            if (currentChapterModified) {
-                const currentFile = mutWorkingFilesRef.find(
-                    (f) => f.bookCode === currentFileBibleIdentifier,
-                );
-                const currentChap = currentFile?.chapters.find(
-                    (c) => c.chapNumber === currentChapter,
-                );
-                if (currentChap) {
-                    setEditorContent(
-                        currentFileBibleIdentifier,
-                        currentChapter,
-                        currentChap,
-                    );
-                }
-            }
-
-            hideNotification(notificationId);
-            notificationId = null;
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Project Formatted`,
-                    message: t`Formatted ${modifiedBooksCount} book(s)`,
+                    return previous;
                 },
             });
 

@@ -28,12 +28,51 @@ export function escapeRegex(str: string) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function buildSearchRegex({
+    searchTerm,
+    matchCase,
+    matchWholeWord,
+}: Pick<FindMatchArgs, "searchTerm" | "matchCase" | "matchWholeWord">) {
+    const escapedTerm = escapeRegex(searchTerm);
+    const pattern = matchWholeWord ? `\\b${escapedTerm}\\b` : escapedTerm;
+    const flags = matchCase ? "g" : "gi";
+    return new RegExp(pattern, flags);
+}
+
 type FindMatchArgs = {
     textToSearch: string;
     searchTerm: string;
     matchCase: boolean;
     matchWholeWord: boolean;
 };
+
+type FindAllMatchesArgs = FindMatchArgs;
+
+export function findAllMatches({
+    textToSearch,
+    searchTerm,
+    matchCase,
+    matchWholeWord,
+}: FindAllMatchesArgs): Array<{
+    start: number;
+    end: number;
+    matchedTerm: string;
+}> {
+    if (!searchTerm) return [];
+    const regex = buildSearchRegex({ searchTerm, matchCase, matchWholeWord });
+    const matches: Array<{ start: number; end: number; matchedTerm: string }> =
+        [];
+    let match: RegExpExecArray | null;
+    // biome-ignore lint/suspicious/noAssignInExpressions: Intentional assignment in while condition
+    while ((match = regex.exec(textToSearch)) !== null) {
+        matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            matchedTerm: match[0],
+        });
+    }
+    return matches;
+}
 
 export function findMatch({
     textToSearch,
@@ -45,34 +84,31 @@ export function findMatch({
         return { isMatch: false, matchedTerm: null };
     }
 
-    if (matchWholeWord) {
-        const escapedTerm = escapeRegex(searchTerm);
-        const regex = new RegExp(
-            `\\b${escapedTerm}\\b`,
-            matchCase ? "g" : "gi",
-        );
-        const result = regex.exec(textToSearch);
-        if (result) {
-            return { isMatch: true, matchedTerm: result[0] };
-        }
-    } else {
-        if (matchCase) {
-            const index = textToSearch.indexOf(searchTerm);
-            if (index > -1) {
-                return { isMatch: true, matchedTerm: searchTerm };
-            }
-        } else {
-            const index = textToSearch
-                .toLowerCase()
-                .indexOf(searchTerm.toLowerCase());
-            if (index > -1) {
-                const originalTerm = textToSearch.substring(
-                    index,
-                    index + searchTerm.length,
-                );
-                return { isMatch: true, matchedTerm: originalTerm };
-            }
-        }
+    const regex = buildSearchRegex({ searchTerm, matchCase, matchWholeWord });
+    const result = regex.exec(textToSearch);
+    if (result) {
+        return { isMatch: true, matchedTerm: result[0] };
     }
+
     return { isMatch: false, matchedTerm: null };
+}
+
+type ReplaceInTextArgs = {
+    text: string;
+    searchTerm: string;
+    replaceTerm: string;
+    matchCase: boolean;
+    matchWholeWord: boolean;
+};
+
+export function replaceMatchesInText({
+    text,
+    searchTerm,
+    replaceTerm,
+    matchCase,
+    matchWholeWord,
+}: ReplaceInTextArgs) {
+    if (!searchTerm) return text;
+    const regex = buildSearchRegex({ searchTerm, matchCase, matchWholeWord });
+    return text.replace(regex, replaceTerm);
 }

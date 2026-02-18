@@ -5,6 +5,7 @@ import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
+import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
 import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
 import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
@@ -50,6 +51,7 @@ type Props = {
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
     projectLanguageDirection: "ltr" | "rtl";
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
+    history: CustomHistoryHook;
 };
 
 export const useWorkspaceActions = ({
@@ -72,6 +74,7 @@ export const useWorkspaceActions = ({
     setIsFormatMatchSuggestionsOpen,
     projectLanguageDirection,
     targetMarkerPreservationMode,
+    history,
 }: Props) => {
     const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
 
@@ -139,6 +142,7 @@ export const useWorkspaceActions = ({
         updateLintErrors,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
+        history,
     });
 
     const formatMatching = useFormatMatching({
@@ -156,6 +160,7 @@ export const useWorkspaceActions = ({
         editorMode: appSettings.editorMode ?? "regular",
         languageDirection: projectLanguageDirection,
         targetMarkerPreservationMode,
+        history,
     });
 
     const lintFixing = useLintFixing({
@@ -167,6 +172,7 @@ export const useWorkspaceActions = ({
         updateLintErrors,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
+        history,
     });
 
     // Utility functions that need access to current state

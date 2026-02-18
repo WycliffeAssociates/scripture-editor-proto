@@ -9,6 +9,7 @@ import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextN
 import type { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export type EditorModeSetting = "regular" | "usfm" | "plain" | "view";
+export type ContentEditorModeSetting = Exclude<EditorModeSetting, "view">;
 
 export const UsfmTokenTypes: Pick<
     typeof TokenMap,

@@ -23,7 +23,6 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
-import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
@@ -42,6 +41,7 @@ export function ReferenceEditor() {
         const editor = nestedEditorRef.current;
         if (!editor) return;
 
+        editor.setEditable(false);
         const clonedState = structuredClone(referenceChapter.lexicalState);
 
         editor.setEditorState(editor.parseEditorState(clonedState), {
@@ -53,10 +53,18 @@ export function ReferenceEditor() {
         return null;
     }
     if (referenceQuery?.isLoading) {
-        return <div>Loading {referenceProjectPath}...</div>;
+        return (
+            <div className={shellStyles.loadingReference}>
+                Loading {referenceProjectPath}...
+            </div>
+        );
     }
     if (referenceQuery?.error) {
-        return <div>Failed to load {referenceProjectPath}</div>;
+        return (
+            <div className={shellStyles.loadingReference}>
+                Failed to load {referenceProjectPath}
+            </div>
+        );
     }
     return (
         <LexicalComposer initialConfig={getIntialConfig()}>
@@ -78,7 +86,6 @@ export function ReferenceEditor() {
                     ErrorBoundary={LexicalErrorBoundary}
                 />
             </div>
-            <USFMPlugin />
             <StructuralEmptyMarkerChipsPlugin />
             <UsfmStylesPlugin />
         </LexicalComposer>

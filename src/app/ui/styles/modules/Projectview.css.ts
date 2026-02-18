@@ -203,7 +203,6 @@ export const referenceColumn = style({
     minWidth: 0,
     width: "100%",
     overflow: "auto",
-    paddingInline: "0.5rem",
-    borderLeft: `1px solid ${vars.colors.gray[3]}`,
+    borderLeft: `1px solid ${vars.colors.gray[2]}`,
     backgroundColor: vars.colors.body,
 });

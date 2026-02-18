@@ -419,6 +419,11 @@ test.describe("Reference Project Selection", () => {
             "data-testing-ref-chapter",
             expectedChapter,
         );
+
+        // Reference editor should always remain read-only.
+        await expect(
+            refEditor.locator('[contenteditable="false"]').first(),
+        ).toBeVisible();
     });
 });
 
@@ -465,14 +470,14 @@ test.describe("Search Functionality", () => {
         editorPage,
     }) => {
         await openSearchPanel(editorPage);
-        await fillSearchQuery(editorPage, "vola");
+        await fillSearchQuery(editorPage, "jisu");
         await ensureSearchOptionsExpanded(editorPage);
         await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
         await editorPage.getByTestId(TESTING_IDS.replaceAllButton).click();
         const allEditorContent = await editorPage
             .getByTestId(TESTING_IDS.mainEditorContainer)
             .textContent();
-        expect(allEditorContent).not.toContain("vola");
+        expect(allEditorContent).not.toMatch(/jisu/i);
     });
 
     test("search options modify result grouping and filtering", async ({
@@ -513,5 +518,44 @@ test.describe("Search Functionality", () => {
         await expect(
             editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
         ).toBeVisible();
+    });
+
+    test("re-runs search on reopen and chapter navigation for highlight sync", async ({
+        editorPage,
+    }) => {
+        await openSearchPanel(editorPage);
+        await fillSearchQuery(editorPage, "a");
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
+        ).toBeVisible();
+
+        await editorPage.waitForFunction(() => {
+            const highlight = CSS.highlights.get("matched-search");
+            return Boolean(highlight && highlight.size > 0);
+        });
+
+        // Close search, navigate chapter, then reopen. Highlights should be reapplied.
+        await editorPage.getByTestId(TESTING_IDS.searchTrigger).click();
+
+        const nextButton = editorPage.getByTestId(
+            TESTING_IDS.navigation.nextChapterButton,
+        );
+        await expect(nextButton).toBeVisible();
+        await nextButton.click();
+        const chapterAfterNext = await editorPage
+            .getByTestId(TESTING_IDS.referencePicker)
+            .getAttribute("data-test-current-chapter");
+
+        await openSearchPanel(editorPage);
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.searchInput),
+        ).toHaveValue("a");
+        await editorPage.waitForFunction(() => {
+            const highlight = CSS.highlights.get("matched-search");
+            return Boolean(highlight && highlight.size > 0);
+        });
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.referencePicker),
+        ).toHaveAttribute("data-test-current-chapter", chapterAfterNext ?? "");
     });
 });

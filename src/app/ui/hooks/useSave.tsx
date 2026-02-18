@@ -7,7 +7,10 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import {
+    type ContentEditorModeSetting,
+    EDITOR_TAGS_USED,
+} from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -19,6 +22,7 @@ import {
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { diffSidBlocks } from "@/core/domain/usfm/sidBlockDiff.ts";
 import { applyRevertByBlockId } from "@/core/domain/usfm/sidBlockRevert.ts";
 import { buildSidBlocks } from "@/core/domain/usfm/sidBlocks.ts";
@@ -30,6 +34,7 @@ type UseProjectDiffsProps = {
     pickedFile: ParsedFile | null;
     pickedChapter: ParsedChapter | null;
     loadedProject: Project;
+    history: CustomHistoryHook;
 };
 
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
@@ -147,7 +152,7 @@ function flattenChapterStateToTokens(
 function tokensToChapterState(args: {
     flatNodes: SerializedLexicalNode[];
     direction: "ltr" | "rtl";
-    targetMode: "regular" | "usfm" | "plain";
+    targetMode: ContentEditorModeSetting;
 }): SerializedEditorState {
     const base: SerializedEditorState = {
         root: {
@@ -220,6 +225,7 @@ export function useProjectDiffs({
     pickedFile,
     pickedChapter,
     loadedProject,
+    history,
 }: UseProjectDiffsProps) {
     const [diffsByChapter, setDiffsByChapter] = useState<DiffsByChapter>({});
     const [openDiffModal, setOpenDiffModal] = useState(false);
@@ -359,56 +365,70 @@ export function useProjectDiffs({
     }
 
     const handleRevert = (diffToRevert: ProjectDiff) => {
-        const { bookCode, chapterNum } = diffToRevert;
-        const changedChapter = mutWorkingFilesRef
-            .find((file) => file.bookCode === bookCode)
-            ?.chapters.find((chap) => chap.chapNumber === chapterNum);
-        if (!changedChapter) return;
-
-        const baselineTokens = flattenChapterStateToTokens(
-            changedChapter.loadedLexicalState,
-        );
-        const currentTokens = flattenChapterStateToTokens(
-            changedChapter.lexicalState,
-        );
-
-        const nextTokens = applyRevertByBlockId({
-            diffBlockId: diffToRevert.uniqueKey,
-            baselineTokens,
-            currentTokens,
-        });
-
-        const nextFlatNodes = nextTokens.map((t) => t.node);
-        const direction =
-            (changedChapter.lexicalState.root.direction ?? "ltr") === "rtl"
-                ? "rtl"
-                : "ltr";
-        const currentMode = inferChapterModeFromRootChildren(
-            changedChapter.lexicalState.root
-                .children as SerializedLexicalNode[],
-        );
-
-        changedChapter.lexicalState = tokensToChapterState({
-            flatNodes: nextFlatNodes,
-            direction,
-            targetMode: currentMode,
-        });
-
-        changedChapter.dirty = isChapterDirtyUsfm(changedChapter);
-        updateDiffMapForChapter(bookCode, chapterNum);
-
-        if (
-            bookCode === pickedFile?.bookCode &&
-            chapterNum === pickedChapter?.chapNumber &&
-            editorRef.current
-        ) {
-            editorRef.current.setEditorState(
-                editorRef.current.parseEditorState(changedChapter.lexicalState),
+        void history.runTransaction({
+            label: `Revert Change (${diffToRevert.semanticSid})`,
+            candidates: [
                 {
-                    tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                    bookCode: diffToRevert.bookCode,
+                    chapterNum: diffToRevert.chapterNum,
                 },
-            );
-        }
+            ],
+            run: async () => {
+                const { bookCode, chapterNum } = diffToRevert;
+                const changedChapter = mutWorkingFilesRef
+                    .find((file) => file.bookCode === bookCode)
+                    ?.chapters.find((chap) => chap.chapNumber === chapterNum);
+                if (!changedChapter) return;
+
+                const baselineTokens = flattenChapterStateToTokens(
+                    changedChapter.loadedLexicalState,
+                );
+                const currentTokens = flattenChapterStateToTokens(
+                    changedChapter.lexicalState,
+                );
+
+                const nextTokens = applyRevertByBlockId({
+                    diffBlockId: diffToRevert.uniqueKey,
+                    baselineTokens,
+                    currentTokens,
+                });
+
+                const nextFlatNodes = nextTokens.map((t) => t.node);
+                const direction =
+                    (changedChapter.lexicalState.root.direction ?? "ltr") ===
+                    "rtl"
+                        ? "rtl"
+                        : "ltr";
+                const currentMode = inferChapterModeFromRootChildren(
+                    changedChapter.lexicalState.root
+                        .children as SerializedLexicalNode[],
+                );
+
+                changedChapter.lexicalState = tokensToChapterState({
+                    flatNodes: nextFlatNodes,
+                    direction,
+                    targetMode: currentMode,
+                });
+
+                changedChapter.dirty = isChapterDirtyUsfm(changedChapter);
+                updateDiffMapForChapter(bookCode, chapterNum);
+
+                if (
+                    bookCode === pickedFile?.bookCode &&
+                    chapterNum === pickedChapter?.chapNumber &&
+                    editorRef.current
+                ) {
+                    editorRef.current.setEditorState(
+                        editorRef.current.parseEditorState(
+                            changedChapter.lexicalState,
+                        ),
+                        {
+                            tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                        },
+                    );
+                }
+            },
+        });
     };
 
     const diffListForUI = useMemo(() => {
@@ -498,13 +518,25 @@ export function useProjectDiffs({
     }
 
     const handleRevertAll = () => {
-        revertAllChanges({
-            mutWorkingFilesRef,
-            setDiffsByChapter,
-            bumpDirtyVersion,
-            pickedFile,
-            pickedChapter,
-            editorRef,
+        const candidates = mutWorkingFilesRef.flatMap((file) =>
+            file.chapters.map((chapter) => ({
+                bookCode: file.bookCode,
+                chapterNum: chapter.chapNumber,
+            })),
+        );
+        void history.runTransaction({
+            label: "Revert All Changes",
+            candidates,
+            run: async () => {
+                revertAllChanges({
+                    mutWorkingFilesRef,
+                    setDiffsByChapter,
+                    bumpDirtyVersion,
+                    pickedFile,
+                    pickedChapter,
+                    editorRef,
+                });
+            },
         });
     };
 

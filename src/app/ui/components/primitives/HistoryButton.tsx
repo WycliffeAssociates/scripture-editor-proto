@@ -1,84 +1,28 @@
+import { useLingui } from "@lingui/react/macro";
 import { Group, rem } from "@mantine/core";
-import {
-    CAN_REDO_COMMAND,
-    CAN_UNDO_COMMAND,
-    COMMAND_PRIORITY_EDITOR,
-    REDO_COMMAND,
-    UNDO_COMMAND,
-} from "lexical";
 import { Redo, Undo } from "lucide-react";
-import { useEffect, useState } from "react";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 export function HistoryButtons() {
-    const { editorRef } = useWorkspaceContext();
-    const [canUndo, setCanUndo] = useState(false);
-    const [canRedo, setCanRedo] = useState(false);
-
-    useEffect(() => {
-        // Polling function to check for editor
-        const checkForEditor = () => {
-            if (editorRef?.current) {
-                const editor = editorRef.current;
-
-                // Register command listeners
-                const unregisterCanUndo = editor.registerCommand<boolean>(
-                    CAN_UNDO_COMMAND,
-                    (payload) => {
-                        setCanUndo(Boolean(payload));
-                        return false;
-                    },
-                    COMMAND_PRIORITY_EDITOR,
-                );
-
-                const unregisterCanRedo = editor.registerCommand<boolean>(
-                    CAN_REDO_COMMAND,
-                    (payload) => {
-                        setCanRedo(Boolean(payload));
-                        return false;
-                    },
-                    COMMAND_PRIORITY_EDITOR,
-                );
-
-                // Cleanup
-                return () => {
-                    unregisterCanUndo();
-                    unregisterCanRedo();
-                };
-            } else {
-                // If editor not available, check again after a short delay
-                const timer = setTimeout(checkForEditor, 100);
-                return () => clearTimeout(timer);
-            }
-        };
-
-        // Start polling
-        const cleanup = checkForEditor();
-
-        // Cleanup on unmount
-        return () => {
-            if (typeof cleanup === "function") {
-                cleanup();
-            }
-        };
-    }, [editorRef]);
-
-    const handleUndo = () => {
-        if (editorRef?.current) {
-            editorRef.current.dispatchCommand(UNDO_COMMAND, undefined);
-        }
-    };
-
-    const handleRedo = () => {
-        if (editorRef?.current) {
-            editorRef.current.dispatchCommand(REDO_COMMAND, undefined);
-        }
-    };
+    const { history } = useWorkspaceContext();
+    const { t } = useLingui();
     return (
         <Group align="center" gap="xs">
-            <UndoButton canUndo={canUndo} handleUndo={handleUndo} />
-            <RedoButton canRedo={canRedo} handleRedo={handleRedo} />
+            <UndoButton
+                canUndo={history.canUndo}
+                handleUndo={history.undo}
+                label={history.peekUndoLabel()}
+                undoLabel={t`Undo`}
+                undoWithDetailLabel={(next) => t`Undo — ${next}`}
+            />
+            <RedoButton
+                canRedo={history.canRedo}
+                handleRedo={history.redo}
+                label={history.peekRedoLabel()}
+                redoLabel={t`Redo`}
+                redoWithDetailLabel={(next) => t`Redo — ${next}`}
+            />
         </Group>
     );
 }
@@ -86,12 +30,21 @@ export function HistoryButtons() {
 type HistoryButtonPropsUndo = {
     canUndo: boolean;
     handleUndo: () => void;
+    label: string | null;
+    undoLabel: string;
+    undoWithDetailLabel: (label: string) => string;
 };
-function UndoButton({ canUndo, handleUndo }: HistoryButtonPropsUndo) {
+function UndoButton({
+    canUndo,
+    handleUndo,
+    label,
+    undoLabel,
+    undoWithDetailLabel,
+}: HistoryButtonPropsUndo) {
     return (
         <ActionIconSimple
-            aria-label="Undo"
-            title="Undo"
+            aria-label={undoLabel}
+            title={label ? undoWithDetailLabel(label) : undoLabel}
             onClick={handleUndo}
             disabled={!canUndo}
         >
@@ -102,12 +55,21 @@ function UndoButton({ canUndo, handleUndo }: HistoryButtonPropsUndo) {
 type HistoryButtonPropsRedo = {
     canRedo: boolean;
     handleRedo: () => void;
+    label: string | null;
+    redoLabel: string;
+    redoWithDetailLabel: (label: string) => string;
 };
-function RedoButton({ canRedo, handleRedo }: HistoryButtonPropsRedo) {
+function RedoButton({
+    canRedo,
+    handleRedo,
+    label,
+    redoLabel,
+    redoWithDetailLabel,
+}: HistoryButtonPropsRedo) {
     return (
         <ActionIconSimple
-            aria-label="Redo"
-            title="Redo"
+            aria-label={redoLabel}
+            title={label ? redoWithDetailLabel(label) : redoLabel}
             onClick={handleRedo}
             disabled={!canRedo}
             style={{ fontSize: rem(14) }}

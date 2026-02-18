@@ -3,7 +3,10 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    type ContentEditorModeSetting,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
     nestedEditorMarkers,
     USFM_NESTED_DECORATOR_TYPE,
@@ -223,7 +226,7 @@ export function rewrapNestedEditorNodesFromFlatTokens(
  */
 export function transformToMode(
     state: SerializedEditorState,
-    targetMode: "regular" | "usfm" | "plain",
+    targetMode: ContentEditorModeSetting,
 ): SerializedEditorState {
     const direction = (state.root.direction ?? "ltr") as "ltr" | "rtl";
     const rootChildren = state.root.children as SerializedLexicalNode[];

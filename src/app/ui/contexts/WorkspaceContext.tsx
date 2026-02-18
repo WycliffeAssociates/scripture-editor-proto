@@ -8,6 +8,10 @@ import {
     useWorkspaceActions,
 } from "@/app/ui/hooks/useActions.tsx";
 import {
+    type CustomHistoryHook,
+    useCustomHistory,
+} from "@/app/ui/hooks/useCustomHistory.ts";
+import {
     type UseDynamicStylesheetHook,
     useDynamicStylesheet,
 } from "@/app/ui/hooks/useDynamicStyles.tsx";
@@ -46,6 +50,7 @@ export interface WorkSpaceContextType {
     lint: UseLintReturn;
     cssStyleSheet: UseDynamicStylesheetHook;
     saveDiff: UseProjectDiffsReturn;
+    history: CustomHistoryHook;
     projectLanguageDirection: "ltr" | "rtl";
     isProcessing: boolean;
     bookCodeToProjectLocalizedTitle({
@@ -96,6 +101,13 @@ export const ProjectProvider = ({
         queryBookOverride,
         queryChapterOverride,
     );
+    const history = useCustomHistory({
+        mutWorkingFilesRef: mutWorkingFilesRef.current,
+        editorRef,
+        currentFileBibleIdentifier: project.pickedFile.bookCode,
+        currentChapter:
+            project.pickedChapter?.chapNumber || project.currentChapter,
+    });
     const saveDiff = useProjectDiffs({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         // setWorkingFiles,
@@ -103,6 +115,7 @@ export const ProjectProvider = ({
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter || null,
         loadedProject,
+        history,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 
@@ -143,6 +156,7 @@ export const ProjectProvider = ({
             project.setIsFormatMatchSuggestionsOpen,
         projectLanguageDirection,
         targetMarkerPreservationMode: project.targetMarkerPreservationMode,
+        history,
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,
@@ -151,6 +165,7 @@ export const ProjectProvider = ({
         editorRef,
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter,
+        history,
     });
 
     function bookCodeToProjectLocalizedTitle({
@@ -194,6 +209,7 @@ export const ProjectProvider = ({
                 lint,
                 cssStyleSheet,
                 saveDiff,
+                history,
                 projectLanguageDirection,
                 isProcessing: project.isProcessing,
                 bookCodeToProjectLocalizedTitle,

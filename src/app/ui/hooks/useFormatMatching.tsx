@@ -11,6 +11,7 @@ import {
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
+import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
 import {
     type MatchFormattingScope,
@@ -63,6 +64,7 @@ export function useFormatMatching({
     editorMode,
     languageDirection,
     targetMarkerPreservationMode,
+    history,
 }: {
     mutWorkingFilesRef: ParsedFile[];
     currentFileBibleIdentifier: string;
@@ -84,6 +86,7 @@ export function useFormatMatching({
     editorMode: EditorModeSetting;
     languageDirection: "ltr" | "rtl";
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
+    history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
 
@@ -97,6 +100,12 @@ export function useFormatMatching({
             setIsFormatMatchSuggestionsOpen(false);
         }
     };
+
+    const toChapterRefs = (file: ParsedFile) =>
+        file.chapters.map((chapter) => ({
+            bookCode: file.bookCode,
+            chapterNum: chapter.chapNumber,
+        }));
 
     const applyChapterMatchInPlace = ({
         chapter,
@@ -170,51 +179,66 @@ export function useFormatMatching({
         if (!referenceProject.referenceChapter) return;
         saveCurrentDirtyLexical();
 
-        const backup = structuredClone(mutWorkingFilesRef);
         const file = mutWorkingFilesRef.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
-        const chapter = file?.chapters.find(
-            (c) => c.chapNumber === currentChapter,
-        );
-        const sourceChapter =
-            referenceProject.referenceFile?.chapters.find(
-                (c) => c.chapNumber === currentChapter,
-            ) ?? referenceProject.referenceChapter;
+        if (!file) return;
 
-        if (!chapter || !sourceChapter) return;
-
-        const result = applyChapterMatchInPlace({
-            chapter,
-            sourceChapter,
-            scope: "chapter",
-            bookCode: currentFileBibleIdentifier,
-            targetMarkerPreservation: targetMarkerPreservationMode,
-        });
-
-        publishReport({
-            generatedAt: new Date().toISOString(),
-            scope: "chapter",
-            chaptersScanned: 1,
-            chaptersModified: result.changed ? 1 : 0,
-            booksModified: result.changed ? 1 : 0,
-            stats: result.stats,
-            suggestions: result.suggestions,
-        });
-
-        if (result.changed) {
-            setEditorContent(
-                currentFileBibleIdentifier,
-                currentChapter,
-                chapter,
-            );
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Formatting Matched`,
-                    message: t`Matched formatting for Chapter ${currentChapter}`,
+        const backup = await history.runTransaction({
+            label: t`Match Formatting (Chapter ${currentFileBibleIdentifier} ${currentChapter})`,
+            candidates: [
+                {
+                    bookCode: currentFileBibleIdentifier,
+                    chapterNum: currentChapter,
                 },
-            });
-        }
+            ],
+            run: async () => {
+                const previous = structuredClone(mutWorkingFilesRef);
+                const chapter = file.chapters.find(
+                    (c) => c.chapNumber === currentChapter,
+                );
+                const sourceChapter =
+                    referenceProject.referenceFile?.chapters.find(
+                        (c) => c.chapNumber === currentChapter,
+                    ) ?? referenceProject.referenceChapter;
+
+                if (!chapter || !sourceChapter) return previous;
+
+                const result = applyChapterMatchInPlace({
+                    chapter,
+                    sourceChapter,
+                    scope: "chapter",
+                    bookCode: currentFileBibleIdentifier,
+                    targetMarkerPreservation: targetMarkerPreservationMode,
+                });
+
+                publishReport({
+                    generatedAt: new Date().toISOString(),
+                    scope: "chapter",
+                    chaptersScanned: 1,
+                    chaptersModified: result.changed ? 1 : 0,
+                    booksModified: result.changed ? 1 : 0,
+                    stats: result.stats,
+                    suggestions: result.suggestions,
+                });
+
+                if (result.changed) {
+                    setEditorContent(
+                        currentFileBibleIdentifier,
+                        currentChapter,
+                        chapter,
+                    );
+                    ShowNotificationSuccess({
+                        notification: {
+                            title: t`Formatting Matched`,
+                            message: t`Matched formatting for Chapter ${currentChapter}`,
+                        },
+                    });
+                }
+
+                return previous;
+            },
+        });
 
         return backup;
     }
@@ -223,164 +247,185 @@ export function useFormatMatching({
         if (!referenceProject.referenceFile) return;
         saveCurrentDirtyLexical();
 
-        const backup = structuredClone(mutWorkingFilesRef);
         const file = mutWorkingFilesRef.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
 
-        let currentChapterModified = false;
-        let modifiedChaptersCount = 0;
-        let aggregateStats = ZERO_STATS;
-        const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
-        let chaptersScanned = 0;
+        const backup = await history.runTransaction({
+            label: t`Match Formatting (Book ${currentFileBibleIdentifier})`,
+            candidates: toChapterRefs(file),
+            run: async () => {
+                const previous = structuredClone(mutWorkingFilesRef);
+                let currentChapterModified = false;
+                let modifiedChaptersCount = 0;
+                let aggregateStats = ZERO_STATS;
+                const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
+                let chaptersScanned = 0;
 
-        file.chapters.forEach((chapter) => {
-            const refChapter = referenceProject.referenceFile?.chapters.find(
-                (rc) => rc.chapNumber === chapter.chapNumber,
-            );
-            if (!refChapter) return;
-            chaptersScanned++;
+                file.chapters.forEach((chapter) => {
+                    const refChapter =
+                        referenceProject.referenceFile?.chapters.find(
+                            (rc) => rc.chapNumber === chapter.chapNumber,
+                        );
+                    if (!refChapter) return;
+                    chaptersScanned++;
 
-            const result = applyChapterMatchInPlace({
-                chapter,
-                sourceChapter: refChapter,
-                scope: "book",
-                bookCode: file.bookCode,
-                targetMarkerPreservation: targetMarkerPreservationMode,
-            });
-            aggregateStats = sumStats(aggregateStats, result.stats);
-            aggregateSuggestions.push(...result.suggestions);
+                    const result = applyChapterMatchInPlace({
+                        chapter,
+                        sourceChapter: refChapter,
+                        scope: "book",
+                        bookCode: file.bookCode,
+                        targetMarkerPreservation: targetMarkerPreservationMode,
+                    });
+                    aggregateStats = sumStats(aggregateStats, result.stats);
+                    aggregateSuggestions.push(...result.suggestions);
 
-            if (!result.changed) return;
-            modifiedChaptersCount++;
-            if (chapter.chapNumber === currentChapter) {
-                currentChapterModified = true;
-            }
+                    if (!result.changed) return;
+                    modifiedChaptersCount++;
+                    if (chapter.chapNumber === currentChapter) {
+                        currentChapterModified = true;
+                    }
+                });
+
+                publishReport({
+                    generatedAt: new Date().toISOString(),
+                    scope: "book",
+                    chaptersScanned,
+                    chaptersModified: modifiedChaptersCount,
+                    booksModified: modifiedChaptersCount > 0 ? 1 : 0,
+                    stats: aggregateStats,
+                    suggestions: aggregateSuggestions,
+                });
+
+                if (currentChapterModified) {
+                    const currentChap = file.chapters.find(
+                        (c) => c.chapNumber === currentChapter,
+                    );
+                    if (currentChap) {
+                        setEditorContent(
+                            currentFileBibleIdentifier,
+                            currentChapter,
+                            currentChap,
+                        );
+                    }
+                }
+
+                if (modifiedChaptersCount > 0) {
+                    ShowNotificationSuccess({
+                        notification: {
+                            title: t`Formatting Matched`,
+                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${file.title || file.bookCode}`,
+                        },
+                    });
+                }
+
+                return previous;
+            },
         });
-
-        publishReport({
-            generatedAt: new Date().toISOString(),
-            scope: "book",
-            chaptersScanned,
-            chaptersModified: modifiedChaptersCount,
-            booksModified: modifiedChaptersCount > 0 ? 1 : 0,
-            stats: aggregateStats,
-            suggestions: aggregateSuggestions,
-        });
-
-        if (currentChapterModified) {
-            const currentChap = file.chapters.find(
-                (c) => c.chapNumber === currentChapter,
-            );
-            if (currentChap) {
-                setEditorContent(
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                    currentChap,
-                );
-            }
-        }
-
-        if (modifiedChaptersCount > 0) {
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Formatting Matched`,
-                    message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${file.title || file.bookCode}`,
-                },
-            });
-        }
 
         return backup;
     }
 
     async function matchFormattingProject() {
-        if (!referenceProject.referenceQuery.data) return;
+        const referenceData = referenceProject.referenceQuery.data;
+        if (!referenceData) return;
         saveCurrentDirtyLexical();
 
-        const backup = structuredClone(mutWorkingFilesRef);
-        let currentChapterModified = false;
-        let modifiedBooksCount = 0;
-        let modifiedChaptersCount = 0;
-        let aggregateStats = ZERO_STATS;
-        const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
-        let chaptersScanned = 0;
+        const backup = await history.runTransaction({
+            label: t`Match Formatting (Project)`,
+            candidates: mutWorkingFilesRef.flatMap((file) =>
+                toChapterRefs(file),
+            ),
+            run: async () => {
+                const previous = structuredClone(mutWorkingFilesRef);
+                let currentChapterModified = false;
+                let modifiedBooksCount = 0;
+                let modifiedChaptersCount = 0;
+                let aggregateStats = ZERO_STATS;
+                const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
+                let chaptersScanned = 0;
 
-        for (const targetFile of mutWorkingFilesRef) {
-            const refFile =
-                referenceProject.referenceQuery.data.parsedFiles.find(
-                    (rf) => rf.bookCode === targetFile.bookCode,
-                );
-            if (!refFile) continue;
+                for (const targetFile of mutWorkingFilesRef) {
+                    const refFile = referenceData.parsedFiles.find(
+                        (rf) => rf.bookCode === targetFile.bookCode,
+                    );
+                    if (!refFile) continue;
 
-            let fileModified = false;
-            targetFile.chapters.forEach((chapter) => {
-                const refChapter = refFile.chapters.find(
-                    (rc) => rc.chapNumber === chapter.chapNumber,
-                );
-                if (!refChapter) return;
-                chaptersScanned++;
+                    let fileModified = false;
+                    targetFile.chapters.forEach((chapter) => {
+                        const refChapter = refFile.chapters.find(
+                            (rc) => rc.chapNumber === chapter.chapNumber,
+                        );
+                        if (!refChapter) return;
+                        chaptersScanned++;
 
-                const result = applyChapterMatchInPlace({
-                    chapter,
-                    sourceChapter: refChapter,
-                    scope: "project",
-                    bookCode: targetFile.bookCode,
-                    targetMarkerPreservation: targetMarkerPreservationMode,
-                });
-                aggregateStats = sumStats(aggregateStats, result.stats);
-                aggregateSuggestions.push(...result.suggestions);
+                        const result = applyChapterMatchInPlace({
+                            chapter,
+                            sourceChapter: refChapter,
+                            scope: "project",
+                            bookCode: targetFile.bookCode,
+                            targetMarkerPreservation:
+                                targetMarkerPreservationMode,
+                        });
+                        aggregateStats = sumStats(aggregateStats, result.stats);
+                        aggregateSuggestions.push(...result.suggestions);
 
-                if (!result.changed) return;
-                fileModified = true;
-                modifiedChaptersCount++;
-                if (
-                    targetFile.bookCode === currentFileBibleIdentifier &&
-                    chapter.chapNumber === currentChapter
-                ) {
-                    currentChapterModified = true;
+                        if (!result.changed) return;
+                        fileModified = true;
+                        modifiedChaptersCount++;
+                        if (
+                            targetFile.bookCode ===
+                                currentFileBibleIdentifier &&
+                            chapter.chapNumber === currentChapter
+                        ) {
+                            currentChapterModified = true;
+                        }
+                    });
+
+                    if (fileModified) {
+                        modifiedBooksCount++;
+                    }
                 }
-            });
 
-            if (fileModified) {
-                modifiedBooksCount++;
-            }
-        }
+                publishReport({
+                    generatedAt: new Date().toISOString(),
+                    scope: "project",
+                    chaptersScanned,
+                    chaptersModified: modifiedChaptersCount,
+                    booksModified: modifiedBooksCount,
+                    stats: aggregateStats,
+                    suggestions: aggregateSuggestions,
+                });
 
-        publishReport({
-            generatedAt: new Date().toISOString(),
-            scope: "project",
-            chaptersScanned,
-            chaptersModified: modifiedChaptersCount,
-            booksModified: modifiedBooksCount,
-            stats: aggregateStats,
-            suggestions: aggregateSuggestions,
+                if (currentChapterModified) {
+                    const currentFile = mutWorkingFilesRef.find(
+                        (f) => f.bookCode === currentFileBibleIdentifier,
+                    );
+                    const currentChap = currentFile?.chapters.find(
+                        (c) => c.chapNumber === currentChapter,
+                    );
+                    if (currentChap) {
+                        setEditorContent(
+                            currentFileBibleIdentifier,
+                            currentChapter,
+                            currentChap,
+                        );
+                    }
+                }
+
+                if (modifiedBooksCount > 0) {
+                    ShowNotificationSuccess({
+                        notification: {
+                            title: t`Formatting Matched`,
+                            message: t`Matched formatting across ${modifiedBooksCount} books`,
+                        },
+                    });
+                }
+
+                return previous;
+            },
         });
-
-        if (currentChapterModified) {
-            const currentFile = mutWorkingFilesRef.find(
-                (f) => f.bookCode === currentFileBibleIdentifier,
-            );
-            const currentChap = currentFile?.chapters.find(
-                (c) => c.chapNumber === currentChapter,
-            );
-            if (currentChap) {
-                setEditorContent(
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                    currentChap,
-                );
-            }
-        }
-
-        if (modifiedBooksCount > 0) {
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Formatting Matched`,
-                    message: t`Matched formatting across ${modifiedBooksCount} books`,
-                },
-            });
-        }
 
         return backup;
     }
@@ -390,6 +435,7 @@ export function useFormatMatching({
     ) {
         const editor = editorRef.current;
         if (!editor) return false;
+        history.setNextTypingLabel("Apply Formatting Suggestion");
         const inserted = insertParagraphMarkerAtCursor({
             editor,
             marker: suggestion.marker,
