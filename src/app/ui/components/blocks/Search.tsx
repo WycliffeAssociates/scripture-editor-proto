@@ -26,7 +26,7 @@ import {
     WholeWord,
     X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Highlighter from "react-highlight-words";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -169,6 +169,7 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
                         data-testid={TESTING_IDS.replaceInput}
                         size="xs"
                         value={search.replaceTerm}
+                        disabled={search.searchReference}
                         onChange={(e) =>
                             search.setReplaceTerm(e.currentTarget.value)
                         }
@@ -270,7 +271,7 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
                                         ),
                                     )
                                 }
-                                disabled={!search.totalMatches}
+                                disabled={!search.results.length}
                                 aria-label={
                                     isSortActive
                                         ? t`Remove sort`
@@ -392,6 +393,54 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
                                 <Braces size={14} />
                             </ActionIcon>
                         </Tooltip>
+                        {search.hasReferenceSearchAvailable ? (
+                            <Tooltip
+                                label={
+                                    search.searchReference
+                                        ? t`Disable search reference`
+                                        : t`Search reference`
+                                }
+                                withArrow
+                                opened={hoveredTooltip === "search-reference"}
+                            >
+                                <ActionIcon
+                                    data-testid={
+                                        TESTING_IDS.searchReferenceToggle
+                                    }
+                                    size="sm"
+                                    variant={
+                                        search.searchReference
+                                            ? "filled"
+                                            : "light"
+                                    }
+                                    color={
+                                        search.searchReference ? "blue" : "gray"
+                                    }
+                                    onClick={() =>
+                                        handleTooltipAction(
+                                            "search-reference",
+                                            () =>
+                                                search.setSearchReference(
+                                                    !search.searchReference,
+                                                ),
+                                        )
+                                    }
+                                    aria-label={
+                                        search.searchReference
+                                            ? t`Disable search reference`
+                                            : t`Search reference`
+                                    }
+                                    onMouseEnter={() =>
+                                        handleTooltipEnter("search-reference")
+                                    }
+                                    onMouseLeave={() =>
+                                        handleTooltipLeave("search-reference")
+                                    }
+                                >
+                                    R
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -416,8 +465,10 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
                         variant="default"
                         onClick={search.replaceAllInChapter}
                         disabled={
+                            search.searchReference ||
                             !search.totalMatches ||
-                            search.replaceTerm.trim().length === 0
+                            search.replaceTerm.trim().length === 0 ||
+                            search.pickedResult?.source === "reference"
                         }
                     >
                         {t`Replace all in this chapter`}
@@ -428,8 +479,10 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
                         variant="filled"
                         onClick={search.replaceCurrentMatch}
                         disabled={
+                            search.searchReference ||
                             !search.totalMatches ||
-                            search.replaceTerm.trim().length === 0
+                            search.replaceTerm.trim().length === 0 ||
+                            search.pickedResult?.source === "reference"
                         }
                     >
                         {t`Replace`}
@@ -460,6 +513,7 @@ export function SearchPopoverControls() {
         ? chapterResults.findIndex(
               (result) =>
                   result.sid === search.pickedResult?.sid &&
+                  result.source === search.pickedResult?.source &&
                   result.sidOccurrenceIndex ===
                       search.pickedResult?.sidOccurrenceIndex,
           )
@@ -510,10 +564,58 @@ function SearchResults({
     search: UseSearchReturn;
     isMobile: boolean;
 }) {
+    const { t } = useLingui();
+    const { allProjects, currentProjectRoute, referenceProject } =
+        useWorkspaceContext();
     const parentRef = useRef<HTMLDivElement>(null);
+    const isGroupedMode =
+        search.searchReference && search.hasReferenceSearchAvailable;
+    const currentProjectName = useMemo(() => {
+        const project = allProjects.find(
+            (item) => item.projectDirectoryPath === currentProjectRoute,
+        );
+        return project?.name || t`Current project`;
+    }, [allProjects, currentProjectRoute, t]);
+    const sourceProjectName = useMemo(() => {
+        const project = allProjects.find(
+            (item) =>
+                item.projectDirectoryPath ===
+                referenceProject.referenceProjectId,
+        );
+        return project?.name || t`Reference project`;
+    }, [allProjects, referenceProject.referenceProjectId, t]);
+    const groupedItems = useMemo(() => {
+        if (!isGroupedMode) return [];
+        const targetByKey = new Map(
+            search.targetResults.map((result) => [
+                [
+                    result.sid,
+                    result.sidOccurrenceIndex,
+                    result.bibleIdentifier,
+                    result.chapNum,
+                    result.naturalIndex,
+                ].join("|"),
+                result,
+            ]),
+        );
+        return search.referenceResults.map((sourceResult) => {
+            const key = [
+                sourceResult.sid,
+                sourceResult.sidOccurrenceIndex,
+                sourceResult.bibleIdentifier,
+                sourceResult.chapNum,
+                sourceResult.naturalIndex,
+            ].join("|");
+            return {
+                key,
+                sourceResult,
+                targetResult: targetByKey.get(key),
+            };
+        });
+    }, [isGroupedMode, search.referenceResults, search.targetResults]);
 
     const virtualizer = useVirtualizer({
-        count: search.results.length,
+        count: isGroupedMode ? groupedItems.length : search.results.length,
         getScrollElement: () => parentRef.current,
         estimateSize: () => 72,
         overscan: 5,
@@ -571,23 +673,82 @@ function SearchResults({
                 }}
             >
                 {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const result = search.results[virtualRow.index];
-                    const isActive = search.pickedResult === result;
+                    const groupedItem = isGroupedMode
+                        ? groupedItems[virtualRow.index]
+                        : null;
+                    const result = groupedItem
+                        ? groupedItem.sourceResult
+                        : search.results[virtualRow.index];
+                    if (!result) return null;
+                    const isActive = groupedItem
+                        ? search.pickedResult === groupedItem.sourceResult ||
+                          search.pickedResult === groupedItem.targetResult
+                        : search.pickedResult === result;
+
+                    const findChunks = ({
+                        searchWords,
+                        textToHighlight,
+                    }: {
+                        searchWords: Array<string | RegExp>;
+                        textToHighlight: string;
+                    }) => {
+                        const query = searchWords[0];
+                        if (typeof query !== "string" || !textToHighlight)
+                            return [];
+                        const chunks = [];
+                        const flags = search.matchCase ? "g" : "gi";
+                        const escapedTerm =
+                            typeof query === "string"
+                                ? search.escapeRegex(query)
+                                : query;
+                        const pattern = search.matchWholeWord
+                            ? `\\b${escapedTerm}\\b`
+                            : escapedTerm;
+                        const regex = new RegExp(pattern, flags);
+                        let match: RegExpExecArray | null;
+                        while (
+                            // biome-ignore lint/suspicious/noAssignInExpressions: <intentional>
+                            (match = regex.exec(textToHighlight)) !== null
+                        ) {
+                            chunks.push({
+                                start: match.index,
+                                end: match.index + match[0].length,
+                            });
+                        }
+                        return chunks;
+                    };
 
                     return (
                         <UnstyledButton
                             data-testid={TESTING_IDS.searchResultItem}
-                            key={`${result.sid}-${virtualRow.index}`}
+                            data-search-source={result.source}
+                            data-search-row-type={
+                                groupedItem ? "grouped" : "single"
+                            }
+                            data-search-book={result.bibleIdentifier}
+                            data-search-chapter={String(result.chapNum)}
+                            key={
+                                groupedItem?.key ||
+                                `${result.source}-${result.sid}-${result.sidOccurrenceIndex}-${result.naturalIndex}-${virtualRow.index}`
+                            }
                             // 1. CRITICAL: Add data-index for the measurer
                             data-index={virtualRow.index}
                             // 2. CRITICAL: Measure the element
                             ref={virtualizer.measureElement}
                             onKeyUp={(e) => {
                                 e.key === "Enter" &&
-                                    search.pickSearchResult(result);
+                                    search.pickSearchResult(
+                                        groupedItem
+                                            ? groupedItem.sourceResult
+                                            : result,
+                                    );
                             }}
                             onClick={() => {
-                                search.pickSearchResult(result);
+                                search.pickSearchResult(
+                                    groupedItem
+                                        ? groupedItem.sourceResult
+                                        : result,
+                                );
                                 // Close search panel on mobile after navigating to result
                                 if (isMobile) {
                                     search.setIsSearchPaneOpen(false);
@@ -623,6 +784,17 @@ function SearchResults({
                                     alignItems: "center",
                                 }}
                             >
+                                {!groupedItem ? (
+                                    <span
+                                        className={
+                                            searchClassNames.resultSource
+                                        }
+                                    >
+                                        {result.source === "reference"
+                                            ? t`SRC`
+                                            : t`TGT`}
+                                    </span>
+                                ) : null}
                                 <span className={searchClassNames.resultSid}>
                                     {result.sid}
                                 </span>
@@ -632,66 +804,95 @@ function SearchResults({
                                 />
                             </span>
 
-                            <span
-                                className={searchClassNames.resultText}
-                                style={{ display: "block" }}
-                            >
-                                <Highlighter
-                                    caseSensitive={search.matchCase}
-                                    findChunks={({
-                                        searchWords,
-                                        textToHighlight,
-                                    }) => {
-                                        const query = searchWords[0]; // We only have one search term
-                                        if (!query || !textToHighlight)
-                                            return [];
-
-                                        const chunks = [];
-
-                                        // A. Handle Case Sensitivity
-                                        const flags = search.matchCase
-                                            ? "g"
-                                            : "gi";
-
-                                        // B. Handle Whole Word vs Substring
-                                        const escapedTerm =
-                                            typeof query === "string"
-                                                ? search.escapeRegex(query)
-                                                : query;
-                                        const pattern = search.matchWholeWord
-                                            ? `\\b${escapedTerm}\\b`
-                                            : escapedTerm;
-
-                                        const regex = new RegExp(
-                                            pattern,
-                                            flags,
-                                        );
-
-                                        // C. Execute Regex to find all occurrences
-                                        let match: RegExpExecArray | null;
-                                        while (
-                                            // biome-ignore lint/suspicious/noAssignInExpressions: <intentional>
-                                            (match =
-                                                regex.exec(textToHighlight)) !==
-                                            null
-                                        ) {
-                                            chunks.push({
-                                                start: match.index,
-                                                end:
-                                                    match.index +
-                                                    match[0].length,
-                                            });
+                            {groupedItem ? (
+                                <div className={searchClassNames.resultPair}>
+                                    <div
+                                        className={
+                                            searchClassNames.resultPairBlock
                                         }
-
-                                        return chunks;
-                                    }}
-                                    searchWords={[search.searchTerm]}
-                                    textToHighlight={result.text}
-                                    highlightClassName={
-                                        searchClassNames.highlight
-                                    }
-                                />
-                            </span>
+                                    >
+                                        <span
+                                            className={
+                                                searchClassNames.resultProjectLabel
+                                            }
+                                            data-project-label="source"
+                                        >
+                                            {sourceProjectName}
+                                        </span>
+                                        <span
+                                            className={
+                                                searchClassNames.resultText
+                                            }
+                                            style={{ display: "block" }}
+                                        >
+                                            <Highlighter
+                                                caseSensitive={search.matchCase}
+                                                findChunks={findChunks}
+                                                searchWords={[
+                                                    search.searchTerm,
+                                                ]}
+                                                textToHighlight={
+                                                    groupedItem.sourceResult
+                                                        .text
+                                                }
+                                                highlightClassName={
+                                                    searchClassNames.highlight
+                                                }
+                                            />
+                                        </span>
+                                    </div>
+                                    <div
+                                        className={
+                                            searchClassNames.resultPairBlock
+                                        }
+                                    >
+                                        <span
+                                            className={
+                                                searchClassNames.resultProjectLabel
+                                            }
+                                            data-project-label="target"
+                                        >
+                                            {currentProjectName}
+                                        </span>
+                                        <span
+                                            className={
+                                                searchClassNames.resultText
+                                            }
+                                            style={{ display: "block" }}
+                                        >
+                                            <Highlighter
+                                                caseSensitive={search.matchCase}
+                                                findChunks={findChunks}
+                                                searchWords={[
+                                                    search.searchTerm,
+                                                ]}
+                                                textToHighlight={
+                                                    groupedItem.targetResult
+                                                        ?.text ?? ""
+                                                }
+                                                highlightClassName={
+                                                    searchClassNames.highlight
+                                                }
+                                            />
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <span
+                                    className={searchClassNames.resultText}
+                                    style={{ display: "block" }}
+                                >
+                                    <Highlighter
+                                        caseSensitive={search.matchCase}
+                                        findChunks={findChunks}
+                                        searchWords={[search.searchTerm]}
+                                        textToHighlight={result.text}
+                                        highlightClassName={
+                                            searchClassNames.highlight
+                                        }
+                                    />
+                                </span>
+                            )}
                         </UnstyledButton>
                     );
                 })}

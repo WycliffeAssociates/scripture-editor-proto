@@ -428,6 +428,141 @@ test.describe("Reference Project Selection", () => {
 });
 
 test.describe("Search Functionality", () => {
+    test("search reference toggle appears only when a reference project is selected", async ({
+        editorWithTwoProjects: page,
+    }) => {
+        await openSearchPanel(page);
+        await expect(
+            page.getByTestId(TESTING_IDS.searchReferenceToggle),
+        ).toHaveCount(0);
+
+        await page.getByTestId(TESTING_IDS.searchTrigger).click();
+        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+        await page
+            .getByTestId(TESTING_IDS.referenceProjectItem)
+            .filter({ hasText: "Unlocked Literal Bible" })
+            .click();
+
+        await openSearchPanel(page);
+        await expect(
+            page.getByTestId(TESTING_IDS.searchReferenceToggle),
+        ).toBeVisible();
+    });
+
+    test("enabling search reference shows one grouped clickable row per hit", async ({
+        editorWithTwoProjects: page,
+    }) => {
+        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+        await page
+            .getByTestId(TESTING_IDS.referenceProjectItem)
+            .filter({ hasText: "Unlocked Literal Bible" })
+            .click();
+
+        await openSearchPanel(page);
+        await fillSearchQuery(page, "j");
+        await page.getByTestId(TESTING_IDS.searchReferenceToggle).click();
+
+        const firstResult = page
+            .getByTestId(TESTING_IDS.searchResultItem)
+            .first();
+        await expect(firstResult).toBeVisible({ timeout: 15000 });
+        await expect(firstResult).toHaveAttribute(
+            "data-search-row-type",
+            "grouped",
+        );
+        await expect(
+            firstResult.locator('[data-project-label="source"]'),
+        ).toBeVisible();
+        await expect(
+            firstResult.locator('[data-project-label="target"]'),
+        ).toBeVisible();
+    });
+
+    test("reference results navigate main editor and keep replace disabled", async ({
+        editorWithTwoProjects: page,
+    }) => {
+        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+        await page
+            .getByTestId(TESTING_IDS.referenceProjectItem)
+            .filter({ hasText: "Unlocked Literal Bible" })
+            .click();
+
+        await openSearchPanel(page);
+        await fillSearchQuery(page, "i");
+        await ensureSearchOptionsExpanded(page);
+        await page.getByTestId(TESTING_IDS.replaceInput).fill("foo");
+        await page.getByTestId(TESTING_IDS.searchReferenceToggle).click();
+        await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeDisabled();
+        await expect(
+            page.getByTestId(TESTING_IDS.replaceButton),
+        ).toBeDisabled();
+        await expect(
+            page.getByTestId(TESTING_IDS.searchResultItem).first(),
+        ).toBeVisible({ timeout: 15000 });
+
+        const resultsContainer = page.getByTestId(
+            TESTING_IDS.searchResultsContainer,
+        );
+        const referenceResult = resultsContainer
+            .locator('[data-search-source="reference"]')
+            .first();
+        await expect(referenceResult).toBeVisible({ timeout: 15000 });
+        const expectedBook =
+            await referenceResult.getAttribute("data-search-book");
+        const expectedChapter = await referenceResult.getAttribute(
+            "data-search-chapter",
+        );
+        if (!expectedBook || !expectedChapter) {
+            throw new Error(
+                "Missing expected search result location attributes",
+            );
+        }
+
+        await referenceResult.click();
+        await expect(
+            page.getByTestId(TESTING_IDS.replaceButton),
+        ).toBeDisabled();
+        await expect(
+            page.getByTestId(TESTING_IDS.referencePicker),
+        ).toHaveAttribute("data-test-book-code", expectedBook);
+        await expect(
+            page.getByTestId(TESTING_IDS.referencePicker),
+        ).toHaveAttribute("data-test-current-chapter", expectedChapter);
+
+        await page.getByTestId(TESTING_IDS.searchReferenceToggle).click();
+        await expect(page.getByTestId(TESTING_IDS.replaceInput)).toBeEnabled();
+        await expect(page.getByTestId(TESTING_IDS.replaceButton)).toBeEnabled();
+    });
+
+    test("search reference toggle persists across close and reopen", async ({
+        editorWithTwoProjects: page,
+    }) => {
+        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+        await page
+            .getByTestId(TESTING_IDS.referenceProjectItem)
+            .filter({ hasText: "Unlocked Literal Bible" })
+            .click();
+
+        await openSearchPanel(page);
+        await fillSearchQuery(page, "j");
+        await page.getByTestId(TESTING_IDS.searchReferenceToggle).click();
+        await expect(
+            page.getByTestId(TESTING_IDS.searchResultItem).first(),
+        ).toBeVisible({ timeout: 15000 });
+
+        await page.getByTestId(TESTING_IDS.searchTrigger).click();
+        await openSearchPanel(page);
+
+        await expect(
+            page.getByTestId(TESTING_IDS.searchResultItem).first(),
+        ).toBeVisible({ timeout: 15000 });
+        const firstSource = await page
+            .getByTestId(TESTING_IDS.searchResultItem)
+            .first()
+            .getAttribute("data-search-source");
+        expect(firstSource).toBe("reference");
+    });
+
     test("can open search and navigate among results", async ({
         editorPage,
     }) => {

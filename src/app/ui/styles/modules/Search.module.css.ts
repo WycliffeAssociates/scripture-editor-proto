@@ -234,6 +234,24 @@ const resultHeader = style({
     width: "100%",
 });
 
+const resultSource = style({
+    display: "inline-block",
+    marginRight: vars.spacing.xs,
+    padding: `0 calc(${vars.spacing.xs} * 0.5)`,
+    borderRadius: vars.radius.xs,
+    fontSize: vars.fontSizes.xs,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    color: vars.colors.gray[7],
+    backgroundColor: vars.colors.gray[1],
+    selectors: {
+        [`${darkSelector} &`]: {
+            color: vars.colors.gray[2],
+            backgroundColor: vars.colors.gray[8],
+        },
+    },
+});
+
 // Result SID (scripture identifier)
 const resultSid = style({
     fontWeight: 700,
@@ -256,6 +274,25 @@ const resultArrow = style({
 const resultText = style({
     fontSize: vars.fontSizes.sm,
     lineHeight: 1.6,
+});
+
+const resultPair = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: `calc(${vars.spacing.xs} * 0.6)`,
+});
+
+const resultPairBlock = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: `calc(${vars.spacing.xs} * 0.3)`,
+});
+
+const resultProjectLabel = style({
+    fontSize: `calc(${vars.fontSizes.xs} * 0.92)`,
+    lineHeight: 1.1,
+    fontWeight: 600,
+    color: vars.colors.gray[6],
 });
 
 // Search icon in empty state
@@ -293,9 +330,13 @@ const classes = {
     noResultsState,
     searchResult,
     resultHeader,
+    resultSource,
     resultSid,
     resultArrow,
     resultText,
+    resultPair,
+    resultPairBlock,
+    resultProjectLabel,
     searchIcon,
     highlight,
 } as const;

@@ -48,6 +48,7 @@ export const TESTING_IDS = {
     searchCaseMismatchLabel: "search-case-mismatch-label",
     searchInlineReplaceTrigger: "search-inline-replace-trigger",
     searchInlineReplaceButton: "search-inline-replace-button",
+    searchReferenceToggle: "search-reference-toggle",
     appDrawer: {
         projectsList: "app-drawer-projects-list",
         itemExport: "project-list-item-export",

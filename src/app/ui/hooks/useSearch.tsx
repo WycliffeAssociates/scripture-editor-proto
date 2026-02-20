@@ -1,6 +1,6 @@
 import { useDebouncedCallback } from "@mantine/hooks";
 import { $getRoot, type LexicalEditor, type LexicalNode } from "lexical";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
@@ -25,6 +25,7 @@ import {
 
 type Props = {
     workingFiles: ParsedFile[];
+    referenceFiles?: ParsedFile[];
     saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
     switchBookOrChapter: (
         file: string,
@@ -45,7 +46,10 @@ type SearchResult = {
     parsedSid: ParsedReference | null;
     isCaseMismatch: boolean;
     naturalIndex: number;
+    source: SearchSource;
 };
+
+export type SearchSource = "target" | "reference";
 
 type SearchMatch = MatchInNode & {
     sid?: string;
@@ -61,16 +65,21 @@ type SearchRunOptionOverrides = {
     matchCase?: boolean;
     matchWholeWord?: boolean;
     searchUSFM?: boolean;
+    searchReference?: boolean;
 };
 export type SortOption = "canonical" | "caseMismatch";
 
 export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
     searchUSFM: boolean;
     setSearchUSFM: (value: boolean) => void;
+    hasReferenceSearchAvailable: boolean;
+    searchReference: boolean;
+    setSearchReference: (value: boolean) => void;
 };
 
 export function useProjectSearch({
     workingFiles,
+    referenceFiles,
     saveCurrentDirtyLexical,
     switchBookOrChapter,
     editorRef,
@@ -84,7 +93,10 @@ export function useProjectSearch({
 
     // Search Execution State
     const [isSearching, setIsSearching] = useState(false);
-    const [results, setResults] = useState<SearchResult[]>([]);
+    const [targetResults, setTargetResults] = useState<SearchResult[]>([]);
+    const [referenceResults, setReferenceResults] = useState<SearchResult[]>(
+        [],
+    );
     const [currentSort, setCurrentSort] = useState<SortOption>("canonical");
 
     // Abort Controller Ref
@@ -100,6 +112,21 @@ export function useProjectSearch({
     const [matchWholeWord, setMatchWholeWordState] = useState(false);
     const [matchCase, setMatchCaseState] = useState(false);
     const [searchUSFM, setSearchUSFMState] = useState(false);
+    const [searchReference, setSearchReferenceState] = useState(false);
+
+    const hasReferenceSearchAvailable = Boolean(referenceFiles?.length);
+    const results = useMemo(
+        () =>
+            searchReference && hasReferenceSearchAvailable
+                ? referenceResults
+                : targetResults,
+        [
+            hasReferenceSearchAvailable,
+            referenceResults,
+            searchReference,
+            targetResults,
+        ],
+    );
 
     const currentChapterSid = makeSid({
         bookId: pickedFile.bookCode,
@@ -211,6 +238,19 @@ export function useProjectSearch({
         },
         [],
     );
+
+    const buildPairKey = useCallback(
+        (result: SearchResult) =>
+            [
+                result.sid,
+                result.sidOccurrenceIndex,
+                result.bibleIdentifier,
+                result.chapNum,
+                result.naturalIndex,
+            ].join("|"),
+        [],
+    );
+
     // --- Public Sort Function ---
     function sortBy(option: SortOption) {
         setCurrentSort(option);
@@ -218,15 +258,40 @@ export function useProjectSearch({
         // We must track the currently selected item to prevent jumpiness
         const currentlySelected = results[currentMatchIndex];
 
-        const sortedResults = applySort(results, option);
-        setResults(sortedResults);
+        let sortedTargetResults = applySort(targetResults, option);
+        let sortedReferenceResults = applySort(referenceResults, option);
+
+        if (searchReference && hasReferenceSearchAvailable) {
+            sortedReferenceResults = applySort(referenceResults, option);
+            const targetByPairKey = new Map(
+                targetResults.map((result) => [buildPairKey(result), result]),
+            );
+            sortedTargetResults = sortedReferenceResults.flatMap(
+                (refResult) => {
+                    const pairedTarget = targetByPairKey.get(
+                        buildPairKey(refResult),
+                    );
+                    return pairedTarget ? [pairedTarget] : [];
+                },
+            );
+        }
+
+        const sortedResults: SearchResult[] =
+            searchReference && hasReferenceSearchAvailable
+                ? sortedReferenceResults
+                : sortedTargetResults;
+
+        setTargetResults(sortedTargetResults);
+        setReferenceResults(sortedReferenceResults);
 
         // If we had a selection, find where it moved to in the new list
         if (currentlySelected) {
             const newIndex = sortedResults.findIndex(
                 (r) =>
                     r.sid === currentlySelected.sid &&
-                    r.naturalIndex === currentlySelected.naturalIndex,
+                    r.naturalIndex === currentlySelected.naturalIndex &&
+                    r.source === currentlySelected.source &&
+                    buildPairKey(r) === buildPairKey(currentlySelected),
             );
             if (newIndex !== -1) {
                 setCurrentMatchIndex(newIndex);
@@ -250,6 +315,13 @@ export function useProjectSearch({
             queueMicrotask(() => {
                 const editor = editorRef.current;
                 if (!editor) return;
+
+                if (searchReference || result.source === "reference") {
+                    clearHighlights();
+                    setCurrentMatches([]);
+                    setCurrentMatchIndex(0);
+                    return;
+                }
 
                 const searchMatches =
                     collectMatchesInCurrentEditor(activeSearchTerm);
@@ -277,6 +349,7 @@ export function useProjectSearch({
         [
             collectMatchesInCurrentEditor,
             editorRef,
+            searchReference,
             searchTerm,
             switchBookOrChapter,
         ],
@@ -301,6 +374,8 @@ export function useProjectSearch({
             const effectiveMatchWholeWord =
                 overrides.matchWholeWord ?? matchWholeWord;
             const effectiveSearchUSFM = overrides.searchUSFM ?? searchUSFM;
+            const effectiveSearchReference =
+                overrides.searchReference ?? searchReference;
             // 1. Abort previous search
             if (searchAbortController.current) {
                 searchAbortController.current.abort();
@@ -312,7 +387,8 @@ export function useProjectSearch({
             const signal = controller.signal;
 
             if (!query.trim()) {
-                setResults([]);
+                setTargetResults([]);
+                setReferenceResults([]);
                 setIsSearching(false);
                 return {
                     sortedResults: [],
@@ -335,14 +411,60 @@ export function useProjectSearch({
 
             clearHighlights();
 
-            const filesToSearch = saveCurrentDirtyLexical() || workingFiles;
-            const allResults: SearchResult[] = [];
-            let naturalIndex = 0;
+            const targetFilesToSearch =
+                saveCurrentDirtyLexical() || workingFiles;
+            const targetChapterKeySet = new Set(
+                targetFilesToSearch.flatMap((file) =>
+                    file.chapters.map(
+                        (chapter) => `${file.bookCode}:${chapter.chapNumber}`,
+                    ),
+                ),
+            );
+
+            const buildTargetSidTextLookup = (files: ParsedFile[]) => {
+                const sidToText = new Map<string, string>();
+                for (const { chapter } of walkChapters(files)) {
+                    if (signal.aborted) return null;
+                    const serializedNodes = chapter.lexicalState.root.children;
+                    const sidRecord = reduceSerializedNodesToText(
+                        serializedNodes,
+                        effectiveSearchUSFM,
+                    );
+                    for (const [sid, text] of Object.entries(sidRecord)) {
+                        sidToText.set(sid, text);
+                    }
+                }
+                return sidToText;
+            };
+
+            const buildPairedTargetRows = (
+                sourceResults: SearchResult[],
+                sidToText: Map<string, string>,
+            ) =>
+                sourceResults.map((sourceResult) => ({
+                    ...sourceResult,
+                    text: sidToText.get(sourceResult.sid) ?? "",
+                    isCaseMismatch: false,
+                    source: "target" as const,
+                }));
 
             const collectChapterResults = (
                 file: ParsedFile,
                 chapter: ParsedChapter,
+                options: {
+                    source: SearchSource;
+                    naturalIndexRef: { current: number };
+                    restrictToTargetChapters?: boolean;
+                },
             ) => {
+                if (
+                    options.restrictToTargetChapters &&
+                    !targetChapterKeySet.has(
+                        `${file.bookCode}:${chapter.chapNumber}`,
+                    )
+                ) {
+                    return [];
+                }
                 const chapterResults: SearchResult[] = [];
                 const serializedNodes = chapter.lexicalState.root.children;
                 const sidRecord = reduceSerializedNodesToText(
@@ -371,69 +493,159 @@ export function useProjectSearch({
                             chapNum: chapter.chapNumber,
                             parsedSid: parseSid(sid),
                             isCaseMismatch: query !== matchResult.matchedTerm,
-                            naturalIndex,
+                            naturalIndex: options.naturalIndexRef.current,
+                            source: options.source,
                         });
-                        naturalIndex++;
+                        options.naturalIndexRef.current++;
                     }
                 }
 
                 return chapterResults;
             };
 
-            if (scope === "currentChapter") {
-                const currentBookId = pickedFile.bookCode;
-                const currentChapNum = pickedChapter?.chapNumber ?? 1;
-                const targetFile = filesToSearch.find(
-                    (file) => file.bookCode === currentBookId,
-                );
-                const targetChapter = targetFile?.chapters.find(
-                    (chapter) => chapter.chapNumber === currentChapNum,
-                );
+            const collectProjectResults = (
+                files: ParsedFile[],
+                source: SearchSource,
+                options?: {
+                    restrictToTargetChapters?: boolean;
+                },
+            ) => {
+                const allResults: SearchResult[] = [];
+                const naturalIndexRef = { current: 0 };
 
-                if (targetFile && targetChapter) {
+                for (const { file, chapter } of walkChapters(files)) {
+                    if (signal.aborted) return null;
                     allResults.push(
-                        ...collectChapterResults(targetFile, targetChapter),
+                        ...collectChapterResults(file, chapter, {
+                            source,
+                            naturalIndexRef,
+                            restrictToTargetChapters:
+                                options?.restrictToTargetChapters,
+                        }),
                     );
                 }
-            } else {
-                // --- Heavy Synchronous Loop ---
-                for (const { file, chapter } of walkChapters(filesToSearch)) {
-                    // Check abort signal between files to break the heavy loop
-                    if (signal.aborted) return null;
-                    allResults.push(...collectChapterResults(file, chapter));
+                return allResults;
+            };
+
+            let nextTargetResults = targetResults;
+            let nextReferenceResults = referenceResults;
+
+            if (scope === "currentChapter") {
+                if (effectiveSearchReference && hasReferenceSearchAvailable) {
+                    const sidToText =
+                        buildTargetSidTextLookup(targetFilesToSearch);
+                    if (!sidToText) return null;
+                    nextReferenceResults = referenceResults;
+                    nextTargetResults = buildPairedTargetRows(
+                        nextReferenceResults,
+                        sidToText,
+                    );
+                } else {
+                    const currentBookId = pickedFile.bookCode;
+                    const currentChapNum = pickedChapter?.chapNumber ?? 1;
+                    const targetFile = targetFilesToSearch.find(
+                        (file) => file.bookCode === currentBookId,
+                    );
+                    const targetChapter = targetFile?.chapters.find(
+                        (chapter) => chapter.chapNumber === currentChapNum,
+                    );
+
+                    const chapterResults: SearchResult[] = [];
+                    if (targetFile && targetChapter) {
+                        chapterResults.push(
+                            ...collectChapterResults(
+                                targetFile,
+                                targetChapter,
+                                {
+                                    source: "target",
+                                    naturalIndexRef: { current: 0 },
+                                },
+                            ),
+                        );
+                    }
+                    const untouchedResults = targetResults.filter(
+                        (result) =>
+                            !(
+                                result.bibleIdentifier === currentBookId &&
+                                result.chapNum === currentChapNum
+                            ),
+                    );
+                    nextTargetResults = [
+                        ...untouchedResults,
+                        ...chapterResults,
+                    ];
+                    nextReferenceResults = [];
                 }
-                // ------------------------------
+            } else {
+                if (effectiveSearchReference && hasReferenceSearchAvailable) {
+                    const fullReferenceResults = collectProjectResults(
+                        referenceFiles ?? [],
+                        "reference",
+                        { restrictToTargetChapters: true },
+                    );
+                    if (!fullReferenceResults) return null;
+                    nextReferenceResults = fullReferenceResults;
+                    const sidToText =
+                        buildTargetSidTextLookup(targetFilesToSearch);
+                    if (!sidToText) return null;
+                    nextTargetResults = buildPairedTargetRows(
+                        nextReferenceResults,
+                        sidToText,
+                    );
+                } else {
+                    const fullTargetResults = collectProjectResults(
+                        targetFilesToSearch,
+                        "target",
+                    );
+                    if (!fullTargetResults) return null;
+                    nextTargetResults = fullTargetResults;
+                    nextReferenceResults = [];
+                }
             }
 
             // Final safety check before state update
             if (signal.aborted) return null;
-            let nextResults = allResults;
-            if (scope === "currentChapter") {
-                const currentBookId = pickedFile.bookCode;
-                const currentChapNum = pickedChapter?.chapNumber ?? 1;
-                const untouchedResults = results.filter(
-                    (result) =>
-                        !(
-                            result.bibleIdentifier === currentBookId &&
-                            result.chapNum === currentChapNum
-                        ),
-                );
-                nextResults = [...untouchedResults, ...allResults];
-            }
-            const sortedResults = applySort(nextResults, currentSort);
+            let sortedTargetResults = applySort(nextTargetResults, currentSort);
+            let sortedReferenceResults = applySort(
+                nextReferenceResults,
+                currentSort,
+            );
+            let sortedResults = sortedTargetResults;
 
-            setResults(sortedResults);
+            if (effectiveSearchReference && hasReferenceSearchAvailable) {
+                sortedReferenceResults = applySort(
+                    nextReferenceResults,
+                    currentSort,
+                );
+                const targetByPairKey = new Map(
+                    nextTargetResults.map((result) => [
+                        buildPairKey(result),
+                        result,
+                    ]),
+                );
+                sortedTargetResults = sortedReferenceResults.flatMap(
+                    (refResult) => {
+                        const pairedTarget = targetByPairKey.get(
+                            buildPairKey(refResult),
+                        );
+                        return pairedTarget ? [pairedTarget] : [];
+                    },
+                );
+                sortedResults = sortedReferenceResults;
+            }
+
+            setTargetResults(sortedTargetResults);
+            setReferenceResults(sortedReferenceResults);
 
             if (!autoPick) {
-                const searchMatches = collectMatchesInCurrentEditor(
-                    query,
-                    overrides,
-                );
+                const searchMatches = effectiveSearchReference
+                    ? []
+                    : collectMatchesInCurrentEditor(query, overrides);
                 setCurrentMatches(searchMatches);
                 setCurrentMatchIndex(0);
                 setPickedResult(null);
                 const editor = editorRef.current;
-                if (editor) {
+                if (editor && !effectiveSearchReference) {
                     highlightMatches(searchMatches, editor);
                 }
                 setIsSearching(false);
@@ -463,6 +675,7 @@ export function useProjectSearch({
         },
         [
             applySort,
+            buildPairKey,
             collectMatchesInCurrentEditor,
             currentChapterSid,
             currentSort,
@@ -472,10 +685,14 @@ export function useProjectSearch({
             pick,
             pickedChapter?.chapNumber,
             pickedFile.bookCode,
-            results,
+            referenceFiles,
+            referenceResults,
             saveCurrentDirtyLexical,
+            searchReference,
             searchUSFM,
+            targetResults,
             workingFiles,
+            hasReferenceSearchAvailable,
         ],
     );
 
@@ -492,7 +709,8 @@ export function useProjectSearch({
                 searchAbortController.current.abort();
             }
             clearHighlights();
-            setResults([]);
+            setTargetResults([]);
+            setReferenceResults([]);
             setCurrentMatches([]);
             setCurrentMatchIndex(0);
             setPickedResult(null);
@@ -518,7 +736,8 @@ export function useProjectSearch({
                 searchAbortController.current.abort();
             }
             clearHighlights();
-            setResults([]);
+            setTargetResults([]);
+            setReferenceResults([]);
             setCurrentMatches([]);
             setCurrentMatchIndex(0);
             setPickedResult(null);
@@ -581,6 +800,24 @@ export function useProjectSearch({
         [runSearchLogic, searchTerm],
     );
 
+    const setSearchReference = useCallback(
+        (next: boolean) => {
+            if (!hasReferenceSearchAvailable) {
+                setSearchReferenceState(false);
+                return;
+            }
+            setSearchReferenceState(next);
+            if (searchTerm.trim()) {
+                void runSearchLogic(searchTerm, {
+                    autoPick: false,
+                    scope: "project",
+                    overrides: { searchReference: next },
+                });
+            }
+        },
+        [hasReferenceSearchAvailable, runSearchLogic, searchTerm],
+    );
+
     const setSearchPaneOpen = useCallback(
         (next: boolean | ((prevState: boolean) => boolean)) => {
             setIsSearchPaneOpen((prev) => {
@@ -607,6 +844,22 @@ export function useProjectSearch({
             void runSearchLogic(searchTerm, { autoPick: false });
         });
     }, [history, isSearchPaneOpen, searchTerm, runSearchLogic]);
+
+    useEffect(() => {
+        if (hasReferenceSearchAvailable || !searchReference) return;
+        setSearchReferenceState(false);
+        if (!searchTerm.trim()) return;
+        void runSearchLogic(searchTerm, {
+            autoPick: false,
+            scope: "project",
+            overrides: { searchReference: false },
+        });
+    }, [
+        hasReferenceSearchAvailable,
+        runSearchLogic,
+        searchReference,
+        searchTerm,
+    ]);
 
     // --- Selection / Highlighting Logic ---
     // (Remaining functions stay largely the same)
@@ -657,6 +910,8 @@ export function useProjectSearch({
     }
 
     async function replaceMatch(targetMatch: MatchInNode) {
+        if (searchReference) return;
+        if (pickedResult?.source === "reference") return;
         if (!replaceTerm || !searchTerm.trim()) return;
         const editor = editorRef.current;
         if (!editor) return;
@@ -706,6 +961,7 @@ export function useProjectSearch({
 
         const nextResult = sortedResults.find(
             (r) =>
+                r.source === "target" &&
                 r.sid === nextActiveMatch.sid &&
                 r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
                 r.bibleIdentifier === pickedFile.bookCode &&
@@ -715,8 +971,10 @@ export function useProjectSearch({
     }
 
     async function replaceCurrentMatch() {
+        if (searchReference) return;
         if (currentMatches.length === 0 || !pickedResult || !replaceTerm)
             return;
+        if (pickedResult.source === "reference") return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -763,6 +1021,7 @@ export function useProjectSearch({
 
         const nextResult = sortedResults.find(
             (r) =>
+                r.source === "target" &&
                 r.sid === nextActiveMatch.sid &&
                 r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
                 r.bibleIdentifier === pickedFile.bookCode &&
@@ -772,7 +1031,9 @@ export function useProjectSearch({
     }
 
     async function replaceAllInChapter() {
+        if (searchReference) return;
         if (!pickedResult || !replaceTerm) return;
+        if (pickedResult.source === "reference") return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -821,7 +1082,8 @@ export function useProjectSearch({
                 scope: "currentChapter",
             });
         } else {
-            setResults([]);
+            setTargetResults([]);
+            setReferenceResults([]);
             setCurrentMatches([]);
             setCurrentMatchIndex(0);
             setPickedResult(null);
@@ -839,6 +1101,8 @@ export function useProjectSearch({
         isSearching,
         replaceTerm,
         setReplaceTerm,
+        targetResults,
+        referenceResults,
         results,
         pickedResult,
         pickedResultIdx,
@@ -863,6 +1127,9 @@ export function useProjectSearch({
         setMatchCase,
         searchUSFM,
         setSearchUSFM,
+        hasReferenceSearchAvailable,
+        searchReference,
+        setSearchReference,
         sortBy,
         currentSort,
         escapeRegex,

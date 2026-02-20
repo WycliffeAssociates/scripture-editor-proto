@@ -161,6 +161,7 @@ export const ProjectProvider = ({
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,
+        referenceFiles: referenceProject.referenceQuery.data?.parsedFiles,
         saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
