@@ -37,11 +37,7 @@ type Props = {
     pickedFile: ParsedFile | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    updateLintErrors: (
-        book: string,
-        chapter: number,
-        newErrors: LintError[],
-    ) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
     referenceProject: ReferenceProjectHook;
     setIsProcessing: (isProcessing: boolean) => void;
     setFormatMatchReport: Dispatch<
@@ -66,7 +62,7 @@ export const useWorkspaceActions = ({
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
-    updateLintErrors,
+    replaceLintErrorsForBook,
     referenceProject,
     setIsProcessing,
     setFormatMatchReport,
@@ -139,7 +135,7 @@ export const useWorkspaceActions = ({
         currentChapter,
         setIsProcessing,
         updateDiffMapForChapter,
-        updateLintErrors,
+        replaceLintErrorsForBook,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
@@ -169,7 +165,7 @@ export const useWorkspaceActions = ({
         currentChapter,
         editorRef,
         updateDiffMapForChapter,
-        updateLintErrors,
+        replaceLintErrorsForBook,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
@@ -178,11 +174,19 @@ export const useWorkspaceActions = ({
     // Utility functions that need access to current state
     function getFlatFileTokens(
         currentEditorState: SerializedEditorState,
+        opts?: { bookCode?: string; chapter?: number },
     ): Array<LintableTokenLike> {
+        const targetBookCode = opts?.bookCode;
+        const targetChapter = opts?.chapter ?? currentChapter;
+        const fileForLint =
+            (targetBookCode
+                ? mutWorkingFilesRef.find((f) => f.bookCode === targetBookCode)
+                : null) ?? pickedFile;
+
         return getFlattenedFileTokens(
-            pickedFile,
+            fileForLint,
             currentEditorState,
-            currentChapter,
+            targetChapter,
         );
     }
 

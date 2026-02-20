@@ -33,10 +33,13 @@ import {
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LintError } from "@/core/data/usfm/lint.ts";
+import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
+import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
 import type {
     ListedProject,
     Project,
 } from "@/core/persistence/ProjectRepository.ts";
+import { getFlattenedEditorStateAsParseTokens } from "../hooks/utils/editorUtils.ts";
 
 export interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -121,8 +124,6 @@ export const ProjectProvider = ({
 
     const lint = useLint({
         initialLintErrors: allInitialLintErrors,
-        currentChapter: project.currentChapter,
-        currentBibleBookId: project.currentFileBibleIdentifier,
     });
 
     const referenceProject = useReferenceProject({
@@ -147,7 +148,7 @@ export const ProjectProvider = ({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: saveDiff.toggleDiffModal,
         updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
-        updateLintErrors: lint.updateErrorsForChapter,
+        replaceLintErrorsForBook: lint.replaceErrorsForBook,
         referenceProject,
         setIsProcessing: project.setIsProcessing,
         setFormatMatchReport: project.setFormatMatchReport,
@@ -167,6 +168,33 @@ export const ProjectProvider = ({
         pickedChapter: project.pickedChapter,
         history,
     });
+
+    // Keep lint state in sync after history replay (undo/redo), including
+    // entries that touch chapters outside the currently visible editor.
+    useEffect(() => {
+        return history.registerPostUndoRedoAction((event) => {
+            const touchedBooks = new Set(
+                event.touchedChapters.map((chapter) => chapter.bookCode),
+            );
+            for (const bookCode of touchedBooks) {
+                const file = mutWorkingFilesRef.current.find(
+                    (candidate) => candidate.bookCode === bookCode,
+                );
+                if (!file) continue;
+
+                const flatTokens = file.chapters.flatMap((chapter) =>
+                    getFlattenedEditorStateAsParseTokens(chapter.lexicalState),
+                );
+                if (!flatTokens.length) {
+                    lint.replaceErrorsForBook(bookCode, []);
+                    continue;
+                }
+                const ctx = initParseContext(flatTokens);
+                const errors = lintExistingUsfmTokens(flatTokens, ctx);
+                lint.replaceErrorsForBook(bookCode, errors);
+            }
+        });
+    }, [history, lint]);
 
     function bookCodeToProjectLocalizedTitle({
         bookCode,

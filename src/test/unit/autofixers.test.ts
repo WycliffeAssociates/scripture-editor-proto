@@ -273,6 +273,302 @@ describe("applyAutofixToSerializedState", () => {
         expect(textNode.tokenType).toBe(UsfmTokenTypes.text);
     });
 
+    it("should update number range text for setNumberRange autofix", () => {
+        const targetId = "verse-range-id";
+        const nodes: SerializedLexicalNode[] = [
+            createSerializedNode("v-marker", "\\v", "v", UsfmTokenTypes.marker),
+            createSerializedNode(
+                targetId,
+                "4",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+        ];
+
+        const error: LintError = {
+            message: "Previous verse number was 2, so expected 3 here, found 4",
+            sid: "GEN 1:4",
+            msgKey: LintErrorKeys.verseExpectedIncreaseByOne,
+            nodeId: targetId,
+            fix: {
+                label: "Change verse number to 3",
+                type: "setNumberRange",
+                data: {
+                    nodeId: targetId,
+                    value: "3",
+                },
+            },
+        };
+
+        const result = applyAutofixToRootChildren(nodes, error);
+        expect(result).toBeTruthy();
+        const updated = result?.[1] as SerializedUSFMTextNode;
+        expect(updated.tokenType).toBe(UsfmTokenTypes.numberRange);
+        expect(updated.text).toBe("3");
+    });
+
+    it("creates continuity lint fix with previous-verse wording for simple verse gaps", () => {
+        const rootChildren: SerializedLexicalNode[] = [
+            createSerializedNode("book-code", "GEN", "", TokenMap.bookCode),
+            createSerializedNode("c-marker", "\\c", "c", UsfmTokenTypes.marker),
+            createSerializedNode(
+                "c-range",
+                "1",
+                "c",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v1-marker",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v1-range",
+                "1",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v1-text",
+                " verse one",
+                "",
+                UsfmTokenTypes.text,
+            ),
+            createSerializedNode(
+                "v2-marker",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v2-range",
+                "2",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v2-text",
+                " verse two",
+                "",
+                UsfmTokenTypes.text,
+            ),
+            createSerializedNode(
+                "v4-marker",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v4-range",
+                "4",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v4-text",
+                " verse four",
+                "",
+                UsfmTokenTypes.text,
+            ),
+        ];
+
+        const state = makeEditorStateFromRootChildren(rootChildren);
+        const flatTokens = getFlattenedEditorStateAsParseTokens(state);
+        const ctx = initParseContext(flatTokens);
+        const errors = lintExistingUsfmTokens(flatTokens, ctx);
+        const continuityErr = errors.find(
+            (e) => e.msgKey === LintErrorKeys.verseExpectedIncreaseByOne,
+        );
+
+        expect(continuityErr).toBeTruthy();
+        expect(continuityErr?.message).toContain("Previous verse number was 2");
+        expect(continuityErr?.message).toContain("expected 3");
+        expect(continuityErr?.fix?.type).toBe("setNumberRange");
+        if (continuityErr?.fix?.type === "setNumberRange") {
+            expect(continuityErr.fix.data.value).toBe("3");
+        }
+    });
+
+    it("uses chapter-marker context for verse continuity when SIDs are temporarily mixed", () => {
+        const rootChildren: SerializedLexicalNode[] = [
+            createSerializedNode("book-code", "ISA", "", TokenMap.bookCode),
+            createSerializedNode("c-marker", "\\c", "c", UsfmTokenTypes.marker),
+            createSerializedNode(
+                "c-range",
+                "33",
+                "c",
+                UsfmTokenTypes.numberRange,
+            ),
+            {
+                ...createSerializedNode(
+                    "v1-marker",
+                    "\\v",
+                    "v",
+                    UsfmTokenTypes.marker,
+                ),
+                sid: "ISA 33:1",
+            },
+            {
+                ...createSerializedNode(
+                    "v1-range",
+                    "1",
+                    "v",
+                    UsfmTokenTypes.numberRange,
+                ),
+                sid: "ISA 33:1",
+            },
+            {
+                ...createSerializedNode(
+                    "v2-marker",
+                    "\\v",
+                    "v",
+                    UsfmTokenTypes.marker,
+                ),
+                sid: "ISA 3:2",
+            },
+            {
+                ...createSerializedNode(
+                    "v2-range",
+                    "2",
+                    "v",
+                    UsfmTokenTypes.numberRange,
+                ),
+                sid: "ISA 3:2",
+            },
+            {
+                ...createSerializedNode(
+                    "v3-marker",
+                    "\\v",
+                    "v",
+                    UsfmTokenTypes.marker,
+                ),
+                sid: "ISA 33:3",
+            },
+            {
+                ...createSerializedNode(
+                    "v3-range",
+                    "3",
+                    "v",
+                    UsfmTokenTypes.numberRange,
+                ),
+                sid: "ISA 33:3",
+            },
+        ];
+
+        const state = makeEditorStateFromRootChildren(rootChildren);
+        const flatTokens = getFlattenedEditorStateAsParseTokens(state);
+        const ctx = initParseContext(flatTokens);
+        const errors = lintExistingUsfmTokens(flatTokens, ctx);
+        const continuityErrors = errors.filter(
+            (e) => e.msgKey === LintErrorKeys.verseExpectedIncreaseByOne,
+        );
+
+        expect(continuityErrors).toHaveLength(0);
+    });
+
+    it("offers missing-integer fix on duplicate verse when neighbors imply the intended value", () => {
+        const rootChildren: SerializedLexicalNode[] = [
+            createSerializedNode("book-code", "LUK", "", TokenMap.bookCode),
+            createSerializedNode("c-marker", "\\c", "c", UsfmTokenTypes.marker),
+            createSerializedNode(
+                "c-range",
+                "17",
+                "c",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v2-marker-a",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v2-range-a",
+                "2",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v2-text-a",
+                " first",
+                "",
+                UsfmTokenTypes.text,
+            ),
+            createSerializedNode(
+                "v25-marker",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v25-range",
+                "25",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v25-text",
+                " twenty five",
+                "",
+                UsfmTokenTypes.text,
+            ),
+            createSerializedNode(
+                "v2-marker-b",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v2-range-b",
+                "2",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v2-text-b",
+                " mistaken",
+                "",
+                UsfmTokenTypes.text,
+            ),
+            createSerializedNode(
+                "v27-marker",
+                "\\v",
+                "v",
+                UsfmTokenTypes.marker,
+            ),
+            createSerializedNode(
+                "v27-range",
+                "27",
+                "v",
+                UsfmTokenTypes.numberRange,
+            ),
+            createSerializedNode(
+                "v27-text",
+                " twenty seven",
+                "",
+                UsfmTokenTypes.text,
+            ),
+        ];
+
+        const state = makeEditorStateFromRootChildren(rootChildren);
+        const flatTokens = getFlattenedEditorStateAsParseTokens(state);
+        const ctx = initParseContext(flatTokens);
+        const errors = lintExistingUsfmTokens(flatTokens, ctx);
+
+        const duplicateErrOnMistakenVerse = errors.find(
+            (e) =>
+                e.msgKey === LintErrorKeys.duplicateVerseNumber &&
+                e.nodeId === "v2-range-b",
+        );
+
+        expect(duplicateErrOnMistakenVerse).toBeTruthy();
+        expect(duplicateErrOnMistakenVerse?.fix?.type).toBe("setNumberRange");
+        if (duplicateErrOnMistakenVerse?.fix?.type === "setNumberRange") {
+            expect(duplicateErrOnMistakenVerse.fix.data.value).toBe("26");
+        }
+    });
+
     it("anchors paragraph-boundary note autofix to the previous real token (not synthetic para marker)", () => {
         // Regular-mode: root children are paragraph containers.
         // Paragraph 1 ends with an opening note (nested editor) but is missing its end marker.

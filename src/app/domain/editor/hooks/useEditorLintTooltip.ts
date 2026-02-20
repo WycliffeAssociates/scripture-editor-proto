@@ -19,12 +19,43 @@ export function useEditorLintTooltip(
 
     useEffect(() => {
         let showTimeout: number | null = null;
+        let hideTimeout: number | null = null;
+        const isWithinLintTooltip = (target: EventTarget | null) => {
+            if (!(target instanceof HTMLElement)) return false;
+            return Boolean(target.closest('[data-js="lint-tooltip-overlay"]'));
+        };
+        const getLintTarget = (target: EventTarget | null) => {
+            if (!(target instanceof HTMLElement)) return null;
+            return target.closest(
+                '[data-is-lint-error="true"]',
+            ) as HTMLElement | null;
+        };
+        const clearHideTimeout = () => {
+            if (!hideTimeout) return;
+            window.clearTimeout(hideTimeout);
+            hideTimeout = null;
+        };
+        const hideTooltip = () => {
+            if (showTimeout) {
+                window.clearTimeout(showTimeout);
+                showTimeout = null;
+            }
+            clearHideTimeout();
+            setHoveredErrors(null);
+            setTooltipPosition(null);
+        };
 
         const handleMouseOver = (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            if (target.getAttribute("data-is-lint-error") !== "true") return;
+            const target = e.target;
+            if (isWithinLintTooltip(target)) {
+                clearHideTimeout();
+                return;
+            }
+            const lintTarget = getLintTarget(target);
+            if (!lintTarget) return;
+            clearHideTimeout();
 
-            const nodeId = target.getAttribute("data-id");
+            const nodeId = lintTarget.getAttribute("data-id");
             if (!nodeId) return;
 
             const errorsForNode = allLintMessages.filter(
@@ -32,7 +63,7 @@ export function useEditorLintTooltip(
             );
             if (errorsForNode.length === 0) return;
 
-            const rect = target.getBoundingClientRect();
+            const rect = lintTarget.getBoundingClientRect();
             const x = rect.left + rect.width / 2;
             const y = rect.top;
 
@@ -44,13 +75,16 @@ export function useEditorLintTooltip(
             }, 100);
         };
 
-        const handleMouseOut = () => {
-            if (showTimeout) {
-                window.clearTimeout(showTimeout);
-                showTimeout = null;
+        const handleMouseOut = (e: MouseEvent) => {
+            const related = e.relatedTarget;
+            // Keep tooltip open while moving within lint/error surfaces.
+            if (isWithinLintTooltip(related) || getLintTarget(related)) {
+                return;
             }
-            setHoveredErrors(null);
-            setTooltipPosition(null);
+            clearHideTimeout();
+            hideTimeout = window.setTimeout(() => {
+                hideTooltip();
+            }, 180);
         };
 
         document.addEventListener("mouseover", handleMouseOver);
@@ -58,6 +92,7 @@ export function useEditorLintTooltip(
 
         return () => {
             if (showTimeout) window.clearTimeout(showTimeout);
+            if (hideTimeout) window.clearTimeout(hideTimeout);
             document.removeEventListener("mouseover", handleMouseOver);
             document.removeEventListener("mouseout", handleMouseOut);
         };

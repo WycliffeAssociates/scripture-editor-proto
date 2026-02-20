@@ -18,10 +18,14 @@ export function applyAutofixToSerializedState(
     if (!error.fix) return null;
     const { type, data } = error.fix;
 
-    const SUPPORTED_TYPES = ["insertEndMarker", "convertToMarkerAndText"];
+    const SUPPORTED_TYPES = [
+        "insertEndMarker",
+        "convertToMarkerAndText",
+        "setNumberRange",
+    ];
     if (!SUPPORTED_TYPES.includes(type)) return null;
 
-    const { nodeId, marker } = data;
+    const { nodeId } = data;
 
     const nextState = structuredClone(state);
     const nodes = nextState.root.children as SerializedLexicalNode[];
@@ -34,11 +38,19 @@ export function applyAutofixToSerializedState(
 
     switch (type) {
         case "insertEndMarker":
-            return fixEndMarkerLint({ error, context, marker })
+            return fixEndMarkerLint({ error, context, marker: data.marker })
                 ? nextState
                 : null;
         case "convertToMarkerAndText":
-            return fixConvertToMarkerAndText({ error, context, marker })
+            return fixConvertToMarkerAndText({
+                error,
+                context,
+                marker: data.marker,
+            })
+                ? nextState
+                : null;
+        case "setNumberRange":
+            return fixSetNumberRange({ context, value: data.value })
                 ? nextState
                 : null;
     }
@@ -134,5 +146,19 @@ function fixConvertToMarkerAndText({
 
     // 3. Replace the original node with these two
     parentArray.splice(index, 1, markerNode, textNode);
+    return true;
+}
+
+function fixSetNumberRange({
+    context,
+    value,
+}: {
+    context: NodeContext;
+    value: string;
+}) {
+    const { node } = context;
+    if (!isSerializedUSFMTextNode(node)) return false;
+    if (node.tokenType !== UsfmTokenTypes.numberRange) return false;
+    node.text = value;
     return true;
 }

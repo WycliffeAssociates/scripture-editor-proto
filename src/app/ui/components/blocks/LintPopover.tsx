@@ -77,6 +77,145 @@ type LintMessageItemProps = {
     prevDomElSelected: React.RefObject<HTMLElement | null>;
 };
 
+function isRenderedElement(el: HTMLElement): boolean {
+    return Boolean(
+        el.offsetWidth || el.offsetHeight || el.getClientRects().length,
+    );
+}
+
+function findVisibleLintTarget(nodeId: string): HTMLElement | null {
+    const direct = document.querySelector(
+        `[data-id="${nodeId}"]`,
+    ) as HTMLElement | null;
+    if (!direct) return null;
+    if (isRenderedElement(direct)) return direct;
+
+    const tokenType = direct.getAttribute("data-token-type");
+    const isHiddenMarkerTarget =
+        tokenType === "marker" || tokenType === "endMarker";
+    if (!isHiddenMarkerTarget) return direct;
+
+    const acceptableTokenTypes = new Set(["numberRange", "text"]);
+    let probe = direct.nextElementSibling as HTMLElement | null;
+
+    while (probe) {
+        if (probe.tagName === "BR") {
+            probe = probe.nextElementSibling as HTMLElement | null;
+            continue;
+        }
+        const probeTokenType = probe.getAttribute("data-token-type");
+        if (
+            probeTokenType &&
+            acceptableTokenTypes.has(probeTokenType) &&
+            isRenderedElement(probe)
+        ) {
+            return probe;
+        }
+        probe = probe.nextElementSibling as HTMLElement | null;
+    }
+
+    probe = direct.previousElementSibling as HTMLElement | null;
+    while (probe) {
+        if (probe.tagName === "BR") {
+            probe = probe.previousElementSibling as HTMLElement | null;
+            continue;
+        }
+        const probeTokenType = probe.getAttribute("data-token-type");
+        if (
+            probeTokenType &&
+            acceptableTokenTypes.has(probeTokenType) &&
+            isRenderedElement(probe)
+        ) {
+            return probe;
+        }
+        probe = probe.previousElementSibling as HTMLElement | null;
+    }
+
+    return direct;
+}
+
+type SerializedNodeLike = {
+    type?: string;
+    id?: string;
+    children?: SerializedNodeLike[];
+    editorState?: {
+        root?: {
+            children?: SerializedNodeLike[];
+        };
+    };
+};
+
+function findContainingNestedEditorId(
+    nodes: SerializedNodeLike[],
+    targetId: string,
+    activeNestedId?: string,
+): string | null {
+    for (const node of nodes) {
+        const nodeId = node.id ?? "";
+        const isNestedNode = node.type === "usfm-nested-editor";
+        const nestedIdToUse = isNestedNode ? nodeId : activeNestedId;
+
+        if (nodeId === targetId) {
+            return activeNestedId ?? (isNestedNode ? nodeId : null);
+        }
+
+        if (isNestedNode) {
+            const nestedChildren = node.editorState?.root?.children ?? [];
+            const foundInsideNested = findContainingNestedEditorId(
+                nestedChildren,
+                targetId,
+                nodeId,
+            );
+            if (foundInsideNested) return foundInsideNested;
+        }
+
+        const normalChildren = node.children ?? [];
+        if (normalChildren.length) {
+            const foundInChildren = findContainingNestedEditorId(
+                normalChildren,
+                targetId,
+                nestedIdToUse,
+            );
+            if (foundInChildren) return foundInChildren;
+        }
+    }
+
+    return null;
+}
+
+function openContainingNestedEditorForNodeId(args: {
+    editorRef: React.RefObject<LexicalEditor | null>;
+    nodeId: string;
+    openAttempts: Set<string>;
+}): boolean {
+    const currentEditor = args.editorRef.current;
+    if (!currentEditor) return false;
+
+    const serialized = currentEditor.getEditorState().toJSON() as {
+        root?: { children?: SerializedNodeLike[] };
+    };
+    const rootChildren = serialized.root?.children ?? [];
+    if (!rootChildren.length) return false;
+
+    const nestedId = findContainingNestedEditorId(rootChildren, args.nodeId);
+    if (!nestedId) return false;
+
+    const nestedButton = document.querySelector(
+        `[data-is-nested-editor-button="true"][data-id="${nestedId}"]`,
+    ) as HTMLElement | null;
+    if (!nestedButton) return false;
+    if (nestedButton.getAttribute("data-opened") === "true") return false;
+    if (args.openAttempts.has(nestedId)) return false;
+
+    args.openAttempts.add(nestedId);
+    nestedButton.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+    });
+    nestedButton.click();
+    return true;
+}
+
 function LintMessageItem({
     msg,
     editorRef,
@@ -84,35 +223,49 @@ function LintMessageItem({
 }: LintMessageItemProps) {
     const { project, actions } = useWorkspaceContext();
 
-    function findLintErrInDom() {
-        let didScroll = false;
-        editorRef.current?.read(() => {
-            const editor = editorRef.current;
-            if (!editor) return;
-            const domEl = document.querySelector(
-                `[data-id="${msg.nodeId}"]`,
-            ) as HTMLElement;
-            if (!domEl) return;
-            if (prevDomElSelected.current) {
-                prevDomElSelected.current.classList.remove("selected");
-            }
-            prevDomElSelected.current = domEl;
-            domEl.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
+    function findLintErrInDom(openAttempts: Set<string>) {
+        const domEl = findVisibleLintTarget(msg.nodeId);
+
+        if (!domEl) {
+            openContainingNestedEditorForNodeId({
+                editorRef,
+                nodeId: msg.nodeId,
+                openAttempts,
             });
-            domEl.classList.add("selected");
-            didScroll = true;
-            if (domEl.getAttribute("data-is-nested-editor-button") === "true") {
+            return false;
+        }
+
+        if (prevDomElSelected.current) {
+            prevDomElSelected.current.classList.remove("selected");
+        }
+        prevDomElSelected.current = domEl;
+
+        domEl.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+        domEl.classList.add("selected");
+
+        if (domEl.getAttribute("data-is-nested-editor-button") === "true") {
+            const nestedId = domEl.getAttribute("data-id") ?? "";
+            const isOpen = domEl.getAttribute("data-opened") === "true";
+            if (!isOpen && (!nestedId || !openAttempts.has(nestedId))) {
+                if (nestedId) openAttempts.add(nestedId);
                 domEl.click();
             }
-        });
-        return didScroll;
+            return false;
+        }
+
+        return true;
     }
 
     const handleNavigate = () => {
         const sidParsed = parseSid(msg.sid);
         if (!sidParsed) return;
+        const openAttempts = new Set<string>();
+        const navigateAttempt = () => {
+            return findLintErrInDom(openAttempts);
+        };
         const currentBook = project.pickedFile.bookCode;
         const currentChapter =
             project.pickedChapter?.chapNumber ?? project.currentChapter;
@@ -120,11 +273,14 @@ function LintMessageItem({
             sidParsed.book === currentBook &&
             sidParsed.chapter === currentChapter
         ) {
-            findLintErrInDom();
+            if (navigateAttempt()) return;
+            rafUntilSuccessOrTimeout(() => {
+                return navigateAttempt();
+            }, 5000);
         } else {
             actions.switchBookOrChapter(sidParsed.book, sidParsed.chapter);
             rafUntilSuccessOrTimeout(() => {
-                return findLintErrInDom();
+                return navigateAttempt();
             }, 5000);
         }
     };

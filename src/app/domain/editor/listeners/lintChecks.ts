@@ -5,6 +5,7 @@ import type {
     SerializedEditorState,
     SerializedLexicalNode,
 } from "lexical";
+import { $getNodeByKey } from "lexical";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
@@ -25,12 +26,14 @@ export function lintAll(
     { editorState, editor }: LintVersesArgs,
     getFlatFileTokens: (
         currentEditorState: SerializedEditorState,
+        opts?: { bookCode?: string; chapter?: number },
     ) => Array<LintableTokenLike>,
+    opts?: { bookCode?: string; chapter?: number },
 ) {
-    const flatFileTokens = getFlatFileTokens(editorState.toJSON());
+    const flatFileTokens = getFlatFileTokens(editorState.toJSON(), opts);
     const ctx = initParseContext(flatFileTokens);
     const lintErrors = lintExistingUsfmTokens(flatFileTokens, ctx);
-    const withErrorsInThisBook = ctx.errorMessages.reduce(
+    const withErrorsInThisBook = lintErrors.reduce(
         (acc, curr) => {
             if (!curr.nodeId) return acc;
             acc[curr.nodeId] ??= [];
@@ -39,22 +42,38 @@ export function lintAll(
         },
         {} as Record<string, LintError[]>,
     );
-    //   if (Object.keys(withErrorsInThisBook).length) {
-    //
-    //   }
-    const updateFxns: (() => void)[] = [];
-    // ;
+
+    const updateOps: LintUpdateOperation[] = [];
     dfsEditorStateForLint({
         editor,
         editorState,
-        updatesToMainEditor: updateFxns,
+        updatesToMainEditor: updateOps,
         withErrorsInThisBook,
     });
-    if (updateFxns.length) {
+
+    if (updateOps.length) {
         editor.update(
             () => {
-                updateFxns.forEach((fxn) => {
-                    fxn();
+                updateOps.forEach((operation) => {
+                    const node = $getNodeByKey(operation.nodeKey);
+                    if (!node) return;
+
+                    if (operation.type === "setLintErrors") {
+                        if (
+                            $isUSFMTextNode(node) ||
+                            $isUSFMNestedEditorNode(node)
+                        ) {
+                            node.setLintErrors(operation.errors);
+                        }
+                        return;
+                    }
+
+                    if (operation.type === "setNestedEditorState") {
+                        if (!$isUSFMNestedEditorNode(node)) return;
+                        const writable = node.getWritable();
+                        writable.__editorState = operation.newState;
+                        writable.setRandomRenderKey();
+                    }
                 });
             },
             {
@@ -71,9 +90,22 @@ export function lintAll(
 type DfsEditorStateForLintArgs = {
     editor: LexicalEditor;
     editorState: EditorState;
-    updatesToMainEditor: Array<() => void>;
+    updatesToMainEditor: LintUpdateOperation[];
     withErrorsInThisBook: Record<string, LintError[]>;
 };
+
+type LintUpdateOperation =
+    | {
+          type: "setLintErrors";
+          nodeKey: string;
+          errors: LintError[];
+      }
+    | {
+          type: "setNestedEditorState";
+          nodeKey: string;
+          newState: SerializedEditorState;
+      };
+
 function dfsEditorStateForLint({
     editor,
     editorState,
@@ -89,17 +121,24 @@ function dfsEditorStateForLint({
 
             const currentErrors = node.getLintErrors() ?? [];
             const matchInMap = withErrorsInThisBook[node.getId()];
+            const nodeKey = node.getKey();
             // clear if had errors but now does
             if (currentErrors.length && !matchInMap) {
-                updatesToMainEditor.push(() => node.setLintErrors([]));
+                updatesToMainEditor.push({
+                    type: "setLintErrors",
+                    nodeKey,
+                    errors: [],
+                });
             }
             if (matchInMap?.length) {
                 // update if needed
                 const needsUpdate = node.lintErrorsDoNeedUpdate(matchInMap);
                 if (needsUpdate) {
-                    updatesToMainEditor.push(() =>
-                        node.setLintErrors(matchInMap),
-                    );
+                    updatesToMainEditor.push({
+                        type: "setLintErrors",
+                        nodeKey,
+                        errors: matchInMap,
+                    });
                 }
             }
             if ($isUSFMNestedEditorNode(node)) {
@@ -110,10 +149,10 @@ function dfsEditorStateForLint({
                     withErrorsInThisBook,
                 );
                 if (updated.changed) {
-                    updatesToMainEditor.push(() => {
-                        const writable = node.getWritable();
-                        writable.__editorState = updated.newState;
-                        writable.setRandomRenderKey();
+                    updatesToMainEditor.push({
+                        type: "setNestedEditorState",
+                        nodeKey,
+                        newState: updated.newState,
                     });
                 }
             }

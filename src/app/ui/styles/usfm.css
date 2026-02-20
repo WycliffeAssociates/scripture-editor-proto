@@ -72,6 +72,48 @@ body:not(.source-mode) {
     display: none !important;
   }
 
+  /* Marker/endMarker lint errors can be hidden in Regular mode.
+     Mirror the underline onto the next visible text/number token. */
+  :where(
+      span[data-token-type="marker"],
+      span[data-token-type="endMarker"]
+    ).lint-error
+    + span[data-token-type="numberRange"],
+  :where(
+      span[data-token-type="marker"],
+      span[data-token-type="endMarker"]
+    ).lint-error
+    + span[data-token-type="text"],
+  :where(
+      span[data-token-type="marker"],
+      span[data-token-type="endMarker"]
+    ).lint-error
+    + br
+    + span[data-token-type="numberRange"],
+  :where(
+      span[data-token-type="marker"],
+      span[data-token-type="endMarker"]
+    ).lint-error
+    + br
+    + span[data-token-type="text"] {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--mantine-color-red-7, #c92a2a);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+
+  /* If the hidden marker has no adjacent text token, show a subtle paragraph-level cue. */
+  .usfm-para-container:has(
+    > :where(
+        span[data-token-type="marker"],
+        span[data-token-type="endMarker"]
+      ).lint-error
+  ) {
+    box-shadow: inset 2px 0 0 0
+      color-mix(in srgb, var(--mantine-color-red-7, #c92a2a) 70%, transparent);
+  }
+
   /* Poetry: Apply to paragraph containers (everything inside acts as block) */
   .usfm-para-container {
     margin: 0.25em 0;
@@ -218,23 +260,42 @@ body:not(.source-mode) {
 
 /* Lint Error States */
 .lint-error {
-  background: var(--color-red-800);
-  padding: 1px;
-  color: var(--color-red-50);
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--mantine-color-red-7, #c92a2a);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
   border-radius: 2px;
+}
 
-  &.selected {
-    background: var(--color-yellow-300) !important;
-    color: var(--color-yellow-900) !important;
-  }
+.lint-error:hover {
+  background: color-mix(
+    in srgb,
+    var(--mantine-color-red-6, #fa5252) 14%,
+    transparent
+  );
+}
+
+.lint-error.selected {
+  background: var(--mantine-color-yellow-3, #ffec99) !important;
+  color: var(--mantine-color-yellow-9, #5f3f00) !important;
+  text-decoration-style: solid;
+  text-decoration-color: var(--mantine-color-yellow-7, #f08c00);
 }
 
 /* Dark mode adjustments */
 [data-mantine-color-scheme="dark"] {
   /* Lint errors - brighter in dark mode */
   .lint-error {
-    background: var(--color-red-600);
-    color: var(--color-red-100);
+    text-decoration-color: var(--mantine-color-red-4, #ff8787);
+  }
+
+  .lint-error:hover {
+    background: color-mix(
+      in srgb,
+      var(--mantine-color-red-4, #ff8787) 20%,
+      transparent
+    );
   }
 
   /* Search highlighting - higher contrast in dark */
@@ -269,9 +330,11 @@ body:not(.source-mode) {
    Empty Paragraph Handling
    ------------------------------------------- */
 .editor-container {
-  div[data-token-type="marker"]:not([data-is-structural-empty="true"]):not(
-      :has([data-token-type="text"])
-    ):not(:has([data-token-type="numberRange"])) {
+  div[data-token-type="marker"]:not([data-is-structural-empty="true"])
+    :not(:has([data-token-type="text"]))
+    :not(:has([data-token-type="numberRange"])):not(
+      :has([data-token-type="error"])
+    ) {
     display: none;
   }
 

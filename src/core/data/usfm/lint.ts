@@ -38,6 +38,14 @@ export type LintErrorFix =
               marker: string;
               textAfter: string;
           };
+      }
+    | {
+          label: string;
+          type: "setNumberRange";
+          data: {
+              nodeId: string;
+              value: string;
+          };
       };
 
 export type LintError = {
@@ -70,4 +78,25 @@ export function dedupeErrorMessagesList(errors: LintError[]): LintError[] {
             errors.map((m) => [`${m.sid}:${m.msgKey}:${m.nodeId}`, m]),
         ).values(),
     );
+}
+
+function lintErrorIdentity(err: LintError): string {
+    const fixIdentity = err.fix ? JSON.stringify(err.fix) : "";
+    return `${err.sid}:${err.msgKey}:${err.nodeId}:${err.message}:${fixIdentity}`;
+}
+
+export function areLintErrorListsEqual(
+    left: LintError[],
+    right: LintError[],
+): boolean {
+    if (left.length !== right.length) return false;
+    if (left.length === 0) return true;
+
+    const leftKeys = left.map(lintErrorIdentity).sort();
+    const rightKeys = right.map(lintErrorIdentity).sort();
+
+    for (let i = 0; i < leftKeys.length; i++) {
+        if (leftKeys[i] !== rightKeys[i]) return false;
+    }
+    return true;
 }

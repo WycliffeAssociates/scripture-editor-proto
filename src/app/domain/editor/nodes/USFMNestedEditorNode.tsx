@@ -12,9 +12,12 @@ import { DecoratorNode } from "lexical";
 import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
-import type { LintError } from "@/core/data/usfm/lint.ts";
+import {
+    areLintErrorListsEqual,
+    type LintError,
+} from "@/core/data/usfm/lint.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
-import { arraysEqualByKey, guidGenerator } from "@/core/data/utils/generic.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 
@@ -126,10 +129,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         });
     }
     lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
-        const current = this.__lintErrors;
-        const incomingMessages = newLintErrors;
-        // if either set is not fully contained in the other, then we need to update
-        return !arraysEqualByKey(current || [], incomingMessages, "message");
+        return !areLintErrorListsEqual(this.__lintErrors ?? [], newLintErrors);
     }
 
     static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {

@@ -118,7 +118,6 @@ export function NestedEditor({
                 Object.entries(root.dataset).forEach(([key, value]) => {
                     editorWrapper.dataset[key] = value;
                 });
-                editorWrapper.classList = root.classList.toString();
             }
             const editor = nestedEditorRef.current;
             const domEl = document.querySelector(`[data-id="${id}"]`);

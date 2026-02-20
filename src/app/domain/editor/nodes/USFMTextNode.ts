@@ -22,6 +22,7 @@ import {
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
+import { areLintErrorListsEqual } from "@/core/data/usfm/lint.ts";
 import {
     ALL_CHAR_MARKERS,
     isValidParaMarker,
@@ -248,11 +249,7 @@ export class USFMTextNode extends TextNode {
     }
     // misc functionality:
     lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
-        const current = this.getLintErrors().map((c) => c.message);
-        const incomingMessages = newLintErrors.map((c) => c.message);
-        // if either set is not fully contained in the other, then we need to update
-        if (newLintErrors.length !== current.length) return true;
-        return !current.every((c) => incomingMessages.includes(c));
+        return !areLintErrorListsEqual(this.getLintErrors(), newLintErrors);
     }
 }
 

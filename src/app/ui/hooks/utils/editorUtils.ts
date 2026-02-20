@@ -1,13 +1,34 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
 
-export type LintableTokenLike = LintableToken & {
-    lexicalKey?: string;
-};
+export type LintableTokenLike = LintableToken;
+
+function cloneSerializedTokenForLint(
+    node: SerializedUSFMTextNode,
+): LintableTokenLike {
+    return {
+        text: node.text,
+        tokenType: node.tokenType,
+        sid: node.sid,
+        marker: node.marker,
+        // Keep lintErrors isolated from serialized editor state. The parser mutates
+        // this field for intra-pass dedupe/context, so we always start empty.
+        lintErrors: [],
+        // Needed by parse/tokenParsers findPrevAnchorToken to avoid anchoring fixes
+        // to synthetic paragraph-container tokens.
+        isSyntheticParaMarker: node.isSyntheticParaMarker as
+            | boolean
+            | undefined,
+        id: node.id,
+    };
+}
 
 export function getFlattenedEditorStateAsParseTokens(
     serializedEditorState: SerializedEditorState,
@@ -31,7 +52,7 @@ export function getFlattenedEditorStateAsParseTokens(
         }
 
         if (isSerializedUSFMTextNode(node)) {
-            tokens.push(node);
+            tokens.push(cloneSerializedTokenForLint(node));
             if (node.sid) lastSid = node.sid;
         }
 

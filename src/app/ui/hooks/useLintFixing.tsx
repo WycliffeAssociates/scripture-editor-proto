@@ -9,7 +9,7 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
 import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
 import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
-import { getFlattenedFileTokens } from "./utils/editorUtils.ts";
+import { getFlattenedEditorStateAsParseTokens } from "./utils/editorUtils.ts";
 
 export function useLintFixing({
     mutWorkingFilesRef,
@@ -17,7 +17,7 @@ export function useLintFixing({
     currentChapter,
     editorRef,
     updateDiffMapForChapter,
-    updateLintErrors,
+    replaceLintErrorsForBook,
     setEditorContent,
     saveCurrentDirtyLexical,
     history,
@@ -27,11 +27,7 @@ export function useLintFixing({
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    updateLintErrors: (
-        book: string,
-        chapter: number,
-        newErrors: LintError[],
-    ) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -42,6 +38,19 @@ export function useLintFixing({
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
+
+    function relintBook(file: ParsedFile) {
+        const flatTokens = file.chapters.flatMap((c) =>
+            getFlattenedEditorStateAsParseTokens(c.lexicalState),
+        );
+        if (!flatTokens.length) {
+            replaceLintErrorsForBook(file.bookCode, []);
+            return;
+        }
+        const ctx = initParseContext(flatTokens);
+        const newErrors = lintExistingUsfmTokens(flatTokens, ctx);
+        replaceLintErrorsForBook(file.bookCode, newErrors);
+    }
 
     async function fixLintError(err: LintError) {
         if (!err.fix) return;
@@ -68,7 +77,7 @@ export function useLintFixing({
             return;
         }
 
-        await history.runTransaction({
+        const didApply = await history.runTransaction({
             label: t`Apply Autofix (${err.msgKey})`,
             candidates: [
                 {
@@ -82,7 +91,7 @@ export function useLintFixing({
                     err,
                 );
 
-                if (!nextState) return;
+                if (!nextState) return false;
 
                 chapter.lexicalState = nextState;
                 const baselineUsfm = serializeToUsfmString(
@@ -115,17 +124,13 @@ export function useLintFixing({
                         message: t`Autofix applied for ${err.msgKey}`,
                     },
                 });
-
-                const flatTokens = getFlattenedFileTokens(
-                    file,
-                    chapter.lexicalState,
-                    chapter.chapNumber,
-                );
-                const ctx = initParseContext(flatTokens);
-                const newErrors = lintExistingUsfmTokens(flatTokens, ctx);
-                updateLintErrors(file.bookCode, chapter.chapNumber, newErrors);
+                return true;
             },
         });
+
+        if (didApply) {
+            relintBook(file);
+        }
     }
 
     return {

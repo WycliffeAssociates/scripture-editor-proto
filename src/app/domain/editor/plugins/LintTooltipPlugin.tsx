@@ -1,43 +1,46 @@
 import { Portal, Text } from "@mantine/core";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import * as styles from "@/app/ui/styles/modules/LintTooltipOverlay.css.ts";
 
 export function LintTooltipPlugin() {
-    const { lint } = useWorkspaceContext();
+    const { actions, lint } = useWorkspaceContext();
     const { hoveredErrors, tooltipPosition } = useEditorLintTooltip(
         lint.messages,
     );
 
     if (!hoveredErrors || !tooltipPosition) return null;
 
-    const errorMessage = hoveredErrors.map((e) => e.message).join("\n");
-
     return (
         <Portal>
             <div
+                className={styles.host}
+                data-js="lint-tooltip-overlay"
                 style={{
-                    position: "fixed",
                     top: tooltipPosition.y,
                     left: tooltipPosition.x,
-                    transform: "translate(-50%, -100%)",
-                    zIndex: 2000,
                 }}
             >
-                <div
-                    style={{
-                        backgroundColor: "var(--mantine-color-red-9)",
-                        color: "white",
-                        padding: "8px 12px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        maxWidth: "300px",
-                        whiteSpace: "pre-wrap",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                    }}
-                >
-                    <Text size="xs" c="white" span>
-                        {errorMessage}
-                    </Text>
+                <div className={styles.card}>
+                    {hoveredErrors.map((error) => (
+                        <div
+                            key={`${error.nodeId}:${error.msgKey}:${error.sid}`}
+                            className={styles.row}
+                        >
+                            <Text className={styles.message} span>
+                                {error.message}
+                            </Text>
+                            {error.fix ? (
+                                <button
+                                    type="button"
+                                    className={styles.fixButton}
+                                    onClick={() => actions.fixLintError(error)}
+                                >
+                                    {error.fix.label}
+                                </button>
+                            ) : null}
+                        </div>
+                    ))}
                 </div>
             </div>
         </Portal>

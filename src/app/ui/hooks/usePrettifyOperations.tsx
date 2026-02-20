@@ -15,7 +15,6 @@ import {
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { getFlattenedEditorStateAsParseTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
-import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintError } from "@/core/data/usfm/lint.ts";
 import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
@@ -28,7 +27,7 @@ export function useFormatOperations({
     currentChapter,
     setIsProcessing,
     updateDiffMapForChapter,
-    updateLintErrors,
+    replaceLintErrorsForBook,
     setEditorContent,
     saveCurrentDirtyLexical,
     history,
@@ -38,11 +37,7 @@ export function useFormatOperations({
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    updateLintErrors: (
-        book: string,
-        chapter: number,
-        newErrors: LintError[],
-    ) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -69,18 +64,7 @@ export function useFormatOperations({
         );
         const ctx = initParseContext(fileTokens);
         const allErrors = lintExistingUsfmTokens(fileTokens, ctx);
-
-        for (const chapter of file.chapters) {
-            const chapterErrors = allErrors.filter((err) => {
-                const parsed = parseSid(err.sid);
-                if (!parsed) return false;
-                return (
-                    parsed.book === file.bookCode &&
-                    parsed.chapter === chapter.chapNumber
-                );
-            });
-            updateLintErrors(file.bookCode, chapter.chapNumber, chapterErrors);
-        }
+        replaceLintErrorsForBook(file.bookCode, allErrors);
     };
 
     const prettifyChapterInPlace = (chapter: ParsedChapter) => {

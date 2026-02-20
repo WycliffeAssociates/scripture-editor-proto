@@ -33,6 +33,34 @@ export type LintOrParseFxn<T extends LintableToken> = (
     ctx: ParseContext<T>,
 ) => void;
 
+function getNextVerseStartAfterCurrent(ctx: ParseContext<LintableToken>) {
+    let foundNextVerseMarker = false;
+    for (let i = ctx.tokenIndex + 1; i < ctx.parseTokens.length; i++) {
+        const token = ctx.parseTokens[i];
+        if (!token) continue;
+
+        if (token.tokenType === TokenMap.marker) {
+            // If we hit a new chapter before the next verse number, there is no
+            // usable "next verse in this chapter" signal.
+            if (token.marker === "c") return null;
+            if (token.marker === "v") {
+                foundNextVerseMarker = true;
+                continue;
+            }
+            if (foundNextVerseMarker) return null;
+            continue;
+        }
+
+        if (!foundNextVerseMarker) continue;
+        if (token.tokenType !== TokenMap.numberRange) return null;
+
+        const first = token.text.trim().split("-")[0] ?? "";
+        const parsed = Number.parseInt(first, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
 const lintChapterLabels: LintOrParseFxn<LintableToken> = (
     ctx: ParseContext<LintableToken>,
 ) => {
@@ -113,8 +141,15 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     if (!token?.text) return;
     if (token.tokenType !== TokenMap.numberRange) return;
     if (!ctx.prevToken?.marker || ctx.prevToken.marker !== "v") return;
-    const curChapter = parseSid(token.sid ?? "")?.chapter;
-    if (!curChapter) return;
+    // Prefer the active chapter marker stream over SID-derived chapter. During
+    // rapid edits, SID metadata can lag one cycle; chapter-marker context is the
+    // canonical source for verse continuity lint.
+    const chapterFromMarkers = Number(ctx.lintChapters.list.at(-1) ?? "");
+    const chapterFromSid = parseSid(token.sid ?? "")?.chapter;
+    const curChapter = Number.isFinite(chapterFromMarkers)
+        ? chapterFromMarkers
+        : chapterFromSid;
+    if (!curChapter || Number.isNaN(curChapter)) return;
     const stringChap = String(curChapter);
 
     const value = token.text.trim();
@@ -146,6 +181,7 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     const chapterState = ctx.lintVerseNums.byChapter.get(stringChap);
     if (!chapterState) return;
     const prevLast = chapterState.last ?? 0;
+    const expectedStart = prevLast + 1;
 
     // --- Build key(s)
     const verseKeys: string[] = [];
@@ -158,23 +194,49 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     const isDuplicate = seenTokensForAny.length > 0;
 
     if (isDuplicate) {
+        const nextVerseStart = getNextVerseStartAfterCurrent(ctx);
+        const shouldOfferMissingIntegerFix =
+            end === start &&
+            expectedStart > 0 &&
+            start !== expectedStart &&
+            nextVerseStart === expectedStart + 1;
+
         const err = {
             message: `Duplicate verse number ${value}`,
             sid: token.sid ?? "unknown location",
             msgKey: LintErrorKeys.duplicateVerseNumber,
             nodeId: token.id,
+            fix: shouldOfferMissingIntegerFix
+                ? {
+                      label: `Change verse number to ${expectedStart}`,
+                      type: "setNumberRange" as const,
+                      data: {
+                          nodeId: token.id,
+                          value: String(expectedStart),
+                      },
+                  }
+                : undefined,
         };
 
         ctx.errorMessages.push(err);
 
         for (const seenTok of seenTokensForAny) {
+            const seenErr: LintError = {
+                ...err,
+                nodeId: seenTok.id,
+                sid: seenTok.sid ?? err.sid,
+                fix: undefined,
+            };
             const already = seenTok.lintErrors?.some(
-                (e) => e.msgKey === err.msgKey && e.sid === err.sid,
+                (e) =>
+                    e.msgKey === seenErr.msgKey &&
+                    e.sid === seenErr.sid &&
+                    e.nodeId === seenErr.nodeId,
             );
             if (!already) {
                 seenTok.lintErrors ??= [];
-                seenTok.lintErrors.push(err);
-                ctx.errorMessages.push(err);
+                seenTok.lintErrors.push(seenErr);
+                ctx.errorMessages.push(seenErr);
             }
         }
 
@@ -183,13 +245,28 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     }
 
     // --- Continuity check (only for new unique verses)
-    const expectedStart = prevLast + 1;
     if (start !== expectedStart) {
+        const shouldOfferAutoFix =
+            end === start && start > expectedStart && expectedStart > 0;
+        const detailMessage =
+            prevLast > 0
+                ? `Previous verse number was ${prevLast}, so expected ${expectedStart} here, found ${start}`
+                : `Expected verse ${expectedStart} here, found ${start}`;
         const err = {
-            message: `Expected verse ${expectedStart}, found ${start}`,
+            message: detailMessage,
             sid: token.sid ?? "unknown location",
             msgKey: LintErrorKeys.verseExpectedIncreaseByOne,
             nodeId: token.id,
+            fix: shouldOfferAutoFix
+                ? {
+                      label: `Change verse number to ${expectedStart}`,
+                      type: "setNumberRange" as const,
+                      data: {
+                          nodeId: token.id,
+                          value: String(expectedStart),
+                      },
+                  }
+                : undefined,
         };
         ctx.errorMessages.push(err);
     }

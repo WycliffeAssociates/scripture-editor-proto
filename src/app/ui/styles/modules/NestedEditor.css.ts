@@ -2,9 +2,7 @@ import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/theme.css.ts";
 
 export const editorWrapper = style({
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
+    display: "block",
 });
 
 export const contentEditable = style({
