@@ -1,16 +1,15 @@
 import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
-import { darkSelector } from "@/app/ui/styles/theme.css.ts";
+import { darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
-const mainRed = `var(--mantine-color-red-9)`;
-// const darkSelector = "[data-mantine-color-scheme='dark']";
+const mainRed = vars.colors.error[9];
 export const lintPopoverButton = style({
     backgroundColor: mainRed,
     zIndex: 50,
     selectors: {
         // Dark mode styles
         [`${darkSelector} &`]: {
-            backgroundColor: `color-mix(in srgb, ${mainRed} 70%, #333)`,
+            backgroundColor: `color-mix(in srgb, ${mainRed} 70%, ${vars.colors.dark[7]})`,
         },
 
         // Hover state (works in both light and dark modes)
@@ -20,7 +19,7 @@ export const lintPopoverButton = style({
 
         // Dark mode hover
         [`${darkSelector} &:hover`]: {
-            backgroundColor: `color-mix(in srgb, ${mainRed} 60%, #333)`,
+            backgroundColor: `color-mix(in srgb, ${mainRed} 60%, ${vars.colors.dark[7]})`,
         },
     },
 });
@@ -28,16 +27,16 @@ export const lintErrorItem = style({
     display: "flex",
     flexDirection: "column",
     width: "100%",
-    padding: "var(--mantine-spacing-xs)",
-    borderRadius: "var(--mantine-radius-sm)",
+    padding: vars.spacing.xs,
+    borderRadius: vars.radius.sm,
     cursor: "pointer",
     transition: "background-color 0.1s ease",
     ":hover": {
-        backgroundColor: "var(--mantine-color-gray-1)",
+        backgroundColor: vars.colors.gray[1],
     },
     selectors: {
         [`${darkSelector} &:hover`]: {
-            backgroundColor: "var(--mantine-color-dark-6)",
+            backgroundColor: vars.colors.dark[6],
         },
     },
 });
@@ -45,7 +44,7 @@ export const lintErrorItem = style({
 export const lintErrorDetails = style({
     display: "flex",
     flexDirection: "column",
-    gap: "var(--mantine-spacing-xs)",
+    gap: vars.spacing.xs,
     textAlign: "start",
 });
 
@@ -60,9 +59,9 @@ export const lintErrorList = style({
     padding: 0,
     display: "flex",
     flexDirection: "column",
-    gap: "0.5rem",
+    gap: vars.spacing.sm,
     alignItems: "stretch",
-    fontSize: "var(--mantine-font-size-sm)",
+    fontSize: vars.fontSizes.sm,
 });
 
 export const lintErrorListItem = style({

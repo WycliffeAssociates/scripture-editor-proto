@@ -186,6 +186,7 @@ body:not(.source-mode) {
   .usfm-para-container[data-is-structural-empty="true"][data-marker] {
     position: relative;
     min-height: 1.25em;
+    color: var(--mantine-primary-color-6);
   }
 
   .usfm-para-container[data-is-structural-empty="true"][data-marker]::before {
@@ -195,11 +196,11 @@ body:not(.source-mode) {
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.72em;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.02em;
     color: color-mix(in srgb, currentColor 55%, transparent);
-    background: color-mix(in srgb, currentColor 8%, transparent);
-    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    border: 2px solid color-mix(in srgb, currentColor 14%, transparent);
     padding: 1px 6px;
     border-radius: 999px;
     pointer-events: none;
@@ -226,23 +227,42 @@ body:not(.source-mode) {
 
 /* -------------------------------------------
    USFM Mode: Full USFM with Visual Focus
-   - Show all markers (smaller, blue)
-   - Number ranges also blue
+   - Show all markers (smaller, primary)
+   - Verse/chapter numbers are distinct from plain text numbers
    - Clear text hierarchy
    ------------------------------------------- */
 [data-editor-mode="usfm"] {
-  /* Markers: visible, smaller, blue for visual hierarchy */
+  /* Markers: visible, smaller, primary color for visual hierarchy */
   [data-token-type="marker"],
   [data-token-type="endMarker"] {
     font-size: 0.75em;
-    color: var(--color-blue-700);
+    color: var(--mantine-primary-color-6);
     opacity: 0.9;
   }
 
-  /* Number ranges: blue to match markers */
+  /* Number ranges: use primary palette */
   [data-token-type="numberRange"] {
-    color: var(--color-blue-700);
-    font-weight: 500;
+    color: var(--mantine-primary-color-7);
+    font-weight: 600;
+  }
+
+  /* Verse numbers: chip treatment to distinguish from plain leading numerals */
+  [data-token-type="marker"][data-marker="v"]
+    + [data-token-type="numberRange"] {
+    display: inline-block;
+    border-radius: 999px;
+    font-size: 0.74em;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    position: relative;
+    color: var(--mantine-primary-color-filled);
+  }
+
+  /* Chapter numbers stay stronger than verse chips */
+  [data-token-type="marker"][data-marker="c"]
+    + [data-token-type="numberRange"] {
+    color: var(--mantine-primary-color-6);
+    font-weight: 700;
   }
 
   /* In USFM mode, preserve explicit line breaks so markers don't run together. */
@@ -250,6 +270,17 @@ body:not(.source-mode) {
   /* When multiple paragraph markers occur consecutively, stack them vertically */
   .isParaMarker + .isParaMarker {
     display: block;
+  }
+}
+
+[data-mantine-color-scheme="dark"][data-editor-mode="usfm"] {
+  [data-token-type="marker"][data-marker="v"]
+    + [data-token-type="numberRange"] {
+    background: color-mix(
+      in srgb,
+      var(--mantine-primary-color-filled) 24%,
+      transparent
+    );
   }
 }
 

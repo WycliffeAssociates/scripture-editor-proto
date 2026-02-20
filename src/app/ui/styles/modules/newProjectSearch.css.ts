@@ -2,7 +2,7 @@ import { globalStyle, style } from "@vanilla-extract/css";
 import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 export const shell = style({
-    borderRadius: "14px",
+    borderRadius: vars.radius.xl,
     border: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: virtualVars.surface,
     overflow: "hidden",
@@ -26,9 +26,10 @@ export const topBar = style({
 
 export const topBarTitle = style({
     margin: 0,
-    fontSize: "1.6rem",
+    fontSize: "clamp(1.125rem, 1.02rem + 0.55vw, 1.5rem)",
     lineHeight: "1.1",
     letterSpacing: "-0.02em",
+    fontWeight: 800,
     color: vars.colors.primary[9],
 });
 
@@ -60,7 +61,7 @@ export const searchField = style({
 export const searchIcon = style({
     position: "absolute",
     top: "50%",
-    left: "0.85rem",
+    left: vars.spacing.sm,
     transform: "translateY(-50%)",
     color: vars.colors.gray[6],
     pointerEvents: "none",
@@ -68,11 +69,11 @@ export const searchIcon = style({
 
 export const searchInput = style({
     width: "100%",
-    borderRadius: "12px",
+    borderRadius: vars.radius.lg,
     border: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: vars.colors.gray[0],
-    padding: "0.85rem 2.75rem 0.85rem 2.6rem",
-    fontSize: "1rem",
+    padding: `${vars.spacing.sm} calc(${vars.spacing.xl} + ${vars.spacing.md}) ${vars.spacing.sm} calc(${vars.spacing.xl} + ${vars.spacing.sm})`,
+    fontSize: vars.fontSizes.md,
     color: vars.colors.text,
     selectors: {
         "&::placeholder": {
@@ -93,14 +94,14 @@ export const searchInput = style({
 export const clearButton = style({
     position: "absolute",
     top: "50%",
-    right: "0.6rem",
+    right: vars.spacing.xs,
     transform: "translateY(-50%)",
     border: "none",
     background: "transparent",
     cursor: "pointer",
     color: vars.colors.gray[6],
-    padding: "0.35rem",
-    borderRadius: "8px",
+    padding: `calc(${vars.spacing.xs} * 0.5)`,
+    borderRadius: vars.radius.md,
     selectors: {
         "&:hover": {
             backgroundColor: vars.colors.gray[1],
@@ -115,12 +116,12 @@ export const clearButton = style({
 export const topActionButton = style({
     display: "inline-flex",
     alignItems: "center",
-    gap: "0.5rem",
-    borderRadius: "12px",
+    gap: vars.spacing.sm,
+    borderRadius: vars.radius.lg,
     border: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: vars.colors.gray[0],
-    padding: "0.75rem 0.9rem",
-    fontSize: "0.95rem",
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    fontSize: vars.fontSizes.sm,
     fontWeight: 600,
     color: vars.colors.primary[9],
     cursor: "pointer",
@@ -162,9 +163,9 @@ export const thead = style({
 });
 
 export const th = style({
-    padding: "0.9rem 1rem",
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
     textAlign: "left",
-    fontSize: "0.95rem",
+    fontSize: vars.fontSizes.sm,
     fontWeight: 700,
     color: vars.colors.primary[9],
     borderBottom: `1px solid ${vars.colors.gray[3]}`,
@@ -173,7 +174,7 @@ export const th = style({
 export const thInner = style({
     display: "inline-flex",
     alignItems: "center",
-    gap: "0.6rem",
+    gap: vars.spacing.sm,
 });
 
 export const thDivider = style({
@@ -185,7 +186,7 @@ export const tbodyRow = style({
 });
 
 export const td = style({
-    padding: "1rem",
+    padding: vars.spacing.md,
     borderBottom: `1px solid ${vars.colors.gray[2]}`,
     backgroundColor: virtualVars.surface,
     verticalAlign: "middle",
@@ -225,15 +226,15 @@ export const mutedCell = style({
 export const addButton = style({
     display: "inline-flex",
     alignItems: "center",
-    gap: "0.5rem",
+    gap: vars.spacing.sm,
     border: "none",
     background: "transparent",
     cursor: "pointer",
     color: vars.colors.primary[6],
-    fontSize: "0.95rem",
+    fontSize: vars.fontSizes.sm,
     fontWeight: 700,
-    padding: "0.25rem 0.35rem",
-    borderRadius: "10px",
+    padding: `calc(${vars.spacing.xs} * 0.5) calc(${vars.spacing.xs} * 0.75)`,
+    borderRadius: vars.radius.md,
     selectors: {
         "&:hover:not(:disabled)": {
             backgroundColor: vars.colors.primary[0],
@@ -247,15 +248,15 @@ export const addButton = style({
 });
 
 export const emptyState = style({
-    padding: "1.5rem 1rem",
+    padding: `${vars.spacing.xl} ${vars.spacing.md}`,
     color: vars.colors.gray[6],
-    fontSize: "1rem",
+    fontSize: vars.fontSizes.md,
 });
 
 export const errorState = style({
     margin: vars.spacing.md,
-    padding: "0.75rem 0.9rem",
-    borderRadius: "12px",
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    borderRadius: vars.radius.lg,
     backgroundColor: vars.colors.error[0],
     color: vars.colors.error[7],
 });

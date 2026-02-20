@@ -73,11 +73,11 @@ export const accordionControl = style({
 });
 
 export const activeChapter = style({
-    backgroundColor: "var(--mantine-primary-color-filled)",
+    backgroundColor: vars.colors.primary.filled,
     fontWeight: 600,
     selectors: {
         "&:hover": {
-            backgroundColor: "var(--mantine-primary-color-filled)",
+            backgroundColor: vars.colors.primary.filled,
         },
     },
 });

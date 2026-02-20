@@ -1,4 +1,5 @@
 import { style } from "@vanilla-extract/css";
+import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
 
 export const overlayHost = style({
     position: "absolute",
@@ -17,14 +18,14 @@ export const underline = style({
     left: 0,
     top: 0,
     border: "none",
-    borderBottom: "2px dotted var(--mantine-primary-color-6)",
+    borderBottom: `2px dotted ${vars.colors.primary[6]}`,
     background: "transparent",
     padding: 0,
     margin: 0,
     cursor: "pointer",
     selectors: {
         "&:hover": {
-            borderBottomColor: "var(--mantine-primary-color-5)",
+            borderBottomColor: vars.colors.primary[5],
         },
     },
 });
@@ -39,26 +40,26 @@ export const bubbleShell = style({
     display: "inline-flex",
     alignItems: "center",
     overflow: "hidden",
-    borderRadius: 9999,
-    border: "1px solid var(--mantine-primary-color-6)",
-    background: "var(--mantine-color-body)",
-    boxShadow: "0 10px 22px rgba(15, 23, 42, 0.14)",
+    borderRadius: vars.radius.xl,
+    border: `1px solid ${vars.colors.primary[6]}`,
+    background: virtualVars.surface,
+    boxShadow: `0 10px 22px color-mix(in srgb, ${vars.colors.black} 14%, transparent)`,
     padding: 0,
     margin: 0,
     minWidth: 0,
     selectors: {
-        '[data-mantine-color-scheme="dark"] &': {
-            boxShadow: "0 10px 22px rgba(0, 0, 0, 0.45)",
+        [`${darkSelector} &`]: {
+            boxShadow: `0 10px 22px color-mix(in srgb, ${vars.colors.black} 45%, transparent)`,
         },
     },
 });
 
 export const bubbleLabel = style({
-    padding: "8px 14px 8px 16px",
-    fontSize: "13px",
+    padding: `${vars.spacing.xs} ${vars.spacing.md} ${vars.spacing.xs} ${vars.spacing.lg}`,
+    fontSize: vars.fontSizes.sm,
     lineHeight: 1.2,
     fontWeight: 500,
-    color: "var(--mantine-color-text)",
+    color: virtualVars.text,
     whiteSpace: "nowrap",
 });
 
@@ -69,13 +70,13 @@ export const bubbleAction = style({
     width: 40,
     height: 32,
     border: "none",
-    borderLeft: "1px solid var(--mantine-primary-color-5)",
-    background: "var(--mantine-primary-color-filled)",
-    color: "var(--mantine-primary-color-contrast)",
+    borderLeft: `1px solid ${vars.colors.primary[5]}`,
+    background: vars.colors.primary.filled,
+    color: vars.colors.white,
     cursor: "pointer",
     selectors: {
         "&:hover": {
-            background: "var(--mantine-primary-color-filled-hover)",
+            background: vars.colors.primary[7],
         },
     },
 });

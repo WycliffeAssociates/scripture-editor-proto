@@ -79,6 +79,7 @@ export function SearchPanel() {
 
 export function SearchControls({ search }: { search: UseSearchReturn }) {
     const { t } = useLingui();
+    const { isSm } = useWorkspaceMediaQuery();
     const isSortActive = search.currentSort === "caseMismatch";
     const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
     const [suppressedTooltip, setSuppressedTooltip] = useState<string | null>(
@@ -408,7 +409,7 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
             )}
 
             <div className={searchClassNames.buttonStack}>
-                <Group grow wrap="nowrap">
+                <Group grow wrap={isSm ? "wrap" : "nowrap"}>
                     <Button
                         data-testid={TESTING_IDS.replaceAllButton}
                         size="xs"

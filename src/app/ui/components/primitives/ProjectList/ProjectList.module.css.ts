@@ -1,11 +1,11 @@
 /* Auto-generated vanilla-extract styles for ProjectList component */
-import { darken } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
+import { vars } from "@/app/ui/styles/theme.css.ts";
 
 const project = style({
-    padding: "4px 8px",
-    color: "var(--mantine-primary-color-filled)",
-    borderRadius: "var(--mantine-radius-md)",
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    color: vars.colors.primary.filled,
+    borderRadius: vars.radius.md,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -15,17 +15,17 @@ const project = style({
     vars: {},
     selectors: {
         "&:hover": {
-            backgroundColor: "var(--mantine-primary-color-light)",
+            backgroundColor: vars.colors.primary[0],
         },
         "&:focus": {
             outline: "none",
-            boxShadow: "0 0 0 3px rgba(0,0,0,0.03)",
+            boxShadow: `0 0 0 3px ${vars.colors.primary[1]}`,
         },
     },
 });
 
 const picked = style({
-    backgroundColor: darken(`var(--mantine-primary-color-light)`, 0.1),
+    backgroundColor: vars.colors.primary[1],
     fontWeight: 700,
 });
 
@@ -55,37 +55,37 @@ const name = style({
 const actions = style({
     display: "inline-flex",
     alignItems: "center",
-    gap: "var(--mantine-spacing-xs)",
+    gap: vars.spacing.xs,
     flexWrap: "nowrap",
-    marginLeft: "var(--mantine-spacing-sm)",
+    marginLeft: vars.spacing.sm,
 });
 
 const iconButton = style({
     background: "transparent",
     border: "none",
-    padding: "4px",
+    padding: vars.spacing.xs,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    borderRadius: "6px",
+    borderRadius: vars.radius.sm,
     selectors: {
         "&:hover": {
-            backgroundColor: "rgba(0,0,0,0.03)",
+            backgroundColor: vars.colors.gray[1],
         },
         "&:active": {
             transform: "translateY(1px)",
         },
         "&:focus": {
             outline: "none",
-            boxShadow: "0 0 0 3px rgba(0,0,0,0.03)",
+            boxShadow: `0 0 0 3px ${vars.colors.primary[1]}`,
         },
     },
 });
 
 const newProject = style({
-    padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
-    color: "var(--mantine-primary-color-filled)",
+    padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+    color: vars.colors.primary.filled,
     display: "flex",
     justifyContent: "space-between",
     width: "100%",
@@ -93,8 +93,8 @@ const newProject = style({
 });
 
 const languageLabel = style({
-    paddingTop: "2px",
-    paddingBottom: "2px",
+    paddingTop: `calc(${vars.spacing.xs} * 0.25)`,
+    paddingBottom: `calc(${vars.spacing.xs} * 0.25)`,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
 });

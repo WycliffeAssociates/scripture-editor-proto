@@ -1,4 +1,3 @@
-import { rem } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
 import { breakpoints, darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
@@ -6,13 +5,13 @@ import { breakpoints, darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
 
 // Diff Item Container
 export const diffItem = style({
-    marginBottom: "1.5rem",
+    marginBottom: vars.spacing.xl,
     border: `1px solid ${vars.colors.gray[3]}`,
-    borderRadius: "4px",
-    padding: rem(4),
+    borderRadius: vars.radius.sm,
+    padding: vars.spacing.xs,
     "@media": {
         [breakpoints.minWSmall]: {
-            padding: rem(8),
+            padding: vars.spacing.sm,
         },
     },
     selectors: {
@@ -24,22 +23,22 @@ export const diffItem = style({
 
 // Diff Grid Padding (for lg+ desktop layout)
 export const diffGrid = style({
-    padding: "12px",
+    padding: vars.spacing.md,
     justifyContent: "space-between",
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gridGap: rem(16),
+    gridGap: vars.spacing.lg,
 });
 
 // Stacked layout for small screens
 export const diffStacked = style({
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
-    padding: `0 ${rem(4)}`,
+    gap: vars.spacing.md,
+    padding: `0 ${vars.spacing.xs}`,
     "@media": {
         [breakpoints.minWSmall]: {
-            padding: `0 ${rem(8)}`,
+            padding: `0 ${vars.spacing.sm}`,
         },
     },
 });
@@ -62,10 +61,10 @@ export const fullHeight = style({
     height: "100%",
 });
 export const modalHeader = style({
-    padding: rem(8),
+    padding: vars.spacing.sm,
     "@media": {
         [breakpoints.minWSmall]: {
-            padding: rem(16),
+            padding: vars.spacing.lg,
         },
     },
 });
@@ -78,7 +77,7 @@ export const stickyHeader = style({
     top: 0,
     zIndex: 2,
     backgroundColor: vars.colors.body,
-    padding: "0rem 0rem 0.5rem",
+    padding: `0 0 ${vars.spacing.sm}`,
     display: "flex",
     justifyContent: "flex-end",
     borderBottom: `1px solid ${vars.colors.gray[3]}`,
@@ -92,21 +91,21 @@ export const stickyHeader = style({
 
 // Save button margin
 export const saveAllButtonMargin = style({
-    marginRight: "0.5rem",
+    marginRight: vars.spacing.sm,
 });
 
 // Labels for Original/Current sections
 export const diffLabel = style({
     textTransform: "uppercase",
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizes.xs,
     fontWeight: 700,
-    marginBottom: "0.5rem",
+    marginBottom: vars.spacing.sm,
 });
 
 // SID Header Text
 export const diffSidHeader = style({
     fontWeight: 500,
-    fontSize: "0.875rem",
+    fontSize: vars.fontSizes.sm,
 });
 
 // Detail Warning Text
@@ -124,15 +123,15 @@ export const diffPre = style({
 export const versePlaceholder = style({
     color: vars.colors.dimmed,
     textAlign: "center",
-    fontSize: "0.875rem",
+    fontSize: vars.fontSizes.sm,
     fontStyle: "italic",
-    paddingTop: "4px",
+    paddingTop: vars.spacing.xs,
 });
 
 // --- Paper Background Variants ---
 
 export const paperMinHeight = style({
-    minHeight: "40px",
+    minHeight: "2.5rem",
 });
 
 export const paperBgDefault = style({

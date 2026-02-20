@@ -12,23 +12,23 @@ export const card = style({
     backgroundColor: virtualVars.surface,
     color: virtualVars.text,
     borderRadius: vars.radius.md,
-    padding: "8px 10px",
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
     maxWidth: 420,
-    boxShadow: "0 10px 24px rgba(0, 0, 0, 0.28)",
+    boxShadow: `0 10px 24px color-mix(in srgb, ${vars.colors.black} 28%, transparent)`,
     border: `1px solid ${vars.colors.error[1]}`,
 });
 
 export const row = style({
     display: "flex",
-    gap: 8,
+    gap: vars.spacing.xs,
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "3px 0",
+    padding: `calc(${vars.spacing.xs} * 0.375) 0`,
 });
 
 export const message = style({
     margin: 0,
-    fontSize: 12,
+    fontSize: vars.fontSizes.xs,
     lineHeight: 1.35,
     whiteSpace: "pre-wrap",
 });
@@ -36,11 +36,11 @@ export const message = style({
 export const fixButton = style({
     border: "none",
     borderRadius: 999,
-    padding: "3px 9px",
-    fontSize: 11,
+    padding: `calc(${vars.spacing.xs} * 0.375) ${vars.spacing.sm}`,
+    fontSize: vars.fontSizes.xs,
     fontWeight: 600,
     whiteSpace: "nowrap",
     cursor: "pointer",
-    backgroundColor: "var(--mantine-color-blue-2)",
-    color: "var(--mantine-color-blue-9)",
+    backgroundColor: vars.colors.primary[1],
+    color: vars.colors.primary[9],
 });

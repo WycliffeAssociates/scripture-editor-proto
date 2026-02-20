@@ -6,9 +6,9 @@ import { theme } from "@/app/ui/styles/mantineTheme.ts";
 // CSS variables object, can be access in *.css.ts files
 export const vars = themeToVars(theme);
 export const virtualVars = {
-    text: "var(--mantine-color-text)",
-    surface: "var(--mantine-color-body)",
-    border: "var(--mantine-color-default-border)",
+    text: vars.colors.text,
+    surface: vars.colors.body,
+    border: vars.colors.defaultBorder,
 };
 export const darkSelector = "[data-mantine-color-scheme='dark']";
 export const breakpoints = {

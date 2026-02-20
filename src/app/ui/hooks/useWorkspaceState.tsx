@@ -53,7 +53,7 @@ export const useWorkspaceState = (
 
     const updateAppSettings = useCallback(
         (newSettings: Partial<Settings>) => {
-            setAppSettings({ ...appSettings, ...newSettings });
+            setAppSettings((prev) => ({ ...prev, ...newSettings }));
             settingsManager.update(newSettings);
             // will adjust root font size, webview zoom, etc; at needed
             settingsManager.applySettings();

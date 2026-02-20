@@ -117,9 +117,8 @@ export const editorNavButton = style({
     justifyContent: "center",
     alignItems: "center",
     padding: "0.5rem 1rem",
-    boxShadow:
-        "0px 1px 3px rgba(31, 31, 31, 0.12), 0px 1px 2px rgba(31, 31, 31, 0.24)",
-    borderRadius: "8px",
+    boxShadow: `0 1px 3px color-mix(in srgb, ${vars.colors.black} 12%, transparent), 0 1px 2px color-mix(in srgb, ${vars.colors.black} 24%, transparent)`,
+    borderRadius: vars.radius.md,
     backgroundColor: lighten(virtualVars.surface, 0.2),
     color: virtualVars.text,
 
@@ -167,7 +166,7 @@ export const mobileTabButton = style({
 
 export const mobileTabButtonActive = style({
     opacity: 1,
-    color: "var(--mantine-primary-color-filled)",
+    color: vars.colors.primary.filled,
 });
 
 // Mobile Editors (Tab Switching)

@@ -20,7 +20,7 @@ export const projectLink = style({
             backgroundColor: vars.colors.gray[0],
         },
         "&:focus-visible": {
-            outline: "2px solid var(--mantine-primary-color-filled)",
+            outline: `2px solid ${vars.colors.primary.filled}`,
             outlineOffset: 2,
         },
     },

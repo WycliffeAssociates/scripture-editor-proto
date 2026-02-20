@@ -1,4 +1,5 @@
 import { style } from "@vanilla-extract/css";
+import { vars } from "@/app/ui/styles/theme.css.ts";
 
 export const overlayHost = style({
     position: "absolute",
@@ -16,7 +17,7 @@ export const underline = style({
     left: 0,
     top: 0,
     border: "none",
-    borderBottom: "2px solid #f08c00",
+    borderBottom: `2px solid ${vars.colors.warning[6]}`,
     background: "transparent",
     padding: 0,
     margin: 0,
@@ -26,5 +27,5 @@ export const underline = style({
 export const bubble = style({
     position: "absolute",
     left: 0,
-    top: "-32px",
+    top: `calc(${vars.spacing.xl} * -1)`,
 });

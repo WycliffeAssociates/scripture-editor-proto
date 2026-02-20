@@ -1,7 +1,8 @@
 import { style } from "@vanilla-extract/css";
+import { vars } from "@/app/ui/styles/theme.css.ts";
 
 export const editorOuter = style({
-    padding: "0.5rem",
+    padding: vars.spacing.sm,
 });
 
 export const editorContainer = style({
@@ -11,33 +12,33 @@ export const editorContainer = style({
 export const contentEditable = style({
     outline: "none",
     width: "100%",
-    padding: "0.5rem",
+    padding: vars.spacing.sm,
 });
 
 export const contentEditableSearchOpen = style({
     paddingTop: "7rem",
 });
 export const loadingReference = style({
-    padding: "1rem",
+    padding: vars.spacing.md,
 });
 export const contentEditableReference = style({
     outline: "none",
     width: "100%",
-    padding: "1rem",
-    backgroundColor: "var(--mantine-color-gray-0)",
+    padding: vars.spacing.md,
+    backgroundColor: vars.colors.gray[0],
     selectors: {
         '[data-mantine-color-scheme="dark"] &': {
-            backgroundColor: "var(--mantine-color-dark-6)",
+            backgroundColor: vars.colors.dark[6],
         },
     },
 });
 
 export const contentEditableReferenceSearchOpen = style({
     paddingTop: "7rem",
-    backgroundColor: "var(--mantine-color-gray-0)",
+    backgroundColor: vars.colors.gray[0],
     selectors: {
         '[data-mantine-color-scheme="dark"] &': {
-            backgroundColor: "var(--mantine-color-dark-6)",
+            backgroundColor: vars.colors.dark[6],
         },
     },
 });

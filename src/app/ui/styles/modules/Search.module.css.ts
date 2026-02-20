@@ -16,8 +16,7 @@ const searchPanel = style({
     display: "flex",
     flexDirection: "column",
     backgroundColor: vars.colors.body,
-    boxShadow:
-        "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    boxShadow: `0 20px 25px -5px color-mix(in srgb, ${vars.colors.black} 10%, transparent), 0 10px 10px -5px color-mix(in srgb, ${vars.colors.black} 4%, transparent)`,
     selectors: {
         "&:where([data-dark])": {
             boxShadow: "none",
@@ -26,8 +25,9 @@ const searchPanel = style({
 });
 
 const resultsHeader = style({
-    padding: "var(--mantine-spacing-xs) var(--mantine-spacing-md)",
-    backgroundColor: "var(--mantine-primary-color-filled)",
+    padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+    backgroundColor: vars.colors.primary.filled,
+    color: vars.colors.white,
     borderBottom: `1px solid ${vars.colors.defaultBorder}`,
 });
 
@@ -43,20 +43,19 @@ const popoverHeader = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding:
-        "calc(var(--mantine-spacing-xs) * 0.5) var(--mantine-spacing-xs) 0 var(--mantine-spacing-xs)",
+    padding: `calc(${vars.spacing.xs} * 0.5) ${vars.spacing.xs} 0 ${vars.spacing.xs}`,
 });
 
 const popoverHeaderInfo = style({
     display: "flex",
     flexDirection: "column",
-    gap: "2px",
+    gap: `calc(${vars.spacing.xs} * 0.25)`,
     minWidth: 0,
 });
 
 const popoverHelpText = style({
     color: vars.colors.gray[6],
-    fontSize: ".7rem",
+    fontSize: vars.fontSizes.xs,
     lineHeight: 1.15,
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
@@ -66,25 +65,36 @@ const popoverHelpText = style({
 // Controls container
 const controls = style({
     width: "100%",
-    padding:
-        "0 var(--mantine-spacing-xs) var(--mantine-spacing-xs) var(--mantine-spacing-xs)",
-    borderBottom: "1px solid var(--mantine-color-default-border)",
+    padding: `0 ${vars.spacing.xs} ${vars.spacing.xs} ${vars.spacing.xs}`,
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
     display: "flex",
     flexDirection: "column",
-    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
+    gap: `calc(${vars.spacing.xs} * 0.75)`,
+    "@media": {
+        "screen and (max-width: 48em)": {
+            padding: `${vars.spacing.xs} 0 ${vars.spacing.xs}`,
+            gap: vars.spacing.xs,
+        },
+    },
 });
 
 const compactLayout = style({
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) auto",
-    gap: "var(--mantine-spacing-xs)",
+    gap: vars.spacing.xs,
     alignItems: "start",
+    "@media": {
+        "screen and (max-width: 48em)": {
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: vars.spacing.xs,
+        },
+    },
 });
 
 const inputStack = style({
     display: "flex",
     flexDirection: "column",
-    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
+    gap: `calc(${vars.spacing.xs} * 0.75)`,
     minWidth: 0,
 });
 
@@ -92,38 +102,60 @@ const controlRail = style({
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: "calc(var(--mantine-spacing-xs) * 0.6)",
+    gap: `calc(${vars.spacing.xs} * 0.6)`,
     minWidth: "13rem",
+    "@media": {
+        "screen and (max-width: 48em)": {
+            alignItems: "stretch",
+            minWidth: 0,
+            width: "100%",
+        },
+    },
 });
 
 const statsAndNavRow = style({
     display: "flex",
     justifyContent: "flex-end",
     alignItems: "center",
-    gap: "calc(var(--mantine-spacing-xs) * 0.5)",
+    gap: `calc(${vars.spacing.xs} * 0.5)`,
+    "@media": {
+        "screen and (max-width: 48em)": {
+            justifyContent: "space-between",
+        },
+    },
 });
 
 const filterIconsRow = style({
     display: "flex",
     justifyContent: "flex-end",
     alignItems: "center",
-    gap: "calc(var(--mantine-spacing-xs) * 0.5)",
+    gap: `calc(${vars.spacing.xs} * 0.5)`,
+    "@media": {
+        "screen and (max-width: 48em)": {
+            justifyContent: "flex-start",
+        },
+    },
 });
 
 const statsText = style({
-    fontSize: "var(--mantine-font-size-md)",
+    fontSize: vars.fontSizes.md,
     color: vars.colors.gray[6],
     whiteSpace: "nowrap",
 });
 
 const sortBadgeRow = style({
-    minHeight: "22px",
+    minHeight: `calc(${vars.fontSizes.md} + ${vars.spacing.xs})`,
 });
 
 const buttonStack = style({
     display: "flex",
     flexDirection: "column",
-    gap: "calc(var(--mantine-spacing-xs) * 0.75)",
+    gap: `calc(${vars.spacing.xs} * 0.75)`,
+    "@media": {
+        "screen and (max-width: 48em)": {
+            gap: vars.spacing.xs,
+        },
+    },
 });
 
 // Mobile drawer content
@@ -148,17 +180,17 @@ const resultsList = style({
 
 // Empty state containers
 const emptyState = style({
-    padding: "var(--mantine-spacing-xl) var(--mantine-spacing-md)",
+    padding: `${vars.spacing.xl} ${vars.spacing.md}`,
     textAlign: "center",
 });
 
 const searchingState = style({
-    padding: "var(--mantine-spacing-md)",
+    padding: vars.spacing.md,
     textAlign: "center",
 });
 
 const noResultsState = style({
-    padding: "var(--mantine-spacing-md)",
+    padding: vars.spacing.md,
     textAlign: "center",
 });
 
@@ -166,12 +198,12 @@ const noResultsState = style({
 const searchResult = style({
     backgroundColor: "transparent",
     color: virtualVars.text,
-    padding: "var(--mantine-spacing-md)",
-    borderBottom: "1px solid var(--mantine-color-default-border)",
+    padding: vars.spacing.md,
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
     transition: "background 0.15s ease, color 0.15s ease",
     display: "flex",
     flexDirection: "column",
-    gap: "calc(var(--mantine-spacing-xs) / 2)",
+    gap: `calc(${vars.spacing.xs} / 2)`,
     cursor: "pointer",
     selectors: {
         "&:hover": {
@@ -188,8 +220,8 @@ const searchResult = style({
             backgroundColor: vars.colors.primary[8],
         },
         "&:focus-visible": {
-            outline: "2px solid var(--mantine-primary-color-filled)",
-            outlineOffset: "2px",
+            outline: `2px solid ${vars.colors.primary.filled}`,
+            outlineOffset: `calc(${vars.spacing.xs} * 0.25)`,
             position: "relative",
             zIndex: 1,
         },
@@ -205,7 +237,7 @@ const resultHeader = style({
 // Result SID (scripture identifier)
 const resultSid = style({
     fontWeight: 700,
-    fontSize: "var(--mantine-font-size-xs)",
+    fontSize: vars.fontSizes.xs,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
 });
@@ -222,13 +254,13 @@ const resultArrow = style({
 
 // Result text
 const resultText = style({
-    fontSize: "var(--mantine-font-size-sm)",
+    fontSize: vars.fontSizes.sm,
     lineHeight: 1.6,
 });
 
 // Search icon in empty state
 const searchIcon = style({
-    margin: "0 auto var(--mantine-spacing-sm) auto",
+    margin: `0 auto ${vars.spacing.sm} auto`,
     opacity: 0.2,
 });
 const highlight = style({

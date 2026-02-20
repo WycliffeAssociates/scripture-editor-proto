@@ -7,11 +7,11 @@ export const container = style({
     maxWidth: "95vw",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "var(--mantine-color-body)",
+    backgroundColor: vars.colors.body,
     borderRadius: vars.radius.lg,
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+    boxShadow: `0 10px 30px color-mix(in srgb, ${vars.colors.black} 20%, transparent)`,
     overflow: "hidden",
-    border: "1px solid var(--mantine-color-default-border)",
+    border: `1px solid ${vars.colors.defaultBorder}`,
     "@media": {
         "screen and (max-width: 480px)": {
             width: "95vw",
@@ -21,7 +21,7 @@ export const container = style({
         "[data-mantine-color-scheme='dark'] &": {
             backgroundColor: vars.colors.dark[6],
             borderColor: vars.colors.dark[4],
-            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5)",
+            boxShadow: `0 20px 50px color-mix(in srgb, ${vars.colors.black} 50%, transparent)`,
         },
     },
 });
@@ -32,7 +32,7 @@ export const searchInput = style({
     backgroundColor: "transparent",
     padding: `${rem(14)} ${rem(16)}`,
     fontSize: rem(16),
-    color: "var(--mantine-color-text)",
+    color: vars.colors.text,
     ":focus": {
         outline: "none",
     },
@@ -40,7 +40,7 @@ export const searchInput = style({
 
 export const header = style({
     padding: `${rem(4)} ${rem(8)}`,
-    borderBottom: "1px solid var(--mantine-color-default-border)",
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
     backgroundColor: "transparent",
     display: "flex",
     alignItems: "center",
@@ -60,14 +60,14 @@ export const item = style({
     alignItems: "center",
     gap: rem(12),
     transition: "all 0.1s ease",
-    color: "var(--mantine-color-text)",
+    color: vars.colors.text,
     selectors: {
         "&[data-combobox-selected]": {
             backgroundColor: vars.colors.primary[6],
             color: vars.colors.white,
         },
         "&:hover:not([data-combobox-selected])": {
-            backgroundColor: "var(--mantine-color-gray-light)",
+            backgroundColor: vars.colors.gray[1],
         },
         "[data-mantine-color-scheme='dark'] &[data-combobox-selected]": {
             backgroundColor: vars.colors.primary[5],
@@ -80,7 +80,7 @@ export const categoryHeader = style({
     fontSize: rem(11),
     fontWeight: 700,
     textTransform: "uppercase",
-    color: "var(--mantine-color-dimmed)",
+    color: vars.colors.dimmed,
     letterSpacing: rem(0.5),
 });
 
@@ -89,5 +89,5 @@ export const pillContainer = style({
     display: "flex",
     alignItems: "center",
     gap: rem(4),
-    borderBottom: "1px solid var(--mantine-color-default-border)",
+    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
 });

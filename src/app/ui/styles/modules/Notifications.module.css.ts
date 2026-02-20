@@ -22,7 +22,7 @@ const errorColors = style({
     vars: {
         [notificationBg]: vars.colors.red[2],
         [notificationBorder]: vars.colors.red.filled,
-        // [notificationHoverBg]: "rgba(255, 255, 255, 0.15)",
+        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
     },
     selectors: {
         ...getDarkVar(vars.colors.red.filled),
@@ -33,7 +33,7 @@ const successColors = style({
     vars: {
         [notificationBg]: vars.colors.green[2],
         [notificationBorder]: vars.colors.green.filled,
-        // [notificationHoverBg]: "rgba(255, 255, 255, 0.15)",
+        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
     },
     selectors: {
         ...getDarkVar(vars.colors.green.filled),
@@ -44,7 +44,7 @@ const infoColors = style({
     vars: {
         [notificationBg]: vars.colors.primary[2],
         [notificationBorder]: vars.colors.primary.filled,
-        // [notificationHoverBg]: "rgba(255, 255, 255, 0.15)",
+        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
     },
     selectors: {
         ...getDarkVar(vars.colors.primary.filled),
@@ -74,7 +74,7 @@ const baseCloseButton = style({
     selectors: {
         "&:hover": {
             color: vars.colors.text,
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            backgroundColor: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
         },
     },
 });
