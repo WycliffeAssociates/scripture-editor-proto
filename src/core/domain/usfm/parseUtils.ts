@@ -112,6 +112,8 @@ export function preparedAlreadyGivenTokens<T extends LintableToken>(
         prepareLexedToken(tokens[i], i);
     }
 
+    mutAddSids(tokens, bookCode);
+
     return { tokens, bookCode };
 }
 

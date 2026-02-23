@@ -1,6 +1,6 @@
 import { Box, Button, Popover, Text } from "@mantine/core";
 import type { LexicalEditor } from "lexical";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
@@ -24,6 +24,20 @@ export function LintPopover({ wrapperClassNames }: Props) {
     const hasMessages = lint.messages.length > 0;
     const prevDomElSelected = useRef<HTMLElement | null>(null);
     const [lintPopoverIsOpen, setLintPopoverIsOpen] = useState(false);
+
+    const copyLintDiagnostics = useCallback(async () => {
+        const payload = {
+            generatedAt: new Date().toISOString(),
+            diagnostics: lint.messages,
+        };
+        try {
+            await navigator.clipboard.writeText(
+                JSON.stringify(payload, null, 2),
+            );
+        } catch (e) {
+            console.error("Failed to copy lint diagnostics JSON", e);
+        }
+    }, [lint.messages]);
 
     if (!hasMessages) return null;
 
@@ -52,6 +66,17 @@ export function LintPopover({ wrapperClassNames }: Props) {
                 </Popover.Target>
 
                 <Popover.Dropdown className={lintPopoverDropdown}>
+                    {import.meta.env.DEV && (
+                        <Button
+                            variant="light"
+                            size="xs"
+                            fullWidth
+                            mb="xs"
+                            onClick={copyLintDiagnostics}
+                        >
+                            Copy Debug Info
+                        </Button>
+                    )}
                     <ul
                         className={lintErrorList}
                         data-testid={TESTING_IDS.lintPopover.container}

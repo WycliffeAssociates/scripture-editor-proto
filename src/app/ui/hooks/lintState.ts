@@ -13,7 +13,7 @@ export function replaceLintErrorsForBook(
     const filtered = prevMessages.filter((m) => {
         if (m.sid === "unknown location") return false;
         const sid = parseSid(m.sid);
-        if (!sid) return true;
+        if (!sid) return false; // if it's invalid sid, clean it up
         return sid.book !== targetBook;
     });
     return sortListBySidCanonical(
