@@ -11,6 +11,7 @@ export function replaceLintErrorsForBook(
 ): LintError[] {
     const targetBook = book.toUpperCase();
     const filtered = prevMessages.filter((m) => {
+        if (m.sid === "unknown location") return false;
         const sid = parseSid(m.sid);
         if (!sid) return true;
         return sid.book !== targetBook;
@@ -28,6 +29,7 @@ export function replaceLintErrorsForChapter(
 ): LintError[] {
     const targetBook = book.toUpperCase();
     const filtered = prevMessages.filter((m) => {
+        if (m.sid === "unknown location") return false;
         const sid = parseSid(m.sid);
         if (!sid) return true;
         return sid.book !== targetBook || sid.chapter !== chapter;

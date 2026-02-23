@@ -101,7 +101,7 @@ const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
     if (nextMarkerType !== TokenMap.numberRange) {
         const err = {
             message: `Number range expected after \\c`,
-            sid: ctx.currentToken?.sid ?? "unknown location",
+            sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.numberRangeAfterChapterMarker,
             nodeId: token.id,
         };
@@ -114,7 +114,7 @@ const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
     if (prevChapSeen && prevChapSaw) {
         const err = {
             message: `Duplicate chapter number ${nextVal}`,
-            sid: token.sid ?? "unknown location",
+            sid: token.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.duplicateChapterNumber,
             nodeId: token.id,
         };
@@ -124,7 +124,7 @@ const lintCheckForDuplicateChapNum: LintOrParseFxn<LintableToken> = (
     if (nextVal !== expected.toString()) {
         const err = {
             message: `Expected chapter number ${expected}, found ${nextVal}`,
-            sid: token.sid ?? "unknown location",
+            sid: token.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.chapExpectedIncreaseByOne,
             nodeId: token.id,
         };
@@ -158,7 +158,7 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
     if (!isValid) {
         const err = {
             message: `Invalid verse range ${value}`,
-            sid: token.sid ?? "unknown location",
+            sid: token.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.invalidNumberRange,
             nodeId: token.id,
         };
@@ -203,7 +203,7 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
 
         const err = {
             message: `Duplicate verse number ${value}`,
-            sid: token.sid ?? "unknown location",
+            sid: token.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.duplicateVerseNumber,
             nodeId: token.id,
             fix: shouldOfferMissingIntegerFix
@@ -224,7 +224,11 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
             const seenErr: LintError = {
                 ...err,
                 nodeId: seenTok.id,
-                sid: seenTok.sid ?? err.sid,
+                sid:
+                    seenTok.sid ??
+                    err.sid ??
+                    ctx.bookCode ??
+                    "unknown location",
                 fix: undefined,
             };
             const already = seenTok.lintErrors?.some(
@@ -254,7 +258,7 @@ const lintVerseRanges: LintOrParseFxn<LintableToken> = (
                 : `Expected verse ${expectedStart} here, found ${start}`;
         const err = {
             message: detailMessage,
-            sid: token.sid ?? "unknown location",
+            sid: token.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.verseExpectedIncreaseByOne,
             nodeId: token.id,
             fix: shouldOfferAutoFix
@@ -291,7 +295,7 @@ const lintVerseContentNotEmpty: LintOrParseFxn<LintableToken> = (
     if (!ctx.currentToken.text?.trim()) {
         const err = {
             message: `Verse content expected after \\v and range ${ctx.prevToken.text}`,
-            sid: ctx.currentToken?.sid ?? "unknown location",
+            sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.verseContentNotEmpty,
             nodeId: ctx.currentToken?.id,
         };
@@ -333,7 +337,7 @@ const lintTextFollowsVerseRange: LintOrParseFxn<LintableToken> = (
     if (!nextIsText && !nextIsNote && !thirdIsNote) {
         const err = {
             message: `Expected verse content after \\v`,
-            sid: ctx.currentToken?.sid ?? "unknown location",
+            sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
             msgKey: LintErrorKeys.verseTextFollowsVerseRange,
             nodeId: ctx.currentToken?.id,
         };
@@ -352,7 +356,7 @@ const lintIsUnknownMarker: LintOrParseFxn<LintableToken> = (
     if (ALL_USFM_MARKERS.has(ctx.currentToken.marker ?? "")) return;
     const err = {
         message: `Unknown marker ${ctx.currentToken.text}`,
-        sid: ctx.currentToken?.sid ?? "unknown location",
+        sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
         msgKey: LintErrorKeys.isUnknownMarker,
         nodeId: ctx.currentToken.id,
     };
@@ -371,7 +375,7 @@ const lintIsUnkownCloseToken: LintOrParseFxn<LintableToken> = (
         return;
     const err = {
         message: `Unknown closing marker ${ctx.currentToken.text}`,
-        sid: ctx.currentToken?.sid ?? "unknown location",
+        sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
         msgKey: LintErrorKeys.isUnknownCloseMarker,
         nodeId: ctx.currentToken.id,
     };
@@ -391,7 +395,7 @@ const lintNumRangePreceededByTokenExpectingNum: LintOrParseFxn<
     if (markedExpectingNumberRange.includes(marker)) return;
     const err = {
         message: `Number range not preceeded by marker that takes a number such as v`,
-        sid: ctx.currentToken?.sid ?? "unknown location",
+        sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
         msgKey: LintErrorKeys.numberRangeNotPreceededByMarkerExpectingNumberRange,
         nodeId: ctx.currentToken.id,
     };
@@ -440,7 +444,7 @@ export function finalizeChapterLabelLint<T extends LintableToken>(
         for (const token of tokens) {
             const err = {
                 message: msg,
-                sid: token.sid ?? "unknown location",
+                sid: token.sid ?? ctx.bookCode ?? "unknown location",
                 msgKey: LintErrorKeys.inconsistentChapterLabel,
                 nodeId: token.id,
             };
@@ -459,7 +463,7 @@ const lintAddErrorsToUnknownTokenFromLexer: LintOrParseFxn<LintableToken> = (
 
     const err: LintError = {
         message: `Unknown token ${ctx.currentToken.text}`,
-        sid: ctx.currentToken?.sid ?? "unknown location",
+        sid: ctx.currentToken?.sid ?? ctx.bookCode ?? "unknown location",
         msgKey: LintErrorKeys.unknownToken,
         nodeId: ctx.currentToken.id,
     };

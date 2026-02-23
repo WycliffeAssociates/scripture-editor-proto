@@ -1,3 +1,5 @@
+import { parseSid } from "@/core/data/bible/bible.ts";
+
 export const LintErrorKeys = {
     chapExpectedIncreaseByOne: "chapExpectedIncreaseByOne",
     charNotClosed: "charNotClosed",
@@ -20,6 +22,11 @@ export const LintErrorKeys = {
 } as const;
 
 export type LintErrorKey = keyof typeof LintErrorKeys;
+
+export function hasValidSid(sid: string): boolean {
+    const parsed = parseSid(sid);
+    return parsed !== null;
+}
 
 export type LintErrorFix =
     | {

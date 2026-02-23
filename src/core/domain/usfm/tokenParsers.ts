@@ -162,7 +162,7 @@ function checkForHangingNoteStacks<T extends LintableToken>(
                     prevAnchorToken?.id ?? ctx.lastMarker?.id ?? t.id;
                 const err: LintError = {
                     message: `Character marker ${marker} left at opening of new paragraph at ${t.sid}`,
-                    sid: t.sid ?? "",
+                    sid: t.sid ?? ctx.bookCode ?? "",
                     msgKey: LintErrorKeys.charNotClosed,
                     nodeId: nodeIdForError,
                 };
@@ -178,7 +178,7 @@ function checkForHangingNoteStacks<T extends LintableToken>(
                 const nodeIdForFix = prevAnchorToken?.id ?? ctx.noteParent.id;
                 const err: LintError = {
                     message: `Note marker ${ctx.noteParent.text} left opened at opening of new paragraph at ${t.sid}`,
-                    sid: t.sid ?? "",
+                    sid: t.sid ?? ctx.bookCode ?? "",
                     msgKey: LintErrorKeys.noteNotClosed,
                     nodeId: ctx.noteParent.id,
                     fix: {
