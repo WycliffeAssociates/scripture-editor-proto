@@ -58,7 +58,7 @@ export const useWorkspaceState = (
             // will adjust root font size, webview zoom, etc; at needed
             settingsManager.applySettings();
         },
-        [appSettings, settingsManager],
+        [settingsManager],
     );
     const pickedFile = useMemo(
         () =>

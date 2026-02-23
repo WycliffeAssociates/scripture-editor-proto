@@ -49,6 +49,7 @@ export function useEditorLinter(editor: LexicalEditor) {
 
     const debouncedLint = useDebouncedCallback(
         (editorState: EditorState, bookCode: string, chapter: number) => {
+            debugger;
             const errMessages = lintAll(
                 { editorState, editor },
                 actions.getFlatFileTokens,
