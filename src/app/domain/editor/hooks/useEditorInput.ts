@@ -10,6 +10,7 @@ import {
     KEY_ENTER_COMMAND,
     type LexicalEditor,
     type LexicalNode,
+    PASTE_COMMAND,
 } from "lexical";
 import { useEffect } from "react";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
@@ -34,6 +35,12 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { expandSelectionToIncludePrecedingVerseMarker } from "@/app/domain/editor/utils/expandSelectionToIncludeVerseMarker.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import {
+    isUsfmLikePaste,
+    parseClipboardUsfmToTokens,
+    parsedUsfmTokensToInsertableNodes,
+} from "@/app/domain/editor/utils/usfmPaste.ts";
+import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -352,6 +359,52 @@ export function useEditorInput(editor: LexicalEditor) {
             COMMAND_PRIORITY_HIGH,
         );
 
+        const usfmAwarePasteUnregister = editor.registerCommand(
+            PASTE_COMMAND,
+            (payload) => {
+                const event =
+                    payload instanceof Event
+                        ? (payload as ClipboardEvent)
+                        : null;
+                const plainText = event?.clipboardData?.getData("text/plain");
+                if (!event || !plainText) return false;
+                if (!isUsfmLikePaste(plainText)) return false;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const parsed = parseClipboardUsfmToTokens({
+                    text: plainText,
+                    bookCode: project.pickedFile.bookCode,
+                    direction: projectLanguageDirection,
+                });
+                if (!parsed.ok) {
+                    ShowErrorNotification({
+                        notification: {
+                            title: "Paste Failed",
+                            message:
+                                "Invalid USFM content could not be pasted.",
+                        },
+                    });
+                    return true;
+                }
+
+                editor.update(
+                    () => {
+                        const selection = $getSelection();
+                        if (!$isRangeSelection(selection)) return;
+                        selection.insertNodes(
+                            parsedUsfmTokensToInsertableNodes(parsed.tokens),
+                        );
+                    },
+                    { discrete: true, event },
+                );
+
+                return true;
+            },
+            COMMAND_PRIORITY_HIGH,
+        );
+
         // Register KEY_DOWN_COMMAND for handling Enter at start of verse
         const handleEnterOnVerseUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
@@ -375,11 +428,17 @@ export function useEditorInput(editor: LexicalEditor) {
             insertParagraphAfterStructuralEmptyMarkerUnregister();
             expandVerseCopySelectionUnregister();
             expandVerseCutSelectionUnregister();
+            usfmAwarePasteUnregister();
             handleEnterOnVerseUnregister();
         };
 
         return cleanup;
-    }, [editor, projectLanguageDirection, editorModeSetting]);
+    }, [
+        editor,
+        projectLanguageDirection,
+        editorModeSetting,
+        project.pickedFile.bookCode,
+    ]);
 
     //   FIND HOTKEY TO OPEN PANEL
     useEffect(() => {
