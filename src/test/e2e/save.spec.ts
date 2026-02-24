@@ -85,4 +85,20 @@ test.describe("Save and Diff Functionality", () => {
             .textContent();
         expect(textBox?.includes("Persisted addition")).toBe(true);
     });
+
+    test("chapter view renders single full chapter diff with hunk overlays", async ({
+        editorPage,
+    }) => {
+        await appendToEditor(editorPage, " chapter overlay change ");
+        await openSaveReview(editorPage);
+
+        await editorPage.getByText("Chapter view").first().click();
+
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.save.chapterPanel),
+        ).toHaveCount(1);
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.save.chapterHunkAction).first(),
+        ).toBeVisible();
+    });
 });

@@ -45,14 +45,19 @@ export const diffStacked = style({
 
 // Modal content wrapper
 export const modalScrollPaper = style({
-    maxHeight: "90vh",
-    overflow: "auto",
-    backgroundColor: "transparent", // Let Mantine Modal handle bg
+    height: "100%",
+    overflow: "hidden",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    backgroundColor: "transparent",
+    paddingBlock: 0,
+    paddingInline: vars.spacing.xs,
 });
 
 // ScrollArea height constraint
 export const diffScrollArea = style({
-    height: "60vh",
+    height: "100%",
+    minHeight: 0,
     overflow: "auto",
 });
 
@@ -60,26 +65,54 @@ export const diffScrollArea = style({
 export const fullHeight = style({
     height: "100%",
 });
+
+export const modalBody = style({
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+});
+
+export const modalBodyScrollable = style({
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    paddingBottom: vars.spacing.sm,
+});
+
+export const modalContent = style({
+    height: "95vh",
+    display: "flex",
+    flexDirection: "column",
+});
+
+export const modalBodyRoot = style({
+    flex: 1,
+    minHeight: 0,
+    paddingTop: 0,
+});
 export const modalHeader = style({
-    padding: vars.spacing.sm,
     "@media": {
         [breakpoints.minWSmall]: {
-            padding: vars.spacing.lg,
+            paddingBlock: vars.spacing.sm,
         },
     },
+});
+export const modalTitle = style({
+    fontSize: vars.fontSizes.lg,
+    paddingInline: vars.spacing.xs,
+    margin: 0,
 });
 
 // --- Header & Text Styles ---
 
 // Sticky header in modal
 export const stickyHeader = style({
-    position: "sticky",
-    top: 0,
+    flex: "0 0 auto",
     zIndex: 2,
     backgroundColor: vars.colors.body,
-    padding: `0 0 ${vars.spacing.sm}`,
-    display: "flex",
-    justifyContent: "flex-end",
+    padding: `0 0 ${vars.spacing.xs}`,
+    display: "grid",
+    gap: vars.spacing.xs,
     borderBottom: `1px solid ${vars.colors.gray[3]}`,
     selectors: {
         [`${darkSelector} &`]: {
@@ -87,6 +120,27 @@ export const stickyHeader = style({
             borderColor: vars.colors.dark[4],
         },
     },
+});
+
+export const toolbarSection = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+});
+
+export const toolbarSectionTitle = style({
+    fontSize: vars.fontSizes.xs,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    color: vars.colors.dimmed,
+    letterSpacing: "0.04em",
+});
+
+export const toolbarRow = style({
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars.spacing.xs,
+    alignItems: "center",
 });
 
 // Save button margin
@@ -99,13 +153,13 @@ export const diffLabel = style({
     textTransform: "uppercase",
     fontSize: vars.fontSizes.xs,
     fontWeight: 700,
-    marginBottom: vars.spacing.sm,
 });
 
 // SID Header Text
 export const diffSidHeader = style({
     fontWeight: 500,
     fontSize: vars.fontSizes.sm,
+    margin: 0,
 });
 
 // Detail Warning Text
@@ -166,13 +220,103 @@ export const paperBgAddition = style({
 // --- Highlight Spans (Word level diffs) ---
 
 export const diffHighlightAdded = style({
-    backgroundColor: vars.colors.green[4],
+    backgroundColor: vars.colors.green[3],
     fontWeight: "bold",
     color: vars.colors.black, // Ensure readability on green
 });
 
 export const diffHighlightRemoved = style({
-    backgroundColor: vars.colors.red[4],
+    backgroundColor: vars.colors.red[2],
     fontWeight: "bold",
     color: vars.colors.black, // Ensure readability on red
+});
+
+export const chapterDiffItem = style({
+    // marginBottom: vars.spacing.sm,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    borderRadius: vars.radius.sm,
+    padding: vars.spacing.xs,
+    height: "100%",
+    minHeight: 0,
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    gap: vars.spacing.xs,
+    selectors: {
+        [`${darkSelector} &`]: {
+            borderColor: vars.colors.dark[4],
+        },
+    },
+});
+
+export const chapterDiffPanel = style({
+    minHeight: 0,
+    height: "100%",
+    overflow: "auto",
+    backgroundColor: vars.colors.gray[0],
+    border: `1px solid ${vars.colors.gray[3]}`,
+    borderRadius: vars.radius.md,
+    selectors: {
+        [`${darkSelector} &`]: {
+            backgroundColor: vars.colors.dark[6],
+            borderColor: vars.colors.dark[4],
+        },
+    },
+});
+
+export const chapterGrid = style({
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: vars.spacing.md,
+    minHeight: 0,
+    height: "100%",
+    "@media": {
+        [breakpoints.minWMd]: {
+            gridTemplateColumns: "1fr 1fr",
+        },
+    },
+});
+
+export const chapterColumn = style({
+    minHeight: 0,
+    height: "100%",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    gap: vars.spacing.xs,
+});
+
+export const chapterDiffBody = style({
+    margin: 0,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    lineHeight: 1.7,
+    fontSize: vars.fontSizes.lg,
+    fontFamily: "inherit",
+});
+
+export const chapterPart = style({
+    position: "relative",
+    display: "inline",
+});
+
+export const chapterPartChanged = style({
+    position: "relative",
+    display: "inline",
+});
+
+export const chapterSeparator = style({
+    whiteSpace: "pre",
+});
+
+export const chapterHunkAction = style({
+    display: "inline-flex",
+    verticalAlign: "middle",
+    marginRight: vars.spacing.xs,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingInline: vars.spacing.xs,
+    selectors: {
+        "&:hover": {
+            transform: "translateY(-1px)",
+        },
+    },
 });

@@ -43,6 +43,7 @@ import { getFlattenedEditorStateAsParseTokens } from "../hooks/utils/editorUtils
 
 export interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
+    referenceEditorRef: React.RefObject<LexicalEditor | null>;
     settingsManager: SettingsManager;
     allProjects: ListedProject[];
     currentProjectRoute: string;
@@ -90,6 +91,7 @@ export const ProjectProvider = ({
     children,
 }: ProjectProviderProps) => {
     const editorRef = useRef<LexicalEditor | null>(null);
+    const referenceEditorRef = useRef<LexicalEditor | null>(null);
     const { projects } = useLoaderData({ from: "__root__" });
     const projectLanguageDirection = loadedProject.metadata.language.direction;
 
@@ -165,6 +167,7 @@ export const ProjectProvider = ({
         saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
+        referenceEditorRef,
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter,
         history,
@@ -228,6 +231,7 @@ export const ProjectProvider = ({
         <WorkspaceContext.Provider
             value={{
                 editorRef,
+                referenceEditorRef,
                 settingsManager,
                 allProjects: projects,
                 currentProjectRoute,

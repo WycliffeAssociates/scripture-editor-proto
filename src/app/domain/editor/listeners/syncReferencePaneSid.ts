@@ -10,11 +10,12 @@ import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 export function syncReferencePaneSid(
     editor: LexicalEditor,
     referenceProjectId: string | undefined,
+    isSyncEnabled: boolean,
 ) {
     return editor.registerCommand(
         SELECTION_CHANGE_COMMAND,
         () => {
-            if (!referenceProjectId) return false;
+            if (!referenceProjectId || !isSyncEnabled) return false;
             const wasHandled = false;
             const selection = $getSelection();
             if (!selection || !$isRangeSelection(selection)) return wasHandled;
@@ -34,12 +35,10 @@ export function syncReferencePaneSid(
                 `[data-sid='${sid}']`,
             );
             if (!sidInThatPanel) return wasHandled;
-            if (sidInThatPanel) {
-                // sidInThatPanel.scrollIntoView({
-                //     behavior: "smooth",
-                //     block: "start",
-                // });
-            }
+            sidInThatPanel.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
             return wasHandled;
         },
         COMMAND_PRIORITY_LOW,

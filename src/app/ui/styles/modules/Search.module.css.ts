@@ -305,6 +305,19 @@ const highlight = style({
     fontWeight: 700,
 });
 
+const activeHighlight = style({
+    backgroundColor: vars.colors.orange[4],
+    color: vars.colors.black,
+    fontWeight: 800,
+    borderRadius: vars.radius.xs,
+    selectors: {
+        [`${darkSelector} &`]: {
+            backgroundColor: vars.colors.orange[7],
+            color: vars.colors.white,
+        },
+    },
+});
+
 // Default  to mimic CSS module import
 const classes = {
     searchPanel,
@@ -339,6 +352,7 @@ const classes = {
     resultProjectLabel,
     searchIcon,
     highlight,
+    activeHighlight,
 } as const;
 
 export default classes;

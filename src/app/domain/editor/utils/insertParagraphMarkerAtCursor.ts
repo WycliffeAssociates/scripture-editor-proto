@@ -1,11 +1,11 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     $insertPara,
     type BaseInsertArgs,
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTextInsertionAnchor.ts";
 import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 
 export function insertParagraphMarkerAtCursor({
@@ -30,11 +30,15 @@ export function insertParagraphMarkerAtCursor({
         const insertionPoint = selection.isBackward()
             ? selection.focus
             : selection.anchor;
-        const anchorNode = insertionPoint.getNode();
-        if (!$isUSFMTextNode(anchorNode)) return;
+        const resolvedAnchor = resolveTextInsertionAnchor(
+            insertionPoint.getNode(),
+            insertionPoint.offset,
+        );
+        if (!resolvedAnchor) return;
+        const anchorNode = resolvedAnchor.anchorNode;
 
         const { isStartOfLine, actualAnchorNode, actualAnchorOffset } =
-            calculateIsStartOfLine(anchorNode, insertionPoint.offset, {
+            calculateIsStartOfLine(anchorNode, resolvedAnchor.anchorOffset, {
                 editor,
                 editorMode,
             });

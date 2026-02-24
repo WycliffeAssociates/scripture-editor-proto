@@ -1,13 +1,10 @@
 import { t } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
+import { Trans } from "@lingui/react/macro";
 import {
     Badge,
     Button,
-    Center,
     Grid,
     Group,
-    Loader,
-    Modal,
     Paper,
     rem,
     Text,
@@ -16,15 +13,14 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
-import { BookIcon, RotateCw, Save } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { BookIcon, RotateCw } from "lucide-react";
+import { useMemo, useRef } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
-import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 
 type HighlightedDiffProps = {
     changes: Change[];
@@ -79,38 +75,55 @@ type DiffItemProps = {
     revertDiff: (diffToRevert: ProjectDiff) => void;
     switchBookOrChapter: (fileBibleIdentifier: string, chapter: number) => void;
     toggleDiffModal: () => void;
+    showUsfmMarkers: boolean;
 };
+
+function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
+    if (showUsfmMarkers) {
+        return {
+            original: diff.originalDisplayText,
+            current: diff.currentDisplayText,
+        };
+    }
+
+    return {
+        original: diff.originalTextOnly ?? diff.originalDisplayText,
+        current: diff.currentTextOnly ?? diff.currentDisplayText,
+    };
+}
 
 function DiffItem({
     diff,
     revertDiff,
     switchBookOrChapter,
     toggleDiffModal,
+    showUsfmMarkers,
 }: DiffItemProps) {
     const { isSm, isLg } = useWorkspaceMediaQuery();
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const isAddition = diff.status === "added";
     const isDeletion = diff.status === "deleted";
     const isModification = diff.status === "modified";
+    const displayText = getDisplayTextPair(diff, showUsfmMarkers);
 
     const wordDiff = useMemo(() => {
         if (!isModification) return undefined;
 
         const shouldTrim = !diff.isWhitespaceChange;
         const originalComparisonText = shouldTrim
-            ? diff.originalDisplayText.trim()
-            : diff.originalDisplayText;
+            ? displayText.original.trim()
+            : displayText.original;
         const currentComparisonText = shouldTrim
-            ? diff.currentDisplayText.trim()
-            : diff.currentDisplayText;
+            ? displayText.current.trim()
+            : displayText.current;
         return diffWordsWithSpace(
             originalComparisonText,
             currentComparisonText,
         );
     }, [
-        diff.currentDisplayText,
         diff.isWhitespaceChange,
-        diff.originalDisplayText,
+        displayText.current,
+        displayText.original,
         isModification,
     ]);
 
@@ -223,6 +236,11 @@ function DiffItem({
                             <Trans>Whitespace Only</Trans>
                         </Badge>
                     )}
+                    {diff.isUsfmStructureChange && (
+                        <Badge variant="light" color="blue" size="sm">
+                            <Trans>USFM Structure Only</Trans>
+                        </Badge>
+                    )}
                 </Group>
             </Group>
 
@@ -233,7 +251,6 @@ function DiffItem({
                         inner: styles.diffGrid,
                     }}
                 >
-                    {/* --- ORIGINAL (LEFT) COLUMN --- */}
                     <Grid.Col>
                         <Group justify="space-between" mb="xs" mih={rem(30)}>
                             <Text className={styles.diffLabel}>
@@ -255,7 +272,7 @@ function DiffItem({
                             )}
                             {isDeletion && (
                                 <pre className={styles.diffPre}>
-                                    {diff.originalDisplayText}
+                                    {displayText.original}
                                 </pre>
                             )}
                             {isModification && wordDiff && (
@@ -268,7 +285,6 @@ function DiffItem({
                         </Paper>
                     </Grid.Col>
 
-                    {/* --- CURRENT (RIGHT) COLUMN --- */}
                     <Grid.Col>
                         <Group justify="space-between" mb="xs" mih={rem(30)}>
                             <Text className={styles.diffLabel} mb="xs">
@@ -289,7 +305,7 @@ function DiffItem({
                             )}
                             {isAddition && (
                                 <pre className={styles.diffPre}>
-                                    {diff.currentDisplayText}
+                                    {displayText.current}
                                 </pre>
                             )}
                             {isModification && wordDiff && (
@@ -303,7 +319,6 @@ function DiffItem({
                     </Grid.Col>
                 </Grid>
             ) : (
-                // Stacked vertical layout for smaller screens
                 <div className={styles.diffStacked}>
                     <div>
                         <Group justify="space-between" mb="xs">
@@ -326,7 +341,7 @@ function DiffItem({
                             )}
                             {isDeletion && (
                                 <pre className={styles.diffPre}>
-                                    {diff.originalDisplayText}
+                                    {displayText.original}
                                 </pre>
                             )}
                             {isModification && wordDiff && (
@@ -357,7 +372,7 @@ function DiffItem({
                             )}
                             {isAddition && (
                                 <pre className={styles.diffPre}>
-                                    {diff.currentDisplayText}
+                                    {displayText.current}
                                 </pre>
                             )}
                             {isModification && wordDiff && (
@@ -375,26 +390,14 @@ function DiffItem({
     );
 }
 
-// ... The rest of the file (DiffViewerModal, SaveAndReviewChanges) remains mostly unchanged
-// except for applying styles.modalScrollPaper, styles.stickyHeader etc.
-// which simply replace the style={{...}} props.
-
-type DiffViewerModalProps = {
-    isOpen: boolean;
-    onClose: () => void;
-    diffs: ProjectDiff[] | null;
-    isCalculating: boolean;
-    revertDiff: (diffToRevert: ProjectDiff) => void;
-    isSm?: boolean;
-    isXs?: boolean;
-};
-
-function VirtualizedDiffList({
+export function VirtualizedDiffList({
     diffs,
     revertDiff,
+    showUsfmMarkers,
 }: {
     diffs: ProjectDiff[];
     revertDiff: (diffToRevert: ProjectDiff) => void;
+    showUsfmMarkers: boolean;
 }) {
     const { actions } = useWorkspaceContext();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -438,6 +441,7 @@ function VirtualizedDiffList({
                             <DiffItem
                                 diff={diff}
                                 revertDiff={revertDiff}
+                                showUsfmMarkers={showUsfmMarkers}
                                 switchBookOrChapter={
                                     actions.switchBookOrChapter
                                 }
@@ -448,191 +452,5 @@ function VirtualizedDiffList({
                 })}
             </div>
         </div>
-    );
-}
-
-function DiffViewerModal({
-    isOpen,
-    onClose,
-    diffs,
-    isCalculating,
-    revertDiff,
-    isSm = false,
-    isXs = false,
-}: DiffViewerModalProps) {
-    const hasChanges = diffs && diffs.length > 0;
-    const { saveDiff } = useWorkspaceContext();
-    const [hideWhitespaceOnly, setHideWhitespaceOnly] = useState(false);
-
-    const visibleDiffs = useMemo(() => {
-        if (!diffs) return diffs;
-        if (!hideWhitespaceOnly) return diffs;
-        return diffs.filter((diff) => !diff.isWhitespaceChange);
-    }, [diffs, hideWhitespaceOnly]);
-
-    const copyDiffsJson = useCallback(async () => {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            diffs: (diffs ?? []).map((d) => ({
-                uniqueKey: d.uniqueKey,
-                semanticSid: d.semanticSid,
-                status: d.status,
-                bookCode: d.bookCode,
-                chapterNum: d.chapterNum,
-                isWhitespaceChange: d.isWhitespaceChange ?? false,
-                original: d.originalDisplayText,
-                current: d.currentDisplayText,
-            })),
-        };
-
-        try {
-            await navigator.clipboard.writeText(
-                JSON.stringify(payload, null, 2),
-            );
-        } catch (e) {
-            console.error("Failed to copy diffs JSON", e);
-        }
-    }, [diffs]);
-
-    // Responsive modal size - bigger on mobile
-    const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
-    const hasVisibleDiffs = (visibleDiffs?.length ?? 0) > 0;
-
-    return (
-        <Modal
-            opened={isOpen}
-            onClose={onClose}
-            title={t`Review Changes Before Saving`}
-            size={modalSize}
-            centered
-            classNames={{
-                header: styles.modalHeader,
-            }}
-        >
-            <Paper p={isSm ? "xs" : "sm"} className={styles.modalScrollPaper}>
-                <div
-                    data-testid={TESTING_IDS.save.modal}
-                    className={styles.stickyHeader}
-                >
-                    <Group>
-                        <Button
-                            variant="light"
-                            size="xs"
-                            onClick={saveDiff.saveProjectToDisk}
-                            className={styles.saveAllButtonMargin}
-                            data-testid={TESTING_IDS.save.saveAllButton}
-                        >
-                            <Trans>Save all changes</Trans>
-                        </Button>
-                        <Button
-                            variant={hideWhitespaceOnly ? "filled" : "outline"}
-                            size="xs"
-                            onClick={() =>
-                                setHideWhitespaceOnly((value) => !value)
-                            }
-                        >
-                            <Trans>Hide whitespace-only diffs</Trans>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="xs"
-                            color="red"
-                            onClick={saveDiff.handleRevertAll}
-                            data-testid={TESTING_IDS.save.revertAllButton}
-                        >
-                            <Trans>Revert all changes</Trans>
-                        </Button>
-                        {import.meta.env.DEV && hasChanges && (
-                            <Button
-                                variant="subtle"
-                                size="xs"
-                                onClick={copyDiffsJson}
-                            >
-                                <Trans>Copy diffs (JSON)</Trans>
-                            </Button>
-                        )}
-                    </Group>
-                </div>
-
-                {isCalculating && (
-                    <Center className={styles.fullHeight}>
-                        <Loader />
-                    </Center>
-                )}
-
-                {!isCalculating && !hasChanges && (
-                    <Center className={styles.fullHeight}>
-                        <Text data-testid={TESTING_IDS.save.noChangesMessage}>
-                            <Trans>No changes detected.</Trans>
-                        </Text>
-                    </Center>
-                )}
-
-                {!isCalculating && hasChanges && !hasVisibleDiffs && (
-                    <Center className={styles.fullHeight}>
-                        <Text data-testid={TESTING_IDS.save.noChangesMessage}>
-                            <Trans>No changes detected.</Trans>
-                        </Text>
-                    </Center>
-                )}
-
-                {!isCalculating && hasChanges && hasVisibleDiffs && (
-                    <VirtualizedDiffList
-                        diffs={visibleDiffs ?? []}
-                        revertDiff={revertDiff}
-                    />
-                )}
-            </Paper>
-        </Modal>
-    );
-}
-
-export function SaveAndReviewChanges() {
-    const { t } = useLingui();
-    const { saveDiff, actions } = useWorkspaceContext();
-    const { isXs, isSm } = useWorkspaceMediaQuery();
-
-    const sorted = sortListBySidCanonical(
-        saveDiff.diffs.map((diff) => ({ sid: diff.semanticSid, ...diff })),
-    );
-
-    return (
-        <>
-            <DiffViewerModal
-                isOpen={saveDiff.openDiffModal}
-                onClose={saveDiff.closeModal}
-                diffs={sorted}
-                isCalculating={saveDiff.isCalculatingDiffs}
-                revertDiff={saveDiff.handleRevert}
-                isSm={isSm}
-                isXs={isXs}
-            />
-
-            {isXs || isSm ? (
-                <Tooltip
-                    label={<Trans>Review and save changes</Trans>}
-                    withArrow
-                    position="top"
-                >
-                    <ActionIconSimple
-                        data-testid={TESTING_IDS.save.trigger}
-                        onClick={actions.toggleDiffModal}
-                        aria-label={t`Review and save changes`}
-                        title={t`Review and save changes`}
-                    >
-                        <Save size={16} />
-                    </ActionIconSimple>
-                </Tooltip>
-            ) : (
-                <Button
-                    data-testid={TESTING_IDS.save.trigger}
-                    color="primary.7"
-                    onClick={actions.toggleDiffModal}
-                    size="sm"
-                >
-                    <Trans>Review &amp; Save</Trans>
-                </Button>
-            )}
-        </>
     );
 }

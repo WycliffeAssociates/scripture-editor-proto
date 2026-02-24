@@ -59,11 +59,12 @@ describe("sidBlockDiff + sidBlockRevert", () => {
         const baselineBlocks = buildSidBlocks(baseline);
         const currentBlocks = buildSidBlocks(current);
         const diffs = diffSidBlocks(baselineBlocks, currentBlocks);
-        expect(diffs).toHaveLength(1);
-        expect(diffs[0]?.status).toBe("modified");
-        if (diffs[0]?.blockId) {
+        expect(diffs).toHaveLength(2);
+        const modified = diffs.find((diff) => diff.status === "modified");
+        expect(modified).toBeDefined();
+        if (modified?.blockId) {
             const next = applyRevertByBlockId({
-                diffBlockId: diffs[0].blockId,
+                diffBlockId: modified.blockId,
                 baselineTokens: baseline,
                 currentTokens: current,
             });

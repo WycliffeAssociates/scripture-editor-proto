@@ -16,10 +16,19 @@ export function useEditorView(editor: LexicalEditor) {
         const syncRefScrollUnregister = syncReferencePaneSid(
             editor,
             referenceProject?.referenceProjectId,
+            Boolean(
+                referenceProject?.isReferenceNavSynced &&
+                    referenceProject?.isReferenceScrollSynced,
+            ),
         );
 
         return () => {
             syncRefScrollUnregister();
         };
-    }, [editor, referenceProject?.referenceProjectId]);
+    }, [
+        editor,
+        referenceProject?.isReferenceNavSynced,
+        referenceProject?.isReferenceScrollSynced,
+        referenceProject?.referenceProjectId,
+    ]);
 }

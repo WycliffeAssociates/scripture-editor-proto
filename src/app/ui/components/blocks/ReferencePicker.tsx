@@ -13,11 +13,9 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { BookIcon, ChevronDownIcon, InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
-// Internal Imports
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-// Styles
 import * as classes from "@/app/ui/styles/modules/ReferencePicker.css.ts";
 
 type ReferencePickerFile = {
@@ -29,26 +27,47 @@ type ReferencePickerFile = {
     _bookCodeLower: string;
 };
 
-export function ReferencePicker() {
+type PickerScope = "main" | "reference";
+
+type ReferencePickerProps = {
+    scope?: PickerScope;
+    bookCode?: string;
+    chapter?: number;
+    workingFiles?: Array<{
+        title: string;
+        bookCode: string;
+        chapters: Array<{ chapNumber: number }>;
+    }>;
+    onSwitchBookOrChapter?: (bookCode: string, chapter: number) => void;
+    onGoToReference?: (input: string) => boolean;
+    disabled?: boolean;
+};
+
+export function ReferencePicker(props: ReferencePickerProps = {}) {
     const { t } = useLingui();
+    const scope = props.scope ?? "main";
     const [search, setSearch] = useState("");
     const [debouncedSearch] = useDebouncedValue(search, 200);
 
     const [open, setOpen] = useState(false);
     const { project, actions } = useWorkspaceContext();
-    const {
-        currentFileBibleIdentifier,
-        currentChapter,
-        workingFiles,
-        pickedFile,
-    } = project;
+
+    const currentFileBibleIdentifier =
+        props.bookCode ?? project.currentFileBibleIdentifier;
+    const currentChapter = props.chapter ?? project.currentChapter;
+    const workingFiles = props.workingFiles ?? project.workingFiles;
+    const switchBookOrChapter =
+        props.onSwitchBookOrChapter ?? actions.switchBookOrChapter;
+    const goToReference = props.onGoToReference ?? actions.goToReference;
+
     const { isSm } = useWorkspaceMediaQuery();
     const handleTriggerMouseDown = (e: React.MouseEvent) => {
+        if (props.disabled) return;
         e.preventDefault();
         setOpen((o) => !o);
     };
 
-    const currentBook = pickedFile?.bookCode ?? t`Select`;
+    const currentBook = currentFileBibleIdentifier ?? t`Select`;
     const currentDisplay =
         currentChapter >= 0
             ? `${currentBook} ${currentChapter === 0 ? t`Introduction` : currentChapter}`
@@ -74,6 +93,11 @@ export function ReferencePicker() {
         );
     }, [filesWithSearchMeta, debouncedSearch]);
 
+    const pickerTestId =
+        scope === "reference"
+            ? TESTING_IDS.reference.stickyPicker
+            : TESTING_IDS.referencePicker;
+
     return (
         <Popover
             opened={open}
@@ -82,8 +106,8 @@ export function ReferencePicker() {
             withArrow
             shadow="md"
             position="bottom-start"
-            data-testid={TESTING_IDS.referencePicker}
-            data-test-book-code={pickedFile?.bookCode}
+            data-testid={pickerTestId}
+            data-test-book-code={currentFileBibleIdentifier}
             data-test-current-chapter={currentChapter}
         >
             <Popover.Target>
@@ -92,6 +116,7 @@ export function ReferencePicker() {
                         aria-label={t`Open reference picker`}
                         title={currentDisplay}
                         onMouseDown={handleTriggerMouseDown}
+                        disabled={props.disabled}
                     >
                         <BookIcon size={16} />
                     </ActionIconSimple>
@@ -106,6 +131,7 @@ export function ReferencePicker() {
                             inner: classes.triggerInner,
                             label: classes.triggerLabel,
                         }}
+                        disabled={props.disabled}
                     >
                         {currentDisplay}
                     </Button>
@@ -124,9 +150,11 @@ export function ReferencePicker() {
                         uniqueFilesStartsWith={uniqueFilesStartsWith}
                         currentFileBibleIdentifier={currentFileBibleIdentifier}
                         currentChapter={currentChapter}
-                        actions={actions}
+                        switchBookOrChapter={switchBookOrChapter}
+                        goToReference={goToReference}
                         setOpen={setOpen}
                         transitionStyle={transitionStyle}
+                        disabled={props.disabled}
                     />
                 )}
             </Transition>
@@ -140,21 +168,22 @@ function ReferencePickerDropdown({
     uniqueFilesStartsWith,
     currentFileBibleIdentifier,
     currentChapter,
-    actions,
+    switchBookOrChapter,
+    goToReference,
     setOpen,
     transitionStyle,
+    disabled,
 }: {
     search: string;
     setSearch: (value: string) => void;
     uniqueFilesStartsWith: ReferencePickerFile[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
-    actions: {
-        switchBookOrChapter: (bookCode: string, chapter: number) => void;
-        goToReference: (input: string) => boolean;
-    };
+    switchBookOrChapter: (bookCode: string, chapter: number) => void;
+    goToReference: (input: string) => boolean;
     setOpen: (open: boolean) => void;
     transitionStyle: React.CSSProperties;
+    disabled?: boolean;
 }) {
     const [openBook, setOpenBook] = useState<string | null>(null);
 
@@ -167,8 +196,9 @@ function ReferencePickerDropdown({
             <ReferencePickerSearch
                 search={search}
                 setSearch={setSearch}
-                actions={actions}
+                goToReference={goToReference}
                 setOpen={setOpen}
+                disabled={disabled}
             />
             <div className={classes.booksScrollRegion}>
                 <Accordion
@@ -190,9 +220,10 @@ function ReferencePickerDropdown({
                                 currentFileBibleIdentifier
                             }
                             currentChapter={currentChapter}
-                            actions={actions}
+                            switchBookOrChapter={switchBookOrChapter}
                             setOpen={setOpen}
                             isOpen={openBook === (file.title || file.bookCode)}
+                            disabled={disabled}
                         />
                     ))}
                 </Accordion>
@@ -204,21 +235,22 @@ function ReferencePickerDropdown({
 function ReferencePickerSearch({
     search,
     setSearch,
-    actions,
+    goToReference,
     setOpen,
+    disabled,
 }: {
     search: string;
     setSearch: (value: string) => void;
-    actions: {
-        goToReference: (input: string) => boolean;
-    };
+    goToReference: (input: string) => boolean;
     setOpen: (open: boolean) => void;
+    disabled?: boolean;
 }) {
     const { t } = useLingui();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const success = actions.goToReference(search);
+        if (disabled) return;
+        const success = goToReference(search);
         if (success) {
             setOpen(false);
         }
@@ -236,6 +268,7 @@ function ReferencePickerSearch({
                 px="sm"
                 py="xs"
                 className={classes.searchInput}
+                disabled={disabled}
             />
         </form>
     );
@@ -245,19 +278,18 @@ function BookAccordionItem({
     file,
     currentFileBibleIdentifier,
     currentChapter,
-    actions,
+    switchBookOrChapter,
     setOpen,
     isOpen,
+    disabled,
 }: {
     file: ReferencePickerFile;
     currentFileBibleIdentifier: string;
     currentChapter: number;
-    actions: {
-        switchBookOrChapter: (bookCode: string, chapter: number) => void;
-        goToReference: (input: string) => boolean;
-    };
+    switchBookOrChapter: (bookCode: string, chapter: number) => void;
     setOpen: (open: boolean) => void;
     isOpen: boolean;
+    disabled?: boolean;
 }) {
     const { t } = useLingui();
     const fileTitle = file.title || file.bookCode;
@@ -270,6 +302,7 @@ function BookAccordionItem({
                 className={
                     isCurrentBook ? classes.activeBookControl : undefined
                 }
+                disabled={disabled}
             >
                 <span
                     data-test-id-specific={TEST_ID_GENERATORS.bookTitle(
@@ -309,8 +342,9 @@ function BookAccordionItem({
                                             : undefined
                                     }
                                     style={{ width: "3rem", height: "3rem" }}
+                                    disabled={disabled}
                                     onClick={() => {
-                                        actions.switchBookOrChapter(
+                                        switchBookOrChapter(
                                             file.bookCode,
                                             chap.chapNumber,
                                         );

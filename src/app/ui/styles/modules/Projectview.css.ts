@@ -205,3 +205,27 @@ export const referenceColumn = style({
     borderLeft: `1px solid ${vars.colors.gray[2]}`,
     backgroundColor: vars.colors.body,
 });
+
+export const referenceStickyNav = style({
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+    padding: "0.5rem",
+    display: "flex",
+    borderBottom: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.body,
+});
+
+export const referenceStickyNavRow = style({
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    flexWrap: "wrap",
+});
+
+export const referenceSyncToggleRow = style({
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    flexWrap: "wrap",
+});

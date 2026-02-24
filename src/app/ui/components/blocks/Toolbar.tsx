@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal.tsx";
+import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal/DiffModal.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { MatchFormattingSuggestionsPanel } from "@/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";

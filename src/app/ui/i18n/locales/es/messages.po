@@ -13,26 +13,22 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:230
-#: src/app/ui/components/blocks/Toolbar.tsx:303
+#: src/app/ui/components/blocks/Toolbar.tsx:416
+#: src/app/ui/components/blocks/Toolbar.tsx:501
 msgid "(Current)"
 msgstr "(Actual)"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:238
-#: src/app/ui/components/blocks/DiffModal.tsx:299
+#: src/app/ui/components/blocks/DiffModal.tsx:253
+#: src/app/ui/components/blocks/DiffModal.tsx:324
 msgid "(New verse)"
 msgstr "(Verso nuevo)"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:267
-#: src/app/ui/components/blocks/DiffModal.tsx:325
+#: src/app/ui/components/blocks/DiffModal.tsx:287
+#: src/app/ui/components/blocks/DiffModal.tsx:355
 msgid "(Verse deleted)"
 msgstr "(Verso eliminado)"
 
 #. placeholder {0}: isDownloading ? "Adding..." : "Add"
-#. placeholder {0}: props.label
-#. placeholder {0}: props.placeholder
-#: src/app/ui/components/import/AutoCompleteInput.tsx:132
-#: src/app/ui/components/import/AutoCompleteInput.tsx:139
 #: src/app/ui/components/import/LanguageApiImporter.tsx:269
 msgid "{0}"
 msgstr "{0}"
@@ -50,10 +46,24 @@ msgstr "<0>Cargando...</0>"
 msgid "Add project"
 msgstr "Agregar proyecto"
 
+#. placeholder {0}: notificationTarget.count
+#: src/app/ui/hooks/useCustomHistory.ts:399
+msgid "Affected {0} chapters"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:72
+msgid "All search results"
+msgstr ""
+
 #: src/app/routes/scaffold.tsx:99
 #: src/app/routes/scaffold.tsx:107
 msgid "An unknown error occurred"
 msgstr "Ocurrió un error desconocido"
+
+#. placeholder {0}: err.msgKey
+#: src/app/ui/hooks/useLintFixing.tsx:81
+msgid "Apply Autofix ({0})"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:202
 msgid "Are you sure you want to delete the project:"
@@ -63,8 +73,12 @@ msgstr "¿Estás seguro de que deseas eliminar el proyecto:"
 msgid "Author"
 msgstr "Autor"
 
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:347
+msgid "Auto-open when new suggestions are found"
+msgstr ""
+
 #. placeholder {0}: err.msgKey
-#: src/app/ui/hooks/useLintFixing.tsx:102
+#: src/app/ui/hooks/useLintFixing.tsx:124
 msgid "Autofix applied for {0}"
 msgstr "Corrección automática aplicada para {0}"
 
@@ -72,29 +86,30 @@ msgstr "Corrección automática aplicada para {0}"
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:191
+#: src/app/ui/hooks/usePrettifyOperations.tsx:227
 msgid "Book Formatted"
 msgstr "Libro formateado"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:189
 #: src/app/ui/components/blocks/ProjectRow.tsx:212
+#: src/app/ui/components/blocks/Toolbar.tsx:295
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: src/app/ui/components/blocks/Search.tsx:182
+#: src/app/ui/components/blocks/Search.tsx:455
 msgid "Case mismatches first"
 msgstr "Desajustes de mayúsculas primero"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:127
+#: src/app/ui/hooks/usePrettifyOperations.tsx:158
 msgid "Chapter Formatted"
 msgstr "Capítulo formateado"
 
 #: src/app/ui/components/import/AutoCompleteInput.tsx:174
-msgid "Clear"
-msgstr "Limpiar"
+#~ msgid "Clear"
+#~ msgstr "Limpiar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:203
-#: src/app/ui/components/blocks/Toolbar.tsx:276
+#: src/app/ui/components/blocks/Toolbar.tsx:376
+#: src/app/ui/components/blocks/Toolbar.tsx:463
 msgid "Clear Reference Project"
 msgstr "Limpiar proyecto de referencia"
 
@@ -102,7 +117,11 @@ msgstr "Limpiar proyecto de referencia"
 msgid "Clear search"
 msgstr "Limpiar búsqueda"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:509
+#: src/app/ui/components/blocks/Search.tsx:550
+msgid "Close search"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:551
 msgid "Copy diffs (JSON)"
 msgstr "Copiar diferencias (JSON)"
 
@@ -110,26 +129,30 @@ msgstr "Copiar diferencias (JSON)"
 #~ msgid "Create a new project"
 #~ msgstr "Crear un nuevo proyecto"
 
-#: src/app/routes/index.tsx:104
+#: src/app/routes/index.tsx:103
 msgid "Create a project by searching for a repository, uploading a folder, or selecting a ZIP file."
 msgstr "Crea un proyecto buscando un repositorio, subiendo una carpeta o seleccionando un archivo ZIP."
 
-#: src/app/routes/index.tsx:113
+#: src/app/routes/index.tsx:112
 msgid "Create your first project"
 msgstr "Crea tu primer proyecto"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:258
-#: src/app/ui/components/blocks/DiffModal.tsx:317
+#: src/app/ui/components/blocks/DiffModal.tsx:275
+#: src/app/ui/components/blocks/DiffModal.tsx:344
 msgid "Current"
 msgstr "Actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:125
+#: src/app/ui/components/blocks/Toolbar.tsx:148
 msgid "Current Book"
 msgstr "Libro actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:119
+#: src/app/ui/components/blocks/Toolbar.tsx:147
 msgid "Current Chapter"
 msgstr "Capítulo actual"
+
+#: src/app/ui/components/blocks/Search.tsx:577
+msgid "Current project"
+msgstr ""
 
 #: src/app/routes/index.tsx:201
 #~ msgid "Current Projects"
@@ -150,6 +173,26 @@ msgstr "Eliminar proyecto"
 #: src/app/routes/create.tsx:105
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
+
+#: src/app/ui/components/blocks/Search.tsx:289
+#: src/app/ui/components/blocks/Search.tsx:307
+msgid "Disable match case"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:400
+#: src/app/ui/components/blocks/Search.tsx:430
+msgid "Disable search reference"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:361
+#: src/app/ui/components/blocks/Search.tsx:383
+msgid "Disable USFM markers"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:323
+#: src/app/ui/components/blocks/Search.tsx:345
+msgid "Disable whole word"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:55
 msgid "Display"
@@ -175,12 +218,16 @@ msgstr "Descargando repositorio..."
 msgid "Downloading scaffold ZIP..."
 msgstr "Descargando ZIP de andamiaje..."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:54
-#: src/app/ui/components/blocks/Toolbar.tsx:55
+#: src/app/ui/hooks/useCustomHistory.ts:491
+msgid "Edit"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:75
+#: src/app/ui/components/blocks/Toolbar.tsx:80
 msgid "Edit mode"
 msgstr "Modo de edición"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:48
+#: src/app/ui/components/blocks/Toolbar.tsx:66
 msgid "Edit mode (click for view-only)"
 msgstr "Modo de edición (haz clic para ver solo)"
 
@@ -196,14 +243,13 @@ msgstr "{label} vacío. Escribe para añadir texto o presiona Enter para inserta
 msgid "English"
 msgstr "Inglés"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:131
+#: src/app/ui/components/blocks/Toolbar.tsx:149
 msgid "Entire Project"
 msgstr "Proyecto completo"
 
-#. placeholder {0}: props.errorMessage || t`Failed to fetch suggestions.`
 #: src/app/ui/components/import/AutoCompleteInput.tsx:187
-msgid "Error: {0}"
-msgstr "Error: {0}"
+#~ msgid "Error: {0}"
+#~ msgstr "Error: {0}"
 
 #: src/app/data/settings.ts:16
 msgid "Español"
@@ -214,8 +260,8 @@ msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
 #: src/app/ui/components/import/AutoCompleteInput.tsx:190
-msgid "Failed to fetch suggestions."
-msgstr "No se pudieron obtener sugerencias."
+#~ msgid "Failed to fetch suggestions."
+#~ msgstr "No se pudieron obtener sugerencias."
 
 #: src/app/routes/create.tsx:115
 msgid "Failed to import directory"
@@ -229,7 +275,7 @@ msgstr "No se pudo importar el archivo"
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
-#: src/app/ui/hooks/useLintFixing.tsx:101
+#: src/app/ui/hooks/useLintFixing.tsx:123
 msgid "Fix Applied"
 msgstr "Corrección aplicada"
 
@@ -237,13 +283,50 @@ msgstr "Corrección aplicada"
 msgid "Folder"
 msgstr "Carpeta"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:90
-#: src/app/ui/hooks/useFormatMatching.tsx:174
-#: src/app/ui/hooks/useFormatMatching.tsx:263
+#: src/app/ui/hooks/usePrettifyOperations.tsx:176
+msgid "Format Book ({targetBookCode})"
+msgstr ""
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:114
+msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:188
+#: src/app/ui/hooks/usePrettifyOperations.tsx:246
+msgid "Format Project"
+msgstr "Formatear proyecto"
+
+#. placeholder {0}: file.title || file.bookCode
+#: src/app/ui/hooks/usePrettifyOperations.tsx:228
+msgid "Formatted {0}"
+msgstr "Formateado {0}"
+
+#. placeholder {0}: file.title || file.bookCode
+#: src/app/ui/hooks/usePrettifyOperations.tsx:159
+msgid "Formatted {0} {targetChapterNumber}"
+msgstr "Formateado {0} {targetChapterNumber}"
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:330
+msgid "Formatted {modifiedBooksCount} book(s)"
+msgstr "Se formatearon {modifiedBooksCount} libro(s)"
+
+#: src/app/ui/hooks/useFormatMatching.tsx:233
+#: src/app/ui/hooks/useFormatMatching.tsx:317
+#: src/app/ui/hooks/useFormatMatching.tsx:420
 msgid "Formatting Matched"
 msgstr "Formato igualado"
 
-#: src/app/ui/components/blocks/Search.tsx:153
+#: src/app/ui/hooks/usePrettifyOperations.tsx:239
+#: src/app/ui/hooks/usePrettifyOperations.tsx:257
+msgid "Formatting Project"
+msgstr "Formateando proyecto"
+
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:250
+msgid "Formatting Suggestion"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:255
+#: src/app/ui/components/blocks/Search.tsx:278
 msgid "Group case mismatches"
 msgstr "Agrupar desajustes de mayúsculas"
 
@@ -251,7 +334,7 @@ msgstr "Agrupar desajustes de mayúsculas"
 #~ msgid "Hello \"/create\"!"
 #~ msgstr "¡Hola \"/create\"!"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:496
+#: src/app/ui/components/blocks/DiffModal.tsx:534
 msgid "Hide whitespace-only diffs"
 msgstr "Ocultar diferencias solo de espacios en blanco"
 
@@ -273,9 +356,15 @@ msgstr "Importando directorio..."
 msgid "Importing file..."
 msgstr "Importando archivo..."
 
-#: src/app/ui/components/blocks/Search.tsx:239
+#: src/app/ui/components/blocks/Search.tsx:362
+#: src/app/ui/components/blocks/Search.tsx:384
 msgid "Include USFM markers"
 msgstr "Incluir marcadores USFM"
+
+#. placeholder {0}: current.marker
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:305
+msgid "Insert \\{0} Here"
+msgstr ""
 
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:10
 msgid "Intentional Line Break"
@@ -289,20 +378,24 @@ msgstr "Localización de la interfaz"
 msgid "Intro"
 msgstr "Introducción"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:52
+#: src/app/ui/components/blocks/ReferencePicker.tsx:54
+#: src/app/ui/components/blocks/Search.tsx:527
 #: src/app/ui/components/views/ProjectView.tsx:159
 #: src/app/ui/components/views/ProjectView.tsx:233
-#: src/app/ui/components/views/ProjectView.tsx:266
-#: src/app/ui/hooks/useNavigation.tsx:99
-#: src/app/ui/hooks/useNavigation.tsx:134
+#: src/app/ui/components/views/ProjectView.tsx:269
+#: src/app/ui/hooks/useNavigation.tsx:98
+#: src/app/ui/hooks/useNavigation.tsx:133
 msgid "Introduction"
 msgstr "Introducción"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:142
+msgid "Keep all target paragraph markers"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:88
 msgid "Light"
 msgstr "Claro"
 
-#: src/app/ui/components/import/AutoCompleteInput.tsx:181
 #: src/app/ui/components/import/LanguageApiImporter.tsx:186
 msgid "Loading..."
 msgstr "Cargando..."
@@ -315,13 +408,34 @@ msgstr "Margen"
 msgid "Marker"
 msgstr "Marcador"
 
-#: src/app/ui/components/blocks/Search.tsx:213
-msgid "Match Case"
-msgstr "Coincidir mayúsculas/minúsculas"
+#: src/app/ui/components/blocks/Search.tsx:540
+msgid "Match {chapterMatchNumber} of {chapterTotalMatches} in {activeBookTitle} {chapterLabel}"
+msgstr ""
 
-#: src/app/ui/components/blocks/Toolbar.tsx:114
+#: src/app/ui/components/blocks/Search.tsx:290
+#: src/app/ui/components/blocks/Search.tsx:308
+msgid "Match case"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:213
+#~ msgid "Match Case"
+#~ msgstr "Coincidir mayúsculas/minúsculas"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:223
 msgid "Match Formatting"
 msgstr "Coincidir formato"
+
+#: src/app/ui/hooks/useFormatMatching.tsx:256
+msgid "Match Formatting (Book {currentFileBibleIdentifier})"
+msgstr ""
+
+#: src/app/ui/hooks/useFormatMatching.tsx:188
+msgid "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
+msgstr ""
+
+#: src/app/ui/hooks/useFormatMatching.tsx:336
+msgid "Match Formatting (Project)"
+msgstr ""
 
 #: src/app/ui/components/blocks/Toolbar.tsx:108
 #: src/app/ui/components/blocks/Toolbar.tsx:113
@@ -329,32 +443,49 @@ msgstr "Coincidir formato"
 #~ msgid "Match Formatting to Source"
 #~ msgstr "Igualar formato al origen"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:264
+#: src/app/ui/components/blocks/Toolbar.tsx:199
+msgid "Match Formatting..."
+msgstr ""
+
+#: src/app/ui/hooks/useFormatMatching.tsx:421
 msgid "Matched formatting across {modifiedBooksCount} books"
 msgstr "Formato igualado en {modifiedBooksCount} libros"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatMatching.tsx:175
+#: src/app/ui/hooks/useFormatMatching.tsx:318
 msgid "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 msgstr "Formato igualado para {modifiedChaptersCount} capítulos en {0}"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:91
+#: src/app/ui/hooks/useFormatMatching.tsx:234
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Formato igualado para el capítulo {currentChapter}"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:87
-#: src/app/ui/components/blocks/Toolbar.tsx:88
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:261
+msgid "Minimize suggestions"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:167
+#: src/app/ui/components/blocks/Toolbar.tsx:168
 msgid "More actions"
 msgstr "Más acciones"
 
 #: src/app/routes/create.tsx:182
-#: src/app/routes/index.tsx:81
+#: src/app/routes/index.tsx:80
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
 msgstr "Nuevo proyecto"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:524
-#: src/app/ui/components/blocks/DiffModal.tsx:532
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:335
+msgid "Next"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:222
+#: src/app/ui/components/blocks/Search.tsx:237
+msgid "Next result"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:566
+#: src/app/ui/components/blocks/DiffModal.tsx:574
 msgid "No changes detected."
 msgstr "No se detectaron cambios."
 
@@ -362,12 +493,12 @@ msgstr "No se detectaron cambios."
 msgid "No matching projects"
 msgstr "No se encontraron proyectos coincidentes"
 
-#: src/app/routes/index.tsx:101
+#: src/app/routes/index.tsx:100
 msgid "No projects yet"
 msgstr "No hay proyectos aún"
 
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/blocks/Search.tsx:337
+#: src/app/ui/components/blocks/Search.tsx:648
 msgid "No results found for <0>{0}</0>"
 msgstr "No se encontraron resultados para <0>{0}</0>"
 
@@ -375,34 +506,34 @@ msgstr "No se encontraron resultados para <0>{0}</0>"
 msgid "Normal — shows only the bible text and verse numbers."
 msgstr "Normal — muestra solo el texto bíblico y los números de versículo."
 
-#: src/app/ui/hooks/useFormatOperations.tsx:101
-#: src/app/ui/hooks/useFormatOperations.tsx:162
-#: src/app/ui/hooks/useFormatOperations.tsx:248
+#: src/app/ui/hooks/usePrettifyOperations.tsx:132
+#: src/app/ui/hooks/usePrettifyOperations.tsx:198
+#: src/app/ui/hooks/usePrettifyOperations.tsx:298
 msgid "Nothing changed"
 msgstr "Nada cambió"
 
-#: src/app/routes/index.tsx:68
+#: src/app/routes/index.tsx:67
 msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:37
+#: src/app/ui/components/blocks/Toolbar.tsx:55
 msgid "Open project drawer"
 msgstr "Abrir el desplegable de proyectos"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:90
+#: src/app/ui/components/blocks/ReferencePicker.tsx:92
 msgid "Open reference picker"
 msgstr "Abrir selector de referencia"
 
 #: src/app/ui/components/blocks/Search.tsx:206
-msgid "Options"
-msgstr "Opciones"
+#~ msgid "Options"
+#~ msgstr "Opciones"
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:74
 #~ msgid "Or select a ZIP file"
 #~ msgstr "O selecciona un archivo ZIP"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:228
-#: src/app/ui/components/blocks/DiffModal.tsx:289
+#: src/app/ui/components/blocks/DiffModal.tsx:240
+#: src/app/ui/components/blocks/DiffModal.tsx:311
 msgid "Original"
 msgstr "Original"
 
@@ -435,36 +566,22 @@ msgstr "Poesía 3"
 msgid "Poetry 4"
 msgstr "Poesía 4"
 
-#. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatOperations.tsx:192
-msgid "Formatted {0}"
-msgstr "Formateado {0}"
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:315
+msgid "Prev"
+msgstr ""
 
-#. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatOperations.tsx:128
-msgid "Formatted {0} {targetChapterNumber}"
-msgstr "Formateado {0} {targetChapterNumber}"
-
-#: src/app/ui/hooks/useFormatOperations.tsx:280
-msgid "Formatted {modifiedBooksCount} book(s)"
-msgstr "Se formatearon {modifiedBooksCount} libro(s)"
-
-#: src/app/ui/components/blocks/Toolbar.tsx:108
-msgid "Format Project"
-msgstr "Formatear proyecto"
-
-#: src/app/ui/hooks/useFormatOperations.tsx:201
-#: src/app/ui/hooks/useFormatOperations.tsx:213
-msgid "Formatting Project"
-msgstr "Formateando proyecto"
+#: src/app/ui/components/blocks/Search.tsx:195
+#: src/app/ui/components/blocks/Search.tsx:210
+msgid "Previous result"
+msgstr ""
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/useFormatOperations.tsx:214
+#: src/app/ui/hooks/usePrettifyOperations.tsx:258
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Procesando {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/useFormatOperations.tsx:202
+#: src/app/ui/hooks/usePrettifyOperations.tsx:240
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Procesando libro 1 de {totalBooks}..."
 
@@ -484,30 +601,60 @@ msgstr "Nombre visible del proyecto"
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:279
+#: src/app/ui/hooks/usePrettifyOperations.tsx:329
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
 #: src/app/routes/create.tsx:179
-#: src/app/routes/index.tsx:65
+#: src/app/routes/index.tsx:64
 #: src/app/ui/components/blocks/AppDrawer.tsx:32
 msgid "Projects"
 msgstr "Proyectos"
+
+#. placeholder {0}: current.verse
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:269
+msgid "Put cursor in verse #{0} to place this marker near your translation:"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:143
+msgid "Recommended (keep in-verse + poetry markers)"
+msgstr ""
+
+#. placeholder {0}: notificationTarget.chapter.chapterNum
+#: src/app/ui/hooks/useCustomHistory.ts:388
+msgid "Redid last edit in {bookName} {0}"
+msgstr ""
+
+#: src/app/ui/hooks/useCustomHistory.ts:398
+msgid "Redid: {label}"
+msgstr ""
+
+#: src/app/ui/components/primitives/HistoryButton.tsx:23
+msgid "Redo"
+msgstr ""
+
+#: src/app/ui/components/primitives/HistoryButton.tsx:24
+msgid "Redo — {next}"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:585
+msgid "Reference project"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:66
 msgid "Regular"
 msgstr "Regular"
 
-#: src/app/ui/components/blocks/Search.tsx:152
+#: src/app/ui/components/blocks/Search.tsx:254
+#: src/app/ui/components/blocks/Search.tsx:277
 msgid "Remove sort"
 msgstr "Quitar orden"
 
-#: src/app/ui/components/blocks/Search.tsx:252
-#: src/app/ui/components/blocks/Search.tsx:274
+#: src/app/ui/components/blocks/Search.tsx:488
 msgid "Replace"
 msgstr "Reemplazar"
 
-#: src/app/ui/components/blocks/Search.tsx:285
+#: src/app/ui/components/blocks/Search.tsx:474
 msgid "Replace all in this chapter"
 msgstr "Reemplazar todo en este capítulo"
 
@@ -515,7 +662,7 @@ msgstr "Reemplazar todo en este capítulo"
 #~ msgid "Replace With:"
 #~ msgstr "Reemplazar con:"
 
-#: src/app/ui/components/blocks/Search.tsx:263
+#: src/app/ui/components/blocks/Search.tsx:176
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
@@ -523,23 +670,36 @@ msgstr "Reemplazar con..."
 msgid "Resource"
 msgstr "Recurso"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:505
+#: src/app/ui/components/blocks/DiffModal.tsx:543
 msgid "Revert all changes"
 msgstr "Revertir todos los cambios"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:591
+#: src/app/ui/components/blocks/DiffModal.tsx:633
 msgid "Review & Save"
 msgstr "Revisar y guardar"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:571
-#: src/app/ui/components/blocks/DiffModal.tsx:578
-#: src/app/ui/components/blocks/DiffModal.tsx:579
+#: src/app/ui/components/blocks/DiffModal.tsx:613
+#: src/app/ui/components/blocks/DiffModal.tsx:620
+#: src/app/ui/components/blocks/DiffModal.tsx:621
 msgid "Review and save changes"
 msgstr "Revisar y guardar cambios"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:469
+#: src/app/ui/components/blocks/DiffModal.tsx:505
 msgid "Review Changes Before Saving"
 msgstr "Revisar cambios antes de guardar"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:210
+msgid "Review Suggestions ({suggestionCount})"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:302
+msgid "Run"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:136
+#: src/app/ui/components/blocks/Search.tsx:147
+msgid "Run search"
+msgstr ""
 
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:32
 msgid "S5 chunk marker"
@@ -549,7 +709,7 @@ msgstr "Marcador de fragmento S5"
 msgid "Save"
 msgstr "Guardar"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:489
+#: src/app/ui/components/blocks/DiffModal.tsx:525
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
@@ -573,12 +733,21 @@ msgstr "Proyecto de andamiaje"
 msgid "Scaffold project created successfully! We will now navigate to the project."
 msgstr "¡Proyecto de andamiaje creado con éxito! Ahora navegaremos al proyecto."
 
-#: src/app/ui/components/blocks/Search.tsx:50
-#: src/app/ui/components/blocks/Search.tsx:111
+#: src/app/ui/components/blocks/Toolbar.tsx:237
+msgid "Scope"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:52
+#: src/app/ui/components/blocks/Search.tsx:127
+#: src/app/ui/components/blocks/Search.tsx:534
+#: src/app/ui/components/blocks/SearchTrigger.tsx:26
+#: src/app/ui/components/blocks/SearchTrigger.tsx:31
+#: src/app/ui/components/blocks/SearchTrigger.tsx:53
+#: src/app/ui/components/blocks/SearchTrigger.tsx:58
 msgid "Search"
 msgstr "Buscar"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:232
+#: src/app/ui/components/blocks/ReferencePicker.tsx:234
 msgid "Search (e.g. Mat 9, 1Co 1)"
 msgstr "Buscar (p. ej., Mat 9, 1Co 1)"
 
@@ -606,8 +775,13 @@ msgstr "Buscar proyectos"
 msgid "Search Projects"
 msgstr "Buscar proyectos"
 
+#: src/app/ui/components/blocks/Search.tsx:401
+#: src/app/ui/components/blocks/Search.tsx:431
+msgid "Search reference"
+msgstr ""
+
 #. placeholder {0}: search.searchTerm
-#: src/app/ui/components/blocks/Search.tsx:328
+#: src/app/ui/components/blocks/Search.tsx:639
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
 
@@ -615,21 +789,37 @@ msgstr "Buscando <0>{0}</0>..."
 msgid "Section Title"
 msgstr "Título de sección"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:49
+#: src/app/ui/components/blocks/ReferencePicker.tsx:51
 msgid "Select"
 msgstr "Seleccionar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:184
+#: src/app/ui/components/blocks/Toolbar.tsx:357
 msgid "Select reference project"
 msgstr "Seleccionar proyecto de referencia"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:172
+#: src/app/ui/components/blocks/Toolbar.tsx:345
 msgid "Select Reference Project"
 msgstr "Seleccionar proyecto de referencia"
 
 #: src/app/ui/components/blocks/AppDrawer.tsx:49
 msgid "Settings"
 msgstr "Ajustes"
+
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:339
+msgid "Skip removes this suggestion from this session. Next keeps it and moves forward."
+msgstr ""
+
+#: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:327
+msgid "Skip Suggestion"
+msgstr ""
+
+#: src/app/ui/components/blocks/Search.tsx:794
+msgid "SRC"
+msgstr ""
+
+#: src/app/ui/components/blocks/Toolbar.tsx:141
+msgid "Strip all target paragraph markers"
+msgstr ""
 
 #: src/app/routes/create.tsx:66
 #: src/app/routes/create.tsx:106
@@ -638,32 +828,40 @@ msgstr "Ajustes"
 msgid "Success"
 msgstr "Éxito"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:149
-#: src/app/ui/components/blocks/DiffModal.tsx:156
-#: src/app/ui/components/blocks/DiffModal.tsx:157
-#: src/app/ui/components/blocks/DiffModal.tsx:181
+#: src/app/ui/components/blocks/DiffModal.tsx:154
+#: src/app/ui/components/blocks/DiffModal.tsx:161
+#: src/app/ui/components/blocks/DiffModal.tsx:162
+#: src/app/ui/components/blocks/DiffModal.tsx:190
 msgid "Switch to this chapter"
 msgstr "Cambiar a este capítulo"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:263
+msgid "Target Marker Handling"
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx:104
 msgid "Text size"
 msgstr "Tamaño del texto"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:163
+#: src/app/ui/components/blocks/Search.tsx:795
+msgid "TGT"
+msgstr ""
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:199
 msgid "This book is already formatted"
 msgstr "Este libro ya está formateado"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:102
+#: src/app/ui/hooks/usePrettifyOperations.tsx:133
 msgid "This chapter is already formatted"
 msgstr "Este capítulo ya está formateado"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:320
-#: src/app/ui/components/views/ProjectView.tsx:244
-#: src/app/ui/components/views/ProjectView.tsx:277
+#: src/app/ui/components/blocks/ReferencePicker.tsx:322
+#: src/app/ui/components/views/ProjectView.tsx:247
+#: src/app/ui/components/views/ProjectView.tsx:283
 msgid "This is introductory material for this book"
 msgstr "Este es material introductorio para este libro"
 
-#: src/app/ui/hooks/useFormatOperations.tsx:249
+#: src/app/ui/hooks/usePrettifyOperations.tsx:299
 msgid "This project is already formatted"
 msgstr "Este proyecto ya está formateado"
 
@@ -671,7 +869,7 @@ msgstr "Este proyecto ya está formateado"
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "Esto eliminará archivos del disco y borrará los metadatos del proyecto de la base de datos local."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:95
+#: src/app/ui/components/blocks/Toolbar.tsx:175
 msgid "Tools"
 msgstr "Herramientas"
 
@@ -679,10 +877,27 @@ msgstr "Herramientas"
 #~ msgid "Type to search for a language..."
 #~ msgstr "Escribe para buscar un idioma..."
 
-#: src/app/ui/components/blocks/DiffModal.tsx:162
-#: src/app/ui/components/blocks/DiffModal.tsx:166
-#: src/app/ui/components/blocks/DiffModal.tsx:167
-#: src/app/ui/components/blocks/DiffModal.tsx:189
+#. placeholder {0}: notificationTarget.chapter.chapterNum
+#: src/app/ui/hooks/useCustomHistory.ts:387
+msgid "Undid last edit in {bookName} {0}"
+msgstr ""
+
+#: src/app/ui/hooks/useCustomHistory.ts:397
+msgid "Undid: {label}"
+msgstr ""
+
+#: src/app/ui/components/primitives/HistoryButton.tsx:16
+msgid "Undo"
+msgstr ""
+
+#: src/app/ui/components/primitives/HistoryButton.tsx:17
+msgid "Undo — {next}"
+msgstr ""
+
+#: src/app/ui/components/blocks/DiffModal.tsx:168
+#: src/app/ui/components/blocks/DiffModal.tsx:175
+#: src/app/ui/components/blocks/DiffModal.tsx:176
+#: src/app/ui/components/blocks/DiffModal.tsx:198
 msgid "Undo Change"
 msgstr "Deshacer cambio"
 
@@ -698,7 +913,7 @@ msgstr "USFM"
 msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 msgstr "USFM — muestra metadatos especiales (como marcadores de capítulo y verso) y permite editarlos."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:75
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:87
 msgid "USFM Editor"
 msgstr "Editor USFM"
 
@@ -710,12 +925,12 @@ msgstr "Ver"
 msgid "View — read-only, regular layout with markers hidden."
 msgstr "Ver — solo lectura, diseño regular con marcadores ocultos."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:54
-#: src/app/ui/components/blocks/Toolbar.tsx:55
+#: src/app/ui/components/blocks/Toolbar.tsx:74
+#: src/app/ui/components/blocks/Toolbar.tsx:79
 msgid "View-only mode"
 msgstr "Modo solo lectura"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:47
+#: src/app/ui/components/blocks/Toolbar.tsx:65
 msgid "View-only mode (click to edit)"
 msgstr "Modo solo lectura (haz clic para editar)"
 
@@ -723,13 +938,22 @@ msgstr "Modo solo lectura (haz clic para editar)"
 msgid "WACS ZIP URL"
 msgstr "URL del ZIP de WACS"
 
-#: src/app/ui/components/blocks/DiffModal.tsx:211
+#: src/app/ui/components/blocks/DiffModal.tsx:223
 msgid "Whitespace Only"
 msgstr "Solo espacios en blanco"
 
+#: src/app/ui/components/blocks/Search.tsx:324
+#: src/app/ui/components/blocks/Search.tsx:346
+msgid "Whole word"
+msgstr ""
+
 #: src/app/ui/components/blocks/Search.tsx:226
-msgid "Whole Word"
-msgstr "Palabra completa"
+#~ msgid "Whole Word"
+#~ msgstr "Palabra completa"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:229
+msgid "Works best when your verse markers are already finalized."
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:64
 msgid "ZIP"

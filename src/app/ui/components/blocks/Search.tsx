@@ -684,6 +684,9 @@ function SearchResults({
                         ? search.pickedResult === groupedItem.sourceResult ||
                           search.pickedResult === groupedItem.targetResult
                         : search.pickedResult === result;
+                    const activeOccurrenceIndex = isActive
+                        ? result.sidOccurrenceIndex
+                        : -1;
 
                     const findChunks = ({
                         searchWords,
@@ -831,6 +834,12 @@ function SearchResults({
                                                 searchWords={[
                                                     search.searchTerm,
                                                 ]}
+                                                activeIndex={
+                                                    activeOccurrenceIndex
+                                                }
+                                                activeClassName={
+                                                    searchClassNames.activeHighlight
+                                                }
                                                 textToHighlight={
                                                     groupedItem.sourceResult
                                                         .text
@@ -866,6 +875,12 @@ function SearchResults({
                                                 searchWords={[
                                                     search.searchTerm,
                                                 ]}
+                                                activeIndex={
+                                                    activeOccurrenceIndex
+                                                }
+                                                activeClassName={
+                                                    searchClassNames.activeHighlight
+                                                }
                                                 textToHighlight={
                                                     groupedItem.targetResult
                                                         ?.text ?? ""
@@ -886,6 +901,10 @@ function SearchResults({
                                         caseSensitive={search.matchCase}
                                         findChunks={findChunks}
                                         searchWords={[search.searchTerm]}
+                                        activeIndex={activeOccurrenceIndex}
+                                        activeClassName={
+                                            searchClassNames.activeHighlight
+                                        }
                                         textToHighlight={result.text}
                                         highlightClassName={
                                             searchClassNames.highlight

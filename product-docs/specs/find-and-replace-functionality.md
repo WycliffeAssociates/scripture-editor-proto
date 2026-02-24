@@ -7,6 +7,7 @@
   - Match case
   - Whole word
   - Include USFM markers in search text
+  - Searching your reference project
 - Supports replacement actions:
   - Replace current selected match
   - Replace all matches in the current chapter

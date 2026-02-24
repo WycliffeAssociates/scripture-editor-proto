@@ -55,10 +55,10 @@ export const bubbleShell = style({
 });
 
 export const bubbleLabel = style({
-    padding: `${vars.spacing.xs} ${vars.spacing.md} ${vars.spacing.xs} ${vars.spacing.lg}`,
     fontSize: vars.fontSizes.sm,
     lineHeight: 1.2,
     fontWeight: 500,
+    paddingInline: vars.spacing.xs,
     color: virtualVars.text,
     whiteSpace: "nowrap",
 });
@@ -68,7 +68,8 @@ export const bubbleAction = style({
     alignItems: "center",
     justifyContent: "center",
     width: 40,
-    height: 32,
+    height: "100%",
+    paddingBlock: vars.spacing.md,
     border: "none",
     borderLeft: `1px solid ${vars.colors.primary[5]}`,
     background: vars.colors.primary.filled,

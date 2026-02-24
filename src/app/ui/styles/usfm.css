@@ -38,12 +38,13 @@ body:not(.source-mode) {
 
 /* Number ranges (verses/chapters) */
 [data-token-type="numberRange"] {
-  color: var(--color-blue-700);
+  color: var(--mantine-color-blue-6);
+  font-weight: 600;
 }
 
 /* Text content */
 [data-token-type="text"] {
-  color: inherit;
+  color: var(--mantine-color-text);
 }
 .usfm-peek-active
   .usfm-para-container[data-is-structural-empty="true"][data-marker] {

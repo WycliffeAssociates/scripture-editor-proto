@@ -36,6 +36,7 @@ import {
     mapMarkerToInsertionType,
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTextInsertionAnchor.ts";
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
 import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
@@ -119,8 +120,12 @@ function insertMarker(
             ? selection.focus
             : selection.anchor;
 
-        const anchorNode = insertionPoint.getNode();
-        if (!$isUSFMTextNode(anchorNode)) return;
+        const resolvedAnchor = resolveTextInsertionAnchor(
+            insertionPoint.getNode(),
+            insertionPoint.offset,
+        );
+        if (!resolvedAnchor) return;
+        const anchorNode = resolvedAnchor.anchorNode;
 
         const isEndMarker = false; // Buttons usually insert start markers. End markers are implicit or specific actions?
         // If we want to support end markers via buttons, we'd need to know.
@@ -140,13 +145,13 @@ function insertMarker(
         }
 
         // For manual insertion:
-        const anchorOffset = insertionPoint.offset;
+        const anchorOffset = resolvedAnchor.anchorOffset;
 
         const {
             isStartOfLine: isStartOfLineCalculated,
             actualAnchorNode,
             actualAnchorOffset,
-        } = calculateIsStartOfLine(anchorNode as USFMTextNode, anchorOffset, {
+        } = calculateIsStartOfLine(anchorNode, anchorOffset, {
             editor,
             editorMode: context.editorMode as EditorModeSetting,
         });

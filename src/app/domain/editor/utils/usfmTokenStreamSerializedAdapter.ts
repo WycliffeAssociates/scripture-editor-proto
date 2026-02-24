@@ -3,12 +3,18 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    type ContentEditorModeSetting,
+    USFM_PARAGRAPH_NODE_TYPE,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
     groupFlatNodesIntoParagraphContainers,
+    transformToMode,
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -42,6 +48,20 @@ export type LexicalUsfmTokenStream = {
     direction: "ltr" | "rtl";
     shape: RootShape;
     wrapper?: SerializedElementNode;
+};
+
+export type LexicalDiffToken = {
+    sid: string;
+    text: string;
+    id?: string;
+    node: SerializedLexicalNode;
+};
+
+export type LexicalRenderToken = {
+    node: SerializedLexicalNode;
+    sid: string;
+    tokenType?: string;
+    marker?: string;
 };
 
 export function lexicalRootChildrenToUsfmTokenStream(
@@ -89,6 +109,104 @@ export function usfmTokenStreamToLexicalRootChildren(
     }
 
     return [wrapFlatTokensInLexicalParagraph(serializedFlat, direction)];
+}
+
+export function inferContentEditorModeFromRootChildren(
+    rootChildren: SerializedLexicalNode[],
+): "regular" | "usfm" {
+    return rootChildren.some((child) => child.type === USFM_PARAGRAPH_NODE_TYPE)
+        ? "regular"
+        : "usfm";
+}
+
+export function lexicalEditorStateToDiffTokens(
+    state: SerializedEditorState,
+): LexicalDiffToken[] {
+    const rootChildren = structuredClone(
+        state.root.children as SerializedLexicalNode[],
+    );
+    const flatNodes = materializeFlatTokensArray(rootChildren, {
+        nested: "preserve",
+    });
+
+    let lastSid = "";
+    const tokens: LexicalDiffToken[] = [];
+
+    for (const node of flatNodes) {
+        let sid: string | undefined;
+        let id: string | undefined;
+        let text = "";
+
+        if (node.type === "linebreak") {
+            sid = lastSid;
+            text = "\n";
+        } else if (isSerializedUSFMTextNode(node)) {
+            sid = node.sid ?? lastSid;
+            id = node.id;
+            text = node.text ?? "";
+        } else if (isSerializedUSFMNestedEditorNode(node)) {
+            sid = node.sid ?? lastSid;
+            id = node.id;
+            const opening = node.text ?? `\\${node.marker} `;
+            const nested = serializeToUsfmString(
+                node.editorState?.root?.children ?? [],
+            );
+            text = `${opening}${nested}`;
+        } else {
+            sid = lastSid;
+            text = "";
+        }
+
+        lastSid = sid ?? lastSid;
+        tokens.push({ sid: sid ?? "", text, id, node });
+    }
+
+    return tokens;
+}
+
+export function diffTokensToRenderTokens(
+    tokens: LexicalDiffToken[],
+): LexicalRenderToken[] {
+    return tokens.map((token) => {
+        const clonedNode = structuredClone(token.node);
+        if (isSerializedUSFMTextNode(clonedNode)) {
+            return {
+                node: clonedNode,
+                sid: token.sid,
+                tokenType: clonedNode.tokenType,
+                marker: clonedNode.marker,
+            };
+        }
+
+        return {
+            node: clonedNode,
+            sid: token.sid,
+        };
+    });
+}
+
+export function diffTokensToEditorState(args: {
+    tokens: LexicalDiffToken[];
+    direction: "ltr" | "rtl";
+    targetMode: ContentEditorModeSetting;
+}): SerializedEditorState {
+    const base: SerializedEditorState = {
+        root: {
+            children: [
+                wrapFlatTokensInLexicalParagraph(
+                    args.tokens.map((token) => token.node),
+                    args.direction,
+                ),
+            ],
+            type: "root",
+            version: 1,
+            direction: args.direction,
+            format: "start",
+            indent: 0,
+        },
+    };
+
+    return transformToMode(base, args.targetMode);
 }
 
 function lexicalNodeToPrettifyToken(

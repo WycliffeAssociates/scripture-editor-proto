@@ -6,6 +6,12 @@ export type MatchInNode = {
     end: number;
 };
 
+type EditorHighlightInput = {
+    editor: LexicalEditor;
+    matches: MatchInNode[];
+    activeMatch?: MatchInNode;
+};
+
 /**
  * Clear all CSS highlights from the DOM
  */
@@ -26,52 +32,70 @@ export function highlightMatches(
     editor: LexicalEditor,
     activeMatch?: MatchInNode,
 ): void {
+    highlightMatchesAcrossEditors([{ editor, matches, activeMatch }]);
+}
+
+export function highlightMatchesAcrossEditors(
+    inputs: EditorHighlightInput[],
+): void {
     const allMatchesHighlight = new Highlight();
     const activeMatchHighlight = new Highlight();
     let hasAllMatchRanges = false;
     let hasActiveMatchRange = false;
 
-    for (const match of matches) {
-        const domEl = editor.getElementByKey(match.node.getKey());
-        if (!domEl) continue;
+    for (const { editor, matches, activeMatch } of inputs) {
+        for (const match of matches) {
+            const domEl = editor.getElementByKey(match.node.getKey());
+            if (!domEl) continue;
 
-        const firstChild = domEl.firstChild;
-        if (!firstChild || firstChild.nodeType !== Node.TEXT_NODE) continue;
-
-        const textContent = firstChild.textContent ?? "";
-        if (match.start < 0 || match.end > textContent.length) continue;
-
-        const range = new Range();
-        range.setStart(firstChild, match.start);
-        range.setEnd(firstChild, match.end);
-        allMatchesHighlight.add(range);
-        hasAllMatchRanges = true;
-    }
-
-    if (activeMatch) {
-        const activeDomEl = editor.getElementByKey(activeMatch.node.getKey());
-        if (activeDomEl) {
-            const activeFirstChild = activeDomEl.firstChild;
-            if (
-                activeFirstChild &&
-                activeFirstChild.nodeType === Node.TEXT_NODE
-            ) {
-                const textContent = activeFirstChild.textContent ?? "";
-                if (
-                    activeMatch.start >= 0 &&
-                    activeMatch.end <= textContent.length
-                ) {
-                    // Keep a distinct highlight for the currently selected result.
-                    const activeRange = new Range();
-                    activeRange.setStart(activeFirstChild, activeMatch.start);
-                    activeRange.setEnd(activeFirstChild, activeMatch.end);
-                    activeMatchHighlight.add(activeRange);
-                    hasActiveMatchRange = true;
-                }
+            const firstChild = domEl.firstChild;
+            if (!firstChild || firstChild.nodeType !== Node.TEXT_NODE) {
+                continue;
             }
 
-            // Scroll the active match into view.
-            activeDomEl.scrollIntoView({ block: "center", behavior: "smooth" });
+            const textContent = firstChild.textContent ?? "";
+            if (match.start < 0 || match.end > textContent.length) continue;
+
+            const range = new Range();
+            range.setStart(firstChild, match.start);
+            range.setEnd(firstChild, match.end);
+            allMatchesHighlight.add(range);
+            hasAllMatchRanges = true;
+        }
+
+        if (activeMatch) {
+            const activeDomEl = editor.getElementByKey(
+                activeMatch.node.getKey(),
+            );
+            if (activeDomEl) {
+                const activeFirstChild = activeDomEl.firstChild;
+                if (
+                    activeFirstChild &&
+                    activeFirstChild.nodeType === Node.TEXT_NODE
+                ) {
+                    const textContent = activeFirstChild.textContent ?? "";
+                    if (
+                        activeMatch.start >= 0 &&
+                        activeMatch.end <= textContent.length
+                    ) {
+                        // Keep a distinct highlight for the currently selected result.
+                        const activeRange = new Range();
+                        activeRange.setStart(
+                            activeFirstChild,
+                            activeMatch.start,
+                        );
+                        activeRange.setEnd(activeFirstChild, activeMatch.end);
+                        activeMatchHighlight.add(activeRange);
+                        hasActiveMatchRange = true;
+                    }
+                }
+
+                // Scroll the active match into view.
+                activeDomEl.scrollIntoView({
+                    block: "center",
+                    behavior: "smooth",
+                });
+            }
         }
     }
 

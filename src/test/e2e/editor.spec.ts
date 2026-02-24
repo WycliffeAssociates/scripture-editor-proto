@@ -411,6 +411,7 @@ test.describe("Reference Project Selection", () => {
 
         // Verify reference editor shows the same values
         const refEditor = page.getByTestId(TESTING_IDS.refEditorContainer);
+        await expect(refEditor).toBeAttached({ timeout: 15000 });
         await expect(refEditor).toHaveAttribute(
             "data-testing-ref-bookcode",
             expectedBookCode?.toLowerCase(),
@@ -420,10 +421,85 @@ test.describe("Reference Project Selection", () => {
             expectedChapter,
         );
 
+        const referenceTab = page.getByTestId(
+            TESTING_IDS.mobile.referenceEditorTab,
+        );
+        if ((await referenceTab.count()) > 0) {
+            await referenceTab.first().click();
+        }
+
         // Reference editor should always remain read-only.
         await expect(
             refEditor.locator('[contenteditable="false"]').first(),
         ).toBeVisible();
+    });
+
+    test("reference navigation can move independently when sync navigation is off", async ({
+        editorWithTwoProjects: page,
+    }) => {
+        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+        await page
+            .getByTestId(TESTING_IDS.referenceProjectItem)
+            .filter({ hasText: "Unlocked Literal Bible" })
+            .click();
+
+        const mainPicker = page.getByTestId(TESTING_IDS.referencePicker);
+        const mainBookBefore = await mainPicker.getAttribute(
+            "data-test-book-code",
+        );
+        const mainChapterBefore = await mainPicker.getAttribute(
+            "data-test-current-chapter",
+        );
+        if (!mainBookBefore || !mainChapterBefore) {
+            throw new Error("Missing main picker location state");
+        }
+
+        const referenceTab = page.getByTestId(
+            TESTING_IDS.mobile.referenceEditorTab,
+        );
+        if ((await referenceTab.count()) > 0) {
+            await referenceTab.first().click();
+        }
+
+        await page
+            .getByTestId(TESTING_IDS.reference.syncNavigationToggle)
+            .click();
+
+        const targetReference =
+            mainBookBefore.toLowerCase() === "gen" && mainChapterBefore === "1"
+                ? "rev 1"
+                : "gen 1";
+
+        const referenceStickyPicker = page.getByTestId(
+            TESTING_IDS.reference.stickyPicker,
+        );
+        await referenceStickyPicker.click();
+
+        const stickySearchInput = page
+            .getByTestId(TESTING_IDS.reference.pickerSearchInput)
+            .last();
+        await stickySearchInput.fill(targetReference);
+        await stickySearchInput.press("Enter");
+
+        await expect(mainPicker).toHaveAttribute(
+            "data-test-book-code",
+            mainBookBefore,
+        );
+        await expect(mainPicker).toHaveAttribute(
+            "data-test-current-chapter",
+            mainChapterBefore,
+        );
+
+        const refEditor = page.getByTestId(TESTING_IDS.refEditorContainer);
+        const [targetBook, targetChapter] = targetReference.split(" ");
+        await expect(refEditor).toHaveAttribute(
+            "data-testing-ref-bookcode",
+            targetBook,
+        );
+        await expect(refEditor).toHaveAttribute(
+            "data-testing-ref-chapter",
+            targetChapter,
+        );
     });
 });
 

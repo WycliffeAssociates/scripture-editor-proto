@@ -14,6 +14,7 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import {
     clearHighlights,
     highlightMatches,
+    highlightMatchesAcrossEditors,
     type MatchInNode,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import {
@@ -32,6 +33,7 @@ type Props = {
         chapter: number,
     ) => ParsedChapter | undefined;
     editorRef: React.RefObject<LexicalEditor | null>;
+    referenceEditorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ParsedFile;
     pickedChapter?: ParsedChapter;
     history: CustomHistoryHook;
@@ -52,6 +54,7 @@ type SearchResult = {
 export type SearchSource = "target" | "reference";
 
 type SearchMatch = MatchInNode & {
+    source: SearchSource;
     sid?: string;
     sidOccurrenceIndex?: number;
 };
@@ -83,6 +86,7 @@ export function useProjectSearch({
     saveCurrentDirtyLexical,
     switchBookOrChapter,
     editorRef,
+    referenceEditorRef,
     pickedFile,
     pickedChapter,
     history,
@@ -133,10 +137,13 @@ export function useProjectSearch({
         chapter: pickedChapter?.chapNumber || 1,
     });
 
-    const collectMatchesInCurrentEditor = useCallback(
-        (activeSearchTerm: string, options: SearchRunOptionOverrides = {}) => {
-            const editor = editorRef.current;
-            if (!editor) return [];
+    const collectMatchesInEditor = useCallback(
+        (
+            editor: LexicalEditor,
+            source: SearchSource,
+            activeSearchTerm: string,
+            options: SearchRunOptionOverrides = {},
+        ) => {
             const effectiveMatchCase = options.matchCase ?? matchCase;
             const effectiveMatchWholeWord =
                 options.matchWholeWord ?? matchWholeWord;
@@ -174,6 +181,7 @@ export function useProjectSearch({
                                 node,
                                 start: match.index,
                                 end: match.index + match[0].length,
+                                source,
                                 sid,
                                 sidOccurrenceIndex,
                             });
@@ -201,6 +209,7 @@ export function useProjectSearch({
                                 node,
                                 start: index,
                                 end: index + activeSearchTerm.length,
+                                source,
                                 sid,
                                 sidOccurrenceIndex,
                             });
@@ -214,7 +223,21 @@ export function useProjectSearch({
             });
             return searchMatches;
         },
-        [editorRef, matchCase, matchWholeWord],
+        [matchCase, matchWholeWord],
+    );
+
+    const collectMatchesInCurrentEditor = useCallback(
+        (activeSearchTerm: string, options: SearchRunOptionOverrides = {}) => {
+            const editor = editorRef.current;
+            if (!editor) return [];
+            return collectMatchesInEditor(
+                editor,
+                "target",
+                activeSearchTerm,
+                options,
+            );
+        },
+        [collectMatchesInEditor, editorRef],
     );
 
     const applySort = useCallback(
@@ -313,13 +336,59 @@ export function useProjectSearch({
             if (!newChapterState) return;
 
             queueMicrotask(() => {
-                const editor = editorRef.current;
-                if (!editor) return;
+                const targetEditor = editorRef.current;
+                if (!targetEditor) return;
 
                 if (searchReference || result.source === "reference") {
-                    clearHighlights();
-                    setCurrentMatches([]);
-                    setCurrentMatchIndex(0);
+                    const targetMatches = collectMatchesInEditor(
+                        targetEditor,
+                        "target",
+                        activeSearchTerm,
+                    );
+                    const referenceEditor = referenceEditorRef.current;
+                    const referenceMatches = referenceEditor
+                        ? collectMatchesInEditor(
+                              referenceEditor,
+                              "reference",
+                              activeSearchTerm,
+                          )
+                        : [];
+                    const nextMatches = [...targetMatches, ...referenceMatches];
+                    setCurrentMatches(nextMatches);
+
+                    const activeTargetMatch = targetMatches.find(
+                        (m) =>
+                            m.sid === result.sid &&
+                            m.sidOccurrenceIndex === result.sidOccurrenceIndex,
+                    );
+                    const activeReferenceMatch = referenceMatches.find(
+                        (m) =>
+                            m.sid === result.sid &&
+                            m.sidOccurrenceIndex === result.sidOccurrenceIndex,
+                    );
+
+                    const activeMatch =
+                        activeTargetMatch ?? activeReferenceMatch ?? undefined;
+                    setCurrentMatchIndex(
+                        activeMatch ? nextMatches.indexOf(activeMatch) : 0,
+                    );
+
+                    highlightMatchesAcrossEditors([
+                        {
+                            editor: targetEditor,
+                            matches: targetMatches,
+                            activeMatch: activeTargetMatch,
+                        },
+                        ...(referenceEditor
+                            ? [
+                                  {
+                                      editor: referenceEditor,
+                                      matches: referenceMatches,
+                                      activeMatch: activeReferenceMatch,
+                                  },
+                              ]
+                            : []),
+                    ]);
                     return;
                 }
 
@@ -343,12 +412,14 @@ export function useProjectSearch({
                     }
                 }
 
-                highlightMatches(searchMatches, editor, activeMatch);
+                highlightMatches(searchMatches, targetEditor, activeMatch);
             });
         },
         [
+            collectMatchesInEditor,
             collectMatchesInCurrentEditor,
             editorRef,
+            referenceEditorRef,
             searchReference,
             searchTerm,
             switchBookOrChapter,
