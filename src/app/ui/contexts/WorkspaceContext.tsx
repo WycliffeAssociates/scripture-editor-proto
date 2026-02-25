@@ -98,7 +98,12 @@ export const ProjectProvider = ({
     // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
     const mutWorkingFilesRef = useRef(projectFiles);
 
-    const { settingsManager, projectRepository } = useRouter().options.context;
+    const {
+        settingsManager,
+        projectRepository,
+        directoryProvider,
+        md5Service,
+    } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
         settingsManager,
@@ -121,6 +126,12 @@ export const ProjectProvider = ({
         pickedChapter: project.pickedChapter || null,
         loadedProject,
         history,
+        projectRepository,
+        directoryProvider,
+        md5Service,
+        editorMode: settingsManager.get("editorMode"),
+        allProjects: projects,
+        currentProjectRoute,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 

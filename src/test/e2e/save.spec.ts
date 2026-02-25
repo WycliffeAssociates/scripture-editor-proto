@@ -92,7 +92,8 @@ test.describe("Save and Diff Functionality", () => {
         await appendToEditor(editorPage, " chapter overlay change ");
         await openSaveReview(editorPage);
 
-        await editorPage.getByText("Chapter view").first().click();
+        await editorPage.getByRole("button", { name: "View options" }).click();
+        await editorPage.getByRole("radio", { name: "Chapter view" }).click();
 
         await expect(
             editorPage.getByTestId(TESTING_IDS.save.chapterPanel),

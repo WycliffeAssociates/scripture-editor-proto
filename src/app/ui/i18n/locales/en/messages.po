@@ -86,7 +86,7 @@ msgstr "Auto-open when new suggestions are found"
 msgid "Autofix applied for {0}"
 msgstr "Autofix applied for {0}"
 
-#: src/app/routes/create.tsx:176
+#: src/app/routes/create.tsx:231
 msgid "Back to projects"
 msgstr "Back to projects"
 
@@ -179,7 +179,7 @@ msgstr "Delete"
 msgid "Delete project"
 msgstr "Delete project"
 
-#: src/app/routes/create.tsx:105
+#: src/app/routes/create.tsx:164
 msgid "Directory imported successfully!"
 msgstr "Directory imported successfully!"
 
@@ -207,7 +207,7 @@ msgstr "Disable whole word"
 msgid "Display"
 msgstr "Display"
 
-#: src/app/routes/create.tsx:76
+#: src/app/routes/create.tsx:135
 msgid "Download Error"
 msgstr "Download Error"
 
@@ -215,11 +215,11 @@ msgstr "Download Error"
 #~ msgid "Download repository"
 #~ msgstr "Download repository"
 
-#: src/app/routes/create.tsx:50
+#: src/app/routes/create.tsx:111
 msgid "Download Started"
 msgstr "Download Started"
 
-#: src/app/routes/create.tsx:49
+#: src/app/routes/create.tsx:110
 msgid "Downloading repository..."
 msgstr "Downloading repository..."
 
@@ -264,7 +264,7 @@ msgstr "Entire Project"
 msgid "Español"
 msgstr "Español"
 
-#: src/app/routes/create.tsx:75
+#: src/app/routes/create.tsx:134
 msgid "Failed to download project"
 msgstr "Failed to download project"
 
@@ -272,15 +272,15 @@ msgstr "Failed to download project"
 #~ msgid "Failed to fetch suggestions."
 #~ msgstr "Failed to fetch suggestions."
 
-#: src/app/routes/create.tsx:115
+#: src/app/routes/create.tsx:172
 msgid "Failed to import directory"
 msgstr "Failed to import directory"
 
-#: src/app/routes/create.tsx:153
+#: src/app/routes/create.tsx:208
 msgid "Failed to import file"
 msgstr "Failed to import file"
 
-#: src/app/routes/create.tsx:143
+#: src/app/routes/create.tsx:200
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
@@ -347,21 +347,21 @@ msgstr "Group case mismatches"
 msgid "Hide whitespace-only diffs"
 msgstr "Hide whitespace-only diffs"
 
-#: src/app/routes/create.tsx:116
-#: src/app/routes/create.tsx:154
+#: src/app/routes/create.tsx:173
+#: src/app/routes/create.tsx:209
 msgid "Import Error"
 msgstr "Import Error"
 
-#: src/app/routes/create.tsx:92
-#: src/app/routes/create.tsx:130
+#: src/app/routes/create.tsx:151
+#: src/app/routes/create.tsx:187
 msgid "Import Started"
 msgstr "Import Started"
 
-#: src/app/routes/create.tsx:91
+#: src/app/routes/create.tsx:150
 msgid "Importing directory..."
 msgstr "Importing directory..."
 
-#: src/app/routes/create.tsx:129
+#: src/app/routes/create.tsx:186
 msgid "Importing file..."
 msgstr "Importing file..."
 
@@ -483,7 +483,7 @@ msgstr "Minimize suggestions"
 msgid "More actions"
 msgstr "More actions"
 
-#: src/app/routes/create.tsx:182
+#: src/app/routes/create.tsx:237
 #: src/app/routes/index.tsx:80
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
@@ -535,6 +535,10 @@ msgstr "Nothing changed"
 #: src/app/routes/index.tsx:67
 msgid "Open an existing project, or create a new one."
 msgstr "Open an existing project, or create a new one."
+
+#: src/app/routes/create.tsx:97
+msgid "Open project"
+msgstr "Open project"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:55
 msgid "Open project drawer"
@@ -623,7 +627,7 @@ msgstr "Project"
 msgid "Project display name"
 msgstr "Project display name"
 
-#: src/app/routes/create.tsx:65
+#: src/app/routes/create.tsx:126
 msgid "Project downloaded successfully!"
 msgstr "Project downloaded successfully!"
 
@@ -631,7 +635,7 @@ msgstr "Project downloaded successfully!"
 msgid "Project Formatted"
 msgstr "Project Formatted"
 
-#: src/app/routes/create.tsx:179
+#: src/app/routes/create.tsx:234
 #: src/app/routes/index.tsx:64
 #: src/app/ui/components/blocks/AppDrawer.tsx:32
 msgid "Projects"
@@ -859,9 +863,7 @@ msgstr "SRC"
 msgid "Strip all target paragraph markers"
 msgstr "Strip all target paragraph markers"
 
-#: src/app/routes/create.tsx:66
-#: src/app/routes/create.tsx:106
-#: src/app/routes/create.tsx:144
+#: src/app/routes/create.tsx:78
 #: src/app/routes/scaffold.tsx:74
 msgid "Success"
 msgstr "Success"

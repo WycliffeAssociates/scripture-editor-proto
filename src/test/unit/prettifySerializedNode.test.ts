@@ -129,6 +129,50 @@ describe("prettifySerializedNode utils", () => {
             });
             expect(result).toBe(node);
         });
+
+        it("should not add space for char marker -> text boundary", () => {
+            const charMarker = createToken(
+                "\\fqa",
+                UsfmTokenTypes.marker,
+                "fqa",
+            );
+            const textNode = createToken("cities");
+            const result = ensureSpaceBetweenNodes(textNode, {
+                previousSibling: charMarker,
+            });
+            expect(result.text).toBe("cities");
+        });
+
+        it("should not add space for char endMarker -> punctuation boundary", () => {
+            const charEnd = createToken(
+                "\\fqa*",
+                UsfmTokenTypes.endMarker,
+                "fqa",
+            );
+            const textNode = createToken(",");
+            const result = ensureSpaceBetweenNodes(textNode, {
+                previousSibling: charEnd,
+            });
+            expect(result.text).toBe(",");
+        });
+
+        it("should not add space for text -> note marker boundary", () => {
+            const prevText = createToken("respected.");
+            const noteMarker = createToken("\\f", UsfmTokenTypes.marker, "f");
+            const result = ensureSpaceBetweenNodes(noteMarker, {
+                previousSibling: prevText,
+            });
+            expect(result.text).toBe("\\f");
+        });
+
+        it("should not add space for note marker -> text boundary", () => {
+            const noteMarker = createToken("\\f", UsfmTokenTypes.marker, "f");
+            const textNode = createToken("+");
+            const result = ensureSpaceBetweenNodes(textNode, {
+                previousSibling: noteMarker,
+            });
+            expect(result.text).toBe("+");
+        });
     });
 
     describe("recoverMalformedMarkers", () => {

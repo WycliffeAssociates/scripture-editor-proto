@@ -20,6 +20,7 @@ import {
 import {
     ALL_CHAR_MARKERS,
     CHAPTER_VERSE_MARKERS,
+    VALID_NOTE_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
@@ -35,6 +36,23 @@ export type DocStructureFxnArgs = {
     }>;
 };
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
+
+const isMarkerishTokenType = (tokenType: string): boolean =>
+    tokenType === UsfmTokenTypes.marker ||
+    tokenType === UsfmTokenTypes.endMarker;
+
+const isCharOrNoteMarkerToken = (node: USFMTextNode): boolean => {
+    const tokenType = node.getTokenType();
+    if (!isMarkerishTokenType(tokenType)) return false;
+    const marker = node.getMarker();
+    if (!marker) return false;
+    return ALL_CHAR_MARKERS.has(marker) || VALID_NOTE_MARKERS.has(marker);
+};
+
+const isProtectedWhitespaceBoundary = (
+    left: USFMTextNode,
+    right: USFMTextNode,
+): boolean => isCharOrNoteMarkerToken(left) || isCharOrNoteMarkerToken(right);
 
 // only works on 1 main editor
 // This function is concnered with making sure the eidtor doesn't get into weird states where you can add text between a marker or after averse number cause you deleted it all. It also keeps the document flat by merging adjacent text nodes of the same type.
@@ -312,6 +330,7 @@ const pushTrailingHorizontalWhitespaceToNextSibling = ({
 
         const nextSibling = node.getNextSibling();
         if (!nextSibling || !$isUSFMTextNode(nextSibling)) continue;
+        if (isProtectedWhitespaceBoundary(node, nextSibling)) continue;
 
         const nodeText = node.getTextContent();
         const nextText = nextSibling.getTextContent();
@@ -927,6 +946,7 @@ const ensureSiblingsHaveAtLeastOneSpace = ({
             );
 
         if (!nextIsTextContent) continue;
+        if (isProtectedWhitespaceBoundary(node, nextSibling)) continue;
 
         const nodeText = node.getTextContent();
         const nextText = nextSibling.getTextContent();

@@ -14,6 +14,7 @@ import { settingsDefaults } from "@/app/data/settings.ts";
 import {
     ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
     maintainDocumentStructure,
+    maintainDocumentStructureDebounced,
 } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import {
     $createUSFMParagraphNode,
@@ -43,6 +44,16 @@ function applyMaintainDocumentStructure(
     editorMode: "regular" | "plain",
 ) {
     maintainDocumentStructure(editor.getEditorState(), editor, {
+        ...settingsDefaults,
+        editorMode,
+    });
+}
+
+function applyMaintainDocumentStructureDebounced(
+    editor: LexicalEditor,
+    editorMode: "regular" | "plain",
+) {
+    maintainDocumentStructureDebounced(editor.getEditorState(), editor, {
         ...settingsDefaults,
         editorMode,
     });
@@ -186,5 +197,93 @@ describe("maintainDocumentStructure", () => {
         expect(updates[0].dbgLabel).toContain(
             "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
         );
+    });
+
+    it("debounced: does not add leading space after char endMarker boundary", async () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const editor = createEmptyTestEditor();
+
+        await updateAndFlush(editor, () => {
+            removeAllRootChildren();
+            const paragraph = $createUSFMParagraphNode({
+                id: "char-boundary-para",
+                marker: "p",
+            });
+            const end = $createUSFMTextNode("\\fqa*", {
+                id: "end",
+                tokenType: UsfmTokenTypes.endMarker,
+                marker: "fqa",
+            });
+            const punctuation = $createUSFMTextNode(",", {
+                id: "punct",
+                tokenType: UsfmTokenTypes.text,
+            });
+            paragraph.append(end, punctuation);
+            $getRoot().append(paragraph);
+        });
+
+        applyMaintainDocumentStructureDebounced(editor, "regular");
+        await flush(editor);
+
+        editor.getEditorState().read(() => {
+            const root = $getRoot();
+            const para = root.getFirstChild();
+            if (!para || !$isElementNode(para)) {
+                throw new Error("Expected paragraph node");
+            }
+            const children = para.getChildren();
+            const end = children[0];
+            const punctuation = children[1];
+            if (!$isUSFMTextNode(end) || !$isUSFMTextNode(punctuation)) {
+                throw new Error("Expected USFM text children");
+            }
+            expect(end.getTextContent()).toBe("\\fqa*");
+            expect(punctuation.getTextContent()).toBe(",");
+        });
+
+        logSpy.mockRestore();
+    });
+
+    it("debounced: keeps verse marker spacing behavior for non-protected boundaries", async () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const editor = createEmptyTestEditor();
+
+        await updateAndFlush(editor, () => {
+            removeAllRootChildren();
+            const paragraph = $createUSFMParagraphNode({
+                id: "verse-spacing-para",
+                marker: "p",
+            });
+            const verseMarker = $createUSFMTextNode("\\v", {
+                id: "v-marker",
+                tokenType: UsfmTokenTypes.marker,
+                marker: "v",
+            });
+            const text = $createUSFMTextNode("Text", {
+                id: "text",
+                tokenType: UsfmTokenTypes.text,
+            });
+            paragraph.append(verseMarker, text);
+            $getRoot().append(paragraph);
+        });
+
+        applyMaintainDocumentStructureDebounced(editor, "regular");
+        await flush(editor);
+
+        editor.getEditorState().read(() => {
+            const root = $getRoot();
+            const para = root.getFirstChild();
+            if (!para || !$isElementNode(para)) {
+                throw new Error("Expected paragraph node");
+            }
+            const children = para.getChildren();
+            const text = children[1];
+            if (!$isUSFMTextNode(text)) {
+                throw new Error("Expected USFM text node");
+            }
+            expect(text.getTextContent()).toBe(" Text");
+        });
+
+        logSpy.mockRestore();
     });
 });

@@ -1,5 +1,7 @@
 import {
+    ALL_CHAR_MARKERS,
     ALL_USFM_MARKERS,
+    VALID_NOTE_MARKERS,
     VALID_PARA_MARKERS,
 } from "@/core/data/usfm/tokens.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
@@ -42,6 +44,20 @@ const isTextLike = (t: PrettifyToken): boolean =>
     t.tokenType === TokenMap.endMarker ||
     t.tokenType === TokenMap.numberRange ||
     t.tokenType === TokenMap.text;
+
+const isMarkerishToken = (t: PrettifyToken): boolean =>
+    t.tokenType === TokenMap.marker || t.tokenType === TokenMap.endMarker;
+
+const isCharOrNoteMarkerToken = (t: PrettifyToken): boolean => {
+    if (!isMarkerishToken(t)) return false;
+    if (!t.marker) return false;
+    return ALL_CHAR_MARKERS.has(t.marker) || VALID_NOTE_MARKERS.has(t.marker);
+};
+
+const isProtectedWhitespaceBoundary = (
+    prev: PrettifyToken,
+    curr: PrettifyToken,
+): boolean => isCharOrNoteMarkerToken(prev) || isCharOrNoteMarkerToken(curr);
 
 /**
  * Inserts a default paragraph marker (`\\p`) after chapter intro material when the
@@ -194,6 +210,7 @@ export function ensureSpaceBetweenNodes(
     const prev = context.previousSibling;
     if (!prev || isNlToken(prev)) return token;
     if (!isTextLike(token) || !isTextLike(prev)) return token;
+    if (isProtectedWhitespaceBoundary(prev, token)) return token;
 
     const prevEndsWithSpace = /\s$/.test(prev.text);
     const currStartsWithSpace = /^\s/.test(token.text);

@@ -71,4 +71,51 @@ describe("sidBlockDiff + sidBlockRevert", () => {
             expect(next.map((t) => t.text).join("")).toBe("Hello worldOk");
         }
     });
+
+    it("coalesces same-SID id drift into modified and can revert", () => {
+        const baseline: T[] = [
+            { sid: "ISA 33:9", text: "Alpha", id: "orig-id" },
+        ];
+        const current: T[] = [{ sid: "ISA 33:9", text: "Beta", id: "new-id" }];
+
+        const baselineBlocks = buildSidBlocks(baseline);
+        const currentBlocks = buildSidBlocks(current);
+        const diffs = diffSidBlocks(baselineBlocks, currentBlocks);
+
+        expect(diffs).toHaveLength(1);
+        expect(diffs[0]?.status).toBe("modified");
+        expect(diffs[0]?.semanticSid).toBe("ISA 33:9");
+
+        const reverted = applyRevertByBlockId({
+            diffBlockId: diffs[0]?.blockId ?? "",
+            baselineTokens: baseline,
+            currentTokens: current,
+        });
+        expect(reverted.map((t) => t.text).join("")).toBe("Alpha");
+    });
+
+    it("coalesces non-adjacent id drift and keeps unchanged text unchanged", () => {
+        const baseline: T[] = [
+            { sid: "ISA 33:9", text: "Verse 9", id: "orig-9" },
+            { sid: "ISA 33:10", text: "Verse 10", id: "orig-10" },
+        ];
+        const current: T[] = [
+            { sid: "ISA 33:9", text: "Verse 9 edited", id: "new-9" },
+            { sid: "ISA 33:10", text: "Verse 10", id: "new-10" },
+        ];
+
+        const baselineBlocks = buildSidBlocks(baseline);
+        const currentBlocks = buildSidBlocks(current);
+        const diffs = diffSidBlocks(baselineBlocks, currentBlocks);
+
+        expect(diffs).toHaveLength(2);
+        expect(diffs.find((d) => d.semanticSid === "ISA 33:9")?.status).toBe(
+            "modified",
+        );
+        expect(diffs.find((d) => d.semanticSid === "ISA 33:10")?.status).toBe(
+            "unchanged",
+        );
+        expect(diffs.some((d) => d.status === "added")).toBe(false);
+        expect(diffs.some((d) => d.status === "deleted")).toBe(false);
+    });
 });

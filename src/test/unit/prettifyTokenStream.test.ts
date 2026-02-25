@@ -193,4 +193,34 @@ describe("core prettifyTokenStream", () => {
         );
         expect(qToken?.text).toBe("\\q");
     });
+
+    it("does not inject spaces around char end markers near punctuation", () => {
+        const tokens: PrettifyToken[] = [
+            { tokenType: TokenMap.marker, marker: "v", text: "\\v" },
+            { tokenType: TokenMap.numberRange, marker: "v", text: "9" },
+            {
+                tokenType: TokenMap.text,
+                text: " and mankind is not respected.",
+            },
+            { tokenType: TokenMap.marker, marker: "f", text: "\\f" },
+            { tokenType: TokenMap.text, text: "+" },
+            { tokenType: TokenMap.marker, marker: "ft", text: "\\ft" },
+            { tokenType: TokenMap.text, text: " word for " },
+            { tokenType: TokenMap.marker, marker: "fqa", text: "\\fqa" },
+            { tokenType: TokenMap.text, text: "cities" },
+            { tokenType: TokenMap.endMarker, marker: "fqa", text: "\\fqa*" },
+            { tokenType: TokenMap.text, text: "," },
+            {
+                tokenType: TokenMap.text,
+                text: " but this is likely corrupted. ",
+            },
+            { tokenType: TokenMap.endMarker, marker: "f", text: "\\f*" },
+        ];
+
+        const result = prettifyTokenStream(tokens);
+        const serialized = result.map((t) => t.text).join("");
+
+        expect(serialized.includes("\\fqa* ,")).toBe(false);
+        expect(serialized.includes("\\fqa*,")).toBe(true);
+    });
 });

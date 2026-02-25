@@ -1,7 +1,6 @@
 import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
-import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import {
     diffTokensToEditorState,
     inferContentEditorModeFromRootChildren,
@@ -32,8 +31,10 @@ export function revertChapterToLoadedState(chapter: ParsedChapter) {
 }
 
 export function revertAllChaptersToLoadedState(files: ParsedFile[]) {
-    for (const { chapter } of walkChapters(files)) {
-        revertChapterToLoadedState(chapter);
+    for (const file of files) {
+        for (const chapter of file.chapters) {
+            revertChapterToLoadedState(chapter);
+        }
     }
 }
 
@@ -74,13 +75,19 @@ export function buildBooksSavePayload(
     files: ParsedFile[],
 ): Record<string, string> {
     const toSave: Record<string, string> = {};
-    const entriesToSave = walkChapters(files);
-    for (const { file, chapter } of entriesToSave) {
-        if (!chapter.dirty) continue;
-        if (!toSave[file.bookCode]) toSave[file.bookCode] = "";
-        toSave[file.bookCode] += serializeToUsfmString(
-            chapter.lexicalState.root.children,
+    for (const file of files) {
+        const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
+        if (!shouldSaveBook) continue;
+
+        const orderedChapters = [...file.chapters].sort(
+            (a, b) => a.chapNumber - b.chapNumber,
         );
+
+        toSave[file.bookCode] = orderedChapters
+            .map((chapter) =>
+                serializeToUsfmString(chapter.lexicalState.root.children),
+            )
+            .join("");
     }
     return toSave;
 }

@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Button, Container, Group, Stack, Title } from "@mantine/core";
+import { Anchor, Button, Container, Group, Stack, Title } from "@mantine/core";
+import type { NotificationData } from "@mantine/notifications";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
@@ -23,6 +24,26 @@ export const Route = createFileRoute("/create")({
     component: CreateProject,
 });
 
+export function getProjectParamFromImportedPath(
+    importedPath: string | null | undefined,
+): string | null {
+    if (!importedPath) return null;
+    const projectParam = importedPath.split("/").filter(Boolean).at(-1);
+    return projectParam || null;
+}
+
+export function buildPersistentImportSuccessNotification(
+    title: string,
+    message: string,
+): NotificationData {
+    return {
+        title,
+        message,
+        autoClose: false,
+        withCloseButton: true,
+    };
+}
+
 function CreateProject() {
     const { t } = useLingui();
     const router = useRouter();
@@ -41,6 +62,46 @@ function CreateProject() {
     const [isImporting, setIsImporting] = useState(false);
     const projectImporter = new ProjectImporter(directoryProvider);
 
+    const showImportSuccessToast = ({
+        importedPath,
+        message,
+    }: {
+        importedPath: string | null | undefined;
+        message: string;
+    }) => {
+        const projectParam = getProjectParamFromImportedPath(importedPath);
+        if (!projectParam) return;
+
+        ShowNotificationSuccess({
+            notification: {
+                ...buildPersistentImportSuccessNotification(
+                    t`Success`,
+                    message,
+                ),
+                message: (
+                    <>
+                        {message}{" "}
+                        <Anchor
+                            href={`/${projectParam}`}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                settingsManager?.update?.({
+                                    lastProjectPath: importedPath ?? "",
+                                });
+                                router.navigate({
+                                    to: "/$project",
+                                    params: { project: projectParam },
+                                });
+                            }}
+                        >
+                            <Trans>Open project</Trans>
+                        </Anchor>
+                    </>
+                ),
+            },
+        });
+    };
+
     const onDownload = async (url: string) => {
         try {
             setIsImporting(true);
@@ -51,7 +112,7 @@ function CreateProject() {
                 },
             });
 
-            await handleDownload(
+            const importedPath = await handleDownload(
                 {
                     importer: projectImporter,
                     projectRepository,
@@ -60,11 +121,9 @@ function CreateProject() {
                 },
                 url,
             );
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`Project downloaded successfully!`,
-                    title: t`Success`,
-                },
+            showImportSuccessToast({
+                importedPath,
+                message: t`Project downloaded successfully!`,
             });
         } catch (error) {
             ShowErrorNotification({
@@ -93,18 +152,16 @@ function CreateProject() {
                 },
             });
 
-            await handleOpenDirectory(event, {
+            const importedPath = await handleOpenDirectory(event, {
                 directoryProvider,
                 projectImporter,
                 projectRepository,
                 md5Service,
                 invalidateRouterAndReload,
             });
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`Directory imported successfully!`,
-                    title: t`Success`,
-                },
+            showImportSuccessToast({
+                importedPath,
+                message: t`Directory imported successfully!`,
             });
         } catch (error) {
             ShowErrorNotification({
@@ -131,18 +188,16 @@ function CreateProject() {
                 },
             });
 
-            await handleOpenFile(event, {
+            const importedPath = await handleOpenFile(event, {
                 directoryProvider,
                 projectImporter,
                 projectRepository,
                 md5Service,
                 invalidateRouterAndReload,
             });
-            ShowNotificationSuccess({
-                notification: {
-                    message: t`File imported successfully!`,
-                    title: t`Success`,
-                },
+            showImportSuccessToast({
+                importedPath,
+                message: t`File imported successfully!`,
             });
         } catch (error) {
             ShowErrorNotification({

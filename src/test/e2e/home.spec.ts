@@ -48,6 +48,26 @@ test.describe("Project Creation Workflows", () => {
         await expect(projectList).toHaveCount(initialProjectCount - 1);
     });
 
+    test("zip import keeps user on create and offers open-project link in toast", async ({
+        page,
+    }) => {
+        await gotoCreate(page);
+        await importZipProject(page, MOCK_ZIPS.llxReg);
+
+        await expect(page).toHaveURL(/\/create$/);
+        await expect(
+            page.getByText("File imported successfully!", { exact: true }),
+        ).toBeVisible();
+
+        const openProjectLink = page.getByRole("link", {
+            name: "Open project",
+        });
+        await expect(openProjectLink).toBeVisible();
+        await openProjectLink.click();
+
+        await expect(page).toHaveURL(/\/llx_reg/);
+    });
+
     test("directory import and language importer interactions", async ({
         page,
     }) => {

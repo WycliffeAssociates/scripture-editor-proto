@@ -16,9 +16,9 @@ import { diffWordsWithSpace } from "diff";
 import { BookIcon, RotateCw } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
+import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 

@@ -86,7 +86,7 @@ msgstr "Abrir automáticamente cuando se encuentren nuevas sugerencias"
 msgid "Autofix applied for {0}"
 msgstr "Corrección automática aplicada para {0}"
 
-#: src/app/routes/create.tsx:176
+#: src/app/routes/create.tsx:231
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
@@ -179,7 +179,7 @@ msgstr "Eliminar"
 msgid "Delete project"
 msgstr "Eliminar proyecto"
 
-#: src/app/routes/create.tsx:105
+#: src/app/routes/create.tsx:164
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
@@ -207,7 +207,7 @@ msgstr "Desactivar palabra completa"
 msgid "Display"
 msgstr "Pantalla"
 
-#: src/app/routes/create.tsx:76
+#: src/app/routes/create.tsx:135
 msgid "Download Error"
 msgstr "Error de descarga"
 
@@ -215,11 +215,11 @@ msgstr "Error de descarga"
 #~ msgid "Download repository"
 #~ msgstr "Descargar repositorio"
 
-#: src/app/routes/create.tsx:50
+#: src/app/routes/create.tsx:111
 msgid "Download Started"
 msgstr "Descarga iniciada"
 
-#: src/app/routes/create.tsx:49
+#: src/app/routes/create.tsx:110
 msgid "Downloading repository..."
 msgstr "Descargando repositorio..."
 
@@ -264,7 +264,7 @@ msgstr "Proyecto completo"
 msgid "Español"
 msgstr "Español"
 
-#: src/app/routes/create.tsx:75
+#: src/app/routes/create.tsx:134
 msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
@@ -272,15 +272,15 @@ msgstr "No se pudo descargar el proyecto"
 #~ msgid "Failed to fetch suggestions."
 #~ msgstr "No se pudieron obtener sugerencias."
 
-#: src/app/routes/create.tsx:115
+#: src/app/routes/create.tsx:172
 msgid "Failed to import directory"
 msgstr "No se pudo importar el directorio"
 
-#: src/app/routes/create.tsx:153
+#: src/app/routes/create.tsx:208
 msgid "Failed to import file"
 msgstr "No se pudo importar el archivo"
 
-#: src/app/routes/create.tsx:143
+#: src/app/routes/create.tsx:200
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
@@ -347,21 +347,21 @@ msgstr "Agrupar desajustes de mayúsculas"
 msgid "Hide whitespace-only diffs"
 msgstr "Ocultar diferencias solo de espacios en blanco"
 
-#: src/app/routes/create.tsx:116
-#: src/app/routes/create.tsx:154
+#: src/app/routes/create.tsx:173
+#: src/app/routes/create.tsx:209
 msgid "Import Error"
 msgstr "Error de importación"
 
-#: src/app/routes/create.tsx:92
-#: src/app/routes/create.tsx:130
+#: src/app/routes/create.tsx:151
+#: src/app/routes/create.tsx:187
 msgid "Import Started"
 msgstr "Importación iniciada"
 
-#: src/app/routes/create.tsx:91
+#: src/app/routes/create.tsx:150
 msgid "Importing directory..."
 msgstr "Importando directorio..."
 
-#: src/app/routes/create.tsx:129
+#: src/app/routes/create.tsx:186
 msgid "Importing file..."
 msgstr "Importando archivo..."
 
@@ -483,7 +483,7 @@ msgstr "Minimizar sugerencias"
 msgid "More actions"
 msgstr "Más acciones"
 
-#: src/app/routes/create.tsx:182
+#: src/app/routes/create.tsx:237
 #: src/app/routes/index.tsx:80
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
@@ -535,6 +535,10 @@ msgstr "Nada cambió"
 #: src/app/routes/index.tsx:67
 msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
+
+#: src/app/routes/create.tsx:97
+msgid "Open project"
+msgstr ""
 
 #: src/app/ui/components/blocks/Toolbar.tsx:55
 msgid "Open project drawer"
@@ -623,7 +627,7 @@ msgstr "Proyecto"
 msgid "Project display name"
 msgstr "Nombre visible del proyecto"
 
-#: src/app/routes/create.tsx:65
+#: src/app/routes/create.tsx:126
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
@@ -631,7 +635,7 @@ msgstr "¡Proyecto descargado con éxito!"
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
-#: src/app/routes/create.tsx:179
+#: src/app/routes/create.tsx:234
 #: src/app/routes/index.tsx:64
 #: src/app/ui/components/blocks/AppDrawer.tsx:32
 msgid "Projects"
@@ -859,9 +863,7 @@ msgstr "SRC"
 msgid "Strip all target paragraph markers"
 msgstr "Eliminar todos los marcadores de párrafo de destino"
 
-#: src/app/routes/create.tsx:66
-#: src/app/routes/create.tsx:106
-#: src/app/routes/create.tsx:144
+#: src/app/routes/create.tsx:78
 #: src/app/routes/scaffold.tsx:74
 msgid "Success"
 msgstr "Éxito"

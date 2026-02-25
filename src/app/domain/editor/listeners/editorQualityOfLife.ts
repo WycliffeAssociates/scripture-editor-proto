@@ -9,7 +9,16 @@ import {
     $createUSFMTextNode,
     $isUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    ALL_CHAR_MARKERS,
+    VALID_NOTE_MARKERS,
+} from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+
+const isCharOrNoteMarkerBoundary = (marker: string | null): boolean => {
+    if (!marker) return false;
+    return ALL_CHAR_MARKERS.has(marker) || VALID_NOTE_MARKERS.has(marker);
+};
 
 /**
  * A command helper that moves the selection to an adjacent node when it's contextually
@@ -60,12 +69,18 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
                 if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {
                     nextSibling.selectEnd();
                 } else {
-                    if (!nextSibling.getTextContent().startsWith(" ")) {
+                    const skipLeadingSpaceForBoundary =
+                        isCharOrNoteMarkerBoundary(anchorNode.getMarker());
+                    if (
+                        !skipLeadingSpaceForBoundary &&
+                        !nextSibling.getTextContent().startsWith(" ")
+                    ) {
                         nextSibling.setTextContent(
                             ` ${nextSibling.getTextContent()}`,
                         );
                     }
-                    nextSibling.select(1, 1);
+                    const selectOffset = skipLeadingSpaceForBoundary ? 0 : 1;
+                    nextSibling.select(selectOffset, selectOffset);
                 }
             });
         }

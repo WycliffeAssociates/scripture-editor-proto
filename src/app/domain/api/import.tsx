@@ -19,12 +19,13 @@ export async function handleDownload(
         invalidateRouterAndReload,
     }: HandleDownloadArgs,
     url: string,
-): Promise<void> {
+): Promise<string> {
     const importedPath = await importer.import({ type: "fromGitRepo", url });
     if (importedPath) {
         const indexer = new ProjectIndexer(projectRepository, md5Service);
         await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
+        return importedPath;
     } else {
         throw new Error("Failed to download project");
     }
@@ -46,12 +47,12 @@ export async function handleOpenDirectory(
         md5Service,
         invalidateRouterAndReload,
     }: OpenDirArgs,
-) {
+): Promise<string | null> {
     console.log("Opening directory...");
     const files = event.target.files;
     if (!files || files.length === 0) {
         console.log("No directory selected.");
-        return;
+        return null;
     }
     const folderName = files[0].webkitRelativePath.split("/")[0];
     const tempDirectory = await directoryProvider.tempDirectory;
@@ -110,6 +111,7 @@ export async function handleOpenDirectory(
         const indexer = new ProjectIndexer(projectRepository, md5Service);
         await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
+        return importedPath;
     } else {
         throw new Error("Failed to import directory");
     }
@@ -132,7 +134,7 @@ export async function processFile(
         md5Service,
         invalidateRouterAndReload,
     }: OpenFileArgs,
-): Promise<void> {
+): Promise<string> {
     console.log(
         `[processFile] Selected file name: ${file.name}, size: ${file.size} bytes`,
     );
@@ -172,6 +174,7 @@ export async function processFile(
         const indexer = new ProjectIndexer(projectRepository, md5Service);
         await indexer.indexProject(importedPath);
         invalidateRouterAndReload();
+        return importedPath;
     } else {
         throw new Error("Failed to import file");
     }
@@ -179,13 +182,13 @@ export async function processFile(
 export async function handleOpenFile(
     event: React.ChangeEvent<HTMLInputElement>,
     args: OpenFileArgs,
-) {
+): Promise<string | null> {
     console.log("Opening file...");
     const files = event.target.files;
     if (!files || files.length === 0) {
         console.log("No file selected.");
-        return;
+        return null;
     }
     const file = files[0];
-    await processFile(file, args);
+    return await processFile(file, args);
 }

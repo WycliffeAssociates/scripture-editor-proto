@@ -1,7 +1,7 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
+import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import {
     buildChapterRenderParagraphs,
     toChapterViewEntries,

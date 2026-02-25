@@ -1,14 +1,32 @@
 // hooks/useProjectDiffs.ts
 
-import type { Change } from "diff";
-import type { LexicalEditor, SerializedLexicalNode } from "lexical";
+import type { LexicalEditor } from "lexical";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     diffTokensToRenderTokens,
     lexicalEditorStateToDiffTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import {
+    applyIncomingChapter,
+    applyIncomingChapterAll,
+    applyIncomingHunk,
+    buildCompareResult,
+    type CompareMetadataSummary,
+} from "@/app/domain/project/compare/compareService.ts";
+import { CompareSourceLoader } from "@/app/domain/project/compare/compareSourceLoader.ts";
+import type {
+    CompareBaseline,
+    CompareMode,
+    CompareSourceKind,
+    CompareWarning,
+} from "@/app/domain/project/compare/types.ts";
+import type {
+    DiffsByChapter,
+    ProjectDiff,
+} from "@/app/domain/project/diffTypes.ts";
 import {
     buildBooksSavePayload,
     markFilesAsSaved,
@@ -25,14 +43,19 @@ import {
 } from "@/app/domain/project/workingFileMutations.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import {
-    type DiffsByChapterMap,
     diffChapterTokenStreams,
     flattenDiffMap,
     replaceChapterDiffsInMap,
     replaceManyChapterDiffsInMap,
 } from "@/core/domain/usfm/chapterDiffOperation.ts";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type {
+    IProjectRepository,
+    ListedProject,
+    Project,
+} from "@/core/persistence/ProjectRepository.ts";
 
 type UseProjectDiffsProps = {
     mutWorkingFilesRef: ParsedFile[];
@@ -41,38 +64,15 @@ type UseProjectDiffsProps = {
     pickedChapter: ParsedChapter | null;
     loadedProject: Project;
     history: CustomHistoryHook;
+    projectRepository: IProjectRepository;
+    directoryProvider: IDirectoryProvider;
+    md5Service: IMd5Service;
+    editorMode: EditorModeSetting;
+    allProjects: ListedProject[];
+    currentProjectRoute: string;
 };
 
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
-
-export type ChapterRenderToken = {
-    node: SerializedLexicalNode;
-    sid: string;
-    tokenType?: string;
-    marker?: string;
-};
-
-export type ProjectDiff = {
-    /** Stable per-block id (sid + first-token-id fallback). */
-    uniqueKey: string;
-    /** Semantic sid string (e.g. "GEN 1:1"). */
-    semanticSid: string;
-    status: "added" | "deleted" | "modified" | "unchanged";
-    originalDisplayText: string;
-    currentDisplayText: string;
-    originalTextOnly?: string;
-    currentTextOnly?: string;
-    wordDiff?: Change[];
-    bookCode: string;
-    chapterNum: number;
-    isWhitespaceChange?: boolean;
-    isUsfmStructureChange?: boolean;
-    originalRenderTokens?: ChapterRenderToken[];
-    currentRenderTokens?: ChapterRenderToken[];
-};
-
-export type ChapterDiffMap = Record<string, ProjectDiff>;
-export type DiffsByChapter = DiffsByChapterMap<ProjectDiff>;
 
 function revertAllChanges({
     mutWorkingFilesRef,
@@ -118,10 +118,31 @@ export function useProjectDiffs({
     pickedChapter,
     loadedProject,
     history,
+    projectRepository,
+    directoryProvider,
+    md5Service,
+    editorMode,
+    allProjects,
+    currentProjectRoute,
 }: UseProjectDiffsProps) {
-    const [diffsByChapter, setDiffsByChapter] = useState<DiffsByChapter>({});
+    const [unsavedDiffsByChapter, setUnsavedDiffsByChapter] =
+        useState<DiffsByChapter>({});
     const [openDiffModal, setOpenDiffModal] = useState(false);
     const [isCalculatingDiffs, setIsCalculatingDiffs] = useState(false);
+    const [compareMode, setCompareMode] = useState<CompareMode>("unsaved");
+    const [compareBaseline, setCompareBaseline] =
+        useState<CompareBaseline>("currentSaved");
+    const [compareSourceKind, setCompareSourceKind] =
+        useState<CompareSourceKind>("existingProject");
+    const [compareSourceProjectId, setCompareSourceProjectId] =
+        useState<string>("");
+    const [compareResult, setCompareResult] = useState<{
+        diffsByChapter: DiffsByChapter;
+        warnings: CompareWarning[];
+        metadata?: CompareMetadataSummary;
+        cleanup?: () => Promise<void>;
+        sourceFiles?: ParsedFile[];
+    } | null>(null);
     const [, setDirtyVersion] = useState(0);
 
     const bumpDirtyVersion = () => setDirtyVersion((v) => v + 1);
@@ -191,7 +212,7 @@ export function useProjectDiffs({
         bumpDirtyVersion();
         if (!openDiffModal) return;
 
-        setDiffsByChapter((prev) =>
+        setUnsavedDiffsByChapter((prev) =>
             replaceChapterDiffsInMap({
                 previousMap: prev,
                 bookCode,
@@ -210,7 +231,7 @@ export function useProjectDiffs({
         setIsCalculatingDiffs(true);
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        setDiffsByChapter((prev) =>
+        setUnsavedDiffsByChapter((prev) =>
             replaceManyChapterDiffsInMap({
                 previousMap: prev,
                 chapterDiffs: chapters.map(({ bookCode, chapterNum }) => ({
@@ -267,11 +288,22 @@ export function useProjectDiffs({
     };
 
     const diffListForUI = useMemo(() => {
+        const activeDiffsByChapter =
+            compareMode === "external" && compareResult
+                ? compareResult.diffsByChapter
+                : unsavedDiffsByChapter;
         return flattenDiffMap({
-            diffsByChapter,
+            diffsByChapter: activeDiffsByChapter,
             include: (diff) => diff.status !== "unchanged",
         });
-    }, [diffsByChapter]);
+    }, [unsavedDiffsByChapter, compareMode, compareResult]);
+
+    const activeDiffsByChapter = useMemo(() => {
+        if (compareMode === "external" && compareResult) {
+            return compareResult.diffsByChapter;
+        }
+        return unsavedDiffsByChapter;
+    }, [compareMode, compareResult, unsavedDiffsByChapter]);
 
     async function toggleDiffModal(saveCurrentDirtyLexical: () => void) {
         if (openDiffModal) {
@@ -292,7 +324,7 @@ export function useProjectDiffs({
             diffs: calculateDiffsForChapter(bookCode, chapterNum),
         }));
 
-        setDiffsByChapter(
+        setUnsavedDiffsByChapter(
             replaceManyChapterDiffsInMap({
                 previousMap: {},
                 chapterDiffs: allDiffs,
@@ -303,11 +335,16 @@ export function useProjectDiffs({
 
     const closeModal = useCallback(() => {
         setOpenDiffModal(false);
-    }, []);
+        if (compareResult?.cleanup) {
+            void compareResult.cleanup();
+        }
+        setCompareResult(null);
+    }, [compareResult]);
 
     async function saveProjectToDisk() {
         const filesToSave = getDirtyFiles(mutWorkingFilesRef);
         const toSave = buildBooksSavePayload(filesToSave);
+        debugger;
 
         const savePromise = await Promise.allSettled(
             Object.entries(toSave).map(async ([bookCode, content]) => {
@@ -330,7 +367,7 @@ export function useProjectDiffs({
 
         markFilesAsSaved(filesToSave);
 
-        setDiffsByChapter({});
+        setUnsavedDiffsByChapter({});
         bumpDirtyVersion();
     }
 
@@ -342,7 +379,7 @@ export function useProjectDiffs({
             run: async () => {
                 revertAllChanges({
                     mutWorkingFilesRef,
-                    setDiffsByChapter,
+                    setDiffsByChapter: setUnsavedDiffsByChapter,
                     bumpDirtyVersion,
                     pickedFile,
                     pickedChapter,
@@ -384,9 +421,210 @@ export function useProjectDiffs({
         });
     };
 
+    const compareSourceLoader = new CompareSourceLoader({
+        projectRepository,
+        directoryProvider,
+        md5Service,
+        editorMode,
+    });
+
+    async function computeExternalDiffs(
+        sourceFiles: ParsedFile[],
+        metadata: CompareMetadataSummary,
+        cleanup?: () => Promise<void>,
+    ) {
+        const result = buildCompareResult({
+            currentFiles: mutWorkingFilesRef,
+            config: {
+                mode: "external",
+                baseline: compareBaseline,
+                source: compareSourceProjectId
+                    ? {
+                          kind: "existingProject",
+                          projectId: compareSourceProjectId,
+                      }
+                    : compareSourceKind === "zipFile"
+                      ? { kind: "zipFile" }
+                      : { kind: "directory" },
+            },
+            sourceFiles,
+            currentMetadata: {
+                projectId: loadedProject.metadata.id,
+                languageId: loadedProject.metadata.language.id,
+                languageDirection: loadedProject.metadata.language.direction,
+            },
+            sourceMetadata: metadata,
+        });
+        setCompareResult({
+            diffsByChapter: result.diffsByChapter,
+            warnings: result.warnings,
+            metadata,
+            cleanup,
+            sourceFiles,
+        });
+    }
+
+    async function loadExternalCompareSourceFromProject(projectId: string) {
+        if (!projectId) return;
+        setIsCalculatingDiffs(true);
+        if (compareResult?.cleanup) {
+            await compareResult.cleanup();
+        }
+        const loaded = await compareSourceLoader.loadExistingProject(projectId);
+        setCompareSourceProjectId(projectId);
+        await computeExternalDiffs(
+            loaded.parsedFiles,
+            loaded.metadataSummary,
+            loaded.cleanup,
+        );
+        setIsCalculatingDiffs(false);
+    }
+
+    async function loadExternalCompareSourceFromZip(file: File) {
+        setIsCalculatingDiffs(true);
+        if (compareResult?.cleanup) {
+            await compareResult.cleanup();
+        }
+        const loaded = await compareSourceLoader.loadFromZipFile(file);
+        setCompareSourceProjectId("");
+        await computeExternalDiffs(
+            loaded.parsedFiles,
+            loaded.metadataSummary,
+            loaded.cleanup,
+        );
+        setIsCalculatingDiffs(false);
+    }
+
+    async function loadExternalCompareSourceFromDirectory(files: FileList) {
+        setIsCalculatingDiffs(true);
+        if (compareResult?.cleanup) {
+            await compareResult.cleanup();
+        }
+        const loaded = await compareSourceLoader.loadFromDirectoryFiles(files);
+        setCompareSourceProjectId("");
+        await computeExternalDiffs(
+            loaded.parsedFiles,
+            loaded.metadataSummary,
+            loaded.cleanup,
+        );
+        setIsCalculatingDiffs(false);
+    }
+
+    function rerunExternalCompare() {
+        if (!compareResult?.sourceFiles || !compareResult.metadata) return;
+        void computeExternalDiffs(
+            compareResult.sourceFiles,
+            compareResult.metadata,
+            compareResult.cleanup,
+        );
+    }
+
+    function applyExternalIncomingHunk(diff: ProjectDiff) {
+        if (!compareResult?.sourceFiles) return;
+        void history.runTransaction({
+            label: `Take Incoming (${diff.semanticSid})`,
+            candidates: [
+                { bookCode: diff.bookCode, chapterNum: diff.chapterNum },
+            ],
+            run: async () => {
+                applyIncomingHunk({
+                    workingFiles: mutWorkingFilesRef,
+                    sourceFiles: compareResult.sourceFiles ?? [],
+                    diff,
+                    baseline: compareBaseline,
+                });
+                if (
+                    diff.bookCode === pickedFile?.bookCode &&
+                    diff.chapterNum === pickedChapter?.chapNumber &&
+                    editorRef.current
+                ) {
+                    const changedChapter = findChapter(
+                        mutWorkingFilesRef,
+                        diff.bookCode,
+                        diff.chapterNum,
+                    );
+                    if (changedChapter) {
+                        editorRef.current.setEditorState(
+                            editorRef.current.parseEditorState(
+                                changedChapter.lexicalState,
+                            ),
+                            {
+                                tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                            },
+                        );
+                    }
+                }
+                rerunExternalCompare();
+            },
+        });
+    }
+
+    function applyExternalIncomingChapter(
+        bookCode: string,
+        chapterNum: number,
+    ) {
+        if (!compareResult?.sourceFiles) return;
+        void history.runTransaction({
+            label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
+            candidates: [{ bookCode, chapterNum }],
+            run: async () => {
+                applyIncomingChapter({
+                    workingFiles: mutWorkingFilesRef,
+                    sourceFiles: compareResult.sourceFiles ?? [],
+                    bookCode,
+                    chapterNum,
+                });
+                if (
+                    bookCode === pickedFile?.bookCode &&
+                    chapterNum === pickedChapter?.chapNumber &&
+                    editorRef.current
+                ) {
+                    const changedChapter = findChapter(
+                        mutWorkingFilesRef,
+                        bookCode,
+                        chapterNum,
+                    );
+                    if (changedChapter) {
+                        editorRef.current.setEditorState(
+                            editorRef.current.parseEditorState(
+                                changedChapter.lexicalState,
+                            ),
+                            {
+                                tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                            },
+                        );
+                    }
+                }
+                rerunExternalCompare();
+            },
+        });
+    }
+
+    function applyExternalIncomingAll() {
+        if (!compareResult?.sourceFiles) return;
+        void history.runTransaction({
+            label: "Take Incoming All Chapters",
+            candidates: getAllChapterRefs(mutWorkingFilesRef),
+            run: async () => {
+                applyIncomingChapterAll({
+                    workingFiles: mutWorkingFilesRef,
+                    sourceFiles: compareResult.sourceFiles ?? [],
+                });
+                rerunExternalCompare();
+            },
+        });
+    }
+
+    const availableCompareProjects = allProjects.filter((project) => {
+        const routeProjectId =
+            project.projectDirectoryPath.split("/").pop() ??
+            project.projectDirectoryPath;
+        return routeProjectId !== currentProjectRoute;
+    });
+
     return {
         diffs: diffListForUI,
-        diffsByChapter,
+        diffsByChapter: activeDiffsByChapter,
         toggleDiffModal,
         openDiffModal,
         closeModal,
@@ -398,5 +636,22 @@ export function useProjectDiffs({
         saveProjectToDisk,
         isCalculatingDiffs,
         hasUnsavedChanges: dirty,
+        compareMode,
+        setCompareMode,
+        compareBaseline,
+        setCompareBaseline,
+        compareSourceKind,
+        setCompareSourceKind,
+        compareSourceProjectId,
+        setCompareSourceProjectId,
+        loadExternalCompareSourceFromProject,
+        loadExternalCompareSourceFromZip,
+        loadExternalCompareSourceFromDirectory,
+        applyExternalIncomingHunk,
+        applyExternalIncomingChapter,
+        applyExternalIncomingAll,
+        compareWarnings: compareResult?.warnings ?? [],
+        availableCompareProjects,
+        refreshExternalCompare: rerunExternalCompare,
     };
 }

@@ -3,7 +3,7 @@ import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode
 import type {
     ChapterRenderToken,
     ProjectDiff,
-} from "@/app/ui/hooks/useSave.tsx";
+} from "@/app/domain/project/diffTypes.ts";
 import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 
 export type ChapterViewEntry = {

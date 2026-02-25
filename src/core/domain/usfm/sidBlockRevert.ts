@@ -31,23 +31,38 @@ export function applyRevertByBlockId<T extends object>({
 
     const baseline = baselineById.get(diffBlockId) ?? null;
     const current = currentById.get(diffBlockId) ?? null;
+    const baselineOrSidMatch =
+        baseline ??
+        inferSidMatchBlock({
+            diffBlockId,
+            blocks: baselineBlocks,
+        });
+    const currentOrSidMatch =
+        current ??
+        inferSidMatchBlock({
+            diffBlockId,
+            blocks: currentBlocks,
+        });
 
     const next = [...currentTokens];
 
     // Added: remove current slice.
-    if (!baseline && current) {
-        next.splice(current.start, current.endExclusive - current.start);
+    if (!baselineOrSidMatch && currentOrSidMatch) {
+        next.splice(
+            currentOrSidMatch.start,
+            currentOrSidMatch.endExclusive - currentOrSidMatch.start,
+        );
         return next;
     }
 
     // Deleted: insert baseline slice (best-effort anchor).
-    if (baseline && !current) {
+    if (baselineOrSidMatch && !currentOrSidMatch) {
         const baselineSlice = baselineTokens.slice(
-            baseline.start,
-            baseline.endExclusive,
+            baselineOrSidMatch.start,
+            baselineOrSidMatch.endExclusive,
         );
         let insertionIndex = 0;
-        let anchorId: string | null = baseline.prevBlockId;
+        let anchorId: string | null = baselineOrSidMatch.prevBlockId;
 
         while (anchorId) {
             const anchorInCurrent = currentById.get(anchorId);
@@ -64,14 +79,14 @@ export function applyRevertByBlockId<T extends object>({
     }
 
     // Modified: replace current slice with baseline slice.
-    if (baseline && current) {
+    if (baselineOrSidMatch && currentOrSidMatch) {
         const baselineSlice = baselineTokens.slice(
-            baseline.start,
-            baseline.endExclusive,
+            baselineOrSidMatch.start,
+            baselineOrSidMatch.endExclusive,
         );
         next.splice(
-            current.start,
-            current.endExclusive - current.start,
+            currentOrSidMatch.start,
+            currentOrSidMatch.endExclusive - currentOrSidMatch.start,
             ...deepCloneSlice(baselineSlice),
         );
         return next;
@@ -79,4 +94,22 @@ export function applyRevertByBlockId<T extends object>({
 
     // Nothing to do (unknown block id).
     return next;
+}
+
+function inferSidMatchBlock<T extends object>(args: {
+    diffBlockId: string;
+    blocks: Array<{ blockId: string; semanticSid: string } & T>;
+}) {
+    const sid = extractSidFromBlockId(args.diffBlockId);
+    if (!sid) return null;
+    return args.blocks.find((block) => block.semanticSid === sid) ?? null;
+}
+
+function extractSidFromBlockId(blockId: string): string | null {
+    if (!blockId) return null;
+    const byIdIdx = blockId.indexOf("::");
+    if (byIdIdx >= 0) return blockId.slice(0, byIdIdx);
+    const byOccIdx = blockId.lastIndexOf("#");
+    if (byOccIdx >= 0) return blockId.slice(0, byOccIdx);
+    return blockId;
 }

@@ -25,8 +25,34 @@ export function SaveAndReviewChanges() {
                 diffs={sorted}
                 diffsByChapter={saveDiff.diffsByChapter}
                 isCalculating={saveDiff.isCalculatingDiffs}
-                revertDiff={saveDiff.handleRevert}
-                revertChapter={saveDiff.handleRevertChapter}
+                revertDiff={
+                    saveDiff.compareMode === "external"
+                        ? saveDiff.applyExternalIncomingHunk
+                        : saveDiff.handleRevert
+                }
+                revertChapter={
+                    saveDiff.compareMode === "external"
+                        ? saveDiff.applyExternalIncomingChapter
+                        : saveDiff.handleRevertChapter
+                }
+                saveAllChanges={saveDiff.saveProjectToDisk}
+                revertAllChanges={saveDiff.handleRevertAll}
+                compareMode={saveDiff.compareMode}
+                setCompareMode={saveDiff.setCompareMode}
+                compareBaseline={saveDiff.compareBaseline}
+                setCompareBaseline={saveDiff.setCompareBaseline}
+                compareSourceProjectId={saveDiff.compareSourceProjectId}
+                setCompareSourceProjectId={saveDiff.setCompareSourceProjectId}
+                compareProjects={saveDiff.availableCompareProjects}
+                loadCompareProject={
+                    saveDiff.loadExternalCompareSourceFromProject
+                }
+                loadCompareZip={saveDiff.loadExternalCompareSourceFromZip}
+                loadCompareDirectory={
+                    saveDiff.loadExternalCompareSourceFromDirectory
+                }
+                compareWarnings={saveDiff.compareWarnings}
+                takeIncomingAll={saveDiff.applyExternalIncomingAll}
                 isSm={isSm}
                 isXs={isXs}
             />

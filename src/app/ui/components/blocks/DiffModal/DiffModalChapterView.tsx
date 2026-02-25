@@ -7,11 +7,11 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import {
     buildChapterRenderParagraphs,
     type ChapterRenderParagraph,
 } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
-import type { ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 

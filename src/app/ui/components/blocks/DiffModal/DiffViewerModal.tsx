@@ -13,14 +13,23 @@ import {
     Stack,
     Text,
 } from "@mantine/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import type {
+    CompareBaseline,
+    CompareMode,
+    CompareWarning,
+} from "@/app/domain/project/compare/types.ts";
+import type {
+    DiffsByChapter,
+    ProjectDiff,
+} from "@/app/domain/project/diffTypes.ts";
 import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx";
 import { VirtualizedDiffList } from "@/app/ui/components/blocks/DiffModal/DiffModalListView.tsx";
-import type { DiffsByChapter, ProjectDiff } from "@/app/ui/hooks/useSave.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
+import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 
 export type DiffViewerModalProps = {
     isOpen: boolean;
@@ -30,6 +39,20 @@ export type DiffViewerModalProps = {
     isCalculating: boolean;
     revertDiff: (diffToRevert: ProjectDiff) => void;
     revertChapter: (bookCode: string, chapterNum: number) => void;
+    saveAllChanges: () => void;
+    revertAllChanges: () => void;
+    compareMode: CompareMode;
+    setCompareMode: (mode: CompareMode) => void;
+    compareBaseline: CompareBaseline;
+    setCompareBaseline: (baseline: CompareBaseline) => void;
+    compareSourceProjectId: string;
+    setCompareSourceProjectId: (id: string) => void;
+    compareProjects: ListedProject[];
+    loadCompareProject: (projectId: string) => Promise<void>;
+    loadCompareZip: (file: File) => Promise<void>;
+    loadCompareDirectory: (files: FileList) => Promise<void>;
+    compareWarnings: CompareWarning[];
+    takeIncomingAll: () => void;
     isSm?: boolean;
     isXs?: boolean;
 };
@@ -68,15 +91,31 @@ export function DiffViewerModal({
     isCalculating,
     revertDiff,
     revertChapter,
+    saveAllChanges,
+    revertAllChanges,
+    compareMode,
+    setCompareMode,
+    compareBaseline,
+    setCompareBaseline,
+    compareSourceProjectId,
+    setCompareSourceProjectId,
+    compareProjects,
+    loadCompareProject,
+    loadCompareZip,
+    loadCompareDirectory,
+    compareWarnings,
+    takeIncomingAll,
     isSm = false,
     isXs = false,
 }: DiffViewerModalProps) {
     const hasChanges = (diffs?.length ?? 0) > 0;
-    const { bookCodeToProjectLocalizedTitle, saveDiff } = useWorkspaceContext();
+    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const [hideWhitespaceOnly, setHideWhitespaceOnly] = useState(false);
     const [showUsfmMarkers, setShowUsfmMarkers] = useState(false);
     const [viewMode, setViewMode] = useState<DiffViewMode>("list");
     const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const dirInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -179,6 +218,19 @@ export function DiffViewerModal({
         revertChapter(parsed.bookCode, parsed.chapterNum);
     };
 
+    const compareProjectOptions = compareProjects.map((project) => {
+        const routeProjectId =
+            project.projectDirectoryPath.split("/").pop() ??
+            project.projectDirectoryPath;
+        return {
+            value: routeProjectId,
+            label:
+                project.id && project.id !== project.name
+                    ? `${project.name} (${project.id})`
+                    : project.name,
+        };
+    });
+
     return (
         <Modal
             opened={isOpen}
@@ -203,24 +255,140 @@ export function DiffViewerModal({
                             <Trans>Actions</Trans>
                         </Text>
                         <div className={styles.toolbarRow}>
-                            <Button
-                                variant="light"
+                            <SegmentedControl
+                                value={compareMode}
+                                onChange={(value) =>
+                                    setCompareMode(value as CompareMode)
+                                }
+                                data={[
+                                    { label: t`My changes`, value: "unsaved" },
+                                    {
+                                        label: t`Compare with source`,
+                                        value: "external",
+                                    },
+                                ]}
                                 size="xs"
-                                onClick={saveDiff.saveProjectToDisk}
-                                className={styles.saveAllButtonMargin}
-                                data-testid={TESTING_IDS.save.saveAllButton}
-                            >
-                                <Trans>Save all changes</Trans>
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="xs"
-                                color="red"
-                                onClick={saveDiff.handleRevertAll}
-                                data-testid={TESTING_IDS.save.revertAllButton}
-                            >
-                                <Trans>Revert all changes</Trans>
-                            </Button>
+                            />
+
+                            {compareMode === "unsaved" ? (
+                                <>
+                                    <Button
+                                        variant="light"
+                                        size="xs"
+                                        onClick={saveAllChanges}
+                                        className={styles.saveAllButtonMargin}
+                                        data-testid={
+                                            TESTING_IDS.save.saveAllButton
+                                        }
+                                    >
+                                        <Trans>Save all changes</Trans>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="xs"
+                                        color="red"
+                                        onClick={revertAllChanges}
+                                        data-testid={
+                                            TESTING_IDS.save.revertAllButton
+                                        }
+                                    >
+                                        <Trans>Revert all changes</Trans>
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <SegmentedControl
+                                        value={compareBaseline}
+                                        onChange={(value) =>
+                                            setCompareBaseline(
+                                                value as CompareBaseline,
+                                            )
+                                        }
+                                        data={[
+                                            {
+                                                label: t`Current saved`,
+                                                value: "currentSaved",
+                                            },
+                                            {
+                                                label: t`Current dirty`,
+                                                value: "currentDirty",
+                                            },
+                                        ]}
+                                        size="xs"
+                                    />
+
+                                    <Select
+                                        data={compareProjectOptions}
+                                        value={compareSourceProjectId}
+                                        onChange={(value) => {
+                                            const next = value ?? "";
+                                            setCompareSourceProjectId(next);
+                                            if (next) {
+                                                void loadCompareProject(next);
+                                            }
+                                        }}
+                                        placeholder={t`Select source project`}
+                                        size="xs"
+                                        w={rem(220)}
+                                    />
+
+                                    <Button
+                                        variant="outline"
+                                        size="xs"
+                                        onClick={() =>
+                                            fileInputRef.current?.click()
+                                        }
+                                    >
+                                        <Trans>Compare ZIP</Trans>
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="xs"
+                                        onClick={() =>
+                                            dirInputRef.current?.click()
+                                        }
+                                    >
+                                        <Trans>Compare Folder</Trans>
+                                    </Button>
+
+                                    <Button
+                                        variant="light"
+                                        size="xs"
+                                        onClick={takeIncomingAll}
+                                    >
+                                        <Trans>Take incoming all</Trans>
+                                    </Button>
+
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".zip"
+                                        style={{ display: "none" }}
+                                        onChange={(event) => {
+                                            const file =
+                                                event.target.files?.[0];
+                                            if (!file) return;
+                                            void loadCompareZip(file);
+                                            event.currentTarget.value = "";
+                                        }}
+                                    />
+
+                                    <input
+                                        ref={dirInputRef}
+                                        type="file"
+                                        webkitdirectory="true"
+                                        multiple
+                                        style={{ display: "none" }}
+                                        onChange={(event) => {
+                                            const files = event.target.files;
+                                            if (!files?.length) return;
+                                            void loadCompareDirectory(files);
+                                            event.currentTarget.value = "";
+                                        }}
+                                    />
+                                </>
+                            )}
 
                             <Menu
                                 shadow="md"
@@ -323,6 +491,20 @@ export function DiffViewerModal({
                             </Menu>
                         </div>
                     </div>
+                    {compareMode === "external" &&
+                        compareWarnings.length > 0 && (
+                            <Stack gap={2} mt="xs">
+                                {compareWarnings.map((warning) => (
+                                    <Text
+                                        c="orange"
+                                        size="xs"
+                                        key={warning.code}
+                                    >
+                                        {warning.message}
+                                    </Text>
+                                ))}
+                            </Stack>
+                        )}
                 </div>
                 <div
                     className={

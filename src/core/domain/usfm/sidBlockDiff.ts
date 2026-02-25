@@ -138,5 +138,80 @@ export function diffSidBlocks(
         }
     }
 
+    return coalesceDeleteAddPairs(out);
+}
+
+function coalesceDeleteAddPairs(diffs: SidBlockDiff[]): SidBlockDiff[] {
+    const deletedBySid = new Map<string, number[]>();
+    const addedBySid = new Map<string, number[]>();
+
+    for (let i = 0; i < diffs.length; i++) {
+        const diff = diffs[i];
+        if (diff.status === "deleted") {
+            const list = deletedBySid.get(diff.semanticSid) ?? [];
+            list.push(i);
+            deletedBySid.set(diff.semanticSid, list);
+        } else if (diff.status === "added") {
+            const list = addedBySid.get(diff.semanticSid) ?? [];
+            list.push(i);
+            addedBySid.set(diff.semanticSid, list);
+        }
+    }
+
+    const replacements = new Map<number, SidBlockDiff>();
+    const skip = new Set<number>();
+
+    for (const [sid, deletedIndexes] of deletedBySid) {
+        const addedIndexes = addedBySid.get(sid) ?? [];
+        const pairCount = Math.min(deletedIndexes.length, addedIndexes.length);
+        for (let pair = 0; pair < pairCount; pair++) {
+            const deletedIdx = deletedIndexes[pair];
+            const addedIdx = addedIndexes[pair];
+            const deleted = diffs[deletedIdx];
+            const added = diffs[addedIdx];
+            if (!deleted || !added || !deleted.original || !added.current) {
+                continue;
+            }
+
+            const originalText = deleted.originalText;
+            const currentText = added.currentText;
+            const originalTextOnly = stripUsfmMarkersForDisplay(originalText);
+            const currentTextOnly = stripUsfmMarkersForDisplay(currentText);
+            const isWhitespaceChange =
+                stripAllWhitespace(originalText) ===
+                stripAllWhitespace(currentText);
+            const isUsfmStructureChange =
+                !isWhitespaceChange &&
+                stripAllWhitespace(originalTextOnly) ===
+                    stripAllWhitespace(currentTextOnly);
+
+            const status: SidBlockDiff["status"] =
+                originalText === currentText ? "unchanged" : "modified";
+
+            replacements.set(deletedIdx, {
+                blockId: deleted.blockId,
+                semanticSid: deleted.semanticSid,
+                status,
+                original: deleted.original,
+                current: added.current,
+                originalText,
+                currentText,
+                originalTextOnly,
+                currentTextOnly,
+                isWhitespaceChange:
+                    status === "unchanged" ? false : isWhitespaceChange,
+                isUsfmStructureChange:
+                    status === "unchanged" ? false : isUsfmStructureChange,
+            });
+            skip.add(addedIdx);
+        }
+    }
+
+    const out: SidBlockDiff[] = [];
+    for (let i = 0; i < diffs.length; i++) {
+        if (skip.has(i)) continue;
+        const replaced = replacements.get(i);
+        out.push(replaced ?? diffs[i]);
+    }
     return out;
 }
