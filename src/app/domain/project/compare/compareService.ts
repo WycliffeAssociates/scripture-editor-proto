@@ -1,6 +1,7 @@
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     diffTokensToEditorState,
+    diffTokensToRenderTokens,
     inferContentEditorModeFromRootChildren,
     lexicalEditorStateToDiffTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -31,6 +32,29 @@ type BuildCompareResultArgs = {
     sourceFiles: ParsedFile[];
     currentMetadata?: CompareMetadataSummary;
     sourceMetadata?: CompareMetadataSummary;
+};
+
+type ChapterCoverage = {
+    overlap: Array<{ bookCode: string; chapterNum: number }>;
+    baselineOnly: Array<{ bookCode: string; chapterNum: number }>;
+    sourceOnly: Array<{ bookCode: string; chapterNum: number }>;
+};
+
+type CompareDiffMapBuildArgs = {
+    baselineMap: Map<
+        string,
+        { bookCode: string; chapterNum: number; side: ChapterSide }
+    >;
+    sourceMap: Map<
+        string,
+        { bookCode: string; chapterNum: number; side: ChapterSide }
+    >;
+    baseline: CompareBaseline;
+};
+
+type BuildCompareResultAsyncArgs = BuildCompareResultArgs & {
+    batchSize?: number;
+    onBatchComplete?: () => Promise<void>;
 };
 
 type ChapterSide = {
@@ -114,25 +138,22 @@ function compareMetadata(args: {
     return out;
 }
 
-export function buildCompareResult(
-    args: BuildCompareResultArgs,
-): CompareResult {
-    const baselineMap = buildChapterMap(args.currentFiles);
-    const sourceMap = buildChapterMap(args.sourceFiles);
-
+function buildChapterDiffMap(args: CompareDiffMapBuildArgs): {
+    diffsByChapter: CompareResult["diffsByChapter"];
+    coverage: ChapterCoverage;
+} {
     const allChapterKeys = new Set([
-        ...baselineMap.keys(),
-        ...sourceMap.keys(),
+        ...args.baselineMap.keys(),
+        ...args.sourceMap.keys(),
     ]);
     const overlap: Array<{ bookCode: string; chapterNum: number }> = [];
     const baselineOnly: Array<{ bookCode: string; chapterNum: number }> = [];
     const sourceOnly: Array<{ bookCode: string; chapterNum: number }> = [];
-
     let diffsByChapter: CompareResult["diffsByChapter"] = {};
 
     for (const key of allChapterKeys) {
-        const baselineEntry = baselineMap.get(key);
-        const sourceEntry = sourceMap.get(key);
+        const baselineEntry = args.baselineMap.get(key);
+        const sourceEntry = args.sourceMap.get(key);
         const bookCode = baselineEntry?.bookCode ?? sourceEntry?.bookCode ?? "";
         const chapterNum =
             baselineEntry?.chapterNum ?? sourceEntry?.chapterNum ?? Number.NaN;
@@ -140,10 +161,7 @@ export function buildCompareResult(
 
         const baselineTokens = baselineEntry
             ? lexicalEditorStateToDiffTokens(
-                  getBaselineState(
-                      baselineEntry.side.chapter,
-                      args.config.baseline,
-                  ),
+                  getBaselineState(baselineEntry.side.chapter, args.baseline),
               )
             : [];
         const sourceTokens = sourceEntry
@@ -175,6 +193,8 @@ export function buildCompareResult(
             chapterNum,
             isWhitespaceChange: diff.isWhitespaceChange,
             isUsfmStructureChange: diff.isUsfmStructureChange,
+            originalRenderTokens: diffTokensToRenderTokens(diff.originalTokens),
+            currentRenderTokens: diffTokensToRenderTokens(diff.currentTokens),
         }));
 
         diffsByChapter = replaceChapterDiffsInMap({
@@ -185,11 +205,133 @@ export function buildCompareResult(
         });
     }
 
+    return {
+        diffsByChapter,
+        coverage: {
+            overlap,
+            baselineOnly,
+            sourceOnly,
+        },
+    };
+}
+
+async function buildChapterDiffMapAsync(
+    args: CompareDiffMapBuildArgs & {
+        batchSize: number;
+        onBatchComplete?: () => Promise<void>;
+    },
+): Promise<{
+    diffsByChapter: CompareResult["diffsByChapter"];
+    coverage: ChapterCoverage;
+}> {
+    const allChapterKeys = Array.from(
+        new Set([...args.baselineMap.keys(), ...args.sourceMap.keys()]),
+    );
+    const overlap: Array<{ bookCode: string; chapterNum: number }> = [];
+    const baselineOnly: Array<{ bookCode: string; chapterNum: number }> = [];
+    const sourceOnly: Array<{ bookCode: string; chapterNum: number }> = [];
+    let diffsByChapter: CompareResult["diffsByChapter"] = {};
+
+    for (let i = 0; i < allChapterKeys.length; i += args.batchSize) {
+        const batch = allChapterKeys.slice(i, i + args.batchSize);
+        for (const key of batch) {
+            const baselineEntry = args.baselineMap.get(key);
+            const sourceEntry = args.sourceMap.get(key);
+            const bookCode =
+                baselineEntry?.bookCode ?? sourceEntry?.bookCode ?? "";
+            const chapterNum =
+                baselineEntry?.chapterNum ??
+                sourceEntry?.chapterNum ??
+                Number.NaN;
+            if (!bookCode || Number.isNaN(chapterNum)) continue;
+
+            const baselineTokens = baselineEntry
+                ? lexicalEditorStateToDiffTokens(
+                      getBaselineState(
+                          baselineEntry.side.chapter,
+                          args.baseline,
+                      ),
+                  )
+                : [];
+            const sourceTokens = sourceEntry
+                ? lexicalEditorStateToDiffTokens(
+                      sourceEntry.side.chapter.lexicalState,
+                  )
+                : [];
+
+            if (baselineEntry && sourceEntry) {
+                overlap.push({ bookCode, chapterNum });
+            } else if (baselineEntry && !sourceEntry) {
+                baselineOnly.push({ bookCode, chapterNum });
+            } else if (!baselineEntry && sourceEntry) {
+                sourceOnly.push({ bookCode, chapterNum });
+            }
+
+            const chapterDiffs = diffChapterTokenStreams({
+                baselineTokens,
+                currentTokens: sourceTokens,
+            }).map<CompareDiff>((diff) => ({
+                uniqueKey: diff.blockId,
+                semanticSid: diff.semanticSid,
+                status: diff.status,
+                originalDisplayText: diff.originalText,
+                currentDisplayText: diff.currentText,
+                originalTextOnly: diff.originalTextOnly,
+                currentTextOnly: diff.currentTextOnly,
+                bookCode,
+                chapterNum,
+                isWhitespaceChange: diff.isWhitespaceChange,
+                isUsfmStructureChange: diff.isUsfmStructureChange,
+                originalRenderTokens: diffTokensToRenderTokens(
+                    diff.originalTokens,
+                ),
+                currentRenderTokens: diffTokensToRenderTokens(
+                    diff.currentTokens,
+                ),
+            }));
+
+            diffsByChapter = replaceChapterDiffsInMap({
+                previousMap: diffsByChapter,
+                bookCode,
+                chapterNum,
+                chapterDiffs,
+            });
+        }
+
+        if (
+            args.onBatchComplete &&
+            i + args.batchSize < allChapterKeys.length
+        ) {
+            await args.onBatchComplete();
+        }
+    }
+
+    return {
+        diffsByChapter,
+        coverage: {
+            overlap,
+            baselineOnly,
+            sourceOnly,
+        },
+    };
+}
+
+export function buildCompareResult(
+    args: BuildCompareResultArgs,
+): CompareResult {
+    const baselineMap = buildChapterMap(args.currentFiles);
+    const sourceMap = buildChapterMap(args.sourceFiles);
+    const { diffsByChapter, coverage } = buildChapterDiffMap({
+        baselineMap,
+        sourceMap,
+        baseline: args.config.baseline,
+    });
+
     const warnings = compareMetadata({
         currentMetadata: args.currentMetadata,
         sourceMetadata: args.sourceMetadata,
     });
-    if (baselineOnly.length > 0 || sourceOnly.length > 0) {
+    if (coverage.baselineOnly.length > 0 || coverage.sourceOnly.length > 0) {
         warnings.push({
             code: "book_coverage_diff",
             message:
@@ -207,9 +349,51 @@ export function buildCompareResult(
         diffs,
         warnings,
         coverage: {
-            baselineOnly,
-            sourceOnly,
-            overlapping: overlap,
+            baselineOnly: coverage.baselineOnly,
+            sourceOnly: coverage.sourceOnly,
+            overlapping: coverage.overlap,
+        },
+    };
+}
+
+export async function buildCompareResultAsync(
+    args: BuildCompareResultAsyncArgs,
+): Promise<CompareResult> {
+    const baselineMap = buildChapterMap(args.currentFiles);
+    const sourceMap = buildChapterMap(args.sourceFiles);
+    const { diffsByChapter, coverage } = await buildChapterDiffMapAsync({
+        baselineMap,
+        sourceMap,
+        baseline: args.config.baseline,
+        batchSize: args.batchSize ?? 8,
+        onBatchComplete: args.onBatchComplete,
+    });
+
+    const warnings = compareMetadata({
+        currentMetadata: args.currentMetadata,
+        sourceMetadata: args.sourceMetadata,
+    });
+    if (coverage.baselineOnly.length > 0 || coverage.sourceOnly.length > 0) {
+        warnings.push({
+            code: "book_coverage_diff",
+            message:
+                "Book/chapter coverage differs between current project and source.",
+        });
+    }
+
+    const diffs = flattenDiffMap({
+        diffsByChapter,
+        include: (diff) => diff.status !== "unchanged",
+    });
+
+    return {
+        diffsByChapter,
+        diffs,
+        warnings,
+        coverage: {
+            baselineOnly: coverage.baselineOnly,
+            sourceOnly: coverage.sourceOnly,
+            overlapping: coverage.overlap,
         },
     };
 }

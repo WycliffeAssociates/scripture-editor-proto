@@ -1,26 +1,24 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import {
-    Badge,
-    Button,
-    Grid,
-    Group,
-    Paper,
-    rem,
-    Text,
-    Tooltip,
-} from "@mantine/core";
+import { Badge, Grid, Group, Paper, Text, Tooltip } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
-import { BookIcon, RotateCw } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { BookIcon, Code2, RotateCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import { toRegularModeDisplayTextPreservingWhitespace } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
+import {
+    getRowUsfmOverrideKey,
+    type RowUsfmOverrides,
+    resolveRowUsfmMode,
+    toggleRowUsfmOverride,
+} from "./rowUsfmOverrides.ts";
 
 type HighlightedDiffProps = {
     changes: Change[];
@@ -53,7 +51,6 @@ function HighlightedDiffText({
                 } else if (change.added || change.removed) {
                     return null;
                 }
-
                 const displayValue = renderWithVisibleWhitespace(
                     change.value,
                     showWhitespace && isHighlighted,
@@ -75,7 +72,8 @@ type DiffItemProps = {
     revertDiff: (diffToRevert: ProjectDiff) => void;
     switchBookOrChapter: (fileBibleIdentifier: string, chapter: number) => void;
     toggleDiffModal: () => void;
-    showUsfmMarkers: boolean;
+    effectiveShowUsfmMarkers: boolean;
+    toggleUsfmForRow: () => void;
 };
 
 function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
@@ -83,6 +81,19 @@ function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
         return {
             original: diff.originalDisplayText,
             current: diff.currentDisplayText,
+        };
+    }
+
+    // For whitespace-only diffs, preserve exact newline/space layout while
+    // stripping marker tokens so regular mode still reveals whitespace changes.
+    if (diff.isWhitespaceChange) {
+        return {
+            original: toRegularModeDisplayTextPreservingWhitespace(
+                diff.originalDisplayText,
+            ),
+            current: toRegularModeDisplayTextPreservingWhitespace(
+                diff.currentDisplayText,
+            ),
         };
     }
 
@@ -97,14 +108,15 @@ function DiffItem({
     revertDiff,
     switchBookOrChapter,
     toggleDiffModal,
-    showUsfmMarkers,
+    effectiveShowUsfmMarkers,
+    toggleUsfmForRow,
 }: DiffItemProps) {
-    const { isSm, isLg } = useWorkspaceMediaQuery();
+    const { isLg } = useWorkspaceMediaQuery();
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const isAddition = diff.status === "added";
     const isDeletion = diff.status === "deleted";
     const isModification = diff.status === "modified";
-    const displayText = getDisplayTextPair(diff, showUsfmMarkers);
+    const displayText = getDisplayTextPair(diff, effectiveShowUsfmMarkers);
 
     const wordDiff = useMemo(() => {
         if (!isModification) return undefined;
@@ -161,57 +173,60 @@ function DiffItem({
 
     const renderActions = () => (
         <Group>
-            {isSm ? (
-                <>
-                    <Tooltip
-                        label={<Trans>Switch to this chapter</Trans>}
-                        withArrow
-                        position="top"
-                    >
-                        <ActionIconSimple
-                            data-testid={TESTING_IDS.save.goToChapterButton}
-                            onClick={() => scrollToClickedRef(diff)}
-                            aria-label={t`Switch to this chapter`}
-                            title={t`Switch to this chapter`}
-                        >
-                            <BookIcon size={16} />
-                        </ActionIconSimple>
-                    </Tooltip>
-                    <Tooltip
-                        label={<Trans>Undo Change</Trans>}
-                        withArrow
-                        position="top"
-                    >
-                        <ActionIconSimple
-                            data-testid={TESTING_IDS.save.revertButton}
-                            onClick={() => revertDiff(diff)}
-                            aria-label={t`Undo Change`}
-                            title={t`Undo Change`}
-                        >
-                            <RotateCw size={16} />
-                        </ActionIconSimple>
-                    </Tooltip>
-                </>
-            ) : (
-                <>
-                    <Button
-                        variant="outline"
-                        size="compact-xs"
-                        onClick={() => scrollToClickedRef(diff)}
-                        data-testid={TESTING_IDS.save.goToChapterButton}
-                    >
-                        <Trans>Switch to this chapter</Trans>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="compact-xs"
-                        onClick={() => revertDiff(diff)}
-                        data-testid={TESTING_IDS.save.revertButton}
-                    >
-                        <Trans>Undo Change</Trans>
-                    </Button>
-                </>
-            )}
+            <Tooltip
+                label={
+                    effectiveShowUsfmMarkers
+                        ? t`Show regular text for this verse`
+                        : t`Show USFM for this verse`
+                }
+                withArrow
+                position="top"
+            >
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.save.toggleRowUsfmButton}
+                    onClick={toggleUsfmForRow}
+                    aria-label={
+                        effectiveShowUsfmMarkers
+                            ? t`Show regular text for this verse`
+                            : t`Show USFM for this verse`
+                    }
+                    title={
+                        effectiveShowUsfmMarkers
+                            ? t`Show regular text for this verse`
+                            : t`Show USFM for this verse`
+                    }
+                >
+                    <Code2 size={16} />
+                </ActionIconSimple>
+            </Tooltip>
+            <Tooltip
+                label={<Trans>Switch to this chapter</Trans>}
+                withArrow
+                position="top"
+            >
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.save.goToChapterButton}
+                    onClick={() => scrollToClickedRef(diff)}
+                    aria-label={t`Switch to this chapter`}
+                    title={t`Switch to this chapter`}
+                >
+                    <BookIcon size={16} />
+                </ActionIconSimple>
+            </Tooltip>
+            <Tooltip
+                label={<Trans>Undo Change</Trans>}
+                withArrow
+                position="top"
+            >
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.save.revertButton}
+                    onClick={() => revertDiff(diff)}
+                    aria-label={t`Undo Change`}
+                    title={t`Undo Change`}
+                >
+                    <RotateCw size={16} />
+                </ActionIconSimple>
+            </Tooltip>
         </Group>
     );
 
@@ -220,7 +235,7 @@ function DiffItem({
             data-testid={TESTING_IDS.save.diffItem}
             className={styles.diffItem}
         >
-            <Group justify="space-between" p="0">
+            <Group justify="space-between" mb="md">
                 <Group gap="xs">
                     <Text
                         data-testid={TESTING_IDS.save.diffSidHeader}
@@ -232,7 +247,7 @@ function DiffItem({
                         })}
                     </Text>
                     {diff.isWhitespaceChange && (
-                        <Badge variant="light" color="gray" size="sm">
+                        <Badge variant="light" color="gray" size="xs">
                             <Trans>Whitespace Only</Trans>
                         </Badge>
                     )}
@@ -246,20 +261,20 @@ function DiffItem({
 
             {isLg ? (
                 <Grid
-                    gutter="md"
+                    gutter="xl"
                     classNames={{
                         inner: styles.diffGrid,
                     }}
                 >
                     <Grid.Col>
-                        <Group justify="space-between" mb="xs" mih={rem(30)}>
+                        <Group justify="space-between" mb="xs">
                             <Text className={styles.diffLabel}>
                                 <Trans>Original</Trans>
                             </Text>
                             {renderActions()}
                         </Group>
                         <Paper
-                            p="xs"
+                            p="md"
                             className={getPaperClass(
                                 isDeletion,
                                 styles.paperBgDeletion,
@@ -286,13 +301,13 @@ function DiffItem({
                     </Grid.Col>
 
                     <Grid.Col>
-                        <Group justify="space-between" mb="xs" mih={rem(30)}>
-                            <Text className={styles.diffLabel} mb="xs">
+                        <Group justify="space-between" mb="xs">
+                            <Text className={styles.diffLabel}>
                                 <Trans>Current</Trans>
                             </Text>
                         </Group>
                         <Paper
-                            p="xs"
+                            p="md"
                             className={getPaperClass(
                                 isAddition,
                                 styles.paperBgAddition,
@@ -328,7 +343,7 @@ function DiffItem({
                             {renderActions()}
                         </Group>
                         <Paper
-                            p={isSm ? "xs" : "sm"}
+                            p="md"
                             className={getPaperClass(
                                 isDeletion,
                                 styles.paperBgDeletion,
@@ -359,7 +374,7 @@ function DiffItem({
                             <Trans>Current</Trans>
                         </Text>
                         <Paper
-                            p={isSm ? "xs" : "sm"}
+                            p="md"
                             className={getPaperClass(
                                 isAddition,
                                 styles.paperBgAddition,
@@ -394,13 +409,28 @@ export function VirtualizedDiffList({
     diffs,
     revertDiff,
     showUsfmMarkers,
+    isOpen,
 }: {
     diffs: ProjectDiff[];
     revertDiff: (diffToRevert: ProjectDiff) => void;
     showUsfmMarkers: boolean;
+    isOpen?: boolean;
 }) {
     const { actions } = useWorkspaceContext();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [rowUsfmOverrides, setRowUsfmOverrides] = useState<RowUsfmOverrides>(
+        {},
+    );
+
+    useEffect(() => {
+        setRowUsfmOverrides({});
+    }, [showUsfmMarkers, diffs]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setRowUsfmOverrides({});
+        }
+    }, [isOpen]);
 
     const virtualizer = useVirtualizer({
         count: diffs.length,
@@ -425,6 +455,12 @@ export function VirtualizedDiffList({
             >
                 {virtualizer.getVirtualItems().map((virtualRow) => {
                     const diff = diffs[virtualRow.index];
+                    const rowKey = getRowUsfmOverrideKey(diff);
+                    const effectiveShowUsfmMarkers = resolveRowUsfmMode({
+                        globalShowUsfmMarkers: showUsfmMarkers,
+                        overrides: rowUsfmOverrides,
+                        rowKey,
+                    });
                     return (
                         <div
                             key={diff.semanticSid}
@@ -441,7 +477,19 @@ export function VirtualizedDiffList({
                             <DiffItem
                                 diff={diff}
                                 revertDiff={revertDiff}
-                                showUsfmMarkers={showUsfmMarkers}
+                                effectiveShowUsfmMarkers={
+                                    effectiveShowUsfmMarkers
+                                }
+                                toggleUsfmForRow={() =>
+                                    setRowUsfmOverrides((prev) =>
+                                        toggleRowUsfmOverride({
+                                            globalShowUsfmMarkers:
+                                                showUsfmMarkers,
+                                            overrides: prev,
+                                            rowKey,
+                                        }),
+                                    )
+                                }
                                 switchBookOrChapter={
                                     actions.switchBookOrChapter
                                 }

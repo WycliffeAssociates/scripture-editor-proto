@@ -68,6 +68,7 @@ export const TESTING_IDS = {
         diffCurrentPanel: "save-diff-current-panel",
         goToChapterButton: "save-diff-go-to-button",
         revertButton: "save-diff-revert-button",
+        toggleRowUsfmButton: "save-diff-toggle-row-usfm-button",
         chapterPanel: "save-diff-chapter-panel",
         chapterHunkAction: "save-diff-chapter-hunk-action",
         revertAllButton: "revert-all-button",

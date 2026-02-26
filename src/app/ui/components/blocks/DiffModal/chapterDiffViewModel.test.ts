@@ -1,7 +1,10 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
+import type {
+    ChapterRenderToken,
+    ProjectDiff,
+} from "@/app/domain/project/diffTypes.ts";
 import {
     buildChapterRenderParagraphs,
     toChapterViewEntries,
@@ -168,5 +171,97 @@ describe("buildChapterRenderParagraphs", () => {
         expect(paragraphs[1]?.marker).toBe("p");
         expect(paragraphs[1]?.tokens).toHaveLength(4);
         expect(paragraphs[1]?.tokens[1]?.token.marker).toBe("v");
+    });
+
+    it("re-aligns after removed linebreak so shared markers remain unchanged", () => {
+        const marker = (id: string, marker: string): ChapterRenderToken => ({
+            node: {
+                type: "usfm-text-node",
+                lexicalType: "usfm-text-node",
+                version: 1,
+                detail: 0,
+                format: 0,
+                mode: "normal",
+                style: "",
+                id,
+                sid: "ISA 33:1",
+                tokenType: UsfmTokenTypes.marker,
+                marker,
+                text: `\\${marker}`,
+            } as unknown as SerializedLexicalNode,
+            sid: "ISA 33:1",
+            tokenType: UsfmTokenTypes.marker,
+            marker,
+        });
+        const text = (id: string, value: string): ChapterRenderToken => ({
+            node: {
+                type: "usfm-text-node",
+                lexicalType: "usfm-text-node",
+                version: 1,
+                detail: 0,
+                format: 0,
+                mode: "normal",
+                style: "",
+                id,
+                sid: "ISA 33:1",
+                tokenType: UsfmTokenTypes.text,
+                text: value,
+            } as unknown as SerializedLexicalNode,
+            sid: "ISA 33:1",
+            tokenType: UsfmTokenTypes.text,
+        });
+        const lineBreak: ChapterRenderToken = {
+            node: { type: "linebreak", version: 1 } as SerializedLexicalNode,
+            sid: "ISA 33:1",
+        };
+
+        const diff = makeDiff({
+            uniqueKey: "isa-33-1",
+            status: "modified",
+            originalRenderTokens: [
+                marker("m-v", "v"),
+                text("t-1", " 1 test"),
+                lineBreak,
+                lineBreak,
+                marker("m-s5", "s5"),
+                lineBreak,
+                marker("m-q1", "q1"),
+            ],
+            currentRenderTokens: [
+                marker("m-v", "v"),
+                text("t-1", " 1 test"),
+                lineBreak,
+                marker("m-s5", "s5"),
+                lineBreak,
+                marker("m-q1", "q1"),
+            ],
+        });
+
+        const originalParagraphs = buildChapterRenderParagraphs({
+            diffs: [diff],
+            viewType: "original",
+        });
+        const currentParagraphs = buildChapterRenderParagraphs({
+            diffs: [diff],
+            viewType: "current",
+        });
+
+        const originalS5 = originalParagraphs
+            .flatMap((p) => p.tokens)
+            .find((token) => token.token.marker === "s5");
+        const currentS5 = currentParagraphs
+            .flatMap((p) => p.tokens)
+            .find((token) => token.token.marker === "s5");
+        const originalQ1 = originalParagraphs
+            .flatMap((p) => p.tokens)
+            .find((token) => token.token.marker === "q1");
+        const currentQ1 = currentParagraphs
+            .flatMap((p) => p.tokens)
+            .find((token) => token.token.marker === "q1");
+
+        expect(originalS5?.tokenChange).toBe("unchanged");
+        expect(currentS5?.tokenChange).toBe("unchanged");
+        expect(originalQ1?.tokenChange).toBe("unchanged");
+        expect(currentQ1?.tokenChange).toBe("unchanged");
     });
 });

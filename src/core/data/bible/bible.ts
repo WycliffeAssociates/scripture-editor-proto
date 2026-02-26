@@ -127,7 +127,7 @@ const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
     NUM: ["numbers", "num", "nu"],
     DEU: ["deuteronomy", "deut", "de"],
     JOS: ["joshua", "jos", "js"],
-    JDG: ["judges", "jud", "jd"],
+    JDG: ["judges", "judg", "jd"],
     RUT: ["ruth", "rt"],
     "1SA": ["1 samuel", "1 sam", "1sa", "1sm"],
     "2SA": ["2 samuel", "2 sam", "2sa", "2sm"],

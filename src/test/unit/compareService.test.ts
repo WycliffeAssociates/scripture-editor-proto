@@ -118,6 +118,10 @@ describe("compareService.buildCompareResult", () => {
         expect(result.diffs).toHaveLength(1);
         expect(result.diffs[0]?.originalDisplayText).toContain("alpha");
         expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
+        expect(result.diffs[0]?.originalRenderTokens?.length).toBeGreaterThan(
+            0,
+        );
+        expect(result.diffs[0]?.currentRenderTokens?.length).toBeGreaterThan(0);
     });
 
     it("uses current-dirty baseline when selected", () => {

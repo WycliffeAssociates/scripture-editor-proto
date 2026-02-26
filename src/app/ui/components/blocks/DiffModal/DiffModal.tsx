@@ -41,6 +41,8 @@ export function SaveAndReviewChanges() {
                 setCompareMode={saveDiff.setCompareMode}
                 compareBaseline={saveDiff.compareBaseline}
                 setCompareBaseline={saveDiff.setCompareBaseline}
+                compareSourceKind={saveDiff.compareSourceKind}
+                setCompareSourceKind={saveDiff.setCompareSourceKind}
                 compareSourceProjectId={saveDiff.compareSourceProjectId}
                 setCompareSourceProjectId={saveDiff.setCompareSourceProjectId}
                 compareProjects={saveDiff.availableCompareProjects}
@@ -53,6 +55,8 @@ export function SaveAndReviewChanges() {
                 }
                 compareWarnings={saveDiff.compareWarnings}
                 takeIncomingAll={saveDiff.applyExternalIncomingAll}
+                hasComputedCompare={saveDiff.hasComputedCompare}
+                resetExternalCompare={saveDiff.resetExternalCompare}
                 isSm={isSm}
                 isXs={isXs}
             />

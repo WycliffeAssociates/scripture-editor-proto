@@ -150,6 +150,10 @@ body:not(.source-mode) {
     &[data-marker="p"] {
       text-indent: 1.5em;
     }
+    /* Select data-ids that match "default-para-*" */
+    &[data-id^="default-para-"] {
+      text-indent: 0 !important;
+    }
 
     &[data-marker="m"] {
       text-indent: 0;
@@ -368,6 +372,10 @@ body:not(.source-mode) {
       :has([data-token-type="error"])
     ) {
     display: none;
+  }
+  [data-is-nested-editor-button="true"],
+  [data-is-nested-editor-button="true"] * {
+    display: inline-flex !important;
   }
 
   div[data-token-type="marker"]:has([data-token-type="text"]),

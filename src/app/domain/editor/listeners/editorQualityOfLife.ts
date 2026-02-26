@@ -66,11 +66,13 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
             event.stopPropagation();
             editor.update(() => {
                 console.log("selecting next sibling");
+                const marker = anchorNode.getMarker();
+                if (!marker) return;
                 if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {
                     nextSibling.selectEnd();
                 } else {
                     const skipLeadingSpaceForBoundary =
-                        isCharOrNoteMarkerBoundary(anchorNode.getMarker());
+                        isCharOrNoteMarkerBoundary(marker);
                     if (
                         !skipLeadingSpaceForBoundary &&
                         !nextSibling.getTextContent().startsWith(" ")

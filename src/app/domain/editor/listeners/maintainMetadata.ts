@@ -204,7 +204,7 @@ export function maintainDocumentMetaData(
                     continue;
                 node.setSid(u.sid);
             }
-            //   debugger;
+
             for (const u of structuralEmptyUpdates) {
                 const node = $getNodeByKey(u.key);
                 if (!node || !node.isAttached()) continue;

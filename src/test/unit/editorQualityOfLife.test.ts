@@ -1,6 +1,7 @@
 import { createHeadlessEditor } from "@lexical/headless";
 import {
     $getRoot,
+    $isElementNode,
     type LexicalEditor,
     LineBreakNode,
     ParagraphNode,
@@ -87,7 +88,8 @@ describe("editorQualityOfLife", () => {
         editor.getEditorState().read(() => {
             const root = $getRoot();
             const paragraph = root.getFirstChild();
-            if (!paragraph) throw new Error("Missing paragraph");
+            if (!paragraph || !$isElementNode(paragraph))
+                throw new Error("Missing paragraph");
             const children = paragraph.getChildren();
             const next = children[1];
             if (!$isUSFMTextNode(next)) throw new Error("Expected text node");
@@ -139,7 +141,8 @@ describe("editorQualityOfLife", () => {
         editor.getEditorState().read(() => {
             const root = $getRoot();
             const paragraph = root.getFirstChild();
-            if (!paragraph) throw new Error("Missing paragraph");
+            if (!paragraph || !$isElementNode(paragraph))
+                throw new Error("Missing paragraph");
             const children = paragraph.getChildren();
             const next = children[1];
             if (!$isUSFMTextNode(next)) throw new Error("Expected text node");

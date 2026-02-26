@@ -1,7 +1,7 @@
 // hooks/useProjectDiffs.ts
 
 import type { LexicalEditor } from "lexical";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
@@ -13,7 +13,7 @@ import {
     applyIncomingChapter,
     applyIncomingChapterAll,
     applyIncomingHunk,
-    buildCompareResult,
+    buildCompareResultAsync,
     type CompareMetadataSummary,
 } from "@/app/domain/project/compare/compareService.ts";
 import { CompareSourceLoader } from "@/app/domain/project/compare/compareSourceLoader.ts";
@@ -42,6 +42,10 @@ import {
     listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import {
+    createDiffCalculationRunner,
+    yieldToMainThread,
+} from "@/app/ui/hooks/diffCalculationRunner.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import {
@@ -73,6 +77,7 @@ type UseProjectDiffsProps = {
 };
 
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
+const DIFF_CHUNK_SIZE = 8;
 
 function revertAllChanges({
     mutWorkingFilesRef,
@@ -144,6 +149,12 @@ export function useProjectDiffs({
         sourceFiles?: ParsedFile[];
     } | null>(null);
     const [, setDirtyVersion] = useState(0);
+    const calculationRunnerRef = useRef(
+        createDiffCalculationRunner({
+            setIsCalculatingDiffs,
+            delayMs: 200,
+        }),
+    );
 
     const bumpDirtyVersion = () => setDirtyVersion((v) => v + 1);
 
@@ -222,27 +233,44 @@ export function useProjectDiffs({
         );
     }
 
+    async function buildUnsavedChapterDiffEntries(
+        chapters: Array<{ bookCode: string; chapterNum: number }>,
+    ) {
+        const out: Array<{
+            bookCode: string;
+            chapterNum: number;
+            diffs: ProjectDiff[];
+        }> = [];
+        for (let i = 0; i < chapters.length; i += DIFF_CHUNK_SIZE) {
+            const batch = chapters.slice(i, i + DIFF_CHUNK_SIZE);
+            for (const { bookCode, chapterNum } of batch) {
+                out.push({
+                    bookCode,
+                    chapterNum,
+                    diffs: calculateDiffsForChapter(bookCode, chapterNum),
+                });
+            }
+            if (i + DIFF_CHUNK_SIZE < chapters.length) {
+                await yieldToMainThread();
+            }
+        }
+        return out;
+    }
+
     async function updateDiffMapForChapters(
         chapters: Array<{ bookCode: string; chapterNum: number }>,
     ) {
         bumpDirtyVersion();
         if (!openDiffModal) return;
-
-        setIsCalculatingDiffs(true);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        setUnsavedDiffsByChapter((prev) =>
-            replaceManyChapterDiffsInMap({
-                previousMap: prev,
-                chapterDiffs: chapters.map(({ bookCode, chapterNum }) => ({
-                    bookCode,
-                    chapterNum,
-                    diffs: calculateDiffsForChapter(bookCode, chapterNum),
-                })),
-            }),
-        );
-
-        setIsCalculatingDiffs(false);
+        await calculationRunnerRef.current.run(async () => {
+            const chapterDiffs = await buildUnsavedChapterDiffEntries(chapters);
+            setUnsavedDiffsByChapter((prev) =>
+                replaceManyChapterDiffsInMap({
+                    previousMap: prev,
+                    chapterDiffs,
+                }),
+            );
+        });
     }
 
     const handleRevert = (diffToRevert: ProjectDiff) => {
@@ -313,24 +341,18 @@ export function useProjectDiffs({
 
         saveCurrentDirtyLexical();
         setOpenDiffModal(true);
-        setIsCalculatingDiffs(true);
+        await calculationRunnerRef.current.run(async () => {
+            const chaptersToDiff = listDirtyChapterRefs(mutWorkingFilesRef);
+            const allDiffs =
+                await buildUnsavedChapterDiffEntries(chaptersToDiff);
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        const chaptersToDiff = listDirtyChapterRefs(mutWorkingFilesRef);
-        const allDiffs = chaptersToDiff.map(({ bookCode, chapterNum }) => ({
-            bookCode,
-            chapterNum,
-            diffs: calculateDiffsForChapter(bookCode, chapterNum),
-        }));
-
-        setUnsavedDiffsByChapter(
-            replaceManyChapterDiffsInMap({
-                previousMap: {},
-                chapterDiffs: allDiffs,
-            }),
-        );
-        setIsCalculatingDiffs(false);
+            setUnsavedDiffsByChapter(
+                replaceManyChapterDiffsInMap({
+                    previousMap: {},
+                    chapterDiffs: allDiffs,
+                }),
+            );
+        });
     }
 
     const closeModal = useCallback(() => {
@@ -344,7 +366,6 @@ export function useProjectDiffs({
     async function saveProjectToDisk() {
         const filesToSave = getDirtyFiles(mutWorkingFilesRef);
         const toSave = buildBooksSavePayload(filesToSave);
-        debugger;
 
         const savePromise = await Promise.allSettled(
             Object.entries(toSave).map(async ([bookCode, content]) => {
@@ -433,7 +454,7 @@ export function useProjectDiffs({
         metadata: CompareMetadataSummary,
         cleanup?: () => Promise<void>,
     ) {
-        const result = buildCompareResult({
+        const result = await buildCompareResultAsync({
             currentFiles: mutWorkingFilesRef,
             config: {
                 mode: "external",
@@ -454,6 +475,8 @@ export function useProjectDiffs({
                 languageDirection: loadedProject.metadata.language.direction,
             },
             sourceMetadata: metadata,
+            batchSize: DIFF_CHUNK_SIZE,
+            onBatchComplete: yieldToMainThread,
         });
         setCompareResult({
             diffsByChapter: result.diffsByChapter,
@@ -466,58 +489,70 @@ export function useProjectDiffs({
 
     async function loadExternalCompareSourceFromProject(projectId: string) {
         if (!projectId) return;
-        setIsCalculatingDiffs(true);
-        if (compareResult?.cleanup) {
-            await compareResult.cleanup();
-        }
-        const loaded = await compareSourceLoader.loadExistingProject(projectId);
-        setCompareSourceProjectId(projectId);
-        await computeExternalDiffs(
-            loaded.parsedFiles,
-            loaded.metadataSummary,
-            loaded.cleanup,
-        );
-        setIsCalculatingDiffs(false);
+        await calculationRunnerRef.current.run(async () => {
+            if (compareResult?.cleanup) {
+                await compareResult.cleanup();
+            }
+            const loaded =
+                await compareSourceLoader.loadExistingProject(projectId);
+            setCompareSourceProjectId(projectId);
+            await computeExternalDiffs(
+                loaded.parsedFiles,
+                loaded.metadataSummary,
+                loaded.cleanup,
+            );
+        });
     }
 
     async function loadExternalCompareSourceFromZip(file: File) {
-        setIsCalculatingDiffs(true);
-        if (compareResult?.cleanup) {
-            await compareResult.cleanup();
-        }
-        const loaded = await compareSourceLoader.loadFromZipFile(file);
-        setCompareSourceProjectId("");
-        await computeExternalDiffs(
-            loaded.parsedFiles,
-            loaded.metadataSummary,
-            loaded.cleanup,
-        );
-        setIsCalculatingDiffs(false);
+        await calculationRunnerRef.current.run(async () => {
+            if (compareResult?.cleanup) {
+                await compareResult.cleanup();
+            }
+            const loaded = await compareSourceLoader.loadFromZipFile(file);
+            setCompareSourceProjectId("");
+            await computeExternalDiffs(
+                loaded.parsedFiles,
+                loaded.metadataSummary,
+                loaded.cleanup,
+            );
+        });
     }
 
     async function loadExternalCompareSourceFromDirectory(files: FileList) {
-        setIsCalculatingDiffs(true);
-        if (compareResult?.cleanup) {
-            await compareResult.cleanup();
-        }
-        const loaded = await compareSourceLoader.loadFromDirectoryFiles(files);
-        setCompareSourceProjectId("");
-        await computeExternalDiffs(
-            loaded.parsedFiles,
-            loaded.metadataSummary,
-            loaded.cleanup,
-        );
-        setIsCalculatingDiffs(false);
+        await calculationRunnerRef.current.run(async () => {
+            if (compareResult?.cleanup) {
+                await compareResult.cleanup();
+            }
+            const loaded =
+                await compareSourceLoader.loadFromDirectoryFiles(files);
+            setCompareSourceProjectId("");
+            await computeExternalDiffs(
+                loaded.parsedFiles,
+                loaded.metadataSummary,
+                loaded.cleanup,
+            );
+        });
     }
 
     function rerunExternalCompare() {
         if (!compareResult?.sourceFiles || !compareResult.metadata) return;
-        void computeExternalDiffs(
-            compareResult.sourceFiles,
-            compareResult.metadata,
-            compareResult.cleanup,
-        );
+        const sourceFiles = compareResult.sourceFiles;
+        const metadata = compareResult.metadata;
+        const cleanup = compareResult.cleanup;
+        void calculationRunnerRef.current.run(async () => {
+            await computeExternalDiffs(sourceFiles, metadata, cleanup);
+        });
     }
+
+    const resetExternalCompare = useCallback(() => {
+        if (compareResult?.cleanup) {
+            void compareResult.cleanup();
+        }
+        setCompareResult(null);
+        setCompareSourceProjectId("");
+        setCompareSourceKind("existingProject");
+    }, [compareResult]);
 
     function applyExternalIncomingHunk(diff: ProjectDiff) {
         if (!compareResult?.sourceFiles) return;
@@ -653,5 +688,7 @@ export function useProjectDiffs({
         compareWarnings: compareResult?.warnings ?? [],
         availableCompareProjects,
         refreshExternalCompare: rerunExternalCompare,
+        hasComputedCompare: compareResult !== null,
+        resetExternalCompare,
     };
 }

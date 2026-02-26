@@ -1,10 +1,18 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { Button, Group, Paper, Text, Tooltip } from "@mantine/core";
+import {
+    ActionIcon,
+    Button,
+    Group,
+    Paper,
+    SegmentedControl,
+    Text,
+    Tooltip,
+} from "@mantine/core";
 import { diffWordsWithSpace } from "diff";
 import { RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
@@ -12,14 +20,17 @@ import {
     buildChapterRenderParagraphs,
     type ChapterRenderParagraph,
 } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
+import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
 function getTokenHighlightClass(
-    status: ProjectDiff["status"],
+    status: "unchanged" | "added" | "deleted" | "modified" | "paired",
     viewType: "original" | "current",
 ) {
     if (status === "unchanged") return "";
+    if (status === "paired") return "";
     if (viewType === "current") {
         if (status === "added" || status === "modified") {
             return styles.diffHighlightAdded;
@@ -78,27 +89,54 @@ function ChapterStructuredToken({
     paragraph,
     tokenIndex,
     viewType,
+    showUsfmMarkers,
     revertDiff,
 }: {
     paragraph: ChapterRenderParagraph;
     tokenIndex: number;
     viewType: "original" | "current";
+    showUsfmMarkers: boolean;
     revertDiff: (diffToRevert: ProjectDiff) => void;
 }) {
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const tokenWithOwner = paragraph.tokens[tokenIndex];
     if (!tokenWithOwner) return null;
-    const { entry, isFirstTokenOfEntry, entryTokenIndex, token } =
+    const { entry, isFirstTokenOfEntry, token, tokenChange, counterpartToken } =
         tokenWithOwner;
 
+    const highlightClass = getTokenHighlightClass(tokenChange, viewType);
+
     if (token.node.type === "linebreak") {
-        return <br key={tokenWithOwner.key} />;
+        const prevToken = paragraph.tokens[tokenIndex - 1]?.token;
+        if (
+            shouldHideStructuralLineBreak({
+                showUsfmMarkers,
+                tokenChange,
+                previousToken: prevToken,
+            })
+        ) {
+            return null;
+        }
+
+        const showMarker = tokenChange !== "unchanged";
+        return (
+            <span key={tokenWithOwner.key}>
+                {showMarker && (
+                    <span
+                        className={highlightClass}
+                        style={{ whiteSpace: "pre" }}
+                    >
+                        {"↵"}
+                    </span>
+                )}
+                <br />
+            </span>
+        );
     }
     if (!isSerializedUSFMTextNode(token.node)) {
         return null;
     }
 
-    const highlightClass = getTokenHighlightClass(entry.status, viewType);
     const showUndoOverlay =
         viewType === "current" &&
         isFirstTokenOfEntry &&
@@ -112,22 +150,14 @@ function ChapterStructuredToken({
         : entry.semanticSid;
     const undoLabel = localizedSid ? t`Undo ${localizedSid}` : t`Undo Change`;
 
-    const sideTokens =
-        viewType === "original"
-            ? (entry.diffToRevert?.originalRenderTokens ?? [])
-            : (entry.diffToRevert?.currentRenderTokens ?? []);
-    const counterpartTokens =
-        viewType === "original"
-            ? (entry.diffToRevert?.currentRenderTokens ?? [])
-            : (entry.diffToRevert?.originalRenderTokens ?? []);
-    const sideToken = sideTokens[entryTokenIndex]?.node;
-    const counterpartToken = counterpartTokens[entryTokenIndex]?.node;
+    const sideToken = token.node;
+    const pairedCounterpartNode = counterpartToken?.node;
     const useWordGranularity =
-        entry.status === "modified" &&
+        tokenChange === "modified" &&
         sideToken &&
-        counterpartToken &&
+        pairedCounterpartNode &&
         isSerializedUSFMTextNode(sideToken) &&
-        isSerializedUSFMTextNode(counterpartToken);
+        isSerializedUSFMTextNode(pairedCounterpartNode);
 
     const tokenWordContent =
         useWordGranularity && isSerializedUSFMTextNode(sideToken)
@@ -135,11 +165,11 @@ function ChapterStructuredToken({
                   originalText:
                       viewType === "original"
                           ? sideToken.text
-                          : (counterpartToken as typeof sideToken).text,
+                          : (pairedCounterpartNode as typeof sideToken).text,
                   currentText:
                       viewType === "current"
                           ? sideToken.text
-                          : (counterpartToken as typeof sideToken).text,
+                          : (pairedCounterpartNode as typeof sideToken).text,
                   viewType,
               })
             : null;
@@ -148,21 +178,20 @@ function ChapterStructuredToken({
         <span key={tokenWithOwner.key} className={styles.chapterPartChanged}>
             {showUndoOverlay && (
                 <Tooltip label={undoLabel} withArrow position="top">
-                    <Button
+                    <ActionIcon
                         className={styles.chapterHunkAction}
                         data-testid={TESTING_IDS.save.chapterHunkAction}
                         onClick={() =>
                             revertDiff(entry.diffToRevert as ProjectDiff)
                         }
-                        size="compact-xs"
-                        variant="light"
+                        size="xs"
+                        variant="subtle"
                         color="blue"
-                        leftSection={<RotateCw size={12} />}
                         aria-label={undoLabel}
                         title={undoLabel}
                     >
-                        <Trans>Undo</Trans>
-                    </Button>
+                        <RotateCw size={12} />
+                    </ActionIcon>
                 </Tooltip>
             )}
             <span
@@ -214,6 +243,7 @@ function ChapterStructuredText({
                             paragraph={paragraph}
                             tokenIndex={tokenIndex}
                             viewType={viewType}
+                            showUsfmMarkers={showUsfmMarkers}
                             revertDiff={revertDiff}
                         />
                     ))}
@@ -238,6 +268,10 @@ export function ChapterDiffStructuredDocument({
     revertDiff: (diffToRevert: ProjectDiff) => void;
     onRevertChapter?: () => void;
 }) {
+    const { isSm } = useWorkspaceMediaQuery();
+    const [mobileViewType, setMobileViewType] = useState<
+        "original" | "current"
+    >("current");
     const originalParagraphs = useMemo(
         () =>
             buildChapterRenderParagraphs({
@@ -264,11 +298,11 @@ export function ChapterDiffStructuredDocument({
             data-testid={TESTING_IDS.save.chapterPanel}
             className={styles.chapterDiffItem}
         >
-            <Group justify="space-between" align="center" gap="xs">
+            <Group justify="space-between" align="center" mb="0">
                 <Text className={styles.diffSidHeader}>{chapterLabel}</Text>
                 {onRevertChapter && (
                     <Button
-                        variant="outline"
+                        variant="light"
                         color="red"
                         size="xs"
                         onClick={onRevertChapter}
@@ -278,34 +312,71 @@ export function ChapterDiffStructuredDocument({
                 )}
             </Group>
 
-            <div className={styles.chapterGrid}>
-                <div className={styles.chapterColumn}>
-                    <Text className={styles.diffLabel}>
-                        <Trans>Original</Trans>
+            {isSm ? (
+                <div>
+                    <SegmentedControl
+                        value={mobileViewType}
+                        onChange={(value) =>
+                            setMobileViewType(value as "original" | "current")
+                        }
+                        data={[
+                            { label: t`Current`, value: "current" },
+                            { label: t`Original`, value: "original" },
+                        ]}
+                        size="xs"
+                        fullWidth
+                        mb="xs"
+                    />
+                    <Text className={styles.diffLabel} mb="xs">
+                        {mobileViewType === "current" ? (
+                            <Trans>Current</Trans>
+                        ) : (
+                            <Trans>Original</Trans>
+                        )}
                     </Text>
-                    <Paper p="xs" className={styles.chapterDiffPanel}>
+                    <Paper p="md" className={styles.chapterDiffPanel}>
                         <ChapterStructuredText
-                            paragraphs={originalParagraphs}
+                            paragraphs={
+                                mobileViewType === "current"
+                                    ? currentParagraphs
+                                    : originalParagraphs
+                            }
                             showUsfmMarkers={showUsfmMarkers}
-                            viewType="original"
+                            viewType={mobileViewType}
                             revertDiff={revertDiff}
                         />
                     </Paper>
                 </div>
-                <div className={styles.chapterColumn}>
-                    <Text className={styles.diffLabel}>
-                        <Trans>Current</Trans>
-                    </Text>
-                    <Paper p="xs" className={styles.chapterDiffPanel}>
-                        <ChapterStructuredText
-                            paragraphs={currentParagraphs}
-                            showUsfmMarkers={showUsfmMarkers}
-                            viewType="current"
-                            revertDiff={revertDiff}
-                        />
-                    </Paper>
+            ) : (
+                <div className={styles.chapterGrid}>
+                    <div className={styles.chapterColumn}>
+                        <Text className={styles.diffLabel} mb="xs">
+                            <Trans>Original</Trans>
+                        </Text>
+                        <Paper p="md" className={styles.chapterDiffPanel}>
+                            <ChapterStructuredText
+                                paragraphs={originalParagraphs}
+                                showUsfmMarkers={showUsfmMarkers}
+                                viewType="original"
+                                revertDiff={revertDiff}
+                            />
+                        </Paper>
+                    </div>
+                    <div className={styles.chapterColumn}>
+                        <Text className={styles.diffLabel} mb="xs">
+                            <Trans>Current</Trans>
+                        </Text>
+                        <Paper p="md" className={styles.chapterDiffPanel}>
+                            <ChapterStructuredText
+                                paragraphs={currentParagraphs}
+                                showUsfmMarkers={showUsfmMarkers}
+                                viewType="current"
+                                revertDiff={revertDiff}
+                            />
+                        </Paper>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }
