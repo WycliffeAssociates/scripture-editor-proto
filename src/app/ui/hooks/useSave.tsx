@@ -5,10 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
+import type { ProjectFingerprintService } from "@/app/domain/cache/ProjectFingerprintService.ts";
+import type { ProjectWarmCacheProvider } from "@/app/domain/cache/ProjectWarmCacheProvider.ts";
+import { refreshProjectWarmCache } from "@/app/domain/cache/refreshProjectWarmCache.ts";
 import {
     diffTokensToRenderTokens,
     lexicalEditorStateToDiffTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { GIT_COMMIT_AUTHOR } from "@/app/domain/git/gitConstants.ts";
 import {
     applyIncomingChapter,
     applyIncomingChapterAll,
@@ -34,6 +39,7 @@ import {
     revertChapterDiffByBlockId,
     revertChapterToLoadedState,
 } from "@/app/domain/project/saveAndRevertService.ts";
+import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import {
     findChapter,
     getAllChapterRefs,
@@ -41,7 +47,10 @@ import {
     hasUnsavedChanges,
     listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
-import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import {
+    ShowErrorNotification,
+    ShowNotificationSuccess,
+} from "@/app/ui/components/primitives/Notifications.tsx";
 import {
     createDiffCalculationRunner,
     yieldToMainThread,
@@ -55,6 +64,10 @@ import {
     replaceManyChapterDiffsInMap,
 } from "@/core/domain/usfm/chapterDiffOperation.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type {
+    GitProvider,
+    VersionEntry,
+} from "@/core/persistence/GitProvider.ts";
 import type {
     IProjectRepository,
     ListedProject,
@@ -71,6 +84,9 @@ type UseProjectDiffsProps = {
     projectRepository: IProjectRepository;
     directoryProvider: IDirectoryProvider;
     md5Service: IMd5Service;
+    gitProvider: GitProvider;
+    projectWarmCacheProvider: ProjectWarmCacheProvider;
+    projectFingerprintService: ProjectFingerprintService;
     editorMode: EditorModeSetting;
     allProjects: ListedProject[];
     currentProjectRoute: string;
@@ -78,6 +94,12 @@ type UseProjectDiffsProps = {
 
 export type UseProjectDiffsReturn = ReturnType<typeof useProjectDiffs>;
 const DIFF_CHUNK_SIZE = 8;
+const VERSIONS_PAGE_SIZE = 50;
+
+type PendingVersionAction =
+    | { type: "open" }
+    | { type: "switch"; hash: string }
+    | { type: "latest" };
 
 function revertAllChanges({
     mutWorkingFilesRef,
@@ -126,6 +148,9 @@ export function useProjectDiffs({
     projectRepository,
     directoryProvider,
     md5Service,
+    gitProvider,
+    projectWarmCacheProvider,
+    projectFingerprintService,
     editorMode,
     allProjects,
     currentProjectRoute,
@@ -141,6 +166,8 @@ export function useProjectDiffs({
         useState<CompareSourceKind>("existingProject");
     const [compareSourceProjectId, setCompareSourceProjectId] =
         useState<string>("");
+    const [compareSourceVersionHash, setCompareSourceVersionHash] =
+        useState<string>("");
     const [compareResult, setCompareResult] = useState<{
         diffsByChapter: DiffsByChapter;
         warnings: CompareWarning[];
@@ -148,6 +175,19 @@ export function useProjectDiffs({
         cleanup?: () => Promise<void>;
         sourceFiles?: ParsedFile[];
     } | null>(null);
+    const [openVersionModal, setOpenVersionModal] = useState(false);
+    const [versions, setVersions] = useState<VersionEntry[]>([]);
+    const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+    const [versionOffset, setVersionOffset] = useState(0);
+    const [latestVersionHash, setLatestVersionHash] = useState<string | null>(
+        null,
+    );
+    const [selectedVersionHash, setSelectedVersionHash] = useState<
+        string | null
+    >(null);
+    const [openVersionDirtyPrompt, setOpenVersionDirtyPrompt] = useState(false);
+    const [pendingVersionAction, setPendingVersionAction] =
+        useState<PendingVersionAction | null>(null);
     const [, setDirtyVersion] = useState(0);
     const calculationRunnerRef = useRef(
         createDiffCalculationRunner({
@@ -155,10 +195,16 @@ export function useProjectDiffs({
             delayMs: 200,
         }),
     );
+    const saveCurrentDirtyRef = useRef<(() => void) | null>(null);
 
     const bumpDirtyVersion = () => setDirtyVersion((v) => v + 1);
 
     const dirty = hasUnsavedChanges(mutWorkingFilesRef);
+    const isViewingOlderVersion = Boolean(
+        selectedVersionHash &&
+            latestVersionHash &&
+            selectedVersionHash !== latestVersionHash,
+    );
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -340,7 +386,11 @@ export function useProjectDiffs({
         }
 
         saveCurrentDirtyLexical();
+        setOpenVersionModal(false);
         setOpenDiffModal(true);
+        if (versions.length === 0) {
+            void refreshVersionHistory();
+        }
         await calculationRunnerRef.current.run(async () => {
             const chaptersToDiff = listDirtyChapterRefs(mutWorkingFilesRef);
             const allDiffs =
@@ -363,9 +413,221 @@ export function useProjectDiffs({
         setCompareResult(null);
     }, [compareResult]);
 
+    function projectRelativePath(absolutePath: string): string {
+        const root = loadedProject.projectDir.path.replace(/\/+$/u, "");
+        return absolutePath.startsWith(`${root}/`)
+            ? absolutePath.slice(root.length + 1)
+            : absolutePath;
+    }
+
+    async function refreshVersionHistory() {
+        setIsLoadingVersions(true);
+        try {
+            const next = await gitProvider.listHistory(
+                loadedProject.projectDir.path,
+                {
+                    limit: VERSIONS_PAGE_SIZE,
+                    offset: 0,
+                },
+            );
+            setVersions(next);
+            setVersionOffset(next.length);
+            const latestHash = next[0]?.hash ?? null;
+            setLatestVersionHash(latestHash);
+            setSelectedVersionHash((prev) => {
+                if (!latestHash) return null;
+                if (!prev) return latestHash;
+                return next.some((entry) => entry.hash === prev)
+                    ? prev
+                    : latestHash;
+            });
+        } finally {
+            setIsLoadingVersions(false);
+        }
+    }
+
+    async function loadMoreVersions() {
+        if (isLoadingVersions) return;
+        setIsLoadingVersions(true);
+        try {
+            const next = await gitProvider.listHistory(
+                loadedProject.projectDir.path,
+                {
+                    limit: VERSIONS_PAGE_SIZE,
+                    offset: versionOffset,
+                },
+            );
+            setVersions((prev) => [...prev, ...next]);
+            setVersionOffset((prev) => prev + next.length);
+        } finally {
+            setIsLoadingVersions(false);
+        }
+    }
+
+    async function snapshotToParsedFiles(snapshot: Map<string, string>) {
+        const virtualProject = {
+            ...loadedProject,
+            getBook: async (bookCode: string) => {
+                const file = loadedProject.files.find(
+                    (candidate) => candidate.bookCode === bookCode,
+                );
+                if (!file) return null;
+                return snapshot.get(projectRelativePath(file.path)) ?? null;
+            },
+        } as Project;
+
+        const parsed = await loadedProjectToParsedFiles({
+            loadedProject: virtualProject,
+            editorMode,
+        });
+        return parsed.parsedFiles;
+    }
+
+    async function applyVersionHash(hash: string) {
+        const snapshot = await gitProvider.readProjectSnapshotAtCommit(
+            loadedProject.projectDir.path,
+            hash,
+        );
+        const sourceFiles = await snapshotToParsedFiles(snapshot);
+        await history.runTransaction({
+            label: "Load Previous Version",
+            candidates: getAllChapterRefs(mutWorkingFilesRef),
+            run: async () => {
+                applyVersionSnapshotToWorkingFiles({
+                    workingFiles: mutWorkingFilesRef,
+                    sourceFiles,
+                });
+                if (pickedFile && pickedChapter && editorRef.current) {
+                    const changedChapter = findChapter(
+                        mutWorkingFilesRef,
+                        pickedFile.bookCode,
+                        pickedChapter.chapNumber,
+                    );
+                    if (changedChapter) {
+                        editorRef.current.setEditorState(
+                            editorRef.current.parseEditorState(
+                                changedChapter.lexicalState,
+                            ),
+                            {
+                                tag: EDITOR_TAGS_USED.programmaticDoRunChanges,
+                            },
+                        );
+                    }
+                }
+                bumpDirtyVersion();
+            },
+        });
+        history.clearHistory();
+        setSelectedVersionHash(hash);
+    }
+
+    async function performPendingVersionAction(action: PendingVersionAction) {
+        if (action.type === "open") {
+            await refreshVersionHistory();
+            setOpenVersionModal(true);
+            return;
+        }
+        if (action.type === "switch") {
+            await applyVersionHash(action.hash);
+            return;
+        }
+        if (action.type === "latest" && latestVersionHash) {
+            await applyVersionHash(latestVersionHash);
+        }
+    }
+
+    async function openPreviousVersions(saveCurrentDirtyLexical: () => void) {
+        saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        saveCurrentDirtyLexical();
+        setOpenDiffModal(false);
+        if (hasUnsavedChanges(mutWorkingFilesRef)) {
+            setPendingVersionAction({ type: "open" });
+            setOpenVersionDirtyPrompt(true);
+            return;
+        }
+        await refreshVersionHistory();
+        setOpenVersionModal(true);
+    }
+
+    async function selectVersion(
+        hash: string,
+        saveCurrentDirtyLexical: () => void,
+    ) {
+        if (!hash || hash === selectedVersionHash) return;
+        saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        saveCurrentDirtyLexical();
+        if (hasUnsavedChanges(mutWorkingFilesRef)) {
+            setPendingVersionAction({ type: "switch", hash });
+            setOpenVersionDirtyPrompt(true);
+            return;
+        }
+        await applyVersionHash(hash);
+    }
+
+    async function backToLatest(saveCurrentDirtyLexical: () => void) {
+        if (!latestVersionHash || selectedVersionHash === latestVersionHash) {
+            return;
+        }
+        saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        saveCurrentDirtyLexical();
+        if (hasUnsavedChanges(mutWorkingFilesRef)) {
+            setPendingVersionAction({ type: "latest" });
+            setOpenVersionDirtyPrompt(true);
+            return;
+        }
+        await applyVersionHash(latestVersionHash);
+    }
+
+    async function closePreviousVersions(saveCurrentDirtyLexical: () => void) {
+        setOpenVersionModal(false);
+        await backToLatest(saveCurrentDirtyLexical);
+    }
+
+    function dismissVersionDirtyPrompt() {
+        setOpenVersionDirtyPrompt(false);
+        setPendingVersionAction(null);
+    }
+
+    async function continueVersionPromptDiscard() {
+        revertAllChanges({
+            mutWorkingFilesRef,
+            setDiffsByChapter: setUnsavedDiffsByChapter,
+            bumpDirtyVersion,
+            pickedFile,
+            pickedChapter,
+            editorRef,
+        });
+        const action = pendingVersionAction;
+        dismissVersionDirtyPrompt();
+        if (action) {
+            await performPendingVersionAction(action);
+        }
+    }
+
+    function continueVersionPromptSave() {
+        dismissVersionDirtyPrompt();
+        setOpenVersionModal(false);
+        const saveCurrentDirtyLexical = saveCurrentDirtyRef.current;
+        if (saveCurrentDirtyLexical) {
+            void toggleDiffModal(saveCurrentDirtyLexical);
+            return;
+        }
+        setOpenDiffModal(true);
+    }
+
     async function saveProjectToDisk() {
+        const dirtyChapterRefs = listDirtyChapterRefs(mutWorkingFilesRef).map(
+            ({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`,
+        );
         const filesToSave = getDirtyFiles(mutWorkingFilesRef);
         const toSave = buildBooksSavePayload(filesToSave);
+
+        if (isViewingOlderVersion && selectedVersionHash) {
+            await gitProvider.restoreTrackedFilesFromCommit(
+                loadedProject.projectDir.path,
+                selectedVersionHash,
+            );
+        }
 
         const savePromise = await Promise.allSettled(
             Object.entries(toSave).map(async ([bookCode, content]) => {
@@ -384,9 +646,44 @@ export function useProjectDiffs({
                     title: "Project Saved",
                 },
             });
+            try {
+                await gitProvider.commitAll(
+                    loadedProject.projectDir.path,
+                    {
+                        op: "save",
+                        timestampIso: new Date().toISOString(),
+                        changedChapters: dirtyChapterRefs,
+                    },
+                    GIT_COMMIT_AUTHOR,
+                );
+            } catch (commitErr) {
+                console.error("Version checkpoint creation failed:", commitErr);
+                ShowErrorNotification({
+                    notification: {
+                        title: "Version History Warning",
+                        message:
+                            "Your changes were saved, but a local version checkpoint could not be created.",
+                    },
+                });
+            }
+            await refreshVersionHistory();
         }
 
         markFilesAsSaved(filesToSave);
+
+        if (Object.keys(toSave).length > 0) {
+            try {
+                await refreshProjectWarmCache({
+                    loadedProject,
+                    workingFiles: mutWorkingFilesRef,
+                    savedBookContentsByCode: toSave,
+                    projectWarmCacheProvider,
+                    projectFingerprintService,
+                });
+            } catch (cacheErr) {
+                console.warn("Warm reopen cache refresh failed:", cacheErr);
+            }
+        }
 
         setUnsavedDiffsByChapter({});
         bumpDirtyVersion();
@@ -447,6 +744,8 @@ export function useProjectDiffs({
         directoryProvider,
         md5Service,
         editorMode,
+        projectWarmCacheProvider,
+        projectFingerprintService,
     });
 
     async function computeExternalDiffs(
@@ -464,9 +763,15 @@ export function useProjectDiffs({
                           kind: "existingProject",
                           projectId: compareSourceProjectId,
                       }
-                    : compareSourceKind === "zipFile"
-                      ? { kind: "zipFile" }
-                      : { kind: "directory" },
+                    : compareSourceKind === "previousVersion" &&
+                        compareSourceVersionHash
+                      ? {
+                            kind: "previousVersion",
+                            commitHash: compareSourceVersionHash,
+                        }
+                      : compareSourceKind === "zipFile"
+                        ? { kind: "zipFile" }
+                        : { kind: "directory" },
             },
             sourceFiles,
             currentMetadata: {
@@ -496,6 +801,7 @@ export function useProjectDiffs({
             const loaded =
                 await compareSourceLoader.loadExistingProject(projectId);
             setCompareSourceProjectId(projectId);
+            setCompareSourceVersionHash("");
             await computeExternalDiffs(
                 loaded.parsedFiles,
                 loaded.metadataSummary,
@@ -511,6 +817,7 @@ export function useProjectDiffs({
             }
             const loaded = await compareSourceLoader.loadFromZipFile(file);
             setCompareSourceProjectId("");
+            setCompareSourceVersionHash("");
             await computeExternalDiffs(
                 loaded.parsedFiles,
                 loaded.metadataSummary,
@@ -527,11 +834,33 @@ export function useProjectDiffs({
             const loaded =
                 await compareSourceLoader.loadFromDirectoryFiles(files);
             setCompareSourceProjectId("");
+            setCompareSourceVersionHash("");
             await computeExternalDiffs(
                 loaded.parsedFiles,
                 loaded.metadataSummary,
                 loaded.cleanup,
             );
+        });
+    }
+
+    async function loadExternalCompareSourceFromVersion(commitHash: string) {
+        if (!commitHash) return;
+        await calculationRunnerRef.current.run(async () => {
+            if (compareResult?.cleanup) {
+                await compareResult.cleanup();
+            }
+            const snapshot = await gitProvider.readProjectSnapshotAtCommit(
+                loadedProject.projectDir.path,
+                commitHash,
+            );
+            const parsedFiles = await snapshotToParsedFiles(snapshot);
+            setCompareSourceProjectId("");
+            setCompareSourceVersionHash(commitHash);
+            await computeExternalDiffs(parsedFiles, {
+                projectId: `version:${commitHash.slice(0, 7)}`,
+                languageId: loadedProject.metadata.language.id,
+                languageDirection: loadedProject.metadata.language.direction,
+            });
         });
     }
 
@@ -551,6 +880,7 @@ export function useProjectDiffs({
         }
         setCompareResult(null);
         setCompareSourceProjectId("");
+        setCompareSourceVersionHash("");
         setCompareSourceKind("existingProject");
     }, [compareResult]);
 
@@ -669,6 +999,22 @@ export function useProjectDiffs({
         handleRevertChapter,
         handleRevertAll,
         saveProjectToDisk,
+        openPreviousVersions,
+        closePreviousVersions,
+        openVersionModal,
+        setOpenVersionModal,
+        versions,
+        isLoadingVersions,
+        loadMoreVersions,
+        selectVersion,
+        selectedVersionHash,
+        latestVersionHash,
+        backToLatest,
+        isViewingOlderVersion,
+        openVersionDirtyPrompt,
+        dismissVersionDirtyPrompt,
+        continueVersionPromptDiscard,
+        continueVersionPromptSave,
         isCalculatingDiffs,
         hasUnsavedChanges: dirty,
         compareMode,
@@ -679,9 +1025,12 @@ export function useProjectDiffs({
         setCompareSourceKind,
         compareSourceProjectId,
         setCompareSourceProjectId,
+        compareSourceVersionHash,
+        setCompareSourceVersionHash,
         loadExternalCompareSourceFromProject,
         loadExternalCompareSourceFromZip,
         loadExternalCompareSourceFromDirectory,
+        loadExternalCompareSourceFromVersion,
         applyExternalIncomingHunk,
         applyExternalIncomingChapter,
         applyExternalIncomingAll,
@@ -690,5 +1039,12 @@ export function useProjectDiffs({
         refreshExternalCompare: rerunExternalCompare,
         hasComputedCompare: compareResult !== null,
         resetExternalCompare,
+        compareVersionOptions: versions.map((version) => ({
+            value: version.hash,
+            label: new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+            }).format(new Date(version.authoredAtIso)),
+        })),
     };
 }

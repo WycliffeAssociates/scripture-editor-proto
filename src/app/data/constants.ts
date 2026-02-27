@@ -78,6 +78,17 @@ export const TESTING_IDS = {
         newVerseLabel: "save-diff-new-verse-label",
         deletedVerseLabel: "save-diff-deleted-verse-label",
     },
+    versions: {
+        trigger: "versions-trigger",
+        modal: "versions-modal",
+        row: "versions-row",
+        backToLatest: "versions-back-to-latest",
+        loadMore: "versions-load-more",
+        dirtyPrompt: "versions-dirty-prompt",
+        dirtyPromptSave: "versions-dirty-save",
+        dirtyPromptDiscard: "versions-dirty-discard",
+        dirtyPromptCancel: "versions-dirty-cancel",
+    },
     settings: {
         drawerOpenButton: "drawer-open-button",
         accordionControlProjects: "settings-accordion-control-projects",

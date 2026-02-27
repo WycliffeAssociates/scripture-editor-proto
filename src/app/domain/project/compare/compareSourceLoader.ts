@@ -2,6 +2,9 @@ import { strFromU8, type Unzipped, unzip } from "fflate";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
+import { loadProjectWithWarmCache } from "@/app/domain/cache/loadProjectWithWarmCache.ts";
+import type { ProjectFingerprintService } from "@/app/domain/cache/ProjectFingerprintService.ts";
+import type { ProjectWarmCacheProvider } from "@/app/domain/cache/ProjectWarmCacheProvider.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
 import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
@@ -24,6 +27,8 @@ type CompareSourceLoaderArgs = {
     directoryProvider: IDirectoryProvider;
     md5Service: IMd5Service;
     editorMode: EditorModeSetting;
+    projectWarmCacheProvider: ProjectWarmCacheProvider;
+    projectFingerprintService: ProjectFingerprintService;
 };
 
 export class CompareSourceLoader {
@@ -31,12 +36,16 @@ export class CompareSourceLoader {
     private readonly directoryProvider: IDirectoryProvider;
     private readonly md5Service: IMd5Service;
     private readonly editorMode: EditorModeSetting;
+    private readonly projectWarmCacheProvider: ProjectWarmCacheProvider;
+    private readonly projectFingerprintService: ProjectFingerprintService;
 
     constructor(args: CompareSourceLoaderArgs) {
         this.projectRepository = args.projectRepository;
         this.directoryProvider = args.directoryProvider;
         this.md5Service = args.md5Service;
         this.editorMode = args.editorMode;
+        this.projectWarmCacheProvider = args.projectWarmCacheProvider;
+        this.projectFingerprintService = args.projectFingerprintService;
     }
 
     async loadExistingProject(
@@ -49,9 +58,11 @@ export class CompareSourceLoader {
         if (!loaded) {
             throw new Error("Failed to load selected source project.");
         }
-        const parsed = await loadedProjectToParsedFiles({
+        const parsed = await loadProjectWithWarmCache({
             loadedProject: loaded,
             editorMode: this.editorMode,
+            projectWarmCacheProvider: this.projectWarmCacheProvider,
+            projectFingerprintService: this.projectFingerprintService,
         });
         return {
             parsedFiles: parsed.parsedFiles,

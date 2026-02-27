@@ -7,14 +7,33 @@ import type {
 } from "@/core/persistence/DirectoryProvider.ts";
 import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
+import { NativeOpfsFileWriteBackend } from "@/web/io/write/NativeOpfsFileWriteBackend.ts";
+import type { WebFileWriteBackend } from "@/web/io/write/WebFileWriteBackend.ts";
+import { ZenFsFileWriteBackend } from "@/web/io/write/ZenFsFileWriteBackend.ts";
+import { WebZenFsRuntime } from "@/web/zenfs/WebZenFsRuntime.ts";
+
+export type WebWriteBackendMode = "zenfs" | "native";
 
 export class WebDirectoryProvider implements IDirectoryProvider {
-    private constructor(private root: FileSystemDirectoryHandle) {}
+    private constructor(
+        private root: FileSystemDirectoryHandle,
+        private writeBackend: WebFileWriteBackend,
+    ) {}
 
-    static async create(): Promise<WebDirectoryProvider> {
+    static async create(options?: {
+        zenFsRuntime?: WebZenFsRuntime;
+        writeBackendMode?: WebWriteBackendMode;
+    }): Promise<WebDirectoryProvider> {
         try {
             const root = await navigator.storage.getDirectory(); // OPFS root
-            return new WebDirectoryProvider(root);
+            const mode = options?.writeBackendMode ?? "zenfs";
+            const writeBackend =
+                mode === "native"
+                    ? new NativeOpfsFileWriteBackend()
+                    : new ZenFsFileWriteBackend(
+                          options?.zenFsRuntime ?? new WebZenFsRuntime(),
+                      );
+            return new WebDirectoryProvider(root, writeBackend);
         } catch (e) {
             console.error("Failed to access OPFS:", e);
             throw e;
@@ -51,6 +70,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             dir,
             currentPath,
             this.getHandle.bind(this),
+            this.writeBackend,
         );
     }
 
@@ -62,6 +82,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
                 this.root,
                 "/",
                 this.getHandle.bind(this),
+                this.writeBackend,
             );
 
         let dir: FileSystemDirectoryHandle = this.root;
@@ -77,6 +98,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
                 fileHandle,
                 path,
                 this.getHandle.bind(this),
+                this.writeBackend,
             );
         } catch {
             const dirHandle = await dir.getDirectoryHandle(name);
@@ -84,6 +106,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
                 dirHandle,
                 path,
                 this.getHandle.bind(this),
+                this.writeBackend,
             );
         }
     }
@@ -132,6 +155,7 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             handle,
             tmpFilePath,
             this.getHandle.bind(this),
+            this.writeBackend,
         );
     }
 
@@ -204,7 +228,12 @@ export class WebDirectoryProvider implements IDirectoryProvider {
             }
             path += `/${part}`;
         }
-        return new WebDirectoryHandle(dir, path, this.getHandle.bind(this));
+        return new WebDirectoryHandle(
+            dir,
+            path,
+            this.getHandle.bind(this),
+            this.writeBackend,
+        );
     }
 
     //   private async getFileByPath(

@@ -103,6 +103,9 @@ export const ProjectProvider = ({
         projectRepository,
         directoryProvider,
         md5Service,
+        gitProvider,
+        projectWarmCacheProvider,
+        projectFingerprintService,
     } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
@@ -129,6 +132,9 @@ export const ProjectProvider = ({
         projectRepository,
         directoryProvider,
         md5Service,
+        gitProvider,
+        projectWarmCacheProvider,
+        projectFingerprintService,
         editorMode: settingsManager.get("editorMode"),
         allProjects: projects,
         currentProjectRoute,
@@ -143,6 +149,8 @@ export const ProjectProvider = ({
         projectRepository: projectRepository,
         pickedFileIdentifier: project.pickedFile.bookCode,
         pickedChapterNumber: project.pickedChapter?.chapNumber || 0,
+        projectWarmCacheProvider,
+        projectFingerprintService,
     });
 
     const actions = useWorkspaceActions({

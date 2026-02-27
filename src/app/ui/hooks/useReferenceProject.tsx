@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { projectParamToParsedFiles } from "@/app/domain/api/projectToParsed.tsx";
+import type { ProjectFingerprintService } from "@/app/domain/cache/ProjectFingerprintService.ts";
+import type { ProjectWarmCacheProvider } from "@/app/domain/cache/ProjectWarmCacheProvider.ts";
 import { parseReference } from "@/core/data/bible/bible.ts";
 import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
@@ -11,11 +13,15 @@ type Props = {
     projectRepository: IProjectRepository;
     pickedFileIdentifier: string;
     pickedChapterNumber: number;
+    projectWarmCacheProvider: ProjectWarmCacheProvider;
+    projectFingerprintService: ProjectFingerprintService;
 };
 export const useReferenceProject = ({
     projectRepository,
     pickedFileIdentifier,
     pickedChapterNumber,
+    projectWarmCacheProvider,
+    projectFingerprintService,
 }: Props) => {
     const [referenceProjectId, setReferenceProjectId] = useState<string>();
     const [referenceBookCode, setReferenceBookCode] =
@@ -25,7 +31,8 @@ export const useReferenceProject = ({
     const [isReferenceNavSynced, setIsReferenceNavSynced] = useState(true);
     const [isReferenceScrollSynced, setIsReferenceScrollSynced] =
         useState(false);
-    const { md5Service, settingsManager } = useRouter().options.context;
+    const { md5Service, gitProvider, settingsManager } =
+        useRouter().options.context;
     const editorMode = settingsManager.get("editorMode");
     const referenceProjectQuery = useQuery({
         queryKey: ["projectFiles", referenceProjectId, editorMode],
@@ -34,6 +41,9 @@ export const useReferenceProject = ({
                 projectRepository,
                 referenceProjectId,
                 md5Service,
+                gitProvider,
+                projectWarmCacheProvider,
+                projectFingerprintService,
                 editorMode,
             ),
         enabled: !!referenceProjectId,

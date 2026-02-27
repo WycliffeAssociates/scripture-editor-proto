@@ -155,6 +155,11 @@ export class HistoryManager<TSnapshot> {
         return entry;
     }
 
+    reset() {
+        this.entries = [];
+        this.cursor = 0;
+    }
+
     private truncateRedoBranch() {
         if (!this.canRedo()) return;
         this.entries = this.entries.slice(0, this.cursor);

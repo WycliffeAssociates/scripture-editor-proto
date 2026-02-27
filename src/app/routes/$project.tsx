@@ -25,13 +25,23 @@ export const Route = createFileRoute("/$project")({
     },
     loader: async ({ context, params }) => {
         console.time("total time");
-        const { projectRepository, md5Service, settingsManager } = context;
+        const {
+            projectRepository,
+            md5Service,
+            gitProvider,
+            projectWarmCacheProvider,
+            projectFingerprintService,
+            settingsManager,
+        } = context;
         const { project } = params;
         const editorMode = settingsManager.get("editorMode");
         const result = await projectParamToParsedFiles(
             projectRepository,
             project,
             md5Service,
+            gitProvider,
+            projectWarmCacheProvider,
+            projectFingerprintService,
             editorMode,
         );
         const { parsedFiles, allInitialLintErrors, loadedProject } = result || {
@@ -50,7 +60,6 @@ export const Route = createFileRoute("/$project")({
 function RouteComponent() {
     const { projectFiles, allInitialLintErrors, loadedProject } =
         Route.useLoaderData();
-
     const { project } = Route.useParams();
     const search = Route.useSearch();
 

@@ -2,6 +2,7 @@ import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
+import type { WebFileWriteBackend } from "@/web/io/write/WebFileWriteBackend.ts";
 
 type ResolveHandle = (path: string) => Promise<IPathHandle>;
 
@@ -81,16 +82,19 @@ export class WebDirectoryHandle implements IDirectoryHandle {
     readonly isFile: boolean = false;
 
     private readonly resolveHandle: ResolveHandle;
+    private readonly writeBackend?: WebFileWriteBackend;
 
     constructor(
         handle: FileSystemDirectoryHandle,
         path: string,
         resolveHandle: ResolveHandle,
+        writeBackend?: WebFileWriteBackend,
     ) {
         this.handle = handle;
         this.path = path;
         this.name = handle.name; // Delegate name from the native handle
         this.resolveHandle = resolveHandle;
+        this.writeBackend = writeBackend;
     }
 
     async getDirectoryHandle(
@@ -118,6 +122,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
             childNativeHandle,
             targetAbsolutePath,
             this.resolveHandle,
+            this.writeBackend,
         );
     }
 
@@ -146,6 +151,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
             fileNativeHandle,
             targetAbsolutePath,
             this.resolveHandle,
+            this.writeBackend,
         );
     }
 
@@ -173,6 +179,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
                         handle as FileSystemDirectoryHandle,
                         entryPath,
                         this.resolveHandle,
+                        this.writeBackend,
                     ),
                 ];
             } else {
@@ -182,6 +189,7 @@ export class WebDirectoryHandle implements IDirectoryHandle {
                         handle as FileSystemFileHandle,
                         entryPath,
                         this.resolveHandle,
+                        this.writeBackend,
                     ),
                 ];
             }

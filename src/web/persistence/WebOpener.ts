@@ -24,6 +24,9 @@ export class WebOpener implements IOpener {
         ): Promise<{ fullPath: string; data: Uint8Array }[]> {
             const files: { fullPath: string; data: Uint8Array }[] = [];
             for await (const [name, entry] of d.entries()) {
+                if (name === ".git") {
+                    continue;
+                }
                 const fullPath = relPath ? `${relPath}/${name}` : name;
                 if (entry.isDir) {
                     const subdir = entry.asDirectoryHandle();

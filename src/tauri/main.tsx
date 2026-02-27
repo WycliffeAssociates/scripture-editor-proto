@@ -3,7 +3,10 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
+import { SubtleSha1FingerprintService } from "@/app/domain/cache/SubtleSha1FingerprintService.ts";
 import { App } from "@/app/entrypoint.tsx";
+import { TauriProjectWarmCacheProvider } from "@/tauri/adapters/cache/TauriProjectWarmCacheProvider.ts";
+import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
 import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider.ts";
@@ -14,6 +17,11 @@ const settingsManager = createTauriSettingsManager();
 const directoryProvider =
     await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
+const gitProvider = new TauriGitProvider();
+const projectFingerprintService = new SubtleSha1FingerprintService();
+const projectWarmCacheProvider = new TauriProjectWarmCacheProvider(
+    directoryProvider,
+);
 const opener = new TauriOpener();
 
 // // react entry stuff
@@ -27,6 +35,9 @@ root.render(
             settingsManager={settingsManager}
             directoryProvider={directoryProvider}
             md5Service={md5Service}
+            gitProvider={gitProvider}
+            projectWarmCacheProvider={projectWarmCacheProvider}
+            projectFingerprintService={projectFingerprintService}
             opener={opener}
             platform={platform()}
         />

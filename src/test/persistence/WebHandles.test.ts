@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
 import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
+import type { WebFileWriteBackend } from "@/web/io/write/WebFileWriteBackend.ts";
 
 // --- Mocks for Native Web File System API ---
 
@@ -194,6 +195,32 @@ vi.mock("globalThis", () => ({
     },
 }));
 
+function createMockWriteBackend(initial: Record<string, string> = {}) {
+    const bytesByPath = new Map<string, Uint8Array>(
+        Object.entries(initial).map(([path, text]) => [
+            path,
+            new TextEncoder().encode(text),
+        ]),
+    );
+
+    const backend: WebFileWriteBackend = {
+        read: vi.fn(async (path: string) => {
+            return bytesByPath.get(path) ?? new Uint8Array(0);
+        }),
+        write: vi.fn(async (path: string, bytes: Uint8Array) => {
+            bytesByPath.set(path, bytes);
+        }),
+    };
+
+    return {
+        backend,
+        asText(path: string) {
+            const bytes = bytesByPath.get(path) ?? new Uint8Array(0);
+            return new TextDecoder().decode(bytes);
+        },
+    };
+}
+
 describe("WebDirectoryHandle", () => {
     let mockResolveHandle: (path: string) => Promise<IPathHandle>;
 
@@ -289,6 +316,29 @@ describe("WebDirectoryHandle", () => {
         expect(childFile.path).toBe("/newFile.txt");
     });
 
+    test("propagates write backend to getFileHandle wrappers", async () => {
+        const { backend, asText } = createMockWriteBackend();
+        const rootWrapper = new WebDirectoryHandle(
+            mockRootDirectory,
+            "/",
+            mockResolveHandle,
+            backend,
+        );
+        const childFile = await rootWrapper.getFileHandle("backendFile.txt", {
+            create: true,
+        });
+
+        const writable = await childFile.createWritable();
+        await writable.write("hello");
+        await writable.close();
+
+        expect(asText("/backendFile.txt")).toBe("hello");
+        expect(backend.write).toHaveBeenCalledWith(
+            "/backendFile.txt",
+            expect.any(Uint8Array),
+        );
+    });
+
     test("removeEntry removes a child entry", async () => {
         const rootWrapper = new WebDirectoryHandle(
             mockRootDirectory,
@@ -331,6 +381,35 @@ describe("WebDirectoryHandle", () => {
         expect(entries[0][1]).toBeInstanceOf(WebFileHandle);
         expect(entries[1][0]).toBe("dir1");
         expect(entries[1][1]).toBeInstanceOf(WebDirectoryHandle);
+    });
+
+    test("propagates write backend to entries wrappers", async () => {
+        const { backend, asText } = createMockWriteBackend();
+        await mockRootDirectory.getFileHandle("entry.txt", { create: true });
+        const rootWrapper = new WebDirectoryHandle(
+            mockRootDirectory,
+            "/",
+            mockResolveHandle,
+            backend,
+        );
+
+        let fileWrapper: WebFileHandle | null = null;
+        for await (const [, entry] of rootWrapper.entries()) {
+            if (entry.kind === "file") {
+                fileWrapper = entry as WebFileHandle;
+                break;
+            }
+        }
+
+        expect(fileWrapper).toBeInstanceOf(WebFileHandle);
+        if (!fileWrapper) {
+            throw new Error("Expected file wrapper in directory entries");
+        }
+        const writable = await fileWrapper.createWritable();
+        await writable.write("entry-write");
+        await writable.close();
+
+        expect(asText("/entry.txt")).toBe("entry-write");
     });
 
     test("getParent returns the parent directory wrapper for a nested path", async () => {
@@ -726,6 +805,91 @@ describe("WebFileHandle", () => {
 
         const file = await wrapper.getFile();
         expect(await file.text()).toBe(newContent);
+    });
+
+    test("createWritable with backend writes through backend", async () => {
+        const { backend, asText } = createMockWriteBackend();
+        const nativeHandle = new MockFileSystemFileHandle("test.txt", "");
+        const wrapper = new WebFileHandle(
+            nativeHandle,
+            "/test.txt",
+            mockResolveHandle,
+            backend,
+        );
+
+        const writable = await wrapper.createWritable();
+        await writable.write("backend-content");
+        await writable.close();
+
+        expect(asText("/test.txt")).toBe("backend-content");
+        expect(backend.write).toHaveBeenCalledWith(
+            "/test.txt",
+            expect.any(Uint8Array),
+        );
+    });
+
+    test("createWritable keepExistingData appends from backend read", async () => {
+        const { backend, asText } = createMockWriteBackend({
+            "/append.txt": "hello",
+        });
+        const nativeHandle = new MockFileSystemFileHandle("append.txt", "");
+        const wrapper = new WebFileHandle(
+            nativeHandle,
+            "/append.txt",
+            mockResolveHandle,
+            backend,
+        );
+
+        const writable = await wrapper.createWritable({
+            keepExistingData: true,
+        });
+        await writable.write(" world");
+        await writable.close();
+
+        expect(asText("/append.txt")).toBe("hello world");
+    });
+
+    test("createWritable supports seek and positional writes", async () => {
+        const { backend, asText } = createMockWriteBackend({
+            "/seek.txt": "hello",
+        });
+        const nativeHandle = new MockFileSystemFileHandle("seek.txt", "");
+        const wrapper = new WebFileHandle(
+            nativeHandle,
+            "/seek.txt",
+            mockResolveHandle,
+            backend,
+        );
+
+        const writable = await wrapper.createWritable({
+            keepExistingData: true,
+        });
+        await writable.seek(1);
+        await writable.write("A");
+        await writable.close();
+
+        expect(asText("/seek.txt")).toBe("hAllo");
+    });
+
+    test("createWritable supports truncate", async () => {
+        const { backend, asText } = createMockWriteBackend({
+            "/truncate.txt": "hello",
+        });
+        const nativeHandle = new MockFileSystemFileHandle("truncate.txt", "");
+        const wrapper = new WebFileHandle(
+            nativeHandle,
+            "/truncate.txt",
+            mockResolveHandle,
+            backend,
+        );
+
+        const writable = await wrapper.createWritable({
+            keepExistingData: true,
+        });
+        await writable.truncate(2);
+        await writable.close();
+
+        expect(asText("/truncate.txt")).toBe("he");
     });
 
     test("getParent returns the parent directory wrapper", async () => {

@@ -47,6 +47,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             parse_usfm,
             git::clone_repo,
+            git::git_ensure_repo,
+            git::git_get_branch_info,
+            git::git_checkout_preferred_branch,
+            git::git_list_history,
+            git::git_read_project_snapshot_at_commit,
+            git::git_restore_tracked_files_from_commit,
+            git::git_commit_all,
+            git::git_is_repo_healthy,
             hello_world
         ])
         .setup(move |app| {

@@ -152,6 +152,9 @@ export class ProjectDirectoryImporter implements Importer {
         destinationDir: IDirectoryHandle,
     ): Promise<void> {
         for await (const [name, handle] of sourceDir.entries()) {
+            if (name === ".git") {
+                continue;
+            }
             if (handle.isDir) {
                 const newDestDir = await destinationDir.getDirectoryHandle(
                     name,
