@@ -424,7 +424,7 @@ export function VirtualizedDiffList({
 
     useEffect(() => {
         setRowUsfmOverrides({});
-    }, [showUsfmMarkers, diffs]);
+    }, []);
 
     useEffect(() => {
         if (!isOpen) {

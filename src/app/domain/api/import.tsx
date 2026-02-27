@@ -101,7 +101,9 @@ export async function handleOpenDirectory(
     // Clean up the temporary directory after import
     try {
         await tempDirectory.removeEntry(tempDirName, { recursive: true });
-    } catch (e) {}
+    } catch (e) {
+        console.error("Failed to clean up temporary directory", e);
+    }
 
     if (importedPath) {
         const indexer = new ProjectIndexer(projectRepository, md5Service);
@@ -151,7 +153,9 @@ export async function processFile(
     // Clean up the temporary file after import
     try {
         await tempDirectory.removeEntry(tempFileName, { recursive: false });
-    } catch (e) {}
+    } catch (e) {
+        console.error("Failed to clean up temporary file", e);
+    }
 
     if (importedPath) {
         const indexer = new ProjectIndexer(projectRepository, md5Service);

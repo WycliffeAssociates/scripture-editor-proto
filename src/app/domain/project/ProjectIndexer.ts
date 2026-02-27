@@ -125,6 +125,7 @@ export class ProjectIndexer {
                             fileExtension: fileExt,
                         });
                     } catch (fileErr) {
+                        console.error("Failed to upsert file", fileErr);
                         // log file-level error but continue processing other files
                     }
                 }

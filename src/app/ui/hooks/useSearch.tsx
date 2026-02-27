@@ -122,12 +122,7 @@ export function useProjectSearch({
                 autoPick: false,
             });
         });
-    }, [
-        execution.isSearchPaneOpen,
-        execution.runSearchLogic,
-        execution.searchTerm,
-        history,
-    ]);
+    }, [history, execution]);
 
     useEffect(() => {
         if (execution.hasReferenceSearchAvailable || !execution.searchReference)
@@ -139,13 +134,7 @@ export function useProjectSearch({
             scope: "project",
             overrides: { searchReference: false },
         });
-    }, [
-        execution.hasReferenceSearchAvailable,
-        execution.runSearchLogic,
-        execution.searchReference,
-        execution.searchTerm,
-        execution.setSearchReferenceState,
-    ]);
+    }, [execution]);
 
     return {
         searchTerm: execution.searchTerm,

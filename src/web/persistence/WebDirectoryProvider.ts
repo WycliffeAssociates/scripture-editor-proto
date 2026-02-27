@@ -199,7 +199,9 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         for (const part of parts) {
             try {
                 dir = await dir.getDirectoryHandle(part, { create: true });
-            } catch (e) {}
+            } catch (e) {
+                console.error("Failed to create directory", e);
+            }
             path += `/${part}`;
         }
         return new WebDirectoryHandle(dir, path, this.getHandle.bind(this));

@@ -83,6 +83,7 @@ export function NodeContextMenuPlugin() {
             if (
                 nativeRange &&
                 !nativeRange.collapsed &&
+                nativeSelection &&
                 nativeSelection.toString().trim().length > 0 &&
                 (!$isRangeSelection(ctx.selection) ||
                     !ctx.selection.isCollapsed())

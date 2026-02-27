@@ -11,10 +11,6 @@
 
 ::highlight(context-menu-selection) {
   background-color: rgb(157, 204, 255);
-  /* padding-block: 4px; */
-  /* text-shadow: */
-  /* 0 13px 0 rgb(157, 204, 255), */
-  /* 0 -13px 0 rgb(157, 204, 255); */
 }
 
 [data-mantine-color-scheme="dark"] ::highlight(matched-search) {
