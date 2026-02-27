@@ -129,8 +129,6 @@ export function LanguageSelector({
         if (!locale) return;
 
         await onChange(locale);
-
-        console.log(`Language changed to: ${locale}.`);
     };
 
     // always use the internal handler which knows how to call parent onChange if provided

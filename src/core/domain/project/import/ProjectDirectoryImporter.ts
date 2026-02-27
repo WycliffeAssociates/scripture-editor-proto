@@ -28,8 +28,6 @@ export class ProjectDirectoryImporter implements Importer {
      * string path to an IDirectoryHandle, perhaps from a mounted location.
      */
     public async import(path: string): Promise<string | null> {
-        console.warn(`[DirectoryProjectImporter] Standard 'import(path: string)' called for path: ${path}.
-            Please use 'importDirectory(sourceDir: IDirectoryHandle)' instead for local imports.`);
         // Assuming 'path' could be the name of a directory in the temp folder for recovery/staging
         try {
             const tempDir = await this.directoryProvider.tempDirectory;
@@ -67,9 +65,6 @@ export class ProjectDirectoryImporter implements Importer {
             );
 
             await this.copyDirectoryContents(sourceDir, tempProjectDir);
-            console.log(
-                `[DirectoryProjectImporter] Copied source to temporary directory: ${tempProjectDir.path}`,
-            );
 
             // Look for the actual project name by examining the directory structure
             let projectName = sourceDir.name; // fallback to source dir name
@@ -93,10 +88,6 @@ export class ProjectDirectoryImporter implements Importer {
             await this.copyContentToFinalDestination(
                 tempProjectDir,
                 finalProjectDir,
-            );
-
-            console.log(
-                `[DirectoryProjectImporter] Project imported successfully to: ${finalProjectDir.path}`,
             );
             return finalProjectDir.path;
         } catch (error) {
@@ -136,9 +127,6 @@ export class ProjectDirectoryImporter implements Importer {
             uniqueProjectDirName,
             { create: true },
         );
-        console.log(
-            `[DirectoryProjectImporter] Final project directory created: ${finalProjectDir.path}`,
-        );
         return finalProjectDir;
     }
 
@@ -152,16 +140,8 @@ export class ProjectDirectoryImporter implements Importer {
         sourceEntry: IDirectoryHandle,
         destinationDir: IDirectoryHandle,
     ): Promise<void> {
-        console.log(
-            "[DirectoryProjectImporter] Starting copy to final destination...",
-        );
-
         // Since the source is a directory, we copy its *contents* directly into the destinationDir
         await this.copyDirectoryContents(sourceEntry, destinationDir);
-
-        console.log(
-            "[DirectoryProjectImporter] Copy to final project directory complete.",
-        );
     }
 
     /**
@@ -190,9 +170,6 @@ export class ProjectDirectoryImporter implements Importer {
                 handle.isDir === undefined &&
                 handle.isFile === undefined
             ) {
-                console.warn(
-                    `[DirectoryProjectImporter] Skipping unknown handle type: ${name} (kind: ${handle.kind})`,
-                );
             }
         }
     }
@@ -223,9 +200,6 @@ export class ProjectDirectoryImporter implements Importer {
             const writer = await destFileHandle.createWriter();
             await writer.write(content);
             await writer.close();
-            console.log(
-                `[DirectoryProjectImporter] Wrote file: ${destFileHandle.path}`,
-            );
         } catch (error) {
             console.error(
                 `[DirectoryProjectImporter] Error copying file ${sourceFileHandle.name}:`,
@@ -244,9 +218,6 @@ export class ProjectDirectoryImporter implements Importer {
             await tempDirectory.removeEntry(tempExtractionDir.name, {
                 recursive: true,
             });
-            console.log(
-                "[DirectoryProjectImporter] Temporary files and directories cleaned up.",
-            );
         } catch (e) {
             console.error(
                 "[DirectoryProjectImporter] Error during cleanup of temporary files:",

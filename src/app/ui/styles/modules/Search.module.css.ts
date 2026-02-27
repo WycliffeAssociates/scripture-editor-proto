@@ -33,10 +33,18 @@ const resultsHeader = style({
 
 const popoverDropdown = style({
     width: "min(48rem, calc(100vw - 2rem))",
+    minWidth: "20rem",
+    minHeight: "max-content",
     border: `1px solid ${vars.colors.defaultBorder}`,
     borderRadius: vars.radius.md,
     backgroundColor: vars.colors.body,
     padding: 0,
+    containerType: "inline-size",
+});
+
+const popoverBody = style({
+    position: "relative",
+    paddingBottom: `calc(${vars.spacing.xs} * 1.5)`,
 });
 
 const popoverHeader = style({
@@ -46,11 +54,65 @@ const popoverHeader = style({
     padding: `calc(${vars.spacing.xs} * 0.5) ${vars.spacing.xs} 0 ${vars.spacing.xs}`,
 });
 
+const popoverHeaderDragHandle = style({
+    cursor: "grab",
+    userSelect: "none",
+});
+
+const popoverHeaderDragging = style({
+    cursor: "grabbing",
+});
+
+const popoverHeaderActions = style({
+    display: "flex",
+    alignItems: "center",
+    gap: `calc(${vars.spacing.xs} * 0.5)`,
+});
+
 const popoverHeaderInfo = style({
     display: "flex",
     flexDirection: "column",
     gap: `calc(${vars.spacing.xs} * 0.25)`,
     minWidth: 0,
+    padding: 0,
+    margin: 0,
+    border: 0,
+    background: "transparent",
+    textAlign: "left",
+    color: "inherit",
+});
+
+const popoverGripIcon = style({
+    color: vars.colors.gray[6],
+    marginBottom: `calc(${vars.spacing.xs} * 0.1)`,
+});
+
+const popoverResizeHandle = style({
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: "0.95rem",
+    height: "0.95rem",
+    padding: 0,
+    margin: 0,
+    border: 0,
+    borderBottomRightRadius: vars.radius.md,
+    background: "transparent",
+    cursor: "nwse-resize",
+    touchAction: "none",
+    opacity: 0.55,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+});
+
+const popoverResizeHandleActive = style({
+    opacity: 1,
+});
+
+const popoverResizeIcon = style({
+    color: vars.colors.gray[6],
+    pointerEvents: "none",
 });
 
 const popoverHelpText = style({
@@ -76,6 +138,12 @@ const controls = style({
             gap: vars.spacing.xs,
         },
     },
+    "@container": {
+        "(max-width: 33rem)": {
+            padding: `${vars.spacing.xs} 0 ${vars.spacing.xs}`,
+            gap: vars.spacing.xs,
+        },
+    },
 });
 
 const compactLayout = style({
@@ -85,6 +153,12 @@ const compactLayout = style({
     alignItems: "start",
     "@media": {
         "screen and (max-width: 48em)": {
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: vars.spacing.xs,
+        },
+    },
+    "@container": {
+        "(max-width: 33rem)": {
             gridTemplateColumns: "minmax(0, 1fr)",
             gap: vars.spacing.xs,
         },
@@ -111,6 +185,13 @@ const controlRail = style({
             width: "100%",
         },
     },
+    "@container": {
+        "(max-width: 33rem)": {
+            alignItems: "stretch",
+            minWidth: 0,
+            width: "100%",
+        },
+    },
 });
 
 const statsAndNavRow = style({
@@ -123,6 +204,11 @@ const statsAndNavRow = style({
             justifyContent: "space-between",
         },
     },
+    "@container": {
+        "(max-width: 33rem)": {
+            justifyContent: "space-between",
+        },
+    },
 });
 
 const filterIconsRow = style({
@@ -132,6 +218,11 @@ const filterIconsRow = style({
     gap: `calc(${vars.spacing.xs} * 0.5)`,
     "@media": {
         "screen and (max-width: 48em)": {
+            justifyContent: "flex-start",
+        },
+    },
+    "@container": {
+        "(max-width: 33rem)": {
             justifyContent: "flex-start",
         },
     },
@@ -153,6 +244,11 @@ const buttonStack = style({
     gap: `calc(${vars.spacing.xs} * 0.75)`,
     "@media": {
         "screen and (max-width: 48em)": {
+            gap: vars.spacing.xs,
+        },
+    },
+    "@container": {
+        "(max-width: 33rem)": {
             gap: vars.spacing.xs,
         },
     },
@@ -324,7 +420,15 @@ const classes = {
     resultsHeader,
     popoverDropdown,
     popoverHeader,
+    popoverBody,
+    popoverHeaderDragHandle,
+    popoverHeaderDragging,
+    popoverHeaderActions,
     popoverHeaderInfo,
+    popoverGripIcon,
+    popoverResizeHandle,
+    popoverResizeHandleActive,
+    popoverResizeIcon,
     popoverHelpText,
     controls,
     compactLayout,

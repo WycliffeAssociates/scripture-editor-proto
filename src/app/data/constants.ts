@@ -49,6 +49,9 @@ export const TESTING_IDS = {
     searchInlineReplaceTrigger: "search-inline-replace-trigger",
     searchInlineReplaceButton: "search-inline-replace-button",
     searchReferenceToggle: "search-reference-toggle",
+    searchResetPositionButton: "search-reset-position-button",
+    searchPopoverHeader: "search-popover-header",
+    searchResizeHandle: "search-resize-handle",
     appDrawer: {
         projectsList: "app-drawer-projects-list",
         itemExport: "project-list-item-export",

@@ -48,10 +48,8 @@ export async function handleOpenDirectory(
         invalidateRouterAndReload,
     }: OpenDirArgs,
 ): Promise<string | null> {
-    console.log("Opening directory...");
     const files = event.target.files;
     if (!files || files.length === 0) {
-        console.log("No directory selected.");
         return null;
     }
     const folderName = files[0].webkitRelativePath.split("/")[0];
@@ -103,9 +101,7 @@ export async function handleOpenDirectory(
     // Clean up the temporary directory after import
     try {
         await tempDirectory.removeEntry(tempDirName, { recursive: true });
-    } catch (e) {
-        console.warn("[handleOpenDirectory] failed to remove temp dir:", e);
-    }
+    } catch (e) {}
 
     if (importedPath) {
         const indexer = new ProjectIndexer(projectRepository, md5Service);
@@ -135,10 +131,6 @@ export async function processFile(
         invalidateRouterAndReload,
     }: OpenFileArgs,
 ): Promise<string> {
-    console.log(
-        `[processFile] Selected file name: ${file.name}, size: ${file.size} bytes`,
-    );
-
     const tempDirectory = await directoryProvider.tempDirectory;
     const tempFileName = `${Date.now()}-${file.name}`;
     const tempFileHandle = await tempDirectory.getFileHandle(tempFileName, {
@@ -146,29 +138,20 @@ export async function processFile(
     });
 
     const content = await file.arrayBuffer();
-    console.log(
-        `[processFile] Read ArrayBuffer content size: ${content.byteLength} bytes`,
-    );
 
     const writer = await tempFileHandle.createWriter();
     await writer.write(content);
     await writer.close();
-    console.log(
-        `[processFile] Content written to temporary file: ${tempFileHandle.name}`,
-    );
 
     const importedPath = await projectImporter.import({
         type: "fromZipFile",
         fileHandle: tempFileHandle,
     });
-    console.log("Selected ZIP File Handle:", tempFileHandle);
 
     // Clean up the temporary file after import
     try {
         await tempDirectory.removeEntry(tempFileName, { recursive: false });
-    } catch (e) {
-        console.warn("[processFile] failed to remove temp file:", e);
-    }
+    } catch (e) {}
 
     if (importedPath) {
         const indexer = new ProjectIndexer(projectRepository, md5Service);
@@ -183,10 +166,8 @@ export async function handleOpenFile(
     event: React.ChangeEvent<HTMLInputElement>,
     args: OpenFileArgs,
 ): Promise<string | null> {
-    console.log("Opening file...");
     const files = event.target.files;
     if (!files || files.length === 0) {
-        console.log("No file selected.");
         return null;
     }
     const file = files[0];

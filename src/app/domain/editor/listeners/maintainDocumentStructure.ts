@@ -110,10 +110,6 @@ export function maintainDocumentStructure(
         });
 
         if (nodeUpdates.length) {
-            console.log(
-                `maintain document structure updates for node: ${nodeUpdates.length}`,
-            );
-            console.log(nodeUpdates);
             totalUpdates += nodeUpdates.length;
             editor.update(
                 () => {
@@ -131,9 +127,6 @@ export function maintainDocumentStructure(
         }
     }
     if (totalUpdates > 0) {
-        console.log(
-            `maintain document structure total updates: ${totalUpdates}`,
-        );
     }
 
     // Regular-mode structural enforcement
@@ -294,9 +287,6 @@ export function maintainDocumentStructureDebounced(
     });
 
     if (updates.length) {
-        console.log(
-            `maintain documnet structure debounced updates ${updates.length}`,
-        );
         editor.update(
             () => {
                 updates.forEach((u) => {

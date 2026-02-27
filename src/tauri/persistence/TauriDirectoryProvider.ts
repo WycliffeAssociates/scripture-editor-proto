@@ -32,15 +32,12 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
     static async create(appName: string): Promise<TauriDirectoryProvider> {
         const osName = platform();
-        console.log(`Directory Provider for: ${osName}`);
         // biome rule, this in a static context can be misleading. the static context is the class, not the instance
         const userHome = await TauriDirectoryProvider.getUserHome(osName);
-        console.log(`User home: ${userHome}`);
         return new TauriDirectoryProvider(appName, userHome);
     }
 
     async getHomeDirectory(): Promise<IDirectoryHandle> {
-        console.log(`Home directory: ${this.userHome}`);
         return new TauriDirectoryHandle(
             this.userHome,
             this.getHandle.bind(this),
@@ -58,7 +55,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
 
         const path = appendedPath ? await join(root, appendedPath) : root;
         await mkdir(path, { recursive: true });
-        console.log(`App public data directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
 
@@ -69,7 +65,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
             ? await join(await appLocalDataDir(), appendedPath)
             : await appLocalDataDir();
         await mkdir(path, { recursive: true });
-        console.log(`App private data directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
 
@@ -90,7 +85,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
             bookSlug,
         );
         await mkdir(path, { recursive: true });
-        console.log(`Project directory: ${path}`);
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
 
@@ -131,7 +125,6 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         filePath: string,
         // biome-ignore lint/suspicious/noExplicitAny: <mimics web api>
     ): Promise<WritableStreamDefaultWriter<any>> {
-        console.log(`creating file writer for: ${filePath}`);
         const fileHandle = await this.getHandle(filePath);
         const file = fileHandle.asFileHandle();
         if (!file) throw new Error(`Path is not a file: ${filePath}`);

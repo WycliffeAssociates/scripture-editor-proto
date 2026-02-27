@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { BASE_URL, expect, test } from "./fixtures.ts";
 import {
@@ -8,6 +9,54 @@ import {
     openReferencePicker,
     openSearchPanel,
 } from "./helpers/editor.ts";
+
+async function selectWordInEditor(page: Page) {
+    await page.evaluate(() => {
+        const root =
+            document.querySelector('[contenteditable="true"]') ?? document.body;
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            null,
+        );
+        let node: Node | null = null;
+
+        // biome-ignore lint/suspicious/noAssignInExpressions: TreeWalker iteration pattern.
+        while ((node = walker.nextNode())) {
+            const value = node.nodeValue ?? "";
+            const startOffset = value.indexOf("Jisu");
+            if (startOffset >= 0) {
+                const range = document.createRange();
+                range.setStart(node, startOffset);
+                range.setEnd(node, startOffset + 4);
+                const selection = window.getSelection();
+                if (!selection) return;
+                selection.removeAllRanges();
+                selection.addRange(range);
+                (
+                    document.querySelector(
+                        '[contenteditable="true"]',
+                    ) as HTMLElement | null
+                )?.focus();
+                return;
+            }
+        }
+    });
+}
+
+async function waitForContextMenuSelectionHighlight(page: Page) {
+    await page.waitForFunction(() => {
+        const highlight = CSS.highlights.get("context-menu-selection");
+        return Boolean(highlight && highlight.size > 0);
+    });
+}
+
+async function waitForContextMenuSelectionHighlightCleared(page: Page) {
+    await page.waitForFunction(() => {
+        const highlight = CSS.highlights.get("context-menu-selection");
+        return !highlight || highlight.size === 0;
+    });
+}
 
 test.describe("Editor llx-reg", () => {
     test("editor page loads correctly", async ({ editorPage }) => {
@@ -304,33 +353,7 @@ test.describe("Editor Action Palette", () => {
     });
 
     test("shows search action for selected text", async ({ editorPage }) => {
-        await editorPage.evaluate(() => {
-            const root =
-                document.querySelector('[contenteditable="true"]') ??
-                document.body;
-            const walker = document.createTreeWalker(
-                root,
-                NodeFilter.SHOW_TEXT,
-                null,
-            );
-            let node: Node | null = null;
-
-            // biome-ignore lint/suspicious/noAssignInExpressions: TreeWalker iteration pattern.
-            while ((node = walker.nextNode())) {
-                const value = node.nodeValue ?? "";
-                const startOffset = value.indexOf("Jisu");
-                if (startOffset >= 0) {
-                    const range = document.createRange();
-                    range.setStart(node, startOffset);
-                    range.setEnd(node, startOffset + 4);
-                    const selection = window.getSelection();
-                    if (!selection) return;
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                    return;
-                }
-            }
-        });
+        await selectWordInEditor(editorPage);
 
         await openActionPalette(editorPage);
         const searchAction = editorPage.getByTestId(
@@ -338,6 +361,60 @@ test.describe("Editor Action Palette", () => {
         );
         await expect(searchAction).toBeVisible();
         await expect(searchAction).toContainText('Find "');
+    });
+
+    test("keeps selected range highlighted while palette is open (keyboard)", async ({
+        editorPage,
+    }) => {
+        await selectWordInEditor(editorPage);
+        await editorPage.keyboard.press("Control+k");
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).toBeVisible();
+        await waitForContextMenuSelectionHighlight(editorPage);
+
+        await editorPage.keyboard.press("Escape");
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).not.toBeVisible();
+        await waitForContextMenuSelectionHighlightCleared(editorPage);
+    });
+
+    test("keeps selected range highlighted while palette is open (right-click + tab)", async ({
+        editorPage,
+    }) => {
+        await selectWordInEditor(editorPage);
+        const point = await editorPage.evaluate(() => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) return null;
+            const rect = selection.getRangeAt(0).getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+            };
+        });
+        if (!point) {
+            throw new Error("Failed to resolve selected text coordinates");
+        }
+
+        await editorPage.mouse.click(point.x, point.y, { button: "right" });
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).toBeVisible();
+        await waitForContextMenuSelectionHighlight(editorPage);
+
+        await editorPage.keyboard.press("Escape");
+        await waitForContextMenuSelectionHighlightCleared(editorPage);
+
+        await selectWordInEditor(editorPage);
+        await editorPage.keyboard.press("Tab");
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.contextMenu.container),
+        ).toBeVisible();
+        await waitForContextMenuSelectionHighlight(editorPage);
+
+        await editorPage.keyboard.press("Escape");
+        await waitForContextMenuSelectionHighlightCleared(editorPage);
     });
 
     test("supports multi-step change marker flow", async ({ editorPage }) => {
@@ -662,6 +739,26 @@ test.describe("Search Functionality", () => {
         await editorPage.getByTestId(TESTING_IDS.searchPrevButton).click();
         const afterPrev = await stats.textContent();
         expect(afterPrev).not.toBe(afterNext);
+    });
+
+    test("search results are deduped by verse and select first occurrence", async ({
+        editorPage,
+    }) => {
+        await openSearchPanel(editorPage);
+        await fillSearchQuery(editorPage, "vola");
+        await expect(
+            editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
+        ).toBeVisible();
+
+        const visibleOccurrences = await editorPage
+            .getByTestId(TESTING_IDS.searchResultItem)
+            .evaluateAll((rows) =>
+                rows
+                    .map((row) => row.getAttribute("data-search-occurrence"))
+                    .filter((value): value is string => value !== null),
+            );
+        expect(visibleOccurrences.length).toBeGreaterThan(0);
+        expect(visibleOccurrences.every((value) => value === "0")).toBe(true);
     });
 
     test("replace can update current match", async ({ editorPage }) => {

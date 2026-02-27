@@ -27,7 +27,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         const projects = await projectRepository.listProjects();
         // const sanityCheck = await db.select().from(dbSchema.sanity);
 
-        // console.log("Sanity check:", sanityCheck);
         return { projects };
     },
 });

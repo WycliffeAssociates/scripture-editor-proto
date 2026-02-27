@@ -120,9 +120,6 @@ function mapBurritoIngredientsToFiles(
 
         const bookCode = extractBookCodeFromIngredient(filePath, ingredient);
         if (!bookCode) {
-            console.warn(
-                `Could not extract book code from ingredient: ${filePath}`,
-            );
             continue;
         }
 
@@ -181,12 +178,8 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
             const rawMetadata = JSON.parse(contents);
 
             // Validate metadata structure
-            const [metadata, validationError] =
-                tryParseScriptureBurritoMetadata(rawMetadata);
+            const [metadata] = tryParseScriptureBurritoMetadata(rawMetadata);
             if (!metadata) {
-                console.warn(
-                    `Invalid metadata.json structure: ${validationError}`,
-                );
                 return null;
             }
             const defaultLanguageTag = metadata.meta.defaultLocale || "en";
@@ -252,9 +245,6 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                     const filePath = filename; // Path relative to projectDir
 
                     if (project.metadataJson.ingredients?.[filePath]) {
-                        // console.warn(
-                        //     `Book ${filename} already exists as an ingredient. Not adding.`,
-                        // );
                         return;
                     }
 
@@ -269,9 +259,6 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                         await directoryHandle.getFileHandle(filePath, {
                             create: false,
                         });
-                        console.warn(
-                            `Book ${filename} already exists as a file. Not adding.`,
-                        );
                         return;
                     } catch {
                         // File does not exist, proceed to create
@@ -291,9 +278,6 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                         filePath,
                         ingredientData,
                     );
-                    console.log(
-                        `Added ${filename} as ingredient to metadata.json`,
-                    );
                 },
                 /**
                  * @method getBook
@@ -308,9 +292,6 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                         !project.metadataJson.ingredients ||
                         !project.metadataJson.ingredients[filename]
                     ) {
-                        console.warn(
-                            `Book ${filename} not found as an ingredient in metadata.json.`,
-                        );
                         return null;
                     }
 

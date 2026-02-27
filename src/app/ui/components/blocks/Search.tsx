@@ -21,12 +21,22 @@ import {
     ChevronLeft,
     ChevronRight,
     CornerRightDown,
+    GripHorizontal,
+    Move,
     Replace,
+    RotateCcw,
     Search,
     WholeWord,
     X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import {
+    type CSSProperties,
+    type HTMLAttributes,
+    type RefObject,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import Highlighter from "react-highlight-words";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
@@ -493,7 +503,29 @@ export function SearchControls({ search }: { search: UseSearchReturn }) {
     );
 }
 
-export function SearchPopoverControls() {
+type SearchPopoverControlsProps = {
+    dropdownRef?: RefObject<HTMLDivElement | null>;
+    dropdownStyle?: CSSProperties;
+    dragHandleProps?: HTMLAttributes<HTMLElement>;
+    resizeHandleProps?: HTMLAttributes<HTMLElement>;
+    onResetPosition?: () => void;
+    isMoved?: boolean;
+    isDragging?: boolean;
+    isResizing?: boolean;
+    onHeaderDoubleClickReset?: () => void;
+};
+
+export function SearchPopoverControls({
+    dropdownRef,
+    dropdownStyle,
+    dragHandleProps,
+    resizeHandleProps,
+    onResetPosition,
+    isMoved = false,
+    isDragging = false,
+    isResizing = false,
+    onHeaderDoubleClickReset,
+}: SearchPopoverControlsProps = {}) {
     const { search, project, bookCodeToProjectLocalizedTitle } =
         useWorkspaceContext();
     const { t } = useLingui();
@@ -527,9 +559,28 @@ export function SearchPopoverControls() {
         activeChapter === 0 ? t`Introduction` : String(activeChapter);
 
     return (
-        <Popover.Dropdown className={searchClassNames.popoverDropdown} p="sm">
-            <div className={searchClassNames.popoverHeader}>
-                <div className={searchClassNames.popoverHeaderInfo}>
+        <Popover.Dropdown
+            ref={dropdownRef}
+            data-js="search-popover-dropdown"
+            className={searchClassNames.popoverDropdown}
+            style={dropdownStyle}
+            p="sm"
+        >
+            <div
+                data-testid={TESTING_IDS.searchPopoverHeader}
+                className={searchClassNames.popoverHeader}
+            >
+                <button
+                    type="button"
+                    aria-label={t`Drag search panel`}
+                    className={`${searchClassNames.popoverHeaderInfo} ${searchClassNames.popoverHeaderDragHandle} ${isDragging ? searchClassNames.popoverHeaderDragging : ""}`}
+                    onDoubleClick={onHeaderDoubleClickReset}
+                    {...dragHandleProps}
+                >
+                    <GripHorizontal
+                        size={14}
+                        className={searchClassNames.popoverGripIcon}
+                    />
                     <Text fw={700} size="sm">
                         <Trans>Search</Trans>
                     </Text>
@@ -542,17 +593,50 @@ export function SearchPopoverControls() {
                             in {activeBookTitle} {chapterLabel}
                         </Trans>
                     </Text>
+                </button>
+                <div className={searchClassNames.popoverHeaderActions}>
+                    {isMoved ? (
+                        <ActionIcon
+                            data-testid={TESTING_IDS.searchResetPositionButton}
+                            data-no-drag="true"
+                            variant="subtle"
+                            color="gray"
+                            onClick={onResetPosition}
+                            aria-label={t`Reset position`}
+                        >
+                            <RotateCcw size={16} />
+                        </ActionIcon>
+                    ) : null}
+                    <ActionIcon
+                        data-no-drag="true"
+                        variant="subtle"
+                        color="gray"
+                        onClick={() => search.setIsSearchPaneOpen(false)}
+                        aria-label={t`Close search`}
+                    >
+                        <X size={18} />
+                    </ActionIcon>
                 </div>
-                <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => search.setIsSearchPaneOpen(false)}
-                    aria-label={t`Close search`}
-                >
-                    <X size={18} />
-                </ActionIcon>
             </div>
-            <SearchControls search={search} />
+            <div
+                data-js="search-popover-content"
+                className={searchClassNames.popoverBody}
+            >
+                <SearchControls search={search} />
+                <button
+                    type="button"
+                    data-testid={TESTING_IDS.searchResizeHandle}
+                    data-no-drag="true"
+                    aria-label={t`Resize search panel`}
+                    className={`${searchClassNames.popoverResizeHandle} ${isResizing ? searchClassNames.popoverResizeHandleActive : ""}`}
+                    {...resizeHandleProps}
+                >
+                    <Move
+                        size={11}
+                        className={searchClassNames.popoverResizeIcon}
+                    />
+                </button>
+            </div>
         </Popover.Dropdown>
     );
 }
@@ -728,6 +812,10 @@ function SearchResults({
                             data-search-row-type={
                                 groupedItem ? "grouped" : "single"
                             }
+                            data-search-sid={result.sid}
+                            data-search-occurrence={String(
+                                result.sidOccurrenceIndex,
+                            )}
                             data-search-book={result.bibleIdentifier}
                             data-search-chapter={String(result.chapNum)}
                             key={

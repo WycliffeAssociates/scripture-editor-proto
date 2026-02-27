@@ -23,7 +23,8 @@
     "test:unit": "vitest run --exclude 'src/**/*.integration.ts'",
     "test:integration": "TAURI_TEST_INTEGRATION=true vitest run --exclude 'src/**/*.test.ts'",
     "test:watch": "vitest --watch",
-    "knip": "knip"
+    "knip": "knip",
+    "check:architecture": "node scripts/checkArchitecture.mjs"
   },
   "dependencies": {
     "@lexical/headless": "0.35.0",

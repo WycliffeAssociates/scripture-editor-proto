@@ -50,12 +50,10 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
             const projectId = parsedManifest.dublin_core?.identifier;
             const language = parsedManifest.dublin_core?.language;
             if (!projectId) {
-                console.log("No project id found for project:", projectId);
                 return null;
             }
 
             if (!language) {
-                console.log("No language found for project:", projectId);
                 return null;
             }
 
@@ -145,9 +143,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                     // await writer.write(contents);
                     // await writer.close();
                     await fileWriter.writeFile(finalRelativeFilePath, contents);
-                    console.log(
-                        `File ${finalRelativeFilePath} written/overwritten.`,
-                    );
 
                     // Update manifest.yaml with the final relative file path
                     if (existingBookIndex !== -1) {
@@ -157,9 +152,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                             title: localizedBookTitle || book.code,
                             path: finalRelativeFilePath, // Ensure manifest path is updated
                         };
-                        console.log(
-                            `Updated existing book ${book.code} in manifest.`,
-                        );
                     } else {
                         // Add new book entry
                         currentProjects.push({
@@ -170,7 +162,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                             versification: "ufw", // Default for now
                             categories: [],
                         } as ResourceContainerProject);
-                        console.log(`Added new book ${book.code} to manifest.`);
                     }
                     parsedManifest.projects = currentProjects;
 
@@ -188,9 +179,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
 
                     //   await manifestWriter.write(updatedManifestString);
                     //   await manifestWriter.close();
-                    console.log(
-                        `Manifest ${ResourceContainerProjectLoader.MANIFEST_FILENAME} updated.`,
-                    );
                 },
                 /**
                  * @method getBook
@@ -201,9 +189,6 @@ export class ResourceContainerProjectLoader implements IProjectLoader {
                 getBook: async (bookCode: string): Promise<string | null> => {
                     const book = canonicalBookMap[bookCode.toUpperCase()];
                     if (!book) {
-                        console.warn(
-                            `Book with code ${bookCode} not found in canonical map.`,
-                        );
                         return null;
                     }
 

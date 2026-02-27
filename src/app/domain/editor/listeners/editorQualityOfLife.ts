@@ -65,7 +65,6 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
             event.preventDefault();
             event.stopPropagation();
             editor.update(() => {
-                console.log("selecting next sibling");
                 const marker = anchorNode.getMarker();
                 if (!marker) return;
                 if (nextSibling.getTokenType() === UsfmTokenTypes.numberRange) {

@@ -16,6 +16,10 @@ import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
+import {
+    clearContextMenuSelectionHighlight,
+    showContextMenuSelectionHighlight,
+} from "./ContextMenu/selectionHighlight.ts";
 
 function calculateMenuPosition(
     touchPoint: { x: number; y: number },
@@ -55,7 +59,11 @@ export function NodeContextMenuPlugin() {
     const [context, setContext] = useState<EditorContext | null>(null);
     const { isXs, isSm } = useWorkspaceMediaQuery();
     const { getContext } = useEditorContext();
-    const clickOutsideRef = useClickOutside(() => setOpened(false));
+    const closePalette = useCallback(() => {
+        clearContextMenuSelectionHighlight();
+        setOpened(false);
+    }, []);
+    const clickOutsideRef = useClickOutside(closePalette);
 
     const openedRef = useRef(opened);
 
@@ -67,6 +75,22 @@ export function NodeContextMenuPlugin() {
         (x: number, y: number) => {
             const ctx = getContext();
             setContext(ctx);
+            const nativeSelection = window.getSelection();
+            const nativeRange =
+                nativeSelection && nativeSelection.rangeCount > 0
+                    ? nativeSelection.getRangeAt(0)
+                    : null;
+            if (
+                nativeRange &&
+                !nativeRange.collapsed &&
+                nativeSelection.toString().trim().length > 0 &&
+                (!$isRangeSelection(ctx.selection) ||
+                    !ctx.selection.isCollapsed())
+            ) {
+                showContextMenuSelectionHighlight(nativeRange);
+            } else {
+                clearContextMenuSelectionHighlight();
+            }
             const isMobile = isXs || isSm;
             setPos(calculateMenuPosition({ x, y }, isMobile));
             setOpened(true);
@@ -159,6 +183,12 @@ export function NodeContextMenuPlugin() {
         );
     }, [editor, showTooltipNearSelection]);
 
+    useEffect(() => {
+        return () => {
+            clearContextMenuSelectionHighlight();
+        };
+    }, []);
+
     if (!opened || !context) return null;
 
     return (
@@ -173,10 +203,7 @@ export function NodeContextMenuPlugin() {
                     zIndex: 2000,
                 }}
             >
-                <ActionPalette
-                    context={context}
-                    onClose={() => setOpened(false)}
-                />
+                <ActionPalette context={context} onClose={closePalette} />
             </div>
         </Portal>
     );

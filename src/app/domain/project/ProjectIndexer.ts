@@ -38,10 +38,6 @@ export class ProjectIndexer {
         // Extract project identifier from directory path
         const projectPath = projectDirPath.split("/").at(-1);
         if (!projectPath) {
-            console.warn(
-                "[ProjectIndexer] indexProject: no project path found for",
-                projectDirPath,
-            );
             return;
         }
 
@@ -52,22 +48,12 @@ export class ProjectIndexer {
         );
 
         if (!loadedProject) {
-            console.warn(
-                "[ProjectIndexer] indexProject: no project returned from repository for",
-                projectDirPath,
-            );
             return;
         }
 
         // Validate the loaded project shape before writing to DB
-        const [parsedProject, parseError] = tryParseProjectForDb(loadedProject);
+        const [parsedProject] = tryParseProjectForDb(loadedProject);
         if (!parsedProject) {
-            console.warn(
-                "[ProjectIndexer] indexProject: validation failed for project at",
-                projectDirPath,
-                "error:",
-                parseError,
-            );
             return;
         }
 
@@ -140,18 +126,8 @@ export class ProjectIndexer {
                         });
                     } catch (fileErr) {
                         // log file-level error but continue processing other files
-                        console.warn(
-                            "[ProjectIndexer] indexProject: failed upserting file",
-                            pathOnDisk,
-                            fileErr,
-                        );
                     }
                 }
-
-                console.log(
-                    "[ProjectIndexer] indexProject: indexing complete for",
-                    projectDirPath,
-                );
             },
         );
     }
