@@ -622,16 +622,18 @@ export function useProjectDiffs({
             );
         }
 
-        const savePromise = await Promise.allSettled(
-            Object.entries(toSave).map(async ([bookCode, content]) => {
+        let saveError: unknown = null;
+        for (const [bookCode, content] of Object.entries(toSave)) {
+            try {
                 await loadedProject.addBook({ bookCode, contents: content });
-            }),
-        );
-        await Promise.all(savePromise);
+            } catch (error) {
+                saveError = error;
+                break;
+            }
+        }
 
-        const error = savePromise.find((p) => p.status === "rejected");
-        if (error) {
-            console.error(error);
+        if (saveError) {
+            console.error(saveError);
         } else if (Object.keys(toSave).length > 0) {
             ShowNotificationSuccess({
                 notification: {

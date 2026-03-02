@@ -42,6 +42,9 @@ class MockNativeFileHandle {
 
 function createFakeRuntime() {
     const dataByPath = new Map<string, Uint8Array>();
+    const rm = vi.fn(async (path: string) => {
+        dataByPath.delete(path);
+    });
     const fs = {
         promises: {
             async readFile(path: string): Promise<Uint8Array> {
@@ -61,9 +64,7 @@ function createFakeRuntime() {
                 }
                 return {};
             },
-            async rm(path: string) {
-                dataByPath.delete(path);
-            },
+            rm,
         },
     };
 
@@ -73,6 +74,7 @@ function createFakeRuntime() {
             fs,
         },
         dataByPath,
+        rm,
     };
 }
 
@@ -138,5 +140,25 @@ describe("web write-through regression", () => {
                 filepath: "04-NUM.usfm",
             }),
         );
+    });
+
+    it("removes existing files before overwriting through zenfs backend", async () => {
+        const { runtime, rm } = createFakeRuntime();
+        const writeBackend = new ZenFsFileWriteBackend(runtime as never);
+
+        await writeBackend.write(
+            "/userData/projects/p/manifest.yaml",
+            new TextEncoder().encode("longer"),
+        );
+        await writeBackend.write(
+            "/userData/projects/p/manifest.yaml",
+            new TextEncoder().encode("short"),
+        );
+
+        expect(rm).toHaveBeenCalledWith("/userData/projects/p/manifest.yaml");
+        const bytes = await runtime.fs.promises.readFile(
+            "/userData/projects/p/manifest.yaml",
+        );
+        expect(new TextDecoder().decode(bytes)).toBe("short");
     });
 });
