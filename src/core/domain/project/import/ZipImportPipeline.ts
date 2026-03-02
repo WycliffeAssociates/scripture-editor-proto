@@ -13,6 +13,10 @@ type ExtractionResult = {
 export class ZipImportPipeline {
     constructor(private readonly directoryProvider: IDirectoryProvider) {}
 
+    private isGitMetadataPath(path: string): boolean {
+        return path.split("/").filter(Boolean).includes(".git");
+    }
+
     async importFromZipData(args: {
         archiveName: string;
         data: ArrayBuffer;
@@ -68,6 +72,9 @@ export class ZipImportPipeline {
         });
 
         for (const fileName of Object.keys(loadedZip)) {
+            if (this.isGitMetadataPath(fileName)) {
+                continue;
+            }
             const file = loadedZip[fileName];
 
             if (

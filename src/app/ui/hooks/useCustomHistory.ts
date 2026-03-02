@@ -639,6 +639,14 @@ export function useCustomHistory({
         applyEntry("redo", "after", "Redid", entry.changes, entry.label);
     }, [applyEntry]);
 
+    const clearHistory = useCallback(() => {
+        managerRef.current.reset();
+        baselineByChapterRef.current.clear();
+        baselineSelectionByChapterRef.current.clear();
+        nextTypingLabelRef.current = null;
+        bumpVersion();
+    }, [bumpVersion]);
+
     return useMemo(
         () => ({
             version,
@@ -653,6 +661,7 @@ export function useCustomHistory({
             registerPostUndoRedoAction,
             undo,
             redo,
+            clearHistory,
         }),
         [
             version,
@@ -663,6 +672,7 @@ export function useCustomHistory({
             registerPostUndoRedoAction,
             undo,
             redo,
+            clearHistory,
         ],
     );
 }

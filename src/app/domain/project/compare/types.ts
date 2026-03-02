@@ -3,7 +3,11 @@ import type { DiffsByChapterMap } from "@/core/domain/usfm/chapterDiffOperation.
 
 export type CompareMode = "unsaved" | "external";
 export type CompareBaseline = "currentSaved" | "currentDirty";
-export type CompareSourceKind = "existingProject" | "zipFile" | "directory";
+export type CompareSourceKind =
+    | "existingProject"
+    | "zipFile"
+    | "directory"
+    | "previousVersion";
 
 export type CompareWarningCode =
     | "language_id_mismatch"
@@ -26,6 +30,10 @@ export type CompareSessionConfig = {
         | {
               kind: "directory";
               directoryName?: string;
+          }
+        | {
+              kind: "previousVersion";
+              commitHash: string;
           };
 };
 

@@ -40,8 +40,12 @@ export class FileWriter implements IFileWriter {
         );
         const file = fileHandle.asFileHandle();
         if (!file) throw new Error(`Path ${filePath} is not a file.`);
-        const writer = await file.createWritable();
-        await writer.write(contents);
-        await writer.close();
+        const writable = await file.createWritable({
+            keepExistingData: false,
+        });
+        await writable.truncate(0);
+        await writable.seek(0);
+        await writable.write(contents);
+        await writable.close();
     }
 }

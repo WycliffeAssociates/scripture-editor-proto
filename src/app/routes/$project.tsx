@@ -25,13 +25,15 @@ export const Route = createFileRoute("/$project")({
     },
     loader: async ({ context, params }) => {
         console.time("total time");
-        const { projectRepository, md5Service, settingsManager } = context;
+        const { projectRepository, md5Service, gitProvider, settingsManager } =
+            context;
         const { project } = params;
         const editorMode = settingsManager.get("editorMode");
         const result = await projectParamToParsedFiles(
             projectRepository,
             project,
             md5Service,
+            gitProvider,
             editorMode,
         );
         const { parsedFiles, allInitialLintErrors, loadedProject } = result || {

@@ -4,6 +4,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "@/app/entrypoint.tsx";
+import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
 import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider.ts";
@@ -14,6 +15,7 @@ const settingsManager = createTauriSettingsManager();
 const directoryProvider =
     await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
+const gitProvider = new TauriGitProvider();
 const opener = new TauriOpener();
 
 // // react entry stuff
@@ -27,6 +29,7 @@ root.render(
             settingsManager={settingsManager}
             directoryProvider={directoryProvider}
             md5Service={md5Service}
+            gitProvider={gitProvider}
             opener={opener}
             platform={platform()}
         />

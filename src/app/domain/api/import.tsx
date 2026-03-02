@@ -66,6 +66,13 @@ export async function handleOpenDirectory(
             .split("/")
             .slice(1)
             .join("/"); // Get path relative to the selected directory
+        if (
+            relativePath === ".git" ||
+            relativePath.startsWith(".git/") ||
+            relativePath.includes("/.git/")
+        ) {
+            continue;
+        }
         const filePathParts = relativePath.split("/");
         const fileName = filePathParts.pop();
         const dirPath = filePathParts.join("/");

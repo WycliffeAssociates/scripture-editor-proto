@@ -200,4 +200,21 @@ describe("HistoryManager", () => {
         const undoEntry = manager.undo();
         expect(undoEntry?.changes).toHaveLength(2);
     });
+
+    it("resets undo/redo stacks", () => {
+        const manager = new HistoryManager<Snapshot>({
+            maxEntries: 200,
+            coalesceWindowMs: 2500,
+        });
+
+        manager.recordTypingChange({
+            label: "Edit",
+            change: makeChange("a", "ab"),
+        });
+
+        expect(manager.canUndo()).toBe(true);
+        manager.reset();
+        expect(manager.canUndo()).toBe(false);
+        expect(manager.canRedo()).toBe(false);
+    });
 });

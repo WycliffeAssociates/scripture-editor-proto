@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { projectParamToParsedFiles } from "@/app/domain/api/projectToParsed.tsx";
 import { parseReference } from "@/core/data/bible/bible.ts";
+import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
 
 export type ReferenceProjectHook = ReturnType<typeof useReferenceProject>;
@@ -11,11 +12,13 @@ type Props = {
     projectRepository: IProjectRepository;
     pickedFileIdentifier: string;
     pickedChapterNumber: number;
+    gitProvider: GitProvider;
 };
 export const useReferenceProject = ({
     projectRepository,
     pickedFileIdentifier,
     pickedChapterNumber,
+    gitProvider,
 }: Props) => {
     const [referenceProjectId, setReferenceProjectId] = useState<string>();
     const [referenceBookCode, setReferenceBookCode] =
@@ -34,6 +37,7 @@ export const useReferenceProject = ({
                 projectRepository,
                 referenceProjectId,
                 md5Service,
+                gitProvider,
                 editorMode,
             ),
         enabled: !!referenceProjectId,

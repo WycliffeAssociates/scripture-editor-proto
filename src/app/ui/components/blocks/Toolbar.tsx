@@ -38,9 +38,10 @@ import type {
     SkippedMarkerSuggestion,
     TargetMarkerPreservationMode,
 } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
+import { formatChapterSummary } from "@/core/persistence/gitVersionUtils.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions, isProcessing, project } = useWorkspaceContext();
+    const { actions, isProcessing, project, saveDiff } = useWorkspaceContext();
     const { t } = useLingui();
     const isViewOnly = (project.appSettings.editorMode ?? "regular") === "view";
 
@@ -107,6 +108,27 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                         <LintPopover wrapperClassNames="relative" />
                         <SaveAndReviewChanges />
                         <SecondaryActionsMenu isProcessing={isProcessing} />
+                        {saveDiff.isViewingOlderVersion ? (
+                            <Group gap={rem(4)}>
+                                <Text c="orange.7" size="xs" fw={600}>
+                                    <Trans>Viewing older version</Trans>
+                                </Text>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    onClick={() =>
+                                        void saveDiff.backToLatest(
+                                            actions.saveCurrentDirtyLexical,
+                                        )
+                                    }
+                                    data-testid={
+                                        TESTING_IDS.versions.backToLatest
+                                    }
+                                >
+                                    <Trans>Back to latest</Trans>
+                                </Button>
+                            </Group>
+                        ) : null}
                     </Group>
                 </div>
             </div>
@@ -130,7 +152,8 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
 function SecondaryActionsMenu(props: { isProcessing: boolean }) {
     const { t } = useLingui();
-    const { actions, referenceProject, project } = useWorkspaceContext();
+    const { actions, referenceProject, project, saveDiff } =
+        useWorkspaceContext();
     const suggestionCount = project.formatMatchReport?.suggestions.length ?? 0;
     const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
     const [scope, setScope] = useState<"chapter" | "book" | "project">(
@@ -173,6 +196,17 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
 
                 <Menu.Dropdown>
                     <Menu.Label>{t`Tools`}</Menu.Label>
+                    <Menu.Item
+                        leftSection={<BookCopy size={rem(14)} />}
+                        data-testid={TESTING_IDS.versions.trigger}
+                        onClick={() =>
+                            void saveDiff.openPreviousVersions(
+                                actions.saveCurrentDirtyLexical,
+                            )
+                        }
+                    >
+                        <Trans>Previous Versions</Trans>
+                    </Menu.Item>
                     <Menu.Item
                         leftSection={
                             props.isProcessing ? (
@@ -300,6 +334,147 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                             loading={props.isProcessing}
                         >
                             {t`Run`} {scopeLabel[scope]}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            <Modal
+                opened={saveDiff.openVersionModal}
+                onClose={saveDiff.dismissPreviousVersions}
+                title={t`Previous Versions`}
+                centered
+                size="lg"
+            >
+                <Stack
+                    gap="sm"
+                    data-testid={TESTING_IDS.versions.modal}
+                    mah={420}
+                    style={{ overflowY: "auto" }}
+                >
+                    {saveDiff.versions.map((version) => {
+                        const localizedTime = new Intl.DateTimeFormat(
+                            undefined,
+                            {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                            },
+                        ).format(new Date(version.authoredAtIso));
+                        const summary =
+                            version.chapterSummary &&
+                            version.chapterSummary.length > 0
+                                ? formatChapterSummary(version.chapterSummary)
+                                : version.subject;
+                        const isSelected =
+                            saveDiff.selectedVersionHash === version.hash;
+                        return (
+                            <Button
+                                key={version.hash}
+                                variant={isSelected ? "filled" : "light"}
+                                color={isSelected ? "primary.7" : "gray"}
+                                justify="space-between"
+                                data-testid={TESTING_IDS.versions.row}
+                                h={"3rem"}
+                                onClick={() =>
+                                    void saveDiff.selectVersion(
+                                        version.hash,
+                                        actions.saveCurrentDirtyLexical,
+                                    )
+                                }
+                                styles={{
+                                    inner: {
+                                        alignItems: "flex-start",
+                                    },
+                                    label: {
+                                        width: "100%",
+                                        textAlign: "left",
+                                    },
+                                }}
+                            >
+                                <Stack gap={2} w="100%">
+                                    <Text fw={700} size="sm">
+                                        {localizedTime}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                        {summary}
+                                    </Text>
+                                </Stack>
+                            </Button>
+                        );
+                    })}
+                    {saveDiff.isLoadingVersions ? <Loader size="sm" /> : null}
+                    <Group justify="space-between">
+                        <Button
+                            variant="default"
+                            onClick={() =>
+                                void saveDiff.backToLatest(
+                                    actions.saveCurrentDirtyLexical,
+                                )
+                            }
+                            disabled={!saveDiff.isViewingOlderVersion}
+                            data-testid={TESTING_IDS.versions.backToLatest}
+                        >
+                            <Trans>Back to latest</Trans>
+                        </Button>
+                        <Button
+                            variant="subtle"
+                            onClick={() => void saveDiff.loadMoreVersions()}
+                            disabled={saveDiff.isLoadingVersions}
+                            data-testid={TESTING_IDS.versions.loadMore}
+                        >
+                            <Trans>Load more</Trans>
+                        </Button>
+                    </Group>
+                    {!saveDiff.versions.length &&
+                    !saveDiff.isLoadingVersions ? (
+                        <Text c="dimmed" size="sm">
+                            <Trans>
+                                Save changes to create additional versions.
+                            </Trans>
+                        </Text>
+                    ) : null}
+                </Stack>
+            </Modal>
+
+            <Modal
+                opened={saveDiff.openVersionDirtyPrompt}
+                onClose={saveDiff.dismissVersionDirtyPrompt}
+                title={t`Unsaved Changes`}
+                centered
+                size="sm"
+            >
+                <Stack data-testid={TESTING_IDS.versions.dirtyPrompt}>
+                    <Text size="sm">
+                        <Trans>
+                            You have unsaved changes. Review and save first, or
+                            discard them before switching versions.
+                        </Trans>
+                    </Text>
+                    <Group justify="flex-end">
+                        <Button
+                            variant="subtle"
+                            onClick={saveDiff.dismissVersionDirtyPrompt}
+                            data-testid={TESTING_IDS.versions.dirtyPromptCancel}
+                        >
+                            <Trans>Cancel</Trans>
+                        </Button>
+                        <Button
+                            variant="light"
+                            color="red"
+                            onClick={() =>
+                                void saveDiff.continueVersionPromptDiscard()
+                            }
+                            data-testid={
+                                TESTING_IDS.versions.dirtyPromptDiscard
+                            }
+                        >
+                            <Trans>Discard</Trans>
+                        </Button>
+                        <Button
+                            onClick={saveDiff.continueVersionPromptSave}
+                            data-testid={TESTING_IDS.versions.dirtyPromptSave}
+                        >
+                            <Trans>Review &amp; Save</Trans>
                         </Button>
                     </Group>
                 </Stack>

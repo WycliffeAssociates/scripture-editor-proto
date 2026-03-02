@@ -103,6 +103,7 @@ export const ProjectProvider = ({
         projectRepository,
         directoryProvider,
         md5Service,
+        gitProvider,
     } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
@@ -129,6 +130,7 @@ export const ProjectProvider = ({
         projectRepository,
         directoryProvider,
         md5Service,
+        gitProvider,
         editorMode: settingsManager.get("editorMode"),
         allProjects: projects,
         currentProjectRoute,
@@ -143,6 +145,7 @@ export const ProjectProvider = ({
         projectRepository: projectRepository,
         pickedFileIdentifier: project.pickedFile.bookCode,
         pickedChapterNumber: project.pickedChapter?.chapNumber || 0,
+        gitProvider,
     });
 
     const actions = useWorkspaceActions({

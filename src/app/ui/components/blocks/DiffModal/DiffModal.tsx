@@ -12,6 +12,9 @@ export function SaveAndReviewChanges() {
     const { t } = useLingui();
     const { saveDiff, actions } = useWorkspaceContext();
     const { isXs, isSm } = useWorkspaceMediaQuery();
+    const saveLabel = saveDiff.isViewingOlderVersion
+        ? t`Save as New Version`
+        : t`Review and save changes`;
 
     const sorted = sortListBySidCanonical(
         saveDiff.diffs.map((diff) => ({ sid: diff.semanticSid, ...diff })),
@@ -45,13 +48,21 @@ export function SaveAndReviewChanges() {
                 setCompareSourceKind={saveDiff.setCompareSourceKind}
                 compareSourceProjectId={saveDiff.compareSourceProjectId}
                 setCompareSourceProjectId={saveDiff.setCompareSourceProjectId}
+                compareSourceVersionHash={saveDiff.compareSourceVersionHash}
+                setCompareSourceVersionHash={
+                    saveDiff.setCompareSourceVersionHash
+                }
                 compareProjects={saveDiff.availableCompareProjects}
+                compareVersionOptions={saveDiff.compareVersionOptions}
                 loadCompareProject={
                     saveDiff.loadExternalCompareSourceFromProject
                 }
                 loadCompareZip={saveDiff.loadExternalCompareSourceFromZip}
                 loadCompareDirectory={
                     saveDiff.loadExternalCompareSourceFromDirectory
+                }
+                loadCompareVersion={
+                    saveDiff.loadExternalCompareSourceFromVersion
                 }
                 compareWarnings={saveDiff.compareWarnings}
                 takeIncomingAll={saveDiff.applyExternalIncomingAll}
@@ -62,16 +73,12 @@ export function SaveAndReviewChanges() {
             />
 
             {isXs || isSm ? (
-                <Tooltip
-                    label={<Trans>Review and save changes</Trans>}
-                    withArrow
-                    position="top"
-                >
+                <Tooltip label={saveLabel} withArrow position="top">
                     <ActionIconSimple
                         data-testid={TESTING_IDS.save.trigger}
                         onClick={actions.toggleDiffModal}
-                        aria-label={t`Review and save changes`}
-                        title={t`Review and save changes`}
+                        aria-label={saveLabel}
+                        title={saveLabel}
                     >
                         <Save size={16} />
                     </ActionIconSimple>
@@ -83,7 +90,11 @@ export function SaveAndReviewChanges() {
                     onClick={actions.toggleDiffModal}
                     size="sm"
                 >
-                    <Trans>Review &amp; Save</Trans>
+                    {saveDiff.isViewingOlderVersion ? (
+                        <Trans>Save as New Version</Trans>
+                    ) : (
+                        <Trans>Review &amp; Save</Trans>
+                    )}
                 </Button>
             )}
         </>

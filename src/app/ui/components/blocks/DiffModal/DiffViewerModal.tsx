@@ -55,10 +55,14 @@ export type DiffViewerModalProps = {
     setCompareSourceKind: (kind: CompareSourceKind) => void;
     compareSourceProjectId: string;
     setCompareSourceProjectId: (id: string) => void;
+    compareSourceVersionHash: string;
+    setCompareSourceVersionHash: (id: string) => void;
     compareProjects: ListedProject[];
+    compareVersionOptions: Array<{ value: string; label: string }>;
     loadCompareProject: (projectId: string) => Promise<void>;
     loadCompareZip: (file: File) => Promise<void>;
     loadCompareDirectory: (files: FileList) => Promise<void>;
+    loadCompareVersion: (commitHash: string) => Promise<void>;
     compareWarnings: CompareWarning[];
     takeIncomingAll: () => void;
     hasComputedCompare: boolean;
@@ -100,10 +104,14 @@ export function DiffViewerModal({
     setCompareSourceKind,
     compareSourceProjectId,
     setCompareSourceProjectId,
+    compareSourceVersionHash,
+    setCompareSourceVersionHash,
     compareProjects,
+    compareVersionOptions,
     loadCompareProject,
     loadCompareZip,
     loadCompareDirectory,
+    loadCompareVersion,
     compareWarnings,
     takeIncomingAll,
     hasComputedCompare,
@@ -243,9 +251,13 @@ export function DiffViewerModal({
         compareSourceKind === "existingProject"
             ? (compareProjectLabelById.get(compareSourceProjectId) ??
               t`No source selected`)
-            : compareSourceKind === "zipFile"
-              ? t`ZIP file`
-              : t`Folder`;
+            : compareSourceKind === "previousVersion"
+              ? (compareVersionOptions.find(
+                    (option) => option.value === compareSourceVersionHash,
+                )?.label ?? t`No version selected`)
+              : compareSourceKind === "zipFile"
+                ? t`ZIP file`
+                : t`Folder`;
     const compareSummaryText =
         compareMode === "external"
             ? t`Comparing ${compareBaseline === "currentDirty" ? "Current dirty" : "Current saved"} vs ${sourceLabel}`
@@ -253,7 +265,9 @@ export function DiffViewerModal({
     const hasCompareSourceSelection =
         compareSourceKind === "existingProject"
             ? Boolean(compareSourceProjectId)
-            : hasComputedCompare;
+            : compareSourceKind === "previousVersion"
+              ? Boolean(compareSourceVersionHash)
+              : hasComputedCompare;
     const canApplyIncomingAll =
         compareMode === "external" &&
         hasComputedCompare &&
@@ -573,6 +587,19 @@ export function DiffViewerModal({
                                                                 <Button
                                                                     variant="default"
                                                                     size="xs"
+                                                                    onClick={() =>
+                                                                        setCompareSourceKind(
+                                                                            "previousVersion",
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Trans>
+                                                                        Version
+                                                                    </Trans>
+                                                                </Button>
+                                                                <Button
+                                                                    variant="default"
+                                                                    size="xs"
                                                                     onClick={() => {
                                                                         setCompareSourceKind(
                                                                             "zipFile",
@@ -626,6 +653,37 @@ export function DiffViewerModal({
                                                                         }
                                                                     }}
                                                                     placeholder={t`Select source project`}
+                                                                    size="xs"
+                                                                    w="100%"
+                                                                />
+                                                            )}
+                                                            {compareSourceKind ===
+                                                                "previousVersion" && (
+                                                                <Select
+                                                                    data={
+                                                                        compareVersionOptions
+                                                                    }
+                                                                    value={
+                                                                        compareSourceVersionHash
+                                                                    }
+                                                                    onChange={(
+                                                                        value,
+                                                                    ) => {
+                                                                        const next =
+                                                                            value ??
+                                                                            "";
+                                                                        setCompareSourceVersionHash(
+                                                                            next,
+                                                                        );
+                                                                        if (
+                                                                            next
+                                                                        ) {
+                                                                            void loadCompareVersion(
+                                                                                next,
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                    placeholder={t`Select previous version`}
                                                                     size="xs"
                                                                     w="100%"
                                                                 />
@@ -742,6 +800,17 @@ export function DiffViewerModal({
                                                             </Trans>
                                                         </Menu.Item>
                                                         <Menu.Item
+                                                            onClick={() =>
+                                                                setCompareSourceKind(
+                                                                    "previousVersion",
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trans>
+                                                                Previous version
+                                                            </Trans>
+                                                        </Menu.Item>
+                                                        <Menu.Item
                                                             onClick={() => {
                                                                 setCompareSourceKind(
                                                                     "zipFile",
@@ -789,6 +858,32 @@ export function DiffViewerModal({
                                                             }
                                                         }}
                                                         placeholder={t`Select source project`}
+                                                        size="xs"
+                                                        w={rem(260)}
+                                                    />
+                                                )}
+                                                {compareSourceKind ===
+                                                    "previousVersion" && (
+                                                    <Select
+                                                        data={
+                                                            compareVersionOptions
+                                                        }
+                                                        value={
+                                                            compareSourceVersionHash
+                                                        }
+                                                        onChange={(value) => {
+                                                            const next =
+                                                                value ?? "";
+                                                            setCompareSourceVersionHash(
+                                                                next,
+                                                            );
+                                                            if (next) {
+                                                                void loadCompareVersion(
+                                                                    next,
+                                                                );
+                                                            }
+                                                        }}
+                                                        placeholder={t`Select previous version`}
                                                         size="xs"
                                                         w={rem(260)}
                                                     />
@@ -924,8 +1019,8 @@ export function DiffViewerModal({
                                                             }
                                                         >
                                                             <Trans>
-                                                                Take incoming
-                                                                all
+                                                                Take all
+                                                                incoming changes
                                                             </Trans>
                                                         </Button>
                                                         <Button
