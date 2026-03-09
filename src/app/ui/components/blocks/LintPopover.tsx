@@ -12,8 +12,8 @@ import {
     lintPopoverDropdown,
 } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
 import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Props = {
     wrapperClassNames?: string;
@@ -83,7 +83,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
                     >
                         {lint.messages.map((msg, index) => (
                             <LintMessageItem
-                                key={`${msg.nodeId}-${msg.sid}-${msg.msgKey}-${index}`}
+                                key={`${msg.tokenId ?? msg.relatedTokenId}-${msg.sid}-${msg.code}-${index}`}
                                 msg={msg}
                                 editorRef={editorRef}
                                 prevDomElSelected={prevDomElSelected}
@@ -97,7 +97,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
 }
 
 type LintMessageItemProps = {
-    msg: LintError;
+    msg: LintIssue;
     editorRef: React.RefObject<LexicalEditor | null>;
     prevDomElSelected: React.RefObject<HTMLElement | null>;
 };
@@ -249,12 +249,14 @@ function LintMessageItem({
     const { project, actions } = useWorkspaceContext();
 
     function findLintErrInDom(openAttempts: Set<string>) {
-        const domEl = findVisibleLintTarget(msg.nodeId);
+        const tokenId = msg.tokenId ?? msg.relatedTokenId;
+        if (!tokenId) return false;
+        const domEl = findVisibleLintTarget(tokenId);
 
         if (!domEl) {
             openContainingNestedEditorForNodeId({
                 editorRef,
-                nodeId: msg.nodeId,
+                nodeId: tokenId,
                 openAttempts,
             });
             return false;
@@ -285,6 +287,7 @@ function LintMessageItem({
     }
 
     const handleNavigate = () => {
+        if (!msg.sid) return;
         const sidParsed = parseSid(msg.sid);
         if (!sidParsed) return;
         const openAttempts = new Set<string>();

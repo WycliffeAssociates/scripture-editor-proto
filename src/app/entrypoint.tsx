@@ -15,6 +15,7 @@ import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
 import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { IOpener } from "@/core/persistence/IOpener.ts";
@@ -25,6 +26,7 @@ type EntryPointProps = {
     settingsManager: SettingsManager;
     directoryProvider: IDirectoryProvider;
     md5Service: IMd5Service;
+    usfmOnionService: IUsfmOnionService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
@@ -39,6 +41,7 @@ export interface RouterContext {
     directoryProvider: IDirectoryProvider;
     projectRepository: IProjectRepository;
     md5Service: IMd5Service;
+    usfmOnionService: IUsfmOnionService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
@@ -50,6 +53,7 @@ const wrapCreateRouter = (
     directoryProvider: IDirectoryProvider,
     projectRepository: IProjectRepository,
     md5Service: IMd5Service,
+    usfmOnionService: IUsfmOnionService,
     gitProvider: GitProvider,
     opener: IOpener,
     platform: PlatformAndWeb,
@@ -62,6 +66,7 @@ const wrapCreateRouter = (
             directoryProvider,
             projectRepository,
             md5Service,
+            usfmOnionService,
             gitProvider,
             opener,
             platform,
@@ -80,6 +85,7 @@ export function App({
     settingsManager,
     directoryProvider,
     md5Service,
+    usfmOnionService,
     gitProvider,
     opener,
     platform,
@@ -95,6 +101,7 @@ export function App({
         directoryProvider,
         projectRepository,
         md5Service,
+        usfmOnionService,
         gitProvider,
         opener,
         platform,

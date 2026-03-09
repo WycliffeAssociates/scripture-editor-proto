@@ -1,17 +1,17 @@
 import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import {
-    diffTokensToEditorState,
     inferContentEditorModeFromRootChildren,
-    lexicalEditorStateToDiffTokens,
+    lexicalEditorStateToOnionFlatTokens,
+    lexicalEditorStateToOnionUsfmString,
+    onionFlatTokensToEditorState,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import { applyRevertByBlockId } from "@/core/domain/usfm/sidBlockRevert.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
 export function isChapterDirtyUsfm(chapter: ParsedChapter): boolean {
     return (
-        serializeToUsfmString(chapter.lexicalState.root.children) !==
-        serializeToUsfmString(chapter.loadedLexicalState.root.children)
+        lexicalEditorStateToOnionUsfmString(chapter.lexicalState) !==
+        lexicalEditorStateToOnionUsfmString(chapter.loadedLexicalState)
     );
 }
 
@@ -19,8 +19,8 @@ export function revertChapterToLoadedState(chapter: ParsedChapter) {
     const currentMode = inferContentEditorModeFromRootChildren(
         chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
-    chapter.lexicalState = diffTokensToEditorState({
-        tokens: lexicalEditorStateToDiffTokens(chapter.loadedLexicalState),
+    chapter.lexicalState = onionFlatTokensToEditorState({
+        tokens: lexicalEditorStateToOnionFlatTokens(chapter.loadedLexicalState),
         direction:
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
@@ -38,22 +38,23 @@ export function revertAllChaptersToLoadedState(files: ParsedFile[]) {
     }
 }
 
-export function revertChapterDiffByBlockId(args: {
+export async function revertChapterDiffByBlockId(args: {
     chapter: ParsedChapter;
     diffBlockId: string;
+    usfmOnionService: IUsfmOnionService;
 }) {
-    const baselineTokens = lexicalEditorStateToDiffTokens(
+    const baselineTokens = lexicalEditorStateToOnionFlatTokens(
         args.chapter.loadedLexicalState,
     );
-    const currentTokens = lexicalEditorStateToDiffTokens(
+    const currentTokens = lexicalEditorStateToOnionFlatTokens(
         args.chapter.lexicalState,
     );
 
-    const nextTokens = applyRevertByBlockId({
-        diffBlockId: args.diffBlockId,
+    const nextTokens = await args.usfmOnionService.revertDiffBlock(
         baselineTokens,
         currentTokens,
-    });
+        args.diffBlockId,
+    );
 
     const direction =
         (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
@@ -63,7 +64,7 @@ export function revertChapterDiffByBlockId(args: {
         args.chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
 
-    args.chapter.lexicalState = diffTokensToEditorState({
+    args.chapter.lexicalState = onionFlatTokensToEditorState({
         tokens: nextTokens,
         direction,
         targetMode: currentMode,
@@ -85,7 +86,7 @@ export function buildBooksSavePayload(
 
         toSave[file.bookCode] = orderedChapters
             .map((chapter) =>
-                serializeToUsfmString(chapter.lexicalState.root.children),
+                lexicalEditorStateToOnionUsfmString(chapter.lexicalState),
             )
             .join("");
     }

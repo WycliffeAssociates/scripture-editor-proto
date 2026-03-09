@@ -2,7 +2,7 @@
 
 import { createState } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Defines the NodeState for 'id'. It's a unique identifier for the node.
@@ -50,8 +50,8 @@ const markerState = createState("marker", {
 const lintErrorsState = createState("lintErrors", {
     parse: (value) =>
         typeof value === "object" && Array.isArray(value)
-            ? (value as Array<LintError>)
-            : ([] as Array<LintError>),
+            ? (value as Array<LintIssue>)
+            : ([] as Array<LintIssue>),
 });
 
 /**

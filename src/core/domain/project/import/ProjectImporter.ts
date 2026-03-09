@@ -38,40 +38,25 @@ export class ProjectImporter {
     /**
      * Single import entry point. Accepts a discriminated `ImportSource` and
      * delegates to the proper importer. Returns the path of the imported directory
-     * on success, or null on failure.
+     * on success.
      *
      * Note: This method only handles the import operation. Database indexing
      * should be performed by calling ProjectIndexer.indexProject() with the
      * returned path.
      */
-    public async import(source: ImportSource): Promise<string | null> {
-        let importedDir: string | null = null;
-        try {
-            switch (source.type) {
-                case "fromGitRepo":
-                    importedDir = await this.wacsImporter.import(source.url);
-                    break;
+    public async import(source: ImportSource): Promise<string> {
+        switch (source.type) {
+            case "fromGitRepo":
+                return this.wacsImporter.import(source.url);
 
-                case "fromZipFile":
-                    importedDir = await this.fileImporter.importFile(
-                        source.fileHandle,
-                    );
-                    break;
+            case "fromZipFile":
+                return this.fileImporter.importFile(source.fileHandle);
 
-                case "fromDir":
-                    importedDir = await this.directoryImporter.importDirectory(
-                        source.dirHandle,
-                    );
-                    break;
+            case "fromDir":
+                return this.directoryImporter.importDirectory(source.dirHandle);
 
-                default:
-                    throw new Error("Unsupported import source");
-            }
-
-            return importedDir;
-        } catch (err) {
-            console.error("[ProjectImporter] import failed:", err);
-            return null;
+            default:
+                throw new Error("Unsupported import source");
         }
     }
 }

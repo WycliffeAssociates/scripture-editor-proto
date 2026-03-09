@@ -17,6 +17,17 @@ export class TauriFileHandle implements IFileHandle {
 
     private readonly resolveHandle: ResolveHandle;
 
+    private get fsOptions():
+        | {
+              baseDir: BaseDirectory;
+          }
+        | undefined {
+        // Absolute paths should not be re-based; let plugin-fs resolve directly.
+        return this.path.startsWith("/")
+            ? undefined
+            : { baseDir: BaseDirectory.AppData };
+    }
+
     constructor(path: string, resolveHandle: ResolveHandle) {
         this.path = normalize(path);
         this.name = this.path.split("/").pop() || this.path;
@@ -29,9 +40,7 @@ export class TauriFileHandle implements IFileHandle {
 
     async getFile(): Promise<File> {
         try {
-            const arrayBuffer = await readFile(this.path, {
-                baseDir: BaseDirectory.AppData,
-            });
+            const arrayBuffer = await readFile(this.path, this.fsOptions);
             return new File([arrayBuffer], this.name);
         } catch (e) {
             const msg = String((e as Error)?.message || "");
@@ -54,9 +63,7 @@ export class TauriFileHandle implements IFileHandle {
         if (keepExistingData) {
             // Load existing file content and set position to end (matching the user's requirement for existing tests).
             try {
-                const arrayBuffer = await readFile(this.path, {
-                    baseDir: BaseDirectory.AppData,
-                });
+                const arrayBuffer = await readFile(this.path, this.fsOptions);
                 buffer = new Uint8Array(arrayBuffer);
                 // Set the initial position to the end of the file content for easy appending.
                 position = buffer.length;
@@ -91,9 +98,7 @@ export class TauriFileHandle implements IFileHandle {
         };
 
         const commit = async () => {
-            await writeFile(this.path, buffer, {
-                baseDir: BaseDirectory.AppData,
-            });
+            await writeFile(this.path, buffer, this.fsOptions);
         };
 
         // This object is now the sink for the WritableStream

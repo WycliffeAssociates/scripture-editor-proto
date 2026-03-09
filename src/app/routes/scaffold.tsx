@@ -31,7 +31,7 @@ function RouteComponent() {
         () => router.invalidate(),
         [router],
     );
-    const { directoryProvider, projectRepository, md5Service } =
+    const { directoryProvider, projectRepository, md5Service, gitProvider } =
         router.options.context;
     const { projects: initialProjects } = useLoaderData({ from: "__root__" });
     const projectImporter = new ProjectImporter(directoryProvider);
@@ -64,6 +64,7 @@ function RouteComponent() {
                     projectImporter,
                     projectRepository,
                     md5Service,
+                    gitProvider,
                     invalidateRouterAndReload,
                 });
                 setSuccessMessage(t`Scaffold process completed successfully!`); // Localize text

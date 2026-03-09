@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+    areLintIssueListsEqual,
     replaceLintErrorsForBook,
     replaceLintErrorsForChapter,
 } from "@/app/ui/hooks/lintState.ts";
-import {
-    areLintErrorListsEqual,
-    type LintError,
-    LintErrorKeys,
-} from "@/core/data/usfm/lint.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-function makeError(overrides: Partial<LintError>): LintError {
+function makeError(overrides: Partial<LintIssue>): LintIssue {
     return {
         message: "msg",
+        code: "unknown-token",
         sid: "GEN 1:1",
-        msgKey: LintErrorKeys.unknownToken,
-        nodeId: "n1",
+        tokenId: "n1",
+        relatedTokenId: null,
+        span: { start: 0, end: 1 },
+        relatedSpan: null,
+        fix: null,
         ...overrides,
     };
 }
@@ -22,12 +23,12 @@ function makeError(overrides: Partial<LintError>): LintError {
 describe("lint state replacement", () => {
     it("replaces all errors for a book atomically", () => {
         const prev = [
-            makeError({ sid: "GEN 1:1", nodeId: "gen-old-1" }),
-            makeError({ sid: "GEN 2:3", nodeId: "gen-old-2" }),
-            makeError({ sid: "EXO 1:1", nodeId: "exo-keep" }),
+            makeError({ sid: "GEN 1:1", tokenId: "gen-old-1" }),
+            makeError({ sid: "GEN 2:3", tokenId: "gen-old-2" }),
+            makeError({ sid: "EXO 1:1", tokenId: "exo-keep" }),
         ];
 
-        const nextBook = [makeError({ sid: "GEN 1:9", nodeId: "gen-new-1" })];
+        const nextBook = [makeError({ sid: "GEN 1:9", tokenId: "gen-new-1" })];
 
         const next = replaceLintErrorsForBook(prev, "GEN", nextBook);
 
@@ -35,63 +36,66 @@ describe("lint state replacement", () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     sid: "GEN 1:9",
-                    nodeId: "gen-new-1",
+                    tokenId: "gen-new-1",
                 }),
-                expect.objectContaining({ sid: "EXO 1:1", nodeId: "exo-keep" }),
+                expect.objectContaining({
+                    sid: "EXO 1:1",
+                    tokenId: "exo-keep",
+                }),
             ]),
         );
-        expect(next.some((e) => e.nodeId === "gen-old-1")).toBe(false);
-        expect(next.some((e) => e.nodeId === "gen-old-2")).toBe(false);
+        expect(next.some((e) => e.tokenId === "gen-old-1")).toBe(false);
+        expect(next.some((e) => e.tokenId === "gen-old-2")).toBe(false);
     });
 
     it("replaces only a targeted chapter when requested", () => {
         const prev = [
-            makeError({ sid: "GEN 1:1", nodeId: "gen-ch1-old" }),
-            makeError({ sid: "GEN 2:1", nodeId: "gen-ch2-keep" }),
-            makeError({ sid: "EXO 1:1", nodeId: "exo-keep" }),
+            makeError({ sid: "GEN 1:1", tokenId: "gen-ch1-old" }),
+            makeError({ sid: "GEN 2:1", tokenId: "gen-ch2-keep" }),
+            makeError({ sid: "EXO 1:1", tokenId: "exo-keep" }),
         ];
 
         const next = replaceLintErrorsForChapter(prev, "GEN", 1, [
-            makeError({ sid: "GEN 1:4", nodeId: "gen-ch1-new" }),
+            makeError({ sid: "GEN 1:4", tokenId: "gen-ch1-new" }),
         ]);
 
-        expect(next.some((e) => e.nodeId === "gen-ch1-old")).toBe(false);
-        expect(next.some((e) => e.nodeId === "gen-ch2-keep")).toBe(true);
-        expect(next.some((e) => e.nodeId === "exo-keep")).toBe(true);
-        expect(next.some((e) => e.nodeId === "gen-ch1-new")).toBe(true);
+        expect(next.some((e) => e.tokenId === "gen-ch1-old")).toBe(false);
+        expect(next.some((e) => e.tokenId === "gen-ch2-keep")).toBe(true);
+        expect(next.some((e) => e.tokenId === "exo-keep")).toBe(true);
+        expect(next.some((e) => e.tokenId === "gen-ch1-new")).toBe(true);
     });
 });
 
-describe("lint error equality", () => {
+describe("lint issue equality", () => {
     it("is order-insensitive and identity-aware", () => {
         const one = makeError({
             sid: "GEN 1:1",
-            msgKey: LintErrorKeys.unknownToken,
-            nodeId: "a",
+            code: "unknown-token",
+            tokenId: "a",
             message: "A",
         });
         const two = makeError({
             sid: "GEN 1:2",
-            msgKey: LintErrorKeys.isUnknownMarker,
-            nodeId: "b",
+            code: "unknown-marker",
+            tokenId: "b",
             message: "B",
         });
 
-        expect(areLintErrorListsEqual([one, two], [two, one])).toBe(true);
+        expect(areLintIssueListsEqual([one, two], [two, one])).toBe(true);
     });
 
-    it("detects node identity differences even when message text matches", () => {
+    it("detects token identity differences even when message text matches", () => {
         const left = makeError({
             sid: "GEN 1:1",
-            nodeId: "node-left",
+            tokenId: "node-left",
             message: "Same",
         });
         const right = makeError({
             sid: "GEN 1:1",
-            nodeId: "node-right",
+            tokenId: "node-right",
             message: "Same",
         });
 
-        expect(areLintErrorListsEqual([left], [right])).toBe(false);
+        expect(areLintIssueListsEqual([left], [right])).toBe(false);
     });
 });

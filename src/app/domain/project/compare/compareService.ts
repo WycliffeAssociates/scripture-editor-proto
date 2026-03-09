@@ -1,17 +1,17 @@
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
-    diffTokensToEditorState,
-    diffTokensToRenderTokens,
     inferContentEditorModeFromRootChildren,
-    lexicalEditorStateToDiffTokens,
+    lexicalEditorStateToOnionFlatTokens,
+    onionFlatTokensToEditorState,
+    onionFlatTokensToRenderTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { isChapterDirtyUsfm } from "@/app/domain/project/saveAndRevertService.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import {
-    diffChapterTokenStreams,
     flattenDiffMap,
     replaceChapterDiffsInMap,
-} from "@/core/domain/usfm/chapterDiffOperation.ts";
-import { buildSidBlocks } from "@/core/domain/usfm/sidBlocks.ts";
+} from "@/core/domain/usfm/usfmOnionDiffMap.ts";
+import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     CompareBaseline,
     CompareDiff,
@@ -24,14 +24,6 @@ export type CompareMetadataSummary = {
     projectId?: string;
     languageId?: string;
     languageDirection?: "ltr" | "rtl";
-};
-
-type BuildCompareResultArgs = {
-    currentFiles: ParsedFile[];
-    config: CompareSessionConfig;
-    sourceFiles: ParsedFile[];
-    currentMetadata?: CompareMetadataSummary;
-    sourceMetadata?: CompareMetadataSummary;
 };
 
 type ChapterCoverage = {
@@ -52,7 +44,13 @@ type CompareDiffMapBuildArgs = {
     baseline: CompareBaseline;
 };
 
-type BuildCompareResultAsyncArgs = BuildCompareResultArgs & {
+type BuildCompareResultArgs = {
+    currentFiles: ParsedFile[];
+    config: CompareSessionConfig;
+    sourceFiles: ParsedFile[];
+    currentMetadata?: CompareMetadataSummary;
+    sourceMetadata?: CompareMetadataSummary;
+    usfmOnionService: IUsfmOnionService;
     batchSize?: number;
     onBatchComplete?: () => Promise<void>;
 };
@@ -138,85 +136,9 @@ function compareMetadata(args: {
     return out;
 }
 
-function buildChapterDiffMap(args: CompareDiffMapBuildArgs): {
-    diffsByChapter: CompareResult["diffsByChapter"];
-    coverage: ChapterCoverage;
-} {
-    const allChapterKeys = new Set([
-        ...args.baselineMap.keys(),
-        ...args.sourceMap.keys(),
-    ]);
-    const overlap: Array<{ bookCode: string; chapterNum: number }> = [];
-    const baselineOnly: Array<{ bookCode: string; chapterNum: number }> = [];
-    const sourceOnly: Array<{ bookCode: string; chapterNum: number }> = [];
-    let diffsByChapter: CompareResult["diffsByChapter"] = {};
-
-    for (const key of allChapterKeys) {
-        const baselineEntry = args.baselineMap.get(key);
-        const sourceEntry = args.sourceMap.get(key);
-        const bookCode = baselineEntry?.bookCode ?? sourceEntry?.bookCode ?? "";
-        const chapterNum =
-            baselineEntry?.chapterNum ?? sourceEntry?.chapterNum ?? Number.NaN;
-        if (!bookCode || Number.isNaN(chapterNum)) continue;
-
-        const baselineTokens = baselineEntry
-            ? lexicalEditorStateToDiffTokens(
-                  getBaselineState(baselineEntry.side.chapter, args.baseline),
-              )
-            : [];
-        const sourceTokens = sourceEntry
-            ? lexicalEditorStateToDiffTokens(
-                  sourceEntry.side.chapter.lexicalState,
-              )
-            : [];
-
-        if (baselineEntry && sourceEntry) {
-            overlap.push({ bookCode, chapterNum });
-        } else if (baselineEntry && !sourceEntry) {
-            baselineOnly.push({ bookCode, chapterNum });
-        } else if (!baselineEntry && sourceEntry) {
-            sourceOnly.push({ bookCode, chapterNum });
-        }
-
-        const chapterDiffs = diffChapterTokenStreams({
-            baselineTokens,
-            currentTokens: sourceTokens,
-        }).map<CompareDiff>((diff) => ({
-            uniqueKey: diff.blockId,
-            semanticSid: diff.semanticSid,
-            status: diff.status,
-            originalDisplayText: diff.originalText,
-            currentDisplayText: diff.currentText,
-            originalTextOnly: diff.originalTextOnly,
-            currentTextOnly: diff.currentTextOnly,
-            bookCode,
-            chapterNum,
-            isWhitespaceChange: diff.isWhitespaceChange,
-            isUsfmStructureChange: diff.isUsfmStructureChange,
-            originalRenderTokens: diffTokensToRenderTokens(diff.originalTokens),
-            currentRenderTokens: diffTokensToRenderTokens(diff.currentTokens),
-        }));
-
-        diffsByChapter = replaceChapterDiffsInMap({
-            previousMap: diffsByChapter,
-            bookCode,
-            chapterNum,
-            chapterDiffs,
-        });
-    }
-
-    return {
-        diffsByChapter,
-        coverage: {
-            overlap,
-            baselineOnly,
-            sourceOnly,
-        },
-    };
-}
-
 async function buildChapterDiffMapAsync(
     args: CompareDiffMapBuildArgs & {
+        usfmOnionService: IUsfmOnionService;
         batchSize: number;
         onBatchComplete?: () => Promise<void>;
     },
@@ -234,6 +156,13 @@ async function buildChapterDiffMapAsync(
 
     for (let i = 0; i < allChapterKeys.length; i += args.batchSize) {
         const batch = allChapterKeys.slice(i, i + args.batchSize);
+        const batchEntries: Array<{
+            bookCode: string;
+            chapterNum: number;
+            baselineTokens: FlatToken[];
+            sourceTokens: FlatToken[];
+        }> = [];
+
         for (const key of batch) {
             const baselineEntry = args.baselineMap.get(key);
             const sourceEntry = args.sourceMap.get(key);
@@ -246,7 +175,7 @@ async function buildChapterDiffMapAsync(
             if (!bookCode || Number.isNaN(chapterNum)) continue;
 
             const baselineTokens = baselineEntry
-                ? lexicalEditorStateToDiffTokens(
+                ? lexicalEditorStateToOnionFlatTokens(
                       getBaselineState(
                           baselineEntry.side.chapter,
                           args.baseline,
@@ -254,7 +183,7 @@ async function buildChapterDiffMapAsync(
                   )
                 : [];
             const sourceTokens = sourceEntry
-                ? lexicalEditorStateToDiffTokens(
+                ? lexicalEditorStateToOnionFlatTokens(
                       sourceEntry.side.chapter.lexicalState,
                   )
                 : [];
@@ -267,33 +196,52 @@ async function buildChapterDiffMapAsync(
                 sourceOnly.push({ bookCode, chapterNum });
             }
 
-            const chapterDiffs = diffChapterTokenStreams({
-                baselineTokens,
-                currentTokens: sourceTokens,
-            }).map<CompareDiff>((diff) => ({
-                uniqueKey: diff.blockId,
-                semanticSid: diff.semanticSid,
-                status: diff.status,
-                originalDisplayText: diff.originalText,
-                currentDisplayText: diff.currentText,
-                originalTextOnly: diff.originalTextOnly,
-                currentTextOnly: diff.currentTextOnly,
+            batchEntries.push({
                 bookCode,
                 chapterNum,
-                isWhitespaceChange: diff.isWhitespaceChange,
-                isUsfmStructureChange: diff.isUsfmStructureChange,
-                originalRenderTokens: diffTokensToRenderTokens(
-                    diff.originalTokens,
-                ),
-                currentRenderTokens: diffTokensToRenderTokens(
-                    diff.currentTokens,
-                ),
-            }));
+                baselineTokens,
+                sourceTokens,
+            });
+        }
+
+        const batchDiffs = await args.usfmOnionService.diffScope(
+            batchEntries.map((entry) => ({
+                baselineTokens: entry.baselineTokens,
+                currentTokens: entry.sourceTokens,
+            })),
+        );
+
+        for (let entryIdx = 0; entryIdx < batchEntries.length; entryIdx++) {
+            const entry = batchEntries[entryIdx];
+            const chapterDiffs = (batchDiffs[entryIdx] ?? []).map<CompareDiff>(
+                (diff) => ({
+                    uniqueKey: diff.blockId,
+                    semanticSid: diff.semanticSid,
+                    status: diff.status as CompareDiff["status"],
+                    originalDisplayText: diff.originalText,
+                    currentDisplayText: diff.currentText,
+                    originalTextOnly: diff.originalTextOnly,
+                    currentTextOnly: diff.currentTextOnly,
+                    bookCode: entry.bookCode,
+                    chapterNum: entry.chapterNum,
+                    isWhitespaceChange: diff.isWhitespaceChange,
+                    isUsfmStructureChange: diff.isUsfmStructureChange,
+                    originalRenderTokens: onionFlatTokensToRenderTokens(
+                        diff.originalTokens,
+                    ),
+                    currentRenderTokens: onionFlatTokensToRenderTokens(
+                        diff.currentTokens,
+                    ),
+                    originalAlignment: diff.originalAlignment,
+                    currentAlignment: diff.currentAlignment,
+                    undoSide: diff.undoSide,
+                }),
+            );
 
             diffsByChapter = replaceChapterDiffsInMap({
                 previousMap: diffsByChapter,
-                bookCode,
-                chapterNum,
+                bookCode: entry.bookCode,
+                chapterNum: entry.chapterNum,
                 chapterDiffs,
             });
         }
@@ -316,54 +264,21 @@ async function buildChapterDiffMapAsync(
     };
 }
 
-export function buildCompareResult(
+export async function buildCompareResult(
     args: BuildCompareResultArgs,
-): CompareResult {
-    const baselineMap = buildChapterMap(args.currentFiles);
-    const sourceMap = buildChapterMap(args.sourceFiles);
-    const { diffsByChapter, coverage } = buildChapterDiffMap({
-        baselineMap,
-        sourceMap,
-        baseline: args.config.baseline,
-    });
-
-    const warnings = compareMetadata({
-        currentMetadata: args.currentMetadata,
-        sourceMetadata: args.sourceMetadata,
-    });
-    if (coverage.baselineOnly.length > 0 || coverage.sourceOnly.length > 0) {
-        warnings.push({
-            code: "book_coverage_diff",
-            message:
-                "Book/chapter coverage differs between current project and source.",
-        });
-    }
-
-    const diffs = flattenDiffMap({
-        diffsByChapter,
-        include: (diff) => diff.status !== "unchanged",
-    });
-
-    return {
-        diffsByChapter,
-        diffs,
-        warnings,
-        coverage: {
-            baselineOnly: coverage.baselineOnly,
-            sourceOnly: coverage.sourceOnly,
-            overlapping: coverage.overlap,
-        },
-    };
+): Promise<CompareResult> {
+    return buildCompareResultAsync(args);
 }
 
 export async function buildCompareResultAsync(
-    args: BuildCompareResultAsyncArgs,
+    args: BuildCompareResultArgs,
 ): Promise<CompareResult> {
     const baselineMap = buildChapterMap(args.currentFiles);
     const sourceMap = buildChapterMap(args.sourceFiles);
     const { diffsByChapter, coverage } = await buildChapterDiffMapAsync({
         baselineMap,
         sourceMap,
+        usfmOnionService: args.usfmOnionService,
         baseline: args.config.baseline,
         batchSize: args.batchSize ?? 8,
         onBatchComplete: args.onBatchComplete,
@@ -463,7 +378,7 @@ function ensureWorkingChapterFromSource(args: {
 
 function applyTokensToWorkingChapter(args: {
     chapter: ParsedChapter;
-    nextTokens: ReturnType<typeof lexicalEditorStateToDiffTokens>;
+    nextTokens: FlatToken[];
 }) {
     const direction =
         (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
@@ -472,7 +387,7 @@ function applyTokensToWorkingChapter(args: {
     const currentMode = inferContentEditorModeFromRootChildren(
         args.chapter.lexicalState.root.children,
     );
-    args.chapter.lexicalState = diffTokensToEditorState({
+    args.chapter.lexicalState = onionFlatTokensToEditorState({
         tokens: args.nextTokens,
         direction,
         targetMode: currentMode,
@@ -480,12 +395,12 @@ function applyTokensToWorkingChapter(args: {
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
 
-export function applyIncomingHunk(args: {
+export async function applyIncomingHunk(args: {
     workingFiles: ParsedFile[];
     sourceFiles: ParsedFile[];
     diff: CompareDiff;
-    baseline: CompareBaseline;
-}) {
+    usfmOnionService: IUsfmOnionService;
+}): Promise<void> {
     const sourceChapter = findWorkingChapter(
         args.sourceFiles,
         args.diff.bookCode,
@@ -502,103 +417,25 @@ export function applyIncomingHunk(args: {
     const workingChapter = ensured.chapter;
     if (!workingChapter) return;
 
-    const sourceTokens = lexicalEditorStateToDiffTokens(
+    const sourceTokens = lexicalEditorStateToOnionFlatTokens(
         sourceChapter.lexicalState,
     );
-    const sourceBlocks = buildSidBlocks(sourceTokens);
-    const sourceById = new Map(
-        sourceBlocks.map((block) => [block.blockId, block]),
-    );
-    const incomingBlock = sourceById.get(args.diff.uniqueKey);
-
-    const baselineTokens = lexicalEditorStateToDiffTokens(
-        getBaselineState(workingChapter, args.baseline),
-    );
-    const baselineBlocks = buildSidBlocks(baselineTokens);
-    const baselineById = new Map(
-        baselineBlocks.map((block) => [block.blockId, block]),
-    );
-    const baselineBlock = baselineById.get(args.diff.uniqueKey);
-
-    const workingTokens = lexicalEditorStateToDiffTokens(
+    const workingTokens = lexicalEditorStateToOnionFlatTokens(
         workingChapter.lexicalState,
     );
-    const workingBlocks = buildSidBlocks(workingTokens);
-    const workingById = new Map(
-        workingBlocks.map((block) => [block.blockId, block]),
+
+    // Take-incoming = treat source as baseline and revert the current working
+    // side for this block back to source semantics.
+    const nextTokens = await args.usfmOnionService.revertDiffBlock(
+        sourceTokens,
+        workingTokens,
+        args.diff.uniqueKey,
     );
 
-    // Already applied in a previous step.
-    if (
-        !baselineBlock &&
-        incomingBlock &&
-        workingById.has(incomingBlock.blockId)
-    ) {
-        return;
-    }
-
-    const next = [...workingTokens];
-
-    // Deleted on source side -> remove baseline-aligned block from working.
-    if (baselineBlock && !incomingBlock) {
-        const currentBlock = workingById.get(baselineBlock.blockId);
-        if (currentBlock) {
-            next.splice(
-                currentBlock.start,
-                currentBlock.endExclusive - currentBlock.start,
-            );
-            applyTokensToWorkingChapter({
-                chapter: workingChapter,
-                nextTokens: next,
-            });
-        }
-        return;
-    }
-
-    // Added on source side -> insert source block at best-effort anchor.
-    if (!baselineBlock && incomingBlock) {
-        const incomingSlice = sourceTokens.slice(
-            incomingBlock.start,
-            incomingBlock.endExclusive,
-        );
-        let insertionIndex = 0;
-        let anchorId = incomingBlock.prevBlockId;
-        while (anchorId) {
-            const anchor = workingById.get(anchorId);
-            if (anchor) {
-                insertionIndex = anchor.endExclusive;
-                break;
-            }
-            const prevInSource = sourceById.get(anchorId);
-            anchorId = prevInSource?.prevBlockId ?? null;
-        }
-        next.splice(insertionIndex, 0, ...structuredClone(incomingSlice));
-        applyTokensToWorkingChapter({
-            chapter: workingChapter,
-            nextTokens: next,
-        });
-        return;
-    }
-
-    // Modified -> replace baseline-aligned block with source block.
-    if (baselineBlock && incomingBlock) {
-        const currentBlock = workingById.get(baselineBlock.blockId);
-        const incomingSlice = sourceTokens.slice(
-            incomingBlock.start,
-            incomingBlock.endExclusive,
-        );
-        if (currentBlock) {
-            next.splice(
-                currentBlock.start,
-                currentBlock.endExclusive - currentBlock.start,
-                ...structuredClone(incomingSlice),
-            );
-            applyTokensToWorkingChapter({
-                chapter: workingChapter,
-                nextTokens: next,
-            });
-        }
-    }
+    applyTokensToWorkingChapter({
+        chapter: workingChapter,
+        nextTokens,
+    });
 }
 
 export function applyIncomingChapter(args: {
@@ -629,7 +466,7 @@ export function applyIncomingChapter(args: {
         return;
     }
 
-    const incomingTokens = lexicalEditorStateToDiffTokens(
+    const incomingTokens = lexicalEditorStateToOnionFlatTokens(
         sourceChapter.lexicalState,
     );
     applyTokensToWorkingChapter({

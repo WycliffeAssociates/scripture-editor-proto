@@ -7,6 +7,7 @@ import { App } from "@/app/entrypoint.tsx";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
+import { TauriUsfmOnionService } from "@/tauri/domain/usfm/TauriUsfmOnionService.ts";
 import { TauriDirectoryProvider } from "@/tauri/persistence/TauriDirectoryProvider.ts";
 import { TauriOpener } from "@/tauri/persistence/TauriOpener.ts";
 
@@ -15,6 +16,7 @@ const settingsManager = createTauriSettingsManager();
 const directoryProvider =
     await TauriDirectoryProvider.create("scripture-editor");
 const md5Service = new TauriMd5Service();
+const usfmOnionService = new TauriUsfmOnionService();
 const gitProvider = new TauriGitProvider();
 const opener = new TauriOpener();
 
@@ -29,6 +31,7 @@ root.render(
             settingsManager={settingsManager}
             directoryProvider={directoryProvider}
             md5Service={md5Service}
+            usfmOnionService={usfmOnionService}
             gitProvider={gitProvider}
             opener={opener}
             platform={platform()}

@@ -9,16 +9,12 @@ export class WacsRepoImporter implements Importer {
         this.zipPipeline = new ZipImportPipeline(directoryProvider);
     }
 
-    public async import(url: string): Promise<string | null> {
-        try {
-            const { data, filename } = await this.downloadData(url);
-            return await this.zipPipeline.importFromZipData({
-                archiveName: filename,
-                data,
-            });
-        } catch {
-            return null;
-        }
+    public async import(url: string): Promise<string> {
+        const { data, filename } = await this.downloadData(url);
+        return await this.zipPipeline.importFromZipData({
+            archiveName: filename,
+            data,
+        });
     }
 
     public async downloadData(

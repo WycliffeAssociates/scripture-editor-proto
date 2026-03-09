@@ -45,3 +45,7 @@ scratchings.md
 # AI tmp
 /agent-tmp
 .env
+
+usfm3-v2/testData
+usfm3-v2/target
+usfm3-v2/en_ulb

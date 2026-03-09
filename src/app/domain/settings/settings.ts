@@ -8,7 +8,8 @@ export function getSettingsLocalStorage(): Settings {
     }
     try {
         return JSON.parse(localStorage.getItem(APP_PREFERENCES_KEY) || "{}");
-    } catch {
+    } catch (error) {
+        console.error("Error parsing settings from localStorage:", error);
         return settingsDefaults;
     }
 }

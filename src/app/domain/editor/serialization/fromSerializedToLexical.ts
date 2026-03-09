@@ -19,7 +19,6 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { dedupeErrorMessagesList } from "@/core/data/usfm/lint.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import {
     isDocumentMarker,
@@ -174,9 +173,7 @@ function serializeTokenToNodes(
                 inPara: token.inPara,
                 inChars: token.inChars,
                 attributes: token.attributes,
-                lintErrors: token.lintErrors?.length
-                    ? dedupeErrorMessagesList(token.lintErrors)
-                    : [],
+                lintErrors: [],
             }),
             ...serializeTokens(
                 token.content ?? [],
@@ -321,8 +318,6 @@ export function groupFlatNodesIntoParagraphContainers(
                 pendingLeadingWhitespaceAfterMarker = null;
             } else if (trailingWs.length > 0) {
                 pendingLeadingWhitespaceAfterMarker = trailingWs;
-            } else if (!/\s$/u.test(markerTextRaw)) {
-                pendingLeadingWhitespaceAfterMarker = " ";
             } else {
                 pendingLeadingWhitespaceAfterMarker = null;
             }
@@ -486,9 +481,7 @@ function serializeToken(
         marker: token.marker,
         inPara: token.inPara,
         inChars: token.inChars,
-        lintErrors: token.lintErrors?.length
-            ? dedupeErrorMessagesList(token.lintErrors)
-            : [],
+        lintErrors: [],
         // maybe set isMutable and show from parse if remembering settings? Right now we just adjust once we've rendered the stuff. NOt sure
     });
 }

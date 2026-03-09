@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router";
 import {
     $createLineBreakNode,
     $getSelection,
@@ -56,6 +57,7 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
 export function useEditorInput(editor: LexicalEditor) {
     const { project, projectLanguageDirection, search, history } =
         useWorkspaceContext();
+    const { usfmOnionService } = useRouter().options.context;
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode ?? "regular";
 
@@ -373,32 +375,37 @@ export function useEditorInput(editor: LexicalEditor) {
                 event.preventDefault();
                 event.stopPropagation();
 
-                const parsed = parseClipboardUsfmToTokens({
-                    text: plainText,
-                    bookCode: project.pickedFile.bookCode,
-                    direction: projectLanguageDirection,
-                });
-                if (!parsed.ok) {
-                    ShowErrorNotification({
-                        notification: {
-                            title: "Paste Failed",
-                            message:
-                                "Invalid USFM content could not be pasted.",
-                        },
+                void (async () => {
+                    const parsed = await parseClipboardUsfmToTokens({
+                        text: plainText,
+                        bookCode: project.pickedFile.bookCode,
+                        direction: projectLanguageDirection,
+                        usfmOnionService,
                     });
-                    return true;
-                }
+                    if (!parsed.ok) {
+                        ShowErrorNotification({
+                            notification: {
+                                title: "Paste Failed",
+                                message:
+                                    "Invalid USFM content could not be pasted.",
+                            },
+                        });
+                        return;
+                    }
 
-                editor.update(
-                    () => {
-                        const selection = $getSelection();
-                        if (!$isRangeSelection(selection)) return;
-                        selection.insertNodes(
-                            parsedUsfmTokensToInsertableNodes(parsed.tokens),
-                        );
-                    },
-                    { discrete: true, event },
-                );
+                    editor.update(
+                        () => {
+                            const selection = $getSelection();
+                            if (!$isRangeSelection(selection)) return;
+                            selection.insertNodes(
+                                parsedUsfmTokensToInsertableNodes(
+                                    parsed.tokens,
+                                ),
+                            );
+                        },
+                        { discrete: true, event },
+                    );
+                })();
 
                 return true;
             },
@@ -438,6 +445,7 @@ export function useEditorInput(editor: LexicalEditor) {
         projectLanguageDirection,
         editorModeSetting,
         project.pickedFile.bookCode,
+        usfmOnionService,
     ]);
 
     //   FIND HOTKEY TO OPEN PANEL

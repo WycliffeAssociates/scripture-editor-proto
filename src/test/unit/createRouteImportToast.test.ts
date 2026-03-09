@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     buildPersistentImportSuccessNotification,
     getProjectParamFromImportedPath,
+    resolveImportErrorMessage,
 } from "@/app/routes/create.tsx";
 
 describe("create route import toast helpers", () => {
@@ -28,5 +29,38 @@ describe("create route import toast helpers", () => {
         expect(notification.message).toBe("File imported successfully!");
         expect(notification.autoClose).toBe(false);
         expect(notification.withCloseButton).toBe(true);
+    });
+
+    it("keeps specific import error messages", () => {
+        expect(
+            resolveImportErrorMessage({
+                error: new Error("Detailed underlying import failure"),
+                fallback: "Failed to import file",
+            }),
+        ).toBe("Failed to import file. Detailed underlying import failure");
+    });
+
+    it("includes debug details when available", () => {
+        const error = Object.assign(new Error("Failed to import file"), {
+            code: "ENOENT",
+            name: "NotFoundError",
+        });
+        expect(
+            resolveImportErrorMessage({
+                error,
+                fallback: "Failed to import file",
+            }),
+        ).toContain(
+            "Failed to import file. Debug: name=NotFoundError, code=ENOENT, message=Failed to import file",
+        );
+    });
+
+    it("uses fallback for unknown import errors", () => {
+        expect(
+            resolveImportErrorMessage({
+                error: null,
+                fallback: "Failed to import file",
+            }),
+        ).toBe("Failed to import file");
     });
 });

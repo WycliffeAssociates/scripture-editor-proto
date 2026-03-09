@@ -9,9 +9,7 @@ export class ProjectFileImporter {
         this.zipPipeline = new ZipImportPipeline(directoryProvider);
     }
 
-    public async importFile(
-        zipFileHandle: IFileHandle,
-    ): Promise<string | null> {
+    public async importFile(zipFileHandle: IFileHandle): Promise<string> {
         const data = await zipFileHandle
             .getFile()
             .then((f: File) => f.arrayBuffer());

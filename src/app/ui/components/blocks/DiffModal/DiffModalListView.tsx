@@ -4,7 +4,7 @@ import { Badge, Grid, Group, Paper, Text, Tooltip } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
-import { BookIcon, Code2, RotateCw } from "lucide-react";
+import { BookIcon, Clipboard, Code2, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
@@ -118,6 +118,33 @@ function DiffItem({
     const isModification = diff.status === "modified";
     const displayText = getDisplayTextPair(diff, effectiveShowUsfmMarkers);
 
+    const copySingleDiffJson = async () => {
+        const payload = {
+            generatedAt: new Date().toISOString(),
+            diff: {
+                uniqueKey: diff.uniqueKey,
+                semanticSid: diff.semanticSid,
+                status: diff.status,
+                bookCode: diff.bookCode,
+                chapterNum: diff.chapterNum,
+                isWhitespaceChange: diff.isWhitespaceChange ?? false,
+                isUsfmStructureChange: diff.isUsfmStructureChange ?? false,
+                originalDisplayText: diff.originalDisplayText,
+                currentDisplayText: diff.currentDisplayText,
+                originalTextOnly: diff.originalTextOnly,
+                currentTextOnly: diff.currentTextOnly,
+            },
+        };
+
+        try {
+            await navigator.clipboard.writeText(
+                JSON.stringify(payload, null, 2),
+            );
+        } catch (e) {
+            console.error("Failed to copy single diff JSON", e);
+        }
+    };
+
     const wordDiff = useMemo(() => {
         if (!isModification) return undefined;
 
@@ -199,6 +226,24 @@ function DiffItem({
                     <Code2 size={16} />
                 </ActionIconSimple>
             </Tooltip>
+            {import.meta.env.DEV && (
+                <Tooltip
+                    label={t`Copy this diff (JSON)`}
+                    withArrow
+                    position="top"
+                >
+                    <ActionIconSimple
+                        data-testid={TESTING_IDS.save.copyDiffButton}
+                        onClick={() => {
+                            void copySingleDiffJson();
+                        }}
+                        aria-label={t`Copy this diff (JSON)`}
+                        title={t`Copy this diff (JSON)`}
+                    >
+                        <Clipboard size={16} />
+                    </ActionIconSimple>
+                </Tooltip>
+            )}
             <Tooltip
                 label={<Trans>Switch to this chapter</Trans>}
                 withArrow

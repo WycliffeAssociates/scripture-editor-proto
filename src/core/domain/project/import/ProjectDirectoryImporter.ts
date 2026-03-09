@@ -27,29 +27,18 @@ export class ProjectDirectoryImporter implements Importer {
      * In a real application, this method would need a way to resolve the
      * string path to an IDirectoryHandle, perhaps from a mounted location.
      */
-    public async import(path: string): Promise<string | null> {
-        // Assuming 'path' could be the name of a directory in the temp folder for recovery/staging
-        try {
-            const tempDir = await this.directoryProvider.tempDirectory;
-            const sourceDir = await tempDir.getDirectoryHandle(path);
-            return await this.importDirectory(sourceDir);
-        } catch (e) {
-            console.error(
-                `[DirectoryProjectImporter] Failed to resolve directory handle for path: ${path}`,
-                e,
-            );
-            return null;
-        }
+    public async import(path: string): Promise<string> {
+        const tempDir = await this.directoryProvider.tempDirectory;
+        const sourceDir = await tempDir.getDirectoryHandle(path);
+        return this.importDirectory(sourceDir);
     }
 
     /**
      * The primary entry point to import a project from an existing directory handle.
      * @param sourceDir The IDirectoryHandle containing the project structure.
-     * @returns A promise that resolves to the path of the imported project directory if successful, null otherwise.
+     * @returns A promise that resolves to the path of the imported project directory if successful.
      */
-    public async importDirectory(
-        sourceDir: IDirectoryHandle,
-    ): Promise<string | null> {
+    public async importDirectory(sourceDir: IDirectoryHandle): Promise<string> {
         const projectsDir = await this.directoryProvider.projectsDirectory;
         let tempProjectDir: IDirectoryHandle | null = null;
 
@@ -90,9 +79,6 @@ export class ProjectDirectoryImporter implements Importer {
                 finalProjectDir,
             );
             return finalProjectDir.path;
-        } catch (error) {
-            console.error("[DirectoryProjectImporter] Import failed:", error);
-            return null;
         } finally {
             // 3. Cleanup temporary resources
             if (tempProjectDir) {
@@ -188,27 +174,15 @@ export class ProjectDirectoryImporter implements Importer {
         destinationDir: IDirectoryHandle,
         newFileName: string,
     ): Promise<void> {
-        try {
-            const destFileHandle = await destinationDir.getFileHandle(
-                newFileName,
-                {
-                    create: true,
-                },
-            );
-            // Read the file content
-            const content = await sourceFileHandle
-                .getFile()
-                .then((f: File) => f.arrayBuffer());
-            // Write the content to the new location
-            const writer = await destFileHandle.createWriter();
-            await writer.write(content);
-            await writer.close();
-        } catch (error) {
-            console.error(
-                `[DirectoryProjectImporter] Error copying file ${sourceFileHandle.name}:`,
-                error,
-            );
-        }
+        const destFileHandle = await destinationDir.getFileHandle(newFileName, {
+            create: true,
+        });
+        const content = await sourceFileHandle
+            .getFile()
+            .then((f: File) => f.arrayBuffer());
+        const writer = await destFileHandle.createWriter();
+        await writer.write(content);
+        await writer.close();
     }
 
     /**

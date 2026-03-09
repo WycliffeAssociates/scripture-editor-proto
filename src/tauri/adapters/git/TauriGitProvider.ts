@@ -28,7 +28,7 @@ type TauriHistoryEntry = {
 export class TauriGitProvider implements GitProvider {
     async ensureRepo(
         projectPath: string,
-        opts: { defaultBranch: "master" },
+        opts: { defaultBranch: "main" | "master" },
     ): Promise<void> {
         await invoke("git_ensure_repo", {
             repoPath: projectPath,
@@ -50,7 +50,7 @@ export class TauriGitProvider implements GitProvider {
 
     async checkoutPreferredBranch(
         projectPath: string,
-        opts: { prefer: "master" },
+        opts: { prefer: "main" | "master" },
     ): Promise<void> {
         await invoke("git_checkout_preferred_branch", {
             repoPath: projectPath,

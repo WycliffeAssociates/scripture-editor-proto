@@ -7,6 +7,31 @@ import {
 } from "lexical";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
+function isVisibleElement(element: Element): element is HTMLElement {
+    if (!(element instanceof HTMLElement)) return false;
+    if (element.getClientRects().length === 0) return false;
+    return getComputedStyle(element).display !== "none";
+}
+
+export function findBestReferenceScrollTarget(
+    refPanel: ParentNode,
+    sid: string,
+): HTMLElement | null {
+    const sidSelector = `[data-sid='${sid}']`;
+    const visibleTextToken = Array.from(
+        refPanel.querySelectorAll(`${sidSelector}[data-token-type='text']`),
+    ).find(isVisibleElement);
+    if (visibleTextToken) return visibleTextToken;
+
+    const visibleSidMatch = Array.from(
+        refPanel.querySelectorAll(sidSelector),
+    ).find(isVisibleElement);
+    if (visibleSidMatch) return visibleSidMatch;
+
+    const fallback = refPanel.querySelector(sidSelector);
+    return fallback instanceof HTMLElement ? fallback : null;
+}
+
 export function syncReferencePaneSid(
     editor: LexicalEditor,
     referenceProjectId: string | undefined,
@@ -31,9 +56,7 @@ export function syncReferencePaneSid(
                 "[data-js='reference-editor-container']",
             );
             if (!refPanel) return wasHandled;
-            const sidInThatPanel = refPanel.querySelector(
-                `[data-sid='${sid}']`,
-            );
+            const sidInThatPanel = findBestReferenceScrollTarget(refPanel, sid);
             if (!sidInThatPanel) return wasHandled;
             sidInThatPanel.scrollIntoView({
                 behavior: "smooth",

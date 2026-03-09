@@ -11,15 +11,15 @@ body:not(.source-mode) {
 
 /* Verse & Chapter Numbers */
 .verse-number,
-[data-marker="v"] {
+span[data-token-type="marker"][data-marker="v"] {
   font-size: 0.8em;
   font-weight: bold;
   padding: 0 2px;
 }
 
 .chapter-number,
-[data-marker="c"],
-[data-marker="c"] + [data-token-type="numberRange"] {
+span[data-token-type="marker"][data-marker="c"],
+span[data-token-type="marker"][data-marker="c"] + [data-token-type="numberRange"] {
   font-size: 2em;
   font-weight: bold;
   text-align: center;
@@ -28,8 +28,8 @@ body:not(.source-mode) {
 }
 
 .chapter-label,
-[data-marker="cl"],
-[data-marker="cl"] + [data-token-type="text"] {
+span[data-token-type="marker"][data-marker="cl"],
+span[data-token-type="marker"][data-marker="cl"] + [data-token-type="text"] {
   font-size: 1.2em;
   text-align: center;
   margin: 0.5em 0;

@@ -60,44 +60,59 @@ describe("WacsRepoImporter", () => {
 
     describe("import method", () => {
         it("should accept a URL string parameter", async () => {
-            // Arrange
             const testUrl = "https://example.com/project.zip";
             const zipContent = new ArrayBuffer(100);
-
-            mockFetch.mockResolvedValue({
-                ok: true,
-                arrayBuffer: () => Promise.resolve(zipContent),
+            vi.spyOn(importer, "downloadData").mockResolvedValue({
+                data: zipContent,
+                filename: "project.zip",
             });
+            vi.spyOn(
+                importer[
+                    "zipPipeline" as keyof WacsRepoImporter
+                ] as unknown as {
+                    importFromZipData: (args: {
+                        archiveName: string;
+                        data: ArrayBuffer;
+                    }) => Promise<string>;
+                },
+                "importFromZipData",
+            ).mockResolvedValue("/userData/projects/project");
 
-            // Act & Assert - The method should accept the URL without throwing
             await importer.import(testUrl);
-
-            // Verify fetch was called with the correct URL
-            expect(mockFetch).toHaveBeenCalledWith(testUrl);
+            expect(importer.downloadData).toHaveBeenCalledWith(testUrl);
         });
 
         it("should handle different URL formats", async () => {
-            // Test various URL formats
             const urls = [
                 "https://example.com/repo.zip",
                 "http://example.com/project.zip",
                 "https://cdn.example.org/files/archive.zip",
             ];
-
-            const zipContent = new ArrayBuffer(100);
-            mockFetch.mockResolvedValue({
-                ok: true,
-                arrayBuffer: () => Promise.resolve(zipContent),
-            });
+            vi.spyOn(importer, "downloadData").mockImplementation(
+                async (url: string) => ({
+                    data: new ArrayBuffer(100),
+                    filename: url.split("/").at(-1) ?? "archive.zip",
+                }),
+            );
+            vi.spyOn(
+                importer[
+                    "zipPipeline" as keyof WacsRepoImporter
+                ] as unknown as {
+                    importFromZipData: (args: {
+                        archiveName: string;
+                        data: ArrayBuffer;
+                    }) => Promise<string>;
+                },
+                "importFromZipData",
+            ).mockResolvedValue("/userData/projects/project");
 
             for (const url of urls) {
                 await importer.import(url);
-                expect(mockFetch).toHaveBeenCalledWith(url);
-                mockFetch.mockClear();
+                expect(importer.downloadData).toHaveBeenCalledWith(url);
             }
         });
 
-        it("should handle fetch errors gracefully", async () => {
+        it("should throw for non-ok fetch responses", async () => {
             const testUrl = "https://example.com/invalid.zip";
 
             mockFetch.mockResolvedValue({
@@ -106,17 +121,19 @@ describe("WacsRepoImporter", () => {
                 statusText: "Not Found",
             });
 
-            const result = await importer.import(testUrl);
-            expect(result).toBeNull();
+            await expect(importer.import(testUrl)).rejects.toThrow(
+                "Download failed with status: 404 Not Found",
+            );
         });
 
-        it("should handle network errors", async () => {
+        it("should throw network errors", async () => {
             const testUrl = "https://example.com/network-error.zip";
 
             mockFetch.mockRejectedValue(new Error("Network error"));
 
-            const result = await importer.import(testUrl);
-            expect(result).toBeNull();
+            await expect(importer.import(testUrl)).rejects.toThrow(
+                "Network error",
+            );
         });
     });
 

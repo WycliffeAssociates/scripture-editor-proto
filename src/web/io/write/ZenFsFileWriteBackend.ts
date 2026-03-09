@@ -36,13 +36,6 @@ export class ZenFsFileWriteBackend implements WebFileWriteBackend {
         await this.runtime.fs.promises.mkdir(dirname(path), {
             recursive: true,
         });
-        try {
-            await this.runtime.fs.promises.rm(path);
-        } catch (error) {
-            if (!isNotFoundError(error)) {
-                throw error;
-            }
-        }
         await this.runtime.fs.promises.writeFile(path, bytes);
     }
 }

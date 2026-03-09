@@ -12,8 +12,8 @@ import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
 import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
-import type { LintError } from "@/core/data/usfm/lint.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { useEditorState } from "./useEditorState.tsx";
 import {
@@ -37,7 +37,7 @@ type Props = {
     pickedFile: ParsedFile | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
     referenceProject: ReferenceProjectHook;
     setIsProcessing: (isProcessing: boolean) => void;
     setFormatMatchReport: Dispatch<

@@ -63,7 +63,8 @@ export async function getZipUrl(repo: ConsolidatedRepo): Promise<string> {
         try {
             const response = await fetch(zipUrl, { method: "HEAD" });
             if (response.ok) return zipUrl;
-        } catch {
+        } catch (error) {
+            console.error("Error checking zip URL:", error);
             // Try next branch
         }
     }

@@ -14,6 +14,10 @@ import type {
     CompareBaseline,
     CompareSessionConfig,
 } from "@/app/domain/project/compare/types.ts";
+import { diffChapterTokenStreams } from "@/core/domain/usfm/chapterDiffOperation.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { applyRevertByBlockId } from "@/core/domain/usfm/sidBlockRevert.ts";
+import type { Diff, FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function makeEditorState(
     text: string,
@@ -96,8 +100,91 @@ function config(baseline: CompareBaseline): CompareSessionConfig {
     };
 }
 
+function createStubUsfmOnionService(): IUsfmOnionService {
+    return {
+        supportsPathIo: false,
+        async diffScope(scope): Promise<Diff[][]> {
+            return scope.map((item) => {
+                const baselineTokens = item.baselineTokens ?? [];
+                const currentTokens = item.currentTokens ?? [];
+                return diffChapterTokenStreams({
+                    baselineTokens,
+                    currentTokens,
+                    buildOptions: {
+                        getSid: (token) => token.sid ?? "",
+                        getText: (token) => token.text,
+                        getId: (token) => token.id,
+                    },
+                }).map((diff) => ({
+                    blockId: diff.blockId,
+                    semanticSid: diff.semanticSid,
+                    status: diff.status,
+                    originalText: diff.originalText,
+                    currentText: diff.currentText,
+                    originalTextOnly: diff.originalTextOnly,
+                    currentTextOnly: diff.currentTextOnly,
+                    isWhitespaceChange: diff.isWhitespaceChange ?? false,
+                    isUsfmStructureChange: diff.isUsfmStructureChange ?? false,
+                    originalTokens: diff.originalTokens,
+                    currentTokens: diff.currentTokens,
+                    originalAlignment: [],
+                    currentAlignment: [],
+                    undoSide: "current",
+                }));
+            });
+        },
+        async diffTokens(
+            baselineTokens: FlatToken[],
+            currentTokens: FlatToken[],
+        ): Promise<Diff[]> {
+            return diffChapterTokenStreams({
+                baselineTokens,
+                currentTokens,
+                buildOptions: {
+                    getSid: (token) => token.sid ?? "",
+                    getText: (token) => token.text,
+                    getId: (token) => token.id,
+                },
+            }).map((diff) => ({
+                blockId: diff.blockId,
+                semanticSid: diff.semanticSid,
+                status: diff.status,
+                originalText: diff.originalText,
+                currentText: diff.currentText,
+                originalTextOnly: diff.originalTextOnly,
+                currentTextOnly: diff.currentTextOnly,
+                isWhitespaceChange: diff.isWhitespaceChange ?? false,
+                isUsfmStructureChange: diff.isUsfmStructureChange ?? false,
+                originalTokens: diff.originalTokens,
+                currentTokens: diff.currentTokens,
+                originalAlignment: [],
+                currentAlignment: [],
+                undoSide: "current",
+            }));
+        },
+        async revertDiffBlock(
+            baselineTokens: FlatToken[],
+            currentTokens: FlatToken[],
+            blockId: string,
+        ): Promise<FlatToken[]> {
+            return applyRevertByBlockId({
+                diffBlockId: blockId,
+                baselineTokens,
+                currentTokens,
+                buildOptions: {
+                    getSid: (token) => token.sid ?? "",
+                    getText: (token) => token.text,
+                    getId: (token) => token.id,
+                },
+            });
+        },
+    } as IUsfmOnionService;
+}
+
+const usfmOnionService = createStubUsfmOnionService();
+
 describe("compareService.buildCompareResult", () => {
-    it("uses current-saved baseline when selected", () => {
+    it("uses current-saved baseline when selected", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "beta",
@@ -107,12 +194,13 @@ describe("compareService.buildCompareResult", () => {
             currentText: "gamma",
         });
 
-        const result = buildCompareResult({
+        const result = await buildCompareResult({
             currentFiles: current,
             config: config("currentSaved"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
 
         expect(result.diffs).toHaveLength(1);
@@ -124,7 +212,7 @@ describe("compareService.buildCompareResult", () => {
         expect(result.diffs[0]?.currentRenderTokens?.length).toBeGreaterThan(0);
     });
 
-    it("uses current-dirty baseline when selected", () => {
+    it("uses current-dirty baseline when selected", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "beta",
@@ -134,12 +222,13 @@ describe("compareService.buildCompareResult", () => {
             currentText: "gamma",
         });
 
-        const result = buildCompareResult({
+        const result = await buildCompareResult({
             currentFiles: current,
             config: config("currentDirty"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
 
         expect(result.diffs).toHaveLength(1);
@@ -147,7 +236,7 @@ describe("compareService.buildCompareResult", () => {
         expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
     });
 
-    it("reports book/chapter coverage differences", () => {
+    it("reports book/chapter coverage differences", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "alpha",
@@ -159,12 +248,13 @@ describe("compareService.buildCompareResult", () => {
             bookCode: "EXO",
         });
 
-        const result = buildCompareResult({
+        const result = await buildCompareResult({
             currentFiles: current,
             config: config("currentSaved"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
 
         expect(result.warnings.map((w) => w.code)).toContain(
@@ -172,7 +262,7 @@ describe("compareService.buildCompareResult", () => {
         );
     });
 
-    it("emits compatibility warnings for language/direction/project id mismatch", () => {
+    it("emits compatibility warnings for language/direction/project id mismatch", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "alpha",
@@ -193,12 +283,13 @@ describe("compareService.buildCompareResult", () => {
             languageDirection: "rtl",
         };
 
-        const result = buildCompareResult({
+        const result = await buildCompareResult({
             currentFiles: current,
             config: config("currentSaved"),
             sourceFiles: source,
             currentMetadata: currentMeta,
             sourceMetadata: sourceMeta,
+            usfmOnionService,
         });
 
         expect(result.warnings.map((w) => w.code)).toEqual(
@@ -212,7 +303,7 @@ describe("compareService.buildCompareResult", () => {
 });
 
 describe("compareService apply incoming", () => {
-    it("applies an incoming hunk to the working chapter", () => {
+    it("applies an incoming hunk to the working chapter", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "alpha",
@@ -221,36 +312,38 @@ describe("compareService apply incoming", () => {
             loadedText: "gamma",
             currentText: "gamma",
         });
-        const result = buildCompareResult({
+        const result = await buildCompareResult({
             currentFiles: current,
             config: config("currentSaved"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
 
         const diff = result.diffs[0];
         expect(diff).toBeDefined();
         if (!diff) return;
 
-        applyIncomingHunk({
+        await applyIncomingHunk({
             workingFiles: current,
             sourceFiles: source,
             diff,
-            baseline: "currentDirty",
+            usfmOnionService,
         });
 
-        const after = buildCompareResult({
+        const after = await buildCompareResult({
             currentFiles: current,
             config: config("currentDirty"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
         expect(after.diffs).toHaveLength(0);
     });
 
-    it("applies full incoming chapter and resolves all chapter diffs", () => {
+    it("applies full incoming chapter and resolves all chapter diffs", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "alpha",
@@ -269,17 +362,18 @@ describe("compareService apply incoming", () => {
             chapterNum: 1,
         });
 
-        const after = buildCompareResult({
+        const after = await buildCompareResult({
             currentFiles: current,
             config: config("currentDirty"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
         expect(after.diffs).toHaveLength(0);
     });
 
-    it("applies all incoming chapters across coverage", () => {
+    it("applies all incoming chapters across coverage", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "alpha",
@@ -306,12 +400,13 @@ describe("compareService apply incoming", () => {
             sourceFiles: source,
         });
 
-        const after = buildCompareResult({
+        const after = await buildCompareResult({
             currentFiles: current,
             config: config("currentDirty"),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
+            usfmOnionService,
         });
         expect(after.diffs).toHaveLength(0);
     });

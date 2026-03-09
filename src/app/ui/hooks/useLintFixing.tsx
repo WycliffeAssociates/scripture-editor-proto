@@ -1,15 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
-import type { LexicalEditor, SerializedLexicalNode } from "lexical";
+import { useRouter } from "@tanstack/react-router";
+import type { LexicalEditor } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
-import { applyAutofixToSerializedState } from "@/app/domain/editor/utils/autofixSerializedNode.ts";
+import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
+import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
-import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
-import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
-import { getFlattenedEditorStateAsParseTokens } from "./utils/editorUtils.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export function useLintFixing({
     mutWorkingFilesRef,
@@ -27,7 +25,7 @@ export function useLintFixing({
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -38,22 +36,26 @@ export function useLintFixing({
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
+    const { usfmOnionService } = useRouter().options.context;
 
-    function relintBook(file: ParsedFile) {
+    async function relintBook(file: ParsedFile) {
         const flatTokens = file.chapters.flatMap((c) =>
-            getFlattenedEditorStateAsParseTokens(c.lexicalState),
+            lexicalEditorStateToOnionFlatTokens(c.lexicalState),
         );
         if (!flatTokens.length) {
             replaceLintErrorsForBook(file.bookCode, []);
             return;
         }
-        const ctx = initParseContext(flatTokens);
-        const newErrors = lintExistingUsfmTokens(flatTokens, ctx);
-        replaceLintErrorsForBook(file.bookCode, newErrors);
+        const [issues] = await usfmOnionService.lintScope([
+            { tokens: flatTokens },
+        ]);
+        replaceLintErrorsForBook(file.bookCode, issues);
     }
 
-    async function fixLintError(err: LintError) {
-        if (!err.fix) return;
+    async function fixLintError(err: LintIssue) {
+        const issueFix = err.fix;
+        if (!issueFix) return;
+        if (!err.sid) return;
 
         const sidParsed = parseSid(err.sid);
         if (!sidParsed) return;
@@ -78,7 +80,7 @@ export function useLintFixing({
         }
 
         const didApply = await history.runTransaction({
-            label: t`Apply Autofix (${err.msgKey})`,
+            label: t`Apply Autofix (${err.code})`,
             candidates: [
                 {
                     bookCode: file.bookCode,
@@ -86,34 +88,41 @@ export function useLintFixing({
                 },
             ],
             run: async () => {
-                const nextState = applyAutofixToSerializedState(
-                    chapter.lexicalState,
-                    err,
+                const baselineTokens = file.chapters.flatMap((c) =>
+                    lexicalEditorStateToOnionFlatTokens(c.lexicalState),
                 );
-
-                if (!nextState) return false;
-
-                chapter.lexicalState = nextState;
-                const baselineUsfm = serializeToUsfmString(
-                    chapter.loadedLexicalState.root
-                        .children as SerializedLexicalNode[],
+                const result = await usfmOnionService.applyTokenFixes(
+                    baselineTokens,
+                    [issueFix],
                 );
-                const afterUsfm = serializeToUsfmString(
-                    chapter.lexicalState.root
-                        .children as SerializedLexicalNode[],
-                );
+                if (!result.appliedChanges.length) return false;
 
-                chapter.dirty = afterUsfm !== baselineUsfm;
-                updateDiffMapForChapter(file.bookCode, chapter.chapNumber);
+                const nextUsfm = result.tokens
+                    .map((token) => token.text)
+                    .join("");
+                await rebuildParsedFileFromUsfm({
+                    targetFile: file,
+                    sourceUsfm: nextUsfm,
+                    usfmOnionService,
+                });
+                file.chapters.forEach((updatedChapter) => {
+                    updateDiffMapForChapter(
+                        file.bookCode,
+                        updatedChapter.chapNumber,
+                    );
+                });
 
                 if (
                     file.bookCode === currentFileBibleIdentifier &&
                     chapter.chapNumber === currentChapter
                 ) {
+                    const nextChapter = file.chapters.find(
+                        (candidate) => candidate.chapNumber === currentChapter,
+                    );
                     setEditorContent(
                         currentFileBibleIdentifier,
                         currentChapter,
-                        chapter,
+                        nextChapter,
                         editorRef.current || undefined,
                     );
                 }
@@ -121,7 +130,7 @@ export function useLintFixing({
                 ShowNotificationSuccess({
                     notification: {
                         title: t`Fix Applied`,
-                        message: t`Autofix applied for ${err.msgKey}`,
+                        message: t`Autofix applied for ${err.code}`,
                     },
                 });
                 return true;
@@ -129,7 +138,7 @@ export function useLintFixing({
         });
 
         if (didApply) {
-            relintBook(file);
+            await relintBook(file);
         }
     }
 

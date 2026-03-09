@@ -1,6 +1,7 @@
 import type {
     BranchInfo,
     CommitOperation,
+    PreferredBranch,
 } from "@/core/persistence/GitProvider.ts";
 
 type ParseAppCommitMetadataArgs = {
@@ -77,8 +78,9 @@ export function formatChapterSummary(chapters: string[]): string {
 }
 
 export function resolvePreferredBranch(
-    args: BranchInfo & { prefer: "master" },
+    args: BranchInfo & { prefer: PreferredBranch },
 ) {
+    if (args.prefer === "main" && args.defaultBranch === "main") return "main";
     if (args.prefer === "master" && args.hasMaster) return "master";
     if (args.defaultBranch) return args.defaultBranch;
     return args.current;

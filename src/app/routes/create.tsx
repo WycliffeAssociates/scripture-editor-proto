@@ -44,6 +44,47 @@ export function buildPersistentImportSuccessNotification(
     };
 }
 
+function getImportErrorDebugDetails(error: unknown): string[] {
+    if (error instanceof Error) {
+        const details: string[] = [];
+        if (error.name && error.name !== "Error") {
+            details.push(`name=${error.name}`);
+        }
+        const maybeCode = (error as { code?: unknown }).code;
+        if (typeof maybeCode === "string" && maybeCode.trim().length > 0) {
+            details.push(`code=${maybeCode}`);
+        }
+        const message = error.message?.trim();
+        if (message) {
+            details.push(`message=${message}`);
+        }
+        return details;
+    }
+
+    if (typeof error === "string" && error.trim().length > 0) {
+        return [`message=${error.trim()}`];
+    }
+    return [];
+}
+
+export function resolveImportErrorMessage(args: {
+    error: unknown;
+    fallback: string;
+}): string {
+    if (args.error instanceof Error) {
+        const trimmed = args.error.message.trim();
+        if (trimmed && trimmed !== args.fallback) {
+            return `${args.fallback}. ${trimmed}`;
+        }
+    }
+
+    const debugDetails = getImportErrorDebugDetails(args.error);
+    if (debugDetails.length > 0) {
+        return `${args.fallback}. Debug: ${debugDetails.join(", ")}`;
+    }
+    return args.fallback;
+}
+
 function CreateProject() {
     const { t } = useLingui();
     const router = useRouter();
@@ -54,6 +95,7 @@ function CreateProject() {
         directoryProvider,
         projectRepository,
         md5Service,
+        gitProvider,
     } = router.options.context;
 
     const [currentLanguage, setCurrentLanguage] = useState<string | null>(
@@ -117,6 +159,7 @@ function CreateProject() {
                     importer: projectImporter,
                     projectRepository,
                     md5Service,
+                    gitProvider,
                     invalidateRouterAndReload,
                 },
                 url,
@@ -128,10 +171,10 @@ function CreateProject() {
         } catch (error) {
             ShowErrorNotification({
                 notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to download project`,
+                    message: resolveImportErrorMessage({
+                        error,
+                        fallback: t`Failed to download project`,
+                    }),
                     title: t`Download Error`,
                 },
             });
@@ -157,6 +200,7 @@ function CreateProject() {
                 projectImporter,
                 projectRepository,
                 md5Service,
+                gitProvider,
                 invalidateRouterAndReload,
             });
             showImportSuccessToast({
@@ -166,10 +210,10 @@ function CreateProject() {
         } catch (error) {
             ShowErrorNotification({
                 notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to import directory`,
+                    message: resolveImportErrorMessage({
+                        error,
+                        fallback: t`Failed to import directory`,
+                    }),
                     title: t`Import Error`,
                 },
             });
@@ -193,6 +237,7 @@ function CreateProject() {
                 projectImporter,
                 projectRepository,
                 md5Service,
+                gitProvider,
                 invalidateRouterAndReload,
             });
             showImportSuccessToast({
@@ -202,10 +247,10 @@ function CreateProject() {
         } catch (error) {
             ShowErrorNotification({
                 notification: {
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Failed to import file`,
+                    message: resolveImportErrorMessage({
+                        error,
+                        fallback: t`Failed to import file`,
+                    }),
                     title: t`Import Error`,
                 },
             });

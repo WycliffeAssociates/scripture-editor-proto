@@ -3,6 +3,7 @@ import type { LexicalEditor } from "lexical";
 import { createContext, useEffect, useRef } from "react";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type UseActionsHook,
     useWorkspaceActions,
@@ -32,14 +33,11 @@ import {
     useWorkspaceState,
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
-import type { LintError } from "@/core/data/usfm/lint.ts";
-import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
-import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     ListedProject,
     Project,
 } from "@/core/persistence/ProjectRepository.ts";
-import { getFlattenedEditorStateAsParseTokens } from "../hooks/utils/editorUtils.ts";
 
 export interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -69,7 +67,7 @@ export interface WorkSpaceContextType {
 type ProjectProviderProps = {
     currentProjectRoute: string;
     projectFiles: ParsedFile[];
-    allInitialLintErrors: LintError[];
+    allInitialLintErrors: LintIssue[];
     children: React.ReactNode;
     loadedProject: Project;
     queryBookOverride?: string;
@@ -103,6 +101,7 @@ export const ProjectProvider = ({
         projectRepository,
         directoryProvider,
         md5Service,
+        usfmOnionService,
         gitProvider,
     } = useRouter().options.context;
     const cssStyleSheet = useDynamicStylesheet();
@@ -191,28 +190,39 @@ export const ProjectProvider = ({
     // entries that touch chapters outside the currently visible editor.
     useEffect(() => {
         return history.registerPostUndoRedoAction((event) => {
-            const touchedBooks = new Set(
-                event.touchedChapters.map((chapter) => chapter.bookCode),
-            );
-            for (const bookCode of touchedBooks) {
-                const file = mutWorkingFilesRef.current.find(
-                    (candidate) => candidate.bookCode === bookCode,
+            void (async () => {
+                const touchedBooks = new Set(
+                    event.touchedChapters.map((chapter) => chapter.bookCode),
                 );
-                if (!file) continue;
+                const touchedFiles = [...touchedBooks]
+                    .map((bookCode) =>
+                        mutWorkingFilesRef.current.find(
+                            (candidate) => candidate.bookCode === bookCode,
+                        ),
+                    )
+                    .filter((file): file is ParsedFile => Boolean(file));
 
-                const flatTokens = file.chapters.flatMap((chapter) =>
-                    getFlattenedEditorStateAsParseTokens(chapter.lexicalState),
+                if (!touchedFiles.length) return;
+
+                const lintResults = await usfmOnionService.lintScope(
+                    touchedFiles.map((file) => ({
+                        tokens: file.chapters.flatMap((chapter) =>
+                            lexicalEditorStateToOnionFlatTokens(
+                                chapter.lexicalState,
+                            ),
+                        ),
+                    })),
                 );
-                if (!flatTokens.length) {
-                    lint.replaceErrorsForBook(bookCode, []);
-                    continue;
+
+                for (let i = 0; i < touchedFiles.length; i++) {
+                    lint.replaceErrorsForBook(
+                        touchedFiles[i].bookCode,
+                        lintResults[i] ?? [],
+                    );
                 }
-                const ctx = initParseContext(flatTokens);
-                const errors = lintExistingUsfmTokens(flatTokens, ctx);
-                lint.replaceErrorsForBook(bookCode, errors);
-            }
+            })();
         });
-    }, [history, lint]);
+    }, [history, lint, usfmOnionService]);
 
     function bookCodeToProjectLocalizedTitle({
         bookCode,

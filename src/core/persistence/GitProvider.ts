@@ -23,15 +23,17 @@ export type BranchInfo = {
     detached: boolean;
 };
 
+export type PreferredBranch = "main" | "master";
+
 export interface GitProvider {
     ensureRepo(
         projectPath: string,
-        opts: { defaultBranch: "master" },
+        opts: { defaultBranch: PreferredBranch },
     ): Promise<void>;
     getBranchInfo(projectPath: string): Promise<BranchInfo>;
     checkoutPreferredBranch(
         projectPath: string,
-        opts: { prefer: "master" },
+        opts: { prefer: PreferredBranch },
     ): Promise<void>;
     listHistory(
         projectPath: string,

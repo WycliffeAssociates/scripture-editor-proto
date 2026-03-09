@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import type { LintError } from "@/core/data/usfm/lint.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type TooltipPosition = { x: number; y: number };
 
 export type UseEditorLintTooltipReturn = {
-    hoveredErrors: LintError[] | null;
+    hoveredErrors: LintIssue[] | null;
     tooltipPosition: TooltipPosition | null;
 };
 
 export function useEditorLintTooltip(
-    allLintMessages: LintError[],
+    allLintMessages: LintIssue[],
 ): UseEditorLintTooltipReturn {
-    const [hoveredErrors, setHoveredErrors] = useState<LintError[] | null>(
+    const [hoveredErrors, setHoveredErrors] = useState<LintIssue[] | null>(
         null,
     );
     const [tooltipPosition, setTooltipPosition] =
@@ -55,11 +55,13 @@ export function useEditorLintTooltip(
             if (!lintTarget) return;
             clearHideTimeout();
 
-            const nodeId = lintTarget.getAttribute("data-id");
-            if (!nodeId) return;
+            const tokenId = lintTarget.getAttribute("data-id");
+            if (!tokenId) return;
 
             const errorsForNode = allLintMessages.filter(
-                (error) => error.nodeId === nodeId,
+                (error) =>
+                    error.tokenId === tokenId ||
+                    error.relatedTokenId === tokenId,
             );
             if (errorsForNode.length === 0) return;
 

@@ -48,7 +48,8 @@ export class TauriDirectoryHandle implements IDirectoryHandle {
             await mkdir(this.path, { recursive: true });
             try {
                 await readTextFile(filePath);
-            } catch {
+            } catch (error) {
+                console.error("Error reading file:", error);
                 await writeTextFile(filePath, "");
             }
         }

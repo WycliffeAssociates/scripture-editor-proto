@@ -1,10 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
-import type { SerializedLexicalNode } from "lexical";
+import { useRouter } from "@tanstack/react-router";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
-    lexicalRootChildrenToUsfmTokenStream,
-    usfmTokenStreamToLexicalRootChildren,
+    lexicalEditorStateToOnionFlatTokens,
+    lexicalEditorStateToOnionUsfmString,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     hideNotification,
@@ -14,12 +14,8 @@ import {
     updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import { getFlattenedEditorStateAsParseTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
 import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
-import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
-import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
-import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export function useFormatOperations({
     mutWorkingFilesRef,
@@ -37,7 +33,7 @@ export function useFormatOperations({
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintError[]) => void;
+    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -47,6 +43,7 @@ export function useFormatOperations({
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
+    const { usfmOnionService } = useRouter().options.context;
 
     type FormatScope = MatchFormattingScope;
     const toChapterRefs = (file: ParsedFile) =>
@@ -58,36 +55,83 @@ export function useFormatOperations({
     const allChapterRefs = () =>
         mutWorkingFilesRef.flatMap((file) => toChapterRefs(file));
 
-    const refreshLintForFile = (file: ParsedFile) => {
-        const fileTokens = file.chapters.flatMap((chapter) =>
-            getFlattenedEditorStateAsParseTokens(chapter.lexicalState),
+    const refreshLintForFiles = async (files: ParsedFile[]) => {
+        if (!files.length) return;
+        const lintResults = await usfmOnionService.lintScope(
+            files.map((file) => ({
+                tokens: file.chapters.flatMap((chapter) =>
+                    lexicalEditorStateToOnionFlatTokens(chapter.lexicalState),
+                ),
+            })),
         );
-        const ctx = initParseContext(fileTokens);
-        const allErrors = lintExistingUsfmTokens(fileTokens, ctx);
-        replaceLintErrorsForBook(file.bookCode, allErrors);
+        for (let i = 0; i < files.length; i++) {
+            replaceLintErrorsForBook(files[i].bookCode, lintResults[i] ?? []);
+        }
     };
 
-    const prettifyChapterInPlace = (chapter: ParsedChapter) => {
-        const originalChildren = chapter.lexicalState.root.children;
-        const envelope = lexicalRootChildrenToUsfmTokenStream(originalChildren);
-        const nextTokens = prettifyTokenStream(envelope.tokens);
-        const nextChildren = usfmTokenStreamToLexicalRootChildren(
-            nextTokens,
-            envelope,
+    const buildBookUsfmFromLexical = (
+        file: ParsedFile,
+        chapterOverrides: Record<number, string> = {},
+    ) =>
+        [...file.chapters]
+            .sort((a, b) => a.chapNumber - b.chapNumber)
+            .map(
+                (chapter) =>
+                    chapterOverrides[chapter.chapNumber] ??
+                    lexicalEditorStateToOnionUsfmString(chapter.lexicalState),
+            )
+            .join("");
+
+    const formatChapterInPlace = async (
+        file: ParsedFile,
+        chapterNum: number,
+    ) => {
+        const chapter = file.chapters.find((c) => c.chapNumber === chapterNum);
+        if (!chapter) return { changed: false as const };
+
+        const chapterTokens = lexicalEditorStateToOnionFlatTokens(
+            chapter.lexicalState,
         );
-
-        const changed =
-            JSON.stringify(originalChildren) !== JSON.stringify(nextChildren);
-        if (!changed) return { changed: false as const };
-
-        const afterUsfm = serializeToUsfmString(nextChildren);
-        const baselineUsfm = serializeToUsfmString(
-            chapter.loadedLexicalState.root.children as SerializedLexicalNode[],
+        const [result] = await usfmOnionService.formatScope(
+            [{ tokens: chapterTokens }],
+            {
+                formatOptions: {},
+            },
         );
+        if (!result.appliedChanges.length) return { changed: false as const };
 
-        chapter.lexicalState.root.children = nextChildren;
-        chapter.dirty = afterUsfm !== baselineUsfm;
+        const nextChapterUsfm = result.tokens
+            .map((token) => token.text)
+            .join("");
+        const nextBookUsfm = buildBookUsfmFromLexical(file, {
+            [chapterNum]: nextChapterUsfm,
+        });
+        await rebuildParsedFileFromUsfm({
+            targetFile: file,
+            sourceUsfm: nextBookUsfm,
+            usfmOnionService,
+        });
+        return { changed: true as const };
+    };
 
+    const formatBookInPlace = async (file: ParsedFile) => {
+        const baselineTokens = file.chapters.flatMap((chapter) =>
+            lexicalEditorStateToOnionFlatTokens(chapter.lexicalState),
+        );
+        const [result] = await usfmOnionService.formatScope(
+            [{ tokens: baselineTokens }],
+            {
+                formatOptions: {},
+            },
+        );
+        if (!result.appliedChanges.length) return { changed: false as const };
+
+        const nextBookUsfm = result.tokens.map((token) => token.text).join("");
+        await rebuildParsedFileFromUsfm({
+            targetFile: file,
+            sourceUsfm: nextBookUsfm,
+            usfmOnionService,
+        });
         return { changed: true as const };
     };
 
@@ -119,12 +163,10 @@ export function useFormatOperations({
                         },
                     ],
                     run: async () => {
-                        const chapter = file.chapters.find(
-                            (c) => c.chapNumber === targetChapterNumber,
+                        const result = await formatChapterInPlace(
+                            file,
+                            targetChapterNumber,
                         );
-                        if (!chapter) return;
-
-                        const result = prettifyChapterInPlace(chapter);
 
                         if (!result.changed) {
                             ShowNotificationInfo({
@@ -140,12 +182,16 @@ export function useFormatOperations({
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
-                        refreshLintForFile(file);
+                        await refreshLintForFiles([file]);
 
                         if (
                             file.bookCode === currentFileBibleIdentifier &&
-                            chapter.chapNumber === currentChapter
+                            targetChapterNumber === currentChapter
                         ) {
+                            const chapter = file.chapters.find(
+                                (c) => c.chapNumber === targetChapterNumber,
+                            );
+                            if (!chapter) return;
                             setEditorContent(
                                 currentFileBibleIdentifier,
                                 currentChapter,
@@ -176,23 +222,8 @@ export function useFormatOperations({
                     label: t`Format Book (${targetBookCode})`,
                     candidates: toChapterRefs(file),
                     run: async () => {
-                        let currentChapterModified = false;
-                        let anyModified = false;
-
-                        for (const chapter of file.chapters) {
-                            const result = prettifyChapterInPlace(chapter);
-                            if (!result.changed) continue;
-
-                            anyModified = true;
-                            if (
-                                file.bookCode === currentFileBibleIdentifier &&
-                                chapter.chapNumber === currentChapter
-                            ) {
-                                currentChapterModified = true;
-                            }
-                        }
-
-                        if (!anyModified) {
+                        const result = await formatBookInPlace(file);
+                        if (!result.changed) {
                             ShowNotificationInfo({
                                 notification: {
                                     title: t`Nothing changed`,
@@ -202,13 +233,13 @@ export function useFormatOperations({
                             return;
                         }
 
-                        refreshLintForFile(file);
+                        await refreshLintForFiles([file]);
                         updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
 
-                        if (currentChapterModified) {
+                        if (file.bookCode === currentFileBibleIdentifier) {
                             const currentChap = file.chapters.find(
                                 (c) => c.chapNumber === currentChapter,
                             );
@@ -233,7 +264,6 @@ export function useFormatOperations({
                 return;
             }
 
-            // scope === "project"
             const totalBooks = mutWorkingFilesRef.length;
             notificationId = showProgressNotification({
                 title: t`Formatting Project`,
@@ -250,39 +280,47 @@ export function useFormatOperations({
                     let currentChapterModified = false;
                     let anyModified = false;
 
+                    const batchResults = await usfmOnionService.formatScope(
+                        mutWorkingFilesRef.map((file) => ({
+                            tokens: file.chapters.flatMap((chapter) =>
+                                lexicalEditorStateToOnionFlatTokens(
+                                    chapter.lexicalState,
+                                ),
+                            ),
+                        })),
+                        {
+                            formatOptions: {},
+                        },
+                    );
+
+                    const modifiedFiles: ParsedFile[] = [];
                     for (let i = 0; i < mutWorkingFilesRef.length; i++) {
                         const file = mutWorkingFilesRef[i];
+                        const result = batchResults[i];
+                        if (!result || !result.appliedChanges.length) continue;
 
                         updateProgressNotification(progressNotificationId, {
                             title: t`Formatting Project`,
                             message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
                         });
 
-                        await new Promise<void>((resolve) => {
-                            setTimeout(() => {
-                                let fileModified = false;
-                                for (const chapter of file.chapters) {
-                                    const result =
-                                        prettifyChapterInPlace(chapter);
-                                    if (result.changed) {
-                                        anyModified = true;
-                                        fileModified = true;
-                                        if (
-                                            file.bookCode ===
-                                                currentFileBibleIdentifier &&
-                                            chapter.chapNumber ===
-                                                currentChapter
-                                        ) {
-                                            currentChapterModified = true;
-                                        }
-                                    }
-                                }
-                                if (fileModified) {
-                                    refreshLintForFile(file);
-                                }
-                                resolve();
-                            }, 0);
+                        const nextBookUsfm = result.tokens
+                            .map((token) => token.text)
+                            .join("");
+                        await rebuildParsedFileFromUsfm({
+                            targetFile: file,
+                            sourceUsfm: nextBookUsfm,
+                            usfmOnionService,
                         });
+                        anyModified = true;
+                        modifiedFiles.push(file);
+                        if (file.bookCode === currentFileBibleIdentifier) {
+                            currentChapterModified = true;
+                        }
+                    }
+
+                    if (modifiedFiles.length > 0) {
+                        await refreshLintForFiles(modifiedFiles);
                     }
 
                     if (anyModified) {

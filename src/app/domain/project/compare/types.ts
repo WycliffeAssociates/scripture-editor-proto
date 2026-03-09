@@ -1,5 +1,5 @@
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
-import type { DiffsByChapterMap } from "@/core/domain/usfm/chapterDiffOperation.ts";
+import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 
 export type CompareMode = "unsaved" | "external";
 export type CompareBaseline = "currentSaved" | "currentDirty";

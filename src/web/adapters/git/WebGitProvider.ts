@@ -10,7 +10,34 @@ import {
     parseAppCommitMetadata,
     resolvePreferredBranch,
 } from "@/core/persistence/gitVersionUtils.ts";
-import { WebZenFsRuntime } from "@/web/zenfs/WebZenFsRuntime.ts";
+import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
+
+type WebGitRuntime = {
+    ensureReady(): Promise<void>;
+    fs: {
+        promises: {
+            lstat: (path: string) => Promise<unknown>;
+            mkdir: (path: string, options?: unknown) => Promise<void>;
+            readFile: (path: string, options?: unknown) => Promise<unknown>;
+            readlink: (path: string, options?: unknown) => Promise<unknown>;
+            readdir: (path: string, options?: unknown) => Promise<unknown>;
+            rm: (path: string, options?: unknown) => Promise<void>;
+            rmdir: (path: string, options?: unknown) => Promise<void>;
+            stat: (path: string) => Promise<unknown>;
+            symlink: (
+                target: string,
+                path: string,
+                type?: unknown,
+            ) => Promise<void>;
+            unlink: (path: string) => Promise<void>;
+            writeFile: (
+                path: string,
+                content: Uint8Array | string,
+                options?: unknown,
+            ) => Promise<void>;
+        };
+    };
+};
 
 function normalizeDir(path: string): string {
     return path.startsWith("/") ? path : `/${path}`;
@@ -27,17 +54,81 @@ function isMissingHeadError(error: unknown): boolean {
         error instanceof Error ? error.message : String(error ?? "");
     return (
         message.includes("Could not find refs/heads/") ||
-        message.includes("Could not find HEAD")
+        message.includes("Could not find HEAD") ||
+        message.includes("reference 'refs/heads/") ||
+        message.includes("headContent is null") ||
+        (message.includes("startsWith") && message.includes("null")) ||
+        message.includes("not found")
     );
 }
 
+function isLikelyGitDirRace(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return /ENOENT/i.test(message) && message.includes(".git/");
+}
+
+function isNoEntryError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return /ENOENT|No such file or directory/i.test(message);
+}
+
+function isZenFsMessageMutationError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return (
+        message.includes('setting getter-only property "message"') ||
+        message.includes("setUVMessage")
+    );
+}
+
+function isGitNotFoundError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return (
+        message.includes("Could not find") ||
+        message.includes("NotFoundError") ||
+        /ENOENT|No such file or directory/i.test(message)
+    );
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryFsMutation<T>(
+    action: () => Promise<T>,
+    shouldRetry: (error: unknown) => boolean,
+): Promise<T> {
+    const attempts = [0, 50, 250, 1000];
+    let lastError: unknown = null;
+
+    for (const waitMs of attempts) {
+        if (waitMs > 0) {
+            await delay(waitMs);
+        }
+        try {
+            return await action();
+        } catch (error) {
+            lastError = error;
+            if (!shouldRetry(error)) {
+                throw error;
+            }
+        }
+    }
+
+    throw lastError;
+}
+
 export class WebGitProvider implements GitProvider {
-    constructor(
-        private readonly runtime: Pick<
-            WebZenFsRuntime,
-            "ensureReady" | "fs"
-        > = new WebZenFsRuntime(),
-    ) {}
+    private readonly ensureRepoInFlight = new Map<string, Promise<void>>();
+    private readonly commitAllInFlight = new Map<
+        string,
+        Promise<{ hash: string }>
+    >();
+
+    constructor(private readonly runtime: WebGitRuntime = new OpfsGitFs()) {}
 
     private async getFs() {
         await this.runtime.ensureReady();
@@ -49,7 +140,11 @@ export class WebGitProvider implements GitProvider {
         try {
             await fs.promises.stat(path);
             return true;
-        } catch {
+        } catch (error) {
+            if (isNoEntryError(error)) {
+                return false;
+            }
+            console.error("Error checking if file exists:", error);
             return false;
         }
     }
@@ -61,32 +156,129 @@ export class WebGitProvider implements GitProvider {
             await git.listBranches({ fs, dir });
             await git.statusMatrix({ fs, dir });
             return true;
-        } catch {
+        } catch (error) {
+            console.error("Error checking if repo is healthy:", error);
             return false;
         }
     }
 
     async ensureRepo(
         projectPath: string,
-        opts: { defaultBranch: "master" },
+        opts: { defaultBranch: "main" | "master" },
+    ): Promise<void> {
+        const dir = normalizeDir(projectPath);
+        const inFlight = this.ensureRepoInFlight.get(dir);
+        if (inFlight) {
+            await inFlight;
+            return;
+        }
+
+        const work = this.ensureRepoInternal(dir, opts).finally(() => {
+            this.ensureRepoInFlight.delete(dir);
+        });
+        this.ensureRepoInFlight.set(dir, work);
+        await work;
+    }
+
+    private async ensureRepoInternal(
+        dir: string,
+        opts: { defaultBranch: "main" | "master" },
     ): Promise<void> {
         const fs = await this.getFs();
-        const dir = normalizeDir(projectPath);
         await fs.promises.mkdir(dir, { recursive: true });
         const gitDir = `${dir}/.git`;
         if (await this.fileExists(gitDir)) {
             if (await this.isHealthy(dir)) return;
-            await fs.promises.rm(gitDir, { recursive: true, force: true });
+            await this.tryRemoveDir(fs, gitDir);
         }
-        await git.init({ fs, dir, defaultBranch: opts.defaultBranch });
+
+        await this.initRepoWithRetry(fs, dir, opts.defaultBranch);
+        if (!(await this.waitForHealthyRepo(dir))) {
+            throw new Error(
+                `Repository init did not become healthy for ${dir}`,
+            );
+        }
+    }
+
+    private async initRepoWithRetry(
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+        dir: string,
+        defaultBranch: "main" | "master",
+    ): Promise<void> {
+        const gitDir = `${dir}/.git`;
+        const attempts = [0, 50, 250, 1000];
+        let lastError: unknown = null;
+
+        for (const waitMs of attempts) {
+            if (waitMs > 0) {
+                await delay(waitMs);
+            }
+            try {
+                await git.init({ fs, dir, defaultBranch });
+                return;
+            } catch (error) {
+                lastError = error;
+                if (
+                    !isLikelyGitDirRace(error) &&
+                    !isZenFsMessageMutationError(error)
+                ) {
+                    throw error;
+                }
+                await this.tryRemoveDir(fs, gitDir);
+            }
+        }
+
+        throw lastError;
+    }
+
+    private async waitForHealthyRepo(dir: string): Promise<boolean> {
+        const attempts = [0, 50, 250, 1000];
+
+        for (const waitMs of attempts) {
+            if (waitMs > 0) {
+                await delay(waitMs);
+            }
+            if (await this.isHealthy(dir)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async tryRemoveDir(
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+        path: string,
+    ): Promise<void> {
+        try {
+            await fs.promises.rm(path, { recursive: true, force: true });
+        } catch (error) {
+            if (!isNoEntryError(error)) {
+                throw error;
+            }
+        }
     }
 
     async getBranchInfo(projectPath: string): Promise<BranchInfo> {
         const fs = await this.getFs();
         const dir = normalizeDir(projectPath);
-        const branches = await git.listBranches({ fs, dir });
-        const current =
-            (await git.currentBranch({ fs, dir, fullname: false })) ?? "";
+        let branches: string[] = [];
+        try {
+            branches = await git.listBranches({ fs, dir });
+        } catch (error) {
+            if (!isMissingHeadError(error)) {
+                throw error;
+            }
+        }
+        let current = "";
+        try {
+            current =
+                (await git.currentBranch({ fs, dir, fullname: false })) ?? "";
+        } catch (error) {
+            if (!isMissingHeadError(error)) {
+                throw error;
+            }
+        }
         const detached = current.length === 0;
         return {
             current,
@@ -104,7 +296,7 @@ export class WebGitProvider implements GitProvider {
 
     async checkoutPreferredBranch(
         projectPath: string,
-        opts: { prefer: "master" },
+        opts: { prefer: "main" | "master" },
     ): Promise<void> {
         const fs = await this.getFs();
         const dir = normalizeDir(projectPath);
@@ -213,24 +405,151 @@ export class WebGitProvider implements GitProvider {
         request: CommitRequest,
         author: { name: string; email: string },
     ): Promise<{ hash: string }> {
-        const fs = await this.getFs();
         const dir = normalizeDir(projectPath);
-        const matrix = await git.statusMatrix({ fs, dir });
-        let hasChanges = false;
+        const inFlight = this.commitAllInFlight.get(dir);
+        if (inFlight) {
+            await inFlight;
+        }
 
+        const work = this.commitAllInternal(dir, request, author).finally(
+            () => {
+                this.commitAllInFlight.delete(dir);
+            },
+        );
+        this.commitAllInFlight.set(dir, work);
+        return await work;
+    }
+
+    private async repairGitLayout(
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+        dir: string,
+    ) {
+        await retryFsMutation(
+            () => fs.promises.mkdir(`${dir}/.git`, { recursive: true }),
+            (error) =>
+                isNoEntryError(error) || isZenFsMessageMutationError(error),
+        );
+        await retryFsMutation(
+            () => fs.promises.mkdir(`${dir}/.git/hooks`, { recursive: true }),
+            (error) =>
+                isNoEntryError(error) || isZenFsMessageMutationError(error),
+        );
+        await retryFsMutation(
+            () => fs.promises.mkdir(`${dir}/.git/objects`, { recursive: true }),
+            (error) =>
+                isNoEntryError(error) || isZenFsMessageMutationError(error),
+        );
+        await retryFsMutation(
+            () => fs.promises.mkdir(`${dir}/.git/refs`, { recursive: true }),
+            (error) =>
+                isNoEntryError(error) || isZenFsMessageMutationError(error),
+        );
+        await retryFsMutation(
+            () =>
+                fs.promises.mkdir(`${dir}/.git/refs/heads`, {
+                    recursive: true,
+                }),
+            (error) =>
+                isNoEntryError(error) || isZenFsMessageMutationError(error),
+        );
+    }
+
+    private async stageMatrix(
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+        dir: string,
+        matrix: Awaited<ReturnType<typeof git.statusMatrix>>,
+    ): Promise<boolean> {
+        let hasChanges = false;
         for (const [filepath, head, workdir, stage] of matrix) {
             if (workdir === 0) {
                 if (head !== 0 || stage !== 0) {
-                    await git.remove({ fs, dir, filepath });
+                    await this.stageWithRetry({
+                        fs,
+                        dir,
+                        filepath,
+                        op: "remove",
+                    });
                     hasChanges = true;
                 }
                 continue;
             }
 
             if (head !== workdir || stage !== workdir) {
-                await git.add({ fs, dir, filepath });
+                await this.stageWithRetry({
+                    fs,
+                    dir,
+                    filepath,
+                    op: "add",
+                });
                 hasChanges = true;
             }
+        }
+        return hasChanges;
+    }
+
+    private async stageWithRetry(args: {
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
+        dir: string;
+        filepath: string;
+        op: "add" | "remove";
+    }): Promise<void> {
+        const attempts = [0, 50, 250, 1000];
+        let lastError: unknown = null;
+
+        for (const waitMs of attempts) {
+            if (waitMs > 0) {
+                await delay(waitMs);
+            }
+            try {
+                if (args.op === "add") {
+                    await git.add({
+                        fs: args.fs,
+                        dir: args.dir,
+                        filepath: args.filepath,
+                    });
+                } else {
+                    await git.remove({
+                        fs: args.fs,
+                        dir: args.dir,
+                        filepath: args.filepath,
+                    });
+                }
+                return;
+            } catch (error) {
+                lastError = error;
+                if (!isGitNotFoundError(error)) {
+                    throw error;
+                }
+            }
+        }
+
+        // `.gitignore` is created immediately before baseline commit on web.
+        // If ZenFS still cannot observe it after a short retry window, skip it
+        // for this commit rather than failing project open.
+        if (args.filepath === ".gitignore") {
+            return;
+        }
+
+        throw lastError;
+    }
+
+    private async commitAllInternal(
+        dir: string,
+        request: CommitRequest,
+        author: { name: string; email: string },
+    ): Promise<{ hash: string }> {
+        const fs = await this.getFs();
+        let matrix = await git.statusMatrix({ fs, dir });
+        let hasChanges = false;
+        try {
+            hasChanges = await this.stageMatrix(fs, dir, matrix);
+        } catch (error) {
+            if (!isZenFsMessageMutationError(error)) {
+                throw error;
+            }
+            await this.repairGitLayout(fs, dir);
+            matrix = await git.statusMatrix({ fs, dir });
+            hasChanges = await this.stageMatrix(fs, dir, matrix);
         }
 
         let headHash: string | null = null;
@@ -246,15 +565,32 @@ export class WebGitProvider implements GitProvider {
             return { hash: headHash };
         }
 
-        const hash = await git.commit({
-            fs,
-            dir,
-            author: {
-                name: author.name,
-                email: author.email,
-            },
-            message: buildCommitMessage(request),
-        });
+        let hash: string;
+        try {
+            hash = await git.commit({
+                fs,
+                dir,
+                author: {
+                    name: author.name,
+                    email: author.email,
+                },
+                message: buildCommitMessage(request),
+            });
+        } catch (error) {
+            if (!isZenFsMessageMutationError(error)) {
+                throw error;
+            }
+            await this.repairGitLayout(fs, dir);
+            hash = await git.commit({
+                fs,
+                dir,
+                author: {
+                    name: author.name,
+                    email: author.email,
+                },
+                message: buildCommitMessage(request),
+            });
+        }
         return { hash };
     }
 

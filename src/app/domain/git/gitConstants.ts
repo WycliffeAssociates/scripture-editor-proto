@@ -1,4 +1,4 @@
-export const GIT_DEFAULT_BRANCH = "master" as const;
+export const GIT_DEFAULT_BRANCH = "main" as const;
 
 export const GIT_COMMIT_AUTHOR = {
     name: "Dovetail",

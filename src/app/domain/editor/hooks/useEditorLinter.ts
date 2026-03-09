@@ -1,4 +1,5 @@
 import { useDebouncedCallback } from "@mantine/hooks";
+import { useRouter } from "@tanstack/react-router";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
@@ -42,6 +43,7 @@ export function shouldRunLintForEditorUpdate({
  */
 export function useEditorLinter(editor: LexicalEditor) {
     const { actions, history, lint, project } = useWorkspaceContext();
+    const { usfmOnionService } = useRouter().options.context;
     const editorModeSetting = project.appSettings.editorMode ?? "regular";
     const currentBookCode = project.pickedFile.bookCode;
     const currentChapter = project.currentChapter;
@@ -49,12 +51,14 @@ export function useEditorLinter(editor: LexicalEditor) {
 
     const debouncedLint = useDebouncedCallback(
         (editorState: EditorState, bookCode: string, chapter: number) => {
-            const errMessages = lintAll(
+            void lintAll(
                 { editorState, editor },
+                usfmOnionService,
                 actions.getFlatFileTokens,
                 { bookCode, chapter },
-            );
-            lint.replaceErrorsForBook(bookCode, errMessages);
+            ).then((issues) => {
+                lint.replaceErrorsForBook(bookCode, issues);
+            });
         },
         lintDebounceMs,
     );
@@ -104,20 +108,23 @@ export function useEditorLinter(editor: LexicalEditor) {
         }
 
         return history.registerPostUndoRedoAction((event) => {
-            const touchedCurrentChapter = event.touchedChapters.some(
-                (chapter) =>
-                    chapter.bookCode === currentBookCode &&
-                    chapter.chapterNum === currentChapter,
-            );
-            if (!touchedCurrentChapter) return;
+            void (async () => {
+                const touchedCurrentChapter = event.touchedChapters.some(
+                    (chapter) =>
+                        chapter.bookCode === currentBookCode &&
+                        chapter.chapterNum === currentChapter,
+                );
+                if (!touchedCurrentChapter) return;
 
-            const editorState = editor.getEditorState();
-            const errMessages = lintAll(
-                { editorState, editor },
-                actions.getFlatFileTokens,
-                { bookCode: currentBookCode, chapter: currentChapter },
-            );
-            lint.replaceErrorsForBook(currentBookCode, errMessages);
+                const editorState = editor.getEditorState();
+                const errMessages = await lintAll(
+                    { editorState, editor },
+                    usfmOnionService,
+                    actions.getFlatFileTokens,
+                    { bookCode: currentBookCode, chapter: currentChapter },
+                );
+                lint.replaceErrorsForBook(currentBookCode, errMessages);
+            })();
         });
     }, [
         actions.getFlatFileTokens,
@@ -127,5 +134,6 @@ export function useEditorLinter(editor: LexicalEditor) {
         editorModeSetting,
         history,
         lint,
+        usfmOnionService,
     ]);
 }

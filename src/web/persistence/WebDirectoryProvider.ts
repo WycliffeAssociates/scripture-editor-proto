@@ -100,7 +100,8 @@ export class WebDirectoryProvider implements IDirectoryProvider {
                 this.getHandle.bind(this),
                 this.writeBackend,
             );
-        } catch {
+        } catch (error) {
+            console.error("Error getting handle:", error);
             const dirHandle = await dir.getDirectoryHandle(name);
             return new WebDirectoryHandle(
                 dirHandle,

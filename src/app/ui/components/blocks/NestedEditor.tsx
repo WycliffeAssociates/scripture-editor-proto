@@ -28,8 +28,8 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as nestedStyles from "@/app/ui/styles/modules/NestedEditor.css.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Props = {
     outerMarker: string;
@@ -39,7 +39,7 @@ type Props = {
         mainEditor: LexicalEditor,
     ) => void;
     id: string;
-    lintErrors?: LintError[];
+    lintErrors?: LintIssue[];
     isOpen: boolean;
     setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
 };

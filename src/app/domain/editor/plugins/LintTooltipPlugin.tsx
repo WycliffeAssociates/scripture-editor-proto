@@ -24,7 +24,7 @@ export function LintTooltipPlugin() {
                 <div className={styles.card}>
                     {hoveredErrors.map((error) => (
                         <div
-                            key={`${error.nodeId}:${error.msgKey}:${error.sid}`}
+                            key={`${error.tokenId ?? error.relatedTokenId}:${error.code}:${error.sid}`}
                             className={styles.row}
                         >
                             <Text className={styles.message} span>

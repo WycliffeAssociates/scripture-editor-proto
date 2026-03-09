@@ -5,7 +5,10 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { materializeFlatTokensFromSerialized } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import {
+    materializeFlatTokensArray,
+    normalizeMarkerWhitespaceForOperations,
+} from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import type { LintableToken } from "@/core/data/usfm/lint.ts";
 
 export type LintableTokenLike = LintableToken;
@@ -38,9 +41,12 @@ export function getFlattenedEditorStateAsParseTokens(
     let linebreakId = 0;
 
     const rootChildren = serializedEditorState.root.children ?? [];
-    for (const node of materializeFlatTokensFromSerialized(rootChildren, {
-        nested: "flatten",
-    })) {
+    const flatNodes = normalizeMarkerWhitespaceForOperations(
+        materializeFlatTokensArray(rootChildren, {
+            nested: "flatten",
+        }),
+    );
+    for (const node of flatNodes) {
         if (node.type === "linebreak") {
             tokens.push({
                 tokenType: UsfmTokenTypes.verticalWhitespace,

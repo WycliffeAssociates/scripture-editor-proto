@@ -9,8 +9,10 @@ import {
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import {
+    createSerializedUSFMTextNode,
+    isSerializedUSFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
     groupFlatNodesIntoParagraphContainers,
@@ -21,6 +23,7 @@ import {
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import type { PrettifyToken } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
+import type { FlatToken as OnionFlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     for (const n of nodes) {
@@ -50,19 +53,44 @@ export type LexicalUsfmTokenStream = {
     wrapper?: SerializedElementNode;
 };
 
-export type LexicalDiffToken = {
-    sid: string;
-    text: string;
-    id?: string;
-    node: SerializedLexicalNode;
-};
-
 export type LexicalRenderToken = {
     node: SerializedLexicalNode;
     sid: string;
     tokenType?: string;
     marker?: string;
 };
+
+function lexicalTokenTypeToOnionKind(tokenType: string | undefined): string {
+    switch (tokenType) {
+        case UsfmTokenTypes.marker:
+            return "marker";
+        case UsfmTokenTypes.endMarker:
+            return "endMarker";
+        case UsfmTokenTypes.numberRange:
+            return "number";
+        case UsfmTokenTypes.verticalWhitespace:
+            return "verticalWhitespace";
+        default:
+            return tokenType ?? "text";
+    }
+}
+
+function flatTokenKindToLexicalTokenType(kind: string): string {
+    switch (kind) {
+        case "marker":
+        case "milestone":
+            return UsfmTokenTypes.marker;
+        case "endMarker":
+        case "milestoneEnd":
+            return UsfmTokenTypes.endMarker;
+        case "verticalWhitespace":
+            return UsfmTokenTypes.verticalWhitespace;
+        case "number":
+            return UsfmTokenTypes.numberRange;
+        default:
+            return kind;
+    }
+}
 
 export function lexicalRootChildrenToUsfmTokenStream(
     nodes: SerializedLexicalNode[],
@@ -119,74 +147,93 @@ export function inferContentEditorModeFromRootChildren(
         : "usfm";
 }
 
-export function lexicalEditorStateToDiffTokens(
+export function lexicalEditorStateToOnionFlatTokens(
     state: SerializedEditorState,
-): LexicalDiffToken[] {
+): OnionFlatToken[] {
     const rootChildren = structuredClone(
         state.root.children as SerializedLexicalNode[],
     );
     const flatNodes = materializeFlatTokensArray(rootChildren, {
-        nested: "preserve",
+        nested: "flatten",
     });
 
     let lastSid = "";
-    const tokens: LexicalDiffToken[] = [];
+    let linebreakId = 0;
+    let cursor = 0;
+    const tokens: OnionFlatToken[] = [];
 
     for (const node of flatNodes) {
-        let sid: string | undefined;
-        let id: string | undefined;
-        let text = "";
-
         if (node.type === "linebreak") {
-            sid = lastSid;
-            text = "\n";
-        } else if (isSerializedUSFMTextNode(node)) {
-            sid = node.sid ?? lastSid;
-            id = node.id;
-            text = node.text ?? "";
-        } else if (isSerializedUSFMNestedEditorNode(node)) {
-            sid = node.sid ?? lastSid;
-            id = node.id;
-            const opening = node.text ?? `\\${node.marker} `;
-            const nested = serializeToUsfmString(
-                node.editorState?.root?.children ?? [],
-            );
-            text = `${opening}${nested}`;
-        } else {
-            sid = lastSid;
-            text = "";
+            tokens.push({
+                id: `linebreak-${linebreakId++}`,
+                kind: "verticalWhitespace",
+                spanStart: cursor,
+                spanEnd: cursor + 1,
+                sid: lastSid,
+                marker: null,
+                text: "\n",
+            });
+            cursor += 1;
+            continue;
         }
 
-        lastSid = sid ?? lastSid;
-        tokens.push({ sid: sid ?? "", text, id, node });
+        if (!isSerializedUSFMTextNode(node)) continue;
+
+        const sid = node.sid ?? lastSid;
+        const text = node.text ?? "";
+        tokens.push({
+            id: node.id,
+            kind: lexicalTokenTypeToOnionKind(node.tokenType),
+            spanStart: cursor,
+            spanEnd: cursor + text.length,
+            sid,
+            marker: node.marker ?? null,
+            text,
+        });
+        cursor += text.length;
+        if (sid) lastSid = sid;
     }
 
     return tokens;
 }
 
-export function diffTokensToRenderTokens(
-    tokens: LexicalDiffToken[],
+export function lexicalEditorStateToOnionUsfmString(
+    state: SerializedEditorState,
+): string {
+    return lexicalEditorStateToOnionFlatTokens(state)
+        .map((token) => token.text)
+        .join("");
+}
+
+export function onionFlatTokensToRenderTokens(
+    tokens: OnionFlatToken[],
 ): LexicalRenderToken[] {
     return tokens.map((token) => {
-        const clonedNode = structuredClone(token.node);
-        if (isSerializedUSFMTextNode(clonedNode)) {
-            return {
-                node: clonedNode,
-                sid: token.sid,
-                tokenType: clonedNode.tokenType,
-                marker: clonedNode.marker,
-            };
-        }
+        const node =
+            token.kind === "verticalWhitespace"
+                ? ({ type: "linebreak", version: 1 } as SerializedLexicalNode)
+                : (createSerializedUSFMTextNode({
+                      text: token.text,
+                      id: token.id ?? guidGenerator(),
+                      sid: token.sid ?? "",
+                      tokenType: flatTokenKindToLexicalTokenType(token.kind),
+                      marker: token.marker ?? undefined,
+                  }) as SerializedLexicalNode);
 
         return {
-            node: clonedNode,
-            sid: token.sid,
+            node,
+            sid: token.sid ?? "",
+            tokenType:
+                token.kind === "verticalWhitespace"
+                    ? UsfmTokenTypes.verticalWhitespace
+                    : flatTokenKindToLexicalTokenType(token.kind),
+            marker: token.marker ?? undefined,
         };
     });
 }
 
-export function diffTokensToEditorState(args: {
-    tokens: LexicalDiffToken[];
+export function onionFlatTokensToEditorState(args: {
+    tokens: OnionFlatToken[];
     direction: "ltr" | "rtl";
     targetMode: ContentEditorModeSetting;
 }): SerializedEditorState {
@@ -194,7 +241,22 @@ export function diffTokensToEditorState(args: {
         root: {
             children: [
                 wrapFlatTokensInLexicalParagraph(
-                    args.tokens.map((token) => token.node),
+                    args.tokens.map((token) =>
+                        token.kind === "verticalWhitespace"
+                            ? ({
+                                  type: "linebreak",
+                                  version: 1,
+                              } as SerializedLexicalNode)
+                            : (createSerializedUSFMTextNode({
+                                  text: token.text,
+                                  id: token.id ?? guidGenerator(),
+                                  sid: token.sid ?? "",
+                                  tokenType: flatTokenKindToLexicalTokenType(
+                                      token.kind,
+                                  ),
+                                  marker: token.marker ?? undefined,
+                              }) as SerializedLexicalNode),
+                    ),
                     args.direction,
                 ),
             ],

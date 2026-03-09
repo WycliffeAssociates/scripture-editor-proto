@@ -20,10 +20,24 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     isUsfmLikePaste,
-    parseClipboardUsfmToInsertableNodes,
     parseClipboardUsfmToTokens,
+    parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
+
+function createMockUsfmOnionService(): IUsfmOnionService {
+    return {
+        parseUsfmChapter: async (chapterUsfm: string, bookCode: string) => {
+            const parsed = parseUSFMChapter(chapterUsfm, bookCode);
+            return {
+                chapters: parsed.usfm,
+                lintErrors: parsed.lintErrors,
+            };
+        },
+    } as unknown as IUsfmOnionService;
+}
 
 function createEditor(): LexicalEditor {
     return createHeadlessEditor({
@@ -60,21 +74,21 @@ describe("usfmPaste", () => {
         ).toBe(false);
     });
 
-    it("parses clipboard USFM with current-book fallback and returns insertable nodes", () => {
+    it("parses clipboard USFM with current-book fallback and returns insertable nodes", async () => {
         const editor = createEditor();
-        let result:
-            | ReturnType<typeof parseClipboardUsfmToInsertableNodes>
-            | undefined;
+        const usfmOnionService = createMockUsfmOnionService();
+        const result = await parseClipboardUsfmToTokens({
+            text: "\\v 1 In the beginning God created the heavens and the earth.",
+            bookCode: "GEN",
+            direction: "ltr",
+            usfmOnionService,
+        });
         let hasVerseMarker = false;
-        editor.update(() => {
-            result = parseClipboardUsfmToInsertableNodes({
-                text: "\\v 1 In the beginning God created the heavens and the earth.",
-                bookCode: "GEN",
-                direction: "ltr",
-            });
 
-            if (result?.ok) {
-                hasVerseMarker = result.nodes.some(
+        editor.update(() => {
+            if (result.ok) {
+                const nodes = parsedUsfmTokensToInsertableNodes(result.tokens);
+                hasVerseMarker = nodes.some(
                     (node) =>
                         $isUSFMTextNode(node) &&
                         node.getTokenType() === UsfmTokenTypes.marker &&
@@ -83,18 +97,24 @@ describe("usfmPaste", () => {
             }
         });
 
-        expect(result).toBeTruthy();
-        if (!result) return;
         expect(result.ok).toBe(true);
         if (!result.ok) return;
+        expect(
+            result.tokens.some(
+                (token) =>
+                    token.tokenType === UsfmTokenTypes.marker &&
+                    token.marker === "id",
+            ),
+        ).toBe(false);
         expect(hasVerseMarker).toBe(true);
     });
 
-    it("rejects invalid USFM-like paste with a structured parse failure", () => {
-        const result = parseClipboardUsfmToInsertableNodes({
+    it("rejects invalid USFM-like paste with a structured parse failure", async () => {
+        const result = await parseClipboardUsfmToTokens({
             text: "\\v xyz Not a valid verse marker range",
             bookCode: "GEN",
             direction: "ltr",
+            usfmOnionService: createMockUsfmOnionService(),
         });
 
         expect(result.ok).toBe(false);
@@ -102,8 +122,17 @@ describe("usfmPaste", () => {
         expect(result.reason).toBe("parse-failed");
     });
 
-    it("supports insertion into current selection (including chapter markers)", () => {
+    it("supports insertion into current selection (including chapter markers)", async () => {
         const editor = createEditor();
+        const parsed = await parseClipboardUsfmToTokens({
+            text: "\\c 2\n\\v 1 Inserted text",
+            bookCode: "GEN",
+            direction: "ltr",
+            usfmOnionService: createMockUsfmOnionService(),
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) return;
+
         editor.update(
             () => {
                 const root = $getRoot();
@@ -119,19 +148,13 @@ describe("usfmPaste", () => {
                 root.append(para);
                 para.selectEnd();
 
-                const parsed = parseClipboardUsfmToInsertableNodes({
-                    text: "\\c 2\n\\v 1 Inserted text",
-                    bookCode: "GEN",
-                    direction: "ltr",
-                });
-                expect(parsed.ok).toBe(true);
-                if (!parsed.ok) return;
-
                 const selection = $getSelection();
                 if (!$isRangeSelection(selection)) {
                     throw new Error("Expected range selection");
                 }
-                selection.insertNodes(parsed.nodes);
+                selection.insertNodes(
+                    parsedUsfmTokensToInsertableNodes(parsed.tokens),
+                );
             },
             { discrete: true },
         );
@@ -153,7 +176,7 @@ describe("usfmPaste", () => {
         });
     });
 
-    it("accepts the multiline scripture marker block from real paste usage", () => {
+    it("accepts the multiline scripture marker block from real paste usage", async () => {
         const block = `\\s5
 \\v 4 He has become just as superior to the angels as the name he has inherited is more excellent than their name.
 \\v 5 For to which of the angels did God ever say,
@@ -165,10 +188,11 @@ describe("usfmPaste", () => {
 \\q "I will be a Father to him,
 \\q2 and he will be a Son to me"?`;
 
-        const parsed = parseClipboardUsfmToTokens({
+        const parsed = await parseClipboardUsfmToTokens({
             text: block,
             bookCode: "HEB",
             direction: "ltr",
+            usfmOnionService: createMockUsfmOnionService(),
         });
         expect(parsed.ok).toBe(true);
     });

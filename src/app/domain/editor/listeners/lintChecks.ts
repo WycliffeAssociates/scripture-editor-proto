@@ -13,17 +13,17 @@ import {
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { LintableTokenLike } from "@/app/ui/hooks/useActions.tsx";
-import type { LintError } from "@/core/data/usfm/lint.ts";
-import { lintExistingUsfmTokens } from "@/core/domain/usfm/parse.ts";
-import { initParseContext } from "@/core/domain/usfm/tokenParsers.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type LintVersesArgs = {
     editorState: EditorState;
     editor: LexicalEditor;
 };
 
-export function lintAll(
+export async function lintAll(
     { editorState, editor }: LintVersesArgs,
+    usfmOnionService: IUsfmOnionService,
     getFlatFileTokens: (
         currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
@@ -31,16 +31,19 @@ export function lintAll(
     opts?: { bookCode?: string; chapter?: number },
 ) {
     const flatFileTokens = getFlatFileTokens(editorState.toJSON(), opts);
-    const ctx = initParseContext(flatFileTokens);
-    const lintErrors = lintExistingUsfmTokens(flatFileTokens, ctx);
-    const withErrorsInThisBook = lintErrors.reduce(
+    const lintIssues = flatFileTokens.length
+        ? await usfmOnionService.lintExisting(flatFileTokens)
+        : [];
+
+    const withErrorsInThisBook = lintIssues.reduce(
         (acc, curr) => {
-            if (!curr.nodeId) return acc;
-            acc[curr.nodeId] ??= [];
-            acc[curr.nodeId].push(curr);
+            const tokenId = curr.tokenId ?? curr.relatedTokenId;
+            if (!tokenId) return acc;
+            acc[tokenId] ??= [];
+            acc[tokenId].push(curr);
             return acc;
         },
-        {} as Record<string, LintError[]>,
+        {} as Record<string, LintIssue[]>,
     );
 
     const updateOps: LintUpdateOperation[] = [];
@@ -84,21 +87,21 @@ export function lintAll(
             },
         );
     }
-    return lintErrors;
+    return lintIssues;
 }
 
 type DfsEditorStateForLintArgs = {
     editor: LexicalEditor;
     editorState: EditorState;
     updatesToMainEditor: LintUpdateOperation[];
-    withErrorsInThisBook: Record<string, LintError[]>;
+    withErrorsInThisBook: Record<string, LintIssue[]>;
 };
 
 type LintUpdateOperation =
     | {
           type: "setLintErrors";
           nodeKey: string;
-          errors: LintError[];
+          errors: LintIssue[];
       }
     | {
           type: "setNestedEditorState";
@@ -122,7 +125,6 @@ function dfsEditorStateForLint({
             const currentErrors = node.getLintErrors() ?? [];
             const matchInMap = withErrorsInThisBook[node.getId()];
             const nodeKey = node.getKey();
-            // clear if had errors but now does
             if (currentErrors.length && !matchInMap) {
                 updatesToMainEditor.push({
                     type: "setLintErrors",
@@ -131,7 +133,6 @@ function dfsEditorStateForLint({
                 });
             }
             if (matchInMap?.length) {
-                // update if needed
                 const needsUpdate = node.lintErrorsDoNeedUpdate(matchInMap);
                 if (needsUpdate) {
                     updatesToMainEditor.push({
@@ -159,29 +160,32 @@ function dfsEditorStateForLint({
         }
     });
 }
-type dfsNode = SerializedLexicalNode & {
+
+type DfsNode = SerializedLexicalNode & {
     id?: string;
     children?: SerializedLexicalNode[];
 };
-function dfs(node: dfsNode, map: Record<string, dfsNode>) {
+
+function dfs(node: DfsNode, map: Record<string, DfsNode>) {
     if (!node) return;
-    if (node?.id) {
+    if (node.id) {
         map[node.id] = node;
     }
     if (node.children?.length) {
-        for (const child of node.children) dfs(child as dfsNode, map);
+        for (const child of node.children) dfs(child as DfsNode, map);
     }
 }
+
 function lintNestedSerializedState(
     editor: LexicalEditor,
     state: SerializedEditorState,
-    withErrorsInThisBook: Record<string, LintError[]>,
+    withErrorsInThisBook: Record<string, LintIssue[]>,
 ): { changed: boolean; newState: SerializedEditorState } {
     const cloned = structuredClone(state);
     const parsed = editor.parseEditorState(state);
 
-    const clonedMap: Record<string, dfsNode> = {};
-    dfs(cloned.root as dfsNode, clonedMap);
+    const clonedMap: Record<string, DfsNode> = {};
+    dfs(cloned.root as DfsNode, clonedMap);
 
     let nestedNeedsUpdate = false;
     parsed.read(() => {
@@ -196,13 +200,11 @@ function lintNestedSerializedState(
             const serializedVersion = clonedMap[
                 node.getId()
             ] as SerializedUSFMTextNode;
-            // clear if had errors but now does
             if (currentErrors.length && !matchInMap) {
                 nestedNeedsUpdate = true;
                 serializedVersion.lintErrors = [];
             }
             if (matchInMap?.length) {
-                // update if needed
                 const needsUpdate = node.lintErrorsDoNeedUpdate(matchInMap);
                 if (needsUpdate) {
                     nestedNeedsUpdate = true;

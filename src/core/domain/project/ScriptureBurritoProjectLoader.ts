@@ -260,7 +260,8 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
                             create: false,
                         });
                         return;
-                    } catch {
+                    } catch (error) {
+                        console.error("Error checking if file exists:", error);
                         // File does not exist, proceed to create
                     }
 

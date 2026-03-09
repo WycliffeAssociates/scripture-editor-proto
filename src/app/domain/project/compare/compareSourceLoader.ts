@@ -4,6 +4,7 @@ import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
@@ -24,6 +25,7 @@ type CompareSourceLoaderArgs = {
     directoryProvider: IDirectoryProvider;
     md5Service: IMd5Service;
     editorMode: EditorModeSetting;
+    usfmOnionService: IUsfmOnionService;
 };
 
 export class CompareSourceLoader {
@@ -31,12 +33,14 @@ export class CompareSourceLoader {
     private readonly directoryProvider: IDirectoryProvider;
     private readonly md5Service: IMd5Service;
     private readonly editorMode: EditorModeSetting;
+    private readonly usfmOnionService: IUsfmOnionService;
 
     constructor(args: CompareSourceLoaderArgs) {
         this.projectRepository = args.projectRepository;
         this.directoryProvider = args.directoryProvider;
         this.md5Service = args.md5Service;
         this.editorMode = args.editorMode;
+        this.usfmOnionService = args.usfmOnionService;
     }
 
     async loadExistingProject(
@@ -52,6 +56,7 @@ export class CompareSourceLoader {
         const parsed = await loadedProjectToParsedFiles({
             loadedProject: loaded,
             editorMode: this.editorMode,
+            usfmOnionService: this.usfmOnionService,
         });
         return {
             parsedFiles: parsed.parsedFiles,
@@ -72,6 +77,7 @@ export class CompareSourceLoader {
         const parsed = await loadedProjectToParsedFiles({
             loadedProject: loaded,
             editorMode: this.editorMode,
+            usfmOnionService: this.usfmOnionService,
         });
 
         return {
@@ -99,6 +105,7 @@ export class CompareSourceLoader {
         const parsed = await loadedProjectToParsedFiles({
             loadedProject: loaded,
             editorMode: this.editorMode,
+            usfmOnionService: this.usfmOnionService,
         });
         return {
             parsedFiles: parsed.parsedFiles,

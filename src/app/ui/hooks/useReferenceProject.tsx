@@ -28,7 +28,8 @@ export const useReferenceProject = ({
     const [isReferenceNavSynced, setIsReferenceNavSynced] = useState(true);
     const [isReferenceScrollSynced, setIsReferenceScrollSynced] =
         useState(false);
-    const { md5Service, settingsManager } = useRouter().options.context;
+    const { md5Service, settingsManager, usfmOnionService } =
+        useRouter().options.context;
     const editorMode = settingsManager.get("editorMode");
     const referenceProjectQuery = useQuery({
         queryKey: ["projectFiles", referenceProjectId, editorMode],
@@ -39,6 +40,7 @@ export const useReferenceProject = ({
                 md5Service,
                 gitProvider,
                 editorMode,
+                usfmOnionService,
             ),
         enabled: !!referenceProjectId,
     });

@@ -21,12 +21,12 @@ import {
     sidState,
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
-import type { LintError } from "@/core/data/usfm/lint.ts";
-import { areLintErrorListsEqual } from "@/core/data/usfm/lint.ts";
+import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
 import {
     ALL_CHAR_MARKERS,
     isValidParaMarker,
 } from "@/core/data/usfm/tokens.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
@@ -46,7 +46,7 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
     inPara?: string;
     inChars?: string[];
     id: string;
-    lintErrors?: LintError[];
+    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 
@@ -94,7 +94,7 @@ export class USFMTextNode extends TextNode {
         return $getState(this.getLatest(), idState);
     }
 
-    getLintErrors(): LintError[] {
+    getLintErrors(): LintIssue[] {
         return $getState(this.getLatest(), lintErrorsState);
     }
 
@@ -141,7 +141,7 @@ export class USFMTextNode extends TextNode {
         return this;
     }
 
-    setLintErrors(lintErrors: LintError[]) {
+    setLintErrors(lintErrors: LintIssue[]) {
         $setState(this.getWritable(), lintErrorsState, lintErrors);
         return this;
     }
@@ -187,7 +187,7 @@ export class USFMTextNode extends TextNode {
             element.classList.add("lint-error");
             ds.isLintError = "true";
             lintErrors.forEach((c) => {
-                element.classList.add(c.msgKey);
+                element.classList.add(c.code);
             });
         }
         inChars.forEach((c) => {
@@ -248,8 +248,8 @@ export class USFMTextNode extends TextNode {
         return needsUpdate;
     }
     // misc functionality:
-    lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
-        return !areLintErrorListsEqual(this.getLintErrors(), newLintErrors);
+    lintErrorsDoNeedUpdate(newLintErrors: LintIssue[]) {
+        return !areLintIssueListsEqual(this.getLintErrors(), newLintErrors);
     }
 }
 
@@ -297,7 +297,7 @@ export type USFMTextNodeMetadata = {
     inChars?: string[];
     tokenType?: string;
     marker?: string;
-    lintErrors?: LintError[];
+    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 export function $createUSFMTextNode(
@@ -333,7 +333,7 @@ type CreateSerializedUSFMTextNodeParams = {
     inPara?: string;
     inChars?: string[];
     marker?: string;
-    lintErrors?: LintError[];
+    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(

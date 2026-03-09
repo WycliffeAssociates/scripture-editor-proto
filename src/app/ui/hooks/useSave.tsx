@@ -1,5 +1,6 @@
 // hooks/useProjectDiffs.ts
 
+import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
@@ -7,8 +8,8 @@ import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
 import {
-    diffTokensToRenderTokens,
-    lexicalEditorStateToDiffTokens,
+    lexicalEditorStateToOnionFlatTokens,
+    onionFlatTokensToRenderTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { GIT_COMMIT_AUTHOR } from "@/app/domain/git/gitConstants.ts";
 import {
@@ -55,11 +56,11 @@ import {
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import {
-    diffChapterTokenStreams,
     flattenDiffMap,
     replaceChapterDiffsInMap,
     replaceManyChapterDiffsInMap,
-} from "@/core/domain/usfm/chapterDiffOperation.ts";
+} from "@/core/domain/usfm/usfmOnionDiffMap.ts";
+import type { Diff as OnionDiff } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
 import type {
     GitProvider,
@@ -148,6 +149,7 @@ export function useProjectDiffs({
     allProjects,
     currentProjectRoute,
 }: UseProjectDiffsProps) {
+    const { usfmOnionService } = useRouter().options.context;
     const [unsavedDiffsByChapter, setUnsavedDiffsByChapter] =
         useState<DiffsByChapter>({});
     const [openDiffModal, setOpenDiffModal] = useState(false);
@@ -192,6 +194,31 @@ export function useProjectDiffs({
 
     const bumpDirtyVersion = () => setDirtyVersion((v) => v + 1);
 
+    const mapOnionDiffToProjectDiff = (
+        diff: OnionDiff,
+        bookCode: string,
+        chapterNum: number,
+    ): ProjectDiff => ({
+        uniqueKey: diff.blockId,
+        semanticSid: diff.semanticSid,
+        status: diff.status as ProjectDiff["status"],
+        originalDisplayText: diff.originalText,
+        currentDisplayText: diff.currentText,
+        originalTextOnly: diff.originalTextOnly,
+        currentTextOnly: diff.currentTextOnly,
+        bookCode,
+        chapterNum,
+        isWhitespaceChange: diff.isWhitespaceChange,
+        isUsfmStructureChange: diff.isUsfmStructureChange,
+        originalRenderTokens: onionFlatTokensToRenderTokens(
+            diff.originalTokens,
+        ),
+        currentRenderTokens: onionFlatTokensToRenderTokens(diff.currentTokens),
+        originalAlignment: diff.originalAlignment,
+        currentAlignment: diff.currentAlignment,
+        undoSide: diff.undoSide,
+    });
+
     const dirty = hasUnsavedChanges(mutWorkingFilesRef);
     const isViewingOlderVersion = Boolean(
         selectedVersionHash &&
@@ -211,10 +238,10 @@ export function useProjectDiffs({
         return () => window.removeEventListener("beforeunload", handler);
     }, [dirty]);
 
-    function calculateDiffsForChapter(
+    async function calculateDiffsForChapter(
         bookCode: string,
         chapterNum: number,
-    ): ProjectDiff[] {
+    ): Promise<ProjectDiff[]> {
         const chapToUpdate = findChapter(
             mutWorkingFilesRef,
             bookCode,
@@ -224,52 +251,39 @@ export function useProjectDiffs({
 
         if (!chapToUpdate.dirty) return [];
 
-        const baselineTokens = lexicalEditorStateToDiffTokens(
+        const baselineTokens = lexicalEditorStateToOnionFlatTokens(
             chapToUpdate.loadedLexicalState,
         );
-        const currentTokens = lexicalEditorStateToDiffTokens(
+        const currentTokens = lexicalEditorStateToOnionFlatTokens(
             chapToUpdate.lexicalState,
         );
-        const diffs = diffChapterTokenStreams({
+        const diffs = await usfmOnionService.diffTokens(
             baselineTokens,
             currentTokens,
-        });
+        );
 
-        return diffs.map((diff) => {
-            return {
-                uniqueKey: diff.blockId,
-                semanticSid: diff.semanticSid,
-                status: diff.status,
-                originalDisplayText: diff.originalText,
-                currentDisplayText: diff.currentText,
-                originalTextOnly: diff.originalTextOnly,
-                currentTextOnly: diff.currentTextOnly,
-                bookCode,
-                chapterNum,
-                isWhitespaceChange: diff.isWhitespaceChange,
-                isUsfmStructureChange: diff.isUsfmStructureChange,
-                originalRenderTokens: diffTokensToRenderTokens(
-                    diff.originalTokens,
-                ),
-                currentRenderTokens: diffTokensToRenderTokens(
-                    diff.currentTokens,
-                ),
-            };
-        });
+        return diffs.map((diff) =>
+            mapOnionDiffToProjectDiff(diff, bookCode, chapterNum),
+        );
     }
 
     function updateDiffMapForChapter(bookCode: string, chapterNum: number) {
         bumpDirtyVersion();
         if (!openDiffModal) return;
-
-        setUnsavedDiffsByChapter((prev) =>
-            replaceChapterDiffsInMap({
-                previousMap: prev,
+        void calculationRunnerRef.current.run(async () => {
+            const chapterDiffs = await calculateDiffsForChapter(
                 bookCode,
                 chapterNum,
-                chapterDiffs: calculateDiffsForChapter(bookCode, chapterNum),
-            }),
-        );
+            );
+            setUnsavedDiffsByChapter((prev) =>
+                replaceChapterDiffsInMap({
+                    previousMap: prev,
+                    bookCode,
+                    chapterNum,
+                    chapterDiffs,
+                }),
+            );
+        });
     }
 
     async function buildUnsavedChapterDiffEntries(
@@ -286,7 +300,7 @@ export function useProjectDiffs({
                 out.push({
                     bookCode,
                     chapterNum,
-                    diffs: calculateDiffsForChapter(bookCode, chapterNum),
+                    diffs: await calculateDiffsForChapter(bookCode, chapterNum),
                 });
             }
             if (i + DIFF_CHUNK_SIZE < chapters.length) {
@@ -330,9 +344,10 @@ export function useProjectDiffs({
                 );
                 if (!changedChapter) return;
 
-                revertChapterDiffByBlockId({
+                await revertChapterDiffByBlockId({
                     chapter: changedChapter,
                     diffBlockId: diffToRevert.uniqueKey,
+                    usfmOnionService,
                 });
                 updateDiffMapForChapter(bookCode, chapterNum);
 
@@ -472,6 +487,7 @@ export function useProjectDiffs({
         const parsed = await loadedProjectToParsedFiles({
             loadedProject: virtualProject,
             editorMode,
+            usfmOnionService,
         });
         return parsed.parsedFiles;
     }
@@ -730,6 +746,7 @@ export function useProjectDiffs({
         directoryProvider,
         md5Service,
         editorMode,
+        usfmOnionService,
     });
 
     async function computeExternalDiffs(
@@ -739,6 +756,7 @@ export function useProjectDiffs({
     ) {
         const result = await buildCompareResultAsync({
             currentFiles: mutWorkingFilesRef,
+            usfmOnionService,
             config: {
                 mode: "external",
                 baseline: compareBaseline,
@@ -876,11 +894,11 @@ export function useProjectDiffs({
                 { bookCode: diff.bookCode, chapterNum: diff.chapterNum },
             ],
             run: async () => {
-                applyIncomingHunk({
+                await applyIncomingHunk({
                     workingFiles: mutWorkingFilesRef,
                     sourceFiles: compareResult.sourceFiles ?? [],
                     diff,
-                    baseline: compareBaseline,
+                    usfmOnionService,
                 });
                 if (
                     diff.bookCode === pickedFile?.bookCode &&

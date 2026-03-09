@@ -7,6 +7,18 @@ import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
 const DEFAULT_GITIGNORE_PATTERNS = [".DS_Store", "Thumbs.db", "node_modules"];
 
+function isRecoverableBaselineGitError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return (
+        message.includes("NotFoundError") ||
+        message.includes("Could not find") ||
+        /ENOENT|No such file or directory/i.test(message) ||
+        message.includes("setUVMessage") ||
+        message.includes('setting getter-only property "message"')
+    );
+}
+
 async function ensureProjectGitIgnore(loadedProject: Project): Promise<void> {
     const rootDir = loadedProject.projectDir.asDirectoryHandle();
     if (!rootDir) return;
@@ -56,6 +68,30 @@ export async function ensureProjectGitReady(args: {
         });
     }
 
+    const history = await args.gitProvider.listHistory(projectPath, {
+        limit: 1,
+        offset: 0,
+    });
+
+    if (history.length === 0) {
+        try {
+            await args.gitProvider.commitAll(
+                projectPath,
+                {
+                    op: "baseline",
+                    timestampIso: new Date().toISOString(),
+                    changedChapters: [],
+                },
+                GIT_COMMIT_AUTHOR,
+            );
+        } catch (error) {
+            if (!isRecoverableBaselineGitError(error)) {
+                throw error;
+            }
+        }
+        return;
+    }
+
     const branchInfo = await args.gitProvider.getBranchInfo(projectPath);
     if (branchInfo.detached) {
         try {
@@ -69,20 +105,4 @@ export async function ensureProjectGitReady(args: {
             );
         }
     }
-
-    const history = await args.gitProvider.listHistory(projectPath, {
-        limit: 1,
-        offset: 0,
-    });
-
-    if (history.length > 0) return;
-    await args.gitProvider.commitAll(
-        projectPath,
-        {
-            op: "baseline",
-            timestampIso: new Date().toISOString(),
-            changedChapters: [],
-        },
-        GIT_COMMIT_AUTHOR,
-    );
 }

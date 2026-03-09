@@ -47,9 +47,9 @@ function createGitProviderMock(
     return {
         ensureRepo: vi.fn(async () => {}),
         getBranchInfo: vi.fn(async () => ({
-            current: "master",
+            current: "main",
             hasMaster: true,
-            defaultBranch: "master",
+            defaultBranch: "main",
             detached: false,
         })),
         checkoutPreferredBranch: vi.fn(async () => {}),
@@ -73,7 +73,7 @@ describe("ensureProjectGitReady", () => {
 
         expect(gitProvider.ensureRepo).toHaveBeenCalledWith(
             "/userData/projects/p1",
-            { defaultBranch: "master" },
+            { defaultBranch: "main" },
         );
         expect(gitProvider.commitAll).toHaveBeenCalledTimes(1);
     });
@@ -84,7 +84,7 @@ describe("ensureProjectGitReady", () => {
             getBranchInfo: vi.fn(async () => ({
                 current: "",
                 hasMaster: true,
-                defaultBranch: "master",
+                defaultBranch: "main",
                 detached: true,
             })),
             listHistory: vi.fn(async () => [{ hash: "h1" }] as never),
@@ -93,7 +93,7 @@ describe("ensureProjectGitReady", () => {
         await ensureProjectGitReady({ gitProvider, loadedProject: project });
         expect(gitProvider.checkoutPreferredBranch).toHaveBeenCalledWith(
             "/userData/projects/p1",
-            { prefer: "master" },
+            { prefer: "main" },
         );
     });
 
@@ -107,5 +107,19 @@ describe("ensureProjectGitReady", () => {
         await ensureProjectGitReady({ gitProvider, loadedProject: project });
 
         expect(gitProvider.ensureRepo).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not throw when baseline commit fails with recoverable web git errors", async () => {
+        const project = createProjectMock();
+        const gitProvider = createGitProviderMock({
+            listHistory: vi.fn(async () => []),
+            commitAll: vi.fn(async () => {
+                throw new Error("NotFoundError: Could not find 01-GEN.usfm.");
+            }),
+        });
+
+        await expect(
+            ensureProjectGitReady({ gitProvider, loadedProject: project }),
+        ).resolves.toBeUndefined();
     });
 });

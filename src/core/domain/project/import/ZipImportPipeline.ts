@@ -21,7 +21,7 @@ export class ZipImportPipeline {
         archiveName: string;
         data: ArrayBuffer;
         stagedZipHandle?: IFileHandle;
-    }): Promise<string | null> {
+    }): Promise<string> {
         const projectsDir = await this.directoryProvider.projectsDirectory;
         const tempDirectory = await this.directoryProvider.tempDirectory;
 
@@ -46,8 +46,6 @@ export class ZipImportPipeline {
             );
 
             return finalProjectDir.path;
-        } catch {
-            return null;
         } finally {
             await this.cleanup(tempExtractionDir, args.stagedZipHandle ?? null);
         }
@@ -124,6 +122,7 @@ export class ZipImportPipeline {
             );
             const writer = await fileHandle.createWriter();
             await writer.write(file);
+            console.log(`closing for ${entryName}`);
             await writer.close();
         }
 
@@ -263,7 +262,8 @@ export class ZipImportPipeline {
                 await tempDirectory.removeEntry(tempExtractionDir.name, {
                     recursive: true,
                 });
-            } catch {
+            } catch (error) {
+                console.error("Error cleaning up temp extraction dir:", error);
                 // best-effort cleanup
             }
         }
@@ -273,7 +273,8 @@ export class ZipImportPipeline {
                 await tempDirectory.removeEntry(stagedZipHandle.name, {
                     recursive: false,
                 });
-            } catch {
+            } catch (error) {
+                console.error("Error cleaning up staged zip handle:", error);
                 // best-effort cleanup
             }
         }

@@ -1,6 +1,7 @@
 mod git;
 mod md5;
 mod parse;
+mod usfm_onion;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::time::Instant;
 use std::{fs, io, os};
@@ -46,6 +47,38 @@ pub fn run() {
     builder
         .invoke_handler(tauri::generate_handler![
             parse_usfm,
+            usfm_onion::usfm_onion_project_usfm,
+            usfm_onion::usfm_onion_project_path,
+            usfm_onion::usfm_onion_project_paths,
+            usfm_onion::usfm_onion_tokens_from_usfm,
+            usfm_onion::usfm_onion_tokens_from_path,
+            usfm_onion::usfm_onion_lint_usfm,
+            usfm_onion::usfm_onion_lint_path,
+            usfm_onion::usfm_onion_lint_paths,
+            usfm_onion::usfm_onion_lint_tokens,
+            usfm_onion::usfm_onion_lint_token_batches,
+            usfm_onion::usfm_onion_format_tokens,
+            usfm_onion::usfm_onion_format_token_batches,
+            usfm_onion::usfm_onion_format_paths,
+            usfm_onion::usfm_onion_apply_token_fixes,
+            usfm_onion::usfm_onion_diff_usfm,
+            usfm_onion::usfm_onion_diff_paths,
+            usfm_onion::usfm_onion_diff_usfm_by_chapter,
+            usfm_onion::usfm_onion_diff_paths_by_chapter,
+            usfm_onion::usfm_onion_diff_path_pairs,
+            usfm_onion::usfm_onion_diff_tokens,
+            usfm_onion::usfm_onion_revert_diff_block,
+            usfm_onion::usfm_onion_to_usj,
+            usfm_onion::usfm_onion_to_usj_path,
+            usfm_onion::usfm_onion_to_usj_paths,
+            usfm_onion::usfm_onion_from_usj,
+            usfm_onion::usfm_onion_to_usx,
+            usfm_onion::usfm_onion_to_usx_path,
+            usfm_onion::usfm_onion_to_usx_paths,
+            usfm_onion::usfm_onion_from_usx,
+            usfm_onion::usfm_onion_to_vref,
+            usfm_onion::usfm_onion_to_vref_path,
+            usfm_onion::usfm_onion_to_vref_paths,
             git::clone_repo,
             git::git_ensure_repo,
             git::git_get_branch_info,

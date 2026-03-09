@@ -249,7 +249,8 @@ describe("WebDirectoryHandle", () => {
                             currentPath,
                             mockResolveHandle,
                         );
-                    } catch {
+                    } catch (error) {
+                        console.error("Error getting file handle:", error);
                         const dirHandle =
                             await currentNativeHandle.getDirectoryHandle(part);
                         return new WebDirectoryHandle(
@@ -731,7 +732,8 @@ describe("WebFileHandle", () => {
                             currentPath,
                             mockResolveHandle,
                         );
-                    } catch {
+                    } catch (error) {
+                        console.error("Error getting file handle:", error);
                         const dirHandle =
                             await currentNativeHandle.getDirectoryHandle(part);
                         return new WebDirectoryHandle(

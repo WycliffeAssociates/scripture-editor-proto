@@ -12,12 +12,10 @@ import { DecoratorNode } from "lexical";
 import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
-import {
-    areLintErrorListsEqual,
-    type LintError,
-} from "@/core/data/usfm/lint.ts";
+import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
 
@@ -33,7 +31,7 @@ export type USFMNestedEditorNodeJSON = Spread<
         marker: string;
         editorState: SerializedEditorState;
         lexicalKey?: string;
-        lintErrors?: LintError[];
+        lintErrors?: LintIssue[];
         sid?: string;
         level?: string;
         inPara?: string;
@@ -55,7 +53,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     __inPara?: string;
     __attributes: Record<string, string>;
     __editorState: SerializedEditorState;
-    __lintErrors?: LintError[];
+    __lintErrors?: LintIssue[];
     __randomRenderKey: string;
     __isOpen: boolean;
 
@@ -65,7 +63,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
         id: string,
         tokenType: string,
         editorState: SerializedEditorState,
-        lintErrors?: LintError[],
+        lintErrors?: LintIssue[],
         sid?: string,
         level?: string,
         inPara?: string,
@@ -105,7 +103,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     getTokenType(): string {
         return this.__tokenType;
     }
-    getLintErrors(): LintError[] | undefined {
+    getLintErrors(): LintIssue[] | undefined {
         return this.__lintErrors;
     }
     getTextContentSize(): number {
@@ -114,7 +112,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     getLatestEditorState(): SerializedEditorState<SerializedLexicalNode> {
         return this.getLatest().__editorState;
     }
-    setLintErrors(lintErrors: LintError[]) {
+    setLintErrors(lintErrors: LintIssue[]) {
         this.getWritable().__lintErrors = lintErrors;
     }
     setSid(sid: string) {
@@ -128,8 +126,8 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
             this.getWritable().__isOpen = isOpen;
         });
     }
-    lintErrorsDoNeedUpdate(newLintErrors: LintError[]) {
-        return !areLintErrorListsEqual(this.__lintErrors ?? [], newLintErrors);
+    lintErrorsDoNeedUpdate(newLintErrors: LintIssue[]) {
+        return !areLintIssueListsEqual(this.__lintErrors ?? [], newLintErrors);
     }
 
     static clone(node: USFMNestedEditorNode): USFMNestedEditorNode {
@@ -242,7 +240,7 @@ export type USFMNestedEditorNodeMetadata = {
     usfmType: string;
     languageDirection: "ltr" | "rtl";
     sid: string;
-    lintErrors?: LintError[];
+    lintErrors?: LintIssue[];
     isOpen?: boolean;
     level?: string;
     inPara?: string;
@@ -349,7 +347,7 @@ export function getSerializedNestedEditorNode({
         inPara: token.inPara ?? undefined,
         inChars: token.inChars ?? undefined,
         attributes: token.attributes ?? {},
-        lintErrors: token.lintErrors ?? [],
+        lintErrors: [],
         // Serialize children of this token into a nested editor state
         editorState: {
             root: {

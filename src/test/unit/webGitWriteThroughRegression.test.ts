@@ -142,7 +142,7 @@ describe("web write-through regression", () => {
         );
     });
 
-    it("removes existing files before overwriting through zenfs backend", async () => {
+    it("overwrites existing files through zenfs backend without deleting first", async () => {
         const { runtime, rm } = createFakeRuntime();
         const writeBackend = new ZenFsFileWriteBackend(runtime as never);
 
@@ -155,7 +155,7 @@ describe("web write-through regression", () => {
             new TextEncoder().encode("short"),
         );
 
-        expect(rm).toHaveBeenCalledWith("/userData/projects/p/manifest.yaml");
+        expect(rm).not.toHaveBeenCalled();
         const bytes = await runtime.fs.promises.readFile(
             "/userData/projects/p/manifest.yaml",
         );

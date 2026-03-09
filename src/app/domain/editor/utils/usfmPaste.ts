@@ -3,7 +3,7 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
+import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
 const USFM_MARKER_PATTERN =
     /(^|[\s\u00A0])\\[A-Za-z][A-Za-z0-9]*\*?(?=$|[\s\u00A0])/gmu;
@@ -77,15 +77,28 @@ export function parseClipboardUsfmToTokens(args: {
     text: string;
     bookCode: string;
     direction: "ltr" | "rtl";
-}): ClipboardUsfmTokenParseResult {
+    usfmOnionService: IUsfmOnionService;
+}): Promise<ClipboardUsfmTokenParseResult> {
+    return parseClipboardUsfmToTokensAsync(args);
+}
+
+async function parseClipboardUsfmToTokensAsync(args: {
+    text: string;
+    bookCode: string;
+    direction: "ltr" | "rtl";
+    usfmOnionService: IUsfmOnionService;
+}): Promise<ClipboardUsfmTokenParseResult> {
     try {
         if (hasMalformedChapterOrVerseNumber(args.text)) {
             return { ok: false, reason: "parse-failed" };
         }
 
-        const parsed = parseUSFMChapter(args.text, args.bookCode);
+        const parsed = await args.usfmOnionService.parseUsfmChapter(
+            args.text,
+            args.bookCode,
+        );
 
-        const chapterTokens = flattenParsedChapterMap(parsed.usfm);
+        const chapterTokens = flattenParsedChapterMap(parsed.chapters);
         const flatTokens = flattenNestedTokens(chapterTokens);
         const hasInsertableTokens = flatTokens.some((token) =>
             VALID_INSERTABLE_TOKEN_TYPES.has(token.tokenType),
@@ -95,7 +108,8 @@ export function parseClipboardUsfmToTokens(args: {
         }
 
         return { ok: true, tokens: flatTokens };
-    } catch {
+    } catch (error) {
+        console.error("Error parsing USFM:", error);
         return { ok: false, reason: "parse-failed" };
     }
 }
@@ -123,7 +137,7 @@ export function parsedUsfmTokensToInsertableNodes(
                 inPara: token.inPara || "",
                 inChars: token.inChars,
                 attributes: token.attributes,
-                lintErrors: token.lintErrors,
+                lintErrors: [],
             }),
         );
     }
@@ -134,8 +148,18 @@ export function parseClipboardUsfmToInsertableNodes(args: {
     text: string;
     bookCode: string;
     direction: "ltr" | "rtl";
-}): ClipboardUsfmParseResult {
-    const parsed = parseClipboardUsfmToTokens(args);
+    usfmOnionService: IUsfmOnionService;
+}): Promise<ClipboardUsfmParseResult> {
+    return parseClipboardUsfmToInsertableNodesAsync(args);
+}
+
+async function parseClipboardUsfmToInsertableNodesAsync(args: {
+    text: string;
+    bookCode: string;
+    direction: "ltr" | "rtl";
+    usfmOnionService: IUsfmOnionService;
+}): Promise<ClipboardUsfmParseResult> {
+    const parsed = await parseClipboardUsfmToTokens(args);
     if (!parsed.ok) return parsed;
     const nodes = parsedUsfmTokensToInsertableNodes(parsed.tokens);
     if (!nodes.length) {

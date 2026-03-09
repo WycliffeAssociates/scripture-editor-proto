@@ -60,6 +60,7 @@
     "react-dom": "19.2.0",
     "react-highlight-words": "^0.21.0",
     "react-use": "17.6.0",
+    "usfm-onion-web": "github:WycliffeAssociates/usfm-onion",
     "valibot": "^1.1.0",
     "yaml": "2.8.1"
   },

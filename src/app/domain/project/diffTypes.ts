@@ -1,6 +1,10 @@
 import type { Change } from "diff";
 import type { SerializedLexicalNode } from "lexical";
-import type { DiffsByChapterMap } from "@/core/domain/usfm/chapterDiffOperation.ts";
+import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
+import type {
+    DiffTokenAlignment,
+    DiffUndoSide,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export type ChapterRenderToken = {
     node: SerializedLexicalNode;
@@ -24,6 +28,9 @@ export type ProjectDiff = {
     isUsfmStructureChange?: boolean;
     originalRenderTokens?: ChapterRenderToken[];
     currentRenderTokens?: ChapterRenderToken[];
+    originalAlignment?: DiffTokenAlignment[];
+    currentAlignment?: DiffTokenAlignment[];
+    undoSide?: DiffUndoSide;
 };
 
 export type DiffsByChapter = DiffsByChapterMap<ProjectDiff>;

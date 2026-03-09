@@ -12,6 +12,52 @@
     "fs:allow-appdata-write-recursive",
     "fs:allow-open",
     {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "$APPLOCALDATA/**"
+        },
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**"
+        },
+        {
+          "path": "$APPLOCALDATA/**/.*"
+        },
+        {
+          "path": "$APPDATA/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        {
+          "path": "$APPLOCALDATA/**"
+        },
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**"
+        },
+        {
+          "path": "$APPLOCALDATA/**/.*"
+        },
+        {
+          "path": "$APPDATA/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*"
+        }
+      ]
+    },
+    {
       "identifier": "fs:scope",
       "allow": [
         {
@@ -19,6 +65,9 @@
         },
         {
           "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**"
         },
         {
           "path": "$HOME/btt-refiner-proto/**"

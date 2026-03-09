@@ -56,8 +56,15 @@ test.describe("Project Creation Workflows", () => {
 
         await expect(page).toHaveURL(/\/create$/);
         await expect(
-            page.getByText("File imported successfully!", { exact: true }),
+            page
+                .getByRole("alert")
+                .filter({ hasText: "File imported successfully!" }),
         ).toBeVisible();
+        await expect(
+            page
+                .getByRole("alert")
+                .filter({ hasText: "File imported successfully!" }),
+        ).toContainText("File imported successfully!");
 
         const openProjectLink = page.getByRole("link", {
             name: "Open project",

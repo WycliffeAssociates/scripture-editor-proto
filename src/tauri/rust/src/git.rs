@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use git2::{
-    build::CheckoutBuilder, BranchType, IndexAddOption, ObjectType, Oid, Repository,
+    build::CheckoutBuilder, BranchType, ErrorCode, IndexAddOption, ObjectType, Oid, Repository,
     RepositoryInitOptions, Signature, Sort, Tree,
 };
 use serde::Serialize;
@@ -13,11 +13,11 @@ fn branch_exists(repo: &Repository, branch_name: &str) -> bool {
 }
 
 fn detect_default_branch(repo: &Repository, current: &str) -> Option<String> {
-    if branch_exists(repo, "master") {
-        return Some("master".to_string());
-    }
     if branch_exists(repo, "main") {
         return Some("main".to_string());
+    }
+    if branch_exists(repo, "master") {
+        return Some("master".to_string());
     }
     if !current.is_empty() && branch_exists(repo, current) {
         return Some(current.to_string());
@@ -52,12 +52,16 @@ fn collect_tree_text_files(
 
         match entry.kind() {
             Some(ObjectType::Blob) => {
-                let blob = repo.find_blob(entry.id()).map_err(|e| e.message().to_string())?;
+                let blob = repo
+                    .find_blob(entry.id())
+                    .map_err(|e| e.message().to_string())?;
                 let text = String::from_utf8_lossy(blob.content()).to_string();
                 out.insert(rel_path, text);
             }
             Some(ObjectType::Tree) => {
-                let subtree = repo.find_tree(entry.id()).map_err(|e| e.message().to_string())?;
+                let subtree = repo
+                    .find_tree(entry.id())
+                    .map_err(|e| e.message().to_string())?;
                 collect_tree_text_files(repo, &subtree, &rel_path, out)?;
             }
             _ => {}
@@ -86,7 +90,9 @@ fn collect_tree_paths(
                 out.insert(rel_path);
             }
             Some(ObjectType::Tree) => {
-                let subtree = repo.find_tree(entry.id()).map_err(|e| e.message().to_string())?;
+                let subtree = repo
+                    .find_tree(entry.id())
+                    .map_err(|e| e.message().to_string())?;
                 collect_tree_paths(repo, &subtree, &rel_path, out)?;
             }
             _ => {}
@@ -168,11 +174,28 @@ pub fn git_get_branch_info(repo_path: String) -> Result<GitBranchInfo, String> {
 #[tauri::command]
 pub fn git_checkout_preferred_branch(repo_path: String, prefer: String) -> Result<(), String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
-    let current = repo
-        .head()
+    let head_state = repo.head();
+    let current = head_state
+        .as_ref()
         .ok()
         .and_then(|head| head.shorthand().map(|s| s.to_string()))
         .unwrap_or_default();
+    let is_unborn = match &head_state {
+        Ok(head) => head.target().is_none(),
+        Err(error) => error.code() == ErrorCode::UnbornBranch,
+    };
+
+    if is_unborn {
+        let target = if prefer.is_empty() {
+            "main".to_string()
+        } else {
+            prefer
+        };
+        let ref_name = format!("refs/heads/{target}");
+        repo.reference_symbolic("HEAD", ref_name.as_str(), true, "set unborn HEAD")
+            .map_err(|e| e.message().to_string())?;
+        return Ok(());
+    }
 
     let target = if branch_exists(&repo, &prefer) {
         prefer
@@ -197,7 +220,9 @@ pub fn git_list_history(
 ) -> Result<Vec<GitHistoryEntry>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
     let mut revwalk = repo.revwalk().map_err(|e| e.message().to_string())?;
-    revwalk.push_head().map_err(|e| e.message().to_string())?;
+    if revwalk.push_head().is_err() {
+        return Ok(Vec::new());
+    }
     revwalk
         .set_sorting(Sort::TIME)
         .map_err(|e| e.message().to_string())?;
@@ -298,7 +323,9 @@ pub fn git_commit_all(
     index.write().map_err(|e| e.message().to_string())?;
 
     let tree_oid = index.write_tree().map_err(|e| e.message().to_string())?;
-    let tree = repo.find_tree(tree_oid).map_err(|e| e.message().to_string())?;
+    let tree = repo
+        .find_tree(tree_oid)
+        .map_err(|e| e.message().to_string())?;
 
     let parent = repo
         .head()
@@ -312,8 +339,8 @@ pub fn git_commit_all(
         }
     }
 
-    let signature =
-        Signature::now(author_name.as_str(), author_email.as_str()).map_err(|e| e.message().to_string())?;
+    let signature = Signature::now(author_name.as_str(), author_email.as_str())
+        .map_err(|e| e.message().to_string())?;
 
     let oid = if let Some(ref parent_commit) = parent {
         repo.commit(

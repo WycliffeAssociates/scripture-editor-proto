@@ -429,7 +429,7 @@ describe("reduceSerializedNodesToText", () => {
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
-            "verse-1": " Hello",
+            "verse-1": "Hello",
             "verse-2": "World",
         });
     });
@@ -444,7 +444,7 @@ describe("reduceSerializedNodesToText", () => {
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
-            "verse-1": " Verse text",
+            "verse-1": "Verse text",
         });
     });
 
@@ -505,7 +505,7 @@ describe("reduceSerializedNodesToText", () => {
 
         const result = reduceSerializedNodesToText(nodes);
         expect(result).toEqual({
-            "root-1": " Root child",
+            "root-1": "Root child",
             "deep-1": "Deep nested",
         });
     });
@@ -558,7 +558,7 @@ describe("reduceSerializedNodesToText", () => {
         ];
 
         const result = reduceSerializedNodesToText(nodes);
-        expect(result["verse-1"]).toBe("ABC DEF");
+        expect(result["verse-1"]).toBe("ABCDEF");
     });
 });
 

@@ -85,6 +85,35 @@ function renderWordGranularityToken(args: {
     return spans;
 }
 
+function normalizeTokenChange(args: {
+    tokenChange: "unchanged" | "added" | "deleted" | "modified" | "paired";
+    token: ChapterRenderParagraph["tokens"][number]["token"];
+    counterpartToken?: ChapterRenderParagraph["tokens"][number]["token"];
+}) {
+    if (args.tokenChange !== "modified") return args.tokenChange;
+    const counterpart = args.counterpartToken;
+    if (!counterpart) return args.tokenChange;
+
+    if (
+        args.token.node.type === "linebreak" &&
+        counterpart.node.type === "linebreak"
+    ) {
+        return "unchanged";
+    }
+
+    if (
+        isSerializedUSFMTextNode(args.token.node) &&
+        isSerializedUSFMTextNode(counterpart.node) &&
+        args.token.node.text === counterpart.node.text &&
+        args.token.node.tokenType === counterpart.node.tokenType &&
+        (args.token.node.marker ?? "") === (counterpart.node.marker ?? "")
+    ) {
+        return "unchanged";
+    }
+
+    return args.tokenChange;
+}
+
 function ChapterStructuredToken({
     paragraph,
     tokenIndex,
@@ -103,22 +132,30 @@ function ChapterStructuredToken({
     if (!tokenWithOwner) return null;
     const { entry, isFirstTokenOfEntry, token, tokenChange, counterpartToken } =
         tokenWithOwner;
+    const effectiveTokenChange = normalizeTokenChange({
+        tokenChange,
+        token,
+        counterpartToken,
+    });
 
-    const highlightClass = getTokenHighlightClass(tokenChange, viewType);
+    const highlightClass = getTokenHighlightClass(
+        effectiveTokenChange,
+        viewType,
+    );
 
     if (token.node.type === "linebreak") {
         const prevToken = paragraph.tokens[tokenIndex - 1]?.token;
         if (
             shouldHideStructuralLineBreak({
                 showUsfmMarkers,
-                tokenChange,
+                tokenChange: effectiveTokenChange,
                 previousToken: prevToken,
             })
         ) {
             return null;
         }
 
-        const showMarker = tokenChange !== "unchanged";
+        const showMarker = effectiveTokenChange !== "unchanged";
         return (
             <span key={tokenWithOwner.key}>
                 {showMarker && (
@@ -137,8 +174,12 @@ function ChapterStructuredToken({
         return null;
     }
 
+    const undoSide =
+        entry.diffToRevert?.undoSide ??
+        (entry.status === "deleted" ? "original" : "current");
+    const isUndoSide = viewType === undoSide;
     const showUndoOverlay =
-        viewType === "current" &&
+        isUndoSide &&
         isFirstTokenOfEntry &&
         entry.canRevert &&
         entry.diffToRevert;
@@ -153,7 +194,7 @@ function ChapterStructuredToken({
     const sideToken = token.node;
     const pairedCounterpartNode = counterpartToken?.node;
     const useWordGranularity =
-        tokenChange === "modified" &&
+        effectiveTokenChange === "modified" &&
         sideToken &&
         pairedCounterpartNode &&
         isSerializedUSFMTextNode(sideToken) &&
@@ -203,7 +244,7 @@ function ChapterStructuredToken({
                 data-marker={token.node.marker}
                 data-lexical-text="true"
             >
-                {tokenWordContent ?? token.node.text}
+                {tokenWordContent ?? sideToken.text}
             </span>
         </span>
     );

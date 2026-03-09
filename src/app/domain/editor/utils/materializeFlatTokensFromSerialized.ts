@@ -94,7 +94,6 @@ export function* materializeFlatTokensFromSerialized(
             const firstChild = children[0];
             const markerText = markerTokenBase.text ?? "";
             const markerHasTrailingWs = /[ \t]+$/u.test(markerText);
-            const markerEndsWithAnyWs = /\s$/u.test(markerText);
 
             const firstChildIsText =
                 firstChild &&
@@ -118,11 +117,6 @@ export function* materializeFlatTokensFromSerialized(
                 firstChildIsText &&
                 !firstChildStartsWithWs;
 
-            const shouldEnsureSeparatorSpace =
-                !markerEndsWithAnyWs &&
-                firstChildIsText &&
-                !firstChildStartsWithWs;
-
             const markerToken: SerializedUSFMTextNode =
                 shouldPushMarkerTrailingWsToFirstChild
                     ? ({
@@ -136,14 +130,8 @@ export function* materializeFlatTokensFromSerialized(
             if (children.length === 0) continue;
 
             // Yield children, patching the very first child as needed.
-            if (
-                firstChildIsText &&
-                (shouldPushMarkerTrailingWsToFirstChild ||
-                    shouldEnsureSeparatorSpace)
-            ) {
-                const prefix = shouldPushMarkerTrailingWsToFirstChild
-                    ? trailingWs
-                    : " ";
+            if (firstChildIsText && shouldPushMarkerTrailingWsToFirstChild) {
+                const prefix = trailingWs;
                 yield {
                     ...(firstChild as SerializedUSFMTextNode),
                     text: `${prefix}${(firstChild as SerializedUSFMTextNode).text}`,
@@ -204,6 +192,61 @@ export function materializeFlatTokensArray(
     options: MaterializeOptions = { nested: "flatten" },
 ): SerializedLexicalNode[] {
     return [...materializeFlatTokensFromSerialized(rootChildren, options)];
+}
+
+function isTextualContentNode(
+    node: SerializedLexicalNode | undefined,
+): node is SerializedUSFMTextNode {
+    return (
+        !!node &&
+        isSerializedUSFMTextNode(node) &&
+        (node.tokenType === UsfmTokenTypes.text ||
+            node.tokenType === UsfmTokenTypes.numberRange) &&
+        typeof node.text === "string" &&
+        node.text.length > 0
+    );
+}
+
+/**
+ * Canonical onion token projection prefers horizontal separator whitespace on
+ * nearby visible text, not on marker tokens. Keep the marker suffix only when
+ * there is no visible text token to receive it.
+ */
+export function normalizeMarkerWhitespaceForOperations(
+    flatTokens: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const normalized = [...flatTokens];
+
+    for (let i = 0; i < normalized.length - 1; i++) {
+        const current = normalized[i];
+        const next = normalized[i + 1];
+
+        if (!isSerializedUSFMTextNode(current)) continue;
+        if (
+            current.tokenType !== UsfmTokenTypes.marker &&
+            current.tokenType !== UsfmTokenTypes.endMarker
+        ) {
+            continue;
+        }
+
+        const text = current.text ?? "";
+        const trailingWsMatch = text.match(/[ \t]+$/u);
+        const trailingWs = trailingWsMatch?.[0] ?? "";
+        if (!trailingWs) continue;
+        if (!isTextualContentNode(next)) continue;
+        if (/^\s/u.test(next.text ?? "")) continue;
+
+        normalized[i] = {
+            ...current,
+            text: text.slice(0, -trailingWs.length),
+        } as SerializedLexicalNode;
+        normalized[i + 1] = {
+            ...next,
+            text: `${trailingWs}${next.text ?? ""}`,
+        } as SerializedLexicalNode;
+    }
+
+    return normalized;
 }
 
 /**
