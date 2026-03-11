@@ -35,6 +35,8 @@ const LanguageSchema = v.object({
     scriptDirection: v.optional(v.picklist(["ltr", "rtl"])),
 });
 
+export type BurritoLanguage = v.InferOutput<typeof LanguageSchema>;
+
 /**
  * Schema for language definitions in burrito metadata
  */
