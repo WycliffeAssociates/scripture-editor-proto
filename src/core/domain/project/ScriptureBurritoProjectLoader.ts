@@ -12,6 +12,7 @@ import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileWriter } from "@/core/io/IFileWriter.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import {
+    type BurritoLanguage,
     type Ingredient,
     type ScriptureBurritoMetadata,
     tryParseScriptureBurritoMetadata,
@@ -182,15 +183,23 @@ export class ScriptureBurritoProjectLoader implements IProjectLoader {
             if (!metadata) {
                 return null;
             }
-            const defaultLanguageTag = metadata.meta.defaultLocale || "en";
+
+            const defaultLocale = metadata.meta.defaultLocale || "en";
+
+            //TODO: Fix to some kind of unknown language rather than using English (which is presumably incorrect)
+            const fallbackLanguage: BurritoLanguage = {
+                name: { en: "English" },
+                tag: "en",
+                scriptDirection: "ltr",
+            };
+
+            const lang = metadata?.languages?.[0] || fallbackLanguage;
+
+            const defaultLanguageTag = lang.tag;
             const defaultLanguageName =
-                metadata.languages?.find(
-                    (lang) => lang.tag === defaultLanguageTag,
-                )?.name[defaultLanguageTag] ?? "English";
+                lang.name[lang.tag] || lang.name[defaultLocale];
             const defaultLanguageDirection =
-                metadata.languages?.find(
-                    (lang) => lang.tag === defaultLanguageTag,
-                )?.scriptDirection === "rtl"
+                lang.scriptDirection === "rtl"
                     ? LanguageDirection.RTL
                     : LanguageDirection.LTR;
 
