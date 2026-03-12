@@ -1,9 +1,6 @@
-import type { Token } from "moo";
 import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
-import { createParsedToken } from "@/core/data/usfm/parse.ts";
+import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import {
-    markerTrimNoSlash,
     numRangeRe,
     TokenMap,
     type TokenName,
@@ -45,120 +42,6 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     }
     return tokens;
 };
-
-export const organizeByChapters = <T extends LintableToken>(
-    parsedTokens: T[],
-) => {
-    const chapMatch = /\w{3}\s+(\d{1,3})/;
-    const processed = parsedTokens.reduce(
-        (acc, token) => {
-            const chapterMatch = token?.sid?.match(chapMatch);
-
-            const chap = chapterMatch?.[1];
-            if (chap && chap !== acc.curIdx.toString()) {
-                acc.curIdx = parseInt(chap, 10);
-                acc.chapters[acc.curIdx] = [];
-            }
-
-            acc.chapters[acc.curIdx].push(createParsedToken<T>(token));
-            return acc;
-        },
-        {
-            curIdx: 0,
-            chapters: {
-                0: [],
-            } as Record<number, T[]>,
-        },
-    );
-    return processed.chapters;
-};
-
-export function prepareTokens<T extends LintableToken>(
-    text: string,
-    lexFn: (src: string) => Token[],
-    bookCode?: string,
-): { tokens: Array<T & Token>; bookCode: string } {
-    const tokens = lexFn(text) as Array<T & Token>;
-    const bookCodeToUse =
-        bookCode ||
-        tokens
-            .find(
-                (t) =>
-                    t?.tokenType === TokenMap.bookCode ||
-                    t.type === TokenMap.bookCode,
-            )
-            ?.text?.trim();
-    if (!bookCodeToUse) {
-        throw new Error("No book code found");
-    }
-
-    for (let i = 0; i < tokens.length; i++) {
-        prepareLexedToken(tokens[i], i);
-    }
-
-    mutAddSids(tokens, bookCodeToUse);
-    return { tokens, bookCode: bookCodeToUse };
-}
-export function preparedAlreadyGivenTokens<T extends LintableToken>(
-    tokens: T[],
-) {
-    const bookCode = tokens
-        .find((t) => t.tokenType === TokenMap.bookCode)
-        ?.text?.trim();
-    if (!bookCode) {
-        throw new Error("No book code found");
-    }
-    for (let i = 0; i < tokens.length; i++) {
-        prepareLexedToken(tokens[i], i);
-    }
-
-    mutAddSids(tokens, bookCode);
-
-    return { tokens, bookCode };
-}
-
-function prepareLexedToken<T extends Token | LintableToken>(
-    token: T,
-    i: number,
-): asserts token is T & LintableToken {
-    const markersToUnify = new Set([
-        "idMarker",
-        "chapterMarker",
-        "verseMarker",
-        "chapterAltOpen",
-        "verseAltOpen",
-        "chapterPublished",
-        "versePublished",
-        "escapedMarker",
-    ]);
-
-    // figure out the type string from either field
-    let typeToUse: string = "";
-    // order matters here. if already has tokenType computed, ie from lexical side on lint, use that.
-    if ("tokenType" in token) {
-        typeToUse = token.tokenType ?? "";
-    } else if ("type" in token) {
-        typeToUse = token.type ?? "";
-    }
-
-    const normalizedType = markersToUnify.has(typeToUse)
-        ? TokenMap.marker
-        : typeToUse;
-
-    // use id already on token if present, else the loop index
-    (token as LintableToken).id ??= String(i);
-    (token as LintableToken).tokenType = normalizedType;
-
-    // assign marker if applicable
-    if (normalizedType === TokenMap.marker) {
-        (token as LintableToken).marker = markerTrimNoSlash(token.text);
-    }
-    if (normalizedType === TokenMap.endMarker) {
-        (token as LintableToken).marker = markerTrimNoSlash(
-            token.text.replace("*", ""),
-        );
-    }
-}
 
 function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     tokens: T[],

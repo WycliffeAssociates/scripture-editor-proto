@@ -1,11 +1,11 @@
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     editorTreeToLexicalStatesByChapter,
-    flatTokensToLoadedLexicalStatesByChapter,
+    groupFlatTokensByChapter,
 } from "@/app/domain/editor/serialization/usjToLexical.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    lexicalEditorStateToOnionUsfmString,
+    onionFlatTokensToLoadedEditorState,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -36,25 +36,18 @@ export async function rebuildParsedFileFromUsfm(args: {
           ) === "regular"
         : true;
 
-    const loadedTokensByChapter = Object.fromEntries(
-        args.targetFile.chapters.map((existingChapter) => [
-            existingChapter.chapNumber,
-            existingChapter.loadedLexicalState,
-        ]),
-    );
-
     const rebuiltByChapter = editorTreeToLexicalStatesByChapter({
-        tree: projection.editorTree,
+        tree: projection.documentTree,
         direction,
         needsParagraphs,
-        loadedTokensByChapter:
-            Object.keys(loadedTokensByChapter).length > 0
-                ? loadedTokensByChapter
-                : flatTokensToLoadedLexicalStatesByChapter(
-                      projection.tokens,
-                      direction,
-                  ),
+        loadedTokensByChapter: Object.fromEntries(
+            args.targetFile.chapters.map((existingChapter) => [
+                existingChapter.chapNumber,
+                existingChapter.loadedLexicalState,
+            ]),
+        ),
     });
+    const sourceTokensByChapter = groupFlatTokensByChapter(projection.tokens);
 
     args.targetFile.chapters = Object.entries(rebuiltByChapter)
         .map(([chapterNum, states]) => {
@@ -63,16 +56,24 @@ export async function rebuildParsedFileFromUsfm(args: {
                 (candidate) => candidate.chapNumber === chapNumber,
             );
             const nextLexicalState = states.lexicalState;
-            const nextLoadedState =
-                existingChapter?.loadedLexicalState ??
-                states.loadedLexicalState;
+            const nextSourceTokens =
+                existingChapter?.sourceTokens ??
+                sourceTokensByChapter[chapNumber] ??
+                [];
+            const nextLoadedState = onionFlatTokensToLoadedEditorState({
+                tokens: nextSourceTokens,
+                direction,
+            });
+            const nextCurrentTokens = sourceTokensByChapter[chapNumber] ?? [];
             return {
                 lexicalState: nextLexicalState,
                 loadedLexicalState: nextLoadedState,
+                sourceTokens: structuredClone(nextSourceTokens),
+                currentTokens: structuredClone(nextCurrentTokens),
                 chapNumber,
                 dirty:
-                    lexicalEditorStateToOnionUsfmString(nextLexicalState) !==
-                    lexicalEditorStateToOnionUsfmString(nextLoadedState),
+                    nextCurrentTokens.map((token) => token.text).join("") !==
+                    nextSourceTokens.map((token) => token.text).join(""),
             };
         })
         .sort((a, b) => a.chapNumber - b.chapNumber);

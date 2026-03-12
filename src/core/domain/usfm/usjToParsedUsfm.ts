@@ -45,12 +45,13 @@ function addTokenToChapter(
 function makeMarkerToken(
     state: BuilderState,
     marker: string,
+    text: string = `\\${marker}`,
     target?: ParsedToken[],
 ): ParsedToken {
     const token: ParsedToken = {
         id: makeId(state),
         tokenType: TokenMap.marker,
-        text: `\\${marker}`,
+        text,
         marker,
         sid: state.currentSid,
         inPara: state.currentPara ?? undefined,
@@ -138,6 +139,19 @@ function markerFromElement(element: UsjElement): string | null {
     return null;
 }
 
+function markerTextFromNode(node: UsjElement): string {
+    if (typeof (node as Record<string, unknown>).markerText === "string") {
+        return String((node as Record<string, unknown>).markerText);
+    }
+
+    if (node.type === "note") {
+        const caller = typeof node.caller === "string" ? node.caller : "";
+        return caller ? `\\${node.marker} ` : `\\${node.marker}`;
+    }
+
+    return markerFromElement(node) ? `\\${markerFromElement(node)}` : "";
+}
+
 function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
     if (typeof node === "string") {
         makeTextToken(state, node, target);
@@ -149,7 +163,12 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
             state.bookCode = node.code;
             state.currentChapter = 0;
             state.currentSid = `${node.code} 0:0`;
-            makeMarkerToken(state, node.marker, target);
+            makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             makeBookCodeToken(state, node.code, target);
             node.content?.forEach((child) => {
                 walkNode(state, child, target);
@@ -163,7 +182,12 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
                 typeof (node as Record<string, unknown>).sid === "string"
                     ? String((node as Record<string, unknown>).sid)
                     : `${state.bookCode} ${nextChapter}:0`;
-            makeMarkerToken(state, node.marker, target);
+            makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             makeNumberToken(state, node.number, target);
             return;
         }
@@ -172,14 +196,24 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
                 typeof (node as Record<string, unknown>).sid === "string"
                     ? String((node as Record<string, unknown>).sid)
                     : `${state.bookCode} ${state.currentChapter}:${node.number}`;
-            makeMarkerToken(state, node.marker, target);
+            makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             makeNumberToken(state, node.number, target);
             return;
         }
         case "para": {
             const previousPara = state.currentPara;
             state.currentPara = node.marker;
-            makeMarkerToken(state, node.marker, target);
+            makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             node.content?.forEach((child) => {
                 walkNode(state, child, target);
             });
@@ -204,7 +238,7 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
                 return;
             }
 
-            makeMarkerToken(state, marker, target);
+            makeMarkerToken(state, marker, markerTextFromNode(node), target);
             const previousChars = state.charStack;
             if (node.type === "char" || node.type === "ref") {
                 state.charStack = [...state.charStack, marker];
@@ -220,7 +254,12 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
             return;
         }
         case "note": {
-            const noteToken = makeMarkerToken(state, node.marker, target);
+            const noteToken = makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             noteToken.content = [];
 
             if (node.caller) {
@@ -234,7 +273,12 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
             return;
         }
         case "ms": {
-            makeMarkerToken(state, node.marker, target);
+            makeMarkerToken(
+                state,
+                node.marker,
+                markerTextFromNode(node),
+                target,
+            );
             return;
         }
         case "optbreak": {
@@ -248,9 +292,7 @@ function walkNode(state: BuilderState, node: UsjNode, target?: ParsedToken[]) {
     }
 }
 
-export function usjToParsedUsfmChapters(
-    document: UsjDocument,
-): ParsedUsfmChapters {
+function usjToParsedUsfmChapters(document: UsjDocument): ParsedUsfmChapters {
     const state: BuilderState = {
         nextId: 0,
         bookCode: "UNK",

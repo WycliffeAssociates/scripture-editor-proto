@@ -1,6 +1,7 @@
 import { Box, Button, Popover, Text } from "@mantine/core";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { LexicalEditor } from "lexical";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
@@ -10,6 +11,7 @@ import {
     lintErrorListItem,
     lintPopoverButton,
     lintPopoverDropdown,
+    lintPopoverScrollArea,
 } from "@/app/ui/styles/modules/LintPopover.css.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import { rafUntilSuccessOrTimeout } from "@/core/data/utils/generic.ts";
@@ -24,6 +26,27 @@ export function LintPopover({ wrapperClassNames }: Props) {
     const hasMessages = lint.messages.length > 0;
     const prevDomElSelected = useRef<HTMLElement | null>(null);
     const [lintPopoverIsOpen, setLintPopoverIsOpen] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const virtualizer = useVirtualizer({
+        count: lint.messages.length,
+        getScrollElement: () => scrollContainerRef.current,
+        estimateSize: () => 88,
+        overscan: 6,
+        enabled: lintPopoverIsOpen,
+        measureElement: (element) => element.getBoundingClientRect().height,
+    });
+
+    useEffect(() => {
+        if (!lintPopoverIsOpen) return;
+
+        const frame = requestAnimationFrame(() => {
+            virtualizer.measure();
+            virtualizer.scrollToOffset(0);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [lintPopoverIsOpen, virtualizer]);
 
     const copyLintDiagnostics = useCallback(async () => {
         const payload = {
@@ -69,6 +92,7 @@ export function LintPopover({ wrapperClassNames }: Props) {
                     {import.meta.env.DEV && (
                         <Button
                             variant="light"
+                            h={148}
                             size="xs"
                             fullWidth
                             mb="xs"
@@ -77,19 +101,48 @@ export function LintPopover({ wrapperClassNames }: Props) {
                             Copy Debug Info
                         </Button>
                     )}
-                    <ul
-                        className={lintErrorList}
+                    <div
+                        ref={scrollContainerRef}
+                        className={lintPopoverScrollArea}
                         data-testid={TESTING_IDS.lintPopover.container}
                     >
-                        {lint.messages.map((msg, index) => (
-                            <LintMessageItem
-                                key={`${msg.tokenId ?? msg.relatedTokenId}-${msg.sid}-${msg.code}-${index}`}
-                                msg={msg}
-                                editorRef={editorRef}
-                                prevDomElSelected={prevDomElSelected}
-                            />
-                        ))}
-                    </ul>
+                        <ul
+                            className={lintErrorList}
+                            style={{
+                                height: `${virtualizer.getTotalSize()}px`,
+                                width: "100%",
+                                position: "relative",
+                            }}
+                        >
+                            {virtualizer.getVirtualItems().map((virtualRow) => {
+                                const msg = lint.messages[virtualRow.index];
+                                if (!msg) return null;
+                                return (
+                                    <li
+                                        key={`${msg.tokenId ?? msg.relatedTokenId}-${msg.sid}-${msg.code}-${virtualRow.index}`}
+                                        className={lintErrorListItem}
+                                        data-index={virtualRow.index}
+                                        ref={virtualizer.measureElement}
+                                        style={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100%",
+                                            transform: `translateY(${virtualRow.start}px)`,
+                                        }}
+                                    >
+                                        <LintMessageItem
+                                            msg={msg}
+                                            editorRef={editorRef}
+                                            prevDomElSelected={
+                                                prevDomElSelected
+                                            }
+                                        />
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
                 </Popover.Dropdown>
             </Popover>
         </div>
@@ -314,43 +367,41 @@ function LintMessageItem({
     };
 
     return (
-        <li className={lintErrorListItem}>
-            <Box
-                className={lintErrorItem}
-                data-testid={TESTING_IDS.lintPopover.errorItem}
-                onClick={handleNavigate}
-            >
-                <Box className={lintErrorDetails}>
-                    <Text
-                        size="xs"
-                        fw={700}
-                        data-testid={TESTING_IDS.lintPopover.errorSid}
-                    >
-                        {msg.sid}
-                    </Text>
-                    <Text
-                        size="xs"
-                        data-testid={TESTING_IDS.lintPopover.errorMessage}
-                    >
-                        {msg.message}
-                    </Text>
-                </Box>
-                {msg.fix && (
-                    <Button
-                        size="compact-xs"
-                        variant="light"
-                        color="blue"
-                        mt="xs"
-                        w="max-content"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            actions.fixLintError(msg);
-                        }}
-                    >
-                        {msg.fix.label}
-                    </Button>
-                )}
+        <Box
+            className={lintErrorItem}
+            data-testid={TESTING_IDS.lintPopover.errorItem}
+            onClick={handleNavigate}
+        >
+            <Box className={lintErrorDetails}>
+                <Text
+                    size="xs"
+                    fw={700}
+                    data-testid={TESTING_IDS.lintPopover.errorSid}
+                >
+                    {msg.sid}
+                </Text>
+                <Text
+                    size="xs"
+                    data-testid={TESTING_IDS.lintPopover.errorMessage}
+                >
+                    {msg.message}
+                </Text>
             </Box>
-        </li>
+            {msg.fix && (
+                <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="blue"
+                    mt="xs"
+                    w="max-content"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        actions.fixLintError(msg);
+                    }}
+                >
+                    {msg.fix.label}
+                </Button>
+            )}
+        </Box>
     );
 }

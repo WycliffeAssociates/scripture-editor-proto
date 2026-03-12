@@ -50,6 +50,15 @@ export const lintErrorDetails = style({
 
 export const lintPopoverDropdown = style({
     maxHeight: "16rem",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+});
+
+export const lintPopoverScrollArea = style({
+    flex: 1,
+    minHeight: 0,
     overflowY: "auto",
 });
 
@@ -57,13 +66,10 @@ export const lintErrorList = style({
     listStyle: "none",
     margin: 0,
     padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: vars.spacing.sm,
-    alignItems: "stretch",
     fontSize: vars.fontSizes.sm,
 });
 
 export const lintErrorListItem = style({
     width: "100%",
+    paddingBottom: vars.spacing.sm,
 });

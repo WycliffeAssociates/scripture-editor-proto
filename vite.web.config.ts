@@ -5,6 +5,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import wasm from "vite-plugin-wasm";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -25,6 +26,7 @@ export default defineConfig({
         }),
         lingui(),
         vanillaExtractPlugin(),
+        wasm(),
         {
             name: "my-plugin-for-index-html-build-replacement",
 

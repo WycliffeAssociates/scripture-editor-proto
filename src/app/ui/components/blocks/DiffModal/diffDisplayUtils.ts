@@ -1,7 +1,7 @@
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ChapterRenderToken } from "@/app/domain/project/diffTypes.ts";
 
-export function isStructuralGlueMarker(marker?: string): boolean {
+function isStructuralGlueMarker(marker?: string): boolean {
     return Boolean(marker) && marker !== "lb";
 }
 

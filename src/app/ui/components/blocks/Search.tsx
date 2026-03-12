@@ -87,7 +87,7 @@ export function SearchPanel() {
     );
 }
 
-export function SearchControls({ search }: { search: UseSearchReturn }) {
+function SearchControls({ search }: { search: UseSearchReturn }) {
     const { t } = useLingui();
     const { isSm } = useWorkspaceMediaQuery();
     const isSortActive = search.currentSort === "caseMismatch";

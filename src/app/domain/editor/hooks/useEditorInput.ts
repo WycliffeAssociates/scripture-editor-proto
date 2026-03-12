@@ -12,13 +12,17 @@ import {
     type LexicalEditor,
     type LexicalNode,
     PASTE_COMMAND,
+    SELECTION_CHANGE_COMMAND,
 } from "lexical";
 import { useEffect } from "react";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     handleBackslashOnStartOfVerse,
+    handleBackspaceToRemoveLinebreakBeforeVerse,
     handleEnterOnStartOfVerse,
     moveToAdjacentNodesWhenSeemsAppropriate,
+    normalizeSelectionAtHiddenMarkerBoundary,
+    redirectPrintableTypingAtHiddenMarkerBoundary,
 } from "@/app/domain/editor/listeners/editorQualityOfLife.ts";
 import {
     inverseTextNodeTransform,
@@ -43,8 +47,8 @@ import {
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 
 /**
  * Hook that registers all editor input handling including:
@@ -84,10 +88,26 @@ export function useEditorInput(editor: LexicalEditor) {
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
 
+        const normalizeSelectionAtHiddenMarkerBoundaryUnregister =
+            editor.registerCommand(
+                SELECTION_CHANGE_COMMAND,
+                () => {
+                    if (editorModeSetting !== "regular") return false;
+                    return normalizeSelectionAtHiddenMarkerBoundary(editor);
+                },
+                COMMAND_PRIORITY_HIGH,
+            );
+
         // Register KEY_DOWN_COMMAND for moving to adjacent nodes
         const moveToAdjacentNodesUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {
+                if (
+                    editorModeSetting === "regular" &&
+                    redirectPrintableTypingAtHiddenMarkerBoundary(editor, event)
+                ) {
+                    return true;
+                }
                 return moveToAdjacentNodesWhenSeemsAppropriate(editor, event);
             },
             COMMAND_PRIORITY_HIGH,
@@ -98,6 +118,14 @@ export function useEditorInput(editor: LexicalEditor) {
                 KEY_BACKSPACE_COMMAND,
                 (event: KeyboardEvent) => {
                     if (editorModeSetting !== "regular") return false;
+                    if (
+                        handleBackspaceToRemoveLinebreakBeforeVerse(
+                            editor,
+                            event,
+                        )
+                    ) {
+                        return true;
+                    }
                     const selection = $getSelection();
                     if (
                         !$isRangeSelection(selection) ||
@@ -430,6 +458,7 @@ export function useEditorInput(editor: LexicalEditor) {
         const cleanup = () => {
             unregisterTransformWhileTyping();
             redirectParaInsertionToLineBreakUnregister();
+            normalizeSelectionAtHiddenMarkerBoundaryUnregister();
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();
             insertParagraphAfterStructuralEmptyMarkerUnregister();
@@ -472,7 +501,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 history.redo();
                 return;
             }
-
             if (
                 (event.metaKey || event.ctrlKey) &&
                 event.key.toLowerCase() === "f"

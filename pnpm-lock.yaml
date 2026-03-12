@@ -62,12 +62,6 @@ importers:
       '@vanilla-extract/css':
         specifier: ^1.17.4
         version: 1.17.4
-      '@zenfs/core':
-        specifier: ^2.5.0
-        version: 2.5.0
-      '@zenfs/dom':
-        specifier: ^1.2.7
-        version: 1.2.7(@zenfs/core@2.5.0)(kerium@1.3.8)(utilium@2.8.0)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -107,6 +101,9 @@ importers:
       react-use:
         specifier: 17.6.0
         version: 17.6.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      usfm-onion-web:
+        specifier: github:WycliffeAssociates/usfm-onion#bf7892981489a9ef5afba269b927bc66a7f332db
+        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db
       valibot:
         specifier: ^1.1.0
         version: 1.1.0(typescript@5.9.3)
@@ -186,6 +183,9 @@ importers:
       vite:
         specifier: 7.2.2
         version: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1)
+      vite-plugin-wasm:
+        specifier: ^3.5.0
+        version: 3.5.0(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1))
       vitest:
         specifier: 4.0.15
         version: 4.0.15(@types/node@24.10.0)(happy-dom@20.1.0)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1)
@@ -1604,8 +1604,8 @@ packages:
   '@types/moo@0.5.10':
     resolution: {integrity: sha512-W6KzyZjXUYpwQfLK1O1UDzqcqYlul+lO7Bt71luyIIyNlOZwJaNeWWdqFs1C/f2hohZvUFHMk6oFNe9Rg48DbA==}
 
-  '@types/node@20.19.28':
-    resolution: {integrity: sha512-VyKBr25BuFDzBFCK5sUM6ZXiWfqgCTwTAOK8qzGV/m9FCirXYDlmczJ+d5dXBAQALGCdRRdbteKYfJ84NGEusw==}
+  '@types/node@20.19.37':
+    resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
 
   '@types/node@24.10.0':
     resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
@@ -1693,22 +1693,6 @@ packages:
 
   '@xobotyi/scrollbar-width@1.9.5':
     resolution: {integrity: sha512-N8tkAACJx2ww8vFMneJmaAgmjAG1tnVBZJRLRcx061tmsLRZHSEZSLuGWnwPtunsSLvSqXQ2wfp7Mgqg1I+2dQ==}
-
-  '@xterm/xterm@5.5.0':
-    resolution: {integrity: sha512-hqJHYaQb5OptNunnyAnkHyM8aCjZ1MEIDTQu1iIbbTD/xops91NB5yq1ZK/dC2JDbVWtF23zUtl9JE2NqwT87A==}
-
-  '@zenfs/core@2.5.0':
-    resolution: {integrity: sha512-8yiSZLnFRJz9gfsBC+U1lvbeJprHJJNWSGNnadO+0AyYhW68owhNdoxVkTrP1ugbTDVvbUGiT3iWSBHDd93VZQ==}
-    engines: {node: '>= 18'}
-    hasBin: true
-
-  '@zenfs/dom@1.2.7':
-    resolution: {integrity: sha512-f0V512ROaUf44fKItRvZV3DQLMwo4jnQoprWGyasDSwn2oDG1TPkJ+vak3iuhqZgWD/wTWmXbpv3KE/yKDBGiA==}
-    engines: {node: '>= 22'}
-    peerDependencies:
-      '@zenfs/core': ^2.3.11
-      kerium: ^1.3.4
-      utilium: ^2.5.0
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -2116,9 +2100,6 @@ packages:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
 
-  eventemitter3@5.0.4:
-    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
-
   events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
     engines: {node: '>=0.8.x'}
@@ -2418,9 +2399,6 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  kerium@1.3.8:
-    resolution: {integrity: sha512-tOtOOsTZ85Wt4h8TwV4ItgTi6paj2U1buOC/v9Rdon0ndtqASm5fn/rBRfEsif1czW4+u73T7XPbQAIBUF4tzg==}
-
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
@@ -2494,8 +2472,8 @@ packages:
   lexical@0.35.0:
     resolution: {integrity: sha512-3VuV8xXhh5xJA6tzvfDvE0YBCMkIZUmxtRilJQDDdCgJCc+eut6qAv2qbN+pbqvarqcQqPN1UF+8YvsjmyOZpw==}
 
-  lib0@0.2.114:
-    resolution: {integrity: sha512-gcxmNFzA4hv8UYi8j43uPlQ7CGcyMJ2KQb5kZASw6SnAKAf10hK12i2fjrS3Cl/ugZa5Ui6WwIu1/6MIXiHttQ==}
+  lib0@0.2.117:
+    resolution: {integrity: sha512-DeXj9X5xDCjgKLU/7RR+/HQEVzuuEUiwldwOGsHK/sfAfELGWEyTcf0x+uOvCvK3O2zPmZePXWL85vtia6GyZw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -2621,9 +2599,6 @@ packages:
 
   media-query-parser@2.0.2:
     resolution: {integrity: sha512-1N4qp+jE0pL5Xv4uEcwVUhIkwdUO3S/9gML90nqKA7v7FcOS5vUtatfzok9S9U1EJU8dHWlcv95WLnKmmxZI9w==}
-
-  memium@0.3.11:
-    resolution: {integrity: sha512-CwmIpLVSG7UToDj2sYAZFDkpco30OPsXpaCnt+7Z7JQaulCjH5UvwJIctTIHmgQdFqk8pliBsPLnH5OZcDLZyQ==}
 
   memoize-one@4.0.3:
     resolution: {integrity: sha512-QmpUu4KqDmX0plH4u+tf0riMc1KHE1+lw95cMrLlXQAFOx/xnBtwhZ52XJxd9X2O6kwKBqX32kmhbhlobD0cuw==}
@@ -3354,13 +3329,12 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db:
+    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db}
+    version: 0.1.0
+
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
-
-  utilium@2.8.0:
-    resolution: {integrity: sha512-NFgYFsJyehArUMvZWBnr0t2oAW7Vn0CC7/5y9Yufso7NMGnBTtx1u2PyeIiUuDCefKXtwKKyznQDSJ3Q+P/ZNg==}
-    engines: {node: '>=22.0.0'}
-    hasBin: true
 
   valibot@1.1.0:
     resolution: {integrity: sha512-Nk8lX30Qhu+9txPYTwM0cFlWLdPFsFr6LblzqIySfbZph9+BFsAHsNvHOymEviUepeIW6KFHzpX8TKhbptBXXw==}
@@ -3374,6 +3348,11 @@ packages:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
+
+  vite-plugin-wasm@3.5.0:
+    resolution: {integrity: sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==}
+    peerDependencies:
+      vite: ^2 || ^3 || ^4 || ^5 || ^6 || ^7
 
   vite@7.2.2:
     resolution: {integrity: sha512-BxAKBWmIbrDgrokdGZH1IgkIk/5mMHDreLDmCJ0qpyJaAteP8NvMhkwr/ZCQNqNH97bw/dANTE9PDzqwJghfMQ==}
@@ -4899,7 +4878,7 @@ snapshots:
 
   '@types/moo@0.5.10': {}
 
-  '@types/node@20.19.28':
+  '@types/node@20.19.37':
     dependencies:
       undici-types: 6.21.0
     optional: true
@@ -5070,25 +5049,6 @@ snapshots:
       tinyrainbow: 3.0.3
 
   '@xobotyi/scrollbar-width@1.9.5': {}
-
-  '@xterm/xterm@5.5.0':
-    optional: true
-
-  '@zenfs/core@2.5.0':
-    dependencies:
-      '@types/node': 24.10.0
-      buffer: 6.0.3
-      eventemitter3: 5.0.4
-      kerium: 1.3.8
-      memium: 0.3.11
-      readable-stream: 4.7.0
-      utilium: 2.8.0
-
-  '@zenfs/dom@1.2.7(@zenfs/core@2.5.0)(kerium@1.3.8)(utilium@2.8.0)':
-    dependencies:
-      '@zenfs/core': 2.5.0
-      kerium: 1.3.8
-      utilium: 2.8.0
 
   abort-controller@3.0.0:
     dependencies:
@@ -5495,8 +5455,6 @@ snapshots:
 
   event-target-shim@5.0.1: {}
 
-  eventemitter3@5.0.4: {}
-
   events@3.3.0: {}
 
   exit-hook@2.2.1: {}
@@ -5608,7 +5566,7 @@ snapshots:
 
   happy-dom@20.1.0:
     dependencies:
-      '@types/node': 20.19.28
+      '@types/node': 20.19.37
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       whatwg-mimetype: 3.0.0
@@ -5794,10 +5752,6 @@ snapshots:
 
   json5@2.2.3: {}
 
-  kerium@1.3.8:
-    dependencies:
-      utilium: 2.8.0
-
   kleur@4.1.5: {}
 
   knip@5.80.0(@types/node@24.10.0)(typescript@5.9.3):
@@ -5864,7 +5818,7 @@ snapshots:
 
   lexical@0.35.0: {}
 
-  lib0@0.2.114:
+  lib0@0.2.117:
     dependencies:
       isomorphic.js: 0.2.5
 
@@ -5962,11 +5916,6 @@ snapshots:
   media-query-parser@2.0.2:
     dependencies:
       '@babel/runtime': 7.28.4
-
-  memium@0.3.11:
-    dependencies:
-      kerium: 1.3.8
-      utilium: 2.8.0
 
   memoize-one@4.0.3: {}
 
@@ -6726,13 +6675,9 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  util-deprecate@1.0.2: {}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db: {}
 
-  utilium@2.8.0:
-    dependencies:
-      eventemitter3: 5.0.4
-    optionalDependencies:
-      '@xterm/xterm': 5.5.0
+  util-deprecate@1.0.2: {}
 
   valibot@1.1.0(typescript@5.9.3):
     optionalDependencies:
@@ -6758,6 +6703,10 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  vite-plugin-wasm@3.5.0(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1)):
+    dependencies:
+      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1)
 
   vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
@@ -6918,7 +6867,7 @@ snapshots:
 
   yjs@13.6.27:
     dependencies:
-      lib0: 0.2.114
+      lib0: 0.2.117
 
   yocto-queue@0.1.0: {}
 

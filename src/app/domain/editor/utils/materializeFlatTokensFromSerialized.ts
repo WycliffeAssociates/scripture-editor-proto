@@ -77,7 +77,7 @@ export type MaterializeOptions = {
  * @param rootChildren - The serialized root children from Lexical editor state
  * @yields SerializedLexicalNode in flat reading order
  */
-export function* materializeFlatTokensFromSerialized(
+function* materializeFlatTokensFromSerialized(
     rootChildren: SerializedLexicalNode[],
     options: MaterializeOptions = { nested: "flatten" },
 ): Generator<SerializedLexicalNode> {

@@ -3,14 +3,94 @@ import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     editorTreeToLexicalStatesByChapter,
     flatTokensToLoadedLexicalStatesByChapter,
+    groupFlatTokensByChapter,
 } from "@/app/domain/editor/serialization/usjToLexical.ts";
+import {
+    buildLintMessagesByBook,
+    type LintMessagesByBook,
+} from "@/app/ui/hooks/lintState.ts";
 import {
     getBookSlug,
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type {
+    LintIssue,
+    ProjectedUsfmDocument,
+    ProjectUsfmOptions,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
+
+type LoadedBookEntry = {
+    code: string;
+    text: string | null;
+    name: string;
+    path: string;
+};
+
+async function loadForWeb(args: {
+    loadedProject: Project;
+}): Promise<LoadedBookEntry[]> {
+    const entries: LoadedBookEntry[] = [];
+
+    for (const entry of args.loadedProject.files) {
+        const text = await args.loadedProject.getBook(entry.bookCode);
+        if (!text) continue;
+
+        entries.push({
+            code: entry.bookCode,
+            name: entry.title,
+            text,
+            path: entry.path,
+        });
+    }
+
+    return entries;
+}
+
+async function loadForApp(args: {
+    loadedProject: Project;
+}): Promise<LoadedBookEntry[]> {
+    return args.loadedProject.files.map((entry) => ({
+        code: entry.bookCode,
+        name: entry.title,
+        text: null,
+        path: entry.path,
+    }));
+}
+
+async function projectEntriesForWeb(args: {
+    entries: LoadedBookEntry[];
+    usfmOnionService: IUsfmOnionService;
+    projectionOptions: ProjectUsfmOptions;
+}): Promise<Array<ProjectedUsfmDocument | null>> {
+    const sources = args.entries
+        .map((entry) => entry.text)
+        .filter((text): text is string => Boolean(text));
+    const projected = await args.usfmOnionService.projectUsfmBatchFromContents(
+        sources,
+        args.projectionOptions,
+    );
+    let projectedIndex = 0;
+    return args.entries.map((entry) => {
+        if (!entry.text) return null;
+        const projection = projected[projectedIndex] ?? null;
+        projectedIndex += 1;
+        return projection;
+    });
+}
+
+async function projectEntriesForApp(args: {
+    entries: LoadedBookEntry[];
+    usfmOnionService: IUsfmOnionService;
+    projectionOptions: ProjectUsfmOptions;
+}): Promise<Array<ProjectedUsfmDocument | null>> {
+    const projections = await args.usfmOnionService.projectUsfmBatchFromPaths(
+        args.entries.map((entry) => entry.path),
+        args.projectionOptions,
+    );
+    return args.entries.map((_, index) => projections[index] ?? null);
+}
 
 export async function loadedProjectToParsedFiles(args: {
     loadedProject: Project;
@@ -18,75 +98,49 @@ export async function loadedProjectToParsedFiles(args: {
     usfmOnionService: IUsfmOnionService;
 }): Promise<{
     parsedFiles: ParsedFile[];
-    allInitialLintErrors: LintIssue[];
+    initialLintErrorsByBook: LintMessagesByBook;
 }> {
-    const entries: Array<{
-        code: string;
-        text: string | null;
-        name: string;
-        path: string;
-    }> = [];
-
-    for (const entry of args.loadedProject.files) {
-        const canUsePathIo =
-            args.usfmOnionService.supportsPathIo && Boolean(entry.path);
-        if (canUsePathIo) {
-            entries.push({
-                code: entry.bookCode,
-                name: entry.title,
-                text: null,
-                path: entry.path,
-            });
-            continue;
-        }
-
-        const text = await args.loadedProject.getBook(entry.bookCode);
-        if (text) {
-            entries.push({
-                code: entry.bookCode,
-                name: entry.title,
-                text,
-                path: entry.path,
-            });
-        }
-    }
+    const entries = args.usfmOnionService.supportsPathIo
+        ? await loadForApp({
+              loadedProject: args.loadedProject,
+          })
+        : await loadForWeb({
+              loadedProject: args.loadedProject,
+          });
 
     const sorted = sortUsfmFilesByCanonicalOrder(entries, "code");
-    const projectionOptions = {
+    const projectionOptions: ProjectUsfmOptions = {
         tokenOptions: {
             mergeHorizontalWhitespace: true,
         },
         lintOptions: {},
     };
-    const pathBatchProjections = args.usfmOnionService.supportsPathIo
-        ? await args.usfmOnionService.projectUsfmBatchFromPaths(
-              sorted.map((book) => book.path),
+    const projections = args.usfmOnionService.supportsPathIo
+        ? await projectEntriesForApp({
+              entries: sorted,
+              usfmOnionService: args.usfmOnionService,
               projectionOptions,
-          )
-        : null;
+          })
+        : await projectEntriesForWeb({
+              entries: sorted,
+              usfmOnionService: args.usfmOnionService,
+              projectionOptions,
+          });
     const allInitialLintErrors: LintIssue[] = [];
     const parsed: ParsedFile[] = [];
-    console.time("wasm onion parse total");
     for (let i = 0; i < sorted.length; i++) {
         const book = sorted[i];
-        console.time(`get onion projections and lint`);
-        const projection = args.usfmOnionService.supportsPathIo
-            ? (pathBatchProjections?.[i] ?? null)
-            : book.text
-              ? await args.usfmOnionService.projectUsfm(
-                    book.text,
-                    projectionOptions,
-                )
-              : null;
+        const projection = projections[i] ?? null;
         if (!projection) continue;
+        // debugger;
         const mergedTokens = projection.tokens;
-        const editorTree = projection.editorTree;
+        const documentTree = projection.documentTree;
         const lintIssues = projection.lintIssues ?? [];
-        console.timeEnd(`get onion projections and lint`);
         const needsParagraphs =
             args.editorMode === "regular" || args.editorMode === "view";
+
         const chapters = editorTreeToLexicalStatesByChapter({
-            tree: editorTree,
+            tree: documentTree,
             direction: args.loadedProject.metadata.language.direction,
             needsParagraphs,
             loadedTokensByChapter: flatTokensToLoadedLexicalStatesByChapter(
@@ -94,6 +148,7 @@ export async function loadedProjectToParsedFiles(args: {
                 args.loadedProject.metadata.language.direction,
             ),
         });
+        const sourceTokensByChapter = groupFlatTokensByChapter(mergedTokens);
         allInitialLintErrors.push(...lintIssues);
         parsed.push({
             path: book.path,
@@ -105,15 +160,22 @@ export async function loadedProjectToParsedFiles(args: {
             title: book.name,
             bookCode: getBookSlug(book.code),
             chapters: Object.entries(chapters).map(([chapter, states]) => {
+                const chapterNum = Number(chapter);
                 return {
                     lexicalState: states.lexicalState,
                     loadedLexicalState: states.loadedLexicalState,
-                    chapNumber: Number(chapter),
+                    sourceTokens: sourceTokensByChapter[chapterNum] ?? [],
+                    currentTokens: structuredClone(
+                        sourceTokensByChapter[chapterNum] ?? [],
+                    ),
+                    chapNumber: chapterNum,
                     dirty: false,
                 };
             }),
         });
     }
-    console.timeEnd("wasm onion parse total");
-    return { parsedFiles: parsed, allInitialLintErrors };
+    return {
+        parsedFiles: parsed,
+        initialLintErrorsByBook: buildLintMessagesByBook(allInitialLintErrors),
+    };
 }

@@ -2,16 +2,15 @@ import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    lexicalEditorStateToOnionFlatTokens,
-    lexicalEditorStateToOnionUsfmString,
     onionFlatTokensToEditorState,
+    onionFlatTokensToLoadedEditorState,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
 export function isChapterDirtyUsfm(chapter: ParsedChapter): boolean {
     return (
-        lexicalEditorStateToOnionUsfmString(chapter.lexicalState) !==
-        lexicalEditorStateToOnionUsfmString(chapter.loadedLexicalState)
+        chapter.currentTokens.map((token) => token.text).join("") !==
+        chapter.sourceTokens.map((token) => token.text).join("")
     );
 }
 
@@ -20,13 +19,14 @@ export function revertChapterToLoadedState(chapter: ParsedChapter) {
         chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
     chapter.lexicalState = onionFlatTokensToEditorState({
-        tokens: lexicalEditorStateToOnionFlatTokens(chapter.loadedLexicalState),
+        tokens: chapter.sourceTokens,
         direction:
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
                 : "ltr",
         targetMode: currentMode,
     });
+    chapter.currentTokens = structuredClone(chapter.sourceTokens);
     chapter.dirty = false;
 }
 
@@ -43,12 +43,8 @@ export async function revertChapterDiffByBlockId(args: {
     diffBlockId: string;
     usfmOnionService: IUsfmOnionService;
 }) {
-    const baselineTokens = lexicalEditorStateToOnionFlatTokens(
-        args.chapter.loadedLexicalState,
-    );
-    const currentTokens = lexicalEditorStateToOnionFlatTokens(
-        args.chapter.lexicalState,
-    );
+    const baselineTokens = args.chapter.sourceTokens;
+    const currentTokens = args.chapter.currentTokens;
 
     const nextTokens = await args.usfmOnionService.revertDiffBlock(
         baselineTokens,
@@ -69,6 +65,7 @@ export async function revertChapterDiffByBlockId(args: {
         direction,
         targetMode: currentMode,
     });
+    args.chapter.currentTokens = nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
 
@@ -86,7 +83,7 @@ export function buildBooksSavePayload(
 
         toSave[file.bookCode] = orderedChapters
             .map((chapter) =>
-                lexicalEditorStateToOnionUsfmString(chapter.lexicalState),
+                chapter.currentTokens.map((token) => token.text).join(""),
             )
             .join("");
     }
@@ -96,7 +93,17 @@ export function buildBooksSavePayload(
 export function markFilesAsSaved(files: ParsedFile[]) {
     for (const file of files) {
         for (const chapter of file.chapters) {
-            chapter.loadedLexicalState = structuredClone(chapter.lexicalState);
+            const direction =
+                (chapter.loadedLexicalState.root.direction ??
+                    chapter.lexicalState.root.direction ??
+                    "ltr") === "rtl"
+                    ? "rtl"
+                    : "ltr";
+            chapter.sourceTokens = structuredClone(chapter.currentTokens);
+            chapter.loadedLexicalState = onionFlatTokensToLoadedEditorState({
+                tokens: chapter.sourceTokens,
+                direction,
+            });
             chapter.dirty = false;
         }
     }

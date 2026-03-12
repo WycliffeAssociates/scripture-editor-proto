@@ -4,6 +4,29 @@ use std::fs;
 use std::ops::Range;
 use std::path::Path;
 use usfm3_v2 as onion;
+use onion::convert::{from_usj, from_usx, into_usj, into_usx, into_vref};
+use onion::diff::{
+    apply_revert_by_block_id, diff_tokens, diff_usfm, diff_usfm_by_chapter, BuildSidBlocksOptions,
+    ChapterTokenDiff, DiffStatus, DiffTokenChange, DiffUndoSide, TokenAlignment,
+};
+use onion::format::{
+    apply_token_fixes, format_flat_token_batches_with_options, format_flat_tokens_with_options,
+    format_usfm_sources_with_options, FormatOptions, SkippedTokenTransform, TokenFix,
+    TokenTemplate, TokenTransformChange, TokenTransformKind, TokenTransformResult,
+    TokenTransformSkipReason,
+};
+use onion::lint::{
+    lint_document, lint_flat_token_batches, lint_flat_tokens, lint_usfm_sources, LintCode,
+    LintIssue, LintOptions, LintSuppression, LintableToken, TokenLintOptions,
+};
+use onion::model::{
+    BatchExecutionOptions, DocumentTreeDocument, Token, TokenKind, TokenViewOptions,
+    WhitespacePolicy,
+};
+use onion::parse::{
+    into_tokens, parse, project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
+};
+use onion::model::UsjDocument;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,8 +61,7 @@ pub struct DiffPathPairDto {
 pub struct FlatTokenDto {
     pub id: String,
     pub kind: String,
-    pub span_start: usize,
-    pub span_end: usize,
+    pub span: SpanDto,
     pub sid: Option<String>,
     pub marker: Option<String>,
     pub text: String,
@@ -89,7 +111,7 @@ pub struct TokenLintOptionsDto {
 #[serde(rename_all = "camelCase")]
 pub struct LintSuppressionDto {
     pub code: String,
-    pub span: SpanDto,
+    pub sid: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -148,7 +170,7 @@ pub struct LintIssueDto {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
-    pub editor_tree: onion::EditorTreeDocument,
+    pub document_tree: DocumentTreeDocument,
     pub lint_issues: Option<Vec<LintIssueDto>>,
 }
 
@@ -218,42 +240,6 @@ pub struct VrefEntryDto {
     pub text: String,
 }
 
-#[derive(Debug, Clone)]
-struct FlatTokenInput {
-    id: String,
-    kind: onion::TokenKind,
-    span: Range<usize>,
-    sid: Option<String>,
-    marker: Option<String>,
-    text: String,
-}
-
-impl onion::LintableFlatToken for FlatTokenInput {
-    fn kind(&self) -> &onion::TokenKind {
-        &self.kind
-    }
-
-    fn span(&self) -> &Range<usize> {
-        &self.span
-    }
-
-    fn text(&self) -> &str {
-        &self.text
-    }
-
-    fn marker(&self) -> Option<&str> {
-        self.marker.as_deref()
-    }
-
-    fn sid(&self) -> Option<&str> {
-        self.sid.as_deref()
-    }
-
-    fn id(&self) -> Option<&str> {
-        Some(&self.id)
-    }
-}
-
 fn default_true() -> bool {
     true
 }
@@ -281,8 +267,8 @@ fn should_parallelize(options: Option<BatchExecutionOptionsDto>) -> bool {
     options.map(|o| o.parallel).unwrap_or(true)
 }
 
-fn map_batch_options(options: Option<BatchExecutionOptionsDto>) -> onion::BatchExecutionOptions {
-    onion::BatchExecutionOptions {
+fn map_batch_options(options: Option<BatchExecutionOptionsDto>) -> BatchExecutionOptions {
+    BatchExecutionOptions {
         parallel: should_parallelize(options),
     }
 }
@@ -305,32 +291,25 @@ fn read_sources_from_paths(
     }
 }
 
-fn map_whitespace_policy(options: IntoTokensOptionsDto) -> onion::IntoTokensOptions {
-    onion::IntoTokensOptions {
+fn map_whitespace_policy(options: IntoTokensOptionsDto) -> IntoTokensOptions {
+    IntoTokensOptions {
         merge_horizontal_whitespace: options.merge_horizontal_whitespace,
     }
 }
 
-fn map_token_view_options(options: Option<IntoTokensOptionsDto>) -> onion::TokenViewOptions {
-    onion::TokenViewOptions {
-        whitespace_policy: if options
-            .map(|o| o.merge_horizontal_whitespace)
-            .unwrap_or(false)
-        {
-            onion::WhitespacePolicy::MergeToVisible
-        } else {
-            onion::WhitespacePolicy::Preserve
-        },
+fn map_token_view_options(options: Option<IntoTokensOptionsDto>) -> TokenViewOptions {
+    TokenViewOptions {
+        whitespace_policy: WhitespacePolicy::MergeToVisible,
     }
 }
 
-fn map_format_options(options: Option<FormatOptionsDto>) -> onion::FormatOptions {
-    let defaults = onion::FormatOptions::default();
+fn map_format_options(options: Option<FormatOptionsDto>) -> FormatOptions {
+    let defaults = FormatOptions::default();
     let Some(options) = options else {
         return defaults;
     };
 
-    onion::FormatOptions {
+    FormatOptions {
         recover_malformed_markers: options
             .recover_malformed_markers
             .unwrap_or(defaults.recover_malformed_markers),
@@ -376,13 +355,13 @@ fn map_format_options(options: Option<FormatOptionsDto>) -> onion::FormatOptions
     }
 }
 
-fn map_fix_dto(fix: TokenFixDto) -> onion::TokenFix {
+fn map_fix_dto(fix: TokenFixDto) -> TokenFix {
     match fix {
         TokenFixDto::ReplaceToken {
             label,
             target_token_id,
             replacements,
-        } => onion::TokenFix::ReplaceToken {
+        } => TokenFix::ReplaceToken {
             label,
             target_token_id,
             replacements: replacements.into_iter().map(map_template_dto).collect(),
@@ -391,7 +370,7 @@ fn map_fix_dto(fix: TokenFixDto) -> onion::TokenFix {
             label,
             target_token_id,
             insert,
-        } => onion::TokenFix::InsertAfter {
+        } => TokenFix::InsertAfter {
             label,
             target_token_id,
             insert: insert.into_iter().map(map_template_dto).collect(),
@@ -399,8 +378,8 @@ fn map_fix_dto(fix: TokenFixDto) -> onion::TokenFix {
     }
 }
 
-fn map_template_dto(template: TokenTemplateDto) -> onion::TokenTemplate {
-    onion::TokenTemplate {
+fn map_template_dto(template: TokenTemplateDto) -> TokenTemplate {
+    TokenTemplate {
         kind: map_token_kind(&template.kind),
         text: template.text,
         marker: template.marker,
@@ -408,75 +387,78 @@ fn map_template_dto(template: TokenTemplateDto) -> onion::TokenTemplate {
     }
 }
 
-fn lint_code_from_str(code: &str) -> Option<onion::LintCode> {
+fn lint_code_from_str(code: &str) -> Option<LintCode> {
     Some(match code {
-        "missing-separator-after-marker" => onion::LintCode::MissingSeparatorAfterMarker,
-        "number-range-after-chapter-marker" => onion::LintCode::NumberRangeAfterChapterMarker,
+        "missing-separator-after-marker" => LintCode::MissingSeparatorAfterMarker,
+        "number-range-after-chapter-marker" => LintCode::NumberRangeAfterChapterMarker,
         "verse-range-expected-after-verse-marker" => {
-            onion::LintCode::VerseRangeExpectedAfterVerseMarker
+            LintCode::VerseRangeExpectedAfterVerseMarker
         }
-        "verse-content-not-empty" => onion::LintCode::VerseContentNotEmpty,
-        "unknown-token" => onion::LintCode::UnknownToken,
-        "char-not-closed" => onion::LintCode::CharNotClosed,
-        "note-not-closed" => onion::LintCode::NoteNotClosed,
-        "paragraph-before-first-chapter" => onion::LintCode::ParagraphBeforeFirstChapter,
-        "verse-before-first-chapter" => onion::LintCode::VerseBeforeFirstChapter,
-        "note-submarker-outside-note" => onion::LintCode::NoteSubmarkerOutsideNote,
-        "duplicate-id-marker" => onion::LintCode::DuplicateIdMarker,
-        "id-marker-not-at-file-start" => onion::LintCode::IdMarkerNotAtFileStart,
-        "chapter-metadata-outside-chapter" => onion::LintCode::ChapterMetadataOutsideChapter,
-        "verse-metadata-outside-verse" => onion::LintCode::VerseMetadataOutsideVerse,
-        "missing-chapter-number" => onion::LintCode::MissingChapterNumber,
-        "missing-verse-number" => onion::LintCode::MissingVerseNumber,
-        "missing-milestone-self-close" => onion::LintCode::MissingMilestoneSelfClose,
-        "implicitly-closed-marker" => onion::LintCode::ImplicitlyClosedMarker,
-        "stray-close-marker" => onion::LintCode::StrayCloseMarker,
-        "misnested-close-marker" => onion::LintCode::MisnestedCloseMarker,
-        "unclosed-note" => onion::LintCode::UnclosedNote,
-        "unclosed-marker-at-eof" => onion::LintCode::UnclosedMarkerAtEof,
-        "duplicate-chapter-number" => onion::LintCode::DuplicateChapterNumber,
-        "chapter-expected-increase-by-one" => onion::LintCode::ChapterExpectedIncreaseByOne,
-        "duplicate-verse-number" => onion::LintCode::DuplicateVerseNumber,
-        "verse-expected-increase-by-one" => onion::LintCode::VerseExpectedIncreaseByOne,
-        "invalid-number-range" => onion::LintCode::InvalidNumberRange,
+        "verse-content-not-empty" => LintCode::VerseContentNotEmpty,
+        "unknown-token" => LintCode::UnknownToken,
+        "char-not-closed" => LintCode::CharNotClosed,
+        "note-not-closed" => LintCode::NoteNotClosed,
+        "paragraph-before-first-chapter" => LintCode::ParagraphBeforeFirstChapter,
+        "verse-before-first-chapter" => LintCode::VerseBeforeFirstChapter,
+        "note-submarker-outside-note" => LintCode::NoteSubmarkerOutsideNote,
+        "duplicate-id-marker" => LintCode::DuplicateIdMarker,
+        "id-marker-not-at-file-start" => LintCode::IdMarkerNotAtFileStart,
+        "chapter-metadata-outside-chapter" => LintCode::ChapterMetadataOutsideChapter,
+        "verse-metadata-outside-verse" => LintCode::VerseMetadataOutsideVerse,
+        "missing-chapter-number" => LintCode::MissingChapterNumber,
+        "missing-verse-number" => LintCode::MissingVerseNumber,
+        "missing-milestone-self-close" => LintCode::MissingMilestoneSelfClose,
+        "implicitly-closed-marker" => LintCode::ImplicitlyClosedMarker,
+        "stray-close-marker" => LintCode::StrayCloseMarker,
+        "misnested-close-marker" => LintCode::MisnestedCloseMarker,
+        "unclosed-note" => LintCode::UnclosedNote,
+        "unclosed-marker-at-eof" => LintCode::UnclosedMarkerAtEof,
+        "duplicate-chapter-number" => LintCode::DuplicateChapterNumber,
+        "chapter-expected-increase-by-one" => LintCode::ChapterExpectedIncreaseByOne,
+        "duplicate-verse-number" => LintCode::DuplicateVerseNumber,
+        "verse-expected-increase-by-one" => LintCode::VerseExpectedIncreaseByOne,
+        "invalid-number-range" => LintCode::InvalidNumberRange,
         "number-range-not-preceded-by-marker-expecting-number" => {
-            onion::LintCode::NumberRangeNotPrecededByMarkerExpectingNumber
+            LintCode::NumberRangeNotPrecededByMarkerExpectingNumber
         }
-        "verse-text-follows-verse-range" => onion::LintCode::VerseTextFollowsVerseRange,
-        "unknown-marker" => onion::LintCode::UnknownMarker,
-        "unknown-close-marker" => onion::LintCode::UnknownCloseMarker,
-        "inconsistent-chapter-label" => onion::LintCode::InconsistentChapterLabel,
+        "verse-text-follows-verse-range" => LintCode::VerseTextFollowsVerseRange,
+        "unknown-marker" => LintCode::UnknownMarker,
+        "unknown-close-marker" => LintCode::UnknownCloseMarker,
+        "inconsistent-chapter-label" => LintCode::InconsistentChapterLabel,
+        "marker-not-valid-in-context" => LintCode::MarkerNotValidInContext,
+        "verse-outside-explicit-paragraph" => LintCode::VerseOutsideExplicitParagraph,
         _ => return None,
     })
 }
 
-fn token_kind_to_string(kind: &onion::TokenKind) -> String {
+fn token_kind_to_string(kind: &TokenKind) -> String {
     match kind {
-        onion::TokenKind::HorizontalWhitespace => "horizontalWhitespace".to_string(),
-        onion::TokenKind::VerticalWhitespace => "verticalWhitespace".to_string(),
-        onion::TokenKind::Marker => "marker".to_string(),
-        onion::TokenKind::EndMarker => "endMarker".to_string(),
-        onion::TokenKind::Milestone => "milestone".to_string(),
-        onion::TokenKind::MilestoneEnd => "milestoneEnd".to_string(),
-        onion::TokenKind::Attributes => "attributes".to_string(),
-        onion::TokenKind::BookCode => "bookCode".to_string(),
-        onion::TokenKind::Number => "number".to_string(),
-        onion::TokenKind::Text => "text".to_string(),
+        TokenKind::Newline => "verticalWhitespace".to_string(),
+        TokenKind::OptBreak => "optbreak".to_string(),
+        TokenKind::Marker => "marker".to_string(),
+        TokenKind::EndMarker => "endMarker".to_string(),
+        TokenKind::Milestone => "milestone".to_string(),
+        TokenKind::MilestoneEnd => "milestoneEnd".to_string(),
+        TokenKind::Attributes => "attributes".to_string(),
+        TokenKind::BookCode => "bookCode".to_string(),
+        TokenKind::Number => "number".to_string(),
+        TokenKind::Text => "text".to_string(),
     }
 }
 
-fn map_token_kind(kind: &str) -> onion::TokenKind {
+fn map_token_kind(kind: &str) -> TokenKind {
     match kind {
-        "marker" => onion::TokenKind::Marker,
-        "endMarker" => onion::TokenKind::EndMarker,
-        "milestone" => onion::TokenKind::Milestone,
-        "milestoneEnd" => onion::TokenKind::MilestoneEnd,
-        "attributes" | "attrPair" => onion::TokenKind::Attributes,
-        "bookCode" => onion::TokenKind::BookCode,
-        "number" | "numberRange" => onion::TokenKind::Number,
-        "nl" | "verticalWhitespace" => onion::TokenKind::VerticalWhitespace,
-        "ws" | "horizontalWhitespace" => onion::TokenKind::HorizontalWhitespace,
-        _ => onion::TokenKind::Text,
+        "marker" => TokenKind::Marker,
+        "endMarker" => TokenKind::EndMarker,
+        "milestone" => TokenKind::Milestone,
+        "milestoneEnd" => TokenKind::MilestoneEnd,
+        "attributes" | "attrPair" => TokenKind::Attributes,
+        "bookCode" => TokenKind::BookCode,
+        "number" | "numberRange" => TokenKind::Number,
+        "nl" | "newline" | "verticalWhitespace" => TokenKind::Newline,
+        "ws" | "whitespace" | "horizontalWhitespace" => TokenKind::Text,
+        "optbreak" => TokenKind::OptBreak,
+        _ => TokenKind::Text,
     }
 }
 
@@ -487,19 +469,18 @@ fn map_span(span: Range<usize>) -> SpanDto {
     }
 }
 
-fn map_core_token(token: onion::FlatToken) -> FlatTokenDto {
+fn map_core_token(token: Token) -> FlatTokenDto {
     FlatTokenDto {
         id: token.id,
         kind: token_kind_to_string(&token.kind),
-        span_start: token.span.start,
-        span_end: token.span.end,
+        span: map_span(token.span),
         sid: token.sid,
         marker: token.marker,
         text: token.text,
     }
 }
 
-fn map_template(template: onion::TokenTemplate) -> TokenTemplateDto {
+fn map_template(template: TokenTemplate) -> TokenTemplateDto {
     TokenTemplateDto {
         kind: token_kind_to_string(&template.kind),
         text: template.text,
@@ -508,9 +489,9 @@ fn map_template(template: onion::TokenTemplate) -> TokenTemplateDto {
     }
 }
 
-fn map_fix(fix: onion::TokenFix) -> TokenFixDto {
+fn map_fix(fix: TokenFix) -> TokenFixDto {
     match fix {
-        onion::TokenFix::ReplaceToken {
+        TokenFix::ReplaceToken {
             label,
             target_token_id,
             replacements,
@@ -519,7 +500,7 @@ fn map_fix(fix: onion::TokenFix) -> TokenFixDto {
             target_token_id,
             replacements: replacements.into_iter().map(map_template).collect(),
         },
-        onion::TokenFix::InsertAfter {
+        TokenFix::InsertAfter {
             label,
             target_token_id,
             insert,
@@ -531,7 +512,7 @@ fn map_fix(fix: onion::TokenFix) -> TokenFixDto {
     }
 }
 
-fn map_issue(issue: onion::LintIssue) -> LintIssueDto {
+fn map_issue(issue: LintIssue) -> LintIssueDto {
     LintIssueDto {
         code: issue.code.as_str().to_string(),
         message: issue.message,
@@ -544,15 +525,15 @@ fn map_issue(issue: onion::LintIssue) -> LintIssueDto {
     }
 }
 
-fn map_diff(diff: onion::ChapterTokenDiff<onion::FlatToken>) -> DiffDto {
+fn map_diff(diff: ChapterTokenDiff<Token>) -> DiffDto {
     DiffDto {
         block_id: diff.block_id,
         semantic_sid: diff.semantic_sid,
         status: match diff.status {
-            onion::DiffStatus::Added => "added".to_string(),
-            onion::DiffStatus::Deleted => "deleted".to_string(),
-            onion::DiffStatus::Modified => "modified".to_string(),
-            onion::DiffStatus::Unchanged => "unchanged".to_string(),
+            DiffStatus::Added => "added".to_string(),
+            DiffStatus::Deleted => "deleted".to_string(),
+            DiffStatus::Modified => "modified".to_string(),
+            DiffStatus::Unchanged => "unchanged".to_string(),
         },
         original_text: diff.original_text,
         current_text: diff.current_text,
@@ -584,54 +565,56 @@ fn map_diff(diff: onion::ChapterTokenDiff<onion::FlatToken>) -> DiffDto {
     }
 }
 
-fn map_token_alignment(alignment: onion::TokenAlignment) -> TokenAlignmentDto {
+fn map_token_alignment(alignment: TokenAlignment) -> TokenAlignmentDto {
     TokenAlignmentDto {
         change: match alignment.change {
-            onion::DiffTokenChange::Unchanged => "unchanged",
-            onion::DiffTokenChange::Added => "added",
-            onion::DiffTokenChange::Deleted => "deleted",
-            onion::DiffTokenChange::Modified => "modified",
+            DiffTokenChange::Unchanged => "unchanged",
+            DiffTokenChange::Added => "added",
+            DiffTokenChange::Deleted => "deleted",
+            DiffTokenChange::Modified => "modified",
         }
         .to_string(),
         counterpart_index: alignment.counterpart_index,
     }
 }
 
-fn map_undo_side(side: onion::DiffUndoSide) -> &'static str {
+fn map_undo_side(side: DiffUndoSide) -> &'static str {
     match side {
-        onion::DiffUndoSide::Original => "original",
-        onion::DiffUndoSide::Current => "current",
+        DiffUndoSide::Original => "original",
+        DiffUndoSide::Current => "current",
     }
 }
 
-fn map_transform_change(change: onion::TokenTransformChange) -> TokenTransformChangeDto {
+fn map_transform_change(change: TokenTransformChange) -> TokenTransformChangeDto {
     TokenTransformChangeDto {
         kind: match change.kind {
-            onion::TokenTransformKind::Fix => "fix".to_string(),
-            onion::TokenTransformKind::Format => "format".to_string(),
+            TokenTransformKind::Fix => "fix".to_string(),
+            TokenTransformKind::Format => "format".to_string(),
+            TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
         },
         label: change.label,
         target_token_id: change.target_token_id,
     }
 }
 
-fn map_skipped_transform(skipped: onion::SkippedTokenTransform) -> SkippedTokenTransformDto {
+fn map_skipped_transform(skipped: SkippedTokenTransform) -> SkippedTokenTransformDto {
     SkippedTokenTransformDto {
         kind: match skipped.kind {
-            onion::TokenTransformKind::Fix => "fix".to_string(),
-            onion::TokenTransformKind::Format => "format".to_string(),
+            TokenTransformKind::Fix => "fix".to_string(),
+            TokenTransformKind::Format => "format".to_string(),
+            TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
         },
         label: skipped.label,
         target_token_id: skipped.target_token_id,
         reason: match skipped.reason {
-            onion::TokenTransformSkipReason::TokenNotFound => "tokenNotFound".to_string(),
-            onion::TokenTransformSkipReason::EmptyReplacement => "emptyReplacement".to_string(),
+            TokenTransformSkipReason::TokenNotFound => "tokenNotFound".to_string(),
+            TokenTransformSkipReason::EmptyReplacement => "emptyReplacement".to_string(),
         },
     }
 }
 
 fn map_transform_result(
-    result: onion::TokenTransformResult<onion::FlatToken>,
+    result: TokenTransformResult<Token>,
 ) -> TokenTransformResultDto {
     TokenTransformResultDto {
         tokens: result.tokens.into_iter().map(map_core_token).collect(),
@@ -648,13 +631,13 @@ fn map_transform_result(
     }
 }
 
-fn parse_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<FlatTokenInput> {
+fn parse_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<Token> {
     tokens
         .into_iter()
-        .map(|token| FlatTokenInput {
+        .map(|token| Token {
             id: token.id,
             kind: map_token_kind(&token.kind),
-            span: token.span_start..token.span_end,
+            span: token.span.start..token.span.end,
             sid: token.sid,
             marker: token.marker,
             text: token.text,
@@ -662,22 +645,12 @@ fn parse_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<FlatTokenInput> {
         .collect()
 }
 
-fn parse_core_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<onion::FlatToken> {
+fn parse_core_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<Token> {
     parse_flat_tokens(tokens)
-        .into_iter()
-        .map(|token| onion::FlatToken {
-            id: token.id,
-            kind: token.kind,
-            span: token.span,
-            sid: token.sid,
-            marker: token.marker,
-            text: token.text,
-        })
-        .collect()
 }
 
-fn map_token_lint_options(options: Option<TokenLintOptionsDto>) -> onion::TokenLintOptions {
-    onion::TokenLintOptions {
+fn map_token_lint_options(options: Option<TokenLintOptionsDto>) -> TokenLintOptions {
+    TokenLintOptions {
         disabled_rules: options
             .as_ref()
             .map(|o| {
@@ -693,30 +666,31 @@ fn map_token_lint_options(options: Option<TokenLintOptionsDto>) -> onion::TokenL
                 o.suppressions
                     .iter()
                     .filter_map(|suppression| {
-                        lint_code_from_str(&suppression.code).map(|code| onion::LintSuppression {
+                        lint_code_from_str(&suppression.code).map(|code| LintSuppression {
                             code,
-                            span: suppression.span.start..suppression.span.end,
+                            sid: suppression.sid.clone(),
                         })
                     })
                     .collect()
             })
             .unwrap_or_default(),
+        allow_implicit_chapter_content_verse: false,
     }
 }
 
-fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
-    onion::LintOptions {
+fn map_lint_options(options: Option<LintOptionsDto>) -> LintOptions {
+    LintOptions {
         include_parse_recoveries: options
             .as_ref()
             .map(|o| o.include_parse_recoveries)
             .unwrap_or(true),
         token_view: options
             .as_ref()
-            .map(|o| onion::TokenViewOptions {
+            .map(|o| TokenViewOptions {
                 whitespace_policy: if o.token_view.merge_horizontal_whitespace {
-                    onion::WhitespacePolicy::MergeToVisible
+                    WhitespacePolicy::MergeToVisible
                 } else {
-                    onion::WhitespacePolicy::Preserve
+                    WhitespacePolicy::MergeToVisible
                 },
             })
             .unwrap_or_default(),
@@ -729,12 +703,12 @@ pub fn usfm_onion_tokens_from_usfm(
     source: String,
     options: Option<IntoTokensOptionsDto>,
 ) -> Result<Vec<FlatTokenDto>, String> {
-    let document = onion::parse(&source);
-    let tokens = onion::into_tokens(
+    let document = parse(&source);
+    let tokens = into_tokens(
         &document,
         options
             .map(map_whitespace_policy)
-            .unwrap_or_else(|| onion::IntoTokensOptions {
+            .unwrap_or_else(|| IntoTokensOptions {
                 merge_horizontal_whitespace: false,
             }),
     );
@@ -755,9 +729,9 @@ pub fn usfm_onion_project_usfm(
     source: String,
     options: Option<ProjectUsfmOptionsDto>,
 ) -> Result<ProjectedUsfmDocumentDto, String> {
-    let projection = onion::project_usfm(
+    let projection = project_usfm(
         &source,
-        onion::ProjectUsfmOptions {
+        ProjectUsfmOptions {
             token_options: options
                 .as_ref()
                 .map(|o| map_whitespace_policy(o.token_options.clone()))
@@ -770,7 +744,7 @@ pub fn usfm_onion_project_usfm(
 
     Ok(ProjectedUsfmDocumentDto {
         tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-        editor_tree: projection.editor_tree,
+        document_tree: projection.document_tree,
         lint_issues: projection
             .lint_issues
             .map(|issues| issues.into_iter().map(map_issue).collect()),
@@ -794,9 +768,9 @@ pub fn usfm_onion_project_paths(
 ) -> Result<Vec<ProjectedUsfmDocumentDto>, String> {
     let options = options.unwrap_or_default();
     let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let projections = onion::project_usfm_batch(
+    let projections = project_usfm_batch(
         &sources,
-        onion::ProjectUsfmOptions {
+        ProjectUsfmOptions {
             token_options: map_whitespace_policy(options.token_options),
             lint_options: options
                 .lint_options
@@ -808,7 +782,7 @@ pub fn usfm_onion_project_paths(
         .into_iter()
         .map(|projection| ProjectedUsfmDocumentDto {
             tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-            editor_tree: projection.editor_tree,
+            document_tree: projection.document_tree,
             lint_issues: projection
                 .lint_issues
                 .map(|issues| issues.into_iter().map(map_issue).collect()),
@@ -821,7 +795,7 @@ pub fn usfm_onion_lint_usfm(
     source: String,
     options: Option<LintOptionsDto>,
 ) -> Result<Vec<LintIssueDto>, String> {
-    let issues = onion::lint_document(&onion::parse(&source), map_lint_options(options));
+    let issues = lint_document(&parse(&source), map_lint_options(options));
     Ok(issues.into_iter().map(map_issue).collect())
 }
 
@@ -841,7 +815,7 @@ pub fn usfm_onion_lint_paths(
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<LintIssueDto>>, String> {
     let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let issues = onion::lint_usfm_sources(
+    let issues = lint_usfm_sources(
         &sources,
         map_lint_options(options),
         map_batch_options(batch_options),
@@ -858,7 +832,7 @@ pub fn usfm_onion_lint_tokens(
     options: Option<TokenLintOptionsDto>,
 ) -> Result<Vec<LintIssueDto>, String> {
     let issues =
-        onion::lint_flat_tokens(&parse_flat_tokens(tokens), map_token_lint_options(options));
+        lint_flat_tokens(&parse_flat_tokens(tokens), map_token_lint_options(options));
     Ok(issues.into_iter().map(map_issue).collect())
 }
 
@@ -872,7 +846,7 @@ pub fn usfm_onion_lint_token_batches(
         .into_iter()
         .map(parse_flat_tokens)
         .collect::<Vec<_>>();
-    let issues = onion::lint_flat_token_batches(
+    let issues = lint_flat_token_batches(
         &batches,
         map_token_lint_options(options),
         map_batch_options(batch_options),
@@ -889,7 +863,7 @@ pub fn usfm_onion_format_tokens(
     options: Option<FormatOptionsDto>,
 ) -> Result<TokenTransformResultDto, String> {
     let tokens = parse_core_flat_tokens(tokens);
-    Ok(map_transform_result(onion::format_flat_tokens(
+    Ok(map_transform_result(format_flat_tokens_with_options(
         &tokens,
         map_format_options(options),
     )))
@@ -905,7 +879,7 @@ pub fn usfm_onion_format_token_batches(
         .into_iter()
         .map(parse_core_flat_tokens)
         .collect::<Vec<_>>();
-    let results = onion::format_flat_token_batches(
+    let results = format_flat_token_batches_with_options(
         &batches,
         map_format_options(options),
         map_batch_options(batch_options),
@@ -921,11 +895,11 @@ pub fn usfm_onion_format_paths(
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<TokenTransformResultDto>, String> {
     let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let results = onion::format_usfm_sources(
+    let results = format_usfm_sources_with_options(
         &sources,
         token_options
             .map(map_whitespace_policy)
-            .unwrap_or_else(|| onion::IntoTokensOptions {
+            .unwrap_or_else(|| IntoTokensOptions {
                 merge_horizontal_whitespace: false,
             }),
         map_format_options(format_options),
@@ -941,7 +915,7 @@ pub fn usfm_onion_apply_token_fixes(
 ) -> Result<TokenTransformResultDto, String> {
     let tokens = parse_core_flat_tokens(tokens);
     let fixes = fixes.into_iter().map(map_fix_dto).collect::<Vec<_>>();
-    Ok(map_transform_result(onion::apply_token_fixes(
+    Ok(map_transform_result(apply_token_fixes(
         &tokens, &fixes,
     )))
 }
@@ -953,11 +927,11 @@ pub fn usfm_onion_diff_usfm(
     token_options: Option<IntoTokensOptionsDto>,
     build_options: Option<BuildSidBlocksOptionsDto>,
 ) -> Result<Vec<DiffDto>, String> {
-    let diffs = onion::diff_usfm(
+    let diffs = diff_usfm(
         &baseline_usfm,
         &current_usfm,
         &map_token_view_options(token_options),
-        &onion::BuildSidBlocksOptions {
+        &BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
         },
     );
@@ -983,11 +957,11 @@ pub fn usfm_onion_diff_usfm_by_chapter(
     token_options: Option<IntoTokensOptionsDto>,
     build_options: Option<BuildSidBlocksOptionsDto>,
 ) -> Result<Vec<ChapterDiffEntryDto>, String> {
-    let map = onion::diff_usfm_by_chapter(
+    let map = diff_usfm_by_chapter(
         &baseline_usfm,
         &current_usfm,
         &map_token_view_options(token_options),
-        &onion::BuildSidBlocksOptions {
+        &BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
         },
     );
@@ -1025,13 +999,13 @@ pub fn usfm_onion_diff_path_pairs(
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<DiffDto>>, String> {
     let token_options = map_token_view_options(token_options);
-    let build_options = onion::BuildSidBlocksOptions {
+    let build_options = BuildSidBlocksOptions {
         allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
     };
     let map_diff_pair = |pair: DiffPathPairDto| -> Result<Vec<DiffDto>, String> {
         let baseline_usfm = read_usfm_source_from_path(&pair.baseline_path)?;
         let current_usfm = read_usfm_source_from_path(&pair.current_path)?;
-        Ok(onion::diff_usfm(
+        Ok(diff_usfm(
             &baseline_usfm,
             &current_usfm,
             &token_options,
@@ -1056,10 +1030,10 @@ pub fn usfm_onion_diff_tokens(
 ) -> Result<Vec<DiffDto>, String> {
     let baseline = parse_core_flat_tokens(baseline_tokens);
     let current = parse_core_flat_tokens(current_tokens);
-    Ok(onion::diff_tokens(
+    Ok(diff_tokens(
         &baseline,
         &current,
-        &onion::BuildSidBlocksOptions {
+        &BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
         },
     )
@@ -1077,11 +1051,11 @@ pub fn usfm_onion_revert_diff_block(
 ) -> Result<Vec<FlatTokenDto>, String> {
     let baseline = parse_core_flat_tokens(baseline_tokens);
     let current = parse_core_flat_tokens(current_tokens);
-    Ok(onion::apply_revert_by_block_id(
+    Ok(apply_revert_by_block_id(
         &block_id,
         &baseline,
         &current,
-        &onion::BuildSidBlocksOptions {
+        &BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
         },
     )
@@ -1091,13 +1065,13 @@ pub fn usfm_onion_revert_diff_block(
 }
 
 #[tauri::command]
-pub fn usfm_onion_to_usj(source: String) -> Result<onion::UsjDocument, String> {
-    let document = onion::parse(&source);
-    Ok(onion::into_usj(&document))
+pub fn usfm_onion_to_usj(source: String) -> Result<UsjDocument, String> {
+    let document = parse(&source);
+    Ok(into_usj(&document))
 }
 
 #[tauri::command]
-pub fn usfm_onion_to_usj_path(path: String) -> Result<onion::UsjDocument, String> {
+pub fn usfm_onion_to_usj_path(path: String) -> Result<UsjDocument, String> {
     let source = read_usfm_source_from_path(&path)?;
     usfm_onion_to_usj(source)
 }
@@ -1106,8 +1080,8 @@ pub fn usfm_onion_to_usj_path(path: String) -> Result<onion::UsjDocument, String
 pub fn usfm_onion_to_usj_paths(
     paths: Vec<String>,
     batch_options: Option<BatchExecutionOptionsDto>,
-) -> Result<Vec<onion::UsjDocument>, String> {
-    let map_usj = |path: String| -> Result<onion::UsjDocument, String> {
+) -> Result<Vec<UsjDocument>, String> {
+    let map_usj = |path: String| -> Result<UsjDocument, String> {
         let source = read_usfm_source_from_path(&path)?;
         usfm_onion_to_usj(source)
     };
@@ -1119,14 +1093,14 @@ pub fn usfm_onion_to_usj_paths(
 }
 
 #[tauri::command]
-pub fn usfm_onion_from_usj(document: onion::UsjDocument) -> Result<String, String> {
-    onion::from_usj(&document).map_err(|err| err.to_string())
+pub fn usfm_onion_from_usj(document: UsjDocument) -> Result<String, String> {
+    from_usj(&document).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 pub fn usfm_onion_to_usx(source: String) -> Result<String, String> {
-    let document = onion::parse(&source);
-    onion::into_usx(&document).map_err(|err| err.to_string())
+    let document = parse(&source);
+    into_usx(&document).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -1153,13 +1127,13 @@ pub fn usfm_onion_to_usx_paths(
 
 #[tauri::command]
 pub fn usfm_onion_from_usx(value: String) -> Result<String, String> {
-    onion::from_usx(&value).map_err(|err| err.to_string())
+    from_usx(&value).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 pub fn usfm_onion_to_vref(source: String) -> Result<Vec<VrefEntryDto>, String> {
-    let document = onion::parse(&source);
-    Ok(onion::into_vref(&document)
+    let document = parse(&source);
+    Ok(into_vref(&document)
         .into_iter()
         .map(|(reference, text)| VrefEntryDto { reference, text })
         .collect())

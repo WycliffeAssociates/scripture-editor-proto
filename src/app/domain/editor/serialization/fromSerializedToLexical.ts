@@ -1,9 +1,4 @@
-import type {
-    SerializedEditorState,
-    SerializedElementNode,
-    SerializedLexicalNode,
-    SerializedLineBreakNode,
-} from "lexical";
+import type { SerializedLexicalNode, SerializedLineBreakNode } from "lexical";
 import {
     USFM_PARAGRAPH_NODE_TYPE,
     USFM_TEXT_NODE_TYPE,
@@ -20,108 +15,13 @@ import {
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
     isDocumentMarker,
     isValidParaMarker,
-} from "@/core/data/usfm/tokens.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
-
-export interface LexicalStates {
-    /** Flat token stream state for Save/Diff comparison (root-safe paragraph wrapper) */
-    loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
-    /** Paragraph-wrapped state for WYSIWYG editor mode (paragraph containers) */
-    lexicalState: SerializedEditorState<SerializedLexicalNode>;
-}
+} from "@/core/domain/usfm/onionMarkers.ts";
 
 type NestedEditorSerialization = "decorator" | "flat";
-
-/**
- * Serializes USFM tokens to Lexical states efficiently.
- * Tokens are only serialized once. Paragraph grouping only happens when needed.
- *
- * @param tokens - Parsed USFM tokens
- * @param languageDirection - Text direction
- * @param needsParagraphs - Whether to generate paragraph-wrapped state (true for 'regular' mode)
- * @returns Object containing flat state and optionally paragraph-wrapped state
- */
-export function parsedUsfmTokensToLexicalStates(
-    tokens: ParsedToken[],
-    languageDirection: "ltr" | "rtl",
-    needsParagraphs: boolean,
-    opts: { nestedEditors?: NestedEditorSerialization } = {},
-): LexicalStates {
-    const nestedEditors =
-        opts.nestedEditors ?? (needsParagraphs ? "decorator" : "flat");
-
-    const flatNodes = serializeTokens(tokens, languageDirection, nestedEditors);
-
-    const wrapFlatTokensInLexicalParagraph = (
-        flatTokens: SerializedLexicalNode[],
-    ): SerializedElementNode => {
-        return {
-            type: "paragraph",
-            version: 1,
-            direction: languageDirection,
-            format: "",
-            indent: 0,
-            children: flatTokens,
-        };
-    };
-
-    // Lexical RootNode only allows ElementNode or DecoratorNode children.
-    // Our USFM token stream includes text nodes, so any "flat" representation
-    // must be wrapped in an element (paragraph) before it can be parsed.
-    const wrappedFlatState: SerializedEditorState<SerializedLexicalNode> = {
-        root: {
-            children: [wrapFlatTokensInLexicalParagraph(flatNodes)],
-            type: "root",
-            version: 1,
-            direction: languageDirection,
-            format: "start",
-            indent: 0,
-        },
-    };
-
-    if (!needsParagraphs) {
-        // For usfm/plain mode: both states are paragraph-wrapped flat token streams
-        // (separate objects for diff comparison)
-        return {
-            loadedLexicalState: wrappedFlatState,
-            lexicalState: {
-                root: {
-                    children: [
-                        wrapFlatTokensInLexicalParagraph([...flatNodes]),
-                    ],
-                    type: "root",
-                    version: 1,
-                    direction: languageDirection,
-                    format: "start",
-                    indent: 0,
-                },
-            },
-        };
-    }
-
-    // For regular mode: paragraph container lexicalState, root-safe wrapped-flat loadedLexicalState
-    const paragraphNodes = groupFlatNodesIntoParagraphContainers(
-        flatNodes,
-        languageDirection,
-    );
-
-    return {
-        loadedLexicalState: wrappedFlatState,
-        lexicalState: {
-            root: {
-                children: paragraphNodes,
-                type: "root",
-                version: 1,
-                direction: languageDirection,
-                format: "start",
-                indent: 0,
-            },
-        },
-    };
-}
 
 function serializeTokens(
     tokens: ParsedToken[],

@@ -23,22 +23,15 @@ export async function projectParamToParsedFiles(
     );
     if (!loadedProject) return;
 
-    console.time("total load time");
-    console.time("ensureProjectGitReady");
     await ensureProjectGitReady({
         gitProvider,
         loadedProject,
     });
-    console.timeEnd("ensureProjectGitReady");
-    console.time("parseAll");
-    const { parsedFiles, allInitialLintErrors } =
+    const { parsedFiles, initialLintErrorsByBook } =
         await loadedProjectToParsedFiles({
             loadedProject,
             editorMode,
             usfmOnionService,
         });
-
-    console.timeEnd("parseAll");
-    console.timeEnd("total load time");
-    return { parsedFiles, allInitialLintErrors, loadedProject };
+    return { parsedFiles, initialLintErrorsByBook, loadedProject };
 }

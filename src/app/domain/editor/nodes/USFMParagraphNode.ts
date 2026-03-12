@@ -258,17 +258,6 @@ export function $isUSFMParagraphNode(
     return node instanceof USFMParagraphNode;
 }
 
-export function isSerializedParagraphNode(
-    node: SerializedLexicalNode,
-): node is SerializedElementNode {
-    return (
-        node.type === USFM_PARAGRAPH_NODE_TYPE ||
-        // Back-compat for current serialized states and nested editor wrappers.
-        node.type === "paragraph" ||
-        node.type === "usfm-element-node"
-    );
-}
-
 /* Factory */
 
 export type CreateUSFMParagraphNodeParams = {

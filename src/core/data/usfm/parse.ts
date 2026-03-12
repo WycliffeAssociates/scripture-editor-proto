@@ -1,5 +1,5 @@
 import type { Token } from "moo";
-import type { LintableToken, LintError } from "@/core/data/usfm/lint.ts";
+import type { LegacyLintError as LintError } from "@/core/domain/usfm/legacyTokenTypes.ts";
 export type TokenDuringParse = Token & {
     attributes?: Record<string, string>;
     content?: Array<TokenDuringParse>;
@@ -24,18 +24,3 @@ export interface ParsedToken {
     text: string;
     tokenType: string;
 }
-export const createParsedToken = <T extends LintableToken>(token: T) => {
-    return {
-        ...token,
-        attributes: token.attributes,
-        content: token.content,
-        id: token.id,
-        inChars: token.inChars,
-        inPara: token.inPara,
-        lintErrors: token.lintErrors,
-        marker: token.marker,
-        sid: token.sid,
-        text: token.text,
-        tokenType: token.tokenType,
-    };
-};

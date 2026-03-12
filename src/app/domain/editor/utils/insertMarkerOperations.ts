@@ -20,13 +20,13 @@ import {
     type USFMTextNodeMetadata,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 import {
     isValidParaMarker,
     VALID_CHAR_MARKERS,
     VALID_NOTE_MARKERS,
     VALID_PARA_MARKERS,
-} from "@/core/data/usfm/tokens.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
+} from "@/core/domain/usfm/onionMarkers.ts";
 
 export const InsertionTypes = {
     chapter: "chapter",

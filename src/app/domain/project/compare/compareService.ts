@@ -1,7 +1,6 @@
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    lexicalEditorStateToOnionFlatTokens,
     onionFlatTokensToEditorState,
     onionFlatTokensToRenderTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -60,13 +59,13 @@ type ChapterSide = {
     chapter: ParsedChapter;
 };
 
-function getBaselineState(
+function getBaselineTokens(
     chapter: ParsedChapter,
     baseline: CompareBaseline,
-): ParsedChapter["lexicalState"] {
+): FlatToken[] {
     return baseline === "currentSaved"
-        ? chapter.loadedLexicalState
-        : chapter.lexicalState;
+        ? chapter.sourceTokens
+        : chapter.currentTokens;
 }
 
 function buildChapterMap(
@@ -175,17 +174,10 @@ async function buildChapterDiffMapAsync(
             if (!bookCode || Number.isNaN(chapterNum)) continue;
 
             const baselineTokens = baselineEntry
-                ? lexicalEditorStateToOnionFlatTokens(
-                      getBaselineState(
-                          baselineEntry.side.chapter,
-                          args.baseline,
-                      ),
-                  )
+                ? getBaselineTokens(baselineEntry.side.chapter, args.baseline)
                 : [];
             const sourceTokens = sourceEntry
-                ? lexicalEditorStateToOnionFlatTokens(
-                      sourceEntry.side.chapter.lexicalState,
-                  )
+                ? sourceEntry.side.chapter.currentTokens
                 : [];
 
             if (baselineEntry && sourceEntry) {
@@ -367,6 +359,8 @@ function ensureWorkingChapterFromSource(args: {
             loadedLexicalState: structuredClone(
                 sourceChapter.loadedLexicalState,
             ),
+            sourceTokens: structuredClone(sourceChapter.sourceTokens),
+            currentTokens: structuredClone(sourceChapter.currentTokens),
             dirty: false,
         };
         existing.file.chapters.push(newChapter);
@@ -392,6 +386,7 @@ function applyTokensToWorkingChapter(args: {
         direction,
         targetMode: currentMode,
     });
+    args.chapter.currentTokens = args.nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
 
@@ -417,12 +412,8 @@ export async function applyIncomingHunk(args: {
     const workingChapter = ensured.chapter;
     if (!workingChapter) return;
 
-    const sourceTokens = lexicalEditorStateToOnionFlatTokens(
-        sourceChapter.lexicalState,
-    );
-    const workingTokens = lexicalEditorStateToOnionFlatTokens(
-        workingChapter.lexicalState,
-    );
+    const sourceTokens = sourceChapter.currentTokens;
+    const workingTokens = workingChapter.currentTokens;
 
     // Take-incoming = treat source as baseline and revert the current working
     // side for this block back to source semantics.
@@ -466,9 +457,7 @@ export function applyIncomingChapter(args: {
         return;
     }
 
-    const incomingTokens = lexicalEditorStateToOnionFlatTokens(
-        sourceChapter.lexicalState,
-    );
+    const incomingTokens = sourceChapter.currentTokens;
     applyTokensToWorkingChapter({
         chapter: workingChapter,
         nextTokens: incomingTokens,

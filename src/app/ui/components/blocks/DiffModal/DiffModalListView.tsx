@@ -68,12 +68,16 @@ function HighlightedDiffText({
 }
 
 type DiffItemProps = {
+    actionMode: "unsaved" | "external";
     diff: ProjectDiff;
-    revertDiff: (diffToRevert: ProjectDiff) => void;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
     switchBookOrChapter: (fileBibleIdentifier: string, chapter: number) => void;
     toggleDiffModal: () => void;
     effectiveShowUsfmMarkers: boolean;
     toggleUsfmForRow: () => void;
+    originalLabel: string;
+    currentLabel: string;
 };
 
 function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
@@ -104,12 +108,16 @@ function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
 }
 
 function DiffItem({
+    actionMode,
     diff,
-    revertDiff,
+    onRevertDiff,
+    onApplyDiffToCurrent,
     switchBookOrChapter,
     toggleDiffModal,
     effectiveShowUsfmMarkers,
     toggleUsfmForRow,
+    originalLabel,
+    currentLabel,
 }: DiffItemProps) {
     const { isLg } = useWorkspaceMediaQuery();
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
@@ -258,20 +266,37 @@ function DiffItem({
                     <BookIcon size={16} />
                 </ActionIconSimple>
             </Tooltip>
-            <Tooltip
-                label={<Trans>Undo Change</Trans>}
-                withArrow
-                position="top"
-            >
-                <ActionIconSimple
-                    data-testid={TESTING_IDS.save.revertButton}
-                    onClick={() => revertDiff(diff)}
-                    aria-label={t`Undo Change`}
-                    title={t`Undo Change`}
+            {actionMode === "unsaved" ? (
+                <Tooltip
+                    label={<Trans>Undo Change</Trans>}
+                    withArrow
+                    position="top"
                 >
-                    <RotateCw size={16} />
-                </ActionIconSimple>
-            </Tooltip>
+                    <ActionIconSimple
+                        data-testid={TESTING_IDS.save.revertButton}
+                        onClick={() => onRevertDiff(diff)}
+                        aria-label={t`Undo Change`}
+                        title={t`Undo Change`}
+                    >
+                        <RotateCw size={16} />
+                    </ActionIconSimple>
+                </Tooltip>
+            ) : (
+                <Tooltip
+                    label={<Trans>Apply to current</Trans>}
+                    withArrow
+                    position="top"
+                >
+                    <ActionIconSimple
+                        data-testid={TESTING_IDS.save.applyButton}
+                        onClick={() => onApplyDiffToCurrent(diff)}
+                        aria-label={t`Apply to current`}
+                        title={t`Apply to current`}
+                    >
+                        <RotateCw size={16} />
+                    </ActionIconSimple>
+                </Tooltip>
+            )}
         </Group>
     );
 
@@ -314,9 +339,9 @@ function DiffItem({
                     <Grid.Col>
                         <Group justify="space-between" mb="xs">
                             <Text className={styles.diffLabel}>
-                                <Trans>Original</Trans>
+                                {originalLabel}
                             </Text>
-                            {renderActions()}
+                            {actionMode === "unsaved" && renderActions()}
                         </Group>
                         <Paper
                             p="md"
@@ -348,8 +373,9 @@ function DiffItem({
                     <Grid.Col>
                         <Group justify="space-between" mb="xs">
                             <Text className={styles.diffLabel}>
-                                <Trans>Current</Trans>
+                                {currentLabel}
                             </Text>
+                            {actionMode === "external" && renderActions()}
                         </Group>
                         <Paper
                             p="md"
@@ -383,9 +409,9 @@ function DiffItem({
                     <div>
                         <Group justify="space-between" mb="xs">
                             <Text className={styles.diffLabel}>
-                                <Trans>Original</Trans>
+                                {originalLabel}
                             </Text>
-                            {renderActions()}
+                            {actionMode === "unsaved" && renderActions()}
                         </Group>
                         <Paper
                             p="md"
@@ -416,8 +442,13 @@ function DiffItem({
 
                     <div>
                         <Text className={styles.diffLabel} mb="xs">
-                            <Trans>Current</Trans>
+                            {currentLabel}
                         </Text>
+                        {actionMode === "external" && (
+                            <Group justify="flex-end" mb="xs">
+                                {renderActions()}
+                            </Group>
+                        )}
                         <Paper
                             p="md"
                             className={getPaperClass(
@@ -452,12 +483,20 @@ function DiffItem({
 
 export function VirtualizedDiffList({
     diffs,
-    revertDiff,
+    actionMode,
+    onRevertDiff,
+    onApplyDiffToCurrent,
+    originalLabel,
+    currentLabel,
     showUsfmMarkers,
     isOpen,
 }: {
     diffs: ProjectDiff[];
-    revertDiff: (diffToRevert: ProjectDiff) => void;
+    actionMode: "unsaved" | "external";
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
+    originalLabel: string;
+    currentLabel: string;
     showUsfmMarkers: boolean;
     isOpen?: boolean;
 }) {
@@ -520,11 +559,15 @@ export function VirtualizedDiffList({
                             }}
                         >
                             <DiffItem
+                                actionMode={actionMode}
                                 diff={diff}
-                                revertDiff={revertDiff}
+                                onRevertDiff={onRevertDiff}
+                                onApplyDiffToCurrent={onApplyDiffToCurrent}
                                 effectiveShowUsfmMarkers={
                                     effectiveShowUsfmMarkers
                                 }
+                                originalLabel={originalLabel}
+                                currentLabel={currentLabel}
                                 toggleUsfmForRow={() =>
                                     setRowUsfmOverrides((prev) =>
                                         toggleRowUsfmOverride({

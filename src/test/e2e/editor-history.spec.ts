@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { expect, test } from "./fixtures.ts";
 import {
@@ -6,6 +7,13 @@ import {
     openSearchPanel,
 } from "./helpers/editor.ts";
 import { appendToEditor, moveChapter } from "./helpers/editor-navigation.ts";
+
+async function openSettings(editorPage: Page) {
+    await editorPage.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
+    await editorPage
+        .getByTestId(TESTING_IDS.settings.accordionControlSettings)
+        .click();
+}
 
 test.describe("Editor History", () => {
     test("manual typing can undo and redo", async ({ editorPage }) => {
@@ -193,5 +201,36 @@ test.describe("Editor History", () => {
             await undoButton.click({ force: true });
         }
         await expect.poll(countInlineTokens, { timeout: 10_000 }).toBe(0);
+    });
+
+    test("undo and redo preserve plain mode projection after editing in regular", async ({
+        editorPage,
+    }, testInfo) => {
+        test.skip(
+            testInfo.project.name === "Mobile Chrome",
+            "Settings drawer flow is unstable under mobile emulation.",
+        );
+
+        const editor = editorPage.getByRole("textbox", { name: "USFM Editor" });
+        const undoButton = editorPage.getByLabel("Undo");
+        const redoButton = editorPage.getByLabel("Redo");
+        const appendedText = " Plain history ";
+
+        await appendToEditor(editorPage, appendedText);
+        await expect(editor).toContainText(appendedText);
+
+        await openSettings(editorPage);
+        await editorPage.getByText("Plain", { exact: true }).last().click();
+        await editorPage.keyboard.press("Escape");
+
+        await expect(editor).toContainText("\\");
+
+        await undoButton.click();
+        await expect(editor).not.toContainText(appendedText);
+        await expect(editor).toContainText("\\");
+
+        await redoButton.click();
+        await expect(editor).toContainText(appendedText);
+        await expect(editor).toContainText("\\");
     });
 });

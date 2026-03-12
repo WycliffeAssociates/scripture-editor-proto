@@ -9,10 +9,6 @@ import { WebDirectoryHandle } from "@/web/io/WebDirectoryHandle.ts";
 import { WebFileHandle } from "@/web/io/WebFileHandle.ts";
 import { NativeOpfsFileWriteBackend } from "@/web/io/write/NativeOpfsFileWriteBackend.ts";
 import type { WebFileWriteBackend } from "@/web/io/write/WebFileWriteBackend.ts";
-import { ZenFsFileWriteBackend } from "@/web/io/write/ZenFsFileWriteBackend.ts";
-import { WebZenFsRuntime } from "@/web/zenfs/WebZenFsRuntime.ts";
-
-export type WebWriteBackendMode = "zenfs" | "native";
 
 export class WebDirectoryProvider implements IDirectoryProvider {
     private constructor(
@@ -20,19 +16,10 @@ export class WebDirectoryProvider implements IDirectoryProvider {
         private writeBackend: WebFileWriteBackend,
     ) {}
 
-    static async create(options?: {
-        zenFsRuntime?: WebZenFsRuntime;
-        writeBackendMode?: WebWriteBackendMode;
-    }): Promise<WebDirectoryProvider> {
+    static async create(): Promise<WebDirectoryProvider> {
         try {
             const root = await navigator.storage.getDirectory(); // OPFS root
-            const mode = options?.writeBackendMode ?? "zenfs";
-            const writeBackend =
-                mode === "native"
-                    ? new NativeOpfsFileWriteBackend()
-                    : new ZenFsFileWriteBackend(
-                          options?.zenFsRuntime ?? new WebZenFsRuntime(),
-                      );
+            const writeBackend = new NativeOpfsFileWriteBackend();
             return new WebDirectoryProvider(root, writeBackend);
         } catch (e) {
             console.error("Failed to access OPFS:", e);

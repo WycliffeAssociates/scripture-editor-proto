@@ -19,11 +19,11 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
 import {
     isDocumentMarker,
     isValidParaMarker,
-} from "@/core/data/usfm/tokens.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
+} from "@/core/domain/usfm/onionMarkers.ts";
 
 // Re-export shared utilities from their canonical locations
 export { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";

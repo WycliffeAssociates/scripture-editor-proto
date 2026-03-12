@@ -1,29 +1,33 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import {
-    areLintIssueListsEqual,
+    flattenLintMessagesByBook,
+    type LintMessagesByBook,
     replaceLintErrorsForBook,
     replaceLintErrorsForChapter,
 } from "./lintState.ts";
 
 export type UseLintReturn = ReturnType<typeof useLint>;
 type UseLintProps = {
-    initialLintErrors: LintIssue[];
+    initialLintErrorsByBook: LintMessagesByBook;
 };
-export function useLint({ initialLintErrors }: UseLintProps) {
+export function useLint({ initialLintErrorsByBook }: UseLintProps) {
     // todo: like initial files data, this is that semi anti pattern of change in props won't sync without reload or an effect, but right now we just hard reload on project change
-    const [messages, setMessage] = useState<LintIssue[]>(initialLintErrors);
+    const [messagesByBook, setMessagesByBook] = useState<LintMessagesByBook>(
+        initialLintErrorsByBook,
+    );
+    const messages = useMemo(
+        () => flattenLintMessagesByBook(messagesByBook),
+        [messagesByBook],
+    );
 
     function replaceErrorsForBook(book: string, newErrors: LintIssue[]) {
-        setMessage((prevMessages) => {
-            const nextMessages = replaceLintErrorsForBook(
-                prevMessages,
+        setMessagesByBook((prevMessagesByBook) => {
+            return replaceLintErrorsForBook(
+                prevMessagesByBook,
                 book,
                 newErrors,
             );
-            return areLintIssueListsEqual(prevMessages, nextMessages)
-                ? prevMessages
-                : nextMessages;
         });
     }
 
@@ -32,22 +36,20 @@ export function useLint({ initialLintErrors }: UseLintProps) {
         chapter: number,
         newErrors: LintIssue[],
     ) {
-        setMessage((prevMessages) => {
-            const nextMessages = replaceLintErrorsForChapter(
-                prevMessages,
+        setMessagesByBook((prevMessagesByBook) => {
+            return replaceLintErrorsForChapter(
+                prevMessagesByBook,
                 book,
                 chapter,
                 newErrors,
             );
-            return areLintIssueListsEqual(prevMessages, nextMessages)
-                ? prevMessages
-                : nextMessages;
         });
     }
 
     return {
+        messagesByBook,
         messages,
-        setMessage,
+        setMessage: setMessagesByBook,
         replaceErrorsForBook,
         replaceErrorsForChapter,
         updateErrorsForChapter: replaceErrorsForChapter,

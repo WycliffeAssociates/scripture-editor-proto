@@ -12,6 +12,7 @@ import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFM
 import {
     createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
+    type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
@@ -65,11 +66,11 @@ function lexicalTokenTypeToOnionKind(tokenType: string | undefined): string {
         case UsfmTokenTypes.marker:
             return "marker";
         case UsfmTokenTypes.endMarker:
-            return "endMarker";
+            return "end-marker";
         case UsfmTokenTypes.numberRange:
             return "number";
         case UsfmTokenTypes.verticalWhitespace:
-            return "verticalWhitespace";
+            return "newline";
         default:
             return tokenType ?? "text";
     }
@@ -80,10 +81,10 @@ function flatTokenKindToLexicalTokenType(kind: string): string {
         case "marker":
         case "milestone":
             return UsfmTokenTypes.marker;
-        case "endMarker":
-        case "milestoneEnd":
+        case "end-marker":
+        case "milestone-end":
             return UsfmTokenTypes.endMarker;
-        case "verticalWhitespace":
+        case "newline":
             return UsfmTokenTypes.verticalWhitespace;
         case "number":
             return UsfmTokenTypes.numberRange;
@@ -166,9 +167,11 @@ export function lexicalEditorStateToOnionFlatTokens(
         if (node.type === "linebreak") {
             tokens.push({
                 id: `linebreak-${linebreakId++}`,
-                kind: "verticalWhitespace",
-                spanStart: cursor,
-                spanEnd: cursor + 1,
+                kind: "newline",
+                span: {
+                    start: cursor,
+                    end: cursor + 1,
+                },
                 sid: lastSid,
                 marker: null,
                 text: "\n",
@@ -184,8 +187,10 @@ export function lexicalEditorStateToOnionFlatTokens(
         tokens.push({
             id: node.id,
             kind: lexicalTokenTypeToOnionKind(node.tokenType),
-            spanStart: cursor,
-            spanEnd: cursor + text.length,
+            span: {
+                start: cursor,
+                end: cursor + text.length,
+            },
             sid,
             marker: node.marker ?? null,
             text,
@@ -197,12 +202,105 @@ export function lexicalEditorStateToOnionFlatTokens(
     return tokens;
 }
 
-export function lexicalEditorStateToOnionUsfmString(
+function shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
+    current: SerializedLexicalNode,
+    next: SerializedLexicalNode | undefined,
+): boolean {
+    if (!isSerializedUSFMTextNode(current)) return false;
+    if (
+        !(
+            current as SerializedUSFMTextNode & {
+                isSyntheticParaMarker?: boolean;
+            }
+        ).isSyntheticParaMarker
+    ) {
+        return false;
+    }
+    if (!next || next.type === "linebreak") return false;
+
+    if (
+        isSerializedUSFMTextNode(next) &&
+        (next.tokenType === UsfmTokenTypes.text ||
+            next.tokenType === UsfmTokenTypes.numberRange) &&
+        /^\s/u.test(next.text ?? "")
+    ) {
+        return false;
+    }
+
+    return !/[ \t]$/u.test(current.text ?? "");
+}
+
+export function lexicalEditorStateToOnionLintFlatTokens(
     state: SerializedEditorState,
-): string {
-    return lexicalEditorStateToOnionFlatTokens(state)
-        .map((token) => token.text)
-        .join("");
+): OnionFlatToken[] {
+    const rootChildren = structuredClone(
+        state.root.children as SerializedLexicalNode[],
+    );
+    const flatNodes = materializeFlatTokensArray(rootChildren, {
+        nested: "flatten",
+    });
+    const withStructuralLinebreaks: SerializedLexicalNode[] = [];
+
+    for (let i = 0; i < flatNodes.length; i++) {
+        const current = flatNodes[i];
+        const next = flatNodes[i + 1];
+        withStructuralLinebreaks.push(current);
+
+        if (
+            shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
+                current,
+                next,
+            )
+        ) {
+            withStructuralLinebreaks.push({
+                type: "linebreak",
+                version: 1,
+            } as SerializedLexicalNode);
+        }
+    }
+
+    let lastSid = "";
+    let linebreakId = 0;
+    let cursor = 0;
+    const tokens: OnionFlatToken[] = [];
+
+    for (const node of withStructuralLinebreaks) {
+        if (node.type === "linebreak") {
+            tokens.push({
+                id: `linebreak-${linebreakId++}`,
+                kind: "newline",
+                span: {
+                    start: cursor,
+                    end: cursor + 1,
+                },
+                sid: lastSid,
+                marker: null,
+                text: "\n",
+            });
+            cursor += 1;
+            continue;
+        }
+
+        if (!isSerializedUSFMTextNode(node)) continue;
+
+        const sid = node.sid ?? lastSid;
+        const text = node.text ?? "";
+        tokens.push({
+            id: node.id,
+            kind: lexicalTokenTypeToOnionKind(node.tokenType),
+            span: {
+                start: cursor,
+                end: cursor + text.length,
+            },
+            sid,
+            marker: node.marker ?? null,
+            text,
+        });
+        cursor += text.length;
+        if (sid) lastSid = sid;
+    }
+
+    return tokens;
 }
 
 export function onionFlatTokensToRenderTokens(
@@ -210,7 +308,7 @@ export function onionFlatTokensToRenderTokens(
 ): LexicalRenderToken[] {
     return tokens.map((token) => {
         const node =
-            token.kind === "verticalWhitespace"
+            token.kind === "newline"
                 ? ({ type: "linebreak", version: 1 } as SerializedLexicalNode)
                 : (createSerializedUSFMTextNode({
                       text: token.text,
@@ -224,7 +322,7 @@ export function onionFlatTokensToRenderTokens(
             node,
             sid: token.sid ?? "",
             tokenType:
-                token.kind === "verticalWhitespace"
+                token.kind === "newline"
                     ? UsfmTokenTypes.verticalWhitespace
                     : flatTokenKindToLexicalTokenType(token.kind),
             marker: token.marker ?? undefined,
@@ -242,7 +340,7 @@ export function onionFlatTokensToEditorState(args: {
             children: [
                 wrapFlatTokensInLexicalParagraph(
                     args.tokens.map((token) =>
-                        token.kind === "verticalWhitespace"
+                        token.kind === "newline"
                             ? ({
                                   type: "linebreak",
                                   version: 1,
@@ -269,6 +367,42 @@ export function onionFlatTokensToEditorState(args: {
     };
 
     return transformToMode(base, args.targetMode);
+}
+
+export function onionFlatTokensToLoadedEditorState(args: {
+    tokens: OnionFlatToken[];
+    direction: "ltr" | "rtl";
+}): SerializedEditorState {
+    return {
+        root: {
+            children: [
+                wrapFlatTokensInLexicalParagraph(
+                    args.tokens.map((token) =>
+                        token.kind === "newline"
+                            ? ({
+                                  type: "linebreak",
+                                  version: 1,
+                              } as SerializedLexicalNode)
+                            : (createSerializedUSFMTextNode({
+                                  text: token.text,
+                                  id: token.id ?? guidGenerator(),
+                                  sid: token.sid ?? "",
+                                  tokenType: flatTokenKindToLexicalTokenType(
+                                      token.kind,
+                                  ),
+                                  marker: token.marker ?? undefined,
+                              }) as SerializedLexicalNode),
+                    ),
+                    args.direction,
+                ),
+            ],
+            type: "root",
+            version: 1,
+            direction: args.direction,
+            format: "start",
+            indent: 0,
+        },
+    };
 }
 
 function lexicalNodeToPrettifyToken(

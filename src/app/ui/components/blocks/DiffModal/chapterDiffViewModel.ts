@@ -4,7 +4,7 @@ import type {
     ChapterRenderToken,
     ProjectDiff,
 } from "@/app/domain/project/diffTypes.ts";
-import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
+import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 import type { DiffTokenAlignment } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export type ChapterViewEntry = {

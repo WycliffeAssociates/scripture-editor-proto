@@ -5,7 +5,7 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { ALL_USFM_MARKERS } from "@/core/data/usfm/tokens.ts";
+import { ALL_USFM_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import {
     $insertChapter,
     $insertChar,

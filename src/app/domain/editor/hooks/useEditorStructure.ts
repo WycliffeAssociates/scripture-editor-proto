@@ -9,8 +9,8 @@ import {
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
-const changeListenerDebounceMs = 300;
-const structuralUpdateDebounceMs = 500;
+const changeListenerDebounceMs = 75;
+const structuralUpdateDebounceMs = 200;
 
 /**
  * Hook to manage document structure maintenance for a Lexical editor.

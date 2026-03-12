@@ -1,4 +1,5 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
+import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export type ProjectFile = {
     path: string;
@@ -12,6 +13,8 @@ export type ProjectFile = {
 export type ParsedChapter = {
     lexicalState: SerializedEditorState<SerializedLexicalNode>;
     loadedLexicalState: SerializedEditorState<SerializedLexicalNode>;
+    sourceTokens: FlatToken[];
+    currentTokens: FlatToken[];
     dirty: boolean;
     chapNumber: number;
 };

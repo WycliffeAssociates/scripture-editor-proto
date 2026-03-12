@@ -21,7 +21,6 @@ import { MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type {
-    CompareBaseline,
     CompareMode,
     CompareSourceKind,
     CompareWarning,
@@ -37,20 +36,23 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
 
+type DiffActionMode = "unsaved" | "external";
+
 export type DiffViewerModalProps = {
     isOpen: boolean;
     onClose: () => void;
     diffs: ProjectDiff[] | null;
     diffsByChapter: DiffsByChapter;
     isCalculating: boolean;
-    revertDiff: (diffToRevert: ProjectDiff) => void;
-    revertChapter: (bookCode: string, chapterNum: number) => void;
+    actionMode: DiffActionMode;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onRevertChapter: (bookCode: string, chapterNum: number) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
+    onApplyChapterToCurrent: (bookCode: string, chapterNum: number) => void;
     saveAllChanges: () => void;
     revertAllChanges: () => void;
     compareMode: CompareMode;
     setCompareMode: (mode: CompareMode) => void;
-    compareBaseline: CompareBaseline;
-    setCompareBaseline: (baseline: CompareBaseline) => void;
     compareSourceKind: CompareSourceKind;
     setCompareSourceKind: (kind: CompareSourceKind) => void;
     compareSourceProjectId: string;
@@ -92,14 +94,15 @@ export function DiffViewerModal({
     diffs,
     diffsByChapter,
     isCalculating,
-    revertDiff,
-    revertChapter,
+    actionMode,
+    onRevertDiff,
+    onRevertChapter,
+    onApplyDiffToCurrent,
+    onApplyChapterToCurrent,
     saveAllChanges,
     revertAllChanges,
     compareMode,
     setCompareMode,
-    compareBaseline,
-    setCompareBaseline,
     compareSourceKind,
     setCompareSourceKind,
     compareSourceProjectId,
@@ -121,6 +124,7 @@ export function DiffViewerModal({
 }: DiffViewerModalProps) {
     const hasChanges = (diffs?.length ?? 0) > 0;
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
+    const isExternalActionMode = actionMode === "external";
     const [hideWhitespaceOnly, setHideWhitespaceOnly] = useState(false);
     const [showUsfmMarkers, setShowUsfmMarkers] = useState(false);
     const [viewMode, setViewMode] = useState<DiffViewMode>("list");
@@ -215,11 +219,15 @@ export function DiffViewerModal({
     const showingChapterView = viewMode === "chapter";
     const hasVisibleChapter = selectedChapterDiffs.length > 0;
 
-    const handleRevertSelectedChapter = () => {
+    const handleSelectedChapterAction = () => {
         if (!selectedChapter) return;
         const parsed = parseChapterKey(selectedChapter);
         if (!parsed.bookCode || Number.isNaN(parsed.chapterNum)) return;
-        revertChapter(parsed.bookCode, parsed.chapterNum);
+        if (isExternalActionMode) {
+            onApplyChapterToCurrent(parsed.bookCode, parsed.chapterNum);
+            return;
+        }
+        onRevertChapter(parsed.bookCode, parsed.chapterNum);
     };
 
     const compareProjectOptions = compareProjects.map((project) => {
@@ -260,7 +268,7 @@ export function DiffViewerModal({
                 : t`Folder`;
     const compareSummaryText =
         compareMode === "external"
-            ? t`Comparing ${compareBaseline === "currentDirty" ? "Current dirty" : "Current saved"} vs ${sourceLabel}`
+            ? t`Comparing your current vs ${sourceLabel}`
             : t`Unsaved changes in ${unsavedBooksCount} book(s)`;
     const hasCompareSourceSelection =
         compareSourceKind === "existingProject"
@@ -370,7 +378,7 @@ export function DiffViewerModal({
                                                             !canApplyIncomingAll
                                                         }
                                                     >
-                                                        <Trans>Take</Trans>
+                                                        <Trans>Apply all</Trans>
                                                     </Button>
                                                     <Button
                                                         variant="default"
@@ -543,30 +551,6 @@ export function DiffViewerModal({
                                                             pb="xs"
                                                             gap="xs"
                                                         >
-                                                            <SegmentedControl
-                                                                value={
-                                                                    compareBaseline
-                                                                }
-                                                                onChange={(
-                                                                    value,
-                                                                ) =>
-                                                                    setCompareBaseline(
-                                                                        value as CompareBaseline,
-                                                                    )
-                                                                }
-                                                                data={[
-                                                                    {
-                                                                        label: t`Saved`,
-                                                                        value: "currentSaved",
-                                                                    },
-                                                                    {
-                                                                        label: t`Dirty`,
-                                                                        value: "currentDirty",
-                                                                    },
-                                                                ]}
-                                                                size="xs"
-                                                                fullWidth
-                                                            />
                                                             <Group
                                                                 gap="xs"
                                                                 wrap="wrap"
@@ -753,25 +737,6 @@ export function DiffViewerModal({
                                     <div className={styles.toolbarBand}>
                                         <Stack gap="xs">
                                             <Group gap="xs" wrap="wrap">
-                                                <SegmentedControl
-                                                    value={compareBaseline}
-                                                    onChange={(value) =>
-                                                        setCompareBaseline(
-                                                            value as CompareBaseline,
-                                                        )
-                                                    }
-                                                    data={[
-                                                        {
-                                                            label: t`Current saved`,
-                                                            value: "currentSaved",
-                                                        },
-                                                        {
-                                                            label: t`Current dirty`,
-                                                            value: "currentDirty",
-                                                        },
-                                                    ]}
-                                                    size="xs"
-                                                />
                                                 <Menu
                                                     shadow="md"
                                                     width={220}
@@ -1019,8 +984,7 @@ export function DiffViewerModal({
                                                             }
                                                         >
                                                             <Trans>
-                                                                Take all
-                                                                incoming changes
+                                                                Apply all
                                                             </Trans>
                                                         </Button>
                                                         <Button
@@ -1177,7 +1141,19 @@ export function DiffViewerModal({
                         hasVisibleDiffs && (
                             <VirtualizedDiffList
                                 diffs={visibleDiffs ?? []}
-                                revertDiff={revertDiff}
+                                actionMode={actionMode}
+                                onRevertDiff={onRevertDiff}
+                                onApplyDiffToCurrent={onApplyDiffToCurrent}
+                                originalLabel={
+                                    isExternalActionMode
+                                        ? t`Your current`
+                                        : t`Original`
+                                }
+                                currentLabel={
+                                    isExternalActionMode
+                                        ? t`Comparison`
+                                        : t`Current`
+                                }
                                 showUsfmMarkers={showUsfmMarkers}
                                 isOpen={isOpen}
                             />
@@ -1189,11 +1165,23 @@ export function DiffViewerModal({
                         hasVisibleChapter && (
                             <ChapterDiffStructuredDocument
                                 diffs={selectedChapterDiffs}
+                                actionMode={actionMode}
                                 chapterLabel={selectedChapterLabel}
-                                revertDiff={revertDiff}
+                                onRevertDiff={onRevertDiff}
+                                onApplyDiffToCurrent={onApplyDiffToCurrent}
                                 hideWhitespaceOnly={hideWhitespaceOnly}
                                 showUsfmMarkers={showUsfmMarkers}
-                                onRevertChapter={handleRevertSelectedChapter}
+                                onChapterAction={handleSelectedChapterAction}
+                                originalLabel={
+                                    isExternalActionMode
+                                        ? t`Your current`
+                                        : t`Original`
+                                }
+                                currentLabel={
+                                    isExternalActionMode
+                                        ? t`Comparison`
+                                        : t`Current`
+                                }
                             />
                         )}
 

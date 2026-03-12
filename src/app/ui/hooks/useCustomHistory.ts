@@ -8,7 +8,7 @@ import type {
 import { useCallback, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
+import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
     canonicalSnapshotToChapterState,
@@ -208,16 +208,18 @@ export function useCustomHistory({
     );
 
     const markChapterDirty = useCallback((chapter: ParsedChapter) => {
+        chapter.currentTokens = lexicalEditorStateToOnionFlatTokens(
+            chapter.lexicalState,
+        );
         chapter.dirty =
-            serializeToUsfmString(chapter.lexicalState.root.children) !==
-            serializeToUsfmString(chapter.loadedLexicalState.root.children);
+            chapter.currentTokens.map((token) => token.text).join("") !==
+            chapter.sourceTokens.map((token) => token.text).join("");
     }, []);
 
     const refreshVisibleEditorIfTouched = useCallback(
         (
             touched: Set<string>,
             selectionOverride?: SerializedSelectionState,
-            editorStateOverride?: SerializedEditorStateLike,
         ) => {
             const currentRef = {
                 bookCode: currentFileBibleIdentifier,
@@ -235,7 +237,6 @@ export function useCustomHistory({
                 currentRecord.chapter,
                 mutWorkingFilesRef,
                 selectionOverride,
-                editorStateOverride,
             );
         },
         [
@@ -255,15 +256,6 @@ export function useCustomHistory({
                 .getEditorState()
                 .toJSON() as SerializedEditorStateLike;
             return cloneSelection(state.selection);
-        }, [editorRef]);
-
-    const getCurrentEditorState =
-        useCallback((): SerializedEditorStateLike | null => {
-            const editor = editorRef.current;
-            if (!editor) return null;
-            return editor
-                .getEditorState()
-                .toJSON() as SerializedEditorStateLike;
         }, [editorRef]);
 
     const captureEditorSelection = useCallback(
@@ -306,8 +298,6 @@ export function useCustomHistory({
                 after: CanonicalChapterSnapshot;
                 selectionBefore?: unknown;
                 selectionAfter?: unknown;
-                editorStateBefore?: unknown;
-                editorStateAfter?: unknown;
             }>,
             label: string,
         ) => {
@@ -318,9 +308,6 @@ export function useCustomHistory({
                 chapterNum: currentChapter,
             };
             let currentChapterSelectionOverride: SerializedSelectionState;
-            let currentChapterEditorStateOverride:
-                | SerializedEditorStateLike
-                | undefined;
 
             for (const change of chapterChanges) {
                 const record = findChapterRecord(change.chapter);
@@ -331,10 +318,6 @@ export function useCustomHistory({
                     direction === "before"
                         ? change.selectionBefore
                         : change.selectionAfter;
-                const targetEditorState =
-                    direction === "before"
-                        ? change.editorStateBefore
-                        : change.editorStateAfter;
                 const targetMode = inferChapterModeFromState(
                     record.chapter.lexicalState,
                 );
@@ -352,14 +335,8 @@ export function useCustomHistory({
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
                 if (chapterKey(change.chapter) === chapterKey(currentRef)) {
-                    const typedEditorState = targetEditorState as
-                        | SerializedEditorStateLike
-                        | undefined;
-                    currentChapterEditorStateOverride = typedEditorState;
                     currentChapterSelectionOverride =
-                        typedEditorState === undefined
-                            ? (targetSelection as SerializedSelectionState)
-                            : undefined;
+                        targetSelection as SerializedSelectionState;
                 }
             }
 
@@ -367,7 +344,6 @@ export function useCustomHistory({
                 refreshVisibleEditorIfTouched(
                     touchedChapters,
                     currentChapterSelectionOverride,
-                    currentChapterEditorStateOverride,
                 );
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
@@ -426,7 +402,7 @@ export function useCustomHistory({
     const captureEditorUpdate = useCallback(
         ({
             editorState,
-            prevEditorState,
+            prevEditorState: _prevEditorState,
             dirtyElements,
             dirtyLeaves,
             tags,
@@ -437,8 +413,6 @@ export function useCustomHistory({
             };
             const serializedState =
                 editorState.toJSON() as SerializedEditorStateLike;
-            const prevSerializedState =
-                prevEditorState.toJSON() as SerializedEditorStateLike;
             const nextSelection = cloneSelection(serializedState.selection);
             if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
                 setBaselineSelection(chapterRef, nextSelection);
@@ -449,10 +423,6 @@ export function useCustomHistory({
 
             const beforeSnapshot = getBaselineSnapshot(chapterRef);
             const beforeSelection = getBaselineSelection(chapterRef);
-            const beforeEditorState = {
-                ...prevSerializedState,
-                selection: nextSelection,
-            };
             if (!beforeSnapshot) {
                 setBaselineSnapshot(chapterRef, nextSnapshot);
                 setBaselineSelection(chapterRef, nextSelection);
@@ -469,7 +439,6 @@ export function useCustomHistory({
                     chapterRef,
                     nextSnapshot,
                     nextSelection,
-                    serializedState,
                 );
                 setBaselineSnapshot(chapterRef, nextSnapshot);
                 setBaselineSelection(chapterRef, nextSelection);
@@ -499,8 +468,6 @@ export function useCustomHistory({
                     after: nextSnapshot,
                     selectionBefore: nextSelection ?? beforeSelection,
                     selectionAfter: nextSelection,
-                    editorStateBefore: beforeEditorState,
-                    editorStateAfter: serializedState,
                 },
             });
             setBaselineSnapshot(chapterRef, nextSnapshot);
@@ -531,10 +498,6 @@ export function useCustomHistory({
                 string,
                 SerializedSelectionState
             >();
-            const beforeEditorStateByChapter = new Map<
-                string,
-                SerializedEditorStateLike
-            >();
             const currentRef: HistoryChapterRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -551,10 +514,6 @@ export function useCustomHistory({
                         getCurrentEditorSelection() ??
                             getBaselineSelection(chapterRef),
                     );
-                    const currentState = getCurrentEditorState();
-                    if (currentState) {
-                        beforeEditorStateByChapter.set(key, currentState);
-                    }
                 }
             }
 
@@ -572,10 +531,6 @@ export function useCustomHistory({
                         key === chapterKey(currentRef)
                             ? getCurrentEditorSelection()
                             : undefined;
-                    const editorStateAfter =
-                        key === chapterKey(currentRef)
-                            ? getCurrentEditorState()
-                            : undefined;
                     if (key === chapterKey(currentRef)) {
                         setBaselineSelection(chapterRef, selectionAfter);
                     }
@@ -585,8 +540,6 @@ export function useCustomHistory({
                         after,
                         selectionBefore: beforeSelectionByChapter.get(key),
                         selectionAfter,
-                        editorStateBefore: beforeEditorStateByChapter.get(key),
-                        editorStateAfter,
                     };
                 })
                 .filter(
@@ -611,7 +564,6 @@ export function useCustomHistory({
             setBaselineSnapshot,
             setBaselineSelection,
             getCurrentEditorSelection,
-            getCurrentEditorState,
             getBaselineSelection,
             bumpVersion,
         ],

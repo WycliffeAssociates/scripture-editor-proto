@@ -10,8 +10,8 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { isValidParaMarker } from "@/core/data/usfm/tokens.ts";
 import { markerTrimNoSlash, numRangeRe } from "@/core/domain/usfm/lex.ts";
+import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 import {
     mutAddSids,
     type TokenForSidCalculation,

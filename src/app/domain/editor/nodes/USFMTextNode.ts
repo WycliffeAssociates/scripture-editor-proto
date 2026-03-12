@@ -25,7 +25,7 @@ import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
 import {
     ALL_CHAR_MARKERS,
     isValidParaMarker,
-} from "@/core/data/usfm/tokens.ts";
+} from "@/core/domain/usfm/onionMarkers.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
@@ -254,15 +254,6 @@ export class USFMTextNode extends TextNode {
 }
 
 /* type guards */
-export function isSerializedNumberOrPlainTextUSFMTextNode(
-    node: SerializedLexicalNode,
-): node is SerializedUSFMTextNode {
-    return (
-        isSerializedUSFMTextNode(node) &&
-        (node.tokenType === UsfmTokenTypes.numberRange ||
-            node.tokenType === UsfmTokenTypes.text)
-    );
-}
 export function $isUSFMTextNode(
     node: LexicalNode | null | undefined,
 ): node is USFMTextNode {

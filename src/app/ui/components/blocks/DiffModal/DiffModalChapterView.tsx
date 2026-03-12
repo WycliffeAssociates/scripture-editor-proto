@@ -115,17 +115,21 @@ function normalizeTokenChange(args: {
 }
 
 function ChapterStructuredToken({
+    actionMode,
     paragraph,
     tokenIndex,
     viewType,
     showUsfmMarkers,
-    revertDiff,
+    onRevertDiff,
+    onApplyDiffToCurrent,
 }: {
+    actionMode: "unsaved" | "external";
     paragraph: ChapterRenderParagraph;
     tokenIndex: number;
     viewType: "original" | "current";
     showUsfmMarkers: boolean;
-    revertDiff: (diffToRevert: ProjectDiff) => void;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
 }) {
     const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const tokenWithOwner = paragraph.tokens[tokenIndex];
@@ -174,12 +178,14 @@ function ChapterStructuredToken({
         return null;
     }
 
-    const undoSide =
-        entry.diffToRevert?.undoSide ??
-        (entry.status === "deleted" ? "original" : "current");
-    const isUndoSide = viewType === undoSide;
-    const showUndoOverlay =
-        isUndoSide &&
+    const actionSide =
+        actionMode === "external"
+            ? "current"
+            : (entry.diffToRevert?.undoSide ??
+              (entry.status === "deleted" ? "original" : "current"));
+    const isActionSide = viewType === actionSide;
+    const showActionOverlay =
+        isActionSide &&
         isFirstTokenOfEntry &&
         entry.canRevert &&
         entry.diffToRevert;
@@ -189,7 +195,20 @@ function ChapterStructuredToken({
               replaceCodeInString: entry.semanticSid,
           })
         : entry.semanticSid;
-    const undoLabel = localizedSid ? t`Undo ${localizedSid}` : t`Undo Change`;
+    const actionLabel =
+        actionMode === "external"
+            ? t`Apply to current`
+            : localizedSid
+              ? t`Undo ${localizedSid}`
+              : t`Undo Change`;
+    const onActionClick = () => {
+        if (!entry.diffToRevert) return;
+        if (actionMode === "external") {
+            onApplyDiffToCurrent(entry.diffToRevert);
+            return;
+        }
+        onRevertDiff(entry.diffToRevert);
+    };
 
     const sideToken = token.node;
     const pairedCounterpartNode = counterpartToken?.node;
@@ -217,19 +236,17 @@ function ChapterStructuredToken({
 
     return (
         <span key={tokenWithOwner.key} className={styles.chapterPartChanged}>
-            {showUndoOverlay && (
-                <Tooltip label={undoLabel} withArrow position="top">
+            {showActionOverlay && (
+                <Tooltip label={actionLabel} withArrow position="top">
                     <ActionIcon
                         className={styles.chapterHunkAction}
                         data-testid={TESTING_IDS.save.chapterHunkAction}
-                        onClick={() =>
-                            revertDiff(entry.diffToRevert as ProjectDiff)
-                        }
+                        onClick={onActionClick}
                         size="xs"
                         variant="subtle"
                         color="blue"
-                        aria-label={undoLabel}
-                        title={undoLabel}
+                        aria-label={actionLabel}
+                        title={actionLabel}
                     >
                         <RotateCw size={12} />
                     </ActionIcon>
@@ -251,15 +268,19 @@ function ChapterStructuredToken({
 }
 
 function ChapterStructuredText({
+    actionMode,
     paragraphs,
     showUsfmMarkers,
     viewType,
-    revertDiff,
+    onRevertDiff,
+    onApplyDiffToCurrent,
 }: {
+    actionMode: "unsaved" | "external";
     paragraphs: ChapterRenderParagraph[];
     showUsfmMarkers: boolean;
     viewType: "original" | "current";
-    revertDiff: (diffToRevert: ProjectDiff) => void;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
 }) {
     return (
         <div
@@ -281,11 +302,13 @@ function ChapterStructuredText({
                     {paragraph.tokens.map((_, tokenIndex) => (
                         <ChapterStructuredToken
                             key={`${paragraph.key}-${tokenIndex}`}
+                            actionMode={actionMode}
                             paragraph={paragraph}
                             tokenIndex={tokenIndex}
                             viewType={viewType}
                             showUsfmMarkers={showUsfmMarkers}
-                            revertDiff={revertDiff}
+                            onRevertDiff={onRevertDiff}
+                            onApplyDiffToCurrent={onApplyDiffToCurrent}
                         />
                     ))}
                 </div>
@@ -296,18 +319,26 @@ function ChapterStructuredText({
 
 export function ChapterDiffStructuredDocument({
     diffs,
+    actionMode,
     hideWhitespaceOnly,
     showUsfmMarkers,
     chapterLabel,
-    revertDiff,
-    onRevertChapter,
+    onRevertDiff,
+    onApplyDiffToCurrent,
+    onChapterAction,
+    originalLabel,
+    currentLabel,
 }: {
     diffs: ProjectDiff[];
+    actionMode: "unsaved" | "external";
     hideWhitespaceOnly: boolean;
     showUsfmMarkers: boolean;
     chapterLabel: string;
-    revertDiff: (diffToRevert: ProjectDiff) => void;
-    onRevertChapter?: () => void;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
+    onChapterAction?: () => void;
+    originalLabel: string;
+    currentLabel: string;
 }) {
     const { isSm } = useWorkspaceMediaQuery();
     const [mobileViewType, setMobileViewType] = useState<
@@ -341,14 +372,18 @@ export function ChapterDiffStructuredDocument({
         >
             <Group justify="space-between" align="center" mb="0">
                 <Text className={styles.diffSidHeader}>{chapterLabel}</Text>
-                {onRevertChapter && (
+                {onChapterAction && (
                     <Button
                         variant="light"
-                        color="red"
+                        color={actionMode === "external" ? "blue" : "red"}
                         size="xs"
-                        onClick={onRevertChapter}
+                        onClick={onChapterAction}
                     >
-                        <Trans>Revert chapter changes</Trans>
+                        {actionMode === "external" ? (
+                            <Trans>Apply chapter to current</Trans>
+                        ) : (
+                            <Trans>Revert chapter changes</Trans>
+                        )}
                     </Button>
                 )}
             </Group>
@@ -361,22 +396,21 @@ export function ChapterDiffStructuredDocument({
                             setMobileViewType(value as "original" | "current")
                         }
                         data={[
-                            { label: t`Current`, value: "current" },
-                            { label: t`Original`, value: "original" },
+                            { label: currentLabel, value: "current" },
+                            { label: originalLabel, value: "original" },
                         ]}
                         size="xs"
                         fullWidth
                         mb="xs"
                     />
                     <Text className={styles.diffLabel} mb="xs">
-                        {mobileViewType === "current" ? (
-                            <Trans>Current</Trans>
-                        ) : (
-                            <Trans>Original</Trans>
-                        )}
+                        {mobileViewType === "current"
+                            ? currentLabel
+                            : originalLabel}
                     </Text>
                     <Paper p="md" className={styles.chapterDiffPanel}>
                         <ChapterStructuredText
+                            actionMode={actionMode}
                             paragraphs={
                                 mobileViewType === "current"
                                     ? currentParagraphs
@@ -384,7 +418,8 @@ export function ChapterDiffStructuredDocument({
                             }
                             showUsfmMarkers={showUsfmMarkers}
                             viewType={mobileViewType}
-                            revertDiff={revertDiff}
+                            onRevertDiff={onRevertDiff}
+                            onApplyDiffToCurrent={onApplyDiffToCurrent}
                         />
                     </Paper>
                 </div>
@@ -392,27 +427,31 @@ export function ChapterDiffStructuredDocument({
                 <div className={styles.chapterGrid}>
                     <div className={styles.chapterColumn}>
                         <Text className={styles.diffLabel} mb="xs">
-                            <Trans>Original</Trans>
+                            {originalLabel}
                         </Text>
                         <Paper p="md" className={styles.chapterDiffPanel}>
                             <ChapterStructuredText
+                                actionMode={actionMode}
                                 paragraphs={originalParagraphs}
                                 showUsfmMarkers={showUsfmMarkers}
                                 viewType="original"
-                                revertDiff={revertDiff}
+                                onRevertDiff={onRevertDiff}
+                                onApplyDiffToCurrent={onApplyDiffToCurrent}
                             />
                         </Paper>
                     </div>
                     <div className={styles.chapterColumn}>
                         <Text className={styles.diffLabel} mb="xs">
-                            <Trans>Current</Trans>
+                            {currentLabel}
                         </Text>
                         <Paper p="md" className={styles.chapterDiffPanel}>
                             <ChapterStructuredText
+                                actionMode={actionMode}
                                 paragraphs={currentParagraphs}
                                 showUsfmMarkers={showUsfmMarkers}
                                 viewType="current"
-                                revertDiff={revertDiff}
+                                onRevertDiff={onRevertDiff}
+                                onApplyDiffToCurrent={onApplyDiffToCurrent}
                             />
                         </Paper>
                     </div>

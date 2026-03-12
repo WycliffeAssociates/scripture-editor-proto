@@ -3,7 +3,7 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { CHAPTER_VERSE_MARKERS } from "@/core/data/usfm/tokens.ts";
+import { CHAPTER_VERSE_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 const LEADING_VERSE_NUMBER_WITH_TEXT_PATTERN = /^(\s*)(\d+(?:-\d+)?)(\s+)(.*)$/;
 

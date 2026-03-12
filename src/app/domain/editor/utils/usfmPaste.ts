@@ -4,6 +4,7 @@ import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const USFM_MARKER_PATTERN =
     /(^|[\s\u00A0])\\[A-Za-z][A-Za-z0-9]*\*?(?=$|[\s\u00A0])/gmu;
@@ -16,9 +17,6 @@ const VALID_INSERTABLE_TOKEN_TYPES = new Set<string>([
     UsfmTokenTypes.verticalWhitespace,
 ]);
 
-export type ClipboardUsfmParseResult =
-    | { ok: true; nodes: LexicalNode[]; tokens: ParsedToken[] }
-    | { ok: false; reason: "parse-failed" };
 export type ClipboardUsfmTokenParseResult =
     | { ok: true; tokens: ParsedToken[] }
     | { ok: false; reason: "parse-failed" };
@@ -34,24 +32,31 @@ export function isUsfmLikePaste(text: string): boolean {
     );
 }
 
-export function flattenParsedChapterMap(
-    chapters: Record<number, ParsedToken[]>,
-): ParsedToken[] {
-    return Object.keys(chapters)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .flatMap((chapter) => chapters[chapter] ?? []);
+function flatTokenKindToParsedTokenType(kind: string): string {
+    switch (kind) {
+        case "marker":
+        case "milestone":
+            return UsfmTokenTypes.marker;
+        case "end-marker":
+        case "milestone-end":
+            return UsfmTokenTypes.endMarker;
+        case "newline":
+            return UsfmTokenTypes.verticalWhitespace;
+        case "number":
+            return UsfmTokenTypes.numberRange;
+        default:
+            return kind;
+    }
 }
 
-function flattenNestedTokens(tokens: ParsedToken[]): ParsedToken[] {
-    const out: ParsedToken[] = [];
-    for (const token of tokens) {
-        out.push(token);
-        if (token.content?.length) {
-            out.push(...flattenNestedTokens(token.content));
-        }
-    }
-    return out;
+function onionFlatTokensToParsedTokens(tokens: FlatToken[]): ParsedToken[] {
+    return tokens.map((token) => ({
+        id: token.id || guidGenerator(),
+        text: token.text,
+        sid: token.sid ?? undefined,
+        marker: token.marker ?? undefined,
+        tokenType: flatTokenKindToParsedTokenType(token.kind),
+    }));
 }
 
 function hasMalformedChapterOrVerseNumber(text: string): boolean {
@@ -93,13 +98,10 @@ async function parseClipboardUsfmToTokensAsync(args: {
             return { ok: false, reason: "parse-failed" };
         }
 
-        const parsed = await args.usfmOnionService.parseUsfmChapter(
-            args.text,
-            args.bookCode,
-        );
-
-        const chapterTokens = flattenParsedChapterMap(parsed.chapters);
-        const flatTokens = flattenNestedTokens(chapterTokens);
+        const projected = await args.usfmOnionService.projectUsfm(args.text, {
+            lintOptions: null,
+        });
+        const flatTokens = onionFlatTokensToParsedTokens(projected.tokens);
         const hasInsertableTokens = flatTokens.some((token) =>
             VALID_INSERTABLE_TOKEN_TYPES.has(token.tokenType),
         );
@@ -142,28 +144,4 @@ export function parsedUsfmTokensToInsertableNodes(
         );
     }
     return nodes;
-}
-
-export function parseClipboardUsfmToInsertableNodes(args: {
-    text: string;
-    bookCode: string;
-    direction: "ltr" | "rtl";
-    usfmOnionService: IUsfmOnionService;
-}): Promise<ClipboardUsfmParseResult> {
-    return parseClipboardUsfmToInsertableNodesAsync(args);
-}
-
-async function parseClipboardUsfmToInsertableNodesAsync(args: {
-    text: string;
-    bookCode: string;
-    direction: "ltr" | "rtl";
-    usfmOnionService: IUsfmOnionService;
-}): Promise<ClipboardUsfmParseResult> {
-    const parsed = await parseClipboardUsfmToTokens(args);
-    if (!parsed.ok) return parsed;
-    const nodes = parsedUsfmTokensToInsertableNodes(parsed.tokens);
-    if (!nodes.length) {
-        return { ok: false, reason: "parse-failed" };
-    }
-    return { ok: true, nodes, tokens: parsed.tokens };
 }

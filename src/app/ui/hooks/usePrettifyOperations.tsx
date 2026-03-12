@@ -3,8 +3,8 @@ import { useRouter } from "@tanstack/react-router";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
-    lexicalEditorStateToOnionFlatTokens,
-    lexicalEditorStateToOnionUsfmString,
+    inferContentEditorModeFromRootChildren,
+    onionFlatTokensToEditorState,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     hideNotification,
@@ -13,6 +13,7 @@ import {
     showProgressNotification,
     updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
+import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -57,30 +58,20 @@ export function useFormatOperations({
 
     const refreshLintForFiles = async (files: ParsedFile[]) => {
         if (!files.length) return;
-        const lintResults = await usfmOnionService.lintScope(
-            files.map((file) => ({
-                tokens: file.chapters.flatMap((chapter) =>
-                    lexicalEditorStateToOnionFlatTokens(chapter.lexicalState),
-                ),
-            })),
+        const lintResultsByBook = await relintBookFiles(
+            files,
+            usfmOnionService,
         );
-        for (let i = 0; i < files.length; i++) {
-            replaceLintErrorsForBook(files[i].bookCode, lintResults[i] ?? []);
+        for (const file of files) {
+            replaceLintErrorsForBook(
+                file.bookCode,
+                lintResultsByBook[file.bookCode] ?? [],
+            );
         }
     };
 
-    const buildBookUsfmFromLexical = (
-        file: ParsedFile,
-        chapterOverrides: Record<number, string> = {},
-    ) =>
-        [...file.chapters]
-            .sort((a, b) => a.chapNumber - b.chapNumber)
-            .map(
-                (chapter) =>
-                    chapterOverrides[chapter.chapNumber] ??
-                    lexicalEditorStateToOnionUsfmString(chapter.lexicalState),
-            )
-            .join("");
+    const chapterTokensForFormatting = (chapter: ParsedChapter) =>
+        chapter.currentTokens;
 
     const formatChapterInPlace = async (
         file: ParsedFile,
@@ -89,9 +80,7 @@ export function useFormatOperations({
         const chapter = file.chapters.find((c) => c.chapNumber === chapterNum);
         if (!chapter) return { changed: false as const };
 
-        const chapterTokens = lexicalEditorStateToOnionFlatTokens(
-            chapter.lexicalState,
-        );
+        const chapterTokens = chapterTokensForFormatting(chapter);
         const [result] = await usfmOnionService.formatScope(
             [{ tokens: chapterTokens }],
             {
@@ -100,23 +89,28 @@ export function useFormatOperations({
         );
         if (!result.appliedChanges.length) return { changed: false as const };
 
-        const nextChapterUsfm = result.tokens
-            .map((token) => token.text)
-            .join("");
-        const nextBookUsfm = buildBookUsfmFromLexical(file, {
-            [chapterNum]: nextChapterUsfm,
+        const direction =
+            (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
+                ? "rtl"
+                : "ltr";
+        const targetMode = inferContentEditorModeFromRootChildren(
+            chapter.lexicalState.root.children,
+        );
+        chapter.lexicalState = onionFlatTokensToEditorState({
+            tokens: result.tokens,
+            direction,
+            targetMode,
         });
-        await rebuildParsedFileFromUsfm({
-            targetFile: file,
-            sourceUsfm: nextBookUsfm,
-            usfmOnionService,
-        });
+        chapter.currentTokens = result.tokens;
+        chapter.dirty =
+            result.tokens.map((token) => token.text).join("") !==
+            chapter.sourceTokens.map((token) => token.text).join("");
         return { changed: true as const };
     };
 
     const formatBookInPlace = async (file: ParsedFile) => {
         const baselineTokens = file.chapters.flatMap((chapter) =>
-            lexicalEditorStateToOnionFlatTokens(chapter.lexicalState),
+            chapterTokensForFormatting(chapter),
         );
         const [result] = await usfmOnionService.formatScope(
             [{ tokens: baselineTokens }],
@@ -283,9 +277,7 @@ export function useFormatOperations({
                     const batchResults = await usfmOnionService.formatScope(
                         mutWorkingFilesRef.map((file) => ({
                             tokens: file.chapters.flatMap((chapter) =>
-                                lexicalEditorStateToOnionFlatTokens(
-                                    chapter.lexicalState,
-                                ),
+                                chapterTokensForFormatting(chapter),
                             ),
                         })),
                         {

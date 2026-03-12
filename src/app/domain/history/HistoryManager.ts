@@ -9,8 +9,6 @@ export type HistorySnapshotChange<TSnapshot> = {
     after: TSnapshot;
     selectionBefore?: unknown;
     selectionAfter?: unknown;
-    editorStateBefore?: unknown;
-    editorStateAfter?: unknown;
 };
 
 type HistoryEntrySource = "typing" | "transaction";
@@ -94,7 +92,6 @@ export class HistoryManager<TSnapshot> {
                 ...latest.changes[0],
                 after: args.change.after,
                 selectionAfter: args.change.selectionAfter,
-                editorStateAfter: args.change.editorStateAfter,
             };
             return latest;
         }
@@ -111,7 +108,6 @@ export class HistoryManager<TSnapshot> {
         chapter: HistoryChapterRef,
         after: TSnapshot,
         selectionAfter?: unknown,
-        editorStateAfter?: unknown,
     ): boolean {
         if (!this.canUndo()) return false;
         const latest = this.entries[this.cursor - 1];
@@ -124,7 +120,6 @@ export class HistoryManager<TSnapshot> {
         if (!match) return false;
         match.after = after;
         match.selectionAfter = selectionAfter;
-        match.editorStateAfter = editorStateAfter;
         latest.timestamp = this.now();
         return true;
     }

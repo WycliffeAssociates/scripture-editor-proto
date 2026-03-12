@@ -9,9 +9,17 @@ import {
     materializeFlatTokensArray,
     normalizeMarkerWhitespaceForOperations,
 } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import type { LegacyLintError } from "@/core/domain/usfm/legacyTokenTypes.ts";
 
-export type LintableTokenLike = LintableToken;
+export type LintableTokenLike = {
+    text: string;
+    tokenType: string;
+    sid?: string;
+    marker?: string;
+    lintErrors?: Array<LegacyLintError>;
+    isSyntheticParaMarker?: boolean;
+    id: string;
+};
 
 function cloneSerializedTokenForLint(
     node: SerializedUSFMTextNode,
@@ -33,7 +41,7 @@ function cloneSerializedTokenForLint(
     };
 }
 
-export function getFlattenedEditorStateAsParseTokens(
+function getFlattenedEditorStateAsParseTokens(
     serializedEditorState: SerializedEditorState,
 ): Array<LintableTokenLike> {
     const tokens: Array<LintableTokenLike> = [];

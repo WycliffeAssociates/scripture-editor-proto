@@ -6,7 +6,7 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTextInsertionAnchor.ts";
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
+import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 export function insertParagraphMarkerAtCursor({
     editor,

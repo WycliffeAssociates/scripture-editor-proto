@@ -12,14 +12,14 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { parsedUsfmTokensToLexicalStates } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { onionFlatTokensToEditorState } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { parseUSFMChapter } from "@/core/domain/usfm/parse.ts";
+import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
-export function createTestEditor(
+export async function createTestEditor(
     usfmContent: string,
     opts: { needsParagraphs?: boolean } = {},
-): LexicalEditor {
+): Promise<LexicalEditor> {
     const editor = createHeadlessEditor({
         nodes: [
             USFMParagraphNode,
@@ -40,19 +40,12 @@ export function createTestEditor(
             USFMNestedEditorNode,
         ],
     });
-    const result = parseUSFMChapter(usfmContent, "GEN");
-    // Get tokens from chapter 1 (or first available chapter)
-    const chapterKeys = Object.keys(result.usfm)
-        .map(Number)
-        .sort((a, b) => a - b);
-    // Try to get chapter 1 first, fall back to first available chapter
-    const targetChapter = chapterKeys.includes(1) ? 1 : chapterKeys[0];
-    const tokens = result.usfm[targetChapter] || [];
-    const { lexicalState: serialized } = parsedUsfmTokensToLexicalStates(
-        tokens,
-        "ltr",
-        opts.needsParagraphs ?? true,
-    );
+    const result = await webUsfmOnionService.projectUsfm(usfmContent);
+    const serialized = onionFlatTokensToEditorState({
+        tokens: result.tokens,
+        direction: "ltr",
+        targetMode: (opts.needsParagraphs ?? true) ? "regular" : "usfm",
+    });
     editor.setEditorState(editor.parseEditorState(serialized));
     return editor;
 }

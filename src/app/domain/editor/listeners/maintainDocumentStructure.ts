@@ -17,13 +17,13 @@ import {
     $isVerseRangeTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 import {
     ALL_CHAR_MARKERS,
     CHAPTER_VERSE_MARKERS,
     VALID_NOTE_MARKERS,
-} from "@/core/data/usfm/tokens.ts";
-import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
+} from "@/core/domain/usfm/onionMarkers.ts";
 
 export type DocStructureFxnArgs = {
     node: USFMTextNode;
@@ -264,11 +264,11 @@ export function maintainDocumentStructureDebounced(
             updates,
             appSettings,
         });
-        pushTrailingHorizontalWhitespaceToNextSibling({
-            allNodes,
-            updates,
-            appSettings,
-        });
+        // pushTrailingHorizontalWhitespaceToNextSibling({
+        //     allNodes,
+        //     updates,
+        //     appSettings,
+        // });
         ensureSiblingsHaveAtLeastOneSpace({
             allNodes,
             updates,
@@ -303,65 +303,6 @@ export function maintainDocumentStructureDebounced(
     }
     // console.timeEnd("maintainDocumentStructure");
 }
-
-const pushTrailingHorizontalWhitespaceToNextSibling = ({
-    allNodes,
-    updates,
-}: DebouncedStructuralUpdatesArgs) => {
-    for (const dfsNode of allNodes) {
-        const node = dfsNode.node;
-        if (!$isUSFMTextNode(node)) continue;
-
-        const tokenType = node.getTokenType();
-        const canBeHidden =
-            tokenType === UsfmTokenTypes.marker ||
-            tokenType === UsfmTokenTypes.endMarker;
-        if (!canBeHidden) continue;
-
-        const nextSibling = node.getNextSibling();
-        if (!nextSibling || !$isUSFMTextNode(nextSibling)) continue;
-        if (isProtectedWhitespaceBoundary(node, nextSibling)) continue;
-
-        const nodeText = node.getTextContent();
-        const nextText = nextSibling.getTextContent();
-
-        const trailingWsMatch = nodeText.match(/[ \t]+$/u);
-        const trailingWs = trailingWsMatch?.[0] ?? "";
-        if (!trailingWs.length) continue;
-        if (/^\s/u.test(nextText)) continue;
-
-        const nodeKey = node.getKey();
-        const nextKey = nextSibling.getKey();
-        updates.push({
-            dbgLabel: "pushTrailingHorizontalWhitespaceToNextSibling",
-            run: () => {
-                const latestNode = $getNodeByKey(nodeKey);
-                const latestNext = $getNodeByKey(nextKey);
-                if (!latestNode?.isAttached() || !latestNext?.isAttached())
-                    return;
-                if (
-                    !$isUSFMTextNode(latestNode) ||
-                    !$isUSFMTextNode(latestNext)
-                )
-                    return;
-
-                const latestNodeText = latestNode.getTextContent();
-                const latestNextText = latestNext.getTextContent();
-                const latestTrailingWsMatch = latestNodeText.match(/[ \t]+$/u);
-                const latestTrailingWs = latestTrailingWsMatch?.[0] ?? "";
-                if (!latestTrailingWs.length) return;
-                if (/^\s/u.test(latestNextText)) return;
-
-                latestNode.setTextContent(
-                    latestNodeText.slice(0, -latestTrailingWs.length),
-                );
-                latestNext.setTextContent(
-                    `${latestTrailingWs}${latestNextText}`,
-                );
-            },
-        });
-    }
-};
 
 const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
     node,

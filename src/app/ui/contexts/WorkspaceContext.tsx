@@ -3,7 +3,8 @@ import type { LexicalEditor } from "lexical";
 import { createContext, useEffect, useRef } from "react";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
-import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
+import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import {
     type UseActionsHook,
     useWorkspaceActions,
@@ -33,7 +34,6 @@ import {
     useWorkspaceState,
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     ListedProject,
     Project,
@@ -67,7 +67,7 @@ export interface WorkSpaceContextType {
 type ProjectProviderProps = {
     currentProjectRoute: string;
     projectFiles: ParsedFile[];
-    allInitialLintErrors: LintIssue[];
+    initialLintErrorsByBook: LintMessagesByBook;
     children: React.ReactNode;
     loadedProject: Project;
     queryBookOverride?: string;
@@ -82,7 +82,7 @@ export { WorkspaceContext };
 export const ProjectProvider = ({
     currentProjectRoute,
     projectFiles,
-    allInitialLintErrors,
+    initialLintErrorsByBook,
     loadedProject,
     queryBookOverride,
     queryChapterOverride,
@@ -137,7 +137,7 @@ export const ProjectProvider = ({
     });
 
     const lint = useLint({
-        initialLintErrors: allInitialLintErrors,
+        initialLintErrorsByBook,
     });
 
     const referenceProject = useReferenceProject({
@@ -204,20 +204,15 @@ export const ProjectProvider = ({
 
                 if (!touchedFiles.length) return;
 
-                const lintResults = await usfmOnionService.lintScope(
-                    touchedFiles.map((file) => ({
-                        tokens: file.chapters.flatMap((chapter) =>
-                            lexicalEditorStateToOnionFlatTokens(
-                                chapter.lexicalState,
-                            ),
-                        ),
-                    })),
+                const lintResultsByBook = await relintBookFiles(
+                    touchedFiles,
+                    usfmOnionService,
                 );
 
-                for (let i = 0; i < touchedFiles.length; i++) {
+                for (const file of touchedFiles) {
                     lint.replaceErrorsForBook(
-                        touchedFiles[i].bookCode,
-                        lintResults[i] ?? [],
+                        file.bookCode,
+                        lintResultsByBook[file.bookCode] ?? [],
                     );
                 }
             })();

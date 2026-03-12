@@ -1,22 +1,18 @@
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import * as onion from "usfm-onion-web";
+import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { applyRevertByBlockId } from "@/core/domain/usfm/sidBlockRevert.ts";
+import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import {
     defaultBuildSidBlocksOptions,
-    defaultIntoTokensOptions,
     defaultProjectUsfmOptions,
     defaultTokenLintOptions,
-    flatTokensFromLintableTokens,
     parseChapterDocumentFromUsj,
     toOnionFlatTokens,
-    usjDocumentToParsedUsfmDocument,
 } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
     BatchExecutionOptions,
     BuildSidBlocksOptions,
-    ChapterDiffEntry,
     Diff,
-    DiffPathPair,
     DiffScopeItem,
     DiffScopeOptions,
     FlatToken,
@@ -34,20 +30,7 @@ import type {
     TokenScopeItem,
     TokenTransformResult,
     UsjDocument,
-    VrefEntry,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
-
-let wasmModulePromise: Promise<typeof import("usfm-onion-web")> | null = null;
-
-async function loadWasmModule() {
-    wasmModulePromise ??= (async () => {
-        const mod = await import("usfm-onion-web");
-        await mod.default();
-        return mod;
-    })();
-
-    return wasmModulePromise;
-}
 
 class UnsupportedError extends Error {
     constructor(message: string) {
@@ -60,41 +43,44 @@ function throwPathIoUnsupported(): never {
     throw new UnsupportedError("Path I/O is desktop-only");
 }
 
-function toWebFlatToken(token: FlatToken) {
+function stripSyntheticChapterTokens(
+    parsed: ParsedUsfmDocument,
+    bookCode: string,
+    syntheticChapter: number,
+): ParsedUsfmDocument {
+    const chapterTokens = parsed.chapters[syntheticChapter] ?? [];
+    const syntheticSid = `${bookCode} ${syntheticChapter}:0`;
+    const filteredChapterTokens = chapterTokens.filter((token, index) => {
+        if (
+            index === 0 &&
+            token.tokenType === "marker" &&
+            token.marker === "c"
+        ) {
+            return false;
+        }
+        if (
+            index === 1 &&
+            token.tokenType === "numberRange" &&
+            token.sid === syntheticSid
+        ) {
+            return false;
+        }
+        return true;
+    });
+
     return {
-        id: token.id,
-        kind: token.kind,
-        span: {
-            start: token.spanStart,
-            end: token.spanEnd,
+        ...parsed,
+        chapters: {
+            ...parsed.chapters,
+            [syntheticChapter]: filteredChapterTokens,
         },
-        sid: token.sid,
-        marker: token.marker,
-        text: token.text,
     };
 }
 
-function fromWebFlatToken(token: {
-    id: string;
-    kind: string;
-    span: { start: number; end: number };
-    sid: string | null;
-    marker: string | null;
-    text: string;
-}): FlatToken {
+function toWebBatchOptions(batchOptions?: BatchExecutionOptions | null) {
     return {
-        id: token.id,
-        kind: token.kind,
-        spanStart: token.span.start,
-        spanEnd: token.span.end,
-        sid: token.sid,
-        marker: token.marker,
-        text: token.text,
+        parallel: batchOptions?.parallel ?? true,
     };
-}
-
-function toWebFlatTokens(tokens: FlatToken[]) {
-    return tokens.map(toWebFlatToken);
 }
 
 function toWebTokenViewOptions(options?: IntoTokensOptions | null) {
@@ -106,18 +92,109 @@ function toWebTokenViewOptions(options?: IntoTokensOptions | null) {
     } as const;
 }
 
+function toWebIntoTokensOptions(options?: IntoTokensOptions | null) {
+    if (!options) return null;
+    return {
+        mergeHorizontalWhitespace: options.mergeHorizontalWhitespace ?? false,
+    };
+}
+
 function toWebLintSuppressions(options?: TokenLintOptions) {
     return (options?.suppressions ?? []).map((suppression) => ({
         code: suppression.code,
-        spanStart: suppression.span.start,
-        spanEnd: suppression.span.end,
+        sid: suppression.sid,
     }));
+}
+
+function toWebTokenFix(fix: TokenFix) {
+    switch (fix.type) {
+        case "replaceToken":
+            return {
+                type: "replaceToken" as const,
+                code: fix.code,
+                label: fix.label,
+                label_params: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+                replacements: fix.replacements,
+            };
+        case "deleteToken":
+            return {
+                type: "deleteToken" as const,
+                code: fix.code,
+                label: fix.label,
+                label_params: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+            };
+        case "insertAfter":
+            return {
+                type: "insertAfter" as const,
+                code: fix.code,
+                label: fix.label,
+                label_params: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+                insert: fix.insert,
+            };
+    }
+}
+
+function fromWebTokenFix(fix: {
+    type: string;
+    code?: string;
+    label: string;
+    label_params?: Record<string, string>;
+    targetTokenId: string;
+    replacements?: Array<{
+        kind: string;
+        text: string;
+        marker: string | null;
+        sid: string | null;
+    }>;
+    insert?: Array<{
+        kind: string;
+        text: string;
+        marker: string | null;
+        sid: string | null;
+    }>;
+}): TokenFix | null {
+    const code = fix.code ?? "";
+    const labelParams = fix.label_params ?? {};
+    if (fix.type === "replaceToken") {
+        return {
+            type: "replaceToken",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+            replacements: fix.replacements ?? [],
+        };
+    }
+    if (fix.type === "deleteToken") {
+        return {
+            type: "deleteToken",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+        };
+    }
+    if (fix.type === "insertAfter") {
+        return {
+            type: "insertAfter",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+            insert: fix.insert ?? [],
+        };
+    }
+    return null;
 }
 
 function toWebTokenLintOptions(options?: TokenLintOptions) {
     return {
         disabledRules: options?.disabledRules ?? [],
         suppressions: toWebLintSuppressions(options),
+        allowImplicitChapterContentVerse: false,
     };
 }
 
@@ -133,44 +210,48 @@ function toWebLintOptions(options?: LintOptions | null) {
 function toWebProjectOptions(options?: ProjectUsfmOptions | null) {
     if (!options) return null;
     return {
-        tokenOptions: options.tokenOptions ?? null,
+        tokenOptions: toWebIntoTokensOptions(options.tokenOptions),
         lintOptions: toWebLintOptions(options.lintOptions),
-    };
-}
-
-function normalizeUsjDocument(document: Record<string, unknown>): UsjDocument {
-    const lossless = document._lossless_roundtrip;
-    if (!lossless) return document as unknown as UsjDocument;
-    return {
-        ...(document as unknown as UsjDocument),
-        _dovetail_roundtrip: lossless as UsjDocument["_dovetail_roundtrip"],
-    };
-}
-
-function denormalizeUsjDocument(
-    document: UsjDocument,
-): Record<string, unknown> {
-    const { _dovetail_roundtrip, ...rest } = document as UsjDocument &
-        Record<string, unknown>;
-    if (!_dovetail_roundtrip) return rest;
-    return {
-        ...rest,
-        _lossless_roundtrip: _dovetail_roundtrip,
     };
 }
 
 function fromWebLintIssue(issue: {
     code: string;
+    severity?: string;
+    marker?: string | null;
     message: string;
+    messageParams?: Record<string, string>;
     span: { start: number; end: number };
     relatedSpan: { start: number; end: number } | null;
     tokenId: string | null;
     relatedTokenId: string | null;
     sid: string | null;
+    fix: {
+        type: string;
+        code?: string;
+        label: string;
+        label_params?: Record<string, string>;
+        targetTokenId: string;
+        replacements?: Array<{
+            kind: string;
+            text: string;
+            marker: string | null;
+            sid: string | null;
+        }>;
+        insert?: Array<{
+            kind: string;
+            text: string;
+            marker: string | null;
+            sid: string | null;
+        }>;
+    } | null;
 }): LintIssue {
     return {
         code: issue.code,
+        severity: issue.severity ?? "warning",
+        marker: issue.marker ?? null,
         message: issue.message,
+        messageParams: issue.messageParams ?? {},
         span: {
             start: issue.span.start,
             end: issue.span.end,
@@ -184,9 +265,82 @@ function fromWebLintIssue(issue: {
         tokenId: issue.tokenId,
         relatedTokenId: issue.relatedTokenId,
         sid: issue.sid,
-        fix: null,
+        fix: issue.fix ? fromWebTokenFix(issue.fix) : null,
     };
 }
+
+type WebLintBatchResult = {
+    issues: Array<{
+        code: string;
+        severity?: string;
+        marker?: string | null;
+        message: string;
+        messageParams?: Record<string, string>;
+        span: { start: number; end: number };
+        relatedSpan: { start: number; end: number } | null;
+        tokenId: string | null;
+        relatedTokenId: string | null;
+        sid: string | null;
+        fix: {
+            type: string;
+            code?: string;
+            label: string;
+            label_params?: Record<string, string>;
+            targetTokenId: string;
+            replacements?: Array<{
+                kind: string;
+                text: string;
+                marker: string | null;
+                sid: string | null;
+            }>;
+            insert?: Array<{
+                kind: string;
+                text: string;
+                marker: string | null;
+                sid: string | null;
+            }>;
+        } | null;
+    }>;
+};
+
+type WebProjectedDocumentRow = {
+    error?: string | null;
+    value?: {
+        tokens: FlatToken[];
+        documentTree: ProjectedUsfmDocument["documentTree"];
+        lintIssues: Array<{
+            code: string;
+            severity?: string;
+            marker?: string | null;
+            message: string;
+            messageParams?: Record<string, string>;
+            span: { start: number; end: number };
+            relatedSpan: { start: number; end: number } | null;
+            tokenId: string | null;
+            relatedTokenId: string | null;
+            sid: string | null;
+            fix: {
+                type: string;
+                code?: string;
+                label: string;
+                label_params?: Record<string, string>;
+                targetTokenId: string;
+                replacements?: Array<{
+                    kind: string;
+                    text: string;
+                    marker: string | null;
+                    sid: string | null;
+                }>;
+                insert?: Array<{
+                    kind: string;
+                    text: string;
+                    marker: string | null;
+                    sid: string | null;
+                }>;
+            } | null;
+        }> | null;
+    } | null;
+};
 
 function fromWebTransformResult(result: {
     tokens: Array<{
@@ -201,58 +355,30 @@ function fromWebTransformResult(result: {
     skippedChanges: TokenTransformResult["skippedChanges"];
 }): TokenTransformResult {
     return {
-        tokens: result.tokens.map(fromWebFlatToken),
+        tokens: result.tokens,
         appliedChanges: result.appliedChanges,
         skippedChanges: result.skippedChanges,
     };
 }
 
-function fromWebDiff(diff: {
-    blockId: string;
-    semanticSid: string;
-    status: string;
-    originalText: string;
-    currentText: string;
-    originalTextOnly: string;
-    currentTextOnly: string;
-    isWhitespaceChange: boolean;
-    isUsfmStructureChange: boolean;
-    originalTokens: Array<{
-        id: string;
-        kind: string;
-        span: { start: number; end: number };
-        sid: string | null;
-        marker: string | null;
-        text: string;
-    }>;
-    currentTokens: Array<{
-        id: string;
-        kind: string;
-        span: { start: number; end: number };
-        sid: string | null;
-        marker: string | null;
-        text: string;
-    }>;
-    originalAlignment?: Diff["originalAlignment"];
-    currentAlignment?: Diff["currentAlignment"];
-    undoSide?: string;
-}): Diff {
-    return normalizeDiff({
-        blockId: diff.blockId,
-        semanticSid: diff.semanticSid,
-        status: diff.status,
-        originalText: diff.originalText,
-        currentText: diff.currentText,
-        originalTextOnly: diff.originalTextOnly,
-        currentTextOnly: diff.currentTextOnly,
-        isWhitespaceChange: diff.isWhitespaceChange,
-        isUsfmStructureChange: diff.isUsfmStructureChange,
-        originalTokens: diff.originalTokens.map(fromWebFlatToken),
-        currentTokens: diff.currentTokens.map(fromWebFlatToken),
-        originalAlignment: diff.originalAlignment ?? [],
-        currentAlignment: diff.currentAlignment ?? [],
-        undoSide: diff.undoSide === "original" ? "original" : "current",
-    });
+function hasDocumentTreeContent(
+    tree: unknown,
+): tree is ProjectedUsfmDocument["documentTree"] {
+    return Boolean(
+        tree &&
+            typeof tree === "object" &&
+            "content" in tree &&
+            Array.isArray((tree as { content?: unknown }).content),
+    );
+}
+
+function requireDocumentTree(
+    tree: unknown,
+): ProjectedUsfmDocument["documentTree"] {
+    if (hasDocumentTreeContent(tree)) {
+        return tree;
+    }
+    throw new Error("usfm-onion project result did not include documentTree");
 }
 
 function normalizeDiffTokenChange(
@@ -287,31 +413,144 @@ function normalizeDiff(diff: Diff): Diff {
     };
 }
 
+function fromWebDiff(diff: {
+    blockId: string;
+    semanticSid: string;
+    status: string;
+    originalText: string;
+    currentText: string;
+    originalTextOnly: string;
+    currentTextOnly: string;
+    isWhitespaceChange: boolean;
+    isUsfmStructureChange: boolean;
+    originalTokens: Array<{
+        id: string;
+        kind: string;
+        span: { start: number; end: number };
+        sid: string | null;
+        marker: string | null;
+        text: string;
+    }>;
+    currentTokens: Array<{
+        id: string;
+        kind: string;
+        span: { start: number; end: number };
+        sid: string | null;
+        marker: string | null;
+        text: string;
+    }>;
+    originalAlignment?: Array<{
+        change: string;
+        counterpartIndex: number | null;
+    }>;
+    currentAlignment?: Array<{
+        change: string;
+        counterpartIndex: number | null;
+    }>;
+    undoSide?: string;
+}): Diff {
+    return normalizeDiff({
+        blockId: diff.blockId,
+        semanticSid: diff.semanticSid,
+        status: diff.status,
+        originalText: diff.originalText,
+        currentText: diff.currentText,
+        originalTextOnly: diff.originalTextOnly,
+        currentTextOnly: diff.currentTextOnly,
+        isWhitespaceChange: diff.isWhitespaceChange,
+        isUsfmStructureChange: diff.isUsfmStructureChange,
+        originalTokens: diff.originalTokens,
+        currentTokens: diff.currentTokens,
+        originalAlignment: (diff.originalAlignment ?? []).map((entry) => ({
+            change: normalizeDiffTokenChange(entry.change),
+            counterpartIndex: entry.counterpartIndex ?? null,
+        })),
+        currentAlignment: (diff.currentAlignment ?? []).map((entry) => ({
+            change: normalizeDiffTokenChange(entry.change),
+            counterpartIndex: entry.counterpartIndex ?? null,
+        })),
+        undoSide: diff.undoSide === "original" ? "original" : "current",
+    });
+}
+
 export class WebUsfmOnionService implements IUsfmOnionService {
     readonly supportsPathIo = false;
+
+    private async projectUsj(source: string): Promise<UsjDocument> {
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            const parsed = wasm.parseContent({
+                source,
+                format: "usfm",
+            });
+            return wasm.intoUsj(parsed) as unknown as UsjDocument;
+        }, "web:projectUsj");
+    }
+
+    private async lintTokenBatches(
+        tokenBatches: Array<Array<LintableToken | FlatToken>>,
+        options: TokenLintOptions = defaultTokenLintOptions(),
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<LintIssue[][]> {
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return wasm
+                .lintTokenBatches({
+                    tokenBatches: tokenBatches.map((tokens) =>
+                        toOnionFlatTokens(tokens),
+                    ),
+                    options: toWebTokenLintOptions(options),
+                    batchOptions: toWebBatchOptions(batchOptions),
+                })
+                .map((batch: WebLintBatchResult) =>
+                    batch.issues
+                        .filter(
+                            (issue) =>
+                                issue.code !== "unknown-marker" &&
+                                issue?.marker !== "s5",
+                        )
+                        .map(fromWebLintIssue),
+                );
+        }, "web:lintTokenBatches");
+    }
+
+    private async formatTokenBatches(
+        tokenBatches: FlatToken[][],
+        options: FormatOptions = {},
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<TokenTransformResult[]> {
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return wasm
+                .formatTokenBatches({
+                    tokenBatches: tokenBatches.map((tokens) =>
+                        toOnionFlatTokens(tokens),
+                    ),
+                    formatOptions: options,
+                    batchOptions: toWebBatchOptions(batchOptions),
+                })
+                .map(fromWebTransformResult);
+        }, "web:formatTokenBatches");
+    }
 
     async projectUsfm(
         source: string,
         options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
     ): Promise<ProjectedUsfmDocument> {
-        const wasm = await loadWasmModule();
-        const projection = wasm.projectContent({
-            source,
-            format: "usfm",
-            options: toWebProjectOptions(options),
-        });
-        return {
-            tokens: projection.tokens.map(fromWebFlatToken),
-            editorTree: projection.editorTree,
-            lintIssues: projection.lintIssues?.map(fromWebLintIssue) ?? null,
-        };
-    }
-
-    async projectUsfmFromPath(
-        _path: string,
-        _options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
-    ): Promise<ProjectedUsfmDocument> {
-        return throwPathIoUnsupported();
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            const projection = wasm.projectContent({
+                source,
+                format: "usfm",
+                options: toWebProjectOptions(options),
+            });
+            return {
+                tokens: projection.tokens,
+                documentTree: requireDocumentTree(projection.documentTree),
+                lintIssues:
+                    projection.lintIssues?.map(fromWebLintIssue) ?? null,
+            };
+        }, "web:projectUsfm");
     }
 
     async projectUsfmBatchFromPaths(
@@ -322,85 +561,80 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         return throwPathIoUnsupported();
     }
 
-    async tokensFromUsfm(
-        source: string,
-        options: IntoTokensOptions = defaultIntoTokensOptions(),
-    ): Promise<FlatToken[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .intoTokensFromContent({
-                source,
-                format: "usfm",
-                tokenOptions: options,
-            })
-            .map(fromWebFlatToken);
-    }
-
-    async tokensFromPath(
-        _path: string,
-        _options: IntoTokensOptions = defaultIntoTokensOptions(),
-    ): Promise<FlatToken[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async tokensFromExisting<T extends LintableToken>(
-        tokens: T[],
-    ): Promise<FlatToken[]> {
-        return flatTokensFromLintableTokens(tokens);
-    }
-
-    async parseUsfm(source: string): Promise<ParsedUsfmDocument> {
-        return usjDocumentToParsedUsfmDocument(await this.toUsj(source));
+    async projectUsfmBatchFromContents(
+        sources: string[],
+        options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<ProjectedUsfmDocument[]> {
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return wasm
+                .projectContents({
+                    sources,
+                    format: "usfm",
+                    options: toWebProjectOptions(options),
+                    batchOptions: toWebBatchOptions(batchOptions),
+                })
+                .map((row: WebProjectedDocumentRow) => {
+                    if (row.error) {
+                        throw new Error(row.error);
+                    }
+                    if (!row.value) {
+                        throw new Error("projectContents returned no value");
+                    }
+                    const documentTree = row.value.documentTree;
+                    return {
+                        tokens: row.value.tokens,
+                        documentTree: requireDocumentTree(documentTree),
+                        lintIssues:
+                            row.value.lintIssues
+                                ?.filter(
+                                    (issue) =>
+                                        issue.code !== "unknown-marker" &&
+                                        issue?.marker !== "s5",
+                                )
+                                ?.map(fromWebLintIssue) ?? null,
+                    };
+                });
+        }, "web:projectUsfmBatchFromContents");
     }
 
     async parseUsfmChapter(
         chapterUsfm: string,
         bookCode: string,
     ): Promise<ParsedUsfmDocument> {
-        const synthetic = `\\id ${bookCode}\n${chapterUsfm}`;
-        return parseChapterDocumentFromUsj(await this.toUsj(synthetic));
-    }
-
-    async lintUsfm(
-        source: string,
-        options: LintOptions = {},
-    ): Promise<LintIssue[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .lintContent({
-                source,
-                format: "usfm",
-                options: toWebLintOptions(options),
-            })
-            .map(fromWebLintIssue);
-    }
-
-    async lintPath(
-        _path: string,
-        _options: LintOptions = {},
-    ): Promise<LintIssue[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async lintBatchFromPaths(
-        _paths: string[],
-        _options: LintOptions = {},
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<LintIssue[][]> {
-        return throwPathIoUnsupported();
+        const hasExplicitChapter = /^\s*\\c\b/mu.test(chapterUsfm);
+        const syntheticChapter = 1;
+        const synthetic = hasExplicitChapter
+            ? `\\id ${bookCode}\n${chapterUsfm}`
+            : `\\id ${bookCode}\n\\c ${syntheticChapter}\n${chapterUsfm}`;
+        const parsed = parseChapterDocumentFromUsj(
+            await this.projectUsj(synthetic),
+        );
+        return hasExplicitChapter
+            ? parsed
+            : stripSyntheticChapterTokens(parsed, bookCode, syntheticChapter);
     }
 
     async lintExisting<T extends LintableToken | FlatToken>(
         tokens: T[],
         options: TokenLintOptions = defaultTokenLintOptions(),
     ): Promise<LintIssue[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .lintFlatTokens({
-                tokens: toWebFlatTokens(toOnionFlatTokens(tokens)),
-                options: toWebTokenLintOptions(options),
-            })
-            .map(fromWebLintIssue);
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            const toks = toOnionFlatTokens(tokens);
+            return wasm
+                .lintFlatTokens({
+                    tokens: toks,
+                    options: toWebTokenLintOptions(options),
+                })
+                .filter(
+                    (issue: { code: string; marker?: string | null }) =>
+                        issue.code !== "unknown-marker" &&
+                        issue?.marker !== "s5",
+                )
+                .map(fromWebLintIssue);
+        }, "web:lintExisting");
     }
 
     async lintScope(
@@ -415,36 +649,6 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             scope.map((item) => item.tokens ?? []),
             options.tokenOptions ?? defaultTokenLintOptions(),
             options.batchOptions,
-        );
-    }
-
-    async lintTokenBatches<T extends LintableToken | FlatToken>(
-        tokenBatches: T[][],
-        options: TokenLintOptions = defaultTokenLintOptions(),
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<LintIssue[][]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .lintFlatTokenBatches({
-                tokenBatches: tokenBatches.map((tokens) =>
-                    toWebFlatTokens(toOnionFlatTokens(tokens)),
-                ),
-                options: toWebTokenLintOptions(options),
-                batchOptions: {},
-            })
-            .map((batch) => batch.issues.map(fromWebLintIssue));
-    }
-
-    async formatTokens(
-        tokens: FlatToken[],
-        options: FormatOptions = {},
-    ): Promise<TokenTransformResult> {
-        const wasm = await loadWasmModule();
-        return fromWebTransformResult(
-            wasm.formatFlatTokens({
-                tokens: toWebFlatTokens(tokens),
-                formatOptions: options,
-            }),
         );
     }
 
@@ -463,97 +667,19 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         );
     }
 
-    async formatTokenBatches(
-        tokenBatches: FlatToken[][],
-        options: FormatOptions = {},
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<TokenTransformResult[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .formatFlatTokenBatches({
-                tokenBatches: tokenBatches.map(toWebFlatTokens),
-                formatOptions: options,
-                batchOptions: {},
-            })
-            .map(fromWebTransformResult);
-    }
-
-    async formatBatchFromPaths(
-        _paths: string[],
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _formatOptions: FormatOptions = {},
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<TokenTransformResult[]> {
-        return throwPathIoUnsupported();
-    }
-
     async applyTokenFixes(
         tokens: FlatToken[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
-        const wasm = await loadWasmModule();
-        return fromWebTransformResult(
-            wasm.applyTokenFixes({
-                tokens: toWebFlatTokens(tokens),
-                fixes,
-            }),
-        );
-    }
-
-    async diffUsfm(
-        baselineUsfm: string,
-        currentUsfm: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .diffUsfm({
-                baselineUsfm,
-                currentUsfm,
-                tokenView: toWebTokenViewOptions(tokenOptions),
-                buildOptions,
-            })
-            .map(fromWebDiff);
-    }
-
-    async diffPaths(
-        _baselinePath: string,
-        _currentPath: string,
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async diffUsfmByChapter(
-        baselineUsfm: string,
-        currentUsfm: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<ChapterDiffEntry[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .diffUsfmByChapter({
-                baselineUsfm,
-                currentUsfm,
-                tokenView: toWebTokenViewOptions(tokenOptions),
-                buildOptions,
-            })
-            .map((entry) => ({
-                bookCode: entry.book,
-                chapterNum: entry.chapter,
-                diffs: entry.diffs.map(fromWebDiff),
-            }));
-    }
-
-    async diffPathsByChapter(
-        _baselinePath: string,
-        _currentPath: string,
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<ChapterDiffEntry[]> {
-        return throwPathIoUnsupported();
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return fromWebTransformResult(
+                wasm.applyTokenFixes({
+                    tokens: toOnionFlatTokens(tokens),
+                    fixes: fixes.map(toWebTokenFix),
+                }),
+            );
+        }, "web:applyTokenFixes");
     }
 
     async diffScope(
@@ -575,28 +701,21 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         );
     }
 
-    async diffBatchFromPathPairs(
-        _pathPairs: DiffPathPair[],
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<Diff[][]> {
-        return throwPathIoUnsupported();
-    }
-
     async diffTokens(
         baselineTokens: FlatToken[],
         currentTokens: FlatToken[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        const wasm = await loadWasmModule();
-        return wasm
-            .diffTokens({
-                baselineTokens: toWebFlatTokens(baselineTokens),
-                currentTokens: toWebFlatTokens(currentTokens),
-                buildOptions,
-            })
-            .map(fromWebDiff);
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return wasm
+                .diffTokens({
+                    baselineTokens: toOnionFlatTokens(baselineTokens),
+                    currentTokens: toOnionFlatTokens(currentTokens),
+                    buildOptions,
+                })
+                .map(fromWebDiff);
+        }, "web:diffTokens");
     }
 
     async revertDiffBlock(
@@ -605,188 +724,15 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<FlatToken[]> {
-        return applyRevertByBlockId({
-            baselineTokens,
-            currentTokens,
-            diffBlockId: blockId,
-            buildOptions,
-        });
-    }
-
-    async toUsj(source: string): Promise<UsjDocument> {
-        const wasm = await loadWasmModule();
-        const parsed = wasm.parseContent({
-            source,
-            format: "usfm",
-        });
-        return normalizeUsjDocument(
-            wasm.intoUsjLossless(parsed) as unknown as Record<string, unknown>,
-        );
-    }
-
-    async toUsjFromPath(_path: string): Promise<UsjDocument> {
-        return throwPathIoUnsupported();
-    }
-
-    async toUsjBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<UsjDocument[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async fromUsj(document: UsjDocument): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.fromUsj(
-            denormalizeUsjDocument(document) as unknown as Parameters<
-                typeof wasm.fromUsj
-            >[0],
-        );
-    }
-
-    async toUsx(source: string): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.usfmToUsx(source);
-    }
-
-    async toUsxFromPath(_path: string): Promise<string> {
-        return throwPathIoUnsupported();
-    }
-
-    async toUsxBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<string[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async fromUsx(value: string): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.fromUsx(value);
-    }
-
-    async toVref(source: string): Promise<VrefEntry[]> {
-        const wasm = await loadWasmModule();
-        const parsed = wasm.parseContent({
-            source,
-            format: "usfm",
-        });
-        return wasm.intoVref(parsed);
-    }
-
-    async toVrefFromPath(_path: string): Promise<VrefEntry[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async toVrefBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<VrefEntry[][]> {
-        return throwPathIoUnsupported();
-    }
-
-    async diffPaths(
-        _baselinePath: string,
-        _currentPath: string,
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async diffPathsByChapter(
-        _baselinePath: string,
-        _currentPath: string,
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<ChapterDiffEntry[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async diffScope(
-        scope: DiffScopeItem[],
-        options: DiffScopeOptions = {},
-    ): Promise<Diff[][]> {
-        if (!scope.length) return [];
-        if (scope.some((item) => !item.baselineTokens || !item.currentTokens)) {
-            return throwPathIoUnsupported();
-        }
-        return Promise.all(
-            scope.map((item) =>
-                this.diffTokens(
-                    item.baselineTokens ?? [],
-                    item.currentTokens ?? [],
-                    options.buildOptions ?? defaultBuildSidBlocksOptions(),
-                ),
-            ),
-        );
-    }
-
-    async diffBatchFromPathPairs(
-        _pathPairs: DiffPathPair[],
-        _tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        _buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<Diff[][]> {
-        return throwPathIoUnsupported();
-    }
-
-    async toUsj(source: string): Promise<UsjDocument> {
-        const wasm = await loadWasmModule();
-        return wasm.toUsj(source);
-    }
-
-    async toUsjFromPath(_path: string): Promise<UsjDocument> {
-        return throwPathIoUnsupported();
-    }
-
-    async toUsjBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<UsjDocument[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async fromUsj(document: UsjDocument): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.fromUsj(document);
-    }
-
-    async toUsx(source: string): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.toUsx(source);
-    }
-
-    async toUsxFromPath(_path: string): Promise<string> {
-        return throwPathIoUnsupported();
-    }
-
-    async toUsxBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<string[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async fromUsx(value: string): Promise<string> {
-        const wasm = await loadWasmModule();
-        return wasm.fromUsx(value);
-    }
-
-    async toVref(source: string): Promise<VrefEntry[]> {
-        const wasm = await loadWasmModule();
-        return wasm.toVref(source);
-    }
-
-    async toVrefFromPath(_path: string): Promise<VrefEntry[]> {
-        return throwPathIoUnsupported();
-    }
-
-    async toVrefBatchFromPaths(
-        _paths: string[],
-        _batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<VrefEntry[][]> {
-        return throwPathIoUnsupported();
+        return timeInDevAsync(async () => {
+            const wasm = onion;
+            return wasm.revertDiffBlock({
+                blockId,
+                baselineTokens: toOnionFlatTokens(baselineTokens),
+                currentTokens: toOnionFlatTokens(currentTokens),
+                buildOptions,
+            });
+        }, "web:revertDiffBlock");
     }
 }
 

@@ -1,26 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import {
     defaultBuildSidBlocksOptions,
     defaultIntoTokensOptions,
     defaultProjectUsfmOptions,
     defaultTokenLintOptions,
-    flatTokensFromLintableTokens,
     parseChapterDocumentFromUsj,
     toOnionFlatTokens,
-    usjDocumentToParsedUsfmDocument,
 } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
     BatchExecutionOptions,
     BuildSidBlocksOptions,
-    ChapterDiffEntry,
     Diff,
     DiffPathPair,
     DiffScopeItem,
     DiffScopeOptions,
     FlatToken,
-    FormatOptions,
     FormatScopeOptions,
     IntoTokensOptions,
     LintIssue,
@@ -34,30 +31,410 @@ import type {
     TokenScopeItem,
     TokenTransformResult,
     UsjDocument,
-    VrefEntry,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
+
+function toTauriBatchOptions(batchOptions?: BatchExecutionOptions | null) {
+    return {
+        parallel: batchOptions?.parallel ?? true,
+    };
+}
+
+function toTauriTokenViewOptions(options?: IntoTokensOptions | null) {
+    return {
+        mergeHorizontalWhitespace: options?.mergeHorizontalWhitespace ?? false,
+    };
+}
+
+function toTauriLintSuppressions(options?: TokenLintOptions) {
+    return (options?.suppressions ?? []).map((suppression) => ({
+        code: suppression.code,
+        sid: suppression.sid,
+    }));
+}
+
+function toTauriTokenLintOptions(options?: TokenLintOptions) {
+    return {
+        disabledRules: options?.disabledRules ?? [],
+        suppressions: toTauriLintSuppressions(options),
+    };
+}
+
+function toTauriLintOptions(options?: LintOptions | null) {
+    if (!options) return null;
+    return {
+        includeParseRecoveries: options.includeParseRecoveries ?? false,
+        tokenView: toTauriTokenViewOptions(options.tokenView),
+        tokenRules: toTauriTokenLintOptions(options.tokenRules),
+    };
+}
+
+function toTauriProjectOptions(options?: ProjectUsfmOptions | null) {
+    return {
+        tokenOptions: toTauriTokenViewOptions(options?.tokenOptions),
+        lintOptions: toTauriLintOptions(options?.lintOptions ?? null),
+    };
+}
+
+function toTauriTokenFix(fix: TokenFix) {
+    switch (fix.type) {
+        case "replaceToken":
+            return {
+                kind: "replaceToken" as const,
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+                replacements: fix.replacements,
+            };
+        case "deleteToken":
+            return {
+                kind: "deleteToken" as const,
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+            };
+        case "insertAfter":
+            return {
+                kind: "insertAfter" as const,
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.label_params,
+                targetTokenId: fix.targetTokenId,
+                insert: fix.insert,
+            };
+    }
+}
+
+function fromTauriTokenFix(fix: {
+    kind?: string;
+    type?: string;
+    code?: string;
+    label: string;
+    labelParams?: Record<string, string>;
+    label_params?: Record<string, string>;
+    targetTokenId: string;
+    replacements?: Array<{
+        kind: string;
+        text: string;
+        marker: string | null;
+        sid: string | null;
+    }>;
+    insert?: Array<{
+        kind: string;
+        text: string;
+        marker: string | null;
+        sid: string | null;
+    }>;
+}): TokenFix | null {
+    const type = fix.kind ?? fix.type;
+    const code = fix.code ?? "";
+    const labelParams = fix.labelParams ?? fix.label_params ?? {};
+    if (type === "replaceToken") {
+        return {
+            type: "replaceToken",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+            replacements: fix.replacements ?? [],
+        };
+    }
+    if (type === "deleteToken") {
+        return {
+            type: "deleteToken",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+        };
+    }
+    if (type === "insertAfter") {
+        return {
+            type: "insertAfter",
+            code,
+            label: fix.label,
+            label_params: labelParams,
+            targetTokenId: fix.targetTokenId,
+            insert: fix.insert ?? [],
+        };
+    }
+    return null;
+}
+
+function fromTauriLintIssue(issue: {
+    code: string;
+    severity?: string;
+    marker?: string | null;
+    message: string;
+    messageParams?: Record<string, string>;
+    span: { start: number; end: number };
+    relatedSpan?: { start: number; end: number } | null;
+    tokenId?: string | null;
+    relatedTokenId?: string | null;
+    sid?: string | null;
+    fix?: {
+        kind?: string;
+        type?: string;
+        code?: string;
+        label: string;
+        labelParams?: Record<string, string>;
+        label_params?: Record<string, string>;
+        targetTokenId: string;
+        replacements?: Array<{
+            kind: string;
+            text: string;
+            marker: string | null;
+            sid: string | null;
+        }>;
+        insert?: Array<{
+            kind: string;
+            text: string;
+            marker: string | null;
+            sid: string | null;
+        }>;
+    } | null;
+}): LintIssue {
+    return {
+        code: issue.code,
+        severity: issue.severity ?? "warning",
+        marker: issue.marker ?? null,
+        message: issue.message,
+        messageParams: issue.messageParams ?? {},
+        span: {
+            start: issue.span.start,
+            end: issue.span.end,
+        },
+        relatedSpan: issue.relatedSpan
+            ? {
+                  start: issue.relatedSpan.start,
+                  end: issue.relatedSpan.end,
+              }
+            : null,
+        tokenId: issue.tokenId ?? null,
+        relatedTokenId: issue.relatedTokenId ?? null,
+        sid: issue.sid ?? null,
+        fix: issue.fix ? fromTauriTokenFix(issue.fix) : null,
+    };
+}
+
+function shouldKeepLintIssue(issue: { code: string; marker?: string | null }) {
+    return issue.code !== "unknown-marker" || issue.marker !== "s5";
+}
+
+function stripSyntheticChapterTokens(
+    parsed: ParsedUsfmDocument,
+    bookCode: string,
+    syntheticChapter: number,
+): ParsedUsfmDocument {
+    const chapterTokens = parsed.chapters[syntheticChapter] ?? [];
+    const syntheticSid = `${bookCode} ${syntheticChapter}:0`;
+    const filteredChapterTokens = chapterTokens.filter((token, index) => {
+        if (
+            index === 0 &&
+            token.tokenType === "marker" &&
+            token.marker === "c"
+        ) {
+            return false;
+        }
+        if (
+            index === 1 &&
+            token.tokenType === "numberRange" &&
+            token.sid === syntheticSid
+        ) {
+            return false;
+        }
+        return true;
+    });
+
+    return {
+        ...parsed,
+        chapters: {
+            ...parsed.chapters,
+            [syntheticChapter]: filteredChapterTokens,
+        },
+    };
+}
 
 export class TauriUsfmOnionService implements IUsfmOnionService {
     readonly supportsPathIo = true;
 
-    private normalizeBatchOptions(batchOptions?: BatchExecutionOptions) {
-        return {
-            parallel: batchOptions?.parallel ?? true,
-        };
+    private async projectUsj(source: string): Promise<UsjDocument> {
+        return invoke("usfm_onion_to_usj", { source });
+    }
+
+    private async lintBatchFromPaths(
+        paths: string[],
+        options: LintScopeOptions["lintOptions"] = {},
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<LintIssue[][]> {
+        const results = await invoke<
+            Array<
+                Array<{
+                    code: string;
+                    severity?: string;
+                    marker?: string | null;
+                    message: string;
+                    messageParams?: Record<string, string>;
+                    span: { start: number; end: number };
+                    relatedSpan?: { start: number; end: number } | null;
+                    tokenId?: string | null;
+                    relatedTokenId?: string | null;
+                    sid?: string | null;
+                    fix?: {
+                        kind?: string;
+                        type?: string;
+                        code?: string;
+                        label: string;
+                        labelParams?: Record<string, string>;
+                        label_params?: Record<string, string>;
+                        targetTokenId: string;
+                        replacements?: Array<{
+                            kind: string;
+                            text: string;
+                            marker: string | null;
+                            sid: string | null;
+                        }>;
+                        insert?: Array<{
+                            kind: string;
+                            text: string;
+                            marker: string | null;
+                            sid: string | null;
+                        }>;
+                    } | null;
+                }>
+            >
+        >("usfm_onion_lint_paths", {
+            paths,
+            options: toTauriLintOptions(options),
+            batchOptions: toTauriBatchOptions(batchOptions),
+        });
+        return results.map((batch) =>
+            batch.filter(shouldKeepLintIssue).map(fromTauriLintIssue),
+        );
+    }
+
+    private async lintTokenBatches(
+        tokenBatches: Array<Array<LintableToken | FlatToken>>,
+        options: TokenLintOptions = defaultTokenLintOptions(),
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<LintIssue[][]> {
+        return timeInDevAsync(async () => {
+            const results = await invoke<
+                Array<
+                    Array<{
+                        code: string;
+                        severity?: string;
+                        marker?: string | null;
+                        message: string;
+                        messageParams?: Record<string, string>;
+                        span: { start: number; end: number };
+                        relatedSpan?: { start: number; end: number } | null;
+                        tokenId?: string | null;
+                        relatedTokenId?: string | null;
+                        sid?: string | null;
+                        fix?: {
+                            kind?: string;
+                            type?: string;
+                            code?: string;
+                            label: string;
+                            labelParams?: Record<string, string>;
+                            label_params?: Record<string, string>;
+                            targetTokenId: string;
+                            replacements?: Array<{
+                                kind: string;
+                                text: string;
+                                marker: string | null;
+                                sid: string | null;
+                            }>;
+                            insert?: Array<{
+                                kind: string;
+                                text: string;
+                                marker: string | null;
+                                sid: string | null;
+                            }>;
+                        } | null;
+                    }>
+                >
+            >("usfm_onion_lint_token_batches", {
+                tokenBatches: tokenBatches.map((tokens) =>
+                    toOnionFlatTokens(tokens),
+                ),
+                options: toTauriTokenLintOptions(options),
+                batchOptions: toTauriBatchOptions(batchOptions),
+            });
+            return results.map((batch) =>
+                batch.filter(shouldKeepLintIssue).map(fromTauriLintIssue),
+            );
+        }, `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`);
+    }
+
+    private async formatBatchFromPaths(
+        paths: string[],
+        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
+        formatOptions: FormatScopeOptions["formatOptions"] = {},
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<TokenTransformResult[]> {
+        return invoke("usfm_onion_format_paths", {
+            paths,
+            tokenOptions,
+            formatOptions,
+            batchOptions: toTauriBatchOptions(batchOptions),
+        });
+    }
+
+    private async formatTokenBatches(
+        tokenBatches: FlatToken[][],
+        options: FormatScopeOptions["formatOptions"] = {},
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<TokenTransformResult[]> {
+        return timeInDevAsync(
+            async () =>
+                invoke("usfm_onion_format_token_batches", {
+                    tokenBatches: tokenBatches.map((tokens) =>
+                        toOnionFlatTokens(tokens),
+                    ),
+                    options,
+                    batchOptions: toTauriBatchOptions(batchOptions),
+                }),
+            `[tauri] formatTokenBatches (batches: ${tokenBatches.length})`,
+        );
+    }
+
+    private async diffBatchFromPathPairs(
+        pathPairs: DiffPathPair[],
+        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
+        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<Diff[][]> {
+        return invoke("usfm_onion_diff_path_pairs", {
+            pathPairs,
+            tokenOptions,
+            buildOptions,
+            batchOptions: toTauriBatchOptions(batchOptions),
+        });
     }
 
     async projectUsfm(
         source: string,
         options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
     ): Promise<ProjectedUsfmDocument> {
-        return invoke("usfm_onion_project_usfm", { source, options });
-    }
-
-    async projectUsfmFromPath(
-        path: string,
-        options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
-    ): Promise<ProjectedUsfmDocument> {
-        return invoke("usfm_onion_project_path", { path, options });
+        return timeInDevAsync(async () => {
+            const projection = await invoke<ProjectedUsfmDocument>(
+                "usfm_onion_project_usfm",
+                {
+                    source,
+                    options: toTauriProjectOptions(options),
+                },
+            );
+            return {
+                ...projection,
+                lintIssues:
+                    projection.lintIssues
+                        ?.filter(shouldKeepLintIssue)
+                        .map(fromTauriLintIssue) ?? null,
+            };
+        }, `[tauri] projectUsfm (sourceLength: ${source.length})`);
     }
 
     async projectUsfmBatchFromPaths(
@@ -65,81 +442,100 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
         batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
-        return invoke("usfm_onion_project_paths", {
-            paths,
-            options,
-            batchOptions,
-        });
+        return timeInDevAsync(async () => {
+            const projections = await invoke<ProjectedUsfmDocument[]>(
+                "usfm_onion_project_paths",
+                {
+                    paths,
+                    options: toTauriProjectOptions(options),
+                    batchOptions: toTauriBatchOptions(batchOptions),
+                },
+            );
+            return projections.map((projection) => ({
+                ...projection,
+                lintIssues:
+                    projection.lintIssues
+                        ?.filter(shouldKeepLintIssue)
+                        .map(fromTauriLintIssue) ?? null,
+            }));
+        }, `[tauri] projectUsfmBatchFromPaths (paths: ${paths.length})`);
     }
 
-    async tokensFromUsfm(
-        source: string,
-        options: IntoTokensOptions = defaultIntoTokensOptions(),
-    ): Promise<FlatToken[]> {
-        return invoke("usfm_onion_tokens_from_usfm", { source, options });
-    }
-
-    async tokensFromPath(
-        path: string,
-        options: IntoTokensOptions = defaultIntoTokensOptions(),
-    ): Promise<FlatToken[]> {
-        return invoke("usfm_onion_tokens_from_path", { path, options });
-    }
-
-    async tokensFromExisting<T extends LintableToken>(
-        tokens: T[],
-    ): Promise<FlatToken[]> {
-        return flatTokensFromLintableTokens(tokens);
-    }
-
-    async parseUsfm(source: string): Promise<ParsedUsfmDocument> {
-        const usj = await this.toUsj(source);
-        return usjDocumentToParsedUsfmDocument(usj);
+    async projectUsfmBatchFromContents(
+        sources: string[],
+        options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
+        batchOptions: BatchExecutionOptions = { parallel: true },
+    ): Promise<ProjectedUsfmDocument[]> {
+        return timeInDevAsync(
+            async () =>
+                Promise.all(
+                    sources.map((source) => this.projectUsfm(source, options)),
+                ),
+            `[tauri] projectUsfmBatchFromContents (sources: ${sources.length}, parallel: ${batchOptions.parallel ?? true})`,
+        );
     }
 
     async parseUsfmChapter(
         chapterUsfm: string,
         bookCode: string,
     ): Promise<ParsedUsfmDocument> {
-        const synthetic = `\\id ${bookCode}\n${chapterUsfm}`;
-        const usj = await this.toUsj(synthetic);
-        return parseChapterDocumentFromUsj(usj);
-    }
-
-    async lintUsfm(
-        source: string,
-        options: LintOptions = {},
-    ): Promise<LintIssue[]> {
-        return invoke("usfm_onion_lint_usfm", { source, options });
-    }
-
-    async lintPath(
-        path: string,
-        options: LintOptions = {},
-    ): Promise<LintIssue[]> {
-        return invoke("usfm_onion_lint_path", { path, options });
-    }
-
-    async lintBatchFromPaths(
-        paths: string[],
-        options: LintOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<LintIssue[][]> {
-        return invoke("usfm_onion_lint_paths", {
-            paths,
-            options,
-            batchOptions,
-        });
+        const hasExplicitChapter = /^\s*\\c\b/mu.test(chapterUsfm);
+        const syntheticChapter = 1;
+        const synthetic = hasExplicitChapter
+            ? `\\id ${bookCode}\n${chapterUsfm}`
+            : `\\id ${bookCode}\n\\c ${syntheticChapter}\n${chapterUsfm}`;
+        const usj = await this.projectUsj(synthetic);
+        const parsed = parseChapterDocumentFromUsj(usj);
+        return hasExplicitChapter
+            ? parsed
+            : stripSyntheticChapterTokens(parsed, bookCode, syntheticChapter);
     }
 
     async lintExisting<T extends LintableToken | FlatToken>(
         tokens: T[],
         options: TokenLintOptions = defaultTokenLintOptions(),
     ): Promise<LintIssue[]> {
-        return invoke("usfm_onion_lint_tokens", {
-            tokens: toOnionFlatTokens(tokens),
-            options,
-        });
+        return timeInDevAsync(async () => {
+            const results = await invoke<
+                Array<{
+                    code: string;
+                    severity?: string;
+                    marker?: string | null;
+                    message: string;
+                    messageParams?: Record<string, string>;
+                    span: { start: number; end: number };
+                    relatedSpan?: { start: number; end: number } | null;
+                    tokenId?: string | null;
+                    relatedTokenId?: string | null;
+                    sid?: string | null;
+                    fix?: {
+                        kind?: string;
+                        type?: string;
+                        code?: string;
+                        label: string;
+                        labelParams?: Record<string, string>;
+                        label_params?: Record<string, string>;
+                        targetTokenId: string;
+                        replacements?: Array<{
+                            kind: string;
+                            text: string;
+                            marker: string | null;
+                            sid: string | null;
+                        }>;
+                        insert?: Array<{
+                            kind: string;
+                            text: string;
+                            marker: string | null;
+                            sid: string | null;
+                        }>;
+                    } | null;
+                }>
+            >("usfm_onion_lint_tokens", {
+                tokens: toOnionFlatTokens(tokens),
+                options: toTauriTokenLintOptions(options),
+            });
+            return results.filter(shouldKeepLintIssue).map(fromTauriLintIssue);
+        }, `[tauri] lintExisting (tokens: ${tokens.length})`);
     }
 
     async lintScope(
@@ -178,7 +574,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             const pathResults = await this.lintBatchFromPaths(
                 pathArgs,
                 options.lintOptions ?? {},
-                this.normalizeBatchOptions(options.batchOptions),
+                options.batchOptions,
             );
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i] ?? [];
@@ -189,7 +585,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             const tokenResults = await this.lintTokenBatches(
                 tokenArgs,
                 options.tokenOptions ?? defaultTokenLintOptions(),
-                this.normalizeBatchOptions(options.batchOptions),
+                options.batchOptions,
             );
             for (let i = 0; i < tokenResults.length; i++) {
                 results[tokenIndices[i]] = tokenResults[i] ?? [];
@@ -197,27 +593,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         }
 
         return results;
-    }
-
-    async lintTokenBatches<T extends LintableToken | FlatToken>(
-        tokenBatches: T[][],
-        options: TokenLintOptions = defaultTokenLintOptions(),
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<LintIssue[][]> {
-        return invoke("usfm_onion_lint_token_batches", {
-            tokenBatches: tokenBatches.map((tokens) =>
-                toOnionFlatTokens(tokens),
-            ),
-            options,
-            batchOptions,
-        });
-    }
-
-    async formatTokens(
-        tokens: FlatToken[],
-        options: FormatOptions = {},
-    ): Promise<TokenTransformResult> {
-        return invoke("usfm_onion_format_tokens", { tokens, options });
     }
 
     async formatScope(
@@ -257,7 +632,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 pathArgs,
                 options.tokenOptions ?? defaultIntoTokensOptions(),
                 options.formatOptions ?? {},
-                this.normalizeBatchOptions(options.batchOptions),
+                options.batchOptions,
             );
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i];
@@ -268,7 +643,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             const tokenResults = await this.formatTokenBatches(
                 tokenArgs,
                 options.formatOptions ?? {},
-                this.normalizeBatchOptions(options.batchOptions),
+                options.batchOptions,
             );
             for (let i = 0; i < tokenResults.length; i++) {
                 results[tokenIndices[i]] = tokenResults[i];
@@ -278,93 +653,18 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         return results;
     }
 
-    async formatTokenBatches(
-        tokenBatches: FlatToken[][],
-        options: FormatOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<TokenTransformResult[]> {
-        return invoke("usfm_onion_format_token_batches", {
-            tokenBatches,
-            options,
-            batchOptions,
-        });
-    }
-
-    async formatBatchFromPaths(
-        paths: string[],
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        formatOptions: FormatOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<TokenTransformResult[]> {
-        return invoke("usfm_onion_format_paths", {
-            paths,
-            tokenOptions,
-            formatOptions,
-            batchOptions,
-        });
-    }
-
     async applyTokenFixes(
         tokens: FlatToken[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
-        return invoke("usfm_onion_apply_token_fixes", { tokens, fixes });
-    }
-
-    async diffUsfm(
-        baselineUsfm: string,
-        currentUsfm: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        return invoke("usfm_onion_diff_usfm", {
-            baselineUsfm,
-            currentUsfm,
-            tokenOptions,
-            buildOptions,
-        });
-    }
-
-    async diffPaths(
-        baselinePath: string,
-        currentPath: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<Diff[]> {
-        return invoke("usfm_onion_diff_paths", {
-            baselinePath,
-            currentPath,
-            tokenOptions,
-            buildOptions,
-        });
-    }
-
-    async diffUsfmByChapter(
-        baselineUsfm: string,
-        currentUsfm: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<ChapterDiffEntry[]> {
-        return invoke("usfm_onion_diff_usfm_by_chapter", {
-            baselineUsfm,
-            currentUsfm,
-            tokenOptions,
-            buildOptions,
-        });
-    }
-
-    async diffPathsByChapter(
-        baselinePath: string,
-        currentPath: string,
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<ChapterDiffEntry[]> {
-        return invoke("usfm_onion_diff_paths_by_chapter", {
-            baselinePath,
-            currentPath,
-            tokenOptions,
-            buildOptions,
-        });
+        return timeInDevAsync(
+            async () =>
+                invoke("usfm_onion_apply_token_fixes", {
+                    tokens: toOnionFlatTokens(tokens),
+                    fixes: fixes.map(toTauriTokenFix),
+                }),
+            `[tauri] applyTokenFixes (tokens: ${tokens.length}, fixes: ${fixes.length})`,
+        );
     }
 
     async diffScope(
@@ -413,7 +713,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 pathPairs,
                 options.tokenOptions ?? defaultIntoTokensOptions(),
                 options.buildOptions ?? defaultBuildSidBlocksOptions(),
-                this.normalizeBatchOptions(options.batchOptions),
+                options.batchOptions,
             );
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i] ?? [];
@@ -438,30 +738,20 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         return results;
     }
 
-    async diffBatchFromPathPairs(
-        pathPairs: DiffPathPair[],
-        tokenOptions: IntoTokensOptions = defaultIntoTokensOptions(),
-        buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<Diff[][]> {
-        return invoke("usfm_onion_diff_path_pairs", {
-            pathPairs,
-            tokenOptions,
-            buildOptions,
-            batchOptions,
-        });
-    }
-
     async diffTokens(
         baselineTokens: FlatToken[],
         currentTokens: FlatToken[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        return invoke("usfm_onion_diff_tokens", {
-            baselineTokens,
-            currentTokens,
-            buildOptions,
-        });
+        return timeInDevAsync(
+            async () =>
+                invoke("usfm_onion_diff_tokens", {
+                    baselineTokens: toOnionFlatTokens(baselineTokens),
+                    currentTokens: toOnionFlatTokens(currentTokens),
+                    buildOptions,
+                }),
+            `[tauri] diffTokens (baseline: ${baselineTokens.length}, current: ${currentTokens.length})`,
+        );
     }
 
     async revertDiffBlock(
@@ -470,64 +760,15 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<FlatToken[]> {
-        return invoke("usfm_onion_revert_diff_block", {
-            baselineTokens,
-            currentTokens,
-            blockId,
-            buildOptions,
-        });
-    }
-
-    async toUsj(source: string): Promise<UsjDocument> {
-        return invoke("usfm_onion_to_usj", { source });
-    }
-
-    async toUsjFromPath(path: string): Promise<UsjDocument> {
-        return invoke("usfm_onion_to_usj_path", { path });
-    }
-
-    async toUsjBatchFromPaths(
-        paths: string[],
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<UsjDocument[]> {
-        return invoke("usfm_onion_to_usj_paths", { paths, batchOptions });
-    }
-
-    async fromUsj(document: UsjDocument): Promise<string> {
-        return invoke("usfm_onion_from_usj", { document });
-    }
-
-    async toUsx(source: string): Promise<string> {
-        return invoke("usfm_onion_to_usx", { source });
-    }
-
-    async toUsxFromPath(path: string): Promise<string> {
-        return invoke("usfm_onion_to_usx_path", { path });
-    }
-
-    async toUsxBatchFromPaths(
-        paths: string[],
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<string[]> {
-        return invoke("usfm_onion_to_usx_paths", { paths, batchOptions });
-    }
-
-    async fromUsx(value: string): Promise<string> {
-        return invoke("usfm_onion_from_usx", { value });
-    }
-
-    async toVref(source: string): Promise<VrefEntry[]> {
-        return invoke("usfm_onion_to_vref", { source });
-    }
-
-    async toVrefFromPath(path: string): Promise<VrefEntry[]> {
-        return invoke("usfm_onion_to_vref_path", { path });
-    }
-
-    async toVrefBatchFromPaths(
-        paths: string[],
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<VrefEntry[][]> {
-        return invoke("usfm_onion_to_vref_paths", { paths, batchOptions });
+        return timeInDevAsync(
+            async () =>
+                invoke("usfm_onion_revert_diff_block", {
+                    baselineTokens: toOnionFlatTokens(baselineTokens),
+                    currentTokens: toOnionFlatTokens(currentTokens),
+                    blockId,
+                    buildOptions,
+                }),
+            `[tauri] revertDiffBlock (blockId: ${blockId}, baseline: ${baselineTokens.length}, current: ${currentTokens.length})`,
+        );
     }
 }

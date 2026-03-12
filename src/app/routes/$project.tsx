@@ -24,7 +24,6 @@ export const Route = createFileRoute("/$project")({
         };
     },
     loader: async ({ context, params }) => {
-        console.time("total time");
         const {
             projectRepository,
             md5Service,
@@ -42,21 +41,22 @@ export const Route = createFileRoute("/$project")({
             editorMode,
             usfmOnionService,
         );
-        const { parsedFiles, allInitialLintErrors, loadedProject } = result || {
-            parsedFiles: [],
-            allInitialLintErrors: [],
-            loadedProject: null,
-        };
+        const { parsedFiles, initialLintErrorsByBook, loadedProject } =
+            result || {
+                parsedFiles: [],
+                initialLintErrorsByBook: {},
+                loadedProject: null,
+            };
         return {
             projectFiles: parsedFiles,
-            allInitialLintErrors,
+            initialLintErrorsByBook,
             loadedProject,
         };
     },
 });
 
 function RouteComponent() {
-    const { projectFiles, allInitialLintErrors, loadedProject } =
+    const { projectFiles, initialLintErrorsByBook, loadedProject } =
         Route.useLoaderData();
 
     const { project } = Route.useParams();
@@ -67,7 +67,7 @@ function RouteComponent() {
         <ProjectProvider
             currentProjectRoute={project}
             projectFiles={projectFiles}
-            allInitialLintErrors={allInitialLintErrors}
+            initialLintErrorsByBook={initialLintErrorsByBook}
             loadedProject={loadedProject}
             queryBookOverride={search.book}
             queryChapterOverride={search.chapter}

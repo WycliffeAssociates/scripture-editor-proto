@@ -1,14 +1,16 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/web/main.tsx", "src/tauri/main.tsx", "src/app/entrypoint.tsx"],
+  "entry": ["src/web/main.tsx!", "src/tauri/main.tsx!", "src/app/entrypoint.tsx!"],
   "project": [
-    "src/**/*.{ts,tsx,css}",
+    "src/**/*.{ts,tsx,css}!",
+    "!src/test/**",
+    "!src/tests/**",
     "!src/routeTree.gen.ts",
     "!src/app/generated/**",
     "!src/tauri/rust/**",
     "!src/app/ui/i18n/locales/**"
   ],
-  "ignoreDependencies": ["wrangler"],
+  "ignoreDependencies": ["wrangler", "buffer"],
   "tanstack-router": {
     "entry": ["src/app/generated/routeTree.gen.ts"]
   },
@@ -16,5 +18,5 @@
     "interface": true,
     "type": true
   },
-  "tags": ["-lintignore"]
+  "tags": ["-knipignore"]
 }

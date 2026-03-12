@@ -1,17 +1,17 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
 import {
     canonicalSnapshotToChapterState,
     chapterSnapshotsAreEqual,
     chapterStateToCanonicalSnapshot,
 } from "@/app/domain/history/canonicalChapterState.ts";
+import { serializeToUsfmString } from "@/test/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
 
 describe("history canonical snapshot integration", () => {
-    it("remains mode-agnostic between regular and usfm projections", () => {
-        const editor = createTestEditor(
+    it("remains mode-agnostic between regular and usfm projections", async () => {
+        const editor = await createTestEditor(
             "\\c 1\n\\p\n\\v 1 In the beginning\\f + \\ft Note\\f*",
             { needsParagraphs: true },
         );
@@ -29,8 +29,8 @@ describe("history canonical snapshot integration", () => {
         );
     });
 
-    it("round-trips canonical snapshot back to regular mode", () => {
-        const editor = createTestEditor("\\c 1\n\\p\n\\v 1 Alpha beta", {
+    it("round-trips canonical snapshot back to regular mode", async () => {
+        const editor = await createTestEditor("\\c 1\n\\p\n\\v 1 Alpha beta", {
             needsParagraphs: true,
         });
         const startState = editor.getEditorState().toJSON();

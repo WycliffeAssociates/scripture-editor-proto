@@ -1,22 +1,21 @@
-import type { LintError } from "@/core/data/usfm/lint.ts";
+import type {
+    BatchExecutionOptions as OnionBatchExecutionOptions,
+    BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
+    FormatOptions as OnionFormatOptions,
+    IntoTokensOptions as OnionIntoTokensOptions,
+    Span as OnionSpan,
+    TokenFix as OnionTokenFix,
+} from "usfm-onion-web";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
+import type { LegacyLintError as LintError } from "@/core/domain/usfm/legacyTokenTypes.ts";
 
-export type Span = {
-    start: number;
-    end: number;
-};
+export type Span = OnionSpan;
 
-export type IntoTokensOptions = {
-    mergeHorizontalWhitespace?: boolean;
-};
+export type IntoTokensOptions = OnionIntoTokensOptions;
 
-export type BuildSidBlocksOptions = {
-    allowEmptySid?: boolean;
-};
+export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
 
-export type BatchExecutionOptions = {
-    parallel?: boolean;
-};
+export type BatchExecutionOptions = OnionBatchExecutionOptions;
 
 export type TokenScopeItem = {
     path?: string;
@@ -56,42 +55,20 @@ export type DiffScopeOptions = {
 export type FlatToken = {
     id: string;
     kind: string;
-    spanStart: number;
-    spanEnd: number;
-    sid: string | null;
-    marker: string | null;
-    text: string;
-};
-
-export type TokenTemplate = {
-    kind: string;
-    text: string;
-    marker: string | null;
-    sid: string | null;
-};
-
-export type TokenFix =
-    | {
-          kind: "replaceToken";
-          label: string;
-          targetTokenId: string;
-          replacements: TokenTemplate[];
-      }
-    | {
-          kind: "insertAfter";
-          label: string;
-          targetTokenId: string;
-          insert: TokenTemplate[];
-      };
-
-export type LintSuppression = {
-    code: string;
     span: Span;
+    sid: string | null;
+    marker: string | null;
+    text: string;
 };
+
+export type TokenFix = OnionTokenFix;
 
 export type TokenLintOptions = {
     disabledRules?: string[];
-    suppressions?: LintSuppression[];
+    suppressions?: Array<{
+        code: string;
+        sid: string;
+    }>;
 };
 
 export type LintOptions = {
@@ -107,7 +84,10 @@ export type ProjectUsfmOptions = {
 
 export type LintIssue = {
     code: string;
+    severity: string;
+    marker: string | null;
     message: string;
+    messageParams: Record<string, string>;
     span: Span;
     relatedSpan: Span | null;
     tokenId: string | null;
@@ -118,36 +98,26 @@ export type LintIssue = {
 
 export type ProjectedUsfmDocument = {
     tokens: FlatToken[];
-    editorTree: EditorTreeDocument;
+    documentTree: DocumentTreeDocument;
     lintIssues: LintIssue[] | null;
 };
 
-export type FormatOptions = {
-    recoverMalformedMarkers?: boolean;
-    collapseWhitespaceInText?: boolean;
-    ensureInlineSeparators?: boolean;
-    removeDuplicateVerseNumbers?: boolean;
-    normalizeSpacingAfterParagraphMarkers?: boolean;
-    removeUnwantedLinebreaks?: boolean;
-    bridgeConsecutiveVerseMarkers?: boolean;
-    removeOrphanEmptyVerseBeforeContentfulVerse?: boolean;
-    removeBridgeVerseEnumerators?: boolean;
-    moveChapterLabelAfterChapterMarker?: boolean;
-    insertDefaultParagraphAfterChapterIntro?: boolean;
-    insertStructuralLinebreaks?: boolean;
-    collapseConsecutiveLinebreaks?: boolean;
-    normalizeMarkerWhitespaceAtLineStart?: boolean;
-};
+export type FormatOptions = OnionFormatOptions;
 
 export type TokenTransformChange = {
     kind: string;
+    code: string;
     label: string;
+    labelParams: Record<string, string>;
     targetTokenId: string | null;
 };
 
 export type SkippedTokenTransform = {
     kind: string;
+    code: string;
     label: string;
+    labelParams: Record<string, string>;
+    reasonCode: string;
     targetTokenId: string | null;
     reason: string;
 };
@@ -184,19 +154,8 @@ export type DiffTokenAlignment = {
     counterpartIndex: number | null;
 };
 
-export type ChapterDiffEntry = {
-    bookCode: string;
-    chapterNum: number;
-    diffs: Diff[];
-};
-
-export type UsjRoundtrip = {
-    source: string;
-    fingerprint: string;
-};
-
 export type UsjNode = string | UsjElement;
-
+// todo: get types from .d.ts
 export type UsjElement =
     | ({
           type: "book";
@@ -285,17 +244,20 @@ export type UsjDocument = {
     type: string;
     version: string;
     content: UsjNode[];
-    _dovetail_roundtrip?: UsjRoundtrip;
 };
 
-export type EditorTreeNode = string | EditorTreeElement;
+export type DocumentTreeNode = string | DocumentTreeElement;
 
-export type EditorTreeElement =
+export type DocumentTreeElement =
+    | ({
+          type: "text";
+          value: string;
+      } & Record<string, unknown>)
     | ({
           type: "book";
           marker: string;
           code: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "chapter";
@@ -310,18 +272,18 @@ export type EditorTreeElement =
     | ({
           type: "para";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "char";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "note";
           marker: string;
           caller: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "ms";
@@ -330,62 +292,58 @@ export type EditorTreeElement =
     | ({
           type: "figure";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "sidebar";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "periph";
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "table";
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "table:row";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "table:cell";
           marker: string;
           align: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "ref";
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "unknown";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | ({
           type: "unmatched";
           marker: string;
-          content?: EditorTreeNode[];
+          content?: DocumentTreeNode[];
       } & Record<string, unknown>)
     | {
           type: "optbreak";
       }
     | {
           type: "linebreak";
+          value?: string;
       };
 
-export type EditorTreeDocument = {
+export type DocumentTreeDocument = {
     type: string;
     version: string;
-    content: EditorTreeNode[];
-};
-
-export type VrefEntry = {
-    reference: string;
-    text: string;
+    content: DocumentTreeNode[];
 };
 
 export type ParsedUsfmChapters = Record<number, ParsedToken[]>;

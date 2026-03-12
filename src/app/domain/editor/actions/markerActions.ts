@@ -40,7 +40,7 @@ import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTex
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
 import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
+import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
 
 function isWhitespaceOnly(text: string): boolean {

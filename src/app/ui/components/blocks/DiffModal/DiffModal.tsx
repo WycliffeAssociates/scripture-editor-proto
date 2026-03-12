@@ -19,6 +19,7 @@ export function SaveAndReviewChanges() {
     const sorted = sortListBySidCanonical(
         saveDiff.diffs.map((diff) => ({ sid: diff.semanticSid, ...diff })),
     );
+    const isExternalCompare = saveDiff.compareMode === "external";
 
     return (
         <>
@@ -28,22 +29,15 @@ export function SaveAndReviewChanges() {
                 diffs={sorted}
                 diffsByChapter={saveDiff.diffsByChapter}
                 isCalculating={saveDiff.isCalculatingDiffs}
-                revertDiff={
-                    saveDiff.compareMode === "external"
-                        ? saveDiff.applyExternalIncomingHunk
-                        : saveDiff.handleRevert
-                }
-                revertChapter={
-                    saveDiff.compareMode === "external"
-                        ? saveDiff.applyExternalIncomingChapter
-                        : saveDiff.handleRevertChapter
-                }
+                actionMode={isExternalCompare ? "external" : "unsaved"}
+                onRevertDiff={saveDiff.handleRevert}
+                onRevertChapter={saveDiff.handleRevertChapter}
+                onApplyDiffToCurrent={saveDiff.applyExternalIncomingHunk}
+                onApplyChapterToCurrent={saveDiff.applyExternalIncomingChapter}
                 saveAllChanges={saveDiff.saveProjectToDisk}
                 revertAllChanges={saveDiff.handleRevertAll}
                 compareMode={saveDiff.compareMode}
                 setCompareMode={saveDiff.setCompareMode}
-                compareBaseline={saveDiff.compareBaseline}
-                setCompareBaseline={saveDiff.setCompareBaseline}
                 compareSourceKind={saveDiff.compareSourceKind}
                 setCompareSourceKind={saveDiff.setCompareSourceKind}
                 compareSourceProjectId={saveDiff.compareSourceProjectId}

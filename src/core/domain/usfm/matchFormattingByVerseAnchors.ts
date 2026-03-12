@@ -1,6 +1,6 @@
 import { parseSid } from "@/core/data/bible/bible.ts";
-import { VALID_PARA_MARKERS } from "@/core/data/usfm/tokens.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
+import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import type { PrettifyToken } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
 
 export type MatchFormattingScope = "chapter" | "book" | "project";

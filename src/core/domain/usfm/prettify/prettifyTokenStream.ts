@@ -1,10 +1,10 @@
+import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
     ALL_CHAR_MARKERS,
     ALL_USFM_MARKERS,
     VALID_NOTE_MARKERS,
     VALID_PARA_MARKERS,
-} from "@/core/data/usfm/tokens.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
+} from "@/core/domain/usfm/onionMarkers.ts";
 import {
     POETRY_MARKERS,
     PRETTIFY_LINEBREAK_BEFORE_AND_AFTER_MARKERS,

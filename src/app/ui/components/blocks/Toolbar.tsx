@@ -15,6 +15,7 @@ import {
     AlignLeft,
     BookCopy,
     ChevronDown,
+    Copy,
     FileStack,
     Menu as IconMenu,
     Info,
@@ -24,6 +25,10 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import {
+    buildCondensedLexicalSelectionSnapshot,
+    buildFullLexicalSelectionSnapshot,
+} from "@/app/domain/editor/utils/debugLexicalSnapshot.ts";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal/DiffModal.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { MatchFormattingSuggestionsPanel } from "@/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx";
@@ -41,9 +46,25 @@ import type {
 import { formatChapterSummary } from "@/core/persistence/gitVersionUtils.ts";
 
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions, isProcessing, project, saveDiff } = useWorkspaceContext();
+    const { actions, editorRef, isProcessing, project, saveDiff } =
+        useWorkspaceContext();
     const { t } = useLingui();
     const isViewOnly = (project.appSettings.editorMode ?? "regular") === "view";
+
+    const copyLexicalSnapshot = async (
+        scope: "context" | "full" = "context",
+    ) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const snapshot = editor
+            .getEditorState()
+            .read(() =>
+                scope === "full"
+                    ? buildFullLexicalSelectionSnapshot()
+                    : buildCondensedLexicalSelectionSnapshot(),
+            );
+        await navigator.clipboard.writeText(snapshot);
+    };
 
     return (
         <>
@@ -101,6 +122,49 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
                         <ReferencePicker />
                         <ReferenceProjectList />
+                        {import.meta.env.DEV && (
+                            <Menu
+                                shadow="md"
+                                width={220}
+                                position="bottom-start"
+                                withinPortal={false}
+                            >
+                                <Menu.Target>
+                                    <div>
+                                        <Tooltip
+                                            label="Copy lexical snapshot"
+                                            withArrow
+                                            position="top"
+                                        >
+                                            <ActionIconSimple
+                                                aria-label="Copy lexical snapshot"
+                                                title="Copy lexical snapshot"
+                                            >
+                                                <Copy size={rem(14)} />
+                                            </ActionIconSimple>
+                                        </Tooltip>
+                                    </div>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Item
+                                        leftSection={<Copy size={rem(14)} />}
+                                        onClick={() => {
+                                            void copyLexicalSnapshot("context");
+                                        }}
+                                    >
+                                        Copy small context
+                                    </Menu.Item>
+                                    <Menu.Item
+                                        leftSection={<Copy size={rem(14)} />}
+                                        onClick={() => {
+                                            void copyLexicalSnapshot("full");
+                                        }}
+                                    >
+                                        Copy full tree
+                                    </Menu.Item>
+                                </Menu.Dropdown>
+                            </Menu>
+                        )}
                     </Group>
 
                     <Group gap="xs" className={styles.toolbarSection}>

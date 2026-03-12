@@ -7,10 +7,7 @@ import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
-import {
-    lexicalEditorStateToOnionFlatTokens,
-    onionFlatTokensToRenderTokens,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { onionFlatTokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { GIT_COMMIT_AUTHOR } from "@/app/domain/git/gitConstants.ts";
 import {
     applyIncomingChapter,
@@ -97,6 +94,37 @@ type PendingVersionAction =
     | { type: "switch"; hash: string }
     | { type: "latest" };
 
+type ChapterRef = { bookCode: string; chapterNum: number };
+
+function selectParsedFilesForChapterRefs(
+    files: ParsedFile[],
+    chapters: ChapterRef[],
+): ParsedFile[] {
+    const wantedByBook = new Map<string, Set<number>>();
+    for (const chapter of chapters) {
+        const wanted = wantedByBook.get(chapter.bookCode) ?? new Set<number>();
+        wanted.add(chapter.chapterNum);
+        wantedByBook.set(chapter.bookCode, wanted);
+    }
+
+    return files
+        .map((file) => {
+            const wanted = wantedByBook.get(file.bookCode);
+            if (!wanted) return null;
+
+            const matchingChapters = file.chapters.filter((chapter) =>
+                wanted.has(chapter.chapNumber),
+            );
+            if (matchingChapters.length === 0) return null;
+
+            return {
+                ...file,
+                chapters: matchingChapters,
+            };
+        })
+        .filter((file): file is ParsedFile => Boolean(file));
+}
+
 function revertAllChanges({
     mutWorkingFilesRef,
     setDiffsByChapter,
@@ -156,7 +184,7 @@ export function useProjectDiffs({
     const [isCalculatingDiffs, setIsCalculatingDiffs] = useState(false);
     const [compareMode, setCompareMode] = useState<CompareMode>("unsaved");
     const [compareBaseline, setCompareBaseline] =
-        useState<CompareBaseline>("currentSaved");
+        useState<CompareBaseline>("currentDirty");
     const [compareSourceKind, setCompareSourceKind] =
         useState<CompareSourceKind>("existingProject");
     const [compareSourceProjectId, setCompareSourceProjectId] =
@@ -251,12 +279,8 @@ export function useProjectDiffs({
 
         if (!chapToUpdate.dirty) return [];
 
-        const baselineTokens = lexicalEditorStateToOnionFlatTokens(
-            chapToUpdate.loadedLexicalState,
-        );
-        const currentTokens = lexicalEditorStateToOnionFlatTokens(
-            chapToUpdate.lexicalState,
-        );
+        const baselineTokens = chapToUpdate.sourceTokens;
+        const currentTokens = chapToUpdate.currentTokens;
         const diffs = await usfmOnionService.diffTokens(
             baselineTokens,
             currentTokens,
@@ -749,6 +773,27 @@ export function useProjectDiffs({
         usfmOnionService,
     });
 
+    function buildExternalCompareConfig() {
+        return {
+            mode: "external" as const,
+            baseline: "currentDirty" as const,
+            source: compareSourceProjectId
+                ? {
+                      kind: "existingProject" as const,
+                      projectId: compareSourceProjectId,
+                  }
+                : compareSourceKind === "previousVersion" &&
+                    compareSourceVersionHash
+                  ? {
+                        kind: "previousVersion" as const,
+                        commitHash: compareSourceVersionHash,
+                    }
+                  : compareSourceKind === "zipFile"
+                    ? { kind: "zipFile" as const }
+                    : { kind: "directory" as const },
+        };
+    }
+
     async function computeExternalDiffs(
         sourceFiles: ParsedFile[],
         metadata: CompareMetadataSummary,
@@ -757,24 +802,7 @@ export function useProjectDiffs({
         const result = await buildCompareResultAsync({
             currentFiles: mutWorkingFilesRef,
             usfmOnionService,
-            config: {
-                mode: "external",
-                baseline: compareBaseline,
-                source: compareSourceProjectId
-                    ? {
-                          kind: "existingProject",
-                          projectId: compareSourceProjectId,
-                      }
-                    : compareSourceKind === "previousVersion" &&
-                        compareSourceVersionHash
-                      ? {
-                            kind: "previousVersion",
-                            commitHash: compareSourceVersionHash,
-                        }
-                      : compareSourceKind === "zipFile"
-                        ? { kind: "zipFile" }
-                        : { kind: "directory" },
-            },
+            config: buildExternalCompareConfig(),
             sourceFiles,
             currentMetadata: {
                 projectId: loadedProject.metadata.id,
@@ -791,6 +819,52 @@ export function useProjectDiffs({
             metadata,
             cleanup,
             sourceFiles,
+        });
+    }
+
+    async function rerunExternalCompareForChapters(chapters: ChapterRef[]) {
+        if (!compareResult?.sourceFiles || !compareResult.metadata) return;
+
+        const scopedCurrentFiles = selectParsedFilesForChapterRefs(
+            mutWorkingFilesRef,
+            chapters,
+        );
+        const scopedSourceFiles = selectParsedFilesForChapterRefs(
+            compareResult.sourceFiles,
+            chapters,
+        );
+
+        const result = await buildCompareResultAsync({
+            currentFiles: scopedCurrentFiles,
+            sourceFiles: scopedSourceFiles,
+            currentMetadata: {
+                projectId: loadedProject.metadata.id,
+                languageId: loadedProject.metadata.language.id,
+                languageDirection: loadedProject.metadata.language.direction,
+            },
+            sourceMetadata: compareResult.metadata,
+            usfmOnionService,
+            config: buildExternalCompareConfig(),
+            batchSize: DIFF_CHUNK_SIZE,
+            onBatchComplete: yieldToMainThread,
+        });
+
+        setCompareResult((prev) => {
+            if (!prev) return prev;
+
+            const mergedDiffsByChapter = replaceManyChapterDiffsInMap({
+                previousMap: prev.diffsByChapter,
+                chapterDiffs: chapters.map(({ bookCode, chapterNum }) => ({
+                    bookCode,
+                    chapterNum,
+                    diffs: result.diffsByChapter[bookCode]?.[chapterNum] ?? [],
+                })),
+            });
+
+            return {
+                ...prev,
+                diffsByChapter: mergedDiffsByChapter,
+            };
         });
     }
 
@@ -881,6 +955,7 @@ export function useProjectDiffs({
             void compareResult.cleanup();
         }
         setCompareResult(null);
+        setCompareBaseline("currentDirty");
         setCompareSourceProjectId("");
         setCompareSourceVersionHash("");
         setCompareSourceKind("existingProject");
@@ -921,7 +996,12 @@ export function useProjectDiffs({
                         );
                     }
                 }
-                rerunExternalCompare();
+                await rerunExternalCompareForChapters([
+                    {
+                        bookCode: diff.bookCode,
+                        chapterNum: diff.chapterNum,
+                    },
+                ]);
             },
         });
     }
@@ -962,7 +1042,12 @@ export function useProjectDiffs({
                         );
                     }
                 }
-                rerunExternalCompare();
+                await rerunExternalCompareForChapters([
+                    {
+                        bookCode,
+                        chapterNum,
+                    },
+                ]);
             },
         });
     }

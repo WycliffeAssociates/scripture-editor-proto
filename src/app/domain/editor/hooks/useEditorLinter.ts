@@ -22,7 +22,10 @@ export function shouldRunLintForEditorUpdate({
     const hasProgrammaticIgnore = tags.has(EDITOR_TAGS_USED.programaticIgnore);
     const hasForcedRunTag = tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges);
 
-    if (prevEditorStateIsEmpty && !hasForcedRunTag) return false;
+    // Initial hydration is already seeded with loader lint state. Skip the first
+    // forced no-op update after setEditorContent() so we do not replace source-
+    // based lint with a second token-based pass during mount.
+    if (prevEditorStateIsEmpty) return false;
 
     if (hasProgrammaticIgnore && !hasForcedRunTag) return false;
 

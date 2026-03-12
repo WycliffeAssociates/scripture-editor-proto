@@ -31,6 +31,7 @@ body {
   line-height: 1.7;
   background-color: var(--mantine-color-body);
 }
+
 .lint-error {
   cursor: help;
 }

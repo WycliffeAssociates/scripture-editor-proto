@@ -1,8 +1,6 @@
-import type { LintableToken } from "@/core/data/usfm/lint.ts";
+import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import type {
     BuildSidBlocksOptions,
-    ChapterDiffEntry,
-    Diff,
     FlatToken,
     ParsedUsfmDocument,
     ProjectUsfmOptions,
@@ -14,7 +12,19 @@ import { usjToParsedUsfmDocument } from "@/core/domain/usfm/usjToParsedUsfm.ts";
 function legacyTokenTypeToOnionKind(tokenType: string): string {
     switch (tokenType) {
         case "nl":
-            return "verticalWhitespace";
+        case "verticalWhitespace":
+            return "newline";
+        case "ws":
+        case "horizontalWhitespace":
+            return "whitespace";
+        case "endMarker":
+            return "end-marker";
+        case "milestoneEnd":
+            return "milestone-end";
+        case "bookCode":
+            return "book-code";
+        case "optBreak":
+            return "optbreak";
         case "numberRange":
             return "number";
         default:
@@ -22,19 +32,14 @@ function legacyTokenTypeToOnionKind(tokenType: string): string {
     }
 }
 
-export function flatTokenFromLintableToken(token: LintableToken): FlatToken {
+function normalizeFlatToken(token: FlatToken): FlatToken {
     return {
-        id: token.id,
-        kind: legacyTokenTypeToOnionKind(token.tokenType),
-        spanStart: 0,
-        spanEnd: token.text.length,
-        sid: token.sid ?? null,
-        marker: token.marker ?? null,
-        text: token.text,
+        ...token,
+        kind: legacyTokenTypeToOnionKind(token.kind),
     };
 }
 
-export function flatTokensFromLintableTokens<T extends LintableToken>(
+function flatTokensFromLintableTokens<T extends LintableToken>(
     tokens: T[],
 ): FlatToken[] {
     let cursor = 0;
@@ -46,8 +51,10 @@ export function flatTokensFromLintableTokens<T extends LintableToken>(
         return {
             id: token.id,
             kind: legacyTokenTypeToOnionKind(token.tokenType),
-            spanStart: start,
-            spanEnd: end,
+            span: {
+                start,
+                end,
+            },
             sid: token.sid ?? null,
             marker: token.marker ?? null,
             text,
@@ -62,19 +69,13 @@ export function toOnionFlatTokens<T extends LintableToken | FlatToken>(
     const first = tokens[0] as Partial<FlatToken>;
     if (
         typeof first.kind === "string" &&
-        typeof first.spanStart === "number" &&
-        typeof first.spanEnd === "number"
+        typeof first.span?.start === "number" &&
+        typeof first.span?.end === "number"
     ) {
-        return tokens as FlatToken[];
+        return (tokens as FlatToken[]).map(normalizeFlatToken);
     }
 
     return flatTokensFromLintableTokens(tokens as LintableToken[]);
-}
-
-export function usjDocumentToParsedUsfmDocument(
-    usj: UsjDocument,
-): ParsedUsfmDocument {
-    return usjToParsedUsfmDocument(usj);
 }
 
 export function parseChapterDocumentFromUsj(
@@ -122,8 +123,4 @@ export function defaultTokenLintOptions(): TokenLintOptions {
 
 export function defaultBuildSidBlocksOptions(): BuildSidBlocksOptions {
     return { allowEmptySid: true };
-}
-
-export function flattenChapterDiffEntries(entries: ChapterDiffEntry[]): Diff[] {
-    return entries.flatMap((entry) => entry.diffs);
 }

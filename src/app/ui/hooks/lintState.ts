@@ -1,6 +1,8 @@
 import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+export type LintMessagesByBook = Record<string, LintIssue[]>;
+
 function lintIssueIdentity(issue: LintIssue): string {
     const fixIdentity = issue.fix ? JSON.stringify(issue.fix) : "";
     const relatedSpanIdentity = issue.relatedSpan
@@ -41,6 +43,16 @@ function sortLintIssues(issues: LintIssue[]): LintIssue[] {
     return [...sortListBySidCanonical(withSid), ...withoutSid];
 }
 
+function normalizeBookKey(book: string): string {
+    return book.toUpperCase();
+}
+
+function bookForIssue(issue: LintIssue): string | null {
+    if (!issue.sid || issue.sid === "unknown location") return null;
+    const sid = parseSid(issue.sid);
+    return sid?.book ? normalizeBookKey(sid.book) : null;
+}
+
 export function areLintIssueListsEqual(
     left: LintIssue[],
     right: LintIssue[],
@@ -58,33 +70,73 @@ export function areLintIssueListsEqual(
     return true;
 }
 
+export function buildLintMessagesByBook(
+    issues: LintIssue[],
+): LintMessagesByBook {
+    const grouped: LintMessagesByBook = {};
+
+    for (const issue of issues) {
+        const book = bookForIssue(issue);
+        if (!book) continue;
+        grouped[book] ??= [];
+        grouped[book].push(issue);
+    }
+
+    for (const [book, bookIssues] of Object.entries(grouped)) {
+        grouped[book] = sortLintIssues(dedupeLintIssueList(bookIssues));
+    }
+
+    return grouped;
+}
+
+export function flattenLintMessagesByBook(
+    messagesByBook: LintMessagesByBook,
+): LintIssue[] {
+    return sortLintIssues(
+        dedupeLintIssueList(Object.values(messagesByBook).flat()),
+    );
+}
+
 export function replaceLintErrorsForBook(
-    prevMessages: LintIssue[],
+    prevMessagesByBook: LintMessagesByBook,
     book: string,
     newErrors: LintIssue[],
-): LintIssue[] {
-    const targetBook = book.toUpperCase();
-    const filtered = prevMessages.filter((m) => {
-        if (!m.sid || m.sid === "unknown location") return false;
-        const sid = parseSid(m.sid);
-        if (!sid) return false; // if it's invalid sid, clean it up
-        return sid.book !== targetBook;
-    });
-    return sortLintIssues(dedupeLintIssueList([...filtered, ...newErrors]));
+): LintMessagesByBook {
+    const targetBook = normalizeBookKey(book);
+    const nextErrors = sortLintIssues(dedupeLintIssueList(newErrors));
+    if (prevMessagesByBook[targetBook] === newErrors) {
+        return prevMessagesByBook;
+    }
+
+    return {
+        ...prevMessagesByBook,
+        [targetBook]: nextErrors,
+    };
 }
 
 export function replaceLintErrorsForChapter(
-    prevMessages: LintIssue[],
+    prevMessagesByBook: LintMessagesByBook,
     book: string,
     chapter: number,
     newErrors: LintIssue[],
-): LintIssue[] {
+): LintMessagesByBook {
     const targetBook = book.toUpperCase();
+    const prevMessages = prevMessagesByBook[targetBook] ?? [];
     const filtered = prevMessages.filter((m) => {
         if (!m.sid || m.sid === "unknown location") return false;
         const sid = parseSid(m.sid);
         if (!sid) return true;
         return sid.book !== targetBook || sid.chapter !== chapter;
     });
-    return sortLintIssues(dedupeLintIssueList([...filtered, ...newErrors]));
+    const nextErrors = sortLintIssues(
+        dedupeLintIssueList([...filtered, ...newErrors]),
+    );
+    if (prevMessages === nextErrors) {
+        return prevMessagesByBook;
+    }
+
+    return {
+        ...prevMessagesByBook,
+        [targetBook]: nextErrors,
+    };
 }

@@ -3,9 +3,9 @@ import type { LexicalEditor, SerializedLexicalNode } from "lexical";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { serializeToUsfmString } from "@/app/domain/editor/serialization/lexicalToUsfm.ts";
 import { insertParagraphMarkerAtCursor } from "@/app/domain/editor/utils/insertParagraphMarkerAtCursor.ts";
 import {
+    lexicalEditorStateToOnionFlatTokens,
     lexicalRootChildrenToUsfmTokenStream,
     usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -157,15 +157,12 @@ export function useFormatMatching({
         nextLexical.root.children =
             nextRootChildren as typeof nextLexical.root.children;
 
-        const afterUsfm = serializeToUsfmString(
-            nextLexical.root.children as SerializedLexicalNode[],
-        );
-        const baselineUsfm = serializeToUsfmString(
-            chapter.loadedLexicalState.root.children as SerializedLexicalNode[],
-        );
-
         chapter.lexicalState = nextLexical;
-        chapter.dirty = afterUsfm !== baselineUsfm;
+        chapter.currentTokens =
+            lexicalEditorStateToOnionFlatTokens(nextLexical);
+        chapter.dirty =
+            chapter.currentTokens.map((token) => token.text).join("") !==
+            chapter.sourceTokens.map((token) => token.text).join("");
         updateDiffMapForChapter(bookCode, chapter.chapNumber);
 
         return {

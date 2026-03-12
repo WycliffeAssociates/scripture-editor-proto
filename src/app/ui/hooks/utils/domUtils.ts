@@ -29,3 +29,29 @@ export function updateDomForEditorMode({
         appRoot.classList.remove("markers-hidden");
     }
 }
+/** @knipignore */
+export function timeInDev(fn: () => void, label?: string) {
+    if (import.meta.env.DEV) {
+        const start = performance.now();
+        const r = fn();
+        const end = performance.now();
+        console.log(`Label: ${label}, Time: ${end - start}ms`);
+        return r;
+    } else {
+        return fn();
+    }
+}
+export async function timeInDevAsync<T>(
+    fn: () => Promise<T>,
+    label?: string,
+): Promise<T> {
+    if (import.meta.env.DEV) {
+        const start = performance.now();
+        const result = await fn();
+        const end = performance.now();
+        console.log(`Label: ${label}, Time: ${end - start}ms`);
+        return result;
+    } else {
+        return await fn();
+    }
+}

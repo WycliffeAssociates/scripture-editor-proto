@@ -147,13 +147,6 @@ export const toolbarSection = style({
     gap: vars.spacing.sm,
 });
 
-export const toolbarRow = style({
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars.spacing.sm,
-    alignItems: "center",
-});
-
 export const toolbarBand = style({
     padding: `${vars.spacing.xs} ${vars.spacing.xs}`,
     borderRadius: vars.radius.md,

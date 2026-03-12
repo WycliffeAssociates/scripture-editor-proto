@@ -122,6 +122,7 @@ function RouteComponent() {
             invalidateRouterAndReload,
             projectRepository,
             md5Service,
+            gitProvider,
         ],
     );
 
