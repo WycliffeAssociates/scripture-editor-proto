@@ -34,11 +34,6 @@ vi.mock(
 
 const emptyProjection: ProjectedUsfmDocument = {
     tokens: [],
-    documentTree: {
-        type: "usj",
-        version: "3.1",
-        content: [],
-    },
     lintIssues: [],
 };
 

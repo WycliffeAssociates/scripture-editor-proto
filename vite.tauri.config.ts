@@ -4,6 +4,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import wasm from "vite-plugin-wasm";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -23,6 +24,7 @@ export default defineConfig({
         }),
         lingui(),
         vanillaExtractPlugin(),
+        wasm(),
     ],
     resolve: {
         alias: {

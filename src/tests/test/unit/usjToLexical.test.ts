@@ -6,7 +6,7 @@ import {
     lexicalEditorStateToOnionFlatTokens,
     lexicalEditorStateToOnionLintFlatTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import type { DocumentTreeDocument } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { AstDocument } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function collectNodeTypes(nodes: SerializedLexicalNode[]): string[] {
     const out: string[] = [];
@@ -50,7 +50,7 @@ function collectNodeTypes(nodes: SerializedLexicalNode[]): string[] {
 
 describe("usjToLexical marker separator fidelity", () => {
     it("uses markerText from editor tree for book/chapter/verse markers", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -116,7 +116,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("does not synthesize separator spaces when markerText is absent", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -146,7 +146,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("restores a structural linebreak after synthetic paragraph markers for lint projection", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -207,7 +207,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("does not add a linebreak when paragraph markerText already carries same-line spacing", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -256,7 +256,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("does not duplicate space after closeMarkerText when following text already starts with space", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -325,7 +325,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("reconstructs note opener spacing when note markerText is absent", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -392,7 +392,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("flattens notes in plain/usfm modes instead of emitting nested editor nodes", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [
@@ -491,7 +491,7 @@ describe("usjToLexical marker separator fidelity", () => {
     });
 
     it("keeps notes nested in regular mode", () => {
-        const tree: DocumentTreeDocument = {
+        const tree: AstDocument = {
             type: "USJ",
             version: "3.1",
             content: [

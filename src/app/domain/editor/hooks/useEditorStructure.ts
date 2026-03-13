@@ -28,11 +28,11 @@ export function useEditorStructure(editor: LexicalEditor) {
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("debouncedStructuralUpdates");
-                // maintainDocumentStructureDebounced(
-                //     editorState,
-                //     editor,
-                //     project.appSettings,
-                // );
+                maintainDocumentStructureDebounced(
+                    editorState,
+                    editor,
+                    project.appSettings,
+                );
                 console.timeEnd("debouncedStructuralUpdates");
             });
         },
@@ -43,7 +43,11 @@ export function useEditorStructure(editor: LexicalEditor) {
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("throttledEditorChangeListener");
-                // maintainDocumentStructure(editorState, editor, project.appSettings);
+                maintainDocumentStructure(
+                    editorState,
+                    editor,
+                    project.appSettings,
+                );
                 maintainDocumentMetaData(
                     editorState,
                     editor,

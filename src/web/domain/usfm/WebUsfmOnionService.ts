@@ -86,9 +86,7 @@ function toWebBatchOptions(batchOptions?: BatchExecutionOptions | null) {
 function toWebTokenViewOptions(options?: IntoTokensOptions | null) {
     if (!options) return null;
     return {
-        whitespacePolicy: options.mergeHorizontalWhitespace
-            ? "mergeToVisible"
-            : "preserve",
+        whitespacePolicy: "mergeToVisible",
     } as const;
 }
 
@@ -307,7 +305,6 @@ type WebProjectedDocumentRow = {
     error?: string | null;
     value?: {
         tokens: FlatToken[];
-        documentTree: ProjectedUsfmDocument["documentTree"];
         lintIssues: Array<{
             code: string;
             severity?: string;
@@ -359,26 +356,6 @@ function fromWebTransformResult(result: {
         appliedChanges: result.appliedChanges,
         skippedChanges: result.skippedChanges,
     };
-}
-
-function hasDocumentTreeContent(
-    tree: unknown,
-): tree is ProjectedUsfmDocument["documentTree"] {
-    return Boolean(
-        tree &&
-            typeof tree === "object" &&
-            "content" in tree &&
-            Array.isArray((tree as { content?: unknown }).content),
-    );
-}
-
-function requireDocumentTree(
-    tree: unknown,
-): ProjectedUsfmDocument["documentTree"] {
-    if (hasDocumentTreeContent(tree)) {
-        return tree;
-    }
-    throw new Error("usfm-onion project result did not include documentTree");
 }
 
 function normalizeDiffTokenChange(
@@ -546,7 +523,6 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             });
             return {
                 tokens: projection.tokens,
-                documentTree: requireDocumentTree(projection.documentTree),
                 lintIssues:
                     projection.lintIssues?.map(fromWebLintIssue) ?? null,
             };
@@ -582,10 +558,8 @@ export class WebUsfmOnionService implements IUsfmOnionService {
                     if (!row.value) {
                         throw new Error("projectContents returned no value");
                     }
-                    const documentTree = row.value.documentTree;
                     return {
                         tokens: row.value.tokens,
-                        documentTree: requireDocumentTree(documentTree),
                         lintIssues:
                             row.value.lintIssues
                                 ?.filter(

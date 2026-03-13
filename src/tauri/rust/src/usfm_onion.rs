@@ -4,6 +4,7 @@ use std::fs;
 use std::ops::Range;
 use std::path::Path;
 use usfm3_v2 as onion;
+use onion::ast::AstDocument;
 use onion::convert::{from_usj, from_usx, into_usj, into_usx, into_vref};
 use onion::diff::{
     apply_revert_by_block_id, diff_tokens, diff_usfm, diff_usfm_by_chapter, BuildSidBlocksOptions,
@@ -20,8 +21,7 @@ use onion::lint::{
     LintIssue, LintOptions, LintSuppression, LintableToken, TokenLintOptions,
 };
 use onion::model::{
-    BatchExecutionOptions, DocumentTreeDocument, Token, TokenKind, TokenViewOptions,
-    WhitespacePolicy,
+    BatchExecutionOptions, Token, TokenKind, TokenViewOptions, WhitespacePolicy,
 };
 use onion::parse::{
     into_tokens, parse, project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
@@ -87,12 +87,22 @@ pub struct TokenTemplateDto {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TokenFixDto {
     ReplaceToken {
+        code: String,
         label: String,
+        label_params: std::collections::BTreeMap<String, String>,
         target_token_id: String,
         replacements: Vec<TokenTemplateDto>,
     },
-    InsertAfter {
+    DeleteToken {
+        code: String,
         label: String,
+        label_params: std::collections::BTreeMap<String, String>,
+        target_token_id: String,
+    },
+    InsertAfter {
+        code: String,
+        label: String,
+        label_params: std::collections::BTreeMap<String, String>,
         target_token_id: String,
         insert: Vec<TokenTemplateDto>,
     },
@@ -148,6 +158,7 @@ pub struct FormatOptionsDto {
     pub remove_bridge_verse_enumerators: Option<bool>,
     pub move_chapter_label_after_chapter_marker: Option<bool>,
     pub insert_default_paragraph_after_chapter_intro: Option<bool>,
+    pub remove_empty_paragraphs: Option<bool>,
     pub insert_structural_linebreaks: Option<bool>,
     pub collapse_consecutive_linebreaks: Option<bool>,
     pub normalize_marker_whitespace_at_line_start: Option<bool>,
@@ -157,7 +168,10 @@ pub struct FormatOptionsDto {
 #[serde(rename_all = "camelCase")]
 pub struct LintIssueDto {
     pub code: String,
+    pub severity: String,
+    pub marker: Option<String>,
     pub message: String,
+    pub message_params: std::collections::BTreeMap<String, String>,
     pub span: SpanDto,
     pub related_span: Option<SpanDto>,
     pub token_id: Option<String>,
@@ -170,7 +184,7 @@ pub struct LintIssueDto {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
-    pub document_tree: DocumentTreeDocument,
+    pub ast: AstDocument,
     pub lint_issues: Option<Vec<LintIssueDto>>,
 }
 
@@ -204,7 +218,9 @@ pub struct TokenAlignmentDto {
 #[serde(rename_all = "camelCase")]
 pub struct TokenTransformChangeDto {
     pub kind: String,
+    pub code: String,
     pub label: String,
+    pub label_params: std::collections::BTreeMap<String, String>,
     pub target_token_id: Option<String>,
 }
 
@@ -212,8 +228,11 @@ pub struct TokenTransformChangeDto {
 #[serde(rename_all = "camelCase")]
 pub struct SkippedTokenTransformDto {
     pub kind: String,
+    pub code: String,
     pub label: String,
+    pub label_params: std::collections::BTreeMap<String, String>,
     pub target_token_id: Option<String>,
+    pub reason_code: String,
     pub reason: String,
 }
 
@@ -299,7 +318,15 @@ fn map_whitespace_policy(options: IntoTokensOptionsDto) -> IntoTokensOptions {
 
 fn map_token_view_options(options: Option<IntoTokensOptionsDto>) -> TokenViewOptions {
     TokenViewOptions {
-        whitespace_policy: WhitespacePolicy::MergeToVisible,
+        whitespace_policy: if options
+            .map(|o| o.merge_horizontal_whitespace)
+            .unwrap_or(false)
+        {
+            WhitespacePolicy::MergeToVisible
+        } else {
+            // Core usfm_onion does not currently expose a preserve token-view policy.
+            WhitespacePolicy::MergeToVisible
+        },
     }
 }
 
@@ -343,6 +370,9 @@ fn map_format_options(options: Option<FormatOptionsDto>) -> FormatOptions {
         insert_default_paragraph_after_chapter_intro: options
             .insert_default_paragraph_after_chapter_intro
             .unwrap_or(defaults.insert_default_paragraph_after_chapter_intro),
+        remove_empty_paragraphs: options
+            .remove_empty_paragraphs
+            .unwrap_or(defaults.remove_empty_paragraphs),
         insert_structural_linebreaks: options
             .insert_structural_linebreaks
             .unwrap_or(defaults.insert_structural_linebreaks),
@@ -358,20 +388,39 @@ fn map_format_options(options: Option<FormatOptionsDto>) -> FormatOptions {
 fn map_fix_dto(fix: TokenFixDto) -> TokenFix {
     match fix {
         TokenFixDto::ReplaceToken {
+            code,
             label,
+            label_params,
             target_token_id,
             replacements,
         } => TokenFix::ReplaceToken {
+            code,
             label,
+            label_params,
             target_token_id,
             replacements: replacements.into_iter().map(map_template_dto).collect(),
         },
-        TokenFixDto::InsertAfter {
+        TokenFixDto::DeleteToken {
+            code,
             label,
+            label_params,
+            target_token_id,
+        } => TokenFix::DeleteToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+        },
+        TokenFixDto::InsertAfter {
+            code,
+            label,
+            label_params,
             target_token_id,
             insert,
         } => TokenFix::InsertAfter {
+            code,
             label,
+            label_params,
             target_token_id,
             insert: insert.into_iter().map(map_template_dto).collect(),
         },
@@ -390,6 +439,7 @@ fn map_template_dto(template: TokenTemplateDto) -> TokenTemplate {
 fn lint_code_from_str(code: &str) -> Option<LintCode> {
     Some(match code {
         "missing-separator-after-marker" => LintCode::MissingSeparatorAfterMarker,
+        "empty-paragraph" => LintCode::EmptyParagraph,
         "number-range-after-chapter-marker" => LintCode::NumberRangeAfterChapterMarker,
         "verse-range-expected-after-verse-marker" => {
             LintCode::VerseRangeExpectedAfterVerseMarker
@@ -492,20 +542,39 @@ fn map_template(template: TokenTemplate) -> TokenTemplateDto {
 fn map_fix(fix: TokenFix) -> TokenFixDto {
     match fix {
         TokenFix::ReplaceToken {
+            code,
             label,
+            label_params,
             target_token_id,
             replacements,
         } => TokenFixDto::ReplaceToken {
+            code,
             label,
+            label_params,
             target_token_id,
             replacements: replacements.into_iter().map(map_template).collect(),
         },
-        TokenFix::InsertAfter {
+        TokenFix::DeleteToken {
+            code,
             label,
+            label_params,
+            target_token_id,
+        } => TokenFixDto::DeleteToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+        },
+        TokenFix::InsertAfter {
+            code,
+            label,
+            label_params,
             target_token_id,
             insert,
         } => TokenFixDto::InsertAfter {
+            code,
             label,
+            label_params,
             target_token_id,
             insert: insert.into_iter().map(map_template).collect(),
         },
@@ -515,7 +584,10 @@ fn map_fix(fix: TokenFix) -> TokenFixDto {
 fn map_issue(issue: LintIssue) -> LintIssueDto {
     LintIssueDto {
         code: issue.code.as_str().to_string(),
+        severity: issue.severity.as_str().to_string(),
+        marker: issue.marker,
         message: issue.message,
+        message_params: issue.message_params,
         span: map_span(issue.span),
         related_span: issue.related_span.map(map_span),
         token_id: issue.token_id,
@@ -592,7 +664,9 @@ fn map_transform_change(change: TokenTransformChange) -> TokenTransformChangeDto
             TokenTransformKind::Format => "format".to_string(),
             TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
         },
+        code: change.code,
         label: change.label,
+        label_params: change.label_params,
         target_token_id: change.target_token_id,
     }
 }
@@ -604,8 +678,11 @@ fn map_skipped_transform(skipped: SkippedTokenTransform) -> SkippedTokenTransfor
             TokenTransformKind::Format => "format".to_string(),
             TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
         },
+        code: skipped.code,
         label: skipped.label,
+        label_params: skipped.label_params,
         target_token_id: skipped.target_token_id,
+        reason_code: skipped.reason.as_str().to_string(),
         reason: match skipped.reason {
             TokenTransformSkipReason::TokenNotFound => "tokenNotFound".to_string(),
             TokenTransformSkipReason::EmptyReplacement => "emptyReplacement".to_string(),
@@ -690,6 +767,7 @@ fn map_lint_options(options: Option<LintOptionsDto>) -> LintOptions {
                 whitespace_policy: if o.token_view.merge_horizontal_whitespace {
                     WhitespacePolicy::MergeToVisible
                 } else {
+                    // Core usfm_onion does not currently expose a preserve token-view policy.
                     WhitespacePolicy::MergeToVisible
                 },
             })
@@ -744,7 +822,7 @@ pub fn usfm_onion_project_usfm(
 
     Ok(ProjectedUsfmDocumentDto {
         tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-        document_tree: projection.document_tree,
+        ast: projection.document_tree,
         lint_issues: projection
             .lint_issues
             .map(|issues| issues.into_iter().map(map_issue).collect()),
@@ -782,7 +860,7 @@ pub fn usfm_onion_project_paths(
         .into_iter()
         .map(|projection| ProjectedUsfmDocumentDto {
             tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-            document_tree: projection.document_tree,
+            ast: projection.document_tree,
             lint_issues: projection
                 .lint_issues
                 .map(|issues| issues.into_iter().map(map_issue).collect()),

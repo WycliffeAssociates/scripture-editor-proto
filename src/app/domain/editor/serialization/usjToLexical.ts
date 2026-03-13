@@ -13,15 +13,19 @@ import {
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import type {
-    DocumentTreeDocument,
-    DocumentTreeElement,
-    DocumentTreeNode,
+    AstDocument,
+    AstElement,
+    AstNode,
     FlatToken,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type ChapterNodeMap = Record<number, SerializedLexicalNode[]>;
 
-type DocumentTreeBuilderState = {
+// Inactive production path:
+// Dovetail now hydrates editor state from flat tokens for source fidelity.
+// The AST -> Lexical walker in this file is parked for tests and possible
+// future CST migration work, but it is not part of the active runtime path.
+type AstBuilderState = {
     nextId: number;
     bookCode: string;
     currentChapter: number;
@@ -55,21 +59,19 @@ const NOTE_STRUCTURAL_MARKERS = new Set([
     "xq",
 ]);
 
-function makeId(state: DocumentTreeBuilderState): string {
+function makeId(state: AstBuilderState): string {
     const id = String(state.nextId);
     state.nextId += 1;
     return id;
 }
 
-function currentChapterNodes(
-    state: DocumentTreeBuilderState,
-): SerializedLexicalNode[] {
+function currentChapterNodes(state: AstBuilderState): SerializedLexicalNode[] {
     state.chapters[state.currentChapter] ??= [];
     return state.chapters[state.currentChapter];
 }
 
 function pushNode(
-    state: DocumentTreeBuilderState,
+    state: AstBuilderState,
     node: SerializedLexicalNode,
     target?: SerializedLexicalNode[],
 ) {
@@ -77,7 +79,7 @@ function pushNode(
 }
 
 function makeTextNode(
-    state: DocumentTreeBuilderState,
+    state: AstBuilderState,
     text: string,
     tokenType: string,
     opts: {
@@ -101,7 +103,7 @@ function makeTextNode(
 }
 
 function pushTextNode(
-    state: DocumentTreeBuilderState,
+    state: AstBuilderState,
     text: string,
     tokenType: string,
     target?: SerializedLexicalNode[],
@@ -116,7 +118,7 @@ function pushTextNode(
 }
 
 function pushLineBreak(
-    state: DocumentTreeBuilderState,
+    state: AstBuilderState,
     target?: SerializedLexicalNode[],
 ) {
     pushNode(
@@ -130,7 +132,7 @@ function markerText(marker: string): string {
     return `\\${marker}`;
 }
 
-function markerTextFromNode(node: DocumentTreeElement): string {
+function markerTextFromNode(node: AstElement): string {
     if (typeof (node as Record<string, unknown>).markerText === "string") {
         return String((node as Record<string, unknown>).markerText);
     }
@@ -142,7 +144,7 @@ function markerTextFromNode(node: DocumentTreeElement): string {
     return marker ? markerText(marker) : "";
 }
 
-function closeMarkerTextFromNode(node: DocumentTreeElement): string | null {
+function closeMarkerTextFromNode(node: AstElement): string | null {
     if (typeof (node as Record<string, unknown>).closeMarkerText === "string") {
         return String((node as Record<string, unknown>).closeMarkerText);
     }
@@ -150,7 +152,7 @@ function closeMarkerTextFromNode(node: DocumentTreeElement): string | null {
     return marker ? `${markerText(marker)}*` : null;
 }
 
-function markerFromElement(element: DocumentTreeElement): string | null {
+function markerFromElement(element: AstElement): string | null {
     if ("marker" in element && typeof element.marker === "string") {
         return element.marker;
     }
@@ -202,73 +204,9 @@ export function groupFlatTokensByChapter(
     return chapters;
 }
 
-function flatTokenKindToLexicalTokenType(kind: string): string {
-    switch (kind) {
-        case "marker":
-        case "milestone":
-            return UsfmTokenTypes.marker;
-        case "endMarker":
-        case "milestoneEnd":
-            return UsfmTokenTypes.endMarker;
-        case "verticalWhitespace":
-            return UsfmTokenTypes.verticalWhitespace;
-        case "number":
-            return UsfmTokenTypes.numberRange;
-        default:
-            return kind;
-    }
-}
-
-export function flatTokensToLoadedLexicalStatesByChapter(
-    tokens: FlatToken[],
-    direction: "ltr" | "rtl",
-): Record<number, SerializedEditorState<SerializedLexicalNode>> {
-    const chapters = groupFlatTokensByChapter(tokens);
-    return Object.fromEntries(
-        Object.entries(chapters).map(([chapterNum, chapterTokens]) => {
-            const nodes = chapterTokens.flatMap((token) => {
-                if (token.kind === "verticalWhitespace") {
-                    return [
-                        {
-                            type: "linebreak",
-                            version: 1,
-                        } as SerializedLexicalNode,
-                    ];
-                }
-
-                return [
-                    createSerializedUSFMTextNode({
-                        text: token.text,
-                        id: token.id,
-                        sid: token.sid ?? "",
-                        tokenType: flatTokenKindToLexicalTokenType(token.kind),
-                        marker: token.marker ?? undefined,
-                    }) as SerializedLexicalNode,
-                ];
-            });
-
-            return [
-                Number(chapterNum),
-                {
-                    root: {
-                        children: [
-                            wrapFlatTokensInLexicalParagraph(nodes, direction),
-                        ],
-                        type: "root",
-                        version: 1,
-                        direction,
-                        format: "start",
-                        indent: 0,
-                    },
-                } satisfies SerializedEditorState<SerializedLexicalNode>,
-            ];
-        }),
-    );
-}
-
 function makeNestedNoteNode(
-    state: DocumentTreeBuilderState,
-    note: Extract<DocumentTreeElement, { type: "note" }>,
+    state: AstBuilderState,
+    note: Extract<AstElement, { type: "note" }>,
 ): USFMNestedEditorNodeJSON {
     const nestedChildren: SerializedLexicalNode[] = [];
     if (note.caller) {
@@ -284,7 +222,7 @@ function makeNestedNoteNode(
     }
 
     note.content?.forEach((child) => {
-        walkDocumentTreeNode(state, child, nestedChildren);
+        walkAstNode(state, child, nestedChildren);
     });
     const explicitlyClosed = (note as Record<string, unknown>).closed !== false;
     if (explicitlyClosed) {
@@ -327,8 +265,8 @@ function makeNestedNoteNode(
 }
 
 function pushFlatNoteTokens(
-    state: DocumentTreeBuilderState,
-    note: Extract<DocumentTreeElement, { type: "note" }>,
+    state: AstBuilderState,
+    note: Extract<AstElement, { type: "note" }>,
     target?: SerializedLexicalNode[],
 ) {
     pushTextNode(
@@ -353,7 +291,7 @@ function pushFlatNoteTokens(
     }
 
     note.content?.forEach((child) => {
-        walkDocumentTreeNode(state, child, target);
+        walkAstNode(state, child, target);
     });
 
     const explicitlyClosed = (note as Record<string, unknown>).closed !== false;
@@ -371,9 +309,9 @@ function pushFlatNoteTokens(
     }
 }
 
-function walkDocumentTreeNode(
-    state: DocumentTreeBuilderState,
-    node: DocumentTreeNode,
+function walkAstNode(
+    state: AstBuilderState,
+    node: AstNode,
     target?: SerializedLexicalNode[],
 ) {
     if (typeof node === "string") {
@@ -406,7 +344,7 @@ function walkDocumentTreeNode(
                 inPara: undefined,
             });
             node.content?.forEach((child) => {
-                walkDocumentTreeNode(state, child, target);
+                walkAstNode(state, child, target);
             });
             return;
         }
@@ -480,7 +418,7 @@ function walkDocumentTreeNode(
                 },
             );
             node.content?.forEach((child) => {
-                walkDocumentTreeNode(state, child, target);
+                walkAstNode(state, child, target);
             });
             state.currentPara = previousPara;
             return;
@@ -498,7 +436,7 @@ function walkDocumentTreeNode(
             const marker = markerFromElement(node);
             if (!marker) {
                 node.content?.forEach((child) => {
-                    walkDocumentTreeNode(state, child, target);
+                    walkAstNode(state, child, target);
                 });
                 return;
             }
@@ -520,7 +458,7 @@ function walkDocumentTreeNode(
                 state.charStack = [...state.charStack, marker];
             }
             node.content?.forEach((child) => {
-                walkDocumentTreeNode(state, child, target);
+                walkAstNode(state, child, target);
             });
             if (
                 (node.type === "char" || node.type === "ref") &&
@@ -572,11 +510,11 @@ function walkDocumentTreeNode(
 }
 
 function buildFlatLexicalNodesByChapter(
-    document: DocumentTreeDocument,
+    document: AstDocument,
     direction: "ltr" | "rtl",
     nestedNotes: "decorator" | "flat",
 ): ChapterNodeMap {
-    const state: DocumentTreeBuilderState = {
+    const state: AstBuilderState = {
         nextId: 1,
         bookCode: "UNK",
         currentChapter: 0,
@@ -589,13 +527,13 @@ function buildFlatLexicalNodesByChapter(
     };
 
     document.content.forEach((node) => {
-        walkDocumentTreeNode(state, node);
+        walkAstNode(state, node);
     });
     return state.chapters;
 }
 
 export function editorTreeToLexicalStatesByChapter(args: {
-    tree: DocumentTreeDocument;
+    tree: AstDocument;
     direction: "ltr" | "rtl";
     needsParagraphs: boolean;
     loadedTokensByChapter?: Record<
@@ -614,7 +552,6 @@ export function editorTreeToLexicalStatesByChapter(args: {
         args.direction,
         args.needsParagraphs ? "decorator" : "flat",
     );
-    debugger;
     const chapterNums = new Set<number>([
         ...Object.keys(flatNodesByChapter).map(Number),
         ...Object.keys(args.loadedTokensByChapter ?? {}).map(Number),
@@ -684,3 +621,6 @@ export function editorTreeToLexicalStatesByChapter(args: {
 
     return Object.fromEntries(entries);
 }
+
+// Active production path:
+// groupFlatTokensByChapter remains in use by token-first load/rebuild flows.

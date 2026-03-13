@@ -58,7 +58,7 @@
     "react-dom": "19.2.0",
     "react-highlight-words": "^0.21.0",
     "react-use": "17.6.0",
-    "usfm-onion-web": "github:WycliffeAssociates/usfm-onion#f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4",
+    "usfm-onion-web": "github:WycliffeAssociates/usfm-onion#b8d90290c2edcab6e4fcf69e2534e2a2762485bb",
     "valibot": "^1.1.0",
     "yaml": "2.8.1"
   },
