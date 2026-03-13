@@ -25,7 +25,12 @@ export interface ConsolidatedRepo {
 }
 
 export async function fetchConsolidatedRepos(): Promise<ConsolidatedRepo[]> {
-    const url = import.meta.env.VITE_LANGUAGE_API_URL;
+    // TODO: remove this default URL when the environment variable is set
+    const DEFAULT_LANGUAGE_API_URL =
+        "https://api.bibleineverylanguage.org/api/rest/consolidated-repos";
+
+    const url =
+        import.meta.env.VITE_LANGUAGE_API_URL ?? DEFAULT_LANGUAGE_API_URL;
 
     const response = await fetch(url);
     if (!response.ok) {
