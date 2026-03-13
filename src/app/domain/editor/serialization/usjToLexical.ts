@@ -614,6 +614,7 @@ export function editorTreeToLexicalStatesByChapter(args: {
         args.direction,
         args.needsParagraphs ? "decorator" : "flat",
     );
+    debugger;
     const chapterNums = new Set<number>([
         ...Object.keys(flatNodesByChapter).map(Number),
         ...Object.keys(args.loadedTokensByChapter ?? {}).map(Number),

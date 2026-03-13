@@ -4,7 +4,6 @@ import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFM
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     createSerializedUSFMTextNode,
-    isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -88,60 +87,9 @@ function* materializeFlatTokensFromSerialized(
             const children = node.children ?? [];
             const markerTokenBase = createSyntheticParagraphMarkerToken(node);
 
-            // Canonical whitespace placement:
-            // Prefer leading whitespace on the first visible token after the paragraph marker,
-            // rather than trailing whitespace on the (often hidden) marker token.
-            const firstChild = children[0];
-            const markerText = markerTokenBase.text ?? "";
-            const markerHasTrailingWs = /[ \t]+$/u.test(markerText);
-
-            const firstChildIsText =
-                firstChild &&
-                isSerializedUSFMTextNode(firstChild) &&
-                (firstChild.tokenType === UsfmTokenTypes.text ||
-                    firstChild.tokenType === UsfmTokenTypes.numberRange) &&
-                typeof firstChild.text === "string" &&
-                firstChild.text.length > 0;
-
-            const firstChildStartsWithWs =
-                firstChildIsText && /^\s/u.test(firstChild.text);
-
-            const trailingWsMatch = markerText.match(/[ \t]+$/u);
-            const trailingWs = trailingWsMatch?.[0] ?? "";
-            const markerTextTrimmed = markerHasTrailingWs
-                ? markerText.slice(0, -trailingWs.length)
-                : markerText;
-
-            const shouldPushMarkerTrailingWsToFirstChild =
-                markerHasTrailingWs &&
-                firstChildIsText &&
-                !firstChildStartsWithWs;
-
-            const markerToken: SerializedUSFMTextNode =
-                shouldPushMarkerTrailingWsToFirstChild
-                    ? ({
-                          ...markerTokenBase,
-                          text: markerTextTrimmed,
-                      } as SerializedUSFMTextNode)
-                    : markerTokenBase;
-
-            yield markerToken;
+            yield markerTokenBase;
 
             if (children.length === 0) continue;
-
-            // Yield children, patching the very first child as needed.
-            if (firstChildIsText && shouldPushMarkerTrailingWsToFirstChild) {
-                const prefix = trailingWs;
-                yield {
-                    ...(firstChild as SerializedUSFMTextNode),
-                    text: `${prefix}${(firstChild as SerializedUSFMTextNode).text}`,
-                } as SerializedLexicalNode;
-                yield* materializeFlatTokensFromSerialized(
-                    children.slice(1),
-                    options,
-                );
-                continue;
-            }
 
             // Then recursively yield children
             yield* materializeFlatTokensFromSerialized(children, options);
@@ -192,61 +140,6 @@ export function materializeFlatTokensArray(
     options: MaterializeOptions = { nested: "flatten" },
 ): SerializedLexicalNode[] {
     return [...materializeFlatTokensFromSerialized(rootChildren, options)];
-}
-
-function isTextualContentNode(
-    node: SerializedLexicalNode | undefined,
-): node is SerializedUSFMTextNode {
-    return (
-        !!node &&
-        isSerializedUSFMTextNode(node) &&
-        (node.tokenType === UsfmTokenTypes.text ||
-            node.tokenType === UsfmTokenTypes.numberRange) &&
-        typeof node.text === "string" &&
-        node.text.length > 0
-    );
-}
-
-/**
- * Canonical onion token projection prefers horizontal separator whitespace on
- * nearby visible text, not on marker tokens. Keep the marker suffix only when
- * there is no visible text token to receive it.
- */
-export function normalizeMarkerWhitespaceForOperations(
-    flatTokens: SerializedLexicalNode[],
-): SerializedLexicalNode[] {
-    const normalized = [...flatTokens];
-
-    for (let i = 0; i < normalized.length - 1; i++) {
-        const current = normalized[i];
-        const next = normalized[i + 1];
-
-        if (!isSerializedUSFMTextNode(current)) continue;
-        if (
-            current.tokenType !== UsfmTokenTypes.marker &&
-            current.tokenType !== UsfmTokenTypes.endMarker
-        ) {
-            continue;
-        }
-
-        const text = current.text ?? "";
-        const trailingWsMatch = text.match(/[ \t]+$/u);
-        const trailingWs = trailingWsMatch?.[0] ?? "";
-        if (!trailingWs) continue;
-        if (!isTextualContentNode(next)) continue;
-        if (/^\s/u.test(next.text ?? "")) continue;
-
-        normalized[i] = {
-            ...current,
-            text: text.slice(0, -trailingWs.length),
-        } as SerializedLexicalNode;
-        normalized[i + 1] = {
-            ...next,
-            text: `${trailingWs}${next.text ?? ""}`,
-        } as SerializedLexicalNode;
-    }
-
-    return normalized;
 }
 
 /**

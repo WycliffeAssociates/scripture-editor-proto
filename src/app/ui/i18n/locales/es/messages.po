@@ -13,18 +13,18 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:591
-#: src/app/ui/components/blocks/Toolbar.tsx:676
+#: src/app/ui/components/blocks/Toolbar.tsx:655
+#: src/app/ui/components/blocks/Toolbar.tsx:740
 msgid "(Current)"
 msgstr "(Actual)"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:285
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:354
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:355
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:425
 msgid "(New verse)"
 msgstr "(Verso nuevo)"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:318
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:385
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:389
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:461
 msgid "(Verse deleted)"
 msgstr "(Verso eliminado)"
 
@@ -37,13 +37,13 @@ msgstr "{0}"
 msgid "{chapter}"
 msgstr "{chapter}"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:306
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:741
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:314
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:725
 msgid "{visibleChapterCount} chapters"
 msgstr "{visibleChapterCount} capítulos"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:310
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:745
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:318
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:729
 msgid "{visibleDiffCount} diffs"
 msgstr "{visibleDiffCount} diferencias"
 
@@ -51,6 +51,10 @@ msgstr "{visibleDiffCount} diferencias"
 #: src/app/routes/index.tsx:19
 msgid "<0>Loading...</0>"
 msgstr "<0>Cargando...</0>"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:132
+msgid "A number appears without a preceding marker that expects a number."
+msgstr "Aparece un número sin un marcador precedente que espere un número."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:203
 #~ msgid "Actions"
@@ -61,7 +65,7 @@ msgid "Add project"
 msgstr "Agregar proyecto"
 
 #. placeholder {0}: notificationTarget.count
-#: src/app/ui/hooks/useCustomHistory.ts:399
+#: src/app/ui/hooks/useCustomHistory.ts:375
 msgid "Affected {0} chapters"
 msgstr "Afectados {0} capítulos"
 
@@ -69,15 +73,34 @@ msgstr "Afectados {0} capítulos"
 msgid "All search results"
 msgstr "Todos los resultados de búsqueda"
 
-#: src/app/routes/scaffold.tsx:99
-#: src/app/routes/scaffold.tsx:107
+#: src/app/routes/scaffold.tsx:100
+#: src/app/routes/scaffold.tsx:108
 msgid "An unknown error occurred"
 msgstr "Ocurrió un error desconocido"
 
-#. placeholder {0}: err.msgKey
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:381
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:986
+msgid "Apply all"
+msgstr "Aplicar todo"
+
 #: src/app/ui/hooks/useLintFixing.tsx:81
-msgid "Apply Autofix ({0})"
-msgstr "Aplicar corrección automática ({0})"
+#~ msgid "Apply Autofix ({0})"
+#~ msgstr "Aplicar corrección automática ({0})"
+
+#: src/app/ui/hooks/useLintFixing.tsx:215
+msgid "Apply Autofix ({localizedFixLabel})"
+msgstr "Aplicar corrección automática ({localizedFixLabel})"
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:383
+msgid "Apply chapter to current"
+msgstr "Aplicar capítulo al actual"
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:200
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:286
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:293
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:294
+msgid "Apply to current"
+msgstr "Aplicar al actual"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:202
 msgid "Are you sure you want to delete the project:"
@@ -91,28 +114,31 @@ msgstr "Autor"
 msgid "Auto-open when new suggestions are found"
 msgstr "Abrir automáticamente cuando se encuentren nuevas sugerencias"
 
-#. placeholder {0}: err.msgKey
 #: src/app/ui/hooks/useLintFixing.tsx:124
-msgid "Autofix applied for {0}"
-msgstr "Corrección automática aplicada para {0}"
+#~ msgid "Autofix applied for {0}"
+#~ msgstr "Corrección automática aplicada para {0}"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:128
-#: src/app/ui/components/blocks/Toolbar.tsx:417
+#: src/app/ui/hooks/useLintFixing.tsx:240
+msgid "Autofix applied for {localizedFixLabel}"
+msgstr "Corrección automática aplicada para {localizedFixLabel}"
+
+#: src/app/ui/components/blocks/Toolbar.tsx:192
+#: src/app/ui/components/blocks/Toolbar.tsx:481
 msgid "Back to latest"
 msgstr "Volver al más reciente"
 
-#: src/app/routes/create.tsx:231
+#: src/app/routes/create.tsx:276
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:227
+#: src/app/ui/hooks/usePrettifyOperations.tsx:252
 msgid "Book Formatted"
 msgstr "Libro formateado"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:189
 #: src/app/ui/components/blocks/ProjectRow.tsx:212
-#: src/app/ui/components/blocks/Toolbar.tsx:329
-#: src/app/ui/components/blocks/Toolbar.tsx:459
+#: src/app/ui/components/blocks/Toolbar.tsx:393
+#: src/app/ui/components/blocks/Toolbar.tsx:523
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -120,21 +146,49 @@ msgstr "Cancelar"
 msgid "Case mismatches first"
 msgstr "Desajustes de mayúsculas primero"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:158
+#: src/app/ui/hooks/usePrettifyOperations.tsx:198
 msgid "Chapter Formatted"
 msgstr "Capítulo formateado"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:447
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:927
+#: src/app/ui/i18n/usfmOnionLocalization.ts:140
+msgid "Chapter label {found} does not match the expected chapter number {expected}."
+msgstr "La etiqueta de capítulo {found} no coincide con el número de capítulo esperado {expected}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:106
+msgid "Chapter marker {marker} is missing its chapter number."
+msgstr "Al marcador de capítulo {marker} le falta su número de capítulo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:80
+msgid "Chapter marker {marker} must be followed by a chapter number."
+msgstr "El marcador de capítulo {marker} debe ser seguido por un número de capítulo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:102
+msgid "Chapter metadata appears outside a chapter."
+msgstr "Los metadatos del capítulo aparecen fuera de un capítulo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:122
+msgid "Chapter number {chapter} is duplicated."
+msgstr "El número de capítulo {chapter} está duplicado."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:124
+msgid "Chapter numbering is out of sequence. Expected {expected} but found {found}."
+msgstr "La numeración de capítulos está fuera de secuencia. Se esperaba {expected} pero se encontró {found}."
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:455
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:892
 msgid "Chapter view"
 msgstr "Vista de capítulo"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:88
+msgid "Character marker {marker} was not closed."
+msgstr "El marcador de carácter {marker} no fue cerrado."
 
 #: src/app/ui/components/import/AutoCompleteInput.tsx:174
 #~ msgid "Clear"
 #~ msgstr "Limpiar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:551
-#: src/app/ui/components/blocks/Toolbar.tsx:638
+#: src/app/ui/components/blocks/Toolbar.tsx:615
+#: src/app/ui/components/blocks/Toolbar.tsx:702
 msgid "Clear Reference Project"
 msgstr "Limpiar proyecto de referencia"
 
@@ -142,33 +196,59 @@ msgstr "Limpiar proyecto de referencia"
 msgid "Clear search"
 msgstr "Limpiar búsqueda"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:116
+msgid "Close marker {marker} closes markers out of order."
+msgstr "El marcador de cierre {marker} cierra marcadores fuera de orden."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:114
+msgid "Close marker {marker} does not match any open marker."
+msgstr "El marcador de cierre {marker} no coincide con ningún marcador abierto."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:138
+msgid "Close marker {marker} is not recognized."
+msgstr "El marcador de cierre {marker} no es reconocido."
+
 #: src/app/ui/components/blocks/Search.tsx:615
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:321
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:537
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:329
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:545
 msgid "Compare"
 msgstr "Comparar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:424
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:734
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:432
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:718
 msgid "Compare with source"
 msgstr "Comparar con fuente"
 
-#. placeholder {0}: compareBaseline === "currentDirty" ? "Current dirty" : "Current saved"
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:263
-msgid "Comparing {0} vs {sourceLabel}"
-msgstr "Comparando {0} vs {sourceLabel}"
+#~ msgid "Comparing {0} vs {sourceLabel}"
+#~ msgstr "Comparando {0} vs {sourceLabel}"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:399
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:271
+msgid "Comparing your current vs {sourceLabel}"
+msgstr "Comparando tu actual vs {sourceLabel}"
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1154
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1182
+msgid "Comparison"
+msgstr "Comparación"
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:407
 msgid "Controls"
 msgstr "Controles"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:703
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1064
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:687
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1028
 msgid "Copy diffs (JSON)"
 msgstr "Copiar diferencias (JSON)"
+
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:239
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:248
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:249
+msgid "Copy this diff (JSON)"
+msgstr "Copiar esta diferencia (JSON)"
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:42
 #~ msgid "Create a new project"
@@ -182,25 +262,22 @@ msgstr "Crea un proyecto buscando un repositorio, subiendo una carpeta o selecci
 msgid "Create your first project"
 msgstr "Crea tu primer proyecto"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:323
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:332
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:367
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:306
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:374
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1155
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1183
 msgid "Current"
 msgstr "Actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:171
+#: src/app/ui/components/blocks/Toolbar.tsx:235
 msgid "Current Book"
 msgstr "Libro actual"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:170
+#: src/app/ui/components/blocks/Toolbar.tsx:234
 msgid "Current Chapter"
 msgstr "Capítulo actual"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:769
-msgid "Current dirty"
-msgstr "Actual sin guardar"
+#~ msgid "Current dirty"
+#~ msgstr "Actual sin guardar"
 
 #: src/app/ui/components/blocks/Search.tsx:661
 msgid "Current project"
@@ -211,8 +288,8 @@ msgstr "Proyecto actual"
 #~ msgstr "Proyectos actuales"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:765
-msgid "Current saved"
-msgstr "Actual guardado"
+#~ msgid "Current saved"
+#~ msgstr "Actual guardado"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:106
 msgid "Dark"
@@ -226,13 +303,13 @@ msgstr "Eliminar"
 msgid "Delete project"
 msgstr "Eliminar proyecto"
 
-#: src/app/routes/create.tsx:164
+#: src/app/routes/create.tsx:208
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:563
-msgid "Dirty"
-msgstr "Sin guardar"
+#~ msgid "Dirty"
+#~ msgstr "Sin guardar"
 
 #: src/app/ui/components/blocks/Search.tsx:299
 #: src/app/ui/components/blocks/Search.tsx:317
@@ -254,7 +331,7 @@ msgstr "Desactivar marcadores USFM"
 msgid "Disable whole word"
 msgstr "Desactivar palabra completa"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:471
+#: src/app/ui/components/blocks/Toolbar.tsx:535
 msgid "Discard"
 msgstr "Descartar"
 
@@ -262,7 +339,7 @@ msgstr "Descartar"
 msgid "Display"
 msgstr "Pantalla"
 
-#: src/app/routes/create.tsx:135
+#: src/app/routes/create.tsx:178
 msgid "Download Error"
 msgstr "Error de descarga"
 
@@ -270,11 +347,11 @@ msgstr "Error de descarga"
 #~ msgid "Download repository"
 #~ msgstr "Descargar repositorio"
 
-#: src/app/routes/create.tsx:111
+#: src/app/routes/create.tsx:153
 msgid "Download Started"
 msgstr "Descarga iniciada"
 
-#: src/app/routes/create.tsx:110
+#: src/app/routes/create.tsx:152
 msgid "Downloading repository..."
 msgstr "Descargando repositorio..."
 
@@ -286,16 +363,16 @@ msgstr "Descargando ZIP de andamiaje..."
 msgid "Drag search panel"
 msgstr "Arrastrar panel de búsqueda"
 
-#: src/app/ui/hooks/useCustomHistory.ts:491
+#: src/app/ui/hooks/useCustomHistory.ts:460
 msgid "Edit"
 msgstr "Editar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:76
-#: src/app/ui/components/blocks/Toolbar.tsx:81
+#: src/app/ui/components/blocks/Toolbar.tsx:97
+#: src/app/ui/components/blocks/Toolbar.tsx:102
 msgid "Edit mode"
 msgstr "Modo de edición"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:67
+#: src/app/ui/components/blocks/Toolbar.tsx:88
 msgid "Edit mode (click for view-only)"
 msgstr "Modo de edición (haz clic para ver solo)"
 
@@ -311,7 +388,7 @@ msgstr "{label} vacío. Escribe para añadir texto o presiona Enter para inserta
 msgid "English"
 msgstr "Inglés"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:172
+#: src/app/ui/components/blocks/Toolbar.tsx:236
 msgid "Entire Project"
 msgstr "Proyecto completo"
 
@@ -323,11 +400,11 @@ msgstr "Proyecto completo"
 msgid "Español"
 msgstr "Español"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:798
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:763
 msgid "Existing project"
 msgstr "Proyecto existente"
 
-#: src/app/routes/create.tsx:134
+#: src/app/routes/create.tsx:176
 msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
@@ -335,67 +412,67 @@ msgstr "No se pudo descargar el proyecto"
 #~ msgid "Failed to fetch suggestions."
 #~ msgstr "No se pudieron obtener sugerencias."
 
-#: src/app/routes/create.tsx:172
+#: src/app/routes/create.tsx:215
 msgid "Failed to import directory"
 msgstr "No se pudo importar el directorio"
 
-#: src/app/routes/create.tsx:208
+#: src/app/routes/create.tsx:252
 msgid "Failed to import file"
 msgstr "No se pudo importar el archivo"
 
-#: src/app/routes/create.tsx:200
+#: src/app/routes/create.tsx:245
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
-#: src/app/ui/hooks/useLintFixing.tsx:123
+#: src/app/ui/hooks/useLintFixing.tsx:239
 msgid "Fix Applied"
 msgstr "Corrección aplicada"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:260
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:268
 #: src/app/ui/components/blocks/ProjectCreator.tsx:54
 msgid "Folder"
 msgstr "Carpeta"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:624
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:833
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:608
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:798
 msgid "Folder..."
 msgstr "Carpeta..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:176
+#: src/app/ui/hooks/usePrettifyOperations.tsx:216
 msgid "Format Book ({targetBookCode})"
 msgstr "Formatear libro ({targetBookCode})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:114
+#: src/app/ui/hooks/usePrettifyOperations.tsx:152
 msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
 msgstr "Formatear capítulo ({targetBookCode} {targetChapterNumber})"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:222
-#: src/app/ui/hooks/usePrettifyOperations.tsx:246
+#: src/app/ui/components/blocks/Toolbar.tsx:286
+#: src/app/ui/hooks/usePrettifyOperations.tsx:270
 msgid "Format Project"
 msgstr "Formatear proyecto"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:228
+#: src/app/ui/hooks/usePrettifyOperations.tsx:253
 msgid "Formatted {0}"
 msgstr "Formateado {0}"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:159
+#: src/app/ui/hooks/usePrettifyOperations.tsx:199
 msgid "Formatted {0} {targetChapterNumber}"
 msgstr "Formateado {0} {targetChapterNumber}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:330
+#: src/app/ui/hooks/usePrettifyOperations.tsx:360
 msgid "Formatted {modifiedBooksCount} book(s)"
 msgstr "Se formatearon {modifiedBooksCount} libro(s)"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:233
-#: src/app/ui/hooks/useFormatMatching.tsx:317
-#: src/app/ui/hooks/useFormatMatching.tsx:420
+#: src/app/ui/hooks/useFormatMatching.tsx:230
+#: src/app/ui/hooks/useFormatMatching.tsx:314
+#: src/app/ui/hooks/useFormatMatching.tsx:417
 msgid "Formatting Matched"
 msgstr "Formato igualado"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:239
-#: src/app/ui/hooks/usePrettifyOperations.tsx:257
+#: src/app/ui/hooks/usePrettifyOperations.tsx:263
+#: src/app/ui/hooks/usePrettifyOperations.tsx:295
 msgid "Formatting Project"
 msgstr "Formateando proyecto"
 
@@ -412,8 +489,8 @@ msgstr "Agrupar desajustes de mayúsculas"
 #~ msgid "Hello \"/create\"!"
 #~ msgstr "¡Hola \"/create\"!"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:515
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:970
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:523
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:935
 msgid "Hide whitespace"
 msgstr "Ocultar espacios en blanco"
 
@@ -421,21 +498,21 @@ msgstr "Ocultar espacios en blanco"
 #~ msgid "Hide whitespace-only diffs"
 #~ msgstr "Ocultar diferencias solo de espacios en blanco"
 
-#: src/app/routes/create.tsx:173
-#: src/app/routes/create.tsx:209
+#: src/app/routes/create.tsx:217
+#: src/app/routes/create.tsx:254
 msgid "Import Error"
 msgstr "Error de importación"
 
-#: src/app/routes/create.tsx:151
-#: src/app/routes/create.tsx:187
+#: src/app/routes/create.tsx:194
+#: src/app/routes/create.tsx:231
 msgid "Import Started"
 msgstr "Importación iniciada"
 
-#: src/app/routes/create.tsx:150
+#: src/app/routes/create.tsx:193
 msgid "Importing directory..."
 msgstr "Importando directorio..."
 
-#: src/app/routes/create.tsx:186
+#: src/app/routes/create.tsx:230
 msgid "Importing file..."
 msgstr "Importando archivo..."
 
@@ -448,6 +525,14 @@ msgstr "Incluir marcadores USFM"
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:305
 msgid "Insert \\{0} Here"
 msgstr "Insertar \\{0} aquí"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:164
+msgid "Insert close marker for {marker}"
+msgstr "Insertar marcador de cierre para {marker}"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:156
+msgid "Insert separator after {marker}"
+msgstr "Insertar separador después de {marker}"
 
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:10
 msgid "Intentional Line Break"
@@ -471,7 +556,7 @@ msgstr "Introducción"
 msgid "Introduction"
 msgstr "Introducción"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:165
+#: src/app/ui/components/blocks/Toolbar.tsx:229
 msgid "Keep all target paragraph markers"
 msgstr "Mantener todos los marcadores de párrafo de destino"
 
@@ -479,12 +564,12 @@ msgstr "Mantener todos los marcadores de párrafo de destino"
 msgid "Light"
 msgstr "Claro"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:439
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:923
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:447
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:888
 msgid "List view"
 msgstr "Vista de lista"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:425
+#: src/app/ui/components/blocks/Toolbar.tsx:489
 msgid "Load more"
 msgstr "Cargar más"
 
@@ -500,6 +585,27 @@ msgstr "Margen"
 msgid "Marker"
 msgstr "Marcador"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:76
+msgid "Marker {marker} is immediately followed by text."
+msgstr "El marcador {marker} es seguido inmediatamente por texto."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:136
+msgid "Marker {marker} is not recognized."
+msgstr "El marcador {marker} no es reconocido."
+
+#. placeholder {0}: context ? ` (${context})` : ""
+#: src/app/ui/i18n/usfmOnionLocalization.ts:142
+msgid "Marker {marker} is not valid in this context{0}."
+msgstr "El marcador {marker} no es válido en este contexto{0}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:112
+msgid "Marker {marker} was implicitly closed by the following structure."
+msgstr "El marcador {marker} fue cerrado implícitamente por la siguiente estructura."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:120
+msgid "Marker {marker} was still open at the end of the file."
+msgstr "El marcador {marker} todavía estaba abierto al final del archivo."
+
 #: src/app/ui/components/blocks/Search.tsx:591
 msgid "Match {chapterMatchNumber} of {chapterTotalMatches} in {activeBookTitle} {chapterLabel}"
 msgstr "Coincidencia {chapterMatchNumber} de {chapterTotalMatches} en {activeBookTitle} {chapterLabel}"
@@ -513,19 +619,19 @@ msgstr "Coincidir mayúsculas"
 #~ msgid "Match Case"
 #~ msgstr "Coincidir mayúsculas/minúsculas"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:257
+#: src/app/ui/components/blocks/Toolbar.tsx:321
 msgid "Match Formatting"
 msgstr "Coincidir formato"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:256
+#: src/app/ui/hooks/useFormatMatching.tsx:253
 msgid "Match Formatting (Book {currentFileBibleIdentifier})"
 msgstr "Coincidir formato (Libro {currentFileBibleIdentifier})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:188
+#: src/app/ui/hooks/useFormatMatching.tsx:185
 msgid "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
 msgstr "Coincidir formato (Capítulo {currentFileBibleIdentifier} {currentChapter})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:336
+#: src/app/ui/hooks/useFormatMatching.tsx:333
 msgid "Match Formatting (Project)"
 msgstr "Coincidir formato (Proyecto)"
 
@@ -535,44 +641,48 @@ msgstr "Coincidir formato (Proyecto)"
 #~ msgid "Match Formatting to Source"
 #~ msgstr "Igualar formato al origen"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:233
+#: src/app/ui/components/blocks/Toolbar.tsx:297
 msgid "Match Formatting..."
 msgstr "Coincidir formato..."
 
-#: src/app/ui/hooks/useFormatMatching.tsx:421
+#: src/app/ui/hooks/useFormatMatching.tsx:418
 msgid "Matched formatting across {modifiedBooksCount} books"
 msgstr "Formato igualado en {modifiedBooksCount} libros"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatMatching.tsx:318
+#: src/app/ui/hooks/useFormatMatching.tsx:315
 msgid "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 msgstr "Formato igualado para {modifiedChaptersCount} capítulos en {0}"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:234
+#: src/app/ui/hooks/useFormatMatching.tsx:231
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Formato igualado para el capítulo {currentChapter}"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:110
+msgid "Milestone marker {marker} must be self-closing."
+msgstr "El marcador de hito {marker} debe ser autocerrante."
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:261
 msgid "Minimize suggestions"
 msgstr "Minimizar sugerencias"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:404
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:412
 msgid "Mode"
 msgstr "Modo"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1049
-#: src/app/ui/components/blocks/Toolbar.tsx:190
-#: src/app/ui/components/blocks/Toolbar.tsx:191
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1013
+#: src/app/ui/components/blocks/Toolbar.tsx:254
+#: src/app/ui/components/blocks/Toolbar.tsx:255
 msgid "More actions"
 msgstr "Más acciones"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:320
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:414
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:730
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:328
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:422
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:714
 msgid "My changes"
 msgstr "Mis cambios"
 
-#: src/app/routes/create.tsx:237
+#: src/app/routes/create.tsx:282
 #: src/app/routes/index.tsx:80
 #: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:223
 msgid "New Project"
@@ -592,9 +702,9 @@ msgstr "Capítulo siguiente"
 msgid "Next result"
 msgstr "Siguiente resultado"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1154
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1169
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1210
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1118
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1133
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1198
 msgid "No changes detected."
 msgstr "No se detectaron cambios."
 
@@ -611,11 +721,11 @@ msgstr "No hay proyectos aún"
 msgid "No results found for <0>{0}</0>"
 msgstr "No se encontraron resultados para <0>{0}</0>"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:253
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:261
 msgid "No source selected"
 msgstr "No se seleccionó fuente"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:257
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:265
 msgid "No version selected"
 msgstr "No se seleccionó versión"
 
@@ -623,21 +733,37 @@ msgstr "No se seleccionó versión"
 msgid "Normal — shows only the bible text and verse numbers."
 msgstr "Normal — muestra solo el texto bíblico y los números de versículo."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:132
-#: src/app/ui/hooks/usePrettifyOperations.tsx:198
-#: src/app/ui/hooks/usePrettifyOperations.tsx:298
+#: src/app/ui/i18n/usfmOnionLocalization.ts:90
+msgid "Note marker {marker} was not closed before the next block boundary."
+msgstr "El marcador de nota {marker} no fue cerrado antes del siguiente límite de bloque."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:118
+msgid "Note marker {marker} was not closed."
+msgstr "El marcador de nota {marker} no fue cerrado."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:96
+msgid "Note submarker {marker} appears outside a note."
+msgstr "El submarcador de nota {marker} aparece fuera de una nota."
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:168
+#: src/app/ui/hooks/usePrettifyOperations.tsx:223
+#: src/app/ui/hooks/usePrettifyOperations.tsx:328
 msgid "Nothing changed"
 msgstr "Nada cambió"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:130
+msgid "Number range {found} is invalid."
+msgstr "El rango de números {found} es inválido."
 
 #: src/app/routes/index.tsx:67
 msgid "Open an existing project, or create a new one."
 msgstr "Abre un proyecto existente o crea uno nuevo."
 
-#: src/app/routes/create.tsx:97
+#: src/app/routes/create.tsx:139
 msgid "Open project"
 msgstr "Abrir proyecto"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:56
+#: src/app/ui/components/blocks/Toolbar.tsx:77
 msgid "Open project drawer"
 msgstr "Abrir el desplegable de proyectos"
 
@@ -653,17 +779,22 @@ msgstr "Abrir selector de referencia"
 #~ msgid "Or select a ZIP file"
 #~ msgstr "O selecciona un archivo ZIP"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:324
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:334
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:354
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:272
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:341
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1150
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1178
 msgid "Original"
 msgstr "Original"
 
 #: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:14
 msgid "Paragraph"
 msgstr "Párrafo"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:92
+msgid "Paragraph marker {marker} appears before the first chapter marker."
+msgstr "El marcador de párrafo {marker} aparece antes del primer marcador de capítulo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:78
+msgid "Paragraph marker {marker} creates an empty block before the next block marker."
+msgstr "El marcador de párrafo {marker} crea un bloque vacío antes del siguiente marcador de bloque."
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:96
 msgid "Plain"
@@ -704,22 +835,22 @@ msgstr "Capítulo anterior"
 msgid "Previous result"
 msgstr "Resultado anterior"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:809
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:774
 msgid "Previous version"
 msgstr "Versión anterior"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:208
-#: src/app/ui/components/blocks/Toolbar.tsx:345
+#: src/app/ui/components/blocks/Toolbar.tsx:272
+#: src/app/ui/components/blocks/Toolbar.tsx:409
 msgid "Previous Versions"
 msgstr "Versiones anteriores"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:258
+#: src/app/ui/hooks/usePrettifyOperations.tsx:296
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Procesando {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:240
+#: src/app/ui/hooks/usePrettifyOperations.tsx:264
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Procesando libro 1 de {totalBooks}..."
 
@@ -727,7 +858,7 @@ msgstr "Procesando libro 1 de {totalBooks}..."
 msgid "Processing scaffold ZIP..."
 msgstr "Procesando ZIP de andamiaje..."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:583
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:567
 #: src/app/ui/components/import/LanguageApiImporter.tsx:163
 msgid "Project"
 msgstr "Proyecto"
@@ -736,15 +867,15 @@ msgstr "Proyecto"
 msgid "Project display name"
 msgstr "Nombre visible del proyecto"
 
-#: src/app/routes/create.tsx:126
+#: src/app/routes/create.tsx:169
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:329
+#: src/app/ui/hooks/usePrettifyOperations.tsx:359
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
-#: src/app/routes/create.tsx:234
+#: src/app/routes/create.tsx:279
 #: src/app/routes/index.tsx:64
 #: src/app/ui/components/blocks/AppDrawer.tsx:32
 msgid "Projects"
@@ -755,16 +886,16 @@ msgstr "Proyectos"
 msgid "Put cursor in verse #{0} to place this marker near your translation:"
 msgstr "Coloca el cursor en el verso #{0} para colocar este marcador cerca de tu traducción:"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:166
+#: src/app/ui/components/blocks/Toolbar.tsx:230
 msgid "Recommended (keep in-verse + poetry markers)"
 msgstr "Recomendado (mantener marcadores de verso + poesía)"
 
 #. placeholder {0}: notificationTarget.chapter.chapterNum
-#: src/app/ui/hooks/useCustomHistory.ts:388
+#: src/app/ui/hooks/useCustomHistory.ts:364
 msgid "Redid last edit in {bookName} {0}"
 msgstr "Rehizo última edición en {bookName} {0}"
 
-#: src/app/ui/hooks/useCustomHistory.ts:398
+#: src/app/ui/hooks/useCustomHistory.ts:374
 msgid "Redid: {label}"
 msgstr "Rehizo: {label}"
 
@@ -783,6 +914,10 @@ msgstr "Proyecto de referencia"
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:66
 msgid "Regular"
 msgstr "Regular"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:158
+msgid "Remove empty {marker} paragraph"
+msgstr "Eliminar párrafo vacío {marker}"
 
 #: src/app/ui/components/blocks/Search.tsx:264
 #: src/app/ui/components/blocks/Search.tsx:287
@@ -805,11 +940,11 @@ msgstr "Reemplazar todo en este capítulo"
 msgid "Replace with..."
 msgstr "Reemplazar con..."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:382
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:390
 msgid "Reset"
 msgstr "Restablecer"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1033
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:997
 msgid "Reset compare"
 msgstr "Restablecer comparación"
 
@@ -825,20 +960,20 @@ msgstr "Redimensionar panel de búsqueda"
 msgid "Resource"
 msgstr "Recurso"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:358
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:366
 msgid "Revert"
 msgstr "Revertir"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1003
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:968
 msgid "Revert all changes"
 msgstr "Revertir todos los cambios"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:310
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:385
 msgid "Revert chapter changes"
 msgstr "Revertir cambios del capítulo"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModal.tsx:96
-#: src/app/ui/components/blocks/Toolbar.tsx:477
+#: src/app/ui/components/blocks/DiffModal/DiffModal.tsx:90
+#: src/app/ui/components/blocks/Toolbar.tsx:541
 msgid "Review & Save"
 msgstr "Revisar y guardar"
 
@@ -846,15 +981,15 @@ msgstr "Revisar y guardar"
 msgid "Review and save changes"
 msgstr "Revisar y guardar cambios"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:281
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:289
 msgid "Review Changes Before Saving"
 msgstr "Revisar cambios antes de guardar"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:244
+#: src/app/ui/components/blocks/Toolbar.tsx:308
 msgid "Review Suggestions ({suggestionCount})"
 msgstr "Revisar sugerencias ({suggestionCount})"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:336
+#: src/app/ui/components/blocks/Toolbar.tsx:400
 msgid "Run"
 msgstr "Ejecutar"
 
@@ -867,49 +1002,49 @@ msgstr "Ejecutar búsqueda"
 msgid "S5 chunk marker"
 msgstr "Marcador de fragmento S5"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:344
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:352
 #: src/app/ui/components/blocks/ProjectRow.tsx:179
 msgid "Save"
 msgstr "Guardar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:987
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:952
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModal.tsx:16
-#: src/app/ui/components/blocks/DiffModal/DiffModal.tsx:94
+#: src/app/ui/components/blocks/DiffModal/DiffModal.tsx:88
 msgid "Save as New Version"
 msgstr "Guardar como Nueva Versión"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:431
+#: src/app/ui/components/blocks/Toolbar.tsx:495
 msgid "Save changes to create additional versions."
 msgstr "Guarda cambios para crear versiones adicionales."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:559
-msgid "Saved"
-msgstr "Guardado"
+#~ msgid "Saved"
+#~ msgstr "Guardado"
 
-#: src/app/routes/scaffold.tsx:108
+#: src/app/routes/scaffold.tsx:109
 msgid "Scaffold Error"
 msgstr "Error de andamiaje"
 
-#: src/app/routes/scaffold.tsx:147
+#: src/app/routes/scaffold.tsx:149
 msgid "Scaffold from WACS URL"
 msgstr "Andamiaje desde URL de WACS"
 
-#: src/app/routes/scaffold.tsx:69
+#: src/app/routes/scaffold.tsx:70
 msgid "Scaffold process completed successfully!"
 msgstr "¡El proceso de andamiaje se completó con éxito!"
 
-#: src/app/routes/scaffold.tsx:175
+#: src/app/routes/scaffold.tsx:177
 msgid "Scaffold Project"
 msgstr "Proyecto de andamiaje"
 
-#: src/app/routes/scaffold.tsx:73
+#: src/app/routes/scaffold.tsx:74
 msgid "Scaffold project created successfully! We will now navigate to the project."
 msgstr "¡Proyecto de andamiaje creado con éxito! Ahora navegaremos al proyecto."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:271
+#: src/app/ui/components/blocks/Toolbar.tsx:335
 msgid "Scope"
 msgstr "Ámbito"
 
@@ -969,42 +1104,46 @@ msgstr "Título de sección"
 msgid "Select"
 msgstr "Seleccionar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:464
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:942
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:472
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:907
 msgid "Select chapter"
 msgstr "Seleccionar capítulo"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:686
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:886
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:670
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:851
 msgid "Select previous version"
 msgstr "Seleccionar versión anterior"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:532
+#: src/app/ui/components/blocks/Toolbar.tsx:596
 msgid "Select reference project"
 msgstr "Seleccionar proyecto de referencia"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:520
+#: src/app/ui/components/blocks/Toolbar.tsx:584
 msgid "Select Reference Project"
 msgstr "Seleccionar proyecto de referencia"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:655
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:860
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:639
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:825
 msgid "Select source project"
 msgstr "Seleccionar proyecto fuente"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:160
+msgid "Set number to {number}"
+msgstr "Establecer número en {number}"
 
 #: src/app/ui/components/blocks/AppDrawer.tsx:49
 msgid "Settings"
 msgstr "Ajustes"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:179
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:190
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:195
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:214
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:225
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:230
 msgid "Show regular text for this verse"
 msgstr "Mostrar texto regular para este verso"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:180
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:191
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:196
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:215
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:226
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:231
 msgid "Show USFM for this verse"
 msgstr "Mostrar USFM para este verso"
 
@@ -1020,38 +1159,42 @@ msgstr "Omitir elimina esta sugerencia de esta sesión. Siguiente la mantiene y 
 msgid "Skip Suggestion"
 msgstr "Omitir sugerencia"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:785
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:750
 msgid "Source type"
 msgstr "Tipo de fuente"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:162
+msgid "Split unknown token"
+msgstr "Dividir token desconocido"
 
 #: src/app/ui/components/blocks/Search.tsx:885
 msgid "SRC"
 msgstr "SRC"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:164
+#: src/app/ui/components/blocks/Toolbar.tsx:228
 msgid "Strip all target paragraph markers"
 msgstr "Eliminar todos los marcadores de párrafo de destino"
 
-#: src/app/routes/create.tsx:78
-#: src/app/routes/scaffold.tsx:74
+#: src/app/routes/create.tsx:120
+#: src/app/routes/scaffold.tsx:75
 msgid "Success"
 msgstr "Éxito"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:203
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:210
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:211
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:256
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:263
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:264
 msgid "Switch to this chapter"
 msgstr "Cambiar a este capítulo"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:373
-msgid "Take"
-msgstr "Tomar"
+#~ msgid "Take"
+#~ msgstr "Tomar"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1021
-msgid "Take all incoming changes"
-msgstr "Tomar todos los cambios entrantes"
+#~ msgid "Take all incoming changes"
+#~ msgstr "Tomar todos los cambios entrantes"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:297
+#: src/app/ui/components/blocks/Toolbar.tsx:361
 msgid "Target Marker Handling"
 msgstr "Manejo de marcadores de destino"
 
@@ -1063,11 +1206,19 @@ msgstr "Tamaño del texto"
 msgid "TGT"
 msgstr "TGT"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:199
+#: src/app/ui/i18n/usfmOnionLocalization.ts:100
+msgid "The \\id marker must be the first marker in the file."
+msgstr "El marcador \\id debe ser el primer marcador en el archivo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:98
+msgid "The file contains more than one \\id marker."
+msgstr "El archivo contiene más de un marcador \\id."
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:224
 msgid "This book is already formatted"
 msgstr "Este libro ya está formateado"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:133
+#: src/app/ui/hooks/usePrettifyOperations.tsx:169
 msgid "This chapter is already formatted"
 msgstr "Este capítulo ya está formateado"
 
@@ -1077,15 +1228,19 @@ msgstr "Este capítulo ya está formateado"
 msgid "This is introductory material for this book"
 msgstr "Este es material introductorio para este libro"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:299
+#: src/app/ui/hooks/usePrettifyOperations.tsx:329
 msgid "This project is already formatted"
 msgstr "Este proyecto ya está formateado"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:86
+msgid "This token could not be classified."
+msgstr "Este token no pudo ser clasificado."
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:206
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "Esto eliminará archivos del disco y borrará los metadatos del proyecto de la base de datos local."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:198
+#: src/app/ui/components/blocks/Toolbar.tsx:262
 msgid "Tools"
 msgstr "Herramientas"
 
@@ -1094,11 +1249,11 @@ msgstr "Herramientas"
 #~ msgstr "Escribe para buscar un idioma..."
 
 #. placeholder {0}: notificationTarget.chapter.chapterNum
-#: src/app/ui/hooks/useCustomHistory.ts:387
+#: src/app/ui/hooks/useCustomHistory.ts:363
 msgid "Undid last edit in {bookName} {0}"
 msgstr "Deshizo última edición en {bookName} {0}"
 
-#: src/app/ui/hooks/useCustomHistory.ts:397
+#: src/app/ui/hooks/useCustomHistory.ts:373
 msgid "Undid: {label}"
 msgstr "Deshizo: {label}"
 
@@ -1110,22 +1265,22 @@ msgstr "Deshacer"
 msgid "Undo — {next}"
 msgstr "Deshacer — {next}"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:151
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:202
 msgid "Undo {localizedSid}"
 msgstr "Deshacer {localizedSid}"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:151
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:217
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:224
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:225
+#: src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx:203
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:271
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:278
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:279
 msgid "Undo Change"
 msgstr "Deshacer cambio"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:442
+#: src/app/ui/components/blocks/Toolbar.tsx:506
 msgid "Unsaved Changes"
 msgstr "Cambios sin guardar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:264
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:272
 msgid "Unsaved changes in {unsavedBooksCount} book(s)"
 msgstr "Cambios sin guardar en {unsavedBooksCount} libro(s)"
 
@@ -1145,20 +1300,56 @@ msgstr "USFM — muestra metadatos especiales (como marcadores de capítulo y ve
 msgid "USFM Editor"
 msgstr "Editor USFM"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:485
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:959
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:493
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:924
 msgid "USFM markers"
 msgstr "Marcadores USFM"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:256
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:326
 msgid "USFM Structure Only"
 msgstr "Solo estructura USFM"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:596
+#: src/app/ui/i18n/usfmOnionLocalization.ts:94
+msgid "Verse marker {marker} appears before the first chapter marker."
+msgstr "El marcador de versículo {marker} aparece antes del primer marcador de capítulo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:144
+msgid "Verse marker {marker} appears outside an explicit paragraph."
+msgstr "El marcador de versículo {marker} aparece fuera de un párrafo explícito."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:108
+msgid "Verse marker {marker} is missing its verse number."
+msgstr "Al marcador de versículo {marker} le falta su número de versículo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:82
+msgid "Verse marker {marker} must be followed by a verse number."
+msgstr "El marcador de versículo {marker} debe ser seguido por un número de versículo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:104
+msgid "Verse metadata appears outside a verse."
+msgstr "Los metadatos del versículo aparecen fuera de un versículo."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:126
+msgid "Verse number {verse} is duplicated."
+msgstr "El número de versículo {verse} está duplicado."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:84
+msgid "Verse number {verse} is followed by unexpected content."
+msgstr "El número de versículo {verse} es seguido por contenido inesperado."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:128
+msgid "Verse numbering is out of sequence. Expected {expected} but found {found}."
+msgstr "La numeración de versículos está fuera de secuencia. Se esperaba {expected} pero se encontró {found}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+msgid "Verse text appears in an invalid position after the verse number."
+msgstr "El texto del versículo aparece en una posición inválida después del número de versículo."
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:580
 msgid "Version"
 msgstr "Versión"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:431
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:439
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:81
 msgid "View"
 msgstr "Ver"
@@ -1171,24 +1362,24 @@ msgstr "Ver — solo lectura, diseño regular con marcadores ocultos."
 #~ msgid "View options"
 #~ msgstr "Opciones de vista"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:75
-#: src/app/ui/components/blocks/Toolbar.tsx:80
+#: src/app/ui/components/blocks/Toolbar.tsx:96
+#: src/app/ui/components/blocks/Toolbar.tsx:101
 msgid "View-only mode"
 msgstr "Modo solo lectura"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:66
+#: src/app/ui/components/blocks/Toolbar.tsx:87
 msgid "View-only mode (click to edit)"
 msgstr "Modo solo lectura (haz clic para editar)"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:114
+#: src/app/ui/components/blocks/Toolbar.tsx:178
 msgid "Viewing older version"
 msgstr "Viendo versión anterior"
 
-#: src/app/routes/scaffold.tsx:154
+#: src/app/routes/scaffold.tsx:156
 msgid "WACS ZIP URL"
 msgstr "URL del ZIP de WACS"
 
-#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:251
+#: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:321
 msgid "Whitespace Only"
 msgstr "Solo espacios en blanco"
 
@@ -1201,27 +1392,32 @@ msgstr "Palabra completa"
 #~ msgid "Whole Word"
 #~ msgstr "Palabra completa"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:263
+#: src/app/ui/components/blocks/Toolbar.tsx:327
 msgid "Works best when your verse markers are already finalized."
 msgstr "Funciona mejor cuando tus marcadores de verso ya están finalizados."
 
-#: src/app/ui/components/blocks/Toolbar.tsx:448
+#: src/app/ui/components/blocks/Toolbar.tsx:512
 msgid "You have unsaved changes. Review and save first, or discard them before switching versions."
 msgstr "Tienes cambios sin guardar. Revísalo y guarda primero, o descártalos antes de cambiar de versión."
+
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1149
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1177
+msgid "Your current"
+msgstr "Tu actual"
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:64
 msgid "ZIP"
 msgstr "ZIP"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:259
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:267
 msgid "ZIP file"
 msgstr "Archivo ZIP"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:821
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:786
 msgid "ZIP file..."
 msgstr "Archivo ZIP..."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:610
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:594
 msgid "ZIP..."
 msgstr "ZIP..."
 

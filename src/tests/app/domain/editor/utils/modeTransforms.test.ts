@@ -81,4 +81,27 @@ describe("modeTransforms nested editor round-trip", () => {
             tokensPreservingNested.some(isSerializedUSFMNestedEditorNode),
         ).toBe(true);
     });
+
+    it("preserves inline char separator spaces when flattening notes to usfm mode", async () => {
+        const editor = await createTestEditor(
+            "\\c 5\n" +
+                "\\p\n" +
+                "\\v 2 Male and female He created them,\\f + \\fr 5:2 \\ft Cited in \\+xt Matthew 19:4\\+xt* and \\+xt Mark 10:6\\+xt*\\f*",
+            { needsParagraphs: true },
+        );
+
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+        const toUsfmMode = transformToMode(structuredClone(start), "usfm");
+        const usfm = serializeToUsfmString(
+            toUsfmMode.root.children as SerializedLexicalNode[],
+        );
+
+        expect(usfm).toContain(
+            "\\+xt Matthew 19:4\\+xt* and \\+xt Mark 10:6\\+xt*",
+        );
+        expect(usfm).not.toContain("\\+xtMatthew");
+        expect(usfm).not.toContain("\\+xtMark");
+    });
 });

@@ -18,9 +18,10 @@ import {
     mapMarkerToInsertionType,
 } from "../utils/insertMarkerOperations.ts";
 
-const markerTokenMatchLineStartOptOptionalPadding = /^\s*\\([\w\d]+-?\w*)\s*/;
-const markerTokenMatchLineStartSpaceReq = /^\\([\w\d]+-?\w*)\*?\s+/;
-const markerTokenMatchLineMid = /\s+\\([\w\d]+-?\w*)\*?\s/;
+const markerTokenMatchLineStartOptOptionalPadding =
+    /^\s*\\(?:\+)?([\w\d]+-?\w*)\s*/u;
+const markerTokenMatchLineStartSpaceReq = /^\\(?:\+)?([\w\d]+-?\w*)\*?\s+/u;
+const markerTokenMatchLineMid = /\s+\\(?:\+)?([\w\d]+-?\w*)\*?\s/u;
 
 // opt whitespace, 1+ digits, (opt hyphen, 1+ digits), opt whitespace
 // const _verseRangeValidRegex = /^\s*\d+(-\d+)?\s*$/;

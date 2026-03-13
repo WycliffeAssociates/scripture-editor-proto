@@ -4842,7 +4842,7 @@ dependencies = [
 [[package]]
 name = "usfm_onion"
 version = "0.1.0"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion#bf7892981489a9ef5afba269b927bc66a7f332db"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion#f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4"
 dependencies = [
  "clap",
  "quick-xml 0.37.5",

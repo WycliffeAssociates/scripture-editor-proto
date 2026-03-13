@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
+    formatLintIssueMessage,
+    formatTokenFixLabel,
+} from "@/app/ui/i18n/usfmOnionLocalization.ts";
+import {
     lintErrorDetails,
     lintErrorItem,
     lintErrorList,
@@ -384,7 +388,7 @@ function LintMessageItem({
                     size="xs"
                     data-testid={TESTING_IDS.lintPopover.errorMessage}
                 >
-                    {msg.message}
+                    {formatLintIssueMessage(msg)}
                 </Text>
             </Box>
             {msg.fix && (
@@ -399,7 +403,7 @@ function LintMessageItem({
                         actions.fixLintError(msg);
                     }}
                 >
-                    {msg.fix.label}
+                    {formatTokenFixLabel(msg.fix)}
                 </Button>
             )}
         </Box>

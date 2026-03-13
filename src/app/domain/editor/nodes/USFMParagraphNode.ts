@@ -1,9 +1,4 @@
-import type {
-    EditorConfig,
-    LexicalNode,
-    SerializedElementNode,
-    SerializedLexicalNode,
-} from "lexical";
+import type { EditorConfig, LexicalNode, SerializedElementNode } from "lexical";
 import { $create, $getState, $setState, ElementNode, TextNode } from "lexical";
 import { USFM_PARAGRAPH_NODE_TYPE } from "@/app/data/editor.ts";
 import {
@@ -277,8 +272,6 @@ export function $createUSFMParagraphNode(
     $setState(writable, markerState, params.marker);
     $setState(writable, inParaState, params.inPara);
     $setState(writable, tokenTypeState, params.tokenType ?? "marker");
-    // Canonical whitespace placement: keep markerText free of trailing horizontal whitespace.
-    // Any required separator whitespace should live on the first child token as leading whitespace.
     $setState(
         writable,
         markerTextState,

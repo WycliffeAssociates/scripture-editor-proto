@@ -1,6 +1,10 @@
 import { Portal, Text } from "@mantine/core";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import {
+    formatLintIssueMessage,
+    formatTokenFixLabel,
+} from "@/app/ui/i18n/usfmOnionLocalization.ts";
 import * as styles from "@/app/ui/styles/modules/LintTooltipOverlay.css.ts";
 
 export function LintTooltipPlugin() {
@@ -28,7 +32,7 @@ export function LintTooltipPlugin() {
                             className={styles.row}
                         >
                             <Text className={styles.message} span>
-                                {error.message}
+                                {formatLintIssueMessage(error)}
                             </Text>
                             {error.fix ? (
                                 <button
@@ -36,7 +40,7 @@ export function LintTooltipPlugin() {
                                     className={styles.fixButton}
                                     onClick={() => actions.fixLintError(error)}
                                 >
-                                    {error.fix.label}
+                                    {formatTokenFixLabel(error.fix)}
                                 </button>
                             ) : null}
                         </div>

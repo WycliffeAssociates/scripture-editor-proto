@@ -155,12 +155,15 @@ export function recoverMalformedMarkers(
             token.tokenType === TokenMap.error) &&
         typeof token.text === "string"
     ) {
-        const regex = /\\([a-zA-Z0-9]+)\s/;
+        const regex = /\\(?:\+)?([a-zA-Z0-9]+)\s/u;
         const match = token.text.match(regex);
         if (match) {
             const capturedMarker = match[1];
             if (ALL_USFM_MARKERS.has(capturedMarker)) {
-                const markerText = `\\${capturedMarker}`;
+                const markerText = token.text.slice(
+                    match.index ?? 0,
+                    (match.index ?? 0) + match[0].length - 1,
+                );
                 const markerToken: PrettifyToken = {
                     ...token,
                     tokenType: TokenMap.marker,

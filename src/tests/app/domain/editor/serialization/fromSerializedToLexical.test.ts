@@ -47,7 +47,7 @@ describe("onionFlatTokensToEditorState nested editor invariants", () => {
 });
 
 describe("groupFlatNodesIntoParagraphContainers whitespace placement", () => {
-    it("moves marker trailing whitespace to the first text child as leading whitespace", () => {
+    it("preserves paragraph marker trailing whitespace on the marker token", () => {
         const flat: SerializedLexicalNode[] = [
             {
                 type: "usfm-text-node",
@@ -88,11 +88,11 @@ describe("groupFlatNodesIntoParagraphContainers whitespace placement", () => {
         }>;
 
         expect(result[0]?.type).toBe(USFM_PARAGRAPH_NODE_TYPE);
-        expect(result[0]?.markerText).toBe("\\p");
-        expect(result[0]?.children?.[0]?.text).toBe(" Text");
+        expect(result[0]?.markerText).toBe("\\p ");
+        expect(result[0]?.children?.[0]?.text).toBe("Text");
     });
 
-    it("moves marker trailing whitespace to the first numberRange child as leading whitespace", () => {
+    it("preserves chapter marker trailing whitespace on the marker token", () => {
         const flat: SerializedLexicalNode[] = [
             {
                 type: "usfm-text-node",
@@ -133,8 +133,8 @@ describe("groupFlatNodesIntoParagraphContainers whitespace placement", () => {
         }>;
 
         expect(result[0]?.type).toBe(USFM_PARAGRAPH_NODE_TYPE);
-        expect(result[0]?.markerText).toBe("\\c");
-        expect(result[0]?.children?.[0]?.text).toBe(" 1");
+        expect(result[0]?.markerText).toBe("\\c ");
+        expect(result[0]?.children?.[0]?.text).toBe("1");
     });
 
     it("preserves marker trailing whitespace when the paragraph is empty (marker + linebreak)", () => {
@@ -171,5 +171,34 @@ describe("groupFlatNodesIntoParagraphContainers whitespace placement", () => {
         expect(result[0]?.type).toBe(USFM_PARAGRAPH_NODE_TYPE);
         expect(result[0]?.markerText).toBe("\\q1 ");
         expect(result[0]?.children?.[0]?.type).toBe("linebreak");
+    });
+
+    it("round-trips adjacent inline note markers with explicit separator spaces", async () => {
+        const usfm =
+            "\\c 148\n" +
+            "\\q2 praise Him in the highest places.\\f + \\fr 148:1 \\ft See \\+xt Matthew 21:9,\\+xt* \\+xt Mark 11:10,\\+xt* and \\+xt Luke 19:38\\+xt*.\\f*\n";
+
+        const projected = await webUsfmOnionService.projectUsfm(
+            `\\id PSA\n${usfm}`,
+        );
+        const lexicalState = onionFlatTokensToEditorState({
+            tokens: projected.tokens,
+            direction: "ltr",
+            targetMode: "regular",
+        });
+        const roundTripped = materializeFlatTokensArray(
+            lexicalState.root.children as SerializedLexicalNode[],
+        )
+            .map((node) =>
+                "text" in node && typeof node.text === "string"
+                    ? node.text
+                    : "",
+            )
+            .join("");
+
+        expect(roundTripped).toContain(
+            "\\+xt Matthew 21:9,\\+xt* \\+xt Mark 11:10,\\+xt*",
+        );
+        expect(roundTripped).not.toContain("\\+xt*\\+xt");
     });
 });

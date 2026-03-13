@@ -176,6 +176,33 @@ describe("materializeFlatTokensFromSerialized", () => {
                 "Heading text",
             );
         });
+
+        it("preserves trailing whitespace on markerText instead of moving it to the first child", () => {
+            const input = [
+                {
+                    type: USFM_PARAGRAPH_NODE_TYPE,
+                    id: "p1",
+                    tokenType: UsfmTokenTypes.marker,
+                    marker: "p",
+                    markerText: "\\p ",
+                    sid: "GEN 1:1",
+                    children: [
+                        {
+                            type: "usfm-text-node",
+                            id: "t1",
+                            tokenType: UsfmTokenTypes.text,
+                            sid: "GEN 1:1",
+                            text: "Text",
+                        },
+                    ],
+                    version: 1,
+                },
+            ] as unknown as SerializedLexicalNode[];
+
+            const result = materializeFlatTokensArray(input);
+            expect((result[0] as SerializedUSFMTextNode).text).toBe("\\p ");
+            expect((result[1] as SerializedUSFMTextNode).text).toBe("Text");
+        });
     });
 
     describe("nested editor nodes", () => {

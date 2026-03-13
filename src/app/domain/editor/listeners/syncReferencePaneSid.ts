@@ -13,7 +13,7 @@ function isVisibleElement(element: Element): element is HTMLElement {
     return getComputedStyle(element).display !== "none";
 }
 
-function findBestReferenceScrollTarget(
+export function findBestReferenceScrollTarget(
     refPanel: ParentNode,
     sid: string,
 ): HTMLElement | null {

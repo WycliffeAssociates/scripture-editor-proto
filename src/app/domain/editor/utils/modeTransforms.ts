@@ -62,7 +62,7 @@ export function wrapFlatTokensInLexicalParagraph(
 
 function markerFromUsfmTokenText(text: string | undefined): string | null {
     if (!text) return null;
-    const match = text.match(/^\\([\w\d]+-?\w*)\*?/u);
+    const match = text.match(/^\\(?:\+)?([\w\d]+-?\w*)\*?/u);
     if (!match) return null;
     return match[1] ?? null;
 }

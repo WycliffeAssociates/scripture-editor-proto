@@ -1,4 +1,4 @@
-import type { SerializedLexicalNode, SerializedLineBreakNode } from "lexical";
+import type { SerializedLineBreakNode } from "lexical";
 import {
     USFM_PARAGRAPH_NODE_TYPE,
     USFM_TEXT_NODE_TYPE,
@@ -9,11 +9,7 @@ import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
-import {
-    createSerializedUSFMTextNode,
-    isSerializedUSFMTextNode,
-    type SerializedUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import {
@@ -123,8 +119,6 @@ export function groupFlatNodesIntoParagraphContainers(
     const paragraphs: ParagraphContainer[] = [];
     let current: ParagraphContainer | null = null;
     let paraIndex = 0;
-    let pendingLeadingWhitespaceAfterMarker: string | null = null;
-
     const dropLeadingEmptyDefaultParagraphIfNeeded = () => {
         if (!current) return;
         if (!current.id.startsWith("default-para-")) return;
@@ -175,52 +169,12 @@ export function groupFlatNodesIntoParagraphContainers(
             // Avoid emitting a synthetic leading \p when the file starts with
             // a top-level structural marker (like \c).
             dropLeadingEmptyDefaultParagraphIfNeeded();
-            const markerTextRaw = containerStartMarker.text;
-            const trailingWsMatch = markerTextRaw.match(/[ \t]+$/u);
-            const trailingWs = trailingWsMatch?.[0] ?? "";
-            const markerTextTrimmed =
-                trailingWs.length > 0
-                    ? markerTextRaw.slice(0, -trailingWs.length)
-                    : markerTextRaw;
-
-            const nextNode = flatNodes[i + 1];
-            const nextIsSuitableWhitespaceTarget =
-                !!nextNode &&
-                (nextNode as unknown as { type?: string }).type ===
-                    USFM_TEXT_NODE_TYPE &&
-                (nextNode as unknown as { tokenType?: string }).tokenType !==
-                    UsfmTokenTypes.marker &&
-                (nextNode as unknown as { tokenType?: string }).tokenType !==
-                    UsfmTokenTypes.endMarker &&
-                ((nextNode as unknown as { tokenType?: string }).tokenType ===
-                    UsfmTokenTypes.text ||
-                    (nextNode as unknown as { tokenType?: string })
-                        .tokenType === UsfmTokenTypes.numberRange);
-
-            // Preserve user-provided trailing whitespace on the marker when there is no
-            // suitable "visible" child token to carry it (e.g. empty paragraph marker lines).
-            // This avoids whitespace-only diffs on load for inputs like "\\q1 \\n".
-            const shouldPreserveTrailingWsOnMarker =
-                trailingWs.length > 0 && !nextIsSuitableWhitespaceTarget;
-
             startParagraph(
                 containerStartMarker.marker,
                 containerStartMarker.id,
                 containerStartMarker.sid,
-                shouldPreserveTrailingWsOnMarker
-                    ? markerTextRaw
-                    : markerTextTrimmed,
+                containerStartMarker.text,
             );
-            // Canonical whitespace placement:
-            // Any horizontal whitespace after a paragraph marker should be stored as
-            // leading whitespace on the first visible child token.
-            if (shouldPreserveTrailingWsOnMarker) {
-                pendingLeadingWhitespaceAfterMarker = null;
-            } else if (trailingWs.length > 0) {
-                pendingLeadingWhitespaceAfterMarker = trailingWs;
-            } else {
-                pendingLeadingWhitespaceAfterMarker = null;
-            }
             continue;
         }
 
@@ -237,37 +191,8 @@ export function groupFlatNodesIntoParagraphContainers(
         }
 
         if ((node as { type?: string }).type === "linebreak") {
-            // Do not carry "marker + space" expectations across hard line boundaries.
-            pendingLeadingWhitespaceAfterMarker = null;
             current.children.push(node);
             continue;
-        }
-
-        if (pendingLeadingWhitespaceAfterMarker) {
-            if (
-                isSerializedUSFMTextNode(
-                    node as unknown as SerializedLexicalNode,
-                ) &&
-                ((node as unknown as SerializedUSFMTextNode).tokenType ===
-                    UsfmTokenTypes.text ||
-                    (node as unknown as SerializedUSFMTextNode).tokenType ===
-                        UsfmTokenTypes.numberRange)
-            ) {
-                const asText = node as unknown as SerializedUSFMTextNode;
-                if (asText.text.length > 0 && !/^\s/u.test(asText.text)) {
-                    current.children.push({
-                        ...asText,
-                        text: `${pendingLeadingWhitespaceAfterMarker}${asText.text}`,
-                    });
-                    pendingLeadingWhitespaceAfterMarker = null;
-                    continue;
-                }
-                // The next token already has leading whitespace; don't carry expectations further.
-                pendingLeadingWhitespaceAfterMarker = null;
-            } else {
-                // If the first child isn't a suitable text/numberRange token, don't carry whitespace further.
-                pendingLeadingWhitespaceAfterMarker = null;
-            }
         }
 
         current.children.push(node);

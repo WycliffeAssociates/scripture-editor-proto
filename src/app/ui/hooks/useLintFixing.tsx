@@ -7,6 +7,7 @@ import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/u
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
+import { formatTokenFixLabel } from "@/app/ui/i18n/usfmOnionLocalization.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { LintIssue, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -188,6 +189,7 @@ export function useLintFixing({
         const issueFix = err.fix;
         if (!issueFix) return;
         if (!err.sid) return;
+        const localizedFixLabel = formatTokenFixLabel(issueFix);
 
         const sidParsed = parseSid(err.sid);
         if (!sidParsed) return;
@@ -210,7 +212,7 @@ export function useLintFixing({
         }
 
         const didApply = await history.runTransaction({
-            label: t`Apply Autofix (${err.code})`,
+            label: t`Apply Autofix (${localizedFixLabel})`,
             candidates: [
                 {
                     bookCode: file.bookCode,
@@ -231,11 +233,11 @@ export function useLintFixing({
                     updateDiffMapForChapter,
                     replaceLintErrorsForBook,
                     setEditorContent,
-                    notifySuccess: (code) => {
+                    notifySuccess: () => {
                         ShowNotificationSuccess({
                             notification: {
                                 title: t`Fix Applied`,
-                                message: t`Autofix applied for ${code}`,
+                                message: t`Autofix applied for ${localizedFixLabel}`,
                             },
                         });
                     },

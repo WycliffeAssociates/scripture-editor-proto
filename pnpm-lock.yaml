@@ -102,8 +102,8 @@ importers:
         specifier: 17.6.0
         version: 17.6.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       usfm-onion-web:
-        specifier: github:WycliffeAssociates/usfm-onion#bf7892981489a9ef5afba269b927bc66a7f332db
-        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db
+        specifier: github:WycliffeAssociates/usfm-onion#f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4
+        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4
       valibot:
         specifier: ^1.1.0
         version: 1.1.0(typescript@5.9.3)
@@ -3329,8 +3329,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db:
-    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4:
+    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4}
     version: 0.1.0
 
   util-deprecate@1.0.2:
@@ -6675,7 +6675,7 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/bf7892981489a9ef5afba269b927bc66a7f332db: {}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f8fa1ea197ae11cb6ba3bfdcdcc8537a767571c4: {}
 
   util-deprecate@1.0.2: {}
 
