@@ -1,10 +1,8 @@
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
-import {
-    editorTreeToLexicalStatesByChapter,
-    groupFlatTokensByChapter,
-} from "@/app/domain/editor/serialization/usjToLexical.ts";
+import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/usjToLexical.ts";
 import {
     inferContentEditorModeFromRootChildren,
+    onionFlatTokensToEditorState,
     onionFlatTokensToLoadedEditorState,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -18,7 +16,7 @@ export async function rebuildParsedFileFromUsfm(args: {
         args.sourceUsfm,
         {
             tokenOptions: {
-                mergeHorizontalWhitespace: true,
+                mergeHorizontalWhitespace: false,
             },
             lintOptions: null,
         },
@@ -36,26 +34,14 @@ export async function rebuildParsedFileFromUsfm(args: {
           ) === "regular"
         : true;
 
-    const rebuiltByChapter = editorTreeToLexicalStatesByChapter({
-        tree: projection.documentTree,
-        direction,
-        needsParagraphs,
-        loadedTokensByChapter: Object.fromEntries(
-            args.targetFile.chapters.map((existingChapter) => [
-                existingChapter.chapNumber,
-                existingChapter.loadedLexicalState,
-            ]),
-        ),
-    });
     const sourceTokensByChapter = groupFlatTokensByChapter(projection.tokens);
 
-    args.targetFile.chapters = Object.entries(rebuiltByChapter)
-        .map(([chapterNum, states]) => {
+    args.targetFile.chapters = Object.entries(sourceTokensByChapter)
+        .map(([chapterNum, nextCurrentTokens]) => {
             const chapNumber = Number(chapterNum);
             const existingChapter = args.targetFile.chapters.find(
                 (candidate) => candidate.chapNumber === chapNumber,
             );
-            const nextLexicalState = states.lexicalState;
             const nextSourceTokens =
                 existingChapter?.sourceTokens ??
                 sourceTokensByChapter[chapNumber] ??
@@ -64,7 +50,11 @@ export async function rebuildParsedFileFromUsfm(args: {
                 tokens: nextSourceTokens,
                 direction,
             });
-            const nextCurrentTokens = sourceTokensByChapter[chapNumber] ?? [];
+            const nextLexicalState = onionFlatTokensToEditorState({
+                tokens: nextCurrentTokens,
+                direction,
+                targetMode: needsParagraphs ? "regular" : "usfm",
+            });
             return {
                 lexicalState: nextLexicalState,
                 loadedLexicalState: nextLoadedState,

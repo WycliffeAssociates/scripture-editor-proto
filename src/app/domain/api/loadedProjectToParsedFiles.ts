@@ -1,10 +1,10 @@
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/usjToLexical.ts";
 import {
-    editorTreeToLexicalStatesByChapter,
-    flatTokensToLoadedLexicalStatesByChapter,
-    groupFlatTokensByChapter,
-} from "@/app/domain/editor/serialization/usjToLexical.ts";
+    onionFlatTokensToEditorState,
+    onionFlatTokensToLoadedEditorState,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     buildLintMessagesByBook,
     type LintMessagesByBook,
@@ -111,7 +111,7 @@ export async function loadedProjectToParsedFiles(args: {
     const sorted = sortUsfmFilesByCanonicalOrder(entries, "code");
     const projectionOptions: ProjectUsfmOptions = {
         tokenOptions: {
-            mergeHorizontalWhitespace: true,
+            mergeHorizontalWhitespace: false,
         },
         lintOptions: {},
     };
@@ -134,20 +134,9 @@ export async function loadedProjectToParsedFiles(args: {
         if (!projection) continue;
         // debugger;
         const mergedTokens = projection.tokens;
-        const documentTree = projection.documentTree;
         const lintIssues = projection.lintIssues ?? [];
         const needsParagraphs =
             args.editorMode === "regular" || args.editorMode === "view";
-
-        const chapters = editorTreeToLexicalStatesByChapter({
-            tree: documentTree,
-            direction: args.loadedProject.metadata.language.direction,
-            needsParagraphs,
-            loadedTokensByChapter: flatTokensToLoadedLexicalStatesByChapter(
-                mergedTokens,
-                args.loadedProject.metadata.language.direction,
-            ),
-        });
         const sourceTokensByChapter = groupFlatTokensByChapter(mergedTokens);
         allInitialLintErrors.push(...lintIssues);
         parsed.push({
@@ -159,19 +148,33 @@ export async function loadedProjectToParsedFiles(args: {
             prevBookId: i === 0 ? null : getBookSlug(sorted[i - 1]?.code ?? ""),
             title: book.name,
             bookCode: getBookSlug(book.code),
-            chapters: Object.entries(chapters).map(([chapter, states]) => {
-                const chapterNum = Number(chapter);
-                return {
-                    lexicalState: states.lexicalState,
-                    loadedLexicalState: states.loadedLexicalState,
-                    sourceTokens: sourceTokensByChapter[chapterNum] ?? [],
-                    currentTokens: structuredClone(
-                        sourceTokensByChapter[chapterNum] ?? [],
-                    ),
-                    chapNumber: chapterNum,
-                    dirty: false,
-                };
-            }),
+            chapters: Object.entries(sourceTokensByChapter).map(
+                ([chapter, sourceTokens]) => {
+                    const chapterNum = Number(chapter);
+                    const direction =
+                        args.loadedProject.metadata.language.direction;
+                    const targetMode = needsParagraphs ? "regular" : "usfm";
+                    const lexicalState = onionFlatTokensToEditorState({
+                        tokens: sourceTokens,
+                        direction,
+                        targetMode,
+                    });
+                    const loadedLexicalState =
+                        onionFlatTokensToLoadedEditorState({
+                            tokens: sourceTokens,
+                            direction,
+                        });
+
+                    return {
+                        lexicalState,
+                        loadedLexicalState,
+                        sourceTokens,
+                        currentTokens: structuredClone(sourceTokens),
+                        chapNumber: chapterNum,
+                        dirty: false,
+                    };
+                },
+            ),
         });
     }
     return {

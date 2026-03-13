@@ -5,22 +5,32 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { ProjectedUsfmDocument } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 
-const {
-    editorTreeToLexicalStatesByChapterMock,
-    flatTokensToLoadedLexicalStatesByChapterMock,
-    groupFlatTokensByChapterMock,
-} = vi.hoisted(() => ({
-    editorTreeToLexicalStatesByChapterMock: vi.fn(),
-    flatTokensToLoadedLexicalStatesByChapterMock: vi.fn(),
-    groupFlatTokensByChapterMock: vi.fn(() => ({})),
+const { groupFlatTokensByChapterMock } = vi.hoisted(() => ({
+    groupFlatTokensByChapterMock: vi.fn(() => ({
+        1: [],
+    })),
 }));
 
 vi.mock("@/app/domain/editor/serialization/usjToLexical.ts", () => ({
-    editorTreeToLexicalStatesByChapter: editorTreeToLexicalStatesByChapterMock,
-    flatTokensToLoadedLexicalStatesByChapter:
-        flatTokensToLoadedLexicalStatesByChapterMock,
     groupFlatTokensByChapter: groupFlatTokensByChapterMock,
 }));
+
+const {
+    onionFlatTokensToEditorStateMock,
+    onionFlatTokensToLoadedEditorStateMock,
+} = vi.hoisted(() => ({
+    onionFlatTokensToEditorStateMock: vi.fn(() => ({})),
+    onionFlatTokensToLoadedEditorStateMock: vi.fn(() => ({})),
+}));
+
+vi.mock(
+    "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts",
+    () => ({
+        onionFlatTokensToEditorState: onionFlatTokensToEditorStateMock,
+        onionFlatTokensToLoadedEditorState:
+            onionFlatTokensToLoadedEditorStateMock,
+    }),
+);
 
 const emptyProjection: ProjectedUsfmDocument = {
     tokens: [],
@@ -102,13 +112,6 @@ describe("loadedProjectToParsedFiles", () => {
             projectFromPath,
             projectFromText,
         });
-        editorTreeToLexicalStatesByChapterMock.mockReturnValue({
-            1: {
-                lexicalState: {},
-                loadedLexicalState: {},
-            },
-        });
-        flatTokensToLoadedLexicalStatesByChapterMock.mockReturnValue({});
         const { project, getBookMock } = makeProject("/tmp/GEN.usfm");
 
         await loadedProjectToParsedFiles({
@@ -119,7 +122,7 @@ describe("loadedProjectToParsedFiles", () => {
 
         expect(projectBatchFromPaths).toHaveBeenCalledTimes(1);
         expect(projectBatchFromPaths).toHaveBeenCalledWith(["/tmp/GEN.usfm"], {
-            tokenOptions: { mergeHorizontalWhitespace: true },
+            tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: {},
         });
         expect(projectFromPath).not.toHaveBeenCalled();
@@ -137,13 +140,6 @@ describe("loadedProjectToParsedFiles", () => {
             projectFromPath,
             projectFromText,
         });
-        editorTreeToLexicalStatesByChapterMock.mockReturnValue({
-            1: {
-                lexicalState: {},
-                loadedLexicalState: {},
-            },
-        });
-        flatTokensToLoadedLexicalStatesByChapterMock.mockReturnValue({});
         const { project, getBookMock } = makeProject(
             "/tmp/GEN.usfm",
             "\\id GEN From Text\n",
@@ -159,7 +155,7 @@ describe("loadedProjectToParsedFiles", () => {
         expect(projectBatchFromContents).toHaveBeenCalledWith(
             ["\\id GEN From Text\n"],
             {
-                tokenOptions: { mergeHorizontalWhitespace: true },
+                tokenOptions: { mergeHorizontalWhitespace: false },
                 lintOptions: {},
             },
         );

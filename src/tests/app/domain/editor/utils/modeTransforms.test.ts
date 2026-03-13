@@ -5,6 +5,7 @@ import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFM
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { serializeToUsfmString } from "@/test/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
 
@@ -103,5 +104,24 @@ describe("modeTransforms nested editor round-trip", () => {
         );
         expect(usfm).not.toContain("\\+xtMatthew");
         expect(usfm).not.toContain("\\+xtMark");
+    });
+
+    it("preserves close-marker punctuation spacing in regular-mode projection", async () => {
+        const editor = await createTestEditor(
+            "\\c 5\n" +
+                "\\p\n" +
+                "\\v 29 And he named him Noah,\\f + \\fr 5:29 \\fqa Noah \\ft sounds like the Hebrew for \\fqa rest \\ft or \\fqa comfort\\ft .\\f* saying, “May this one comfort us in the labor and toil of our hands caused by the ground that the \\nd Lord\\nd* has cursed.”\n",
+            { needsParagraphs: true },
+        );
+
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+        const projected = lexicalEditorStateToOnionFlatTokens(start)
+            .map((token) => token.text)
+            .join("");
+
+        expect(projected).toContain("\\fqa comfort\\ft .\\f*");
+        expect(projected).not.toContain("\\fqa comfort \\ft  .\\f*");
     });
 });
