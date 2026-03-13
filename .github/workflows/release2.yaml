@@ -119,7 +119,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: .
+          path: frontend-dist-artifact
+
+      - name: Restore frontend dist
+        shell: bash
+        run: |
+          rm -rf dist
+          if [ -d frontend-dist-artifact/dist ]; then
+            mv frontend-dist-artifact/dist dist
+          else
+            mv frontend-dist-artifact dist
+          fi
+          test -f dist/index.html
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -245,7 +256,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: .
+          path: frontend-dist-artifact
+
+      - name: Restore frontend dist
+        shell: bash
+        run: |
+          rm -rf dist
+          if [ -d frontend-dist-artifact/dist ]; then
+            mv frontend-dist-artifact/dist dist
+          else
+            mv frontend-dist-artifact dist
+          fi
+          test -f dist/index.html
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
