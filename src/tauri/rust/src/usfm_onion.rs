@@ -27,6 +27,7 @@ use onion::parse::{
     into_tokens, parse, project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
 };
 use onion::model::UsjDocument;
+use onion::markers;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,6 +187,18 @@ pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
     pub ast: AstDocument,
     pub lint_issues: Option<Vec<LintIssueDto>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkerCatalogDto {
+    pub all_markers: Vec<String>,
+    pub paragraph_markers: Vec<String>,
+    pub note_markers: Vec<String>,
+    pub note_submarkers: Vec<String>,
+    pub regular_character_markers: Vec<String>,
+    pub document_markers: Vec<String>,
+    pub chapter_verse_markers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -800,6 +813,37 @@ pub fn usfm_onion_tokens_from_path(
 ) -> Result<Vec<FlatTokenDto>, String> {
     let source = read_usfm_source_from_path(&path)?;
     usfm_onion_tokens_from_usfm(source, options)
+}
+
+#[tauri::command]
+pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
+    let all_markers = markers::all_markers();
+    MarkerCatalogDto {
+        paragraph_markers: markers::paragraph_markers(),
+        note_markers: markers::note_markers(),
+        note_submarkers: markers::note_submarkers(),
+        regular_character_markers: all_markers
+            .iter()
+            .filter(|marker| markers::is_regular_character_marker(marker))
+            .cloned()
+            .collect(),
+        document_markers: all_markers
+            .iter()
+            .filter(|marker| markers::is_document_marker(marker))
+            .cloned()
+            .collect(),
+        chapter_verse_markers: all_markers
+            .iter()
+            .filter(|marker| {
+                matches!(
+                    markers::marker_info(marker).category,
+                    markers::MarkerCategory::Chapter | markers::MarkerCategory::Verse
+                )
+            })
+            .cloned()
+            .collect(),
+        all_markers,
+    }
 }
 
 #[tauri::command]

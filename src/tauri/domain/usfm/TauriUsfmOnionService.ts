@@ -30,6 +30,7 @@ import type {
     TokenLintOptions,
     TokenScopeItem,
     TokenTransformResult,
+    UsfmMarkerCatalog,
     UsjDocument,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -258,6 +259,10 @@ function stripSyntheticChapterTokens(
 
 export class TauriUsfmOnionService implements IUsfmOnionService {
     readonly supportsPathIo = true;
+
+    async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
+        return invoke("usfm_onion_marker_catalog");
+    }
 
     private async projectUsj(source: string): Promise<UsjDocument> {
         return invoke("usfm_onion_to_usj", { source });

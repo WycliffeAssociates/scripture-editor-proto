@@ -16,6 +16,7 @@ import type {
     TokenLintOptions,
     TokenScopeItem,
     TokenTransformResult,
+    UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -33,6 +34,8 @@ import type {
  */
 export interface IUsfmOnionService {
     readonly supportsPathIo: boolean;
+
+    getMarkerCatalog(): Promise<UsfmMarkerCatalog>;
 
     projectUsfm(
         source: string,

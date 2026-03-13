@@ -6,6 +6,7 @@ import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMText
 import { applyLintFixToFile } from "@/app/ui/hooks/useLintFixing.tsx";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const rebuildParsedFileFromUsfmMock = vi.hoisted(() => vi.fn());
 
@@ -113,6 +114,9 @@ function makeService(args?: {
 }): IUsfmOnionService {
     return {
         supportsPathIo: false,
+        getMarkerCatalog: vi.fn(async () =>
+            webUsfmOnionService.getMarkerCatalog(),
+        ),
         applyTokenFixes:
             args?.applyTokenFixes ??
             vi.fn(async () => ({

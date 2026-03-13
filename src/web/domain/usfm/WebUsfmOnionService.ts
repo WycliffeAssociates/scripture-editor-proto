@@ -29,6 +29,7 @@ import type {
     TokenLintOptions,
     TokenScopeItem,
     TokenTransformResult,
+    UsfmMarkerCatalog,
     UsjDocument,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -452,6 +453,26 @@ function fromWebDiff(diff: {
 
 export class WebUsfmOnionService implements IUsfmOnionService {
     readonly supportsPathIo = false;
+
+    async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
+        const allMarkers = onion.allMarkers();
+        return {
+            allMarkers,
+            paragraphMarkers: onion.paragraphMarkers(),
+            noteMarkers: onion.noteMarkers(),
+            noteSubmarkers: onion.noteSubmarkers(),
+            regularCharacterMarkers: allMarkers.filter((marker) =>
+                onion.isRegularCharacterMarker(marker),
+            ),
+            documentMarkers: allMarkers.filter((marker) =>
+                onion.isDocumentMarker(marker),
+            ),
+            chapterVerseMarkers: allMarkers.filter((marker) => {
+                const category = onion.markerInfo(marker).category;
+                return category === "chapter" || category === "verse";
+            }),
+        };
+    }
 
     private async projectUsj(source: string): Promise<UsjDocument> {
         return timeInDevAsync(async () => {

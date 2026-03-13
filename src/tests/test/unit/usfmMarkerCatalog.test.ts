@@ -10,7 +10,7 @@ type OnionMarkerModule = typeof import("usfm-onion-web");
 
 const wasm: OnionMarkerModule = onion;
 
-function diff(left: Set<string>, right: Set<string>) {
+function diff(left: ReadonlySet<string>, right: ReadonlySet<string>) {
     return [...left].filter((value) => !right.has(value)).sort();
 }
 

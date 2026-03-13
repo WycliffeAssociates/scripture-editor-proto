@@ -4,6 +4,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "@/app/entrypoint.tsx";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
@@ -19,6 +20,7 @@ const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
 const gitProvider = new TauriGitProvider();
 const opener = new TauriOpener();
+initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 
 // // react entry stuff
 const rootElement = document.getElementById("root");

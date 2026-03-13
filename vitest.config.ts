@@ -25,6 +25,7 @@ export default defineConfig({
             "**/*.spec.tsx",
             "!src/test/e2e/**",
         ],
+        setupFiles: ["./src/test/vitest.setup.ts"],
         server: {
             deps: {
                 inline: ["usfm-onion-web"],

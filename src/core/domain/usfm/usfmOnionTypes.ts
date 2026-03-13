@@ -107,6 +107,16 @@ export type ProjectedUsfmDocument = {
     lintIssues: LintIssue[] | null;
 };
 
+export type UsfmMarkerCatalog = {
+    allMarkers: string[];
+    paragraphMarkers: string[];
+    noteMarkers: string[];
+    noteSubmarkers: string[];
+    regularCharacterMarkers: string[];
+    documentMarkers: string[];
+    chapterVerseMarkers: string[];
+};
+
 export type FormatOptions = OnionFormatOptions;
 export type AstDocument = OnionAstDocument;
 export type AstNode = OnionAstNode;

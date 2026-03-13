@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
@@ -21,6 +22,7 @@ const platform: PlatformAndWeb = "web";
 const directoryProvider = await WebDirectoryProvider.create();
 const gitProvider = new WebGitProvider(new OpfsGitFs());
 const opener = new WebOpener();
+initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 root.render(
     <StrictMode>
         <App

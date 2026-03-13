@@ -1,4 +1,4 @@
-import * as onion from "usfm-onion-web";
+import type { UsfmMarkerCatalog } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const LOCAL_ONLY_MARKERS = [
     "lim4",
@@ -41,41 +41,119 @@ const LOCAL_ONLY_CHARACTER_MARKERS = LOCAL_ONLY_MARKERS.filter(
         ),
 );
 
-export const VALID_NOTE_MARKERS = new Set(onion.noteMarkers());
+type MarkerRegistry = {
+    validNoteMarkers: Set<string>;
+    validCharMarkers: Set<string>;
+    validParaMarkers: Set<string>;
+    allCharMarkers: Set<string>;
+    allUsfmMarkers: Set<string>;
+    chapterVerseMarkers: Set<string>;
+    documentMarkers: Set<string>;
+};
 
-export const VALID_CHAR_MARKERS = new Set([
-    ...onion
-        .allMarkers()
-        .filter((marker) => onion.isRegularCharacterMarker(marker)),
-    ...LOCAL_ONLY_REGULAR_CHARACTER_MARKERS,
-]);
+let registry: MarkerRegistry | null = null;
 
-export const VALID_PARA_MARKERS = new Set([
-    ...onion.paragraphMarkers(),
-    ...LOCAL_ONLY_PARAGRAPH_MARKERS,
-]);
+function createReadonlySet(getter: () => Set<string>): ReadonlySet<string> {
+    return {
+        get size() {
+            return getter().size;
+        },
+        has(value: string) {
+            return getter().has(value);
+        },
+        forEach(callbackfn, thisArg) {
+            getter().forEach(callbackfn, thisArg);
+        },
+        entries() {
+            return getter().entries();
+        },
+        keys() {
+            return getter().keys();
+        },
+        values() {
+            return getter().values();
+        },
+        [Symbol.iterator]() {
+            return getter()[Symbol.iterator]();
+        },
+    } satisfies ReadonlySet<string>;
+}
 
-export const ALL_CHAR_MARKERS = new Set([
-    ...VALID_NOTE_MARKERS,
-    ...VALID_CHAR_MARKERS,
-    ...onion.noteSubmarkers(),
-    ...LOCAL_ONLY_CHARACTER_MARKERS,
-]);
+function requireRegistry() {
+    if (!registry) {
+        throw new Error(
+            "USFM marker registry not initialized. Initialize it from IUsfmOnionService before using marker helpers.",
+        );
+    }
+    return registry;
+}
 
-export const ALL_USFM_MARKERS = new Set([
-    ...onion.allMarkers(),
-    ...LOCAL_ONLY_MARKERS,
-]);
+function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
+    const validNoteMarkers = new Set(catalog.noteMarkers);
+    const validCharMarkers = new Set([
+        ...catalog.regularCharacterMarkers,
+        ...LOCAL_ONLY_REGULAR_CHARACTER_MARKERS,
+    ]);
+    const validParaMarkers = new Set([
+        ...catalog.paragraphMarkers,
+        ...LOCAL_ONLY_PARAGRAPH_MARKERS,
+    ]);
+    const allCharMarkers = new Set([
+        ...validNoteMarkers,
+        ...validCharMarkers,
+        ...catalog.noteSubmarkers,
+        ...LOCAL_ONLY_CHARACTER_MARKERS,
+    ]);
+    const allUsfmMarkers = new Set([
+        ...catalog.allMarkers,
+        ...LOCAL_ONLY_MARKERS,
+    ]);
 
-export const CHAPTER_VERSE_MARKERS = new Set(
-    onion.allMarkers().filter((marker) => {
-        const category = onion.markerInfo(marker).category;
-        return category === "chapter" || category === "verse";
-    }),
+    return {
+        validNoteMarkers,
+        validCharMarkers,
+        validParaMarkers,
+        allCharMarkers,
+        allUsfmMarkers,
+        chapterVerseMarkers: new Set(catalog.chapterVerseMarkers),
+        documentMarkers: new Set(catalog.documentMarkers),
+    };
+}
+
+export function initializeUsfmMarkerCatalog(catalog: UsfmMarkerCatalog) {
+    registry = buildRegistry(catalog);
+}
+
+export function resetUsfmMarkerCatalogForTests() {
+    registry = null;
+}
+
+export const VALID_NOTE_MARKERS = createReadonlySet(
+    () => requireRegistry().validNoteMarkers,
+);
+
+export const VALID_CHAR_MARKERS = createReadonlySet(
+    () => requireRegistry().validCharMarkers,
+);
+
+export const VALID_PARA_MARKERS = createReadonlySet(
+    () => requireRegistry().validParaMarkers,
+);
+
+export const ALL_CHAR_MARKERS = createReadonlySet(
+    () => requireRegistry().allCharMarkers,
+);
+
+export const ALL_USFM_MARKERS = createReadonlySet(
+    () => requireRegistry().allUsfmMarkers,
+);
+
+export const CHAPTER_VERSE_MARKERS = createReadonlySet(
+    () => requireRegistry().chapterVerseMarkers,
 );
 
 export function isDocumentMarker(marker: string) {
-    return onion.isDocumentMarker(marker);
+    return requireRegistry().documentMarkers.has(marker);
 }
 
 export function isValidParaMarker(marker: string) {

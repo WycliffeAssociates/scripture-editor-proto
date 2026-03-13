@@ -47,6 +47,7 @@ pub fn run() {
     builder
         .invoke_handler(tauri::generate_handler![
             parse_usfm,
+            usfm_onion::usfm_onion_marker_catalog,
             usfm_onion::usfm_onion_project_usfm,
             usfm_onion::usfm_onion_project_path,
             usfm_onion::usfm_onion_project_paths,
@@ -91,13 +92,12 @@ pub fn run() {
             hello_world
         ])
         .setup(move |app| {
-            #[cfg(debug_assertions)] // only include this code on dev builds
+            #[cfg(any(debug_assertions, feature = "devtools"))]
             {
-                // Your debug assertions code (left commented as before)
-                // let window = app
-                //     .get_webview_window("main")
-                //     .expect("Failed to get main window");
-                // // window.open_devtools();
+                let window = app
+                    .get_webview_window("main")
+                    .expect("Failed to get main window");
+                window.open_devtools();
             }
 
             Ok(())

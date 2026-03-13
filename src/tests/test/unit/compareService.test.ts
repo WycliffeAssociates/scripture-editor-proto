@@ -16,6 +16,7 @@ import type {
 } from "@/app/domain/project/compare/types.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Diff, FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function makeFlatTokens(text: string, sid: string, id: string): FlatToken[] {
     return [
@@ -156,6 +157,9 @@ function makeDiffs(
 function createStubUsfmOnionService(): IUsfmOnionService {
     return {
         supportsPathIo: false,
+        async getMarkerCatalog() {
+            return await webUsfmOnionService.getMarkerCatalog();
+        },
         async diffScope(scope): Promise<Diff[][]> {
             return scope.map((item) =>
                 makeDiffs(item.baselineTokens ?? [], item.currentTokens ?? []),

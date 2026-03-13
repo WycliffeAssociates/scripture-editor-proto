@@ -29,6 +29,7 @@ import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function createMockUsfmOnionService(): IUsfmOnionService {
     return {
+        getMarkerCatalog: () => webUsfmOnionService.getMarkerCatalog(),
         projectUsfm: (
             source: string,
             options?: Parameters<IUsfmOnionService["projectUsfm"]>[1],
