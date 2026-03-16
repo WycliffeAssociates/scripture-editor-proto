@@ -1,11 +1,5 @@
-import {
-    appDataDir,
-    appLocalDataDir,
-    homeDir,
-    join,
-} from "@tauri-apps/api/path";
+import { appDataDir, appLocalDataDir, join } from "@tauri-apps/api/path";
 import { mkdir, open, remove } from "@tauri-apps/plugin-fs";
-import { platform } from "@tauri-apps/plugin-os";
 import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
 import type { IFileHandle } from "@/core/io/IFileHandle.ts";
 import type { IPathHandle } from "@/core/io/IPathHandle.ts";
@@ -17,29 +11,21 @@ import { TauriDirectoryHandle } from "@/tauri/io/TauriDirectoryHandle.ts";
 import { TauriFileHandle } from "@/tauri/io/TauriFileHandle.ts";
 
 export class TauriDirectoryProvider implements IDirectoryProvider {
-    private static async getUserHome(osName: string): Promise<string> {
-        if (["ios", "android", "macos"].includes(osName)) {
-            return await appDataDir();
-        } else {
-            return await homeDir();
-        }
+    private static async getAppDataRoot(): Promise<string> {
+        return await appDataDir();
     }
 
-    private constructor(
-        private appName: string,
-        private userHome: string,
-    ) {}
+    private constructor(private appDataRoot: string) {}
 
     static async create(appName: string): Promise<TauriDirectoryProvider> {
-        const osName = platform();
-        // biome rule, this in a static context can be misleading. the static context is the class, not the instance
-        const userHome = await TauriDirectoryProvider.getUserHome(osName);
-        return new TauriDirectoryProvider(appName, userHome);
+        const appDataRoot = await TauriDirectoryProvider.getAppDataRoot();
+        void appName;
+        return new TauriDirectoryProvider(appDataRoot);
     }
 
     async getHomeDirectory(): Promise<IDirectoryHandle> {
         return new TauriDirectoryHandle(
-            this.userHome,
+            this.appDataRoot,
             this.getHandle.bind(this),
         );
     }
@@ -47,13 +33,9 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
     async getAppPublicDirectory(
         appendedPath?: string,
     ): Promise<IDirectoryHandle> {
-        let root = this.userHome;
-        const osName = platform();
-        if (!["ios", "android"].includes(osName)) {
-            root = await join(root, this.appName);
-        }
-
-        const path = appendedPath ? await join(root, appendedPath) : root;
+        const path = appendedPath
+            ? await join(this.appDataRoot, appendedPath)
+            : this.appDataRoot;
         await mkdir(path, { recursive: true });
         return new TauriDirectoryHandle(path, this.getHandle.bind(this));
     }
@@ -143,14 +125,9 @@ export class TauriDirectoryProvider implements IDirectoryProvider {
         suffix?: string,
     ): Promise<IFileHandle> {
         const path = await join(
-            this.userHome,
-            this.appName,
-            "temp",
+            (await this.getAppPrivateDirectory("temp")).path,
             `${prefix}${suffix ?? ""}`,
         );
-        await mkdir(await join(this.userHome, this.appName, "temp"), {
-            recursive: true,
-        });
         return new TauriFileHandle(path, this.getHandle.bind(this));
     }
 

@@ -4,10 +4,8 @@ import { mkdir, open, remove } from "@tauri-apps/plugin-fs";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // --- MOCK CONSTANTS ---
-const MOCK_APP_NAME = "test-app";
-const MOCK_HOME_DIR = "/mock/user/home";
+const MOCK_APPDATA = "/mock/app/data";
 const MOCK_APP_LOCAL_DATA = "/mock/app/localdata";
-const MOCK_IOS_APPDATA = "/mock/ios/appdata";
 
 const SAMPLE_SOURCE_METADATA = {
     creator: "unfoldingWord",
@@ -28,21 +26,15 @@ const SAMPLE_TARGET_METADATA = {
 
 // Mocking @tauri-apps/api/app to control the app name
 vi.mock("@tauri-apps/api/app", () => ({
-    getName: vi.fn(() => Promise.resolve(MOCK_APP_NAME)),
-}));
-
-// Mocking @tauri-apps/plugin-os to control the OS name
-vi.mock("@tauri-apps/plugin-os", () => ({
-    platform: vi.fn(() => "windows"), // Default to 'windows' for testing homeDir logic
+    getName: vi.fn(() => Promise.resolve("test-app")),
 }));
 
 vi.mock("@tauri-apps/api/path", () => {
     const pathModule = require("node:path");
     return {
         appLocalDataDir: vi.fn(() => Promise.resolve(MOCK_APP_LOCAL_DATA)),
-        appDataDir: vi.fn(() => Promise.resolve(MOCK_IOS_APPDATA)),
+        appDataDir: vi.fn(() => Promise.resolve(MOCK_APPDATA)),
         join: vi.fn(pathModule.join),
-        homeDir: vi.fn(() => Promise.resolve(MOCK_HOME_DIR)),
         dirname: vi.fn(pathModule.dirname),
         normalize: vi.fn(pathModule.normalize),
     };
@@ -359,11 +351,11 @@ describe("TauriDirectoryProvider", () => {
     });
 
     // --- Test 1: Get User Data Directory ---
-    test("getUserDataDirectory creates the correct path on Windows/Linux", async () => {
+    test("getAppPublicDirectory creates the correct app-data path", async () => {
         const appendedPath = "settings";
         const userDataDir = await provider.getAppPublicDirectory(appendedPath);
 
-        const expectedPath = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}/${appendedPath}`;
+        const expectedPath = `${MOCK_APPDATA}/${appendedPath}`;
 
         expect(userDataDir.path).toBe(expectedPath);
         expect(mkdir).toHaveBeenCalledWith(expectedPath, { recursive: true });
@@ -418,7 +410,7 @@ describe("TauriDirectoryProvider", () => {
             "mat",
         );
 
-        const baseDir = `${MOCK_HOME_DIR}/${MOCK_APP_NAME}`;
+        const baseDir = MOCK_APPDATA;
         const expectedPath = `${baseDir}/${SAMPLE_TARGET_METADATA.creator}/${SAMPLE_SOURCE_METADATA.creator}/${SAMPLE_SOURCE_METADATA.language.slug}_${SAMPLE_SOURCE_METADATA.identifier}/v${SAMPLE_TARGET_METADATA.version}/${SAMPLE_TARGET_METADATA.language.slug}/mat`;
 
         expect(projectDir.path).toBe(expectedPath);
