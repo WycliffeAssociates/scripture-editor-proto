@@ -1,3 +1,4 @@
+import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import type {
     BuildSidBlocksOptions,
@@ -5,9 +6,7 @@ import type {
     ParsedUsfmDocument,
     ProjectUsfmOptions,
     TokenLintOptions,
-    UsjDocument,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import { usjToParsedUsfmDocument } from "@/core/domain/usfm/usjToParsedUsfm.ts";
 
 function legacyTokenTypeToOnionKind(tokenType: string): string {
     switch (tokenType) {
@@ -78,32 +77,60 @@ export function toOnionFlatTokens<T extends LintableToken | FlatToken>(
     return flatTokensFromLintableTokens(tokens as LintableToken[]);
 }
 
-export function parseChapterDocumentFromUsj(
-    usj: UsjDocument,
+function flatTokenKindToParsedTokenType(kind: string): string {
+    switch (kind) {
+        case "marker":
+        case "milestone":
+            return "marker";
+        case "end-marker":
+        case "milestone-end":
+            return "endMarker";
+        case "newline":
+            return "verticalWhitespace";
+        case "number":
+            return "numberRange";
+        case "book-code":
+            return "bookCode";
+        default:
+            return kind;
+    }
+}
+
+function flatTokenToParsedToken(token: FlatToken): ParsedToken {
+    return {
+        id: token.id,
+        text: token.text,
+        sid: token.sid ?? undefined,
+        marker: token.marker ?? undefined,
+        tokenType: flatTokenKindToParsedTokenType(token.kind),
+    };
+}
+
+function chapterFromToken(token: FlatToken, currentChapter: number): number {
+    if (token.marker === "c" && token.kind === "marker") {
+        return currentChapter;
+    }
+    if (!token.sid) return currentChapter;
+    const parts = token.sid.split(/\s+/, 2);
+    if (parts.length < 2) return currentChapter;
+    const chapterPart = parts[1]?.split(":")[0] ?? "";
+    const parsedChapter = Number.parseInt(chapterPart, 10);
+    return Number.isFinite(parsedChapter) ? parsedChapter : currentChapter;
+}
+
+export function parseChapterDocumentFromTokens(
+    tokens: FlatToken[],
 ): ParsedUsfmDocument {
-    const parsed = usjToParsedUsfmDocument(usj);
-    const filtered: ParsedUsfmDocument["chapters"] = {};
+    const chapters: ParsedUsfmDocument["chapters"] = {};
+    let currentChapter = 0;
 
-    for (const [chapterNum, tokens] of Object.entries(parsed.chapters)) {
-        if (chapterNum !== "0") {
-            filtered[Number(chapterNum)] = tokens;
-            continue;
-        }
-
-        // parseUsfmChapter() is synthesized as `\id BOOK\n{chapterUsfm}`.
-        // Never leak synthetic `\id`/book-code tokens back to app flows.
-        const chapterTokens = tokens.filter(
-            (token) => token.marker !== "id" && token.tokenType !== "bookCode",
-        );
-        if (chapterTokens.length > 0) {
-            filtered[0] = chapterTokens;
-        }
+    for (const token of tokens) {
+        currentChapter = chapterFromToken(token, currentChapter);
+        chapters[currentChapter] ??= [];
+        chapters[currentChapter].push(flatTokenToParsedToken(token));
     }
 
-    return {
-        chapters: filtered,
-        lintErrors: parsed.lintErrors,
-    };
+    return { chapters, lintErrors: [] };
 }
 
 export function defaultIntoTokensOptions() {

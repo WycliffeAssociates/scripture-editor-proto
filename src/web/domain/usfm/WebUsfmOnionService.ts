@@ -6,7 +6,7 @@ import {
     defaultBuildSidBlocksOptions,
     defaultProjectUsfmOptions,
     defaultTokenLintOptions,
-    parseChapterDocumentFromUsj,
+    parseChapterDocumentFromTokens,
     toOnionFlatTokens,
 } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -30,7 +30,6 @@ import type {
     TokenScopeItem,
     TokenTransformResult,
     UsfmMarkerCatalog,
-    UsjDocument,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 class UnsupportedError extends Error {
@@ -474,17 +473,6 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         };
     }
 
-    private async projectUsj(source: string): Promise<UsjDocument> {
-        return timeInDevAsync(async () => {
-            const wasm = onion;
-            const parsed = wasm.parseContent({
-                source,
-                format: "usfm",
-            });
-            return wasm.intoUsj(parsed) as unknown as UsjDocument;
-        }, "web:projectUsj");
-    }
-
     private async lintTokenBatches(
         tokenBatches: Array<Array<LintableToken | FlatToken>>,
         options: TokenLintOptions = defaultTokenLintOptions(),
@@ -603,9 +591,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         const synthetic = hasExplicitChapter
             ? `\\id ${bookCode}\n${chapterUsfm}`
             : `\\id ${bookCode}\n\\c ${syntheticChapter}\n${chapterUsfm}`;
-        const parsed = parseChapterDocumentFromUsj(
-            await this.projectUsj(synthetic),
-        );
+        const projected = await this.projectUsfm(synthetic, {
+            lintOptions: null,
+        });
+        const parsed = parseChapterDocumentFromTokens(projected.tokens);
         return hasExplicitChapter
             ? parsed
             : stripSyntheticChapterTokens(parsed, bookCode, syntheticChapter);

@@ -12,7 +12,7 @@ const { groupFlatTokensByChapterMock } = vi.hoisted(() => ({
     })),
 }));
 
-vi.mock("@/app/domain/editor/serialization/usjToLexical.ts", () => ({
+vi.mock("@/app/domain/editor/serialization/flatTokensByChapter.ts", () => ({
     groupFlatTokensByChapter: groupFlatTokensByChapterMock,
 }));
 

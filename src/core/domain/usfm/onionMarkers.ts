@@ -124,10 +124,6 @@ export function initializeUsfmMarkerCatalog(catalog: UsfmMarkerCatalog) {
     registry = buildRegistry(catalog);
 }
 
-export function resetUsfmMarkerCatalogForTests() {
-    registry = null;
-}
-
 export const VALID_NOTE_MARKERS = createReadonlySet(
     () => requireRegistry().validNoteMarkers,
 );

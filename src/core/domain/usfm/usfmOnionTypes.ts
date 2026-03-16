@@ -1,16 +1,10 @@
 import type {
-    AstDocument as OnionAstDocument,
-    AstElement as OnionAstElement,
-    AstNode as OnionAstNode,
     BatchExecutionOptions as OnionBatchExecutionOptions,
     BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
     FormatOptions as OnionFormatOptions,
     IntoTokensOptions as OnionIntoTokensOptions,
     Span as OnionSpan,
     TokenFix as OnionTokenFix,
-    UsjDocument as OnionUsjDocument,
-    UsjElement as OnionUsjElement,
-    UsjNode as OnionUsjNode,
 } from "usfm-onion-web";
 import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import type { LegacyLintError as LintError } from "@/core/domain/usfm/legacyTokenTypes.ts";
@@ -118,12 +112,6 @@ export type UsfmMarkerCatalog = {
 };
 
 export type FormatOptions = OnionFormatOptions;
-export type AstDocument = OnionAstDocument;
-export type AstNode = OnionAstNode;
-export type AstElement = OnionAstElement;
-export type UsjDocument = OnionUsjDocument;
-export type UsjNode = OnionUsjNode;
-export type UsjElement = OnionUsjElement;
 
 export type TokenTransformChange = {
     kind: string;

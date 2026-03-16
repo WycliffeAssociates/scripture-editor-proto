@@ -1,6 +1,6 @@
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
-import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/usjToLexical.ts";
+import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
     onionFlatTokensToEditorState,
     onionFlatTokensToLoadedEditorState,

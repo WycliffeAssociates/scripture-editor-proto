@@ -3,30 +3,26 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::ops::Range;
 use std::path::Path;
-use usfm3_v2 as onion;
-use onion::ast::AstDocument;
-use onion::convert::{from_usj, from_usx, into_usj, into_usx, into_vref};
+use usfm_onion as onion;
 use onion::diff::{
-    apply_revert_by_block_id, diff_tokens, diff_usfm, diff_usfm_by_chapter, BuildSidBlocksOptions,
-    ChapterTokenDiff, DiffStatus, DiffTokenChange, DiffUndoSide, TokenAlignment,
+    apply_revert_by_block_id, diff_tokens, diff_usfm, BuildSidBlocksOptions, ChapterTokenDiff,
+    DiffStatus, DiffTokenChange, DiffUndoSide, TokenAlignment,
 };
 use onion::format::{
-    apply_token_fixes, format_flat_token_batches_with_options, format_flat_tokens_with_options,
-    format_usfm_sources_with_options, FormatOptions, SkippedTokenTransform, TokenFix,
-    TokenTemplate, TokenTransformChange, TokenTransformKind, TokenTransformResult,
-    TokenTransformSkipReason,
+    apply_token_fixes, format_flat_token_batches_with_options, format_usfm_sources_with_options,
+    FormatOptions, SkippedTokenTransform, TokenFix, TokenTemplate, TokenTransformChange,
+    TokenTransformKind, TokenTransformResult, TokenTransformSkipReason,
 };
 use onion::lint::{
-    lint_document, lint_flat_token_batches, lint_flat_tokens, lint_usfm_sources, LintCode,
-    LintIssue, LintOptions, LintSuppression, LintableToken, TokenLintOptions,
+    lint_flat_token_batches, lint_flat_tokens, lint_usfm_sources, LintCode, LintIssue,
+    LintOptions, LintSuppression, TokenLintOptions,
 };
 use onion::model::{
     BatchExecutionOptions, Token, TokenKind, TokenViewOptions, WhitespacePolicy,
 };
 use onion::parse::{
-    into_tokens, parse, project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
+    project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
 };
-use onion::model::UsjDocument;
 use onion::markers;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -185,7 +181,6 @@ pub struct LintIssueDto {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
-    pub ast: AstDocument,
     pub lint_issues: Option<Vec<LintIssueDto>>,
 }
 
@@ -255,21 +250,6 @@ pub struct TokenTransformResultDto {
     pub tokens: Vec<FlatTokenDto>,
     pub applied_changes: Vec<TokenTransformChangeDto>,
     pub skipped_changes: Vec<SkippedTokenTransformDto>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChapterDiffEntryDto {
-    pub book_code: String,
-    pub chapter_num: u32,
-    pub diffs: Vec<DiffDto>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VrefEntryDto {
-    pub reference: String,
-    pub text: String,
 }
 
 fn default_true() -> bool {
@@ -790,32 +770,6 @@ fn map_lint_options(options: Option<LintOptionsDto>) -> LintOptions {
 }
 
 #[tauri::command]
-pub fn usfm_onion_tokens_from_usfm(
-    source: String,
-    options: Option<IntoTokensOptionsDto>,
-) -> Result<Vec<FlatTokenDto>, String> {
-    let document = parse(&source);
-    let tokens = into_tokens(
-        &document,
-        options
-            .map(map_whitespace_policy)
-            .unwrap_or_else(|| IntoTokensOptions {
-                merge_horizontal_whitespace: false,
-            }),
-    );
-    Ok(tokens.into_iter().map(map_core_token).collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_tokens_from_path(
-    path: String,
-    options: Option<IntoTokensOptionsDto>,
-) -> Result<Vec<FlatTokenDto>, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_tokens_from_usfm(source, options)
-}
-
-#[tauri::command]
 pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
     let all_markers = markers::all_markers();
     MarkerCatalogDto {
@@ -866,20 +820,10 @@ pub fn usfm_onion_project_usfm(
 
     Ok(ProjectedUsfmDocumentDto {
         tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-        ast: projection.document_tree,
         lint_issues: projection
             .lint_issues
             .map(|issues| issues.into_iter().map(map_issue).collect()),
     })
-}
-
-#[tauri::command]
-pub fn usfm_onion_project_path(
-    path: String,
-    options: Option<ProjectUsfmOptionsDto>,
-) -> Result<ProjectedUsfmDocumentDto, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_project_usfm(source, options)
 }
 
 #[tauri::command]
@@ -904,30 +848,11 @@ pub fn usfm_onion_project_paths(
         .into_iter()
         .map(|projection| ProjectedUsfmDocumentDto {
             tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-            ast: projection.document_tree,
             lint_issues: projection
                 .lint_issues
                 .map(|issues| issues.into_iter().map(map_issue).collect()),
         })
         .collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_lint_usfm(
-    source: String,
-    options: Option<LintOptionsDto>,
-) -> Result<Vec<LintIssueDto>, String> {
-    let issues = lint_document(&parse(&source), map_lint_options(options));
-    Ok(issues.into_iter().map(map_issue).collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_lint_path(
-    path: String,
-    options: Option<LintOptionsDto>,
-) -> Result<Vec<LintIssueDto>, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_lint_usfm(source, options)
 }
 
 #[tauri::command]
@@ -980,18 +905,6 @@ pub fn usfm_onion_lint_token_batches(
 }
 
 #[tauri::command]
-pub fn usfm_onion_format_tokens(
-    tokens: Vec<FlatTokenDto>,
-    options: Option<FormatOptionsDto>,
-) -> Result<TokenTransformResultDto, String> {
-    let tokens = parse_core_flat_tokens(tokens);
-    Ok(map_transform_result(format_flat_tokens_with_options(
-        &tokens,
-        map_format_options(options),
-    )))
-}
-
-#[tauri::command]
 pub fn usfm_onion_format_token_batches(
     token_batches: Vec<Vec<FlatTokenDto>>,
     options: Option<FormatOptionsDto>,
@@ -1040,77 +953,6 @@ pub fn usfm_onion_apply_token_fixes(
     Ok(map_transform_result(apply_token_fixes(
         &tokens, &fixes,
     )))
-}
-
-#[tauri::command]
-pub fn usfm_onion_diff_usfm(
-    baseline_usfm: String,
-    current_usfm: String,
-    token_options: Option<IntoTokensOptionsDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<DiffDto>, String> {
-    let diffs = diff_usfm(
-        &baseline_usfm,
-        &current_usfm,
-        &map_token_view_options(token_options),
-        &BuildSidBlocksOptions {
-            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-        },
-    );
-    Ok(diffs.into_iter().map(map_diff).collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_diff_paths(
-    baseline_path: String,
-    current_path: String,
-    token_options: Option<IntoTokensOptionsDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<DiffDto>, String> {
-    let baseline_usfm = read_usfm_source_from_path(&baseline_path)?;
-    let current_usfm = read_usfm_source_from_path(&current_path)?;
-    usfm_onion_diff_usfm(baseline_usfm, current_usfm, token_options, build_options)
-}
-
-#[tauri::command]
-pub fn usfm_onion_diff_usfm_by_chapter(
-    baseline_usfm: String,
-    current_usfm: String,
-    token_options: Option<IntoTokensOptionsDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<ChapterDiffEntryDto>, String> {
-    let map = diff_usfm_by_chapter(
-        &baseline_usfm,
-        &current_usfm,
-        &map_token_view_options(token_options),
-        &BuildSidBlocksOptions {
-            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-        },
-    );
-
-    let mut entries = Vec::new();
-    for (book_code, chapters) in map {
-        for (chapter_num, diffs) in chapters {
-            entries.push(ChapterDiffEntryDto {
-                book_code: book_code.clone(),
-                chapter_num,
-                diffs: diffs.into_iter().map(map_diff).collect(),
-            });
-        }
-    }
-    Ok(entries)
-}
-
-#[tauri::command]
-pub fn usfm_onion_diff_paths_by_chapter(
-    baseline_path: String,
-    current_path: String,
-    token_options: Option<IntoTokensOptionsDto>,
-    build_options: Option<BuildSidBlocksOptionsDto>,
-) -> Result<Vec<ChapterDiffEntryDto>, String> {
-    let baseline_usfm = read_usfm_source_from_path(&baseline_path)?;
-    let current_usfm = read_usfm_source_from_path(&current_path)?;
-    usfm_onion_diff_usfm_by_chapter(baseline_usfm, current_usfm, token_options, build_options)
 }
 
 #[tauri::command]
@@ -1184,393 +1026,4 @@ pub fn usfm_onion_revert_diff_block(
     .into_iter()
     .map(map_core_token)
     .collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usj(source: String) -> Result<UsjDocument, String> {
-    let document = parse(&source);
-    Ok(into_usj(&document))
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usj_path(path: String) -> Result<UsjDocument, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_to_usj(source)
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usj_paths(
-    paths: Vec<String>,
-    batch_options: Option<BatchExecutionOptionsDto>,
-) -> Result<Vec<UsjDocument>, String> {
-    let map_usj = |path: String| -> Result<UsjDocument, String> {
-        let source = read_usfm_source_from_path(&path)?;
-        usfm_onion_to_usj(source)
-    };
-    if should_parallelize(batch_options) {
-        paths.into_par_iter().map(map_usj).collect()
-    } else {
-        paths.into_iter().map(map_usj).collect()
-    }
-}
-
-#[tauri::command]
-pub fn usfm_onion_from_usj(document: UsjDocument) -> Result<String, String> {
-    from_usj(&document).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usx(source: String) -> Result<String, String> {
-    let document = parse(&source);
-    into_usx(&document).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usx_path(path: String) -> Result<String, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_to_usx(source)
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_usx_paths(
-    paths: Vec<String>,
-    batch_options: Option<BatchExecutionOptionsDto>,
-) -> Result<Vec<String>, String> {
-    let map_usx = |path: String| -> Result<String, String> {
-        let source = read_usfm_source_from_path(&path)?;
-        usfm_onion_to_usx(source)
-    };
-    if should_parallelize(batch_options) {
-        paths.into_par_iter().map(map_usx).collect()
-    } else {
-        paths.into_iter().map(map_usx).collect()
-    }
-}
-
-#[tauri::command]
-pub fn usfm_onion_from_usx(value: String) -> Result<String, String> {
-    from_usx(&value).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_vref(source: String) -> Result<Vec<VrefEntryDto>, String> {
-    let document = parse(&source);
-    Ok(into_vref(&document)
-        .into_iter()
-        .map(|(reference, text)| VrefEntryDto { reference, text })
-        .collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_vref_path(path: String) -> Result<Vec<VrefEntryDto>, String> {
-    let source = read_usfm_source_from_path(&path)?;
-    usfm_onion_to_vref(source)
-}
-
-#[tauri::command]
-pub fn usfm_onion_to_vref_paths(
-    paths: Vec<String>,
-    batch_options: Option<BatchExecutionOptionsDto>,
-) -> Result<Vec<Vec<VrefEntryDto>>, String> {
-    let map_vref = |path: String| -> Result<Vec<VrefEntryDto>, String> {
-        let source = read_usfm_source_from_path(&path)?;
-        usfm_onion_to_vref(source)
-    };
-    if should_parallelize(batch_options) {
-        paths.into_par_iter().map(map_vref).collect()
-    } else {
-        paths.into_iter().map(map_vref).collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_file_path(suffix: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after unix epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!("usfm_onion_{nanos}_{suffix}"))
-    }
-
-    fn write_temp_utf8(contents: &str) -> PathBuf {
-        let path = temp_file_path("fixture.usfm");
-        fs::write(&path, contents.as_bytes()).expect("should write fixture file");
-        path
-    }
-
-    #[test]
-    fn read_path_accepts_absolute_file() {
-        let path = write_temp_utf8("\\id TST Test\n");
-        let result = read_usfm_source_from_path(path.to_string_lossy().as_ref());
-        assert_eq!(
-            result.expect("should read absolute path"),
-            "\\id TST Test\n"
-        );
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn read_path_rejects_relative_path() {
-        let result = read_usfm_source_from_path("relative/path.usfm");
-        assert_eq!(result, Err("path must be absolute".to_string()));
-    }
-
-    #[test]
-    fn read_path_rejects_missing_file() {
-        let missing_path = temp_file_path("missing.usfm");
-        let result = read_usfm_source_from_path(missing_path.to_string_lossy().as_ref());
-        assert_eq!(result, Err("file not found".to_string()));
-    }
-
-    #[test]
-    fn read_path_rejects_directory() {
-        let dir = std::env::temp_dir();
-        let result = read_usfm_source_from_path(dir.to_string_lossy().as_ref());
-        assert_eq!(result, Err("path is not a file".to_string()));
-    }
-
-    #[test]
-    fn read_path_rejects_non_utf8_file() {
-        let path = temp_file_path("non_utf8.usfm");
-        fs::write(&path, [0xff, 0xfe]).expect("should write non-utf8 bytes");
-        let result = read_usfm_source_from_path(path.to_string_lossy().as_ref());
-        assert_eq!(result, Err("failed to decode utf-8".to_string()));
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn path_commands_match_source_commands() {
-        let baseline = "\\id GEN Baseline\n\\c 1\n\\p\n\\v 1 In the beginning.\n";
-        let current = "\\id GEN Baseline\n\\c 1\n\\p\n\\v 1 In the very beginning.\n";
-        let baseline_path = write_temp_utf8(baseline);
-        let current_path = write_temp_utf8(current);
-        let baseline_path_str = baseline_path.to_string_lossy().to_string();
-        let current_path_str = current_path.to_string_lossy().to_string();
-
-        let project_from_source =
-            usfm_onion_project_usfm(baseline.to_string(), None).expect("project from source");
-        let project_from_path =
-            usfm_onion_project_path(baseline_path_str.clone(), None).expect("project from path");
-        let project_batch_from_path = usfm_onion_project_paths(
-            vec![baseline_path_str.clone()],
-            None,
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("batch project from path");
-        assert_eq!(
-            serde_json::to_value(&project_from_path).expect("path projection json"),
-            serde_json::to_value(&project_from_source).expect("source projection json")
-        );
-        assert_eq!(
-            serde_json::to_value(project_batch_from_path).expect("batch path projection json"),
-            serde_json::to_value(vec![project_from_source]).expect("single source projection json")
-        );
-
-        let tokens_from_source =
-            usfm_onion_tokens_from_usfm(baseline.to_string(), None).expect("tokens from source");
-        let tokens_from_path =
-            usfm_onion_tokens_from_path(baseline_path_str.clone(), None).expect("tokens from path");
-        assert_eq!(
-            serde_json::to_value(tokens_from_path).expect("path tokens json"),
-            serde_json::to_value(tokens_from_source).expect("source tokens json")
-        );
-
-        let lint_from_source =
-            usfm_onion_lint_usfm(baseline.to_string(), None).expect("lint from source");
-        let lint_from_path =
-            usfm_onion_lint_path(baseline_path_str.clone(), None).expect("lint from path");
-        let lint_batch_from_path = usfm_onion_lint_paths(
-            vec![baseline_path_str.clone()],
-            None,
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("lint batch from path");
-        assert_eq!(
-            serde_json::to_value(lint_from_path).expect("path lint json"),
-            serde_json::to_value(lint_from_source).expect("source lint json")
-        );
-        assert_eq!(
-            serde_json::to_value(lint_batch_from_path).expect("path lint batch json"),
-            serde_json::to_value(vec![
-                usfm_onion_lint_usfm(baseline.to_string(), None).expect("lint source expected")
-            ])
-            .expect("source lint batch json")
-        );
-
-        let format_batch_from_path = usfm_onion_format_paths(
-            vec![baseline_path_str.clone()],
-            Some(IntoTokensOptionsDto {
-                merge_horizontal_whitespace: true,
-            }),
-            Some(FormatOptionsDto::default()),
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("format batch from path");
-        let format_expected = usfm_onion_format_tokens(
-            usfm_onion_tokens_from_usfm(
-                baseline.to_string(),
-                Some(IntoTokensOptionsDto {
-                    merge_horizontal_whitespace: true,
-                }),
-            )
-            .expect("tokens source for format expected"),
-            Some(FormatOptionsDto::default()),
-        )
-        .expect("format source expected");
-        assert_eq!(
-            serde_json::to_value(format_batch_from_path).expect("path format batch json"),
-            serde_json::to_value(vec![format_expected]).expect("source format batch json")
-        );
-
-        let usj_from_source = usfm_onion_to_usj(baseline.to_string()).expect("usj from source");
-        let usj_from_path =
-            usfm_onion_to_usj_path(baseline_path_str.clone()).expect("usj from path");
-        let usj_batch_from_path = usfm_onion_to_usj_paths(
-            vec![baseline_path_str.clone()],
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("usj batch from path");
-        assert_eq!(
-            serde_json::to_value(usj_from_path).expect("path usj json"),
-            serde_json::to_value(usj_from_source).expect("source usj json")
-        );
-        assert_eq!(
-            serde_json::to_value(usj_batch_from_path).expect("path usj batch json"),
-            serde_json::to_value(vec![
-                usfm_onion_to_usj(baseline.to_string()).expect("usj source expected")
-            ])
-            .expect("source usj batch json")
-        );
-
-        let usx_from_source = usfm_onion_to_usx(baseline.to_string()).expect("usx from source");
-        let usx_from_path =
-            usfm_onion_to_usx_path(baseline_path_str.clone()).expect("usx from path");
-        let usx_batch_from_path = usfm_onion_to_usx_paths(
-            vec![baseline_path_str.clone()],
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("usx batch from path");
-        assert_eq!(usx_from_path, usx_from_source);
-        assert_eq!(
-            serde_json::to_value(usx_batch_from_path).expect("path usx batch json"),
-            serde_json::to_value(vec![
-                usfm_onion_to_usx(baseline.to_string()).expect("usx source expected")
-            ])
-            .expect("source usx batch json")
-        );
-
-        let vref_from_source = usfm_onion_to_vref(baseline.to_string()).expect("vref from source");
-        let vref_from_path =
-            usfm_onion_to_vref_path(baseline_path_str.clone()).expect("vref from path");
-        let vref_batch_from_path = usfm_onion_to_vref_paths(
-            vec![baseline_path_str.clone()],
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("vref batch from path");
-        assert_eq!(
-            serde_json::to_value(vref_from_path).expect("path vref json"),
-            serde_json::to_value(vref_from_source).expect("source vref json")
-        );
-        assert_eq!(
-            serde_json::to_value(vref_batch_from_path).expect("path vref batch json"),
-            serde_json::to_value(vec![
-                usfm_onion_to_vref(baseline.to_string()).expect("vref source expected")
-            ])
-            .expect("source vref batch json")
-        );
-
-        let diff_from_source =
-            usfm_onion_diff_usfm(baseline.to_string(), current.to_string(), None, None)
-                .expect("diff from source");
-        let diff_from_path = usfm_onion_diff_paths(
-            baseline_path_str.clone(),
-            current_path_str.clone(),
-            None,
-            None,
-        )
-        .expect("diff from path");
-        assert_eq!(
-            serde_json::to_value(diff_from_path).expect("path diff json"),
-            serde_json::to_value(diff_from_source).expect("source diff json")
-        );
-
-        let diff_batch_from_path_pairs = usfm_onion_diff_path_pairs(
-            vec![DiffPathPairDto {
-                baseline_path: baseline_path_str.clone(),
-                current_path: current_path_str.clone(),
-            }],
-            None,
-            None,
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("diff path pairs");
-        assert_eq!(
-            serde_json::to_value(diff_batch_from_path_pairs).expect("path diff pair json"),
-            serde_json::to_value(vec![usfm_onion_diff_usfm(
-                baseline.to_string(),
-                current.to_string(),
-                None,
-                None,
-            )
-            .expect("source diff pair expected")])
-            .expect("source diff pair json")
-        );
-
-        let diff_by_chapter_from_source =
-            usfm_onion_diff_usfm_by_chapter(baseline.to_string(), current.to_string(), None, None)
-                .expect("diff by chapter from source");
-        let diff_by_chapter_from_path =
-            usfm_onion_diff_paths_by_chapter(baseline_path_str, current_path_str, None, None)
-                .expect("diff by chapter from path");
-        assert_eq!(
-            serde_json::to_value(diff_by_chapter_from_path).expect("path chapter diff json"),
-            serde_json::to_value(diff_by_chapter_from_source).expect("source chapter diff json")
-        );
-
-        let _ = fs::remove_file(baseline_path);
-        let _ = fs::remove_file(current_path);
-    }
-
-    #[test]
-    fn token_batch_commands_match_single_token_commands() {
-        let source_a = "\\id GEN Test\n\\c 1\n\\p\n\\v 1 In the beginning.\n";
-        let source_b = "\\id GEN Test\n\\c 1\n\\p\n\\v 1 In the very beginning.\n";
-        let tokens_a =
-            usfm_onion_tokens_from_usfm(source_a.to_string(), None).expect("tokens A from source");
-        let tokens_b =
-            usfm_onion_tokens_from_usfm(source_b.to_string(), None).expect("tokens B from source");
-
-        let lint_batch = usfm_onion_lint_token_batches(
-            vec![tokens_a.clone(), tokens_b.clone()],
-            None,
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("lint token batches");
-        let lint_a = usfm_onion_lint_tokens(tokens_a.clone(), None).expect("lint tokens A");
-        let lint_b = usfm_onion_lint_tokens(tokens_b.clone(), None).expect("lint tokens B");
-        assert_eq!(
-            serde_json::to_value(lint_batch).expect("lint batch json"),
-            serde_json::to_value(vec![lint_a, lint_b]).expect("lint single json")
-        );
-
-        let format_options = Some(FormatOptionsDto::default());
-        let format_batch = usfm_onion_format_token_batches(
-            vec![tokens_a.clone(), tokens_b.clone()],
-            format_options.clone(),
-            Some(BatchExecutionOptionsDto { parallel: false }),
-        )
-        .expect("format token batches");
-        let format_a =
-            usfm_onion_format_tokens(tokens_a, format_options.clone()).expect("format tokens A");
-        let format_b = usfm_onion_format_tokens(tokens_b, format_options).expect("format tokens B");
-        assert_eq!(
-            serde_json::to_value(format_batch).expect("format batch json"),
-            serde_json::to_value(vec![format_a, format_b]).expect("format single json")
-        );
-    }
 }

@@ -1,0 +1,1970 @@
+{
+  "type": "CST",
+  "book_code": "2JN",
+  "recoveries": [],
+  "tokens": [
+    {
+      "id": "2JN-0",
+      "kind": "Marker",
+      "span": { "start": 0, "end": 4 },
+      "sid": "2JN 0:0",
+      "marker": "id",
+      "text": "\\id "
+    },
+    {
+      "id": "2JN-1",
+      "kind": "BookCode",
+      "span": { "start": 4, "end": 7 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "2JN"
+    },
+    {
+      "id": "2JN-2",
+      "kind": "Text",
+      "span": { "start": 7, "end": 31 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": " - Berean Standard Bible"
+    },
+    {
+      "id": "2JN-3",
+      "kind": "Newline",
+      "span": { "start": 31, "end": 32 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-4",
+      "kind": "Marker",
+      "span": { "start": 32, "end": 35 },
+      "sid": "2JN 0:0",
+      "marker": "h",
+      "text": "\\h "
+    },
+    {
+      "id": "2JN-5",
+      "kind": "Text",
+      "span": { "start": 35, "end": 41 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "2 John"
+    },
+    {
+      "id": "2JN-6",
+      "kind": "Newline",
+      "span": { "start": 41, "end": 42 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-7",
+      "kind": "Marker",
+      "span": { "start": 42, "end": 48 },
+      "sid": "2JN 0:0",
+      "marker": "toc2",
+      "text": "\\toc2 "
+    },
+    {
+      "id": "2JN-8",
+      "kind": "Text",
+      "span": { "start": 48, "end": 54 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "2 John"
+    },
+    {
+      "id": "2JN-9",
+      "kind": "Newline",
+      "span": { "start": 54, "end": 55 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-10",
+      "kind": "Marker",
+      "span": { "start": 55, "end": 61 },
+      "sid": "2JN 0:0",
+      "marker": "toc1",
+      "text": "\\toc1 "
+    },
+    {
+      "id": "2JN-11",
+      "kind": "Text",
+      "span": { "start": 61, "end": 67 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "2 John"
+    },
+    {
+      "id": "2JN-12",
+      "kind": "Newline",
+      "span": { "start": 67, "end": 68 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-13",
+      "kind": "Marker",
+      "span": { "start": 68, "end": 73 },
+      "sid": "2JN 0:0",
+      "marker": "mt1",
+      "text": "\\mt1 "
+    },
+    {
+      "id": "2JN-14",
+      "kind": "Text",
+      "span": { "start": 73, "end": 79 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "2 John"
+    },
+    {
+      "id": "2JN-15",
+      "kind": "Newline",
+      "span": { "start": 79, "end": 80 },
+      "sid": "2JN 0:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-16",
+      "kind": "Marker",
+      "span": { "start": 80, "end": 83 },
+      "sid": "2JN 1:0",
+      "marker": "c",
+      "text": "\\c "
+    },
+    {
+      "id": "2JN-17",
+      "kind": "Number",
+      "span": { "start": 83, "end": 84 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "1"
+    },
+    {
+      "id": "2JN-18",
+      "kind": "Newline",
+      "span": { "start": 84, "end": 85 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-19",
+      "kind": "Marker",
+      "span": { "start": 85, "end": 89 },
+      "sid": "2JN 1:0",
+      "marker": "s1",
+      "text": "\\s1 "
+    },
+    {
+      "id": "2JN-20",
+      "kind": "Text",
+      "span": { "start": 89, "end": 114 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "A Greeting from the Elder"
+    },
+    {
+      "id": "2JN-21",
+      "kind": "Newline",
+      "span": { "start": 114, "end": 115 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-22",
+      "kind": "Marker",
+      "span": { "start": 115, "end": 118 },
+      "sid": "2JN 1:0",
+      "marker": "r",
+      "text": "\\r "
+    },
+    {
+      "id": "2JN-23",
+      "kind": "Text",
+      "span": { "start": 118, "end": 134 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "(3 John 1:1–4)"
+    },
+    {
+      "id": "2JN-24",
+      "kind": "Newline",
+      "span": { "start": 134, "end": 135 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-25",
+      "kind": "Marker",
+      "span": { "start": 135, "end": 137 },
+      "sid": "2JN 1:0",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-26",
+      "kind": "Newline",
+      "span": { "start": 137, "end": 138 },
+      "sid": "2JN 1:0",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-27",
+      "kind": "Marker",
+      "span": { "start": 138, "end": 141 },
+      "sid": "2JN 1:1",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-28",
+      "kind": "Number",
+      "span": { "start": 141, "end": 142 },
+      "sid": "2JN 1:1",
+      "marker": null,
+      "text": "1"
+    },
+    {
+      "id": "2JN-29",
+      "kind": "Text",
+      "span": { "start": 142, "end": 153 },
+      "sid": "2JN 1:1",
+      "marker": null,
+      "text": " The elder,"
+    },
+    {
+      "id": "2JN-30",
+      "kind": "Newline",
+      "span": { "start": 153, "end": 154 },
+      "sid": "2JN 1:1",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-31",
+      "kind": "Marker",
+      "span": { "start": 154, "end": 157 },
+      "sid": "2JN 1:1",
+      "marker": "p",
+      "text": "\\p "
+    },
+    {
+      "id": "2JN-32",
+      "kind": "Text",
+      "span": { "start": 157, "end": 272 },
+      "sid": "2JN 1:1",
+      "marker": null,
+      "text": "To the chosen lady and her children, whom I love in the truth—and not I alone, but also all who know the truth—"
+    },
+    {
+      "id": "2JN-33",
+      "kind": "Newline",
+      "span": { "start": 272, "end": 273 },
+      "sid": "2JN 1:1",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-34",
+      "kind": "Marker",
+      "span": { "start": 273, "end": 276 },
+      "sid": "2JN 1:2",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-35",
+      "kind": "Number",
+      "span": { "start": 276, "end": 277 },
+      "sid": "2JN 1:2",
+      "marker": null,
+      "text": "2"
+    },
+    {
+      "id": "2JN-36",
+      "kind": "Text",
+      "span": { "start": 277, "end": 345 },
+      "sid": "2JN 1:2",
+      "marker": null,
+      "text": " because of the truth that abides in us and will be with us forever:"
+    },
+    {
+      "id": "2JN-37",
+      "kind": "Newline",
+      "span": { "start": 345, "end": 346 },
+      "sid": "2JN 1:2",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-38",
+      "kind": "Marker",
+      "span": { "start": 346, "end": 348 },
+      "sid": "2JN 1:2",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-39",
+      "kind": "Newline",
+      "span": { "start": 348, "end": 349 },
+      "sid": "2JN 1:2",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-40",
+      "kind": "Marker",
+      "span": { "start": 349, "end": 352 },
+      "sid": "2JN 1:3",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-41",
+      "kind": "Number",
+      "span": { "start": 352, "end": 353 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "3"
+    },
+    {
+      "id": "2JN-42",
+      "kind": "Text",
+      "span": { "start": 353, "end": 478 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": " Grace, mercy, and peace from God the Father and from Jesus Christ, the Son of the Father, will be with us in truth and love."
+    },
+    {
+      "id": "2JN-43",
+      "kind": "Newline",
+      "span": { "start": 478, "end": 479 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-44",
+      "kind": "Marker",
+      "span": { "start": 479, "end": 483 },
+      "sid": "2JN 1:3",
+      "marker": "s1",
+      "text": "\\s1 "
+    },
+    {
+      "id": "2JN-45",
+      "kind": "Text",
+      "span": { "start": 483, "end": 503 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "Walking in the Truth"
+    },
+    {
+      "id": "2JN-46",
+      "kind": "Newline",
+      "span": { "start": 503, "end": 504 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-47",
+      "kind": "Marker",
+      "span": { "start": 504, "end": 507 },
+      "sid": "2JN 1:3",
+      "marker": "r",
+      "text": "\\r "
+    },
+    {
+      "id": "2JN-48",
+      "kind": "Text",
+      "span": { "start": 507, "end": 523 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "(John 8:30–47)"
+    },
+    {
+      "id": "2JN-49",
+      "kind": "Newline",
+      "span": { "start": 523, "end": 524 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-50",
+      "kind": "Marker",
+      "span": { "start": 524, "end": 526 },
+      "sid": "2JN 1:3",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-51",
+      "kind": "Newline",
+      "span": { "start": 526, "end": 527 },
+      "sid": "2JN 1:3",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-52",
+      "kind": "Marker",
+      "span": { "start": 527, "end": 530 },
+      "sid": "2JN 1:4",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-53",
+      "kind": "Number",
+      "span": { "start": 530, "end": 531 },
+      "sid": "2JN 1:4",
+      "marker": null,
+      "text": "4"
+    },
+    {
+      "id": "2JN-54",
+      "kind": "Text",
+      "span": { "start": 531, "end": 636 },
+      "sid": "2JN 1:4",
+      "marker": null,
+      "text": " I was overjoyed to find some of your children walking in the truth, just as the Father has commanded us."
+    },
+    {
+      "id": "2JN-55",
+      "kind": "Newline",
+      "span": { "start": 636, "end": 637 },
+      "sid": "2JN 1:4",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-56",
+      "kind": "Marker",
+      "span": { "start": 637, "end": 640 },
+      "sid": "2JN 1:5",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-57",
+      "kind": "Number",
+      "span": { "start": 640, "end": 641 },
+      "sid": "2JN 1:5",
+      "marker": null,
+      "text": "5"
+    },
+    {
+      "id": "2JN-58",
+      "kind": "Text",
+      "span": { "start": 641, "end": 773 },
+      "sid": "2JN 1:5",
+      "marker": null,
+      "text": " And now I urge you, dear lady—not as a new commandment to you, but one we have had from the beginning—that we love one another."
+    },
+    {
+      "id": "2JN-59",
+      "kind": "Newline",
+      "span": { "start": 773, "end": 774 },
+      "sid": "2JN 1:5",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-60",
+      "kind": "Marker",
+      "span": { "start": 774, "end": 777 },
+      "sid": "2JN 1:6",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-61",
+      "kind": "Number",
+      "span": { "start": 777, "end": 778 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": "6"
+    },
+    {
+      "id": "2JN-62",
+      "kind": "Text",
+      "span": { "start": 778, "end": 932 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": " And this is love, that we walk according to His commandments. This is the very commandment you have heard from the beginning, that you must walk in love."
+    },
+    {
+      "id": "2JN-63",
+      "kind": "Newline",
+      "span": { "start": 932, "end": 933 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-64",
+      "kind": "Marker",
+      "span": { "start": 933, "end": 937 },
+      "sid": "2JN 1:6",
+      "marker": "s1",
+      "text": "\\s1 "
+    },
+    {
+      "id": "2JN-65",
+      "kind": "Text",
+      "span": { "start": 937, "end": 956 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": "Beware of Deceivers"
+    },
+    {
+      "id": "2JN-66",
+      "kind": "Newline",
+      "span": { "start": 956, "end": 957 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-67",
+      "kind": "Marker",
+      "span": { "start": 957, "end": 959 },
+      "sid": "2JN 1:6",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-68",
+      "kind": "Newline",
+      "span": { "start": 959, "end": 960 },
+      "sid": "2JN 1:6",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-69",
+      "kind": "Marker",
+      "span": { "start": 960, "end": 963 },
+      "sid": "2JN 1:7",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-70",
+      "kind": "Number",
+      "span": { "start": 963, "end": 964 },
+      "sid": "2JN 1:7",
+      "marker": null,
+      "text": "7"
+    },
+    {
+      "id": "2JN-71",
+      "kind": "Text",
+      "span": { "start": 964, "end": 1126 },
+      "sid": "2JN 1:7",
+      "marker": null,
+      "text": " For many deceivers have gone out into the world, refusing to confess the coming of Jesus Christ in the flesh. Any such person is the deceiver and the antichrist."
+    },
+    {
+      "id": "2JN-72",
+      "kind": "Newline",
+      "span": { "start": 1126, "end": 1127 },
+      "sid": "2JN 1:7",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-73",
+      "kind": "Marker",
+      "span": { "start": 1127, "end": 1130 },
+      "sid": "2JN 1:8",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-74",
+      "kind": "Number",
+      "span": { "start": 1130, "end": 1131 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "8"
+    },
+    {
+      "id": "2JN-75",
+      "kind": "Text",
+      "span": { "start": 1131, "end": 1198 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": " Watch yourselves, so that you do not lose what we have worked for,"
+    },
+    {
+      "id": "2JN-76",
+      "kind": "Marker",
+      "span": { "start": 1198, "end": 1201 },
+      "sid": "2JN 1:8",
+      "marker": "f",
+      "text": "\\f "
+    },
+    {
+      "id": "2JN-77",
+      "kind": "Text",
+      "span": { "start": 1201, "end": 1203 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "+ "
+    },
+    {
+      "id": "2JN-78",
+      "kind": "Marker",
+      "span": { "start": 1203, "end": 1207 },
+      "sid": "2JN 1:8",
+      "marker": "fr",
+      "text": "\\fr "
+    },
+    {
+      "id": "2JN-79",
+      "kind": "Text",
+      "span": { "start": 1207, "end": 1211 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "1:8 "
+    },
+    {
+      "id": "2JN-80",
+      "kind": "Marker",
+      "span": { "start": 1211, "end": 1215 },
+      "sid": "2JN 1:8",
+      "marker": "ft",
+      "text": "\\ft "
+    },
+    {
+      "id": "2JN-81",
+      "kind": "Text",
+      "span": { "start": 1215, "end": 1249 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "NE and WH what you have worked for"
+    },
+    {
+      "id": "2JN-82",
+      "kind": "EndMarker",
+      "span": { "start": 1249, "end": 1253 },
+      "sid": "2JN 1:8",
+      "marker": "f",
+      "text": "\\f* "
+    },
+    {
+      "id": "2JN-83",
+      "kind": "Text",
+      "span": { "start": 1253, "end": 1288 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "but that you may be fully rewarded."
+    },
+    {
+      "id": "2JN-84",
+      "kind": "Newline",
+      "span": { "start": 1288, "end": 1289 },
+      "sid": "2JN 1:8",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-85",
+      "kind": "Marker",
+      "span": { "start": 1289, "end": 1292 },
+      "sid": "2JN 1:9",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-86",
+      "kind": "Number",
+      "span": { "start": 1292, "end": 1293 },
+      "sid": "2JN 1:9",
+      "marker": null,
+      "text": "9"
+    },
+    {
+      "id": "2JN-87",
+      "kind": "Text",
+      "span": { "start": 1293, "end": 1443 },
+      "sid": "2JN 1:9",
+      "marker": null,
+      "text": " Anyone who runs ahead without remaining in the teaching of Christ does not have God. Whoever remains in His teaching has both the Father and the Son."
+    },
+    {
+      "id": "2JN-88",
+      "kind": "Newline",
+      "span": { "start": 1443, "end": 1444 },
+      "sid": "2JN 1:9",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-89",
+      "kind": "Marker",
+      "span": { "start": 1444, "end": 1446 },
+      "sid": "2JN 1:9",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-90",
+      "kind": "Newline",
+      "span": { "start": 1446, "end": 1447 },
+      "sid": "2JN 1:9",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-91",
+      "kind": "Marker",
+      "span": { "start": 1447, "end": 1450 },
+      "sid": "2JN 1:10",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-92",
+      "kind": "Number",
+      "span": { "start": 1450, "end": 1452 },
+      "sid": "2JN 1:10",
+      "marker": null,
+      "text": "10"
+    },
+    {
+      "id": "2JN-93",
+      "kind": "Text",
+      "span": { "start": 1452, "end": 1562 },
+      "sid": "2JN 1:10",
+      "marker": null,
+      "text": " If anyone comes to you but does not bring this teaching, do not receive him into your home or even greet him."
+    },
+    {
+      "id": "2JN-94",
+      "kind": "Newline",
+      "span": { "start": 1562, "end": 1563 },
+      "sid": "2JN 1:10",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-95",
+      "kind": "Marker",
+      "span": { "start": 1563, "end": 1566 },
+      "sid": "2JN 1:11",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-96",
+      "kind": "Number",
+      "span": { "start": 1566, "end": 1568 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "11"
+    },
+    {
+      "id": "2JN-97",
+      "kind": "Text",
+      "span": { "start": 1568, "end": 1623 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": " Whoever greets such a person shares in his evil deeds."
+    },
+    {
+      "id": "2JN-98",
+      "kind": "Newline",
+      "span": { "start": 1623, "end": 1624 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-99",
+      "kind": "Marker",
+      "span": { "start": 1624, "end": 1628 },
+      "sid": "2JN 1:11",
+      "marker": "s1",
+      "text": "\\s1 "
+    },
+    {
+      "id": "2JN-100",
+      "kind": "Text",
+      "span": { "start": 1628, "end": 1638 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "Conclusion"
+    },
+    {
+      "id": "2JN-101",
+      "kind": "Newline",
+      "span": { "start": 1638, "end": 1639 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-102",
+      "kind": "Marker",
+      "span": { "start": 1639, "end": 1642 },
+      "sid": "2JN 1:11",
+      "marker": "r",
+      "text": "\\r "
+    },
+    {
+      "id": "2JN-103",
+      "kind": "Text",
+      "span": { "start": 1642, "end": 1660 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "(3 John 1:13–14)"
+    },
+    {
+      "id": "2JN-104",
+      "kind": "Newline",
+      "span": { "start": 1660, "end": 1661 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-105",
+      "kind": "Marker",
+      "span": { "start": 1661, "end": 1663 },
+      "sid": "2JN 1:11",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-106",
+      "kind": "Newline",
+      "span": { "start": 1663, "end": 1664 },
+      "sid": "2JN 1:11",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-107",
+      "kind": "Marker",
+      "span": { "start": 1664, "end": 1667 },
+      "sid": "2JN 1:12",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-108",
+      "kind": "Number",
+      "span": { "start": 1667, "end": 1669 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "12"
+    },
+    {
+      "id": "2JN-109",
+      "kind": "Text",
+      "span": { "start": 1669, "end": 1814 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": " I have many things to write to you, but I would prefer not to do so with paper and ink. Instead, I hope to come and speak with you face to face,"
+    },
+    {
+      "id": "2JN-110",
+      "kind": "Marker",
+      "span": { "start": 1814, "end": 1817 },
+      "sid": "2JN 1:12",
+      "marker": "f",
+      "text": "\\f "
+    },
+    {
+      "id": "2JN-111",
+      "kind": "Text",
+      "span": { "start": 1817, "end": 1819 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "+ "
+    },
+    {
+      "id": "2JN-112",
+      "kind": "Marker",
+      "span": { "start": 1819, "end": 1823 },
+      "sid": "2JN 1:12",
+      "marker": "fr",
+      "text": "\\fr "
+    },
+    {
+      "id": "2JN-113",
+      "kind": "Text",
+      "span": { "start": 1823, "end": 1828 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "1:12 "
+    },
+    {
+      "id": "2JN-114",
+      "kind": "Marker",
+      "span": { "start": 1828, "end": 1832 },
+      "sid": "2JN 1:12",
+      "marker": "ft",
+      "text": "\\ft "
+    },
+    {
+      "id": "2JN-115",
+      "kind": "Text",
+      "span": { "start": 1832, "end": 1856 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "Literally mouth to mouth"
+    },
+    {
+      "id": "2JN-116",
+      "kind": "EndMarker",
+      "span": { "start": 1856, "end": 1860 },
+      "sid": "2JN 1:12",
+      "marker": "f",
+      "text": "\\f* "
+    },
+    {
+      "id": "2JN-117",
+      "kind": "Text",
+      "span": { "start": 1860, "end": 1892 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "so that our joy may be complete."
+    },
+    {
+      "id": "2JN-118",
+      "kind": "Newline",
+      "span": { "start": 1892, "end": 1893 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-119",
+      "kind": "Marker",
+      "span": { "start": 1893, "end": 1895 },
+      "sid": "2JN 1:12",
+      "marker": "p",
+      "text": "\\p"
+    },
+    {
+      "id": "2JN-120",
+      "kind": "Newline",
+      "span": { "start": 1895, "end": 1896 },
+      "sid": "2JN 1:12",
+      "marker": null,
+      "text": "\n"
+    },
+    {
+      "id": "2JN-121",
+      "kind": "Marker",
+      "span": { "start": 1896, "end": 1899 },
+      "sid": "2JN 1:13",
+      "marker": "v",
+      "text": "\\v "
+    },
+    {
+      "id": "2JN-122",
+      "kind": "Number",
+      "span": { "start": 1899, "end": 1901 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": "13"
+    },
+    {
+      "id": "2JN-123",
+      "kind": "Text",
+      "span": { "start": 1901, "end": 1955 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": " The children of your elect sister send you greetings."
+    },
+    {
+      "id": "2JN-124",
+      "kind": "Marker",
+      "span": { "start": 1955, "end": 1958 },
+      "sid": "2JN 1:13",
+      "marker": "f",
+      "text": "\\f "
+    },
+    {
+      "id": "2JN-125",
+      "kind": "Text",
+      "span": { "start": 1958, "end": 1960 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": "+ "
+    },
+    {
+      "id": "2JN-126",
+      "kind": "Marker",
+      "span": { "start": 1960, "end": 1964 },
+      "sid": "2JN 1:13",
+      "marker": "fr",
+      "text": "\\fr "
+    },
+    {
+      "id": "2JN-127",
+      "kind": "Text",
+      "span": { "start": 1964, "end": 1969 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": "1:13 "
+    },
+    {
+      "id": "2JN-128",
+      "kind": "Marker",
+      "span": { "start": 1969, "end": 1973 },
+      "sid": "2JN 1:13",
+      "marker": "ft",
+      "text": "\\ft "
+    },
+    {
+      "id": "2JN-129",
+      "kind": "Text",
+      "span": { "start": 1973, "end": 1997 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": "BYZ and TR include Amen."
+    },
+    {
+      "id": "2JN-130",
+      "kind": "EndMarker",
+      "span": { "start": 1997, "end": 2000 },
+      "sid": "2JN 1:13",
+      "marker": "f",
+      "text": "\\f*"
+    },
+    {
+      "id": "2JN-131",
+      "kind": "Newline",
+      "span": { "start": 2000, "end": 2001 },
+      "sid": "2JN 1:13",
+      "marker": null,
+      "text": "\n"
+    }
+  ],
+  "content": [
+    {
+      "type": "container",
+      "kind": "book",
+      "marker": "id",
+      "markerToken": { "token": 0, "span": { "start": 0, "end": 3 } },
+      "closeToken": null,
+      "specialToken": { "token": 1, "span": { "start": 4, "end": 7 } },
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 0, "span": { "start": 3, "end": 4 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 2, "span": { "start": 7, "end": 31 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 3, "span": { "start": 31, "end": 32 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "h",
+      "markerToken": { "token": 4, "span": { "start": 32, "end": 34 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 4, "span": { "start": 34, "end": 35 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 5, "span": { "start": 35, "end": 41 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 6, "span": { "start": 41, "end": 42 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "toc2",
+      "markerToken": { "token": 7, "span": { "start": 42, "end": 47 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 7, "span": { "start": 47, "end": 48 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 8, "span": { "start": 48, "end": 54 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 9, "span": { "start": 54, "end": 55 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "toc1",
+      "markerToken": { "token": 10, "span": { "start": 55, "end": 60 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 10, "span": { "start": 60, "end": 61 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 11, "span": { "start": 61, "end": 67 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 12, "span": { "start": 67, "end": 68 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "mt1",
+      "markerToken": { "token": 13, "span": { "start": 68, "end": 72 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 13, "span": { "start": 72, "end": 73 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 14, "span": { "start": 73, "end": 79 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 15, "span": { "start": 79, "end": 80 } }
+        }
+      ]
+    },
+    {
+      "type": "leaf",
+      "kind": "whitespace",
+      "token": { "token": 16, "span": { "start": 82, "end": 83 } }
+    },
+    {
+      "type": "chapter",
+      "markerToken": { "token": 16, "span": { "start": 80, "end": 82 } },
+      "numberToken": { "token": 17, "span": { "start": 83, "end": 84 } }
+    },
+    {
+      "type": "leaf",
+      "kind": "newline",
+      "token": { "token": 18, "span": { "start": 84, "end": 85 } }
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "s1",
+      "markerToken": { "token": 19, "span": { "start": 85, "end": 88 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 19, "span": { "start": 88, "end": 89 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 20, "span": { "start": 89, "end": 114 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 21, "span": { "start": 114, "end": 115 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "r",
+      "markerToken": { "token": 22, "span": { "start": 115, "end": 117 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 22, "span": { "start": 117, "end": 118 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 23, "span": { "start": 118, "end": 134 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 24, "span": { "start": 134, "end": 135 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 25, "span": { "start": 135, "end": 137 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 26, "span": { "start": 137, "end": 138 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 27, "span": { "start": 140, "end": 141 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 27, "span": { "start": 138, "end": 140 } },
+          "numberToken": { "token": 28, "span": { "start": 141, "end": 142 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 29, "span": { "start": 142, "end": 153 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 30, "span": { "start": 153, "end": 154 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 31, "span": { "start": 154, "end": 156 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 31, "span": { "start": 156, "end": 157 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 32, "span": { "start": 157, "end": 272 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 33, "span": { "start": 272, "end": 273 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 34, "span": { "start": 275, "end": 276 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 34, "span": { "start": 273, "end": 275 } },
+          "numberToken": { "token": 35, "span": { "start": 276, "end": 277 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 36, "span": { "start": 277, "end": 345 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 37, "span": { "start": 345, "end": 346 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 38, "span": { "start": 346, "end": 348 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 39, "span": { "start": 348, "end": 349 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 40, "span": { "start": 351, "end": 352 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 40, "span": { "start": 349, "end": 351 } },
+          "numberToken": { "token": 41, "span": { "start": 352, "end": 353 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 42, "span": { "start": 353, "end": 478 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 43, "span": { "start": 478, "end": 479 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "s1",
+      "markerToken": { "token": 44, "span": { "start": 479, "end": 482 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 44, "span": { "start": 482, "end": 483 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 45, "span": { "start": 483, "end": 503 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 46, "span": { "start": 503, "end": 504 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "r",
+      "markerToken": { "token": 47, "span": { "start": 504, "end": 506 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 47, "span": { "start": 506, "end": 507 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 48, "span": { "start": 507, "end": 523 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 49, "span": { "start": 523, "end": 524 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 50, "span": { "start": 524, "end": 526 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 51, "span": { "start": 526, "end": 527 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 52, "span": { "start": 529, "end": 530 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 52, "span": { "start": 527, "end": 529 } },
+          "numberToken": { "token": 53, "span": { "start": 530, "end": 531 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 54, "span": { "start": 531, "end": 636 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 55, "span": { "start": 636, "end": 637 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 56, "span": { "start": 639, "end": 640 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 56, "span": { "start": 637, "end": 639 } },
+          "numberToken": { "token": 57, "span": { "start": 640, "end": 641 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 58, "span": { "start": 641, "end": 773 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 59, "span": { "start": 773, "end": 774 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 60, "span": { "start": 776, "end": 777 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 60, "span": { "start": 774, "end": 776 } },
+          "numberToken": { "token": 61, "span": { "start": 777, "end": 778 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 62, "span": { "start": 778, "end": 932 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 63, "span": { "start": 932, "end": 933 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "s1",
+      "markerToken": { "token": 64, "span": { "start": 933, "end": 936 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 64, "span": { "start": 936, "end": 937 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 65, "span": { "start": 937, "end": 956 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 66, "span": { "start": 956, "end": 957 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 67, "span": { "start": 957, "end": 959 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 68, "span": { "start": 959, "end": 960 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 69, "span": { "start": 962, "end": 963 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 69, "span": { "start": 960, "end": 962 } },
+          "numberToken": { "token": 70, "span": { "start": 963, "end": 964 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 71, "span": { "start": 964, "end": 1126 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 72, "span": { "start": 1126, "end": 1127 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 73, "span": { "start": 1129, "end": 1130 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 73, "span": { "start": 1127, "end": 1129 } },
+          "numberToken": { "token": 74, "span": { "start": 1130, "end": 1131 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 75, "span": { "start": 1131, "end": 1198 } }
+        },
+        {
+          "type": "container",
+          "kind": "note",
+          "marker": "f",
+          "markerToken": { "token": 76, "span": { "start": 1198, "end": 1200 } },
+          "closeToken": { "token": 82, "span": { "start": 1249, "end": 1252 } },
+          "specialToken": { "token": 77, "span": { "start": 1201, "end": 1202 } },
+          "children": [
+            {
+              "type": "leaf",
+              "kind": "whitespace",
+              "token": { "token": 76, "span": { "start": 1200, "end": 1201 } }
+            },
+            {
+              "type": "leaf",
+              "kind": "text",
+              "token": { "token": 77, "span": { "start": 1202, "end": 1203 } }
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "fr",
+              "markerToken": { "token": 78, "span": { "start": 1203, "end": 1206 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 78, "span": { "start": 1206, "end": 1207 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 79, "span": { "start": 1207, "end": 1211 } }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "ft",
+              "markerToken": { "token": 80, "span": { "start": 1211, "end": 1214 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 80, "span": { "start": 1214, "end": 1215 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 81, "span": { "start": 1215, "end": 1249 } }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 82, "span": { "start": 1252, "end": 1253 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 83, "span": { "start": 1253, "end": 1288 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 84, "span": { "start": 1288, "end": 1289 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 85, "span": { "start": 1291, "end": 1292 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 85, "span": { "start": 1289, "end": 1291 } },
+          "numberToken": { "token": 86, "span": { "start": 1292, "end": 1293 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 87, "span": { "start": 1293, "end": 1443 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 88, "span": { "start": 1443, "end": 1444 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 89, "span": { "start": 1444, "end": 1446 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 90, "span": { "start": 1446, "end": 1447 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 91, "span": { "start": 1449, "end": 1450 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 91, "span": { "start": 1447, "end": 1449 } },
+          "numberToken": { "token": 92, "span": { "start": 1450, "end": 1452 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 93, "span": { "start": 1452, "end": 1562 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 94, "span": { "start": 1562, "end": 1563 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 95, "span": { "start": 1565, "end": 1566 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 95, "span": { "start": 1563, "end": 1565 } },
+          "numberToken": { "token": 96, "span": { "start": 1566, "end": 1568 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 97, "span": { "start": 1568, "end": 1623 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 98, "span": { "start": 1623, "end": 1624 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "s1",
+      "markerToken": { "token": 99, "span": { "start": 1624, "end": 1627 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 99, "span": { "start": 1627, "end": 1628 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 100, "span": { "start": 1628, "end": 1638 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 101, "span": { "start": 1638, "end": 1639 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "r",
+      "markerToken": { "token": 102, "span": { "start": 1639, "end": 1641 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 102, "span": { "start": 1641, "end": 1642 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 103, "span": { "start": 1642, "end": 1660 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 104, "span": { "start": 1660, "end": 1661 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 105, "span": { "start": 1661, "end": 1663 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 106, "span": { "start": 1663, "end": 1664 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 107, "span": { "start": 1666, "end": 1667 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 107, "span": { "start": 1664, "end": 1666 } },
+          "numberToken": { "token": 108, "span": { "start": 1667, "end": 1669 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 109, "span": { "start": 1669, "end": 1814 } }
+        },
+        {
+          "type": "container",
+          "kind": "note",
+          "marker": "f",
+          "markerToken": { "token": 110, "span": { "start": 1814, "end": 1816 } },
+          "closeToken": { "token": 116, "span": { "start": 1856, "end": 1859 } },
+          "specialToken": { "token": 111, "span": { "start": 1817, "end": 1818 } },
+          "children": [
+            {
+              "type": "leaf",
+              "kind": "whitespace",
+              "token": { "token": 110, "span": { "start": 1816, "end": 1817 } }
+            },
+            {
+              "type": "leaf",
+              "kind": "text",
+              "token": { "token": 111, "span": { "start": 1818, "end": 1819 } }
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "fr",
+              "markerToken": { "token": 112, "span": { "start": 1819, "end": 1822 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 112, "span": { "start": 1822, "end": 1823 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 113, "span": { "start": 1823, "end": 1828 } }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "ft",
+              "markerToken": { "token": 114, "span": { "start": 1828, "end": 1831 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 114, "span": { "start": 1831, "end": 1832 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 115, "span": { "start": 1832, "end": 1856 } }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 116, "span": { "start": 1859, "end": 1860 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 117, "span": { "start": 1860, "end": 1892 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 118, "span": { "start": 1892, "end": 1893 } }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "kind": "paragraph",
+      "marker": "p",
+      "markerToken": { "token": 119, "span": { "start": 1893, "end": 1895 } },
+      "closeToken": null,
+      "specialToken": null,
+      "children": [
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 120, "span": { "start": 1895, "end": 1896 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "whitespace",
+          "token": { "token": 121, "span": { "start": 1898, "end": 1899 } }
+        },
+        {
+          "type": "verse",
+          "markerToken": { "token": 121, "span": { "start": 1896, "end": 1898 } },
+          "numberToken": { "token": 122, "span": { "start": 1899, "end": 1901 } }
+        },
+        {
+          "type": "leaf",
+          "kind": "text",
+          "token": { "token": 123, "span": { "start": 1901, "end": 1955 } }
+        },
+        {
+          "type": "container",
+          "kind": "note",
+          "marker": "f",
+          "markerToken": { "token": 124, "span": { "start": 1955, "end": 1957 } },
+          "closeToken": { "token": 130, "span": { "start": 1997, "end": 2000 } },
+          "specialToken": { "token": 125, "span": { "start": 1958, "end": 1959 } },
+          "children": [
+            {
+              "type": "leaf",
+              "kind": "whitespace",
+              "token": { "token": 124, "span": { "start": 1957, "end": 1958 } }
+            },
+            {
+              "type": "leaf",
+              "kind": "text",
+              "token": { "token": 125, "span": { "start": 1959, "end": 1960 } }
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "fr",
+              "markerToken": { "token": 126, "span": { "start": 1960, "end": 1963 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 126, "span": { "start": 1963, "end": 1964 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 127, "span": { "start": 1964, "end": 1969 } }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "kind": "character",
+              "marker": "ft",
+              "markerToken": { "token": 128, "span": { "start": 1969, "end": 1972 } },
+              "closeToken": null,
+              "specialToken": null,
+              "children": [
+                {
+                  "type": "leaf",
+                  "kind": "whitespace",
+                  "token": { "token": 128, "span": { "start": 1972, "end": 1973 } }
+                },
+                {
+                  "type": "leaf",
+                  "kind": "text",
+                  "token": { "token": 129, "span": { "start": 1973, "end": 1997 } }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "leaf",
+          "kind": "newline",
+          "token": { "token": 131, "span": { "start": 2000, "end": 2001 } }
+        }
+      ]
+    }
+  ]
+}

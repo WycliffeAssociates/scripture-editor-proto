@@ -7,7 +7,7 @@ import {
     defaultIntoTokensOptions,
     defaultProjectUsfmOptions,
     defaultTokenLintOptions,
-    parseChapterDocumentFromUsj,
+    parseChapterDocumentFromTokens,
     toOnionFlatTokens,
 } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -31,7 +31,6 @@ import type {
     TokenScopeItem,
     TokenTransformResult,
     UsfmMarkerCatalog,
-    UsjDocument,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function toTauriBatchOptions(batchOptions?: BatchExecutionOptions | null) {
@@ -264,10 +263,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         return invoke("usfm_onion_marker_catalog");
     }
 
-    private async projectUsj(source: string): Promise<UsjDocument> {
-        return invoke("usfm_onion_to_usj", { source });
-    }
-
     private async lintBatchFromPaths(
         paths: string[],
         options: LintScopeOptions["lintOptions"] = {},
@@ -489,8 +484,10 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         const synthetic = hasExplicitChapter
             ? `\\id ${bookCode}\n${chapterUsfm}`
             : `\\id ${bookCode}\n\\c ${syntheticChapter}\n${chapterUsfm}`;
-        const usj = await this.projectUsj(synthetic);
-        const parsed = parseChapterDocumentFromUsj(usj);
+        const projected = await this.projectUsfm(synthetic, {
+            lintOptions: null,
+        });
+        const parsed = parseChapterDocumentFromTokens(projected.tokens);
         return hasExplicitChapter
             ? parsed
             : stripSyntheticChapterTokens(parsed, bookCode, syntheticChapter);
