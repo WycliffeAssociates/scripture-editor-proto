@@ -1,7 +1,7 @@
 {
   "name": "dovetail",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev.tauri": "vite --config vite.tauri.config.ts",

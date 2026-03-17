@@ -30,6 +30,10 @@ export class ProjectRepository implements IProjectRepository {
         return new FileWriter(this.directoryProvider, projectDir);
     }
 
+    private isAbsoluteProjectPath(projectId: string): boolean {
+        return /^([A-Za-z]:[\\/]|\/)/u.test(projectId);
+    }
+
     async saveProject(project: Project): Promise<void> {
         const projectsDir = await this.directoryProvider.projectsDirectory;
         const projectDir = await projectsDir.getDirectoryHandle(project.id, {
@@ -45,14 +49,11 @@ export class ProjectRepository implements IProjectRepository {
 
     async loadProject(projectId: string): Promise<Project | null> {
         try {
-            const projectsRootDir =
-                await this.directoryProvider.projectsDirectory;
-            const projectDir = await projectsRootDir.getDirectoryHandle(
-                projectId,
-                {
-                    create: true,
-                },
-            );
+            const projectDir = this.isAbsoluteProjectPath(projectId)
+                ? await this.directoryProvider.getDirectoryHandle(projectId)
+                : await (
+                      await this.directoryProvider.projectsDirectory
+                  ).getDirectoryHandle(projectId);
 
             const fileWriter = this.createFileWriter(projectDir);
             const project = await this.projectLoader.loadProject(

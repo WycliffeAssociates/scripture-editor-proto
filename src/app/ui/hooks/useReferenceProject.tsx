@@ -33,15 +33,22 @@ export const useReferenceProject = ({
     const editorMode = settingsManager.get("editorMode");
     const referenceProjectQuery = useQuery({
         queryKey: ["projectFiles", referenceProjectId, editorMode],
-        queryFn: () =>
-            projectParamToParsedFiles(
+        queryFn: async () => {
+            const result = await projectParamToParsedFiles(
                 projectRepository,
                 referenceProjectId,
                 md5Service,
                 gitProvider,
                 editorMode,
                 usfmOnionService,
-            ),
+            );
+            if (!result) {
+                throw new Error(
+                    `Failed to load reference project: ${referenceProjectId ?? "unknown"}`,
+                );
+            }
+            return result;
+        },
         enabled: !!referenceProjectId,
     });
     useEffect(() => {
