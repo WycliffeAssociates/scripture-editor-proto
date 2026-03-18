@@ -8,19 +8,6 @@ export const markerTrimNoSlash = (text: string) =>
 export const markerRegex = /\\[a-z-\d]+(?=\s+)/u;
 // const textRegex = /(?:[^\n|]|\\u[0-9A-Fa-f]{4})+/u;
 export const numRangeRe = /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u;
-type TokenName =
-    | "nl"
-    | "ws"
-    | "pipe"
-    | "attrPair"
-    | "idMarker"
-    | "bookCode"
-    | "endMarker"
-    | "implicitClose"
-    | "marker"
-    | "numberRange"
-    | "text"
-    | "error";
 
 export const TokenMap = {
     horizontalWhitespace: "ws",
