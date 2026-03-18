@@ -34,8 +34,6 @@ function createMockUsfmOnionService(): IUsfmOnionService {
             source: string,
             options?: Parameters<IUsfmOnionService["projectUsfm"]>[1],
         ) => webUsfmOnionService.projectUsfm(source, options),
-        parseUsfmChapter: (chapterUsfm: string, bookCode: string) =>
-            webUsfmOnionService.parseUsfmChapter(chapterUsfm, bookCode),
     } as unknown as IUsfmOnionService;
 }
 
@@ -101,9 +99,7 @@ describe("usfmPaste", () => {
         if (!result.ok) return;
         expect(
             result.tokens.some(
-                (token) =>
-                    token.tokenType === UsfmTokenTypes.marker &&
-                    token.marker === "id",
+                (token) => token.kind === "marker" && token.marker === "id",
             ),
         ).toBe(false);
         expect(hasVerseMarker).toBe(true);

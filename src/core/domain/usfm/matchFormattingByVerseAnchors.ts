@@ -1,7 +1,6 @@
 import { parseSid } from "@/core/data/bible/bible.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
 import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
-import type { PrettifyToken } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
+import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
 
 export type MatchFormattingScope = "chapter" | "book" | "project";
 export type TargetMarkerPreservationMode =
@@ -32,7 +31,7 @@ export type VerseAnchorMatchStats = {
 };
 
 export type MatchFormattingByVerseAnchorsResult = {
-    tokens: PrettifyToken[];
+    tokens: TokenEnvelope[];
     suggestions: SkippedMarkerSuggestion[];
     stats: VerseAnchorMatchStats;
 };
@@ -48,46 +47,46 @@ type VerseSegment = {
 const PRELUDE_COPY_ALLOWED_MARKERS = VALID_PARA_MARKERS;
 const DISALLOWED_SOURCE_MARKERS = new Set(["s5"]);
 
-const isLinebreakToken = (token: PrettifyToken | undefined): boolean =>
-    token?.tokenType === TokenMap.verticalWhitespace;
+const isLinebreakToken = (token: TokenEnvelope | undefined): boolean =>
+    token?.tokenType === "nl";
 
-const isVerseMarkerToken = (token: PrettifyToken | undefined): boolean =>
-    token?.tokenType === TokenMap.marker && token.marker === "v";
+const isVerseMarkerToken = (token: TokenEnvelope | undefined): boolean =>
+    token?.tokenType === "marker" && token.marker === "v";
 
-const isNumberRangeToken = (token: PrettifyToken | undefined): boolean =>
-    token?.tokenType === TokenMap.numberRange;
+const isNumberRangeToken = (token: TokenEnvelope | undefined): boolean =>
+    token?.tokenType === "numberRange";
 
-const isContentfulTextToken = (token: PrettifyToken | undefined): boolean =>
-    token?.tokenType === TokenMap.text && token.text.trim().length > 0;
+const isContentfulTextToken = (token: TokenEnvelope | undefined): boolean =>
+    token?.tokenType === "text" && token.text.trim().length > 0;
 
-const isParagraphMarkerToken = (token: PrettifyToken | undefined): boolean =>
-    token?.tokenType === TokenMap.marker &&
+const isParagraphMarkerToken = (token: TokenEnvelope | undefined): boolean =>
+    token?.tokenType === "marker" &&
     !!token.marker &&
     PRELUDE_COPY_ALLOWED_MARKERS.has(token.marker);
 
-const isStructureMarkerToken = (token: PrettifyToken | undefined): boolean =>
+const isStructureMarkerToken = (token: TokenEnvelope | undefined): boolean =>
     isParagraphMarkerToken(token) &&
     Boolean(token?.marker) &&
     !DISALLOWED_SOURCE_MARKERS.has(token?.marker || "");
 
 const isDisallowedSourceMarkerToken = (
-    token: PrettifyToken | undefined,
+    token: TokenEnvelope | undefined,
 ): boolean =>
-    token?.tokenType === TokenMap.marker &&
+    token?.tokenType === "marker" &&
     !!token.marker &&
     DISALLOWED_SOURCE_MARKERS.has(token.marker);
 
-function isPoetryMarkerToken(token: PrettifyToken | undefined): boolean {
+function isPoetryMarkerToken(token: TokenEnvelope | undefined): boolean {
     return (
-        token?.tokenType === TokenMap.marker &&
+        token?.tokenType === "marker" &&
         !!token.marker &&
         token.marker.startsWith("q")
     );
 }
 
 function shouldKeepTargetParagraphMarker(
-    token: PrettifyToken,
-    nextToken: PrettifyToken | undefined,
+    token: TokenEnvelope,
+    nextToken: TokenEnvelope | undefined,
     targetMarkerPreservation: TargetMarkerPreservationMode,
 ): boolean {
     if (isDisallowedSourceMarkerToken(token)) return false;
@@ -106,10 +105,10 @@ function shouldKeepTargetParagraphMarker(
 }
 
 function stripTargetFormattingTokensByMode(
-    tokens: PrettifyToken[],
+    tokens: TokenEnvelope[],
     targetMarkerPreservation: TargetMarkerPreservationMode,
-): PrettifyToken[] {
-    const out: PrettifyToken[] = [];
+): TokenEnvelope[] {
+    const out: TokenEnvelope[] = [];
     for (let index = 0; index < tokens.length; index++) {
         const token = tokens[index];
         if (!token) continue;
@@ -135,11 +134,11 @@ function normalizeWhitespaceAndJoin(parts: string[]): string {
     return parts.join("").replace(/\s+/g, " ").trim();
 }
 
-function tokenSnippet(tokens: PrettifyToken[], maxChars = 180): string {
+function tokenSnippet(tokens: TokenEnvelope[], maxChars = 180): string {
     const raw = normalizeWhitespaceAndJoin(
         tokens.map((token) => {
-            if (token.tokenType === TokenMap.verticalWhitespace) return " ";
-            if (token.tokenType === TokenMap.marker) {
+            if (token.tokenType === "nl") return " ";
+            if (token.tokenType === "marker") {
                 return token.text || `\\${token.marker ?? ""}`;
             }
             return token.text;
@@ -150,16 +149,16 @@ function tokenSnippet(tokens: PrettifyToken[], maxChars = 180): string {
 }
 
 function guessChapterFromTokens(
-    tokens: PrettifyToken[],
+    tokens: TokenEnvelope[],
     index: number,
 ): number {
     for (let i = index; i >= 1; i--) {
         const maybeNumber = tokens[i];
         const maybeChapterMarker = tokens[i - 1];
         if (
-            maybeChapterMarker.tokenType === TokenMap.marker &&
+            maybeChapterMarker.tokenType === "marker" &&
             maybeChapterMarker.marker === "c" &&
-            maybeNumber.tokenType === TokenMap.numberRange
+            maybeNumber.tokenType === "numberRange"
         ) {
             const parsed = Number.parseInt(maybeNumber.text.trim(), 10);
             if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -172,7 +171,7 @@ function verseKey(chapter: number, verseText: string): string {
     return `${chapter}:${verseText}`;
 }
 
-function parseVerseSegments(tokens: PrettifyToken[]): VerseSegment[] {
+function parseVerseSegments(tokens: TokenEnvelope[]): VerseSegment[] {
     const starts: Array<{
         index: number;
         numberIndex: number;
@@ -222,10 +221,10 @@ function parseVerseSegments(tokens: PrettifyToken[]): VerseSegment[] {
 }
 
 function cloneTokenForInsert(
-    token: PrettifyToken,
+    token: TokenEnvelope,
     salt: string,
-): PrettifyToken {
-    const cloned: PrettifyToken = {
+): TokenEnvelope {
+    const cloned: TokenEnvelope = {
         tokenType: token.tokenType,
         text: token.text,
         marker: token.marker,
@@ -234,15 +233,14 @@ function cloneTokenForInsert(
         inChars: token.inChars ? [...token.inChars] : undefined,
         attributes: token.attributes ? { ...token.attributes } : undefined,
         id:
-            token.tokenType === TokenMap.marker ||
-            token.tokenType === TokenMap.numberRange
+            token.tokenType === "marker" || token.tokenType === "numberRange"
                 ? `fmt-${salt}-${Math.random().toString(36).slice(2)}`
                 : token.id,
     };
     return cloned;
 }
 
-function markerSignature(tokens: PrettifyToken[]): string {
+function markerSignature(tokens: TokenEnvelope[]): string {
     return tokens
         .filter((token) => isStructureMarkerToken(token))
         .map((token) => token.marker)
@@ -250,7 +248,7 @@ function markerSignature(tokens: PrettifyToken[]): string {
 }
 
 function findBoundaryStartBeforeVerse(
-    tokens: PrettifyToken[],
+    tokens: TokenEnvelope[],
     verseStartIndex: number,
 ): number {
     let i = verseStartIndex - 1;
@@ -270,9 +268,9 @@ function findBoundaryStartBeforeVerse(
 }
 
 function extractBoundaryBeforeVerse(
-    tokens: PrettifyToken[],
+    tokens: TokenEnvelope[],
     verseStartIndex: number,
-): PrettifyToken[] {
+): TokenEnvelope[] {
     const boundaryStart = findBoundaryStartBeforeVerse(tokens, verseStartIndex);
     return tokens
         .slice(boundaryStart, verseStartIndex)
@@ -282,9 +280,9 @@ function extractBoundaryBeforeVerse(
 }
 
 function compactConsecutiveLinebreaks(
-    tokens: PrettifyToken[],
-): PrettifyToken[] {
-    const out: PrettifyToken[] = [];
+    tokens: TokenEnvelope[],
+): TokenEnvelope[] {
+    const out: TokenEnvelope[] = [];
     for (const token of tokens) {
         if (isLinebreakToken(token) && isLinebreakToken(out[out.length - 1])) {
             continue;
@@ -302,9 +300,9 @@ function buildSkippedSuggestionsForSegment({
     targetSegment,
 }: {
     scope: MatchFormattingScope;
-    sourceTokens: PrettifyToken[];
+    sourceTokens: TokenEnvelope[];
     sourceSegment: VerseSegment;
-    targetTokens: PrettifyToken[];
+    targetTokens: TokenEnvelope[];
     targetSegment: VerseSegment;
 }): SkippedMarkerSuggestion[] {
     const sourceBody = sourceTokens.slice(
@@ -320,7 +318,7 @@ function buildSkippedSuggestionsForSegment({
     );
     if (firstContentIndex < 0) return [];
 
-    const findTrailingBoundaryStart = (body: PrettifyToken[]): number => {
+    const findTrailingBoundaryStart = (body: TokenEnvelope[]): number => {
         let trailingStart = body.length;
         for (let i = body.length - 1; i >= 0; i--) {
             const token = body[i];
@@ -338,11 +336,11 @@ function buildSkippedSuggestionsForSegment({
     };
 
     const collectIntraVerseMarkers = (
-        body: PrettifyToken[],
+        body: TokenEnvelope[],
         bodyFirstContentIndex: number,
         trailingBoundaryStart: number,
-    ): Array<{ token: PrettifyToken; index: number }> => {
-        const markers: Array<{ token: PrettifyToken; index: number }> = [];
+    ): Array<{ token: TokenEnvelope; index: number }> => {
+        const markers: Array<{ token: TokenEnvelope; index: number }> = [];
         for (let i = bodyFirstContentIndex + 1; i < body.length; i++) {
             if (i >= trailingBoundaryStart) continue;
             const token = body[i];
@@ -374,7 +372,7 @@ function buildSkippedSuggestionsForSegment({
             : [];
 
     const missingMarkers: Array<{
-        token: PrettifyToken;
+        token: TokenEnvelope;
         index: number;
         sourceMarkerPosition: number;
     }> = [];
@@ -453,8 +451,8 @@ export function matchFormattingByVerseAnchors({
     scope,
     targetMarkerPreservation = "strip_all",
 }: {
-    targetTokens: PrettifyToken[];
-    sourceTokens: PrettifyToken[];
+    targetTokens: TokenEnvelope[];
+    sourceTokens: TokenEnvelope[];
     scope: MatchFormattingScope;
     targetMarkerPreservation?: TargetMarkerPreservationMode;
 }): MatchFormattingByVerseAnchorsResult {
@@ -478,7 +476,7 @@ export function matchFormattingByVerseAnchors({
         [...sourceKeys].filter((key) => targetKeys.has(key)),
     );
 
-    const boundaryByKey = new Map<string, PrettifyToken[]>();
+    const boundaryByKey = new Map<string, TokenEnvelope[]>();
     for (const key of matchedKeys) {
         const sourceSegment = sourceMap.get(key);
         if (!sourceSegment) continue;
@@ -519,7 +517,7 @@ export function matchFormattingByVerseAnchors({
         };
     }
 
-    const output: PrettifyToken[] = [];
+    const output: TokenEnvelope[] = [];
     let insertedBoundaryMarkers = 0;
     let cursor = 0;
 

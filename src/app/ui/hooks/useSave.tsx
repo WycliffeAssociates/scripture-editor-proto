@@ -7,7 +7,7 @@ import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
-import { onionFlatTokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { tokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { GIT_COMMIT_AUTHOR } from "@/app/domain/git/gitConstants.ts";
 import {
     applyIncomingChapter,
@@ -238,10 +238,8 @@ export function useProjectDiffs({
         chapterNum,
         isWhitespaceChange: diff.isWhitespaceChange,
         isUsfmStructureChange: diff.isUsfmStructureChange,
-        originalRenderTokens: onionFlatTokensToRenderTokens(
-            diff.originalTokens,
-        ),
-        currentRenderTokens: onionFlatTokensToRenderTokens(diff.currentTokens),
+        originalRenderTokens: tokensToRenderTokens(diff.originalTokens),
+        currentRenderTokens: tokensToRenderTokens(diff.currentTokens),
         originalAlignment: diff.originalAlignment,
         currentAlignment: diff.currentAlignment,
         undoSide: diff.undoSide,

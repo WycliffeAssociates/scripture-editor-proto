@@ -31,7 +31,7 @@ pub fn run() {
             usfm_onion::usfm_onion_lint_token_batches,
             usfm_onion::usfm_onion_format_token_batches,
             usfm_onion::usfm_onion_format_paths,
-            usfm_onion::usfm_onion_apply_token_fixes,
+            usfm_onion::usfm_onion_apply_token_fix,
             usfm_onion::usfm_onion_diff_path_pairs,
             usfm_onion::usfm_onion_diff_tokens,
             usfm_onion::usfm_onion_revert_diff_block,

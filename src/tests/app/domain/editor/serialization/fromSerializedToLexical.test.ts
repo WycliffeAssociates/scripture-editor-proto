@@ -5,7 +5,7 @@ import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { onionFlatTokensToEditorState } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const usfmWithFootnote =
@@ -13,18 +13,18 @@ const usfmWithFootnote =
     "\\v 9 The land mourns and wastes away; " +
     "\\f + \\ft The word mourns. \\f*";
 
-async function getProjectedState(targetMode: "regular" | "usfm") {
+async function getProjectedState(mode: "regular" | "flat") {
     const projected = await webUsfmOnionService.projectUsfm(
         `\\id GEN\n${usfmWithFootnote}`,
     );
-    return onionFlatTokensToEditorState({
+    return tokensToLexical({
         tokens: projected.tokens,
         direction: "ltr",
-        targetMode,
+        mode,
     });
 }
 
-describe("onionFlatTokensToEditorState nested editor invariants", () => {
+describe("tokensToLexical nested editor invariants", () => {
     it("uses nested decorator nodes in regular mode", async () => {
         const lexicalState = await getProjectedState("regular");
 
@@ -36,7 +36,7 @@ describe("onionFlatTokensToEditorState nested editor invariants", () => {
     });
 
     it("flattens nested markers in usfm/plain modes", async () => {
-        const lexicalState = await getProjectedState("usfm");
+        const lexicalState = await getProjectedState("flat");
 
         const flat = materializeFlatTokensArray(
             lexicalState.root.children as SerializedLexicalNode[],
@@ -181,10 +181,10 @@ describe("groupFlatNodesIntoParagraphContainers whitespace placement", () => {
         const projected = await webUsfmOnionService.projectUsfm(
             `\\id PSA\n${usfm}`,
         );
-        const lexicalState = onionFlatTokensToEditorState({
+        const lexicalState = tokensToLexical({
             tokens: projected.tokens,
             direction: "ltr",
-            targetMode: "regular",
+            mode: "regular",
         });
         const roundTripped = materializeFlatTokensArray(
             lexicalState.root.children as SerializedLexicalNode[],

@@ -1,10 +1,9 @@
 import { $createLineBreakNode, type LexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 const USFM_MARKER_PATTERN =
     /(^|[\s\u00A0])\\[A-Za-z][A-Za-z0-9]*\*?(?=$|[\s\u00A0])/gmu;
@@ -18,7 +17,7 @@ const VALID_INSERTABLE_TOKEN_TYPES = new Set<string>([
 ]);
 
 export type ClipboardUsfmTokenParseResult =
-    | { ok: true; tokens: ParsedToken[] }
+    | { ok: true; tokens: Token[] }
     | { ok: false; reason: "parse-failed" };
 
 export function isUsfmLikePaste(text: string): boolean {
@@ -32,31 +31,23 @@ export function isUsfmLikePaste(text: string): boolean {
     );
 }
 
-function flatTokenKindToParsedTokenType(kind: string): string {
+function onionKindToLexicalTokenType(kind: Token["kind"]): string {
     switch (kind) {
         case "marker":
-        case "milestone":
             return UsfmTokenTypes.marker;
-        case "end-marker":
-        case "milestone-end":
+        case "endMarker":
             return UsfmTokenTypes.endMarker;
         case "newline":
             return UsfmTokenTypes.verticalWhitespace;
         case "number":
             return UsfmTokenTypes.numberRange;
+        case "bookCode":
+        case "optBreak":
+        case "attributeList":
+            return UsfmTokenTypes.text;
         default:
             return kind;
     }
-}
-
-function onionFlatTokensToParsedTokens(tokens: FlatToken[]): ParsedToken[] {
-    return tokens.map((token) => ({
-        id: token.id || guidGenerator(),
-        text: token.text,
-        sid: token.sid ?? undefined,
-        marker: token.marker ?? undefined,
-        tokenType: flatTokenKindToParsedTokenType(token.kind),
-    }));
 }
 
 function hasMalformedChapterOrVerseNumber(text: string): boolean {
@@ -101,15 +92,16 @@ async function parseClipboardUsfmToTokensAsync(args: {
         const projected = await args.usfmOnionService.projectUsfm(args.text, {
             lintOptions: null,
         });
-        const flatTokens = onionFlatTokensToParsedTokens(projected.tokens);
-        const hasInsertableTokens = flatTokens.some((token) =>
-            VALID_INSERTABLE_TOKEN_TYPES.has(token.tokenType),
+        const hasInsertableTokens = projected.tokens.some((token) =>
+            VALID_INSERTABLE_TOKEN_TYPES.has(
+                onionKindToLexicalTokenType(token.kind),
+            ),
         );
         if (!hasInsertableTokens) {
             return { ok: false, reason: "parse-failed" };
         }
 
-        return { ok: true, tokens: flatTokens };
+        return { ok: true, tokens: projected.tokens };
     } catch (error) {
         console.error("Error parsing USFM:", error);
         return { ok: false, reason: "parse-failed" };
@@ -117,15 +109,16 @@ async function parseClipboardUsfmToTokensAsync(args: {
 }
 
 export function parsedUsfmTokensToInsertableNodes(
-    tokens: ParsedToken[],
+    tokens: Token[],
 ): LexicalNode[] {
     const nodes: LexicalNode[] = [];
     for (const token of tokens) {
-        if (!VALID_INSERTABLE_TOKEN_TYPES.has(token.tokenType)) {
+        const tokenType = onionKindToLexicalTokenType(token.kind);
+        if (!VALID_INSERTABLE_TOKEN_TYPES.has(tokenType)) {
             continue;
         }
 
-        if (token.tokenType === UsfmTokenTypes.verticalWhitespace) {
+        if (tokenType === UsfmTokenTypes.verticalWhitespace) {
             nodes.push($createLineBreakNode());
             continue;
         }
@@ -134,11 +127,9 @@ export function parsedUsfmTokensToInsertableNodes(
             $createUSFMTextNode(token.text, {
                 id: token.id || guidGenerator(),
                 sid: token.sid || "",
-                tokenType: token.tokenType,
+                tokenType,
                 marker: token.marker,
-                inPara: token.inPara || "",
-                inChars: token.inChars,
-                attributes: token.attributes,
+                inPara: "",
                 lintErrors: [],
             }),
         );

@@ -3,16 +3,15 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { buildBooksSavePayload } from "@/app/domain/project/saveAndRevertService.ts";
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-function makeFlatTokens(text: string, sid: string, id: string): FlatToken[] {
+function makeTokens(text: string, sid: string, id: string): Token[] {
     return [
         {
             id,
             kind: "text",
             span: { start: 0, end: text.length },
             sid,
-            marker: null,
             text,
         },
     ];
@@ -62,12 +61,12 @@ describe("buildBooksSavePayload", () => {
                     {
                         chapNumber: 1,
                         dirty: false,
-                        sourceTokens: makeFlatTokens(
+                        sourceTokens: makeTokens(
                             "\\c 1\n\\p\nChapter one.\n",
                             "MRK 1:1",
                             "m1-loaded",
                         ),
-                        currentTokens: makeFlatTokens(
+                        currentTokens: makeTokens(
                             "\\c 1\n\\p\nChapter one.\n",
                             "MRK 1:1",
                             "m1-current",
@@ -86,12 +85,12 @@ describe("buildBooksSavePayload", () => {
                     {
                         chapNumber: 15,
                         dirty: true,
-                        sourceTokens: makeFlatTokens(
+                        sourceTokens: makeTokens(
                             "\\c 15\n\\p\nOld text.\n",
                             "MRK 15:1",
                             "m15-loaded",
                         ),
-                        currentTokens: makeFlatTokens(
+                        currentTokens: makeTokens(
                             "\\c 15\n\\p\nNew text.\n",
                             "MRK 15:1",
                             "m15-current",

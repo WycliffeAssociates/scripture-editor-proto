@@ -1,6 +1,6 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
 export function useEditorState({
@@ -32,8 +32,7 @@ export function useEditorState({
         const chapToUpdate = file.chapters.find((c) => c.chapNumber === chap);
         if (!chapToUpdate) return;
         chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.currentTokens =
-            lexicalEditorStateToOnionFlatTokens(newLexical);
+        chapToUpdate.currentTokens = lexicalToTokens(newLexical);
         chapToUpdate.dirty =
             isDirty ??
             chapToUpdate.currentTokens.map((token) => token.text).join("") !==

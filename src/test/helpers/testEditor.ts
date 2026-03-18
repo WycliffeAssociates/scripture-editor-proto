@@ -12,7 +12,7 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { onionFlatTokensToEditorState } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
@@ -41,10 +41,10 @@ export async function createTestEditor(
         ],
     });
     const result = await webUsfmOnionService.projectUsfm(usfmContent);
-    const serialized = onionFlatTokensToEditorState({
+    const serialized = tokensToLexical({
         tokens: result.tokens,
         direction: "ltr",
-        targetMode: (opts.needsParagraphs ?? true) ? "regular" : "usfm",
+        mode: (opts.needsParagraphs ?? true) ? "regular" : "flat",
     });
     editor.setEditorState(editor.parseEditorState(serialized));
     return editor;

@@ -1,11 +1,12 @@
 import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
-import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
-import {
-    numRangeRe,
-    TokenMap,
-    type TokenName,
-    type TokenNameSubset,
-} from "@/core/domain/usfm/lex.ts";
+import { numRangeRe } from "@/core/domain/usfm/lex.ts";
+
+type WhitespaceMergeToken = {
+    tokenType: string;
+    text: string;
+    marker?: string;
+    sid?: string;
+};
 
 export type TokenForSidCalculation = {
     tokenType: string;
@@ -15,21 +16,14 @@ export type TokenForSidCalculation = {
 };
 
 export const mergeHorizontalWhitespaceToAdjacent = (
-    tokens: LintableToken[],
-): LintableToken[] => {
-    const wsTypes: TokenNameSubset = new Set([TokenMap.horizontalWhitespace]);
-
+    tokens: WhitespaceMergeToken[],
+): WhitespaceMergeToken[] => {
     for (let i = 0; i < tokens.length; i++) {
         const t = tokens[i];
-        if (t?.tokenType && wsTypes.has(t.tokenType as TokenName)) {
+        if (t?.tokenType === " " || t?.tokenType === "ws") {
             const prev = tokens[i - 1];
             const next = tokens[i + 1];
-            // Canonical whitespace placement:
-            // Prefer leading whitespace on the *next* token so whitespace remains visible
-            // even when the previous token (e.g. a marker) is hidden in some editor modes.
-            // Fallback to trailing whitespace on the previous token only when we can't
-            // push forward (e.g., end-of-stream or linebreak boundary).
-            if (next && next.tokenType !== TokenMap.verticalWhitespace) {
+            if (next && next.tokenType !== "nl") {
                 next.text = `${t.text}${next.text}`;
             } else if (prev) {
                 prev.text += t.text;
@@ -42,7 +36,7 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     }
     return tokens;
 };
-
+// @ai - if this function is only used in this file, we should get rid of it
 function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     tokens: T[],
     markerIdx: number,
@@ -50,18 +44,20 @@ function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     let idx = markerIdx + 1;
     while (
         idx < tokens.length &&
-        (tokens[idx]?.tokenType === TokenMap.horizontalWhitespace ||
-            tokens[idx]?.tokenType === TokenMap.verticalWhitespace)
+        (tokens[idx]?.tokenType === " " ||
+            tokens[idx]?.tokenType === "ws" ||
+            tokens[idx]?.tokenType === "nl")
     ) {
         idx++;
     }
     const t = tokens[idx];
-    if (t?.tokenType !== TokenMap.numberRange) return null;
+    if (t?.tokenType !== "numberRange") return null;
     const value = t.text.trim();
     if (!value) return null;
     return value;
 }
 
+// @ai - if this function is only used in this file, we should get rid of it
 function makeVerseSid(bookCode: string, chapter: number, verse: string) {
     const parsed = parseSid(`${bookCode} ${chapter}:${verse}`);
     if (parsed) return parsed.toSidString();
@@ -98,7 +94,7 @@ export function mutAddSids<T extends TokenForSidCalculation>(
         const t = tokens[i];
         if (!t) continue;
 
-        if (t.tokenType === TokenMap.marker && t.marker === "c") {
+        if (t.tokenType === "marker" && t.marker === "c") {
             const chapStr = getNumRangeAfterMarker(tokens, i);
             if (chapStr && numRangeRe.test(chapStr)) {
                 const chapNum = Number.parseInt(chapStr, 10);
@@ -115,7 +111,7 @@ export function mutAddSids<T extends TokenForSidCalculation>(
             }
         }
 
-        if (t.tokenType === TokenMap.marker && t.marker === "v") {
+        if (t.tokenType === "marker" && t.marker === "v") {
             const verseStr = getNumRangeAfterMarker(tokens, i);
             if (verseStr && numRangeRe.test(verseStr)) {
                 const baseSid = makeVerseSid(

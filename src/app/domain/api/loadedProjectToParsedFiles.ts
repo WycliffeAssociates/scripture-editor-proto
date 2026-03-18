@@ -1,10 +1,7 @@
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
-import {
-    onionFlatTokensToEditorState,
-    onionFlatTokensToLoadedEditorState,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     buildLintMessagesByBook,
     type LintMessagesByBook,
@@ -153,17 +150,16 @@ export async function loadedProjectToParsedFiles(args: {
                     const chapterNum = Number(chapter);
                     const direction =
                         args.loadedProject.metadata.language.direction;
-                    const targetMode = needsParagraphs ? "regular" : "usfm";
-                    const lexicalState = onionFlatTokensToEditorState({
+                    const lexicalState = tokensToLexical({
                         tokens: sourceTokens,
                         direction,
-                        targetMode,
+                        mode: needsParagraphs ? "regular" : "flat",
                     });
-                    const loadedLexicalState =
-                        onionFlatTokensToLoadedEditorState({
-                            tokens: sourceTokens,
-                            direction,
-                        });
+                    const loadedLexicalState = tokensToLexical({
+                        tokens: sourceTokens,
+                        direction,
+                        mode: "flat",
+                    });
 
                     return {
                         lexicalState,

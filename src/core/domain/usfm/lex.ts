@@ -1,3 +1,4 @@
+// @ai this whole folder of lex I don't think should exist anymore right? We moved format to usfm-onion
 // const isUnicodeEscape = (type: string) => type.startsWith("\\u");
 // const isMarker = (text: string) =>
 //   text.match(/^\\[a-z\d]+/u) && !isUnicodeEscape(text);
@@ -7,7 +8,7 @@ export const markerTrimNoSlash = (text: string) =>
 export const markerRegex = /\\[a-z-\d]+(?=\s+)/u;
 // const textRegex = /(?:[^\n|]|\\u[0-9A-Fa-f]{4})+/u;
 export const numRangeRe = /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u;
-export type TokenName =
+type TokenName =
     | "nl"
     | "ws"
     | "pipe"
@@ -20,7 +21,6 @@ export type TokenName =
     | "numberRange"
     | "text"
     | "error";
-export interface TokenNameSubset extends Set<TokenName> {}
 
 export const TokenMap = {
     horizontalWhitespace: "ws",

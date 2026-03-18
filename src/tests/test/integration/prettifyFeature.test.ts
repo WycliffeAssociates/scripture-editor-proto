@@ -12,7 +12,7 @@ import {
     usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { prettifyTokenStream } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
 
 function applyPrettifyToNodeTree(
@@ -39,8 +39,8 @@ const createChapter = async (
         chapNumber,
         lexicalState,
         loadedLexicalState: structuredClone(lexicalState),
-        sourceTokens: [] as FlatToken[],
-        currentTokens: [] as FlatToken[],
+        sourceTokens: [] as Token[],
+        currentTokens: [] as Token[],
         dirty: false,
     };
 };
@@ -267,7 +267,8 @@ These are the   names`,
             const genText = genNodes.find(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.text,
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.includes("In the beginning"),
             ) as SerializedUSFMTextNode;
             expect(genText.text).toBe("In the beginning God");
 
@@ -296,7 +297,8 @@ These are the   names`,
             const exoText = exoNodes.find(
                 (node) =>
                     isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.text,
+                    node.tokenType === UsfmTokenTypes.text &&
+                    node.text.includes("These are the"),
             ) as SerializedUSFMTextNode;
             expect(exoText.text).toBe("These are the names");
         });

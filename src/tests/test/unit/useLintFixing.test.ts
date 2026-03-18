@@ -93,13 +93,12 @@ function makeIssue(overrides: Partial<LintIssue> = {}): LintIssue {
             type: "replaceToken",
             code: "missing-space",
             label: "Fix",
-            label_params: {},
+            labelParams: {},
             targetTokenId: "tok-2",
             replacements: [
                 {
                     kind: "text",
                     text: "fixed",
-                    marker: null,
                     sid: "GEN 2:1",
                 },
             ],
@@ -238,13 +237,12 @@ describe("applyLintFixToFile", () => {
                 type: "replaceToken",
                 code: "missing-space",
                 label: "Fix",
-                label_params: {},
+                labelParams: {},
                 targetTokenId: "tok-2b",
                 replacements: [
                     {
                         kind: "text",
                         text: "fixed",
-                        marker: null,
                         sid: "GEN 2:1",
                     },
                 ],

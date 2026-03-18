@@ -22,7 +22,6 @@ import { markerRegex, markerTrimNoSlash } from "@/core/domain/usfm/lex.ts";
 import {
     ALL_CHAR_MARKERS,
     CHAPTER_VERSE_MARKERS,
-    VALID_NOTE_MARKERS,
 } from "@/core/domain/usfm/onionMarkers.ts";
 
 export type DocStructureFxnArgs = {
@@ -36,23 +35,6 @@ export type DocStructureFxnArgs = {
     }>;
 };
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
-
-const isMarkerishTokenType = (tokenType: string): boolean =>
-    tokenType === UsfmTokenTypes.marker ||
-    tokenType === UsfmTokenTypes.endMarker;
-
-const isCharOrNoteMarkerToken = (node: USFMTextNode): boolean => {
-    const tokenType = node.getTokenType();
-    if (!isMarkerishTokenType(tokenType)) return false;
-    const marker = node.getMarker();
-    if (!marker) return false;
-    return ALL_CHAR_MARKERS.has(marker) || VALID_NOTE_MARKERS.has(marker);
-};
-
-const isProtectedWhitespaceBoundary = (
-    left: USFMTextNode,
-    right: USFMTextNode,
-): boolean => isCharOrNoteMarkerToken(left) || isCharOrNoteMarkerToken(right);
 
 // only works on 1 main editor
 // This function is concnered with making sure the eidtor doesn't get into weird states where you can add text between a marker or after averse number cause you deleted it all. It also keeps the document flat by merging adjacent text nodes of the same type.
@@ -95,8 +77,8 @@ export function maintainDocumentStructure(
             }
             structureFixes.push(
                 ensurePlainTextNodeAlwaysFollowsNumberRange,
-                ensureCharOpensHaveEditableNextSibling,
-                ensureCharCloseHasEditableNextSibling,
+                // ensureCharOpensHaveEditableNextSibling,
+                // ensureCharCloseHasEditableNextSibling,
                 trySplitOutMarkersFromKnownErrorTokens,
                 //   ensureNodesSandwichedBetweenSameSidHasThatSid,
                 fixNumberRangeReparenting,
@@ -269,11 +251,11 @@ export function maintainDocumentStructureDebounced(
         //     updates,
         //     appSettings,
         // });
-        ensureSiblingsHaveAtLeastOneSpace({
-            allNodes,
-            updates,
-            appSettings,
-        });
+        // ensureSiblingsHaveAtLeastOneSpace({
+        //     allNodes,
+        //     updates,
+        //     appSettings,
+        // });
 
         // if (editorModeSetting === "regular") {
         //     for (const { node } of allNodes) {
@@ -346,72 +328,6 @@ const fixMalformedMarkerWithNumber: MainDocumentStrutureFxn = ({
                 });
                 node.insertAfter(newNumberNode);
             }
-        },
-    });
-};
-
-const ensureCharOpensHaveEditableNextSibling: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    const isMarker = tokenType === UsfmTokenTypes.marker;
-    const marker = node.getMarker();
-    if (!isMarker || !marker) return;
-    const isChar = ALL_CHAR_MARKERS.has(marker);
-    if (!isChar) return;
-    const nextSibling = node.getNextSibling();
-    // as long as the nest sib
-    const editableTypes: Array<string> = [
-        UsfmTokenTypes.text,
-        UsfmTokenTypes.numberRange,
-    ];
-    if (
-        $isUSFMTextNode(nextSibling) &&
-        editableTypes.includes(nextSibling.getTokenType())
-    ) {
-        return;
-    }
-    updates.push({
-        dbgLabel: "ensureCharOpensHaveEditableNextSibling",
-        run: () => {
-            const emptySibling = $createUSFMTextNode(" ", {
-                id: guidGenerator(),
-                sid: node.getSid().trim(),
-                inPara: node.getInPara(),
-                tokenType: UsfmTokenTypes.text,
-            });
-            node.insertAfter(emptySibling);
-        },
-    });
-};
-const ensureCharCloseHasEditableNextSibling: MainDocumentStrutureFxn = ({
-    node,
-    tokenType,
-    updates,
-}) => {
-    const isCharClose = tokenType === UsfmTokenTypes.endMarker;
-    if (!isCharClose) return;
-    const nextSibling = node.getNextSibling();
-    // as long as the nest sib
-    const acceptableNextSibling: Array<string> = [UsfmTokenTypes.text];
-    if (
-        ($isUSFMTextNode(nextSibling) &&
-            acceptableNextSibling.includes(nextSibling.getTokenType())) ||
-        $isLineBreakNode(nextSibling)
-    ) {
-        return;
-    }
-    updates.push({
-        dbgLabel: "ensureCharCloseHasEditableNextSibling",
-        run: () => {
-            const emptySibling = $createUSFMTextNode(" ", {
-                id: guidGenerator(),
-                sid: node.getSid().trim(),
-                inPara: node.getInPara(),
-                tokenType: UsfmTokenTypes.text,
-            });
-            node.insertAfter(emptySibling);
         },
     });
 };
@@ -837,67 +753,6 @@ const trySplitOutMarkersFromKnownErrorTokens: MainDocumentStrutureFxn = ({
                 }
                 if ($isUSFMTextNode(right)) {
                     right.setTokenType(UsfmTokenTypes.text);
-                }
-            },
-        });
-    }
-};
-
-const ensureSiblingsHaveAtLeastOneSpace = ({
-    allNodes,
-    updates,
-}: DebouncedStructuralUpdatesArgs) => {
-    for (const dfsNode of allNodes) {
-        const node = dfsNode.node;
-        if (!$isUSFMTextNode(node)) continue;
-        const tokenType = (node as USFMTextNode).getTokenType();
-
-        const isTextContent =
-            tokenType === UsfmTokenTypes.marker ||
-            tokenType === UsfmTokenTypes.endMarker ||
-            tokenType === UsfmTokenTypes.numberRange ||
-            tokenType === UsfmTokenTypes.text;
-
-        if (!isTextContent) continue;
-
-        const nextSibling = node.getNextSibling();
-        if (!nextSibling) continue;
-
-        const nextIsLineBreak = $isLineBreakNode(nextSibling);
-        const textContentType: Array<string> = [
-            UsfmTokenTypes.marker,
-            UsfmTokenTypes.endMarker,
-            UsfmTokenTypes.numberRange,
-            UsfmTokenTypes.text,
-        ];
-        const nextIsTextContent =
-            $isUSFMTextNode(nextSibling) &&
-            textContentType.includes(
-                (nextSibling as USFMTextNode).getTokenType(),
-            );
-
-        if (!nextIsTextContent) continue;
-        if (isProtectedWhitespaceBoundary(node, nextSibling)) continue;
-
-        const nodeText = node.getTextContent();
-        const nextText = nextSibling.getTextContent();
-
-        const endsWithSpace = nodeText.endsWith(" ");
-        const startsWithSpace = nextText.startsWith(" ");
-
-        if (endsWithSpace || startsWithSpace || nextIsLineBreak) {
-            continue;
-        }
-
-        updates.push({
-            dbgLabel: "ensureSiblingsHaveAtLeastOneSpace",
-            run: () => {
-                if (nextSibling.isAttached()) {
-                    const latestNext = nextSibling.getLatest();
-                    if (!$isUSFMTextNode(latestNext)) return;
-                    (latestNext as USFMTextNode).setTextContent(
-                        ` ${latestNext.getTextContent()}`,
-                    );
                 }
             },
         });

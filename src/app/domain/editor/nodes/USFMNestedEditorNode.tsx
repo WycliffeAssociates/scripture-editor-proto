@@ -11,9 +11,9 @@ import type {
 import { DecoratorNode } from "lexical";
 import { type USFMNodeJSON, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHydrationToken.ts";
 import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
 import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
-import type { ParsedToken } from "@/core/data/usfm/parse.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -322,7 +322,7 @@ export function getSerializedNestedEditorNode({
     childrenCb,
     languageDirection,
 }: {
-    token: ParsedToken;
+    token: LexicalHydrationToken;
     childrenCb: () => USFMNodeJSON[];
     languageDirection: "ltr" | "rtl";
 }): USFMNestedEditorNodeJSON {

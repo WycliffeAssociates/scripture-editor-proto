@@ -4,17 +4,16 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { serializeToUsfmString } from "@/test/helpers/serializeToUsfmString.ts";
 
-function makeFlatTokens(text: string, sid: string, id: string): FlatToken[] {
+function makeTokens(text: string, sid: string, id: string): Token[] {
     return [
         {
             id,
             kind: "text",
             span: { start: 0, end: text.length },
             sid,
-            marker: null,
             text,
         },
     ];
@@ -74,12 +73,12 @@ function makeFiles(args: {
                 {
                     chapNumber: chapterNum,
                     dirty: args.loadedText !== args.currentText,
-                    sourceTokens: makeFlatTokens(
+                    sourceTokens: makeTokens(
                         args.loadedText,
                         `${bookCode} ${chapterNum}:1`,
                         `${bookCode}-loaded`,
                     ),
-                    currentTokens: makeFlatTokens(
+                    currentTokens: makeTokens(
                         args.currentText,
                         `${bookCode} ${chapterNum}:1`,
                         `${bookCode}-current`,

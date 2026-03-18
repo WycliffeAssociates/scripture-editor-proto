@@ -21,7 +21,7 @@ type ExtendedCustomColors =
     | DefaultMantineColor;
 
 declare module "@mantine/core" {
-    export interface MantineThemeColorsOverride {
+    interface MantineThemeColorsOverride {
         colors: Record<ExtendedCustomColors, MantineColorsTuple>;
     }
 }

@@ -16,20 +16,14 @@ vi.mock("@/app/domain/editor/serialization/flatTokensByChapter.ts", () => ({
     groupFlatTokensByChapter: groupFlatTokensByChapterMock,
 }));
 
-const {
-    onionFlatTokensToEditorStateMock,
-    onionFlatTokensToLoadedEditorStateMock,
-} = vi.hoisted(() => ({
-    onionFlatTokensToEditorStateMock: vi.fn(() => ({})),
-    onionFlatTokensToLoadedEditorStateMock: vi.fn(() => ({})),
+const { tokensToLexicalMock } = vi.hoisted(() => ({
+    tokensToLexicalMock: vi.fn(() => ({})),
 }));
 
 vi.mock(
     "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts",
     () => ({
-        onionFlatTokensToEditorState: onionFlatTokensToEditorStateMock,
-        onionFlatTokensToLoadedEditorState:
-            onionFlatTokensToLoadedEditorStateMock,
+        tokensToLexical: tokensToLexicalMock,
     }),
 );
 

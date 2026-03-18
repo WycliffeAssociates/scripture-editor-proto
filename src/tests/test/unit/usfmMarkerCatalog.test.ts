@@ -46,7 +46,8 @@ const knownUpstreamOnlyParagraphMarkers: string[] = [];
 
 describe("local marker catalogs", () => {
     it("documents the current local-vs-upstream all-markers delta", () => {
-        const upstream = new Set(wasm.allMarkers());
+        const catalog = wasm.markerCatalog();
+        const upstream = new Set(catalog.all().map((info) => info.marker));
         const localOnly = diff(ALL_USFM_MARKERS, upstream);
         const upstreamOnly = diff(upstream, ALL_USFM_MARKERS);
 
@@ -55,8 +56,20 @@ describe("local marker catalogs", () => {
     });
 
     it("documents the current paragraph and note subset delta", () => {
-        const upstreamParagraphs = new Set(wasm.paragraphMarkers());
-        const upstreamNotes = new Set(wasm.noteMarkers());
+        const upstreamParagraphs = new Set(
+            wasm
+                .markerCatalog()
+                .all()
+                .filter((info) => info.category === "paragraph")
+                .map((info) => info.marker),
+        );
+        const upstreamNotes = new Set(
+            wasm
+                .markerCatalog()
+                .all()
+                .filter((info) => info.category === "noteContainer")
+                .map((info) => info.marker),
+        );
 
         expect(diff(VALID_PARA_MARKERS, upstreamParagraphs)).toEqual(
             knownLocalOnlyParagraphMarkers,

@@ -5,9 +5,10 @@ import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFM
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
-import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { serializeToUsfmString } from "@/test/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@/test/helpers/testEditor.ts";
+import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 describe("modeTransforms nested editor round-trip", () => {
     it("rewraps flattened footnotes when switching back to regular", async () => {
@@ -106,6 +107,32 @@ describe("modeTransforms nested editor round-trip", () => {
         expect(usfm).not.toContain("\\+xtMark");
     });
 
+    it("preserves +xt note submarkers when flattening regular mode for lint", async () => {
+        const editor = await createTestEditor(
+            "\\c 5\n" +
+                "\\p\n" +
+                "\\v 2 Male and female He created them,\\f + \\fr 5:2 \\ft Cited in \\+xt Matthew 19:4\\+xt* and \\+xt Mark 10:6\\+xt*\\f*",
+            { needsParagraphs: true },
+        );
+
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+        const lintTokens = lexicalToTokens(start, {
+            structuralParagraphBreaks: true,
+        });
+        const lintUsfm = lintTokens.map((token) => token.text).join("");
+
+        expect(lintUsfm).toContain(
+            "\\+xt Matthew 19:4\\+xt* and \\+xt Mark 10:6\\+xt*",
+        );
+
+        const strayCloseIssues = (
+            await webUsfmOnionService.lintExisting(lintTokens)
+        ).filter((issue) => issue.code === "stray-close-marker");
+        expect(strayCloseIssues).toEqual([]);
+    });
+
     it("preserves close-marker punctuation spacing in regular-mode projection", async () => {
         const editor = await createTestEditor(
             "\\c 5\n" +
@@ -117,11 +144,37 @@ describe("modeTransforms nested editor round-trip", () => {
         const start = editor
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
-        const projected = lexicalEditorStateToOnionFlatTokens(start)
+        const projected = lexicalToTokens(start)
             .map((token) => token.text)
             .join("");
 
         expect(projected).toContain("\\fqa comfort\\ft .\\f*");
         expect(projected).not.toContain("\\fqa comfort \\ft  .\\f*");
+    });
+
+    it("preserves implicit note submarker closure when flattening regular mode for lint", async () => {
+        const editor = await createTestEditor(
+            "\\c 1\n" +
+                "\\p\n" +
+                "\\v 26 Then God said, “Let Us make man in Our image, after Our likeness, to rule over the fish of the sea and the birds of the air, over the livestock, and over all the earth itself\\f + \\fr 1:26 \\ft MT; Syriac \\fqa and over all the beasts of the earth\\f* and every creature that crawls upon it.”\n",
+            { needsParagraphs: true },
+        );
+
+        const start = editor
+            .getEditorState()
+            .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+        const lintTokens = lexicalToTokens(start, {
+            structuralParagraphBreaks: true,
+        });
+
+        const lintUsfm = lintTokens.map((token) => token.text).join("");
+        expect(lintUsfm).toContain(
+            "\\f + \\fr 1:26 \\ft MT; Syriac \\fqa and over all the beasts of the earth\\f*",
+        );
+
+        const strayCloseIssues = (
+            await webUsfmOnionService.lintExisting(lintTokens)
+        ).filter((issue) => issue.code === "stray-close-marker");
+        expect(strayCloseIssues).toEqual([]);
     });
 });

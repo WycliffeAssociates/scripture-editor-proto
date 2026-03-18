@@ -10,8 +10,7 @@ import {
     nestedEditorMarkers,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import type { ParsedToken } from "@/core/data/usfm/parse.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
+import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHydrationToken.ts";
 import {
     isDocumentMarker,
     isValidParaMarker,
@@ -20,7 +19,7 @@ import {
 type NestedEditorSerialization = "decorator" | "flat";
 
 function serializeTokens(
-    tokens: ParsedToken[],
+    tokens: LexicalHydrationToken[],
     languageDirection: "ltr" | "rtl",
     nestedEditors: NestedEditorSerialization,
 ): USFMNodeJSON[] {
@@ -34,7 +33,7 @@ function serializeTokens(
 }
 
 function serializeTokenToNodes(
-    token: ParsedToken,
+    token: LexicalHydrationToken,
     languageDirection: "ltr" | "rtl",
     nestedEditors: NestedEditorSerialization,
 ): USFMNodeJSON[] {
@@ -83,7 +82,7 @@ function serializeTokenToNodes(
 }
 
 function serializeLeafToken(
-    token: ParsedToken,
+    token: LexicalHydrationToken,
     languageDirection: "ltr" | "rtl",
 ): USFMNodeJSON {
     return serializeToken(token, languageDirection);
@@ -237,7 +236,7 @@ function getContainerStartMarkerFromNode(
 }
 
 function serializeToken(
-    token: ParsedToken,
+    token: LexicalHydrationToken,
     languageDirection: "ltr" | "rtl",
 ): USFMNodeJSON {
     //
@@ -289,7 +288,7 @@ function serializeToken(
     //   };
     //   return lb;
     // }
-    if (token.tokenType === TokenMap.verticalWhitespace) {
+    if (token.tokenType === UsfmTokenTypes.verticalWhitespace) {
         const lb: SerializedLineBreakNode = {
             type: "linebreak",
             version: 1,

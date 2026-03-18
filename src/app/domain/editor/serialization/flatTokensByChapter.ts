@@ -1,4 +1,4 @@
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function chapterFromSid(
     sid: string | null | undefined,
@@ -12,9 +12,9 @@ function chapterFromSid(
 }
 
 export function groupFlatTokensByChapter(
-    tokens: FlatToken[],
-): Record<number, FlatToken[]> {
-    const chapters: Record<number, FlatToken[]> = {};
+    tokens: Token[],
+): Record<number, Token[]> {
+    const chapters: Record<number, Token[]> = {};
     let currentChapter = 0;
 
     for (const token of tokens) {
@@ -22,7 +22,8 @@ export function groupFlatTokensByChapter(
             const nextChapter = Number.parseInt(
                 tokens.find(
                     (candidate) =>
-                        candidate.span.start >= token.span.end &&
+                        (candidate.span?.start ?? -1) >=
+                            (token.span?.end ?? Number.MAX_SAFE_INTEGER) &&
                         candidate.kind === "number",
                 )?.text ?? "",
                 10,

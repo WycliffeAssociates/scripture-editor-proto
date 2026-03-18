@@ -5,6 +5,9 @@ export type LintMessagesByBook = Record<string, LintIssue[]>;
 
 function lintIssueIdentity(issue: LintIssue): string {
     const fixIdentity = issue.fix ? JSON.stringify(issue.fix) : "";
+    const spanIdentity = issue.span
+        ? `${issue.span.start}:${issue.span.end}`
+        : "";
     const relatedSpanIdentity = issue.relatedSpan
         ? `${issue.relatedSpan.start}:${issue.relatedSpan.end}`
         : "";
@@ -13,7 +16,7 @@ function lintIssueIdentity(issue: LintIssue): string {
         issue.code,
         issue.tokenId ?? "",
         issue.relatedTokenId ?? "",
-        `${issue.span.start}:${issue.span.end}`,
+        spanIdentity,
         relatedSpanIdentity,
         issue.message,
         fixIdentity,

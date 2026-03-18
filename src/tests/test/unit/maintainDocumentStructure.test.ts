@@ -244,7 +244,7 @@ describe("maintainDocumentStructure", () => {
         logSpy.mockRestore();
     });
 
-    it("debounced: keeps verse marker spacing behavior for non-protected boundaries", async () => {
+    it("debounced: does not invent spacing at verse marker boundaries", async () => {
         const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
         const editor = createEmptyTestEditor();
 
@@ -281,7 +281,7 @@ describe("maintainDocumentStructure", () => {
             if (!$isUSFMTextNode(text)) {
                 throw new Error("Expected USFM text node");
             }
-            expect(text.getTextContent()).toBe(" Text");
+            expect(text.getTextContent()).toBe("Text");
         });
 
         logSpy.mockRestore();

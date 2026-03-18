@@ -1,8 +1,8 @@
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    onionFlatTokensToEditorState,
-    onionFlatTokensToRenderTokens,
+    tokensToLexical,
+    tokensToRenderTokens,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { isChapterDirtyUsfm } from "@/app/domain/project/saveAndRevertService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -10,7 +10,7 @@ import {
     flattenDiffMap,
     replaceChapterDiffsInMap,
 } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
-import type { FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     CompareBaseline,
     CompareDiff,
@@ -62,7 +62,7 @@ type ChapterSide = {
 function getBaselineTokens(
     chapter: ParsedChapter,
     baseline: CompareBaseline,
-): FlatToken[] {
+): Token[] {
     return baseline === "currentSaved"
         ? chapter.sourceTokens
         : chapter.currentTokens;
@@ -158,8 +158,8 @@ async function buildChapterDiffMapAsync(
         const batchEntries: Array<{
             bookCode: string;
             chapterNum: number;
-            baselineTokens: FlatToken[];
-            sourceTokens: FlatToken[];
+            baselineTokens: Token[];
+            sourceTokens: Token[];
         }> = [];
 
         for (const key of batch) {
@@ -218,10 +218,10 @@ async function buildChapterDiffMapAsync(
                     chapterNum: entry.chapterNum,
                     isWhitespaceChange: diff.isWhitespaceChange,
                     isUsfmStructureChange: diff.isUsfmStructureChange,
-                    originalRenderTokens: onionFlatTokensToRenderTokens(
+                    originalRenderTokens: tokensToRenderTokens(
                         diff.originalTokens,
                     ),
-                    currentRenderTokens: onionFlatTokensToRenderTokens(
+                    currentRenderTokens: tokensToRenderTokens(
                         diff.currentTokens,
                     ),
                     originalAlignment: diff.originalAlignment,
@@ -372,7 +372,7 @@ function ensureWorkingChapterFromSource(args: {
 
 function applyTokensToWorkingChapter(args: {
     chapter: ParsedChapter;
-    nextTokens: FlatToken[];
+    nextTokens: Token[];
 }) {
     const direction =
         (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
@@ -381,10 +381,10 @@ function applyTokensToWorkingChapter(args: {
     const currentMode = inferContentEditorModeFromRootChildren(
         args.chapter.lexicalState.root.children,
     );
-    args.chapter.lexicalState = onionFlatTokensToEditorState({
+    args.chapter.lexicalState = tokensToLexical({
         tokens: args.nextTokens,
         direction,
-        targetMode: currentMode,
+        mode: currentMode === "regular" ? "regular" : "flat",
     });
     args.chapter.currentTokens = args.nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);

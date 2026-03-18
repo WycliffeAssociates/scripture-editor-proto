@@ -61,12 +61,10 @@ describe("TauriUsfmOnionService path I/O", () => {
         expect(invokeMock).toHaveBeenNthCalledWith(2, "usfm_onion_lint_paths", {
             paths: ["/tmp/a.usfm"],
             options: {
-                includeParseRecoveries: false,
-                tokenView: { mergeHorizontalWhitespace: false },
-                tokenRules: {
-                    disabledRules: [],
-                    suppressions: [],
-                },
+                allowImplicitChapterContentVerse: false,
+                disabledCodes: undefined,
+                enabledCodes: undefined,
+                suppressed: undefined,
             },
             batchOptions: { parallel: true },
         });
@@ -75,7 +73,7 @@ describe("TauriUsfmOnionService path I/O", () => {
             "usfm_onion_format_paths",
             {
                 paths: ["/tmp/a.usfm"],
-                tokenOptions: {},
+                tokenOptions: { mergeHorizontalWhitespace: false },
                 formatOptions: {},
                 batchOptions: { parallel: true },
             },
@@ -87,7 +85,7 @@ describe("TauriUsfmOnionService path I/O", () => {
                 pathPairs: [
                     { baselinePath: "/tmp/a.usfm", currentPath: "/tmp/b.usfm" },
                 ],
-                tokenOptions: {},
+                tokenOptions: { mergeHorizontalWhitespace: false },
                 buildOptions: {},
                 batchOptions: { parallel: true },
             },

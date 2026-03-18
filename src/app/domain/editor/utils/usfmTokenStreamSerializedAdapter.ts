@@ -3,11 +3,7 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import {
-    type ContentEditorModeSetting,
-    USFM_PARAGRAPH_NODE_TYPE,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     createSerializedUSFMTextNode,
@@ -22,9 +18,8 @@ import {
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { TokenMap } from "@/core/domain/usfm/lex.ts";
-import type { PrettifyToken } from "@/core/domain/usfm/prettify/prettifyTokenStream.ts";
-import type { FlatToken as OnionFlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     for (const n of nodes) {
@@ -48,7 +43,7 @@ function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
 }
 
 export type LexicalUsfmTokenStream = {
-    tokens: PrettifyToken[];
+    tokens: TokenEnvelope[];
     direction: "ltr" | "rtl";
     shape: RootShape;
     wrapper?: SerializedElementNode;
@@ -61,18 +56,20 @@ export type LexicalRenderToken = {
     marker?: string;
 };
 
-function lexicalTokenTypeToOnionKind(tokenType: string | undefined): string {
+function lexicalTokenTypeToOnionKind(
+    tokenType: string | undefined,
+): Token["kind"] {
     switch (tokenType) {
         case UsfmTokenTypes.marker:
             return "marker";
         case UsfmTokenTypes.endMarker:
-            return "end-marker";
+            return "endMarker";
         case UsfmTokenTypes.numberRange:
             return "number";
         case UsfmTokenTypes.verticalWhitespace:
             return "newline";
         default:
-            return tokenType ?? "text";
+            return "text";
     }
 }
 
@@ -81,13 +78,17 @@ function flatTokenKindToLexicalTokenType(kind: string): string {
         case "marker":
         case "milestone":
             return UsfmTokenTypes.marker;
-        case "end-marker":
-        case "milestone-end":
+        case "endMarker":
+        case "milestoneEnd":
             return UsfmTokenTypes.endMarker;
         case "newline":
             return UsfmTokenTypes.verticalWhitespace;
         case "number":
             return UsfmTokenTypes.numberRange;
+        case "bookCode":
+        case "optBreak":
+        case "attributeList":
+            return UsfmTokenTypes.text;
         default:
             return kind;
     }
@@ -112,7 +113,7 @@ export function lexicalRootChildrenToUsfmTokenStream(
 }
 
 export function usfmTokenStreamToLexicalRootChildren(
-    tokens: PrettifyToken[],
+    tokens: TokenEnvelope[],
     meta: Pick<LexicalUsfmTokenStream, "direction" | "shape" | "wrapper">,
 ): SerializedLexicalNode[] {
     const direction = meta.direction;
@@ -148,59 +149,9 @@ export function inferContentEditorModeFromRootChildren(
         : "usfm";
 }
 
-export function lexicalEditorStateToOnionFlatTokens(
-    state: SerializedEditorState,
-): OnionFlatToken[] {
-    const rootChildren = structuredClone(
-        state.root.children as SerializedLexicalNode[],
-    );
-    const flatNodes = materializeFlatTokensArray(rootChildren, {
-        nested: "flatten",
-    });
-
-    let lastSid = "";
-    let linebreakId = 0;
-    let cursor = 0;
-    const tokens: OnionFlatToken[] = [];
-
-    for (const node of flatNodes) {
-        if (node.type === "linebreak") {
-            tokens.push({
-                id: `linebreak-${linebreakId++}`,
-                kind: "newline",
-                span: {
-                    start: cursor,
-                    end: cursor + 1,
-                },
-                sid: lastSid,
-                marker: null,
-                text: "\n",
-            });
-            cursor += 1;
-            continue;
-        }
-
-        if (!isSerializedUSFMTextNode(node)) continue;
-
-        const sid = node.sid ?? lastSid;
-        const text = node.text ?? "";
-        tokens.push({
-            id: node.id,
-            kind: lexicalTokenTypeToOnionKind(node.tokenType),
-            span: {
-                start: cursor,
-                end: cursor + text.length,
-            },
-            sid,
-            marker: node.marker ?? null,
-            text,
-        });
-        cursor += text.length;
-        if (sid) lastSid = sid;
-    }
-
-    return tokens;
-}
+export type LexicalToTokensOptions = {
+    structuralParagraphBreaks?: boolean;
+};
 
 function shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
     current: SerializedLexicalNode,
@@ -230,15 +181,21 @@ function shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
     return !/[ \t]$/u.test(current.text ?? "");
 }
 
-export function lexicalEditorStateToOnionLintFlatTokens(
+function materializeNodesForTokenization(
     state: SerializedEditorState,
-): OnionFlatToken[] {
+    options: LexicalToTokensOptions = {},
+): SerializedLexicalNode[] {
     const rootChildren = structuredClone(
         state.root.children as SerializedLexicalNode[],
     );
     const flatNodes = materializeFlatTokensArray(rootChildren, {
         nested: "flatten",
     });
+
+    if (!options.structuralParagraphBreaks) {
+        return flatNodes;
+    }
+
     const withStructuralLinebreaks: SerializedLexicalNode[] = [];
 
     for (let i = 0; i < flatNodes.length; i++) {
@@ -259,12 +216,21 @@ export function lexicalEditorStateToOnionLintFlatTokens(
         }
     }
 
+    return withStructuralLinebreaks;
+}
+
+export function lexicalToTokens(
+    state: SerializedEditorState,
+    options: LexicalToTokensOptions = {},
+): Token[] {
+    const nodes = materializeNodesForTokenization(state, options);
+
     let lastSid = "";
     let linebreakId = 0;
     let cursor = 0;
-    const tokens: OnionFlatToken[] = [];
+    const tokens: Token[] = [];
 
-    for (const node of withStructuralLinebreaks) {
+    for (const node of nodes) {
         if (node.type === "linebreak") {
             tokens.push({
                 id: `linebreak-${linebreakId++}`,
@@ -274,7 +240,6 @@ export function lexicalEditorStateToOnionLintFlatTokens(
                     end: cursor + 1,
                 },
                 sid: lastSid,
-                marker: null,
                 text: "\n",
             });
             cursor += 1;
@@ -293,7 +258,7 @@ export function lexicalEditorStateToOnionLintFlatTokens(
                 end: cursor + text.length,
             },
             sid,
-            marker: node.marker ?? null,
+            marker: node.marker ?? undefined,
             text,
         });
         cursor += text.length;
@@ -303,9 +268,7 @@ export function lexicalEditorStateToOnionLintFlatTokens(
     return tokens;
 }
 
-export function onionFlatTokensToRenderTokens(
-    tokens: OnionFlatToken[],
-): LexicalRenderToken[] {
+export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {
     return tokens.map((token) => {
         const node =
             token.kind === "newline"
@@ -330,10 +293,12 @@ export function onionFlatTokensToRenderTokens(
     });
 }
 
-export function onionFlatTokensToEditorState(args: {
-    tokens: OnionFlatToken[];
+export type TokensToLexicalMode = "regular" | "flat";
+
+export function tokensToLexical(args: {
+    tokens: Token[];
     direction: "ltr" | "rtl";
-    targetMode: ContentEditorModeSetting;
+    mode: TokensToLexicalMode;
 }): SerializedEditorState {
     const base: SerializedEditorState = {
         root: {
@@ -366,51 +331,19 @@ export function onionFlatTokensToEditorState(args: {
         },
     };
 
-    return transformToMode(base, args.targetMode);
-}
+    if (args.mode === "regular") {
+        return transformToMode(base, "regular");
+    }
 
-export function onionFlatTokensToLoadedEditorState(args: {
-    tokens: OnionFlatToken[];
-    direction: "ltr" | "rtl";
-}): SerializedEditorState {
-    return {
-        root: {
-            children: [
-                wrapFlatTokensInLexicalParagraph(
-                    args.tokens.map((token) =>
-                        token.kind === "newline"
-                            ? ({
-                                  type: "linebreak",
-                                  version: 1,
-                              } as SerializedLexicalNode)
-                            : (createSerializedUSFMTextNode({
-                                  text: token.text,
-                                  id: token.id ?? guidGenerator(),
-                                  sid: token.sid ?? "",
-                                  tokenType: flatTokenKindToLexicalTokenType(
-                                      token.kind,
-                                  ),
-                                  marker: token.marker ?? undefined,
-                              }) as SerializedLexicalNode),
-                    ),
-                    args.direction,
-                ),
-            ],
-            type: "root",
-            version: 1,
-            direction: args.direction,
-            format: "start",
-            indent: 0,
-        },
-    };
+    return base;
 }
 
 function lexicalNodeToPrettifyToken(
     node: SerializedLexicalNode,
-): PrettifyToken {
+): TokenEnvelope {
     if (node.type === "linebreak") {
         return {
-            tokenType: TokenMap.verticalWhitespace,
+            tokenType: UsfmTokenTypes.verticalWhitespace,
             text: "\n",
         };
     }
@@ -464,15 +397,15 @@ function lexicalNodeToPrettifyToken(
 }
 
 function prettifyTokenToLexicalNode(
-    token: PrettifyToken,
+    token: TokenEnvelope,
 ): SerializedLexicalNode {
-    if (token.tokenType === TokenMap.verticalWhitespace) {
+    if (token.tokenType === UsfmTokenTypes.verticalWhitespace) {
         return { type: "linebreak", version: 1 } as SerializedLexicalNode;
     }
 
     if (token.tokenType === "__nested__") {
         const original = (
-            token as PrettifyToken & {
+            token as TokenEnvelope & {
                 __serialized?: SerializedLexicalNode;
             }
         ).__serialized;
@@ -538,7 +471,7 @@ function prettifyTokenToLexicalNode(
 
     if (token.tokenType === "__unknown__") {
         const original = (
-            token as PrettifyToken & {
+            token as TokenEnvelope & {
                 __serialized?: SerializedLexicalNode;
             }
         ).__serialized;
@@ -546,7 +479,7 @@ function prettifyTokenToLexicalNode(
     }
 
     const original = (
-        token as PrettifyToken & {
+        token as TokenEnvelope & {
             __serialized?: SerializedLexicalNode;
         }
     ).__serialized;

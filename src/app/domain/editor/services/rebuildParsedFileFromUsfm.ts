@@ -2,8 +2,7 @@ import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    onionFlatTokensToEditorState,
-    onionFlatTokensToLoadedEditorState,
+    tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -46,14 +45,15 @@ export async function rebuildParsedFileFromUsfm(args: {
                 existingChapter?.sourceTokens ??
                 sourceTokensByChapter[chapNumber] ??
                 [];
-            const nextLoadedState = onionFlatTokensToLoadedEditorState({
+            const nextLoadedState = tokensToLexical({
                 tokens: nextSourceTokens,
                 direction,
+                mode: "flat",
             });
-            const nextLexicalState = onionFlatTokensToEditorState({
+            const nextLexicalState = tokensToLexical({
                 tokens: nextCurrentTokens,
                 direction,
-                targetMode: needsParagraphs ? "regular" : "usfm",
+                mode: needsParagraphs ? "regular" : "flat",
             });
             return {
                 lexicalState: nextLexicalState,

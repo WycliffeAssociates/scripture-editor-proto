@@ -15,17 +15,16 @@ import type {
     CompareSessionConfig,
 } from "@/app/domain/project/compare/types.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { Diff, FlatToken } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Diff, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
-function makeFlatTokens(text: string, sid: string, id: string): FlatToken[] {
+function makeTokens(text: string, sid: string, id: string): Token[] {
     return [
         {
             id,
             kind: "text",
             span: { start: 0, end: text.length },
             sid,
-            marker: null,
             text,
         },
     ];
@@ -85,12 +84,12 @@ function makeFiles(args: {
                 {
                     chapNumber: chapterNum,
                     dirty: args.loadedText !== args.currentText,
-                    sourceTokens: makeFlatTokens(
+                    sourceTokens: makeTokens(
                         args.loadedText,
                         `${bookCode} ${chapterNum}:1`,
                         `${bookCode}-loaded`,
                     ),
-                    currentTokens: makeFlatTokens(
+                    currentTokens: makeTokens(
                         args.currentText,
                         `${bookCode} ${chapterNum}:1`,
                         `${bookCode}-current`,
@@ -122,10 +121,7 @@ function config(baseline: CompareBaseline): CompareSessionConfig {
     };
 }
 
-function makeDiffs(
-    baselineTokens: FlatToken[],
-    currentTokens: FlatToken[],
-): Diff[] {
+function makeDiffs(baselineTokens: Token[], currentTokens: Token[]): Diff[] {
     const originalText = baselineTokens.map((token) => token.text).join("");
     const currentText = currentTokens.map((token) => token.text).join("");
     if (originalText === currentText) {
@@ -166,16 +162,16 @@ function createStubUsfmOnionService(): IUsfmOnionService {
             );
         },
         async diffTokens(
-            baselineTokens: FlatToken[],
-            currentTokens: FlatToken[],
+            baselineTokens: Token[],
+            currentTokens: Token[],
         ): Promise<Diff[]> {
             return makeDiffs(baselineTokens, currentTokens);
         },
         async revertDiffBlock(
-            baselineTokens: FlatToken[],
-            _currentTokens: FlatToken[],
+            baselineTokens: Token[],
+            _currentTokens: Token[],
             _blockId: string,
-        ): Promise<FlatToken[]> {
+        ): Promise<Token[]> {
             return structuredClone(baselineTokens);
         },
     } as IUsfmOnionService;

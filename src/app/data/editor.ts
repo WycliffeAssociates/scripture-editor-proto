@@ -6,27 +6,18 @@ import {
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import type { TokenMap } from "@/core/domain/usfm/lex.ts";
 
 export type EditorModeSetting = "regular" | "usfm" | "plain" | "view";
 export type ContentEditorModeSetting = Exclude<EditorModeSetting, "view">;
 
-export const UsfmTokenTypes: Pick<
-    typeof TokenMap,
-    | "marker"
-    | "text"
-    | "numberRange"
-    | "verticalWhitespace"
-    | "error"
-    | "endMarker"
-> = {
+export const UsfmTokenTypes = {
     marker: "marker",
     endMarker: "endMarker",
     text: "text",
     numberRange: "numberRange",
     verticalWhitespace: "nl",
     error: "error",
-};
+} as const;
 export const EDITOR_TAGS_USED = {
     programaticIgnore: "programatic-ignore",
     programmaticDoRunChanges: "programmatic-do-run-changes",

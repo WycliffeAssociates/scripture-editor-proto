@@ -1,32 +1,14 @@
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
-use std::ops::Range;
 use std::path::Path;
 use usfm_onion as onion;
-use onion::diff::{
-    apply_revert_by_block_id, diff_tokens, diff_usfm, BuildSidBlocksOptions, ChapterTokenDiff,
-    DiffStatus, DiffTokenChange, DiffUndoSide, TokenAlignment,
-};
-use onion::format::{
-    apply_token_fixes, format_flat_token_batches_with_options, format_usfm_sources_with_options,
-    FormatOptions, SkippedTokenTransform, TokenFix, TokenTemplate, TokenTransformChange,
-    TokenTransformKind, TokenTransformResult, TokenTransformSkipReason,
-};
-use onion::lint::{
-    lint_flat_token_batches, lint_flat_tokens, lint_usfm_sources, LintCode, LintIssue,
-    LintOptions, LintSuppression, TokenLintOptions,
-};
-use onion::model::{
-    BatchExecutionOptions, Token, TokenKind, TokenViewOptions, WhitespacePolicy,
-};
-use onion::parse::{
-    project_usfm, project_usfm_batch, IntoTokensOptions, ProjectUsfmOptions,
-};
-use onion::markers;
+use usfm_onion::token::Span;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+// @ai -> avoid "dto" talk. Audit this file to be ensure we are recreating structs and types already in the crate itself. This whole file should be a really thin wrapper to go from web (invoke in interface) -> tauri lister -> crate -> back to web. I think it is, but just double check
 pub struct IntoTokensOptionsDto {
     #[serde(default)]
     pub merge_horizontal_whitespace: bool,
@@ -55,6 +37,13 @@ pub struct DiffPathPairDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SpanDto {
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FlatTokenDto {
     pub id: String,
     pub kind: String,
@@ -64,57 +53,7 @@ pub struct FlatTokenDto {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpanDto {
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenTemplateDto {
-    pub kind: String,
-    pub text: String,
-    pub marker: Option<String>,
-    pub sid: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum TokenFixDto {
-    ReplaceToken {
-        code: String,
-        label: String,
-        label_params: std::collections::BTreeMap<String, String>,
-        target_token_id: String,
-        replacements: Vec<TokenTemplateDto>,
-    },
-    DeleteToken {
-        code: String,
-        label: String,
-        label_params: std::collections::BTreeMap<String, String>,
-        target_token_id: String,
-    },
-    InsertAfter {
-        code: String,
-        label: String,
-        label_params: std::collections::BTreeMap<String, String>,
-        target_token_id: String,
-        insert: Vec<TokenTemplateDto>,
-    },
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenLintOptionsDto {
-    #[serde(default)]
-    pub disabled_rules: Vec<String>,
-    #[serde(default)]
-    pub suppressions: Vec<LintSuppressionDto>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LintSuppressionDto {
     pub code: String,
@@ -124,12 +63,14 @@ pub struct LintSuppressionDto {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LintOptionsDto {
-    #[serde(default = "default_true")]
-    pub include_parse_recoveries: bool,
     #[serde(default)]
-    pub token_view: IntoTokensOptionsDto,
+    pub enabled_codes: Option<Vec<String>>,
     #[serde(default)]
-    pub token_rules: TokenLintOptionsDto,
+    pub disabled_codes: Vec<String>,
+    #[serde(default)]
+    pub suppressed: Vec<LintSuppressionDto>,
+    #[serde(default)]
+    pub allow_implicit_chapter_content_verse: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -168,8 +109,8 @@ pub struct LintIssueDto {
     pub severity: String,
     pub marker: Option<String>,
     pub message: String,
-    pub message_params: std::collections::BTreeMap<String, String>,
-    pub span: SpanDto,
+    pub message_params: BTreeMap<String, String>,
+    pub span: Option<SpanDto>,
     pub related_span: Option<SpanDto>,
     pub token_id: Option<String>,
     pub related_token_id: Option<String>,
@@ -178,10 +119,65 @@ pub struct LintIssueDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum TokenFixDto {
+    ReplaceToken {
+        code: String,
+        label: String,
+        label_params: BTreeMap<String, String>,
+        target_token_id: String,
+        replacements: Vec<TokenTemplateDto>,
+    },
+    DeleteToken {
+        code: String,
+        label: String,
+        label_params: BTreeMap<String, String>,
+        target_token_id: String,
+    },
+    InsertAfter {
+        code: String,
+        label: String,
+        label_params: BTreeMap<String, String>,
+        target_token_id: String,
+        insert: Vec<TokenTemplateDto>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenTemplateDto {
+    pub kind: String,
+    pub text: String,
+    pub marker: Option<String>,
+    pub sid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
     pub lint_issues: Option<Vec<LintIssueDto>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkerInfoDto {
+    pub marker: String,
+    pub canonical: Option<String>,
+    pub known: bool,
+    pub deprecated: bool,
+    pub category: String,
+    pub kind: String,
+    pub family: Option<String>,
+    pub family_role: Option<String>,
+    pub note_family: Option<String>,
+    pub note_subkind: Option<String>,
+    pub inline_context: Option<String>,
+    pub default_attribute: Option<String>,
+    pub contexts: Vec<String>,
+    pub block_behavior: Option<String>,
+    pub closing_behavior: Option<String>,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +190,25 @@ pub struct MarkerCatalogDto {
     pub regular_character_markers: Vec<String>,
     pub document_markers: Vec<String>,
     pub chapter_verse_markers: Vec<String>,
+    pub info_by_marker: BTreeMap<String, MarkerInfoDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenAlignmentDto {
+    pub change: String,
+    pub counterpart_index: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SidBlockDto {
+    pub block_id: String,
+    pub semantic_sid: String,
+    pub start: usize,
+    pub end_exclusive: usize,
+    pub prev_block_id: Option<String>,
+    pub text_full: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,6 +217,8 @@ pub struct DiffDto {
     pub block_id: String,
     pub semantic_sid: String,
     pub status: String,
+    pub original: Option<SidBlockDto>,
+    pub current: Option<SidBlockDto>,
     pub original_text: String,
     pub current_text: String,
     pub original_text_only: String,
@@ -217,18 +234,11 @@ pub struct DiffDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TokenAlignmentDto {
-    pub change: String,
-    pub counterpart_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TokenTransformChangeDto {
     pub kind: String,
     pub code: String,
     pub label: String,
-    pub label_params: std::collections::BTreeMap<String, String>,
+    pub label_params: BTreeMap<String, String>,
     pub target_token_id: Option<String>,
 }
 
@@ -238,7 +248,7 @@ pub struct SkippedTokenTransformDto {
     pub kind: String,
     pub code: String,
     pub label: String,
-    pub label_params: std::collections::BTreeMap<String, String>,
+    pub label_params: BTreeMap<String, String>,
     pub target_token_id: Option<String>,
     pub reason_code: String,
     pub reason: String,
@@ -279,9 +289,11 @@ fn should_parallelize(options: Option<BatchExecutionOptionsDto>) -> bool {
     options.map(|o| o.parallel).unwrap_or(true)
 }
 
-fn map_batch_options(options: Option<BatchExecutionOptionsDto>) -> BatchExecutionOptions {
-    BatchExecutionOptions {
-        parallel: should_parallelize(options),
+fn map_execution(options: Option<BatchExecutionOptionsDto>) -> onion::ExecutionMode {
+    if should_parallelize(options) {
+        onion::ExecutionMode::Parallel
+    } else {
+        onion::ExecutionMode::Serial
     }
 }
 
@@ -289,8 +301,7 @@ fn read_sources_from_paths(
     paths: Vec<String>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<String>, String> {
-    let parallel = should_parallelize(batch_options);
-    if parallel {
+    if should_parallelize(batch_options) {
         paths
             .into_par_iter()
             .map(|path| read_usfm_source_from_path(&path))
@@ -303,33 +314,138 @@ fn read_sources_from_paths(
     }
 }
 
-fn map_whitespace_policy(options: IntoTokensOptionsDto) -> IntoTokensOptions {
-    IntoTokensOptions {
-        merge_horizontal_whitespace: options.merge_horizontal_whitespace,
+fn map_span(span: Span) -> SpanDto {
+    SpanDto {
+        start: span.start as usize,
+        end: span.end as usize,
     }
 }
 
-fn map_token_view_options(options: Option<IntoTokensOptionsDto>) -> TokenViewOptions {
-    TokenViewOptions {
-        whitespace_policy: if options
-            .map(|o| o.merge_horizontal_whitespace)
-            .unwrap_or(false)
-        {
-            WhitespacePolicy::MergeToVisible
-        } else {
-            // Core usfm_onion does not currently expose a preserve token-view policy.
-            WhitespacePolicy::MergeToVisible
-        },
+fn map_token_kind(kind: onion::TokenKind) -> String {
+    match kind {
+        onion::TokenKind::Newline => "newline",
+        onion::TokenKind::OptBreak => "optBreak",
+        onion::TokenKind::Marker => "marker",
+        onion::TokenKind::EndMarker => "endMarker",
+        onion::TokenKind::Milestone => "milestone",
+        onion::TokenKind::MilestoneEnd => "milestoneEnd",
+        onion::TokenKind::BookCode => "bookCode",
+        onion::TokenKind::Number => "number",
+        onion::TokenKind::Text => "text",
+        onion::TokenKind::AttributeList => "attributeList",
+    }
+    .to_string()
+}
+
+fn parse_token_kind(kind: &str) -> onion::TokenKind {
+    match kind {
+        "newline" | "verticalWhitespace" => onion::TokenKind::Newline,
+        "optBreak" => onion::TokenKind::OptBreak,
+        "marker" => onion::TokenKind::Marker,
+        "endMarker" => onion::TokenKind::EndMarker,
+        "milestone" => onion::TokenKind::Milestone,
+        "milestoneEnd" => onion::TokenKind::MilestoneEnd,
+        "bookCode" => onion::TokenKind::BookCode,
+        "number" | "numberRange" => onion::TokenKind::Number,
+        "attributeList" => onion::TokenKind::AttributeList,
+        _ => onion::TokenKind::Text,
     }
 }
 
-fn map_format_options(options: Option<FormatOptionsDto>) -> FormatOptions {
-    let defaults = FormatOptions::default();
+fn map_flat_token(token: &onion::Token<'_>) -> FlatTokenDto {
+    FlatTokenDto {
+        id: format!("{}-{}", token.id.book_code, token.id.index),
+        kind: map_token_kind(token.kind()),
+        span: map_span(token.span),
+        sid: token
+            .sid
+            .as_ref()
+            .map(|sid| format!("{} {}:{}", sid.book_code, sid.chapter, sid.verse)),
+        marker: token.marker_name().map(ToString::to_string),
+        text: token.source.to_string(),
+    }
+}
+
+fn map_format_token(token: &onion::FormatToken) -> FlatTokenDto {
+    FlatTokenDto {
+        id: token.id.clone().unwrap_or_default(),
+        kind: map_token_kind(token.kind),
+        span: token.span.map(map_span).unwrap_or(SpanDto {
+            start: 0,
+            end: token.text.len(),
+        }),
+        sid: token.sid.clone(),
+        marker: token.marker.clone(),
+        text: token.text.clone(),
+    }
+}
+
+fn map_tokens(tokens: &[onion::Token<'_>]) -> Vec<FlatTokenDto> {
+    tokens.iter().map(map_flat_token).collect()
+}
+
+fn map_format_tokens(tokens: &[onion::FormatToken]) -> Vec<FlatTokenDto> {
+    tokens.iter().map(map_format_token).collect()
+}
+
+fn map_flat_token_dto(token: FlatTokenDto) -> onion::FormatToken {
+    onion::FormatToken {
+        kind: parse_token_kind(&token.kind),
+        text: token.text,
+        marker: token.marker,
+        sid: token.sid,
+        id: (!token.id.is_empty()).then_some(token.id),
+        span: Some(Span {
+            start: token.span.start as u32,
+            end: token.span.end as u32,
+        }),
+        structural: None,
+        number_info: None,
+        marker_profile: None,
+    }
+}
+
+fn map_lint_code(code: &str) -> Option<onion::LintCode> {
+    serde_json::from_str::<onion::LintCode>(&format!("\"{code}\"")).ok()
+}
+
+fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
+    let Some(options) = options else {
+        return onion::LintOptions::default();
+    };
+    onion::LintOptions {
+        enabled_codes: options.enabled_codes.map(|codes| {
+            codes
+                .into_iter()
+                .filter_map(|code| map_lint_code(&code))
+                .collect()
+        }),
+        disabled_codes: options
+            .disabled_codes
+            .into_iter()
+            .filter_map(|code| map_lint_code(&code))
+            .collect(),
+        suppressed: options
+            .suppressed
+            .into_iter()
+            .filter_map(|suppression| {
+                Some(onion::LintSuppression {
+                    code: map_lint_code(&suppression.code)?,
+                    sid: suppression.sid,
+                })
+            })
+            .collect(),
+        allow_implicit_chapter_content_verse: options.allow_implicit_chapter_content_verse,
+    }
+}
+
+fn map_format_options(options: Option<FormatOptionsDto>) -> onion::FormatOptions {
+    let defaults = onion::FormatOptions::default();
     let Some(options) = options else {
         return defaults;
     };
 
-    FormatOptions {
+    onion::FormatOptions {
         recover_malformed_markers: options
             .recover_malformed_markers
             .unwrap_or(defaults.recover_malformed_markers),
@@ -378,163 +494,28 @@ fn map_format_options(options: Option<FormatOptionsDto>) -> FormatOptions {
     }
 }
 
-fn map_fix_dto(fix: TokenFixDto) -> TokenFix {
+fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
+    LintIssueDto {
+        code: issue.code.code().to_string(),
+        severity: match issue.severity {
+            onion::LintSeverity::Error => "error".to_string(),
+            onion::LintSeverity::Warning => "warning".to_string(),
+        },
+        marker: issue.marker.clone(),
+        message: issue.message.clone(),
+        message_params: BTreeMap::new(),
+        span: issue.span.map(map_span),
+        related_span: issue.related_span.map(map_span),
+        token_id: issue.token_id.clone(),
+        related_token_id: issue.related_token_id.clone(),
+        sid: issue.sid.clone(),
+        fix: issue.fix.clone().map(map_token_fix),
+    }
+}
+
+fn map_token_fix(fix: onion::TokenFix) -> TokenFixDto {
     match fix {
-        TokenFixDto::ReplaceToken {
-            code,
-            label,
-            label_params,
-            target_token_id,
-            replacements,
-        } => TokenFix::ReplaceToken {
-            code,
-            label,
-            label_params,
-            target_token_id,
-            replacements: replacements.into_iter().map(map_template_dto).collect(),
-        },
-        TokenFixDto::DeleteToken {
-            code,
-            label,
-            label_params,
-            target_token_id,
-        } => TokenFix::DeleteToken {
-            code,
-            label,
-            label_params,
-            target_token_id,
-        },
-        TokenFixDto::InsertAfter {
-            code,
-            label,
-            label_params,
-            target_token_id,
-            insert,
-        } => TokenFix::InsertAfter {
-            code,
-            label,
-            label_params,
-            target_token_id,
-            insert: insert.into_iter().map(map_template_dto).collect(),
-        },
-    }
-}
-
-fn map_template_dto(template: TokenTemplateDto) -> TokenTemplate {
-    TokenTemplate {
-        kind: map_token_kind(&template.kind),
-        text: template.text,
-        marker: template.marker,
-        sid: template.sid,
-    }
-}
-
-fn lint_code_from_str(code: &str) -> Option<LintCode> {
-    Some(match code {
-        "missing-separator-after-marker" => LintCode::MissingSeparatorAfterMarker,
-        "empty-paragraph" => LintCode::EmptyParagraph,
-        "number-range-after-chapter-marker" => LintCode::NumberRangeAfterChapterMarker,
-        "verse-range-expected-after-verse-marker" => {
-            LintCode::VerseRangeExpectedAfterVerseMarker
-        }
-        "verse-content-not-empty" => LintCode::VerseContentNotEmpty,
-        "unknown-token" => LintCode::UnknownToken,
-        "char-not-closed" => LintCode::CharNotClosed,
-        "note-not-closed" => LintCode::NoteNotClosed,
-        "paragraph-before-first-chapter" => LintCode::ParagraphBeforeFirstChapter,
-        "verse-before-first-chapter" => LintCode::VerseBeforeFirstChapter,
-        "note-submarker-outside-note" => LintCode::NoteSubmarkerOutsideNote,
-        "duplicate-id-marker" => LintCode::DuplicateIdMarker,
-        "id-marker-not-at-file-start" => LintCode::IdMarkerNotAtFileStart,
-        "chapter-metadata-outside-chapter" => LintCode::ChapterMetadataOutsideChapter,
-        "verse-metadata-outside-verse" => LintCode::VerseMetadataOutsideVerse,
-        "missing-chapter-number" => LintCode::MissingChapterNumber,
-        "missing-verse-number" => LintCode::MissingVerseNumber,
-        "missing-milestone-self-close" => LintCode::MissingMilestoneSelfClose,
-        "implicitly-closed-marker" => LintCode::ImplicitlyClosedMarker,
-        "stray-close-marker" => LintCode::StrayCloseMarker,
-        "misnested-close-marker" => LintCode::MisnestedCloseMarker,
-        "unclosed-note" => LintCode::UnclosedNote,
-        "unclosed-marker-at-eof" => LintCode::UnclosedMarkerAtEof,
-        "duplicate-chapter-number" => LintCode::DuplicateChapterNumber,
-        "chapter-expected-increase-by-one" => LintCode::ChapterExpectedIncreaseByOne,
-        "duplicate-verse-number" => LintCode::DuplicateVerseNumber,
-        "verse-expected-increase-by-one" => LintCode::VerseExpectedIncreaseByOne,
-        "invalid-number-range" => LintCode::InvalidNumberRange,
-        "number-range-not-preceded-by-marker-expecting-number" => {
-            LintCode::NumberRangeNotPrecededByMarkerExpectingNumber
-        }
-        "verse-text-follows-verse-range" => LintCode::VerseTextFollowsVerseRange,
-        "unknown-marker" => LintCode::UnknownMarker,
-        "unknown-close-marker" => LintCode::UnknownCloseMarker,
-        "inconsistent-chapter-label" => LintCode::InconsistentChapterLabel,
-        "marker-not-valid-in-context" => LintCode::MarkerNotValidInContext,
-        "verse-outside-explicit-paragraph" => LintCode::VerseOutsideExplicitParagraph,
-        _ => return None,
-    })
-}
-
-fn token_kind_to_string(kind: &TokenKind) -> String {
-    match kind {
-        TokenKind::Newline => "verticalWhitespace".to_string(),
-        TokenKind::OptBreak => "optbreak".to_string(),
-        TokenKind::Marker => "marker".to_string(),
-        TokenKind::EndMarker => "endMarker".to_string(),
-        TokenKind::Milestone => "milestone".to_string(),
-        TokenKind::MilestoneEnd => "milestoneEnd".to_string(),
-        TokenKind::Attributes => "attributes".to_string(),
-        TokenKind::BookCode => "bookCode".to_string(),
-        TokenKind::Number => "number".to_string(),
-        TokenKind::Text => "text".to_string(),
-    }
-}
-
-fn map_token_kind(kind: &str) -> TokenKind {
-    match kind {
-        "marker" => TokenKind::Marker,
-        "endMarker" => TokenKind::EndMarker,
-        "milestone" => TokenKind::Milestone,
-        "milestoneEnd" => TokenKind::MilestoneEnd,
-        "attributes" | "attrPair" => TokenKind::Attributes,
-        "bookCode" => TokenKind::BookCode,
-        "number" | "numberRange" => TokenKind::Number,
-        "nl" | "newline" | "verticalWhitespace" => TokenKind::Newline,
-        "ws" | "whitespace" | "horizontalWhitespace" => TokenKind::Text,
-        "optbreak" => TokenKind::OptBreak,
-        _ => TokenKind::Text,
-    }
-}
-
-fn map_span(span: Range<usize>) -> SpanDto {
-    SpanDto {
-        start: span.start,
-        end: span.end,
-    }
-}
-
-fn map_core_token(token: Token) -> FlatTokenDto {
-    FlatTokenDto {
-        id: token.id,
-        kind: token_kind_to_string(&token.kind),
-        span: map_span(token.span),
-        sid: token.sid,
-        marker: token.marker,
-        text: token.text,
-    }
-}
-
-fn map_template(template: TokenTemplate) -> TokenTemplateDto {
-    TokenTemplateDto {
-        kind: token_kind_to_string(&template.kind),
-        text: template.text,
-        marker: template.marker,
-        sid: template.sid,
-    }
-}
-
-fn map_fix(fix: TokenFix) -> TokenFixDto {
-    match fix {
-        TokenFix::ReplaceToken {
+        onion::TokenFix::ReplaceToken {
             code,
             label,
             label_params,
@@ -545,9 +526,17 @@ fn map_fix(fix: TokenFix) -> TokenFixDto {
             label,
             label_params,
             target_token_id,
-            replacements: replacements.into_iter().map(map_template).collect(),
+            replacements: replacements
+                .into_iter()
+                .map(|token| TokenTemplateDto {
+                    kind: map_token_kind(token.kind).to_string(),
+                    text: token.text,
+                    marker: token.marker,
+                    sid: token.sid,
+                })
+                .collect(),
         },
-        TokenFix::DeleteToken {
+        onion::TokenFix::DeleteToken {
             code,
             label,
             label_params,
@@ -558,7 +547,7 @@ fn map_fix(fix: TokenFix) -> TokenFixDto {
             label_params,
             target_token_id,
         },
-        TokenFix::InsertAfter {
+        onion::TokenFix::InsertAfter {
             code,
             label,
             label_params,
@@ -569,234 +558,292 @@ fn map_fix(fix: TokenFix) -> TokenFixDto {
             label,
             label_params,
             target_token_id,
-            insert: insert.into_iter().map(map_template).collect(),
+            insert: insert
+                .into_iter()
+                .map(|token| TokenTemplateDto {
+                    kind: map_token_kind(token.kind).to_string(),
+                    text: token.text,
+                    marker: token.marker,
+                    sid: token.sid,
+                })
+                .collect(),
         },
     }
 }
 
-fn map_issue(issue: LintIssue) -> LintIssueDto {
-    LintIssueDto {
-        code: issue.code.as_str().to_string(),
-        severity: issue.severity.as_str().to_string(),
-        marker: issue.marker,
-        message: issue.message,
-        message_params: issue.message_params,
-        span: map_span(issue.span),
-        related_span: issue.related_span.map(map_span),
-        token_id: issue.token_id,
-        related_token_id: issue.related_token_id,
-        sid: issue.sid,
-        fix: issue.fix.map(map_fix),
+fn map_token_template_dto(template: TokenTemplateDto) -> onion::TokenTemplate {
+    onion::TokenTemplate {
+        kind: parse_token_kind(&template.kind),
+        text: template.text,
+        marker: template.marker,
+        sid: template.sid,
     }
 }
 
-fn map_diff(diff: ChapterTokenDiff<Token>) -> DiffDto {
+fn parse_token_fix_dto(fix: TokenFixDto) -> Option<onion::TokenFix> {
+    match fix {
+        TokenFixDto::ReplaceToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+            replacements,
+        } => Some(onion::TokenFix::ReplaceToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+            replacements: replacements
+                .into_iter()
+                .map(map_token_template_dto)
+                .collect(),
+        }),
+        TokenFixDto::DeleteToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+        } => Some(onion::TokenFix::DeleteToken {
+            code,
+            label,
+            label_params,
+            target_token_id,
+        }),
+        TokenFixDto::InsertAfter {
+            code,
+            label,
+            label_params,
+            target_token_id,
+            insert,
+        } => Some(onion::TokenFix::InsertAfter {
+            code,
+            label,
+            label_params,
+            target_token_id,
+            insert: insert.into_iter().map(map_token_template_dto).collect(),
+        }),
+    }
+}
+
+fn map_projected_document(
+    usfm: &onion::Usfm,
+    options: ProjectUsfmOptionsDto,
+) -> ProjectedUsfmDocumentDto {
+    let lint_issues = options.lint_options.map(|lint_options| {
+        usfm.lint(map_lint_options(Some(lint_options)))
+            .issues
+            .iter()
+            .map(map_lint_issue)
+            .collect::<Vec<_>>()
+    });
+
+    ProjectedUsfmDocumentDto {
+        tokens: map_tokens(&usfm.tokens()),
+        lint_issues: lint_issues.map(|issues| {
+            issues
+                .into_iter()
+                .filter(|issue| {
+                    issue.code != "unknown-marker" || issue.marker.as_deref() != Some("s5")
+                })
+                .collect()
+        }),
+    }
+}
+
+fn map_diff_status(status: onion::DiffStatus) -> String {
+    match status {
+        onion::DiffStatus::Added => "added",
+        onion::DiffStatus::Deleted => "deleted",
+        onion::DiffStatus::Modified => "modified",
+        onion::DiffStatus::Unchanged => "unchanged",
+    }
+    .to_string()
+}
+
+fn map_token_change(change: onion::DiffTokenChange) -> String {
+    match change {
+        onion::DiffTokenChange::Unchanged => "unchanged",
+        onion::DiffTokenChange::Added => "added",
+        onion::DiffTokenChange::Deleted => "deleted",
+        onion::DiffTokenChange::Modified => "modified",
+    }
+    .to_string()
+}
+
+fn map_undo_side(side: onion::DiffUndoSide) -> String {
+    match side {
+        onion::DiffUndoSide::Original => "original",
+        onion::DiffUndoSide::Current => "current",
+    }
+    .to_string()
+}
+
+fn map_sid_block(block: &onion::SidBlock) -> SidBlockDto {
+    SidBlockDto {
+        block_id: block.block_id.clone(),
+        semantic_sid: block.semantic_sid.clone(),
+        start: block.start,
+        end_exclusive: block.end_exclusive,
+        prev_block_id: block.prev_block_id.clone(),
+        text_full: block.text_full.clone(),
+    }
+}
+
+fn map_diff(diff: &onion::ChapterTokenDiff<onion::FormatToken>) -> DiffDto {
     DiffDto {
-        block_id: diff.block_id,
-        semantic_sid: diff.semantic_sid,
-        status: match diff.status {
-            DiffStatus::Added => "added".to_string(),
-            DiffStatus::Deleted => "deleted".to_string(),
-            DiffStatus::Modified => "modified".to_string(),
-            DiffStatus::Unchanged => "unchanged".to_string(),
-        },
-        original_text: diff.original_text,
-        current_text: diff.current_text,
-        original_text_only: diff.original_text_only,
-        current_text_only: diff.current_text_only,
+        block_id: diff.block_id.clone(),
+        semantic_sid: diff.semantic_sid.clone(),
+        status: map_diff_status(diff.status),
+        original: diff.original.as_ref().map(map_sid_block),
+        current: diff.current.as_ref().map(map_sid_block),
+        original_text: diff.original_text.clone(),
+        current_text: diff.current_text.clone(),
+        original_text_only: diff.original_text_only.clone(),
+        current_text_only: diff.current_text_only.clone(),
         is_whitespace_change: diff.is_whitespace_change,
         is_usfm_structure_change: diff.is_usfm_structure_change,
-        original_tokens: diff
-            .original_tokens
-            .into_iter()
-            .map(map_core_token)
-            .collect(),
-        current_tokens: diff
-            .current_tokens
-            .into_iter()
-            .map(map_core_token)
-            .collect(),
+        original_tokens: map_format_tokens(&diff.original_tokens),
+        current_tokens: map_format_tokens(&diff.current_tokens),
         original_alignment: diff
             .original_alignment
-            .into_iter()
-            .map(map_token_alignment)
+            .iter()
+            .map(|entry| TokenAlignmentDto {
+                change: map_token_change(entry.change),
+                counterpart_index: entry.counterpart_index,
+            })
             .collect(),
         current_alignment: diff
             .current_alignment
-            .into_iter()
-            .map(map_token_alignment)
-            .collect(),
-        undo_side: map_undo_side(diff.undo_side).to_string(),
-    }
-}
-
-fn map_token_alignment(alignment: TokenAlignment) -> TokenAlignmentDto {
-    TokenAlignmentDto {
-        change: match alignment.change {
-            DiffTokenChange::Unchanged => "unchanged",
-            DiffTokenChange::Added => "added",
-            DiffTokenChange::Deleted => "deleted",
-            DiffTokenChange::Modified => "modified",
-        }
-        .to_string(),
-        counterpart_index: alignment.counterpart_index,
-    }
-}
-
-fn map_undo_side(side: DiffUndoSide) -> &'static str {
-    match side {
-        DiffUndoSide::Original => "original",
-        DiffUndoSide::Current => "current",
-    }
-}
-
-fn map_transform_change(change: TokenTransformChange) -> TokenTransformChangeDto {
-    TokenTransformChangeDto {
-        kind: match change.kind {
-            TokenTransformKind::Fix => "fix".to_string(),
-            TokenTransformKind::Format => "format".to_string(),
-            TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
-        },
-        code: change.code,
-        label: change.label,
-        label_params: change.label_params,
-        target_token_id: change.target_token_id,
-    }
-}
-
-fn map_skipped_transform(skipped: SkippedTokenTransform) -> SkippedTokenTransformDto {
-    SkippedTokenTransformDto {
-        kind: match skipped.kind {
-            TokenTransformKind::Fix => "fix".to_string(),
-            TokenTransformKind::Format => "format".to_string(),
-            TokenTransformKind::CustomFormatPass => "custom-format-pass".to_string(),
-        },
-        code: skipped.code,
-        label: skipped.label,
-        label_params: skipped.label_params,
-        target_token_id: skipped.target_token_id,
-        reason_code: skipped.reason.as_str().to_string(),
-        reason: match skipped.reason {
-            TokenTransformSkipReason::TokenNotFound => "tokenNotFound".to_string(),
-            TokenTransformSkipReason::EmptyReplacement => "emptyReplacement".to_string(),
-        },
-    }
-}
-
-fn map_transform_result(
-    result: TokenTransformResult<Token>,
-) -> TokenTransformResultDto {
-    TokenTransformResultDto {
-        tokens: result.tokens.into_iter().map(map_core_token).collect(),
-        applied_changes: result
-            .applied_changes
-            .into_iter()
-            .map(map_transform_change)
-            .collect(),
-        skipped_changes: result
-            .skipped_changes
-            .into_iter()
-            .map(map_skipped_transform)
-            .collect(),
-    }
-}
-
-fn parse_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<Token> {
-    tokens
-        .into_iter()
-        .map(|token| Token {
-            id: token.id,
-            kind: map_token_kind(&token.kind),
-            span: token.span.start..token.span.end,
-            sid: token.sid,
-            marker: token.marker,
-            text: token.text,
-        })
-        .collect()
-}
-
-fn parse_core_flat_tokens(tokens: Vec<FlatTokenDto>) -> Vec<Token> {
-    parse_flat_tokens(tokens)
-}
-
-fn map_token_lint_options(options: Option<TokenLintOptionsDto>) -> TokenLintOptions {
-    TokenLintOptions {
-        disabled_rules: options
-            .as_ref()
-            .map(|o| {
-                o.disabled_rules
-                    .iter()
-                    .filter_map(|code| lint_code_from_str(code))
-                    .collect()
+            .iter()
+            .map(|entry| TokenAlignmentDto {
+                change: map_token_change(entry.change),
+                counterpart_index: entry.counterpart_index,
             })
-            .unwrap_or_default(),
-        suppressions: options
-            .as_ref()
-            .map(|o| {
-                o.suppressions
-                    .iter()
-                    .filter_map(|suppression| {
-                        lint_code_from_str(&suppression.code).map(|code| LintSuppression {
-                            code,
-                            sid: suppression.sid.clone(),
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
-        allow_implicit_chapter_content_verse: false,
+            .collect(),
+        undo_side: map_undo_side(diff.undo_side),
     }
 }
 
-fn map_lint_options(options: Option<LintOptionsDto>) -> LintOptions {
-    LintOptions {
-        include_parse_recoveries: options
-            .as_ref()
-            .map(|o| o.include_parse_recoveries)
-            .unwrap_or(true),
-        token_view: options
-            .as_ref()
-            .map(|o| TokenViewOptions {
-                whitespace_policy: if o.token_view.merge_horizontal_whitespace {
-                    WhitespacePolicy::MergeToVisible
-                } else {
-                    // Core usfm_onion does not currently expose a preserve token-view policy.
-                    WhitespacePolicy::MergeToVisible
-                },
-            })
-            .unwrap_or_default(),
-        token_rules: map_token_lint_options(options.map(|o| o.token_rules)),
+fn marker_category_string(category: onion::MarkerCategory) -> String {
+    match category {
+        onion::MarkerCategory::Document => "document",
+        onion::MarkerCategory::Paragraph => "paragraph",
+        onion::MarkerCategory::Character => "character",
+        onion::MarkerCategory::NoteContainer => "noteContainer",
+        onion::MarkerCategory::NoteSubmarker => "noteSubmarker",
+        onion::MarkerCategory::Chapter => "chapter",
+        onion::MarkerCategory::Verse => "verse",
+        onion::MarkerCategory::MilestoneStart => "milestoneStart",
+        onion::MarkerCategory::MilestoneEnd => "milestoneEnd",
+        onion::MarkerCategory::Figure => "figure",
+        onion::MarkerCategory::SidebarStart => "sidebarStart",
+        onion::MarkerCategory::SidebarEnd => "sidebarEnd",
+        onion::MarkerCategory::Periph => "periph",
+        onion::MarkerCategory::Meta => "meta",
+        onion::MarkerCategory::TableRow => "tableRow",
+        onion::MarkerCategory::TableCell => "tableCell",
+        onion::MarkerCategory::Header => "header",
+        onion::MarkerCategory::Unknown => "unknown",
+    }
+    .to_string()
+}
+
+fn marker_kind_string(kind: onion::MarkerKind) -> String {
+    match kind {
+        onion::MarkerKind::Paragraph => "paragraph",
+        onion::MarkerKind::Note => "note",
+        onion::MarkerKind::Character => "character",
+        onion::MarkerKind::Header => "header",
+        onion::MarkerKind::Chapter => "chapter",
+        onion::MarkerKind::Verse => "verse",
+        onion::MarkerKind::MilestoneStart => "milestoneStart",
+        onion::MarkerKind::MilestoneEnd => "milestoneEnd",
+        onion::MarkerKind::SidebarStart => "sidebarStart",
+        onion::MarkerKind::SidebarEnd => "sidebarEnd",
+        onion::MarkerKind::Figure => "figure",
+        onion::MarkerKind::Meta => "meta",
+        onion::MarkerKind::Periph => "periph",
+        onion::MarkerKind::TableRow => "tableRow",
+        onion::MarkerKind::TableCell => "tableCell",
+        onion::MarkerKind::Unknown => "unknown",
+    }
+    .to_string()
+}
+
+fn map_marker_info(info: &onion::UsfmMarkerInfo) -> MarkerInfoDto {
+    MarkerInfoDto {
+        marker: info.marker.clone(),
+        canonical: info.canonical.clone(),
+        known: info.known,
+        deprecated: info.deprecated,
+        category: marker_category_string(info.category),
+        kind: marker_kind_string(info.kind),
+        family: info.family.map(|value| format!("{value:?}")),
+        family_role: info.family_role.map(|value| format!("{value:?}")),
+        note_family: info.note_family.map(|value| format!("{value:?}")),
+        note_subkind: info.note_subkind.map(|value| format!("{value:?}")),
+        inline_context: info.inline_context.map(|value| format!("{value:?}")),
+        default_attribute: info.default_attribute.clone(),
+        contexts: info
+            .contexts
+            .iter()
+            .map(|value| format!("{value:?}"))
+            .collect(),
+        block_behavior: info.block_behavior.map(|value| format!("{value:?}")),
+        closing_behavior: info.closing_behavior.map(|value| format!("{value:?}")),
+        source: info.source.clone(),
     }
 }
 
 #[tauri::command]
 pub fn usfm_onion_marker_catalog() -> MarkerCatalogDto {
-    let all_markers = markers::all_markers();
+    let catalog = onion::marker_catalog();
+    let all = catalog.all();
+    let all_markers = all
+        .iter()
+        .map(|info| info.marker.clone())
+        .collect::<Vec<_>>();
+    let info_by_marker = all
+        .iter()
+        .map(|info| (info.marker.clone(), map_marker_info(info)))
+        .collect::<BTreeMap<_, _>>();
+
     MarkerCatalogDto {
-        paragraph_markers: markers::paragraph_markers(),
-        note_markers: markers::note_markers(),
-        note_submarkers: markers::note_submarkers(),
-        regular_character_markers: all_markers
+        all_markers: all_markers.clone(),
+        paragraph_markers: all
             .iter()
-            .filter(|marker| markers::is_regular_character_marker(marker))
-            .cloned()
+            .filter(|info| info.category == onion::MarkerCategory::Paragraph)
+            .map(|info| info.marker.clone())
             .collect(),
-        document_markers: all_markers
+        note_markers: all
             .iter()
-            .filter(|marker| markers::is_document_marker(marker))
-            .cloned()
+            .filter(|info| info.category == onion::MarkerCategory::NoteContainer)
+            .map(|info| info.marker.clone())
             .collect(),
-        chapter_verse_markers: all_markers
+        note_submarkers: all
             .iter()
-            .filter(|marker| {
-                matches!(
-                    markers::marker_info(marker).category,
-                    markers::MarkerCategory::Chapter | markers::MarkerCategory::Verse
-                )
+            .filter(|info| info.category == onion::MarkerCategory::NoteSubmarker)
+            .map(|info| info.marker.clone())
+            .collect(),
+        regular_character_markers: all
+            .iter()
+            .filter(|info| info.category == onion::MarkerCategory::Character)
+            .map(|info| info.marker.clone())
+            .collect(),
+        document_markers: all
+            .iter()
+            .filter(|info| info.category == onion::MarkerCategory::Document)
+            .map(|info| info.marker.clone())
+            .collect(),
+        chapter_verse_markers: all
+            .iter()
+            .filter(|info| {
+                info.category == onion::MarkerCategory::Chapter
+                    || info.category == onion::MarkerCategory::Verse
             })
-            .cloned()
+            .map(|info| info.marker.clone())
             .collect(),
-        all_markers,
+        info_by_marker,
     }
 }
 
@@ -805,25 +852,8 @@ pub fn usfm_onion_project_usfm(
     source: String,
     options: Option<ProjectUsfmOptionsDto>,
 ) -> Result<ProjectedUsfmDocumentDto, String> {
-    let projection = project_usfm(
-        &source,
-        ProjectUsfmOptions {
-            token_options: options
-                .as_ref()
-                .map(|o| map_whitespace_policy(o.token_options.clone()))
-                .unwrap_or_default(),
-            lint_options: options
-                .and_then(|o| o.lint_options)
-                .map(|lint| map_lint_options(Some(lint))),
-        },
-    );
-
-    Ok(ProjectedUsfmDocumentDto {
-        tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-        lint_issues: projection
-            .lint_issues
-            .map(|issues| issues.into_iter().map(map_issue).collect()),
-    })
+    let usfm = onion::Usfm::from_str(&source);
+    Ok(map_projected_document(&usfm, options.unwrap_or_default()))
 }
 
 #[tauri::command]
@@ -832,27 +862,22 @@ pub fn usfm_onion_project_paths(
     options: Option<ProjectUsfmOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<ProjectedUsfmDocumentDto>, String> {
-    let options = options.unwrap_or_default();
     let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let projections = project_usfm_batch(
-        &sources,
-        ProjectUsfmOptions {
-            token_options: map_whitespace_policy(options.token_options),
-            lint_options: options
-                .lint_options
-                .map(|lint| map_lint_options(Some(lint))),
-        },
-        map_batch_options(batch_options),
-    );
-    Ok(projections
+    let exec = should_parallelize(batch_options);
+    let project_options = options.unwrap_or_default();
+    let iter = sources
         .into_iter()
-        .map(|projection| ProjectedUsfmDocumentDto {
-            tokens: projection.tokens.into_iter().map(map_core_token).collect(),
-            lint_issues: projection
-                .lint_issues
-                .map(|issues| issues.into_iter().map(map_issue).collect()),
-        })
-        .collect())
+        .map(|source| onion::Usfm::from_str(&source));
+    let docs = if exec {
+        let docs = iter.collect::<Vec<_>>();
+        docs.into_par_iter()
+            .map(|doc| map_projected_document(&doc, project_options.clone()))
+            .collect()
+    } else {
+        iter.map(|doc| map_projected_document(&doc, project_options.clone()))
+            .collect()
+    };
+    Ok(docs)
 }
 
 #[tauri::command]
@@ -861,46 +886,51 @@ pub fn usfm_onion_lint_paths(
     options: Option<LintOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<LintIssueDto>>, String> {
-    let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let issues = lint_usfm_sources(
-        &sources,
-        map_lint_options(options),
-        map_batch_options(batch_options),
-    );
-    Ok(issues
+    let batch = onion::UsfmBatch::from_paths(paths).map_err(|error| error.to_string())?;
+    let results = batch
+        .lint(map_lint_options(options))
+        .with_execution(map_execution(batch_options))
+        .run();
+    Ok(results
         .into_iter()
-        .map(|result| result.into_iter().map(map_issue).collect())
+        .map(|item| item.value.issues.iter().map(map_lint_issue).collect())
         .collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_lint_tokens(
     tokens: Vec<FlatTokenDto>,
-    options: Option<TokenLintOptionsDto>,
+    options: Option<LintOptionsDto>,
 ) -> Result<Vec<LintIssueDto>, String> {
-    let issues =
-        lint_flat_tokens(&parse_flat_tokens(tokens), map_token_lint_options(options));
-    Ok(issues.into_iter().map(map_issue).collect())
+    let stream =
+        onion::TokenStream::from_tokens(tokens.into_iter().map(map_flat_token_dto).collect());
+    let result = stream.lint(map_lint_options(options));
+    Ok(result.issues.iter().map(map_lint_issue).collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_lint_token_batches(
     token_batches: Vec<Vec<FlatTokenDto>>,
-    options: Option<TokenLintOptionsDto>,
+    options: Option<LintOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<LintIssueDto>>, String> {
-    let batches = token_batches
-        .into_iter()
-        .map(parse_flat_tokens)
-        .collect::<Vec<_>>();
-    let issues = lint_flat_token_batches(
-        &batches,
-        map_token_lint_options(options),
-        map_batch_options(batch_options),
+    let batch = onion::TokenBatch::from_token_streams(
+        token_batches
+            .into_iter()
+            .map(|tokens| {
+                onion::TokenStream::from_tokens(
+                    tokens.into_iter().map(map_flat_token_dto).collect(),
+                )
+            })
+            .collect(),
     );
-    Ok(issues
+    let results = batch
+        .lint(map_lint_options(options))
+        .with_execution(map_execution(batch_options))
+        .run();
+    Ok(results
         .into_iter()
-        .map(|result| result.into_iter().map(map_issue).collect())
+        .map(|item| item.value.issues.iter().map(map_lint_issue).collect())
         .collect())
 }
 
@@ -910,80 +940,77 @@ pub fn usfm_onion_format_token_batches(
     options: Option<FormatOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<TokenTransformResultDto>, String> {
-    let batches = token_batches
-        .into_iter()
-        .map(parse_core_flat_tokens)
-        .collect::<Vec<_>>();
-    let results = format_flat_token_batches_with_options(
-        &batches,
-        map_format_options(options),
-        map_batch_options(batch_options),
+    let batch = onion::TokenBatch::from_token_streams(
+        token_batches
+            .into_iter()
+            .map(|tokens| {
+                onion::TokenStream::from_tokens(
+                    tokens.into_iter().map(map_flat_token_dto).collect(),
+                )
+            })
+            .collect(),
     );
-    Ok(results.into_iter().map(map_transform_result).collect())
+    let results = batch
+        .format(map_format_options(options))
+        .with_execution(map_execution(batch_options))
+        .run();
+    Ok(results
+        .into_iter()
+        .map(|item| TokenTransformResultDto {
+            tokens: map_format_tokens(&item.value),
+            applied_changes: Vec::new(),
+            skipped_changes: Vec::new(),
+        })
+        .collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_format_paths(
     paths: Vec<String>,
-    token_options: Option<IntoTokensOptionsDto>,
+    _token_options: Option<IntoTokensOptionsDto>,
     format_options: Option<FormatOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<TokenTransformResultDto>, String> {
-    let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let results = format_usfm_sources_with_options(
-        &sources,
-        token_options
-            .map(map_whitespace_policy)
-            .unwrap_or_else(|| IntoTokensOptions {
-                merge_horizontal_whitespace: false,
-            }),
-        map_format_options(format_options),
-        map_batch_options(batch_options),
-    );
-    Ok(results.into_iter().map(map_transform_result).collect())
-}
-
-#[tauri::command]
-pub fn usfm_onion_apply_token_fixes(
-    tokens: Vec<FlatTokenDto>,
-    fixes: Vec<TokenFixDto>,
-) -> Result<TokenTransformResultDto, String> {
-    let tokens = parse_core_flat_tokens(tokens);
-    let fixes = fixes.into_iter().map(map_fix_dto).collect::<Vec<_>>();
-    Ok(map_transform_result(apply_token_fixes(
-        &tokens, &fixes,
-    )))
+    let batch = onion::UsfmBatch::from_paths(paths).map_err(|error| error.to_string())?;
+    let results = batch
+        .format(map_format_options(format_options))
+        .with_execution(map_execution(batch_options))
+        .run();
+    Ok(results
+        .into_iter()
+        .map(|item| {
+            let parsed = onion::Usfm::from_str(&item.value);
+            TokenTransformResultDto {
+                tokens: map_tokens(&parsed.tokens()),
+                applied_changes: Vec::new(),
+                skipped_changes: Vec::new(),
+            }
+        })
+        .collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_diff_path_pairs(
     path_pairs: Vec<DiffPathPairDto>,
-    token_options: Option<IntoTokensOptionsDto>,
+    _token_options: Option<IntoTokensOptionsDto>,
     build_options: Option<BuildSidBlocksOptionsDto>,
     batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<DiffDto>>, String> {
-    let token_options = map_token_view_options(token_options);
-    let build_options = BuildSidBlocksOptions {
-        allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-    };
-    let map_diff_pair = |pair: DiffPathPairDto| -> Result<Vec<DiffDto>, String> {
-        let baseline_usfm = read_usfm_source_from_path(&pair.baseline_path)?;
-        let current_usfm = read_usfm_source_from_path(&pair.current_path)?;
-        Ok(diff_usfm(
-            &baseline_usfm,
-            &current_usfm,
-            &token_options,
-            &build_options,
-        )
+    let left = onion::UsfmBatch::from_paths(path_pairs.iter().map(|pair| &pair.baseline_path))
+        .map_err(|error| error.to_string())?;
+    let right = onion::UsfmBatch::from_paths(path_pairs.iter().map(|pair| &pair.current_path))
+        .map_err(|error| error.to_string())?;
+    let results = left
+        .diff(&right)
+        .with_options(onion::BuildSidBlocksOptions {
+            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
+        })
+        .with_execution(map_execution(batch_options))
+        .run();
+    Ok(results
         .into_iter()
-        .map(map_diff)
+        .map(|item| item.value.iter().map(map_diff).collect())
         .collect())
-    };
-    if should_parallelize(batch_options) {
-        path_pairs.into_par_iter().map(map_diff_pair).collect()
-    } else {
-        path_pairs.into_iter().map(map_diff_pair).collect()
-    }
 }
 
 #[tauri::command]
@@ -992,18 +1019,24 @@ pub fn usfm_onion_diff_tokens(
     current_tokens: Vec<FlatTokenDto>,
     build_options: Option<BuildSidBlocksOptionsDto>,
 ) -> Result<Vec<DiffDto>, String> {
-    let baseline = parse_core_flat_tokens(baseline_tokens);
-    let current = parse_core_flat_tokens(current_tokens);
-    Ok(diff_tokens(
-        &baseline,
-        &current,
-        &BuildSidBlocksOptions {
+    let left = onion::TokenStream::from_tokens(
+        baseline_tokens
+            .into_iter()
+            .map(map_flat_token_dto)
+            .collect(),
+    );
+    let right = onion::TokenStream::from_tokens(
+        current_tokens.into_iter().map(map_flat_token_dto).collect(),
+    );
+    Ok(left
+        .diff(&right)
+        .with_options(onion::BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
-        },
-    )
-    .into_iter()
-    .map(map_diff)
-    .collect())
+        })
+        .run()
+        .iter()
+        .map(map_diff)
+        .collect())
 }
 
 #[tauri::command]
@@ -1013,17 +1046,35 @@ pub fn usfm_onion_revert_diff_block(
     block_id: String,
     build_options: Option<BuildSidBlocksOptionsDto>,
 ) -> Result<Vec<FlatTokenDto>, String> {
-    let baseline = parse_core_flat_tokens(baseline_tokens);
-    let current = parse_core_flat_tokens(current_tokens);
-    Ok(apply_revert_by_block_id(
+    let baseline = baseline_tokens
+        .into_iter()
+        .map(map_flat_token_dto)
+        .collect::<Vec<_>>();
+    let current = current_tokens
+        .into_iter()
+        .map(map_flat_token_dto)
+        .collect::<Vec<_>>();
+    let next = onion::apply_revert_by_block_id(
         &block_id,
         &baseline,
         &current,
-        &BuildSidBlocksOptions {
+        &onion::BuildSidBlocksOptions {
             allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
         },
-    )
-    .into_iter()
-    .map(map_core_token)
-    .collect())
+    );
+    Ok(map_format_tokens(&next))
+}
+
+#[tauri::command]
+pub fn usfm_onion_apply_token_fix(
+    tokens: Vec<FlatTokenDto>,
+    fix: TokenFixDto,
+) -> Result<Vec<FlatTokenDto>, String> {
+    let tokens = tokens
+        .into_iter()
+        .map(map_flat_token_dto)
+        .collect::<Vec<_>>();
+    let fix = parse_token_fix_dto(fix).ok_or_else(|| "invalid token fix".to_string())?;
+    let next = onion::apply_token_fix(&tokens, &fix);
+    Ok(map_format_tokens(&next))
 }

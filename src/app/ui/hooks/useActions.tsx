@@ -12,17 +12,13 @@ import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
 import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
+import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ProjectRepository.ts";
 import { useEditorState } from "./useEditorState.tsx";
-import {
-    getFlattenedFileTokens,
-    type LintableTokenLike,
-} from "./utils/editorUtils.ts";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
-export type { LintableTokenLike };
 
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -173,21 +169,22 @@ export const useWorkspaceActions = ({
 
     // Utility functions that need access to current state
     function getFlatFileTokens(
-        currentEditorState: SerializedEditorState,
+        _currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
-    ): Array<LintableTokenLike> {
+    ): Token[] {
+        saveCurrentDirtyLexicalWrapper();
+
         const targetBookCode = opts?.bookCode;
-        const targetChapter = opts?.chapter ?? currentChapter;
         const fileForLint =
             (targetBookCode
                 ? mutWorkingFilesRef.find((f) => f.bookCode === targetBookCode)
                 : null) ?? pickedFile;
 
-        return getFlattenedFileTokens(
-            fileForLint,
-            currentEditorState,
-            targetChapter,
-        );
+        if (!fileForLint) return [];
+
+        return collectFileTokens(fileForLint, {
+            structuralParagraphBreaks: true,
+        });
     }
 
     function goToReference(input: string): boolean {

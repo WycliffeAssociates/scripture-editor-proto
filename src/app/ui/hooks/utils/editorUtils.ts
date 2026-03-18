@@ -1,97 +1,41 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
-import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import {
-    isSerializedUSFMTextNode,
-    type SerializedUSFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import type { LegacyLintError } from "@/core/domain/usfm/legacyTokenTypes.ts";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-export type LintableTokenLike = {
-    text: string;
-    tokenType: string;
-    sid?: string;
-    marker?: string;
-    lintErrors?: Array<LegacyLintError>;
-    isSyntheticParaMarker?: boolean;
-    id: string;
-};
-
-function cloneSerializedTokenForLint(
-    node: SerializedUSFMTextNode,
-): LintableTokenLike {
-    return {
-        text: node.text,
-        tokenType: node.tokenType,
-        sid: node.sid,
-        marker: node.marker,
-        // Keep lintErrors isolated from serialized editor state. The parser mutates
-        // this field for intra-pass dedupe/context, so we always start empty.
-        lintErrors: [],
-        // Needed by parse/tokenParsers findPrevAnchorToken to avoid anchoring fixes
-        // to synthetic paragraph-container tokens.
-        isSyntheticParaMarker: node.isSyntheticParaMarker as
-            | boolean
-            | undefined,
-        id: node.id,
-    };
-}
-
-function getFlattenedEditorStateAsParseTokens(
+function collectChapterTokens(
     serializedEditorState: SerializedEditorState,
-): Array<LintableTokenLike> {
-    const tokens: Array<LintableTokenLike> = [];
-    let lastSid = "";
-    let linebreakId = 0;
-
-    const rootChildren = serializedEditorState.root.children ?? [];
-    const flatNodes = materializeFlatTokensArray(rootChildren, {
-        nested: "flatten",
-    });
-    for (const node of flatNodes) {
-        if (node.type === "linebreak") {
-            tokens.push({
-                tokenType: UsfmTokenTypes.verticalWhitespace,
-                text: "\n",
-                id: `linebreak-${linebreakId++}`,
-                sid: lastSid,
-            });
-            continue;
-        }
-
-        if (isSerializedUSFMTextNode(node)) {
-            tokens.push(cloneSerializedTokenForLint(node));
-            if (node.sid) lastSid = node.sid;
-        }
-
-        // Nested editors are flattened by the adapter.
-    }
-
-    return tokens;
+    options?: { structuralParagraphBreaks?: boolean },
+): Token[] {
+    return lexicalToTokens(serializedEditorState, options);
 }
 
-export function getFlattenedFileTokens(
-    pickedFile: ParsedFile | null,
-    currentEditorState: SerializedEditorState,
-    currentChapter: number,
-): Array<LintableTokenLike> {
-    if (!pickedFile) return [];
+export function collectFileTokens(
+    file: ParsedFile | null,
+    options?: { structuralParagraphBreaks?: boolean },
+): Token[] {
+    if (!file) return [];
 
-    const tokens: Array<LintableTokenLike> = [];
-    for (const chapter of pickedFile.chapters) {
-        const serializedState =
-            chapter.chapNumber === currentChapter
-                ? currentEditorState
-                : chapter.lexicalState;
-
-        const flattened = getFlattenedEditorStateAsParseTokens(serializedState);
+    const tokens: Token[] = [];
+    for (const chapter of file.chapters) {
+        const flattened = collectChapterTokens(chapter.lexicalState, options);
         if (flattened?.length) {
             tokens.push(...flattened);
         }
     }
 
     return tokens;
+}
+
+export function collectWorkingFileTokens(args: {
+    files: ParsedFile[];
+    options?: { structuralParagraphBreaks?: boolean };
+}): Array<{ file: ParsedFile; tokens: Token[] }> {
+    return args.files.map((file) => ({
+        file,
+        tokens: collectFileTokens(file, args.options),
+    }));
 }
 
 export function setEditorContent(

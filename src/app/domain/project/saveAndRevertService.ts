@@ -2,8 +2,7 @@ import type { SerializedLexicalNode } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    onionFlatTokensToEditorState,
-    onionFlatTokensToLoadedEditorState,
+    tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -18,13 +17,13 @@ export function revertChapterToLoadedState(chapter: ParsedChapter) {
     const currentMode = inferContentEditorModeFromRootChildren(
         chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
-    chapter.lexicalState = onionFlatTokensToEditorState({
+    chapter.lexicalState = tokensToLexical({
         tokens: chapter.sourceTokens,
         direction:
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
                 : "ltr",
-        targetMode: currentMode,
+        mode: currentMode === "regular" ? "regular" : "flat",
     });
     chapter.currentTokens = structuredClone(chapter.sourceTokens);
     chapter.dirty = false;
@@ -60,10 +59,10 @@ export async function revertChapterDiffByBlockId(args: {
         args.chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
 
-    args.chapter.lexicalState = onionFlatTokensToEditorState({
+    args.chapter.lexicalState = tokensToLexical({
         tokens: nextTokens,
         direction,
-        targetMode: currentMode,
+        mode: currentMode === "regular" ? "regular" : "flat",
     });
     args.chapter.currentTokens = nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
@@ -100,9 +99,10 @@ export function markFilesAsSaved(files: ParsedFile[]) {
                     ? "rtl"
                     : "ltr";
             chapter.sourceTokens = structuredClone(chapter.currentTokens);
-            chapter.loadedLexicalState = onionFlatTokensToLoadedEditorState({
+            chapter.loadedLexicalState = tokensToLexical({
                 tokens: chapter.sourceTokens,
                 direction,
+                mode: "flat",
             });
             chapter.dirty = false;
         }

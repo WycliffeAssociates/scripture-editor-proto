@@ -4,7 +4,7 @@ import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
     inferContentEditorModeFromRootChildren,
-    onionFlatTokensToEditorState,
+    tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     hideNotification,
@@ -96,10 +96,10 @@ export function useFormatOperations({
         const targetMode = inferContentEditorModeFromRootChildren(
             chapter.lexicalState.root.children,
         );
-        chapter.lexicalState = onionFlatTokensToEditorState({
+        chapter.lexicalState = tokensToLexical({
             tokens: result.tokens,
             direction,
-            targetMode,
+            mode: targetMode === "regular" ? "regular" : "flat",
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =

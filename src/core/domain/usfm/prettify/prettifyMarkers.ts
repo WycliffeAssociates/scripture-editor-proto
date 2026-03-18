@@ -1,3 +1,4 @@
+// @ai this whole folder of prettify I don't think should exist anymore right? We moved format to usfm-onion
 export const POETRY_MARKERS = new Set([
     "q",
     "q1",

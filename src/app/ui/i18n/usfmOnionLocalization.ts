@@ -14,10 +14,11 @@ function markerForIssue(issue: LintIssue) {
 }
 
 function markerForFix(fix: TokenFix) {
-    return getParam(fix.label_params, "marker", "");
+    return getParam(fix.labelParams, "marker", "");
 }
 
 export const LOCALIZED_LINT_CODES = [
+    "missing-id-marker",
     "missing-separator-after-marker",
     "empty-paragraph",
     "number-range-after-chapter-marker",
@@ -55,14 +56,6 @@ export const LOCALIZED_LINT_CODES = [
     "verse-outside-explicit-paragraph",
 ] as const;
 
-export const LOCALIZED_TOKEN_FIX_CODES = [
-    "insert-separator-after-marker",
-    "remove-empty-paragraph",
-    "set-number",
-    "split-unknown-token",
-    "insert-close-marker",
-] as const;
-
 export function formatLintIssueMessage(issue: LintIssue): string {
     const marker = markerForIssue(issue);
     const expected = getParam(issue.messageParams, "expected");
@@ -72,6 +65,8 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     const context = getParam(issue.messageParams, "context");
 
     switch (issue.code) {
+        case "missing-id-marker":
+            return t`The file is missing a \\id marker.`;
         case "missing-separator-after-marker":
             return t`Marker ${marker} is immediately followed by text.`;
         case "empty-paragraph":
@@ -149,7 +144,7 @@ export function formatLintIssueMessage(issue: LintIssue): string {
 
 export function formatTokenFixLabel(fix: TokenFix): string {
     const marker = markerForFix(fix);
-    const number = getParam(fix.label_params, "number");
+    const number = getParam(fix.labelParams, "number");
 
     switch (fix.code) {
         case "insert-separator-after-marker":

@@ -12,9 +12,8 @@ import {
     $isUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import type { LintableTokenLike } from "@/app/ui/hooks/useActions.tsx";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type LintVersesArgs = {
     editorState: EditorState;
@@ -27,12 +26,12 @@ export async function lintAll(
     getFlatFileTokens: (
         currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
-    ) => Array<LintableTokenLike>,
+    ) => Token[],
     opts?: { bookCode?: string; chapter?: number },
 ) {
-    const flatFileTokens = getFlatFileTokens(editorState.toJSON(), opts);
-    const lintIssues = flatFileTokens.length
-        ? await usfmOnionService.lintExisting(flatFileTokens)
+    const tokens = getFlatFileTokens(editorState.toJSON(), opts);
+    const lintIssues = tokens.length
+        ? await usfmOnionService.lintExisting(tokens)
         : [];
 
     const withErrorsInThisBook = lintIssues.reduce(

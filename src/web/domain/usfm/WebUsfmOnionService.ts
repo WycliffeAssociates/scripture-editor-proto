@@ -1,30 +1,22 @@
 import * as onion from "usfm-onion-web";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
-import {
-    defaultBuildSidBlocksOptions,
-    defaultProjectUsfmOptions,
-    defaultTokenLintOptions,
-    parseChapterDocumentFromTokens,
-    toOnionFlatTokens,
-} from "@/core/domain/usfm/usfmOnionAdapters.ts";
+import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
     BatchExecutionOptions,
     BuildSidBlocksOptions,
     Diff,
     DiffScopeItem,
     DiffScopeOptions,
-    FlatToken,
-    FormatOptions,
     FormatScopeOptions,
-    IntoTokensOptions,
     LintIssue,
     LintOptions,
     LintScopeOptions,
-    ParsedUsfmDocument,
+    MarkerInfo,
+    ParsedUsfm,
     ProjectedUsfmDocument,
     ProjectUsfmOptions,
+    Token,
     TokenFix,
     TokenLintOptions,
     TokenScopeItem,
@@ -43,393 +35,161 @@ function throwPathIoUnsupported(): never {
     throw new UnsupportedError("Path I/O is desktop-only");
 }
 
-function stripSyntheticChapterTokens(
-    parsed: ParsedUsfmDocument,
-    bookCode: string,
-    syntheticChapter: number,
-): ParsedUsfmDocument {
-    const chapterTokens = parsed.chapters[syntheticChapter] ?? [];
-    const syntheticSid = `${bookCode} ${syntheticChapter}:0`;
-    const filteredChapterTokens = chapterTokens.filter((token, index) => {
-        if (
-            index === 0 &&
-            token.tokenType === "marker" &&
-            token.marker === "c"
-        ) {
-            return false;
-        }
-        if (
-            index === 1 &&
-            token.tokenType === "numberRange" &&
-            token.sid === syntheticSid
-        ) {
-            return false;
-        }
-        return true;
-    });
+function shouldKeepLintIssue(issue: { code: string; marker?: string | null }) {
+    return issue.code !== "unknown-marker" || issue.marker !== "s5";
+}
 
+function toWebTokenLintOptions(
+    options?: TokenLintOptions | null,
+): onion.LintOptions | undefined {
+    if (!options) return undefined;
     return {
-        ...parsed,
-        chapters: {
-            ...parsed.chapters,
-            [syntheticChapter]: filteredChapterTokens,
-        },
-    };
-}
-
-function toWebBatchOptions(batchOptions?: BatchExecutionOptions | null) {
-    return {
-        parallel: batchOptions?.parallel ?? true,
-    };
-}
-
-function toWebTokenViewOptions(options?: IntoTokensOptions | null) {
-    if (!options) return null;
-    return {
-        whitespacePolicy: "mergeToVisible",
-    } as const;
-}
-
-function toWebIntoTokensOptions(options?: IntoTokensOptions | null) {
-    if (!options) return null;
-    return {
-        mergeHorizontalWhitespace: options.mergeHorizontalWhitespace ?? false,
-    };
-}
-
-function toWebLintSuppressions(options?: TokenLintOptions) {
-    return (options?.suppressions ?? []).map((suppression) => ({
-        code: suppression.code,
-        sid: suppression.sid,
-    }));
-}
-
-function toWebTokenFix(fix: TokenFix) {
-    switch (fix.type) {
-        case "replaceToken":
-            return {
-                type: "replaceToken" as const,
-                code: fix.code,
-                label: fix.label,
-                label_params: fix.label_params,
-                targetTokenId: fix.targetTokenId,
-                replacements: fix.replacements,
-            };
-        case "deleteToken":
-            return {
-                type: "deleteToken" as const,
-                code: fix.code,
-                label: fix.label,
-                label_params: fix.label_params,
-                targetTokenId: fix.targetTokenId,
-            };
-        case "insertAfter":
-            return {
-                type: "insertAfter" as const,
-                code: fix.code,
-                label: fix.label,
-                label_params: fix.label_params,
-                targetTokenId: fix.targetTokenId,
-                insert: fix.insert,
-            };
-    }
-}
-
-function fromWebTokenFix(fix: {
-    type: string;
-    code?: string;
-    label: string;
-    label_params?: Record<string, string>;
-    targetTokenId: string;
-    replacements?: Array<{
-        kind: string;
-        text: string;
-        marker: string | null;
-        sid: string | null;
-    }>;
-    insert?: Array<{
-        kind: string;
-        text: string;
-        marker: string | null;
-        sid: string | null;
-    }>;
-}): TokenFix | null {
-    const code = fix.code ?? "";
-    const labelParams = fix.label_params ?? {};
-    if (fix.type === "replaceToken") {
-        return {
-            type: "replaceToken",
-            code,
-            label: fix.label,
-            label_params: labelParams,
-            targetTokenId: fix.targetTokenId,
-            replacements: fix.replacements ?? [],
-        };
-    }
-    if (fix.type === "deleteToken") {
-        return {
-            type: "deleteToken",
-            code,
-            label: fix.label,
-            label_params: labelParams,
-            targetTokenId: fix.targetTokenId,
-        };
-    }
-    if (fix.type === "insertAfter") {
-        return {
-            type: "insertAfter",
-            code,
-            label: fix.label,
-            label_params: labelParams,
-            targetTokenId: fix.targetTokenId,
-            insert: fix.insert ?? [],
-        };
-    }
-    return null;
-}
-
-function toWebTokenLintOptions(options?: TokenLintOptions) {
-    return {
-        disabledRules: options?.disabledRules ?? [],
-        suppressions: toWebLintSuppressions(options),
+        disabledCodes: (options.disabledRules ?? []) as onion.LintCode[],
+        suppressed: (options.suppressions ?? []).map((suppression) => ({
+            code: suppression.code as onion.LintCode,
+            sid: suppression.sid,
+        })),
         allowImplicitChapterContentVerse: false,
     };
 }
 
-function toWebLintOptions(options?: LintOptions | null) {
-    if (!options) return null;
+function toWebProjectLintOptions(
+    options?: LintOptions | null,
+): onion.LintOptions | undefined {
+    if (!options) return undefined;
     return {
-        includeParseRecoveries: options.includeParseRecoveries ?? false,
-        tokenView: toWebTokenViewOptions(options.tokenView),
-        tokenRules: toWebTokenLintOptions(options.tokenRules),
+        enabledCodes: options.enabledCodes,
+        disabledCodes: options.disabledCodes ?? [],
+        suppressed: options.suppressed ?? [],
+        allowImplicitChapterContentVerse:
+            options.allowImplicitChapterContentVerse ?? false,
     };
 }
 
-function toWebProjectOptions(options?: ProjectUsfmOptions | null) {
-    if (!options) return null;
-    return {
-        tokenOptions: toWebIntoTokensOptions(options.tokenOptions),
-        lintOptions: toWebLintOptions(options.lintOptions),
-    };
-}
-
-function fromWebLintIssue(issue: {
-    code: string;
-    severity?: string;
-    marker?: string | null;
-    message: string;
-    messageParams?: Record<string, string>;
-    span: { start: number; end: number };
-    relatedSpan: { start: number; end: number } | null;
-    tokenId: string | null;
-    relatedTokenId: string | null;
-    sid: string | null;
-    fix: {
-        type: string;
-        code?: string;
-        label: string;
-        label_params?: Record<string, string>;
-        targetTokenId: string;
-        replacements?: Array<{
-            kind: string;
-            text: string;
-            marker: string | null;
-            sid: string | null;
-        }>;
-        insert?: Array<{
-            kind: string;
-            text: string;
-            marker: string | null;
-            sid: string | null;
-        }>;
-    } | null;
-}): LintIssue {
+function fromWebLintIssue(issue: onion.LintIssue): LintIssue {
     return {
         code: issue.code,
-        severity: issue.severity ?? "warning",
+        severity: issue.severity,
         marker: issue.marker ?? null,
         message: issue.message,
-        messageParams: issue.messageParams ?? {},
-        span: {
-            start: issue.span.start,
-            end: issue.span.end,
-        },
-        relatedSpan: issue.relatedSpan
-            ? {
-                  start: issue.relatedSpan.start,
-                  end: issue.relatedSpan.end,
-              }
-            : null,
-        tokenId: issue.tokenId,
-        relatedTokenId: issue.relatedTokenId,
-        sid: issue.sid,
-        fix: issue.fix ? fromWebTokenFix(issue.fix) : null,
+        messageParams: {},
+        span: issue.span ?? null,
+        relatedSpan: issue.relatedSpan ?? null,
+        tokenId: issue.tokenId ?? null,
+        relatedTokenId: issue.relatedTokenId ?? null,
+        sid: issue.sid ?? null,
+        fix: (issue as onion.LintIssue & { fix?: TokenFix | null }).fix ?? null,
     };
 }
 
-type WebLintBatchResult = {
-    issues: Array<{
-        code: string;
-        severity?: string;
-        marker?: string | null;
-        message: string;
-        messageParams?: Record<string, string>;
-        span: { start: number; end: number };
-        relatedSpan: { start: number; end: number } | null;
-        tokenId: string | null;
-        relatedTokenId: string | null;
-        sid: string | null;
-        fix: {
-            type: string;
-            code?: string;
-            label: string;
-            label_params?: Record<string, string>;
-            targetTokenId: string;
-            replacements?: Array<{
-                kind: string;
-                text: string;
-                marker: string | null;
-                sid: string | null;
-            }>;
-            insert?: Array<{
-                kind: string;
-                text: string;
-                marker: string | null;
-                sid: string | null;
-            }>;
-        } | null;
-    }>;
-};
+function buildMarkerCatalog(raw: onion.UsfmMarkerCatalog): UsfmMarkerCatalog {
+    const allInfo = raw.all();
+    const infoByMarker = Object.fromEntries(
+        allInfo.map(
+            (info) => [info.marker, info] satisfies [string, MarkerInfo],
+        ),
+    );
+    const allMarkers = allInfo.map((info) => info.marker);
+    const paragraphMarkers = allInfo
+        .filter((info) => info.category === "paragraph")
+        .map((info) => info.marker);
+    const noteMarkers = allInfo
+        .filter((info) => info.category === "noteContainer")
+        .map((info) => info.marker);
+    const noteSubmarkers = allInfo
+        .filter((info) => info.category === "noteSubmarker")
+        .map((info) => info.marker);
+    const regularCharacterMarkers = allInfo
+        .filter((info) => info.category === "character")
+        .map((info) => info.marker);
+    const documentMarkers = allInfo
+        .filter((info) => info.category === "document")
+        .map((info) => info.marker);
+    const chapterVerseMarkers = allInfo
+        .filter(
+            (info) => info.category === "chapter" || info.category === "verse",
+        )
+        .map((info) => info.marker);
 
-type WebProjectedDocumentRow = {
-    error?: string | null;
-    value?: {
-        tokens: FlatToken[];
-        lintIssues: Array<{
-            code: string;
-            severity?: string;
-            marker?: string | null;
-            message: string;
-            messageParams?: Record<string, string>;
-            span: { start: number; end: number };
-            relatedSpan: { start: number; end: number } | null;
-            tokenId: string | null;
-            relatedTokenId: string | null;
-            sid: string | null;
-            fix: {
-                type: string;
-                code?: string;
-                label: string;
-                label_params?: Record<string, string>;
-                targetTokenId: string;
-                replacements?: Array<{
-                    kind: string;
-                    text: string;
-                    marker: string | null;
-                    sid: string | null;
-                }>;
-                insert?: Array<{
-                    kind: string;
-                    text: string;
-                    marker: string | null;
-                    sid: string | null;
-                }>;
-            } | null;
-        }> | null;
-    } | null;
-};
-
-function fromWebTransformResult(result: {
-    tokens: Array<{
-        id: string;
-        kind: string;
-        span: { start: number; end: number };
-        sid: string | null;
-        marker: string | null;
-        text: string;
-    }>;
-    appliedChanges: TokenTransformResult["appliedChanges"];
-    skippedChanges: TokenTransformResult["skippedChanges"];
-}): TokenTransformResult {
     return {
-        tokens: result.tokens,
-        appliedChanges: result.appliedChanges,
-        skippedChanges: result.skippedChanges,
+        raw,
+        allMarkers,
+        paragraphMarkers,
+        noteMarkers,
+        noteSubmarkers,
+        regularCharacterMarkers,
+        documentMarkers,
+        chapterVerseMarkers,
+        infoByMarker,
     };
 }
 
-function normalizeDiffTokenChange(
-    value: string,
-): Diff["originalAlignment"][number]["change"] {
-    if (
-        value === "added" ||
-        value === "deleted" ||
-        value === "modified" ||
-        value === "unchanged"
-    ) {
-        return value;
+function parsedToProjectedDocument(
+    parsed: ParsedUsfm,
+    options: ProjectUsfmOptions,
+): ProjectedUsfmDocument {
+    const lintIssues = options.lintOptions
+        ? parsed
+              .lint(toWebProjectLintOptions(options.lintOptions))
+              .issues.filter(shouldKeepLintIssue)
+              .map(fromWebLintIssue)
+        : null;
+    return {
+        tokens: parsed.tokens(),
+        lintIssues,
+    };
+}
+
+function tokensEqual(left: Token[], right: Token[]): boolean {
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i++) {
+        const a = left[i];
+        const b = right[i];
+        if (!a || !b) return false;
+        if (a.id !== b.id) return false;
+        if (a.kind !== b.kind) return false;
+        if (a.text !== b.text) return false;
+        if ((a.sid ?? null) !== (b.sid ?? null)) return false;
+        if ((a.marker ?? null) !== (b.marker ?? null)) return false;
+        if (
+            (a.span?.start ?? null) !== (b.span?.start ?? null) ||
+            (a.span?.end ?? null) !== (b.span?.end ?? null)
+        ) {
+            return false;
+        }
     }
-    return "unchanged";
+    return true;
 }
 
-function normalizeDiff(diff: Diff): Diff {
+function formatTokensToTransformResult(
+    originalTokens: Token[],
+    result: onion.FormatResult,
+): TokenTransformResult {
+    const nextTokens = result.tokens;
     return {
-        ...diff,
-        originalAlignment: (diff.originalAlignment ?? []).map((entry) => ({
-            change: normalizeDiffTokenChange(entry.change),
-            counterpartIndex: entry.counterpartIndex ?? null,
-        })),
-        currentAlignment: (diff.currentAlignment ?? []).map((entry) => ({
-            change: normalizeDiffTokenChange(entry.change),
-            counterpartIndex: entry.counterpartIndex ?? null,
-        })),
-        undoSide:
-            diff.undoSide === "original" || diff.undoSide === "current"
-                ? diff.undoSide
-                : "current",
+        tokens: nextTokens,
+        appliedChanges: tokensEqual(originalTokens, nextTokens)
+            ? []
+            : [
+                  {
+                      kind: "formatTokens",
+                      code: "format-tokens",
+                      label: "Format tokens",
+                      labelParams: {},
+                      targetTokenId: null,
+                  },
+              ],
+        skippedChanges: [],
     };
 }
 
-function fromWebDiff(diff: {
-    blockId: string;
-    semanticSid: string;
-    status: string;
-    originalText: string;
-    currentText: string;
-    originalTextOnly: string;
-    currentTextOnly: string;
-    isWhitespaceChange: boolean;
-    isUsfmStructureChange: boolean;
-    originalTokens: Array<{
-        id: string;
-        kind: string;
-        span: { start: number; end: number };
-        sid: string | null;
-        marker: string | null;
-        text: string;
-    }>;
-    currentTokens: Array<{
-        id: string;
-        kind: string;
-        span: { start: number; end: number };
-        sid: string | null;
-        marker: string | null;
-        text: string;
-    }>;
-    originalAlignment?: Array<{
-        change: string;
-        counterpartIndex: number | null;
-    }>;
-    currentAlignment?: Array<{
-        change: string;
-        counterpartIndex: number | null;
-    }>;
-    undoSide?: string;
-}): Diff {
-    return normalizeDiff({
+function fromRawDiff(diff: onion.ChapterTokenDiff): Diff {
+    return {
         blockId: diff.blockId,
         semanticSid: diff.semanticSid,
         status: diff.status,
+        original: diff.original,
+        current: diff.current,
         originalText: diff.originalText,
         currentText: diff.currentText,
         originalTextOnly: diff.originalTextOnly,
@@ -439,108 +199,43 @@ function fromWebDiff(diff: {
         originalTokens: diff.originalTokens,
         currentTokens: diff.currentTokens,
         originalAlignment: (diff.originalAlignment ?? []).map((entry) => ({
-            change: normalizeDiffTokenChange(entry.change),
+            change: entry.change,
             counterpartIndex: entry.counterpartIndex ?? null,
         })),
         currentAlignment: (diff.currentAlignment ?? []).map((entry) => ({
-            change: normalizeDiffTokenChange(entry.change),
+            change: entry.change,
             counterpartIndex: entry.counterpartIndex ?? null,
         })),
-        undoSide: diff.undoSide === "original" ? "original" : "current",
-    });
+        undoSide: diff.undoSide,
+    };
 }
 
 export class WebUsfmOnionService implements IUsfmOnionService {
     readonly supportsPathIo = false;
 
     async getMarkerCatalog(): Promise<UsfmMarkerCatalog> {
-        const allMarkers = onion.allMarkers();
-        return {
-            allMarkers,
-            paragraphMarkers: onion.paragraphMarkers(),
-            noteMarkers: onion.noteMarkers(),
-            noteSubmarkers: onion.noteSubmarkers(),
-            regularCharacterMarkers: allMarkers.filter((marker) =>
-                onion.isRegularCharacterMarker(marker),
-            ),
-            documentMarkers: allMarkers.filter((marker) =>
-                onion.isDocumentMarker(marker),
-            ),
-            chapterVerseMarkers: allMarkers.filter((marker) => {
-                const category = onion.markerInfo(marker).category;
-                return category === "chapter" || category === "verse";
-            }),
-        };
-    }
-
-    private async lintTokenBatches(
-        tokenBatches: Array<Array<LintableToken | FlatToken>>,
-        options: TokenLintOptions = defaultTokenLintOptions(),
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<LintIssue[][]> {
-        return timeInDevAsync(async () => {
-            const wasm = onion;
-            return wasm
-                .lintTokenBatches({
-                    tokenBatches: tokenBatches.map((tokens) =>
-                        toOnionFlatTokens(tokens),
-                    ),
-                    options: toWebTokenLintOptions(options),
-                    batchOptions: toWebBatchOptions(batchOptions),
-                })
-                .map((batch: WebLintBatchResult) =>
-                    batch.issues
-                        .filter(
-                            (issue) =>
-                                issue.code !== "unknown-marker" &&
-                                issue?.marker !== "s5",
-                        )
-                        .map(fromWebLintIssue),
-                );
-        }, "web:lintTokenBatches");
-    }
-
-    private async formatTokenBatches(
-        tokenBatches: FlatToken[][],
-        options: FormatOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
-    ): Promise<TokenTransformResult[]> {
-        return timeInDevAsync(async () => {
-            const wasm = onion;
-            return wasm
-                .formatTokenBatches({
-                    tokenBatches: tokenBatches.map((tokens) =>
-                        toOnionFlatTokens(tokens),
-                    ),
-                    formatOptions: options,
-                    batchOptions: toWebBatchOptions(batchOptions),
-                })
-                .map(fromWebTransformResult);
-        }, "web:formatTokenBatches");
+        return buildMarkerCatalog(onion.markerCatalog());
     }
 
     async projectUsfm(
         source: string,
-        options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
+        options: ProjectUsfmOptions = {
+            tokenOptions: { mergeHorizontalWhitespace: false },
+            lintOptions: null,
+        },
     ): Promise<ProjectedUsfmDocument> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            const projection = wasm.projectContent({
-                source,
-                format: "usfm",
-                options: toWebProjectOptions(options),
-            });
-            return {
-                tokens: projection.tokens,
-                lintIssues:
-                    projection.lintIssues?.map(fromWebLintIssue) ?? null,
-            };
+            const parsed = onion.parse(source);
+            return parsedToProjectedDocument(parsed, options);
         }, "web:projectUsfm");
     }
 
     async projectUsfmBatchFromPaths(
         _paths: string[],
-        _options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
+        _options: ProjectUsfmOptions = {
+            tokenOptions: { mergeHorizontalWhitespace: false },
+            lintOptions: null,
+        },
         _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return throwPathIoUnsupported();
@@ -548,75 +243,31 @@ export class WebUsfmOnionService implements IUsfmOnionService {
 
     async projectUsfmBatchFromContents(
         sources: string[],
-        options: ProjectUsfmOptions = defaultProjectUsfmOptions(),
-        batchOptions: BatchExecutionOptions = { parallel: true },
+        options: ProjectUsfmOptions = {
+            tokenOptions: { mergeHorizontalWhitespace: false },
+            lintOptions: null,
+        },
+        _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            return wasm
-                .projectContents({
-                    sources,
-                    format: "usfm",
-                    options: toWebProjectOptions(options),
-                    batchOptions: toWebBatchOptions(batchOptions),
-                })
-                .map((row: WebProjectedDocumentRow) => {
-                    if (row.error) {
-                        throw new Error(row.error);
-                    }
-                    if (!row.value) {
-                        throw new Error("projectContents returned no value");
-                    }
-                    return {
-                        tokens: row.value.tokens,
-                        lintIssues:
-                            row.value.lintIssues
-                                ?.filter(
-                                    (issue) =>
-                                        issue.code !== "unknown-marker" &&
-                                        issue?.marker !== "s5",
-                                )
-                                ?.map(fromWebLintIssue) ?? null,
-                    };
-                });
+            const parsedBatch = onion.parseBatch(sources);
+            return parsedBatch
+                .items()
+                .map((parsed) => parsedToProjectedDocument(parsed, options));
         }, "web:projectUsfmBatchFromContents");
     }
 
-    async parseUsfmChapter(
-        chapterUsfm: string,
-        bookCode: string,
-    ): Promise<ParsedUsfmDocument> {
-        const hasExplicitChapter = /^\s*\\c\b/mu.test(chapterUsfm);
-        const syntheticChapter = 1;
-        const synthetic = hasExplicitChapter
-            ? `\\id ${bookCode}\n${chapterUsfm}`
-            : `\\id ${bookCode}\n\\c ${syntheticChapter}\n${chapterUsfm}`;
-        const projected = await this.projectUsfm(synthetic, {
-            lintOptions: null,
-        });
-        const parsed = parseChapterDocumentFromTokens(projected.tokens);
-        return hasExplicitChapter
-            ? parsed
-            : stripSyntheticChapterTokens(parsed, bookCode, syntheticChapter);
-    }
-
-    async lintExisting<T extends LintableToken | FlatToken>(
-        tokens: T[],
-        options: TokenLintOptions = defaultTokenLintOptions(),
+    async lintExisting(
+        tokens: Token[],
+        options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            const toks = toOnionFlatTokens(tokens);
-            return wasm
-                .lintFlatTokens({
-                    tokens: toks,
-                    options: toWebTokenLintOptions(options),
-                })
-                .filter(
-                    (issue: { code: string; marker?: string | null }) =>
-                        issue.code !== "unknown-marker" &&
-                        issue?.marker !== "s5",
-                )
+            const [result] = onion.lintTokenBatch(
+                [tokens],
+                toWebTokenLintOptions(options),
+            );
+            return (result?.issues ?? [])
+                .filter(shouldKeepLintIssue)
                 .map(fromWebLintIssue);
         }, "web:lintExisting");
     }
@@ -629,11 +280,21 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return this.lintTokenBatches(
-            scope.map((item) => item.tokens ?? []),
-            options.tokenOptions ?? defaultTokenLintOptions(),
-            options.batchOptions,
-        );
+        return timeInDevAsync(async () => {
+            const tokenBatches = scope.map((item) => item.tokens ?? []);
+            const lintOptions =
+                options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
+            return onion
+                .lintTokenBatch(
+                    tokenBatches,
+                    toWebTokenLintOptions(lintOptions),
+                )
+                .map((result) =>
+                    result.issues
+                        .filter(shouldKeepLintIssue)
+                        .map(fromWebLintIssue),
+                );
+        }, "web:lintScope");
     }
 
     async formatScope(
@@ -644,25 +305,54 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return this.formatTokenBatches(
-            scope.map((item) => item.tokens ?? []),
-            options.formatOptions ?? {},
-            options.batchOptions,
-        );
+        return timeInDevAsync(async () => {
+            const inputTokenBatches = scope.map((item) => item.tokens ?? []);
+            return onion
+                .formatTokenBatch(inputTokenBatches, options.formatOptions)
+                .map((result, index) =>
+                    formatTokensToTransformResult(
+                        inputTokenBatches[index] ?? [],
+                        result,
+                    ),
+                );
+        }, "web:formatScope");
     }
 
     async applyTokenFixes(
-        tokens: FlatToken[],
+        tokens: Token[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            return fromWebTransformResult(
-                wasm.applyTokenFixes({
-                    tokens: toOnionFlatTokens(tokens),
-                    fixes: fixes.map(toWebTokenFix),
-                }),
-            );
+            if (!fixes.length) {
+                return {
+                    tokens,
+                    appliedChanges: [],
+                    skippedChanges: [],
+                };
+            }
+            const wasm = onion as typeof onion & {
+                applyTokenFix: (
+                    tokens: onion.Token[],
+                    fix: TokenFix,
+                ) => onion.Token[];
+            };
+            let nextTokens = tokens;
+            const appliedChanges: TokenTransformResult["appliedChanges"] = [];
+            for (const fix of fixes) {
+                nextTokens = wasm.applyTokenFix(nextTokens, fix);
+                appliedChanges.push({
+                    kind: "applyTokenFix",
+                    code: fix.code,
+                    label: fix.label,
+                    labelParams: fix.labelParams,
+                    targetTokenId: fix.targetTokenId ?? null,
+                });
+            }
+            return {
+                tokens: nextTokens,
+                appliedChanges,
+                skippedChanges: [],
+            };
         }, "web:applyTokenFixes");
     }
 
@@ -686,36 +376,30 @@ export class WebUsfmOnionService implements IUsfmOnionService {
     }
 
     async diffTokens(
-        baselineTokens: FlatToken[],
-        currentTokens: FlatToken[],
+        baselineTokens: Token[],
+        currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            return wasm
-                .diffTokens({
-                    baselineTokens: toOnionFlatTokens(baselineTokens),
-                    currentTokens: toOnionFlatTokens(currentTokens),
-                    buildOptions,
-                })
-                .map(fromWebDiff);
+            return onion
+                .diffTokens(baselineTokens, currentTokens, buildOptions)
+                .map(fromRawDiff);
         }, "web:diffTokens");
     }
 
     async revertDiffBlock(
-        baselineTokens: FlatToken[],
-        currentTokens: FlatToken[],
+        baselineTokens: Token[],
+        currentTokens: Token[],
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-    ): Promise<FlatToken[]> {
+    ): Promise<Token[]> {
         return timeInDevAsync(async () => {
-            const wasm = onion;
-            return wasm.revertDiffBlock({
+            return onion.revertDiffBlock(
+                baselineTokens,
+                currentTokens,
                 blockId,
-                baselineTokens: toOnionFlatTokens(baselineTokens),
-                currentTokens: toOnionFlatTokens(currentTokens),
                 buildOptions,
-            });
+            );
         }, "web:revertDiffBlock");
     }
 }

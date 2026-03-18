@@ -1,17 +1,15 @@
-import type { LegacyLintableToken as LintableToken } from "@/core/domain/usfm/legacyTokenTypes.ts";
 import type {
     BatchExecutionOptions,
     BuildSidBlocksOptions,
     Diff,
     DiffScopeItem,
     DiffScopeOptions,
-    FlatToken,
     FormatScopeOptions,
     LintIssue,
     LintScopeOptions,
-    ParsedUsfmDocument,
     ProjectedUsfmDocument,
     ProjectUsfmOptions,
+    Token,
     TokenFix,
     TokenLintOptions,
     TokenScopeItem,
@@ -37,6 +35,7 @@ export interface IUsfmOnionService {
 
     getMarkerCatalog(): Promise<UsfmMarkerCatalog>;
 
+    // @ai - all the "project" names don't click with me and read as the term project as in the noun. Can we just call these parse? The indirection in the implementatiosn is a little confusing too. We'd prefer to stick to as close as possible to usfm onion's terminology for each of these concepts and not introduce new terms.
     projectUsfm(
         source: string,
         options?: ProjectUsfmOptions,
@@ -54,13 +53,8 @@ export interface IUsfmOnionService {
         batchOptions?: BatchExecutionOptions,
     ): Promise<ProjectedUsfmDocument[]>;
 
-    parseUsfmChapter(
-        chapterUsfm: string,
-        bookCode: string,
-    ): Promise<ParsedUsfmDocument>;
-
     lintExisting(
-        tokens: Array<LintableToken | FlatToken>,
+        tokens: Token[],
         options?: TokenLintOptions,
     ): Promise<LintIssue[]>;
     lintScope(
@@ -73,22 +67,22 @@ export interface IUsfmOnionService {
     ): Promise<TokenTransformResult[]>;
 
     applyTokenFixes(
-        tokens: FlatToken[],
+        tokens: Token[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult>;
 
     diffTokens(
-        baselineTokens: FlatToken[],
-        currentTokens: FlatToken[],
+        baselineTokens: Token[],
+        currentTokens: Token[],
         buildOptions?: BuildSidBlocksOptions,
     ): Promise<Diff[]>;
 
     revertDiffBlock(
-        baselineTokens: FlatToken[],
-        currentTokens: FlatToken[],
+        baselineTokens: Token[],
+        currentTokens: Token[],
         blockId: string,
         buildOptions?: BuildSidBlocksOptions,
-    ): Promise<FlatToken[]>;
+    ): Promise<Token[]>;
     diffScope(
         scope: DiffScopeItem[],
         options?: DiffScopeOptions,

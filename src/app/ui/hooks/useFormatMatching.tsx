@@ -5,8 +5,8 @@ import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { insertParagraphMarkerAtCursor } from "@/app/domain/editor/utils/insertParagraphMarkerAtCursor.ts";
 import {
-    lexicalEditorStateToOnionFlatTokens,
     lexicalRootChildrenToUsfmTokenStream,
+    lexicalToTokens,
     usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
@@ -158,8 +158,7 @@ export function useFormatMatching({
             nextRootChildren as typeof nextLexical.root.children;
 
         chapter.lexicalState = nextLexical;
-        chapter.currentTokens =
-            lexicalEditorStateToOnionFlatTokens(nextLexical);
+        chapter.currentTokens = lexicalToTokens(nextLexical);
         chapter.dirty =
             chapter.currentTokens.map((token) => token.text).join("") !==
             chapter.sourceTokens.map((token) => token.text).join("");

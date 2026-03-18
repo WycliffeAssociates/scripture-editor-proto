@@ -3,7 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
-import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -87,7 +87,7 @@ export async function applyLintFixToFile(args: {
     notifySuccess: (code: string) => void;
 }): Promise<boolean> {
     const baselineTokens = args.file.chapters.flatMap((c) =>
-        lexicalEditorStateToOnionFlatTokens(c.lexicalState),
+        lexicalToTokens(c.lexicalState),
     );
     let activeFix = args.issueFix;
     let result = await args.usfmOnionService.applyTokenFixes(baselineTokens, [

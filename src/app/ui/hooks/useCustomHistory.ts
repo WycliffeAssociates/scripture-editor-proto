@@ -8,7 +8,7 @@ import type {
 import { useCallback, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import { lexicalEditorStateToOnionFlatTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
     canonicalSnapshotToChapterState,
@@ -208,9 +208,7 @@ export function useCustomHistory({
     );
 
     const markChapterDirty = useCallback((chapter: ParsedChapter) => {
-        chapter.currentTokens = lexicalEditorStateToOnionFlatTokens(
-            chapter.lexicalState,
-        );
+        chapter.currentTokens = lexicalToTokens(chapter.lexicalState);
         chapter.dirty =
             chapter.currentTokens.map((token) => token.text).join("") !==
             chapter.sourceTokens.map((token) => token.text).join("");
