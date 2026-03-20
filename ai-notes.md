@@ -1,1 +1,0 @@
-<!-- @ai? why is there a test and tests folder both? Our tests should just be tests -> unit and tests -> e2e.  I feel we should clean that up and make obvious and adjust playwright and vitest as needed -->

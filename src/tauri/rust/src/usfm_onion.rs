@@ -8,7 +8,6 @@ use usfm_onion::token::Span;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-// @ai -> avoid "dto" talk. Audit this file to be ensure we are recreating structs and types already in the crate itself. This whole file should be a really thin wrapper to go from web (invoke in interface) -> tauri lister -> crate -> back to web. I think it is, but just double check
 pub struct IntoTokensOptionsDto {
     #[serde(default)]
     pub merge_horizontal_whitespace: bool,

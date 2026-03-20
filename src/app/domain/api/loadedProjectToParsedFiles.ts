@@ -64,7 +64,7 @@ async function projectEntriesForWeb(args: {
     const sources = args.entries
         .map((entry) => entry.text)
         .filter((text): text is string => Boolean(text));
-    const projected = await args.usfmOnionService.projectUsfmBatchFromContents(
+    const projected = await args.usfmOnionService.parseUsfmBatchFromContents(
         sources,
         args.projectionOptions,
     );
@@ -82,7 +82,7 @@ async function projectEntriesForApp(args: {
     usfmOnionService: IUsfmOnionService;
     projectionOptions: ProjectUsfmOptions;
 }): Promise<Array<ProjectedUsfmDocument | null>> {
-    const projections = await args.usfmOnionService.projectUsfmBatchFromPaths(
+    const projections = await args.usfmOnionService.parseUsfmBatchFromPaths(
         args.entries.map((entry) => entry.path),
         args.projectionOptions,
     );

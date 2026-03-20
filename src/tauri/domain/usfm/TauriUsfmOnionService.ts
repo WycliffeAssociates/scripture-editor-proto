@@ -223,7 +223,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         });
     }
 
-    async projectUsfm(
+    async parseUsfm(
         source: string,
         options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -245,10 +245,10 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                         ?.filter(shouldKeepLintIssue)
                         .map(fromTauriLintIssue) ?? null,
             };
-        }, `[tauri] projectUsfm (sourceLength: ${source.length})`);
+        }, `[tauri] parseUsfm (sourceLength: ${source.length})`);
     }
 
-    async projectUsfmBatchFromPaths(
+    async parseUsfmBatchFromPaths(
         paths: string[],
         options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -272,10 +272,10 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                         ?.filter(shouldKeepLintIssue)
                         .map(fromTauriLintIssue) ?? null,
             }));
-        }, `[tauri] projectUsfmBatchFromPaths (paths: ${paths.length})`);
+        }, `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`);
     }
 
-    async projectUsfmBatchFromContents(
+    async parseUsfmBatchFromContents(
         sources: string[],
         options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -284,7 +284,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return Promise.all(
-            sources.map((source) => this.projectUsfm(source, options)),
+            sources.map((source) => this.parseUsfm(source, options)),
         );
     }
 

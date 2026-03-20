@@ -11,15 +11,12 @@ export async function rebuildParsedFileFromUsfm(args: {
     sourceUsfm: string;
     usfmOnionService: IUsfmOnionService;
 }) {
-    const projection = await args.usfmOnionService.projectUsfm(
-        args.sourceUsfm,
-        {
-            tokenOptions: {
-                mergeHorizontalWhitespace: false,
-            },
-            lintOptions: null,
+    const projection = await args.usfmOnionService.parseUsfm(args.sourceUsfm, {
+        tokenOptions: {
+            mergeHorizontalWhitespace: false,
         },
-    );
+        lintOptions: null,
+    });
 
     const direction =
         (args.targetFile.chapters[0]?.lexicalState.root.direction ?? "ltr") ===

@@ -35,19 +35,18 @@ export interface IUsfmOnionService {
 
     getMarkerCatalog(): Promise<UsfmMarkerCatalog>;
 
-    // @ai - all the "project" names don't click with me and read as the term project as in the noun. Can we just call these parse? The indirection in the implementatiosn is a little confusing too. We'd prefer to stick to as close as possible to usfm onion's terminology for each of these concepts and not introduce new terms.
-    projectUsfm(
+    parseUsfm(
         source: string,
         options?: ProjectUsfmOptions,
     ): Promise<ProjectedUsfmDocument>;
 
-    projectUsfmBatchFromPaths(
+    parseUsfmBatchFromPaths(
         paths: string[],
         options?: ProjectUsfmOptions,
         batchOptions?: BatchExecutionOptions,
     ): Promise<ProjectedUsfmDocument[]>;
 
-    projectUsfmBatchFromContents(
+    parseUsfmBatchFromContents(
         sources: string[],
         options?: ProjectUsfmOptions,
         batchOptions?: BatchExecutionOptions,

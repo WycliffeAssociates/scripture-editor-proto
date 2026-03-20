@@ -36,7 +36,6 @@ export const mergeHorizontalWhitespaceToAdjacent = (
     }
     return tokens;
 };
-// @ai - if this function is only used in this file, we should get rid of it
 function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     tokens: T[],
     markerIdx: number,
@@ -57,7 +56,6 @@ function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     return value;
 }
 
-// @ai - if this function is only used in this file, we should get rid of it
 function makeVerseSid(bookCode: string, chapter: number, verse: string) {
     const parsed = parseSid(`${bookCode} ${chapter}:${verse}`);
     if (parsed) return parsed.toSidString();

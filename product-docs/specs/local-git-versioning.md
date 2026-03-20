@@ -133,7 +133,7 @@
 - `src/app/domain/project/compare/types.ts`
 
 ## Validation references
-- `src/test/unit/gitVersionUtils.test.ts`
-- `src/test/unit/ensureProjectGitReady.test.ts`
-- `src/test/unit/versionNavigationService.test.ts`
-- `src/test/unit/webGitWriteThroughRegression.test.ts`
+- `tests/unit/gitVersionUtils.test.ts`
+- `tests/unit/ensureProjectGitReady.test.ts`
+- `tests/unit/versionNavigationService.test.ts`
+- `tests/unit/webGitWriteThroughRegression.test.ts`

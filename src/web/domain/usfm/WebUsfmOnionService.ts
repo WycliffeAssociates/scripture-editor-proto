@@ -217,7 +217,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         return buildMarkerCatalog(onion.markerCatalog());
     }
 
-    async projectUsfm(
+    async parseUsfm(
         source: string,
         options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -227,10 +227,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         return timeInDevAsync(async () => {
             const parsed = onion.parse(source);
             return parsedToProjectedDocument(parsed, options);
-        }, "web:projectUsfm");
+        }, "web:parseUsfm");
     }
 
-    async projectUsfmBatchFromPaths(
+    async parseUsfmBatchFromPaths(
         _paths: string[],
         _options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -241,7 +241,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         return throwPathIoUnsupported();
     }
 
-    async projectUsfmBatchFromContents(
+    async parseUsfmBatchFromContents(
         sources: string[],
         options: ProjectUsfmOptions = {
             tokenOptions: { mergeHorizontalWhitespace: false },
@@ -254,7 +254,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             return parsedBatch
                 .items()
                 .map((parsed) => parsedToProjectedDocument(parsed, options));
-        }, "web:projectUsfmBatchFromContents");
+        }, "web:parseUsfmBatchFromContents");
     }
 
     async lintExisting(

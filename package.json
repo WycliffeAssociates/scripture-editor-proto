@@ -20,8 +20,8 @@
     "test": "vitest",
     "test.e2e.ui": "pnpm exec playwright test --ui",
     "test.e2e": "pnpm exec playwright test",
-    "test:unit": "vitest run --exclude 'src/**/*.integration.ts'",
-    "test:integration": "TAURI_TEST_INTEGRATION=true vitest run --exclude 'src/**/*.test.ts'",
+    "test:unit": "vitest run tests/unit --exclude 'tests/unit/**/*.integration.ts'",
+    "test:integration": "TAURI_TEST_INTEGRATION=true vitest run --exclude 'tests/unit/**/*.test.ts' --exclude 'tests/unit/**/*.test.tsx' --exclude 'tests/unit/**/*.spec.ts' --exclude 'tests/unit/**/*.spec.tsx'",
     "test:watch": "vitest --watch",
     "knip": "knip",
     "check:architecture": "node scripts/checkArchitecture.mjs"

@@ -89,7 +89,7 @@ async function parseClipboardUsfmToTokensAsync(args: {
             return { ok: false, reason: "parse-failed" };
         }
 
-        const projected = await args.usfmOnionService.projectUsfm(args.text, {
+        const projected = await args.usfmOnionService.parseUsfm(args.text, {
             lintOptions: null,
         });
         const hasInsertableTokens = projected.tokens.some((token) =>

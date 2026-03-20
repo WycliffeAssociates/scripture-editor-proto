@@ -750,7 +750,7 @@ target: '[data-tourid="file-browser-button"]',
 **Task**: Write comprehensive unit tests for localStorage utilities
 
 **Files to touch**:
-- `src/test/unit/tour/storage.test.ts` (new file)
+- `tests/unit/tour/storage.test.ts` (new file)
 
 **Implementation**:
 Test cases:
@@ -773,7 +773,7 @@ Test cases:
 **Task**: Write unit tests for TourProvider and useTour hook
 
 **Files to touch**:
-- `src/test/unit/tour/TourContext.test.tsx` (new file)
+- `tests/unit/tour/TourContext.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
@@ -798,7 +798,7 @@ Test cases:
 **Task**: Write unit tests for the Tour component wrapper
 
 **Files to touch**:
-- `src/test/unit/tour/Tour.test.tsx` (new file)
+- `tests/unit/tour/Tour.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
@@ -819,7 +819,7 @@ Test cases:
 **Task**: Write unit tests for the first launch modal
 
 **Files to touch**:
-- `src/test/unit/tour/FirstLaunchPrompt.test.tsx` (new file)
+- `tests/unit/tour/FirstLaunchPrompt.test.tsx` (new file)
 
 **Implementation**:
 Test cases:
@@ -841,7 +841,7 @@ Test cases:
 **Task**: Write unit tests for tour configuration structure
 
 **Files to touch**:
-- `src/test/unit/tour/tourConfig.test.ts` (new file)
+- `tests/unit/tour/tourConfig.test.ts` (new file)
 
 **Implementation**:
 Test cases:
@@ -862,7 +862,7 @@ Test cases:
 **Task**: Write integration tests for the complete tour user flow
 
 **Files to touch**:
-- `src/test/integration/tour/tourFlow.test.tsx` (new file)
+- `tests/unit/tour/tourFlow.integration.tsx` (new file)
 
 **Implementation**:
 Test cases:
@@ -885,7 +885,7 @@ Test cases:
 **Task**: Write end-to-end tests using Playwright
 
 **Files to touch**:
-- `src/test/e2e/tour.spec.ts` (new file)
+- `tests/e2e/tour.spec.ts` (new file)
 
 **Implementation**:
 Test cases:

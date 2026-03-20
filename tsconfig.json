@@ -22,10 +22,11 @@
 
         "baseUrl": ".",
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@tests/*": ["./tests/*"]
         }
     },
-    "include": ["src", "src/tauri/persistence/.ts"],
+    "include": ["src", "tests", "src/tauri/persistence/.ts"],
     "exclude": ["node_modules", "dist", "dist-web"],
     "references": [{ "path": "./tsconfig.node.json" }]
 }

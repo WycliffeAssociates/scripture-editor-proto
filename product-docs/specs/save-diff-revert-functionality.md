@@ -69,7 +69,7 @@
 - `src/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts`
 
 ## Validation references
-- `src/test/e2e/save.spec.ts`
+- `tests/e2e/save.spec.ts`
   - List view review + chapter navigation + single-diff revert
   - Save persistence after reload
   - Chapter view rendering and hunk action visibility

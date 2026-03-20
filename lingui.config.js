@@ -7,7 +7,7 @@ export default defineConfig({
         {
             path: "<rootDir>/src/app/ui/i18n/locales/{locale}/messages",
             include: ["./src"],
-            exclude: ["./src/tauri/**", "./src/test/**"],
+            exclude: ["./src/tauri/**", "./tests/**"],
         },
     ],
 });

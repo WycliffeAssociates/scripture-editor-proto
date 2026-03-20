@@ -18,14 +18,13 @@ export default defineConfig({
     ],
     test: {
         include: [
-            "**/*.test.ts", // Existing default pattern
-            "**/*.spec.ts", // Existing default pattern
-            "**/*.integration.ts",
-            "**/*.test.tsx",
-            "**/*.spec.tsx",
-            "!src/test/e2e/**",
+            "tests/unit/**/*.test.ts",
+            "tests/unit/**/*.spec.ts",
+            "tests/unit/**/*.integration.ts",
+            "tests/unit/**/*.test.tsx",
+            "tests/unit/**/*.spec.tsx",
         ],
-        setupFiles: ["./src/test/vitest.setup.ts"],
+        setupFiles: ["./tests/helpers/vitest.setup.ts"],
         server: {
             deps: {
                 inline: ["usfm-onion-web"],
@@ -35,6 +34,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "./src"),
+            "@tests": path.resolve(__dirname, "./tests"),
             "@core": path.resolve(__dirname, "./src-core"),
         },
     },
