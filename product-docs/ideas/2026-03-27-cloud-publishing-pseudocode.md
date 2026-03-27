@@ -36,7 +36,7 @@ This is not generic remote sync. It is a scripture-specific cloud publishing lay
 
 ## Goals
 
-- Support Web and Tauri through shared contracts.
+- Support Web and Tauri through shared contracts/interfaces.
 - Keep local save authoritative and first.
 - Keep remote behavior behind non-technical UX.
 - Preserve explicit review for USFM differences even when Git could merge mechanically.
@@ -85,51 +85,55 @@ src/
   core/
     persistence/
       GitProvider.ts                         # extend remote-capable shared git contract
-      projectCloudLink.ts                    # read/write Dovetail-owned project link file
-    cloud/
+      projectLocalGitRemoteInfo.ts           # read/write Dovetail-owned project link file
+    remote/
       AuthSessionProvider.ts                 # app-global account/session seam
-      CloudProjectService.ts                 # editor-facing cloud operations seam
-      cloudTypes.ts                          # shared remote/link/status types
+      GitRemoteProjectService.ts             # editor-facing remote repo / publish operations seam
+      remoteTypes.ts                         # shared remote/link/status types
 
   app/
     data/
       settings.ts                            # add auto-sync / auto-push preferences
     domain/
-      cloud/
-        cloudStatusStore.ts                  # per-project app-local mutable state
-        buildCloudCompareSource.ts           # convert remote latest into compare source
-        resolveCloudMetadata.ts              # manifest / checksum regeneration rules
+      remote/
+        gitRemoteStatusStore.ts              # per-project app-local mutable state
+        buildGitRemoteCompareSource.ts       # convert remote latest into compare source
+        resolveDerivedProjectMetadata.ts     # manifest / checksum regeneration rules
       api/
-        projectToParsed.tsx                  # read cloud link, maybe kick open-time sync check
+        projectToParsed.tsx                  # read remote link, maybe kick open-time sync check
     persistence/
-      DefaultProjectsService.ts              # create/link/clone cloud project orchestration
+      DefaultProjectsService.ts              # create/link/clone remote project orchestration
     ui/
       hooks/
         save/
-          useCloudSync.ts                    # high-level cloud orchestration around save/sync
+          useGitRemoteSync.ts                # high-level remote orchestration around save/sync
           useExternalCompare.ts              # stays compare-source focused
 
   web/
     adapters/
-      cloud/
+      remote/
         WebAuthSessionProvider.ts
-        WebCloudProjectService.ts
+        WebGitRemoteProjectService.ts
 
   tauri/
     adapters/
-      cloud/
+      remote/
         TauriAuthSessionProvider.ts
-        TauriCloudProjectService.ts
+        TauriGitRemoteProjectService.ts
 ```
 
 ### Naming Notes
 
-- `CloudProjectService` is preferred over `RemoteSyncService`.
-  - It matches the product framing: cloud publishing and reconciliation.
-  - It avoids collision with existing reference-resource `remote sync` language.
-- `projectCloudLink.ts` is preferred over storing cloud facts in generic project metadata helpers.
+- Product language should stay `cloud publishing and reconciliation`.
+- Internal code names can lean on `remote` or `gitRemote`.
+  - Git terminology is acceptable in code where it clarifies transport and history behavior.
+  - This lets us keep product copy friendly without making internal APIs vague.
+- `GitRemoteProjectService` is preferred over `RemoteSyncService`.
+  - it stays close to the actual responsibility boundary
+  - it avoids reusing existing translation-notes `remote sync` language
+- `projectLocalGitRemoteInfo.ts` is preferred over storing remote facts in generic project metadata helpers.
   - It makes the Dovetail-owned file explicit.
-- `cloudStatusStore.ts` is intentionally separate from the project link file.
+- `gitRemoteStatusStore.ts` is intentionally separate from the project link file.
   - durable linkage and mutable local status are different categories of state.
 
 ## Main Types And Interfaces
@@ -137,7 +141,7 @@ src/
 ### Durable Project Link Types
 
 ```ts
-type ProjectCloudLink = {
+type ProjectLocalGitRemoteInfo = {
   schemaVersion: 1;
   hostBaseUrl: string;
   repoId: string;
@@ -147,7 +151,7 @@ type ProjectCloudLink = {
   trackedBranch: string;
 };
 
-type ProjectCloudLinkFile = ProjectCloudLink | null;
+type ProjectLocalGitRemoteInfoFile = ProjectLocalGitRemoteInfo | null;
 ```
 
 Notes:
@@ -159,7 +163,7 @@ Notes:
 ### App-Local Mutable Project Cloud State
 
 ```ts
-type ProjectCloudStatus =
+type GitRemoteProjectStatus =
   | "connected"
   | "syncing"
   | "offline"
@@ -168,9 +172,9 @@ type ProjectCloudStatus =
   | "needsReview"
   | "reauthRequired";
 
-type ProjectCloudStatusRecord = {
+type GitRemoteProjectStatusRecord = {
   projectPath: string;
-  status: ProjectCloudStatus;
+  status: GitRemoteProjectStatus;
   lastCheckedAt?: string;
   lastPublishedAt?: string;
   lastKnownRemoteHead?: string;
@@ -188,10 +192,10 @@ Notes:
 ### App-Global Session Types
 
 ```ts
-type CloudSession = {
+type AuthSession = {
   username: string;
   token: string;
-  tokenId?: string;
+  tokenId: string;
 };
 
 type PendingTokenRevocation = {
@@ -212,8 +216,8 @@ Notes:
 ```ts
 type Settings = {
   // existing fields...
-  cloudAutoSyncOnOpen: boolean;
-  cloudAutoPushOnSave: boolean;
+  gitRemoteAutoSyncOnOpen: boolean;
+  gitRemoteAutoPushOnSave: boolean;
 };
 ```
 
@@ -226,36 +230,114 @@ Notes:
 
 ```ts
 interface AuthSessionProvider {
-  login(): Promise<CloudSession>;
-  getCurrentSession(): CloudSession | null;
+  login(): Promise<AuthSession>;
+  getCurrentSession(): AuthSession | null;
   logout(): Promise<{ revokedRemotely: boolean }>;
   retryPendingRevocations(): Promise<void>;
 }
 
-interface CloudProjectService {
-  listWritableRepos(): Promise<CloudRepoSummary[]>;
-  createRepo(input: CreateCloudRepoInput): Promise<CloudRepoSummary>;
-  cloneLinkedProject(input: CloneCloudProjectInput): Promise<ClonedCloudProject>;
-  attachExistingProject(input: AttachCloudProjectInput): Promise<ProjectCloudLink>;
-  inspectRemoteState(input: InspectRemoteStateInput): Promise<RemoteStateSummary>;
-  fetchRemoteLatest(input: FetchRemoteLatestInput): Promise<RemoteLatestSnapshot>;
-  publishCurrentBranch(input: PublishCurrentBranchInput): Promise<PublishResult>;
+interface GitRemoteProjectService {
+  listWritableRepos(input: ListWritableReposInput): Promise<GitRemoteRepoSummary[]>;
+  createRepo(input: CreateGitRemoteRepoInput): Promise<GitRemoteRepoSummary>;
+  cloneLinkedProject(input: CloneGitRemoteProjectInput): Promise<ClonedGitRemoteProject>;
+  attachExistingProject(input: AttachGitRemoteProjectInput): Promise<ProjectLocalGitRemoteInfo>;
+  inspectRemoteState(input: InspectGitRemoteStateInput): Promise<RemoteStateSummary>;
+  fetchRemoteLatest(input: FetchGitRemoteLatestInput): Promise<RemoteLatestSnapshot>;
+  publishCurrentBranch(input: PublishGitRemoteBranchInput): Promise<PublishResult>;
 }
 
-type CloudRepoSummary = {
+type ListWritableReposInput = {
+  hostBaseUrl: string;
+  topicFilter?: string;
+  page: number;
+  pageSize: number;
+};
+
+type CreateGitRemoteRepoInput = {
+  hostBaseUrl: string;
+  owner: string;
+  repoName: string;
+  defaultBranch: string;
+  visibility: "public" | "private";
+  topics: string[];
+};
+
+type CloneGitRemoteProjectInput = {
+  repoId: string;
+  repoUrl: string;
+  trackedBranch: string;
+  destinationProjectPath: string;
+};
+
+type AttachGitRemoteProjectInput = {
+  projectPath: string;
+  repoId: string;
+  repoUrl: string;
+  repoOwner: string;
+  repoName: string;
+  trackedBranch: string;
+};
+
+type InspectGitRemoteStateInput = {
+  projectPath: string;
+  repoUrl: string;
+  trackedBranch: string;
+  localHead: string | null;
+};
+
+type FetchGitRemoteLatestInput = {
+  projectPath: string;
+  repoUrl: string;
+  trackedBranch: string;
+  mode: "scriptureSnapshot" | "fullRepoSnapshot";
+};
+
+type PublishGitRemoteBranchInput = {
+  projectPath: string;
+  repoUrl: string;
+  trackedBranch: string;
+  localHead: string;
+};
+
+type GitRemoteRepoSummary = {
   repoId: string;
   owner: string;
   name: string;
   url: string;
   defaultBranch: string;
 };
+
+type ClonedGitRemoteProject = {
+  projectPath: string;
+  link: ProjectLocalGitRemoteInfo;
+};
+
+type RemoteStateSummary = {
+  localHead: string | null;
+  remoteHead: string | null;
+  relationship: "upToDate" | "aheadOnly" | "behindOnly" | "diverged" | "untrackedRemote";
+};
+
+type RemoteLatestSnapshot = {
+  remoteHead: string;
+  files: Map<string, string | Uint8Array>;
+  metadataMode: "scriptureSnapshot" | "fullRepoSnapshot";
+};
+
+type PublishResult = {
+  outcome: "published" | "offline" | "remoteAdvanced" | "reauthRequired";
+  remoteHead?: string;
+};
 ```
 
 Notes:
 
 - `AuthSessionProvider` is app-global.
-- `CloudProjectService` is per-feature but stateless enough to be adapter-backed.
-- Current `GitProvider` should probably be extended for remote Git operations used by cloud publishing, but account/session API does not belong inside it.
+- `GitRemoteProjectService` is per-feature but stateless enough to be adapter-backed.
+- `inspectRemoteState()` is the lightweight head/relationship check.
+- `fetchRemoteLatest()` is the heavier content fetch used only when review or clone actually needs content.
+- `GitProvider` should own as much low-level fetch / push / replay plumbing as possible.
+- account/session and repo catalog behavior still do not belong inside `GitProvider`.
 
 ### Compare Source Extension
 
@@ -280,7 +362,8 @@ type CompareSessionConfig = {
 Note:
 
 - `useExternalCompare` remains the compare-source loading and apply mechanism.
-- A higher-level cloud flow should decide when remote latest becomes the active compare source.
+- It can still orchestrate compare behavior once the remote branch of comparison is activated.
+- The git-remote flow should populate that branch, not replace the compare hook with a second review system.
 
 ## Primary Flows
 
@@ -292,8 +375,8 @@ Note:
 4. `ensureProjectGitReady(...)`
 5. `readProjectCloudLink(projectPath)`
 6. `hydrateProjectCloudStatus(projectPath)`
-7. if `settings.cloudAutoSyncOnOpen && link && session`
-8. queue `CloudOpenSyncCoordinator.check(link, currentHeads, inBackground: true)`
+7. if `settings.gitRemoteAutoSyncOnOpen && link && session`
+8. queue `GitRemoteOpenSyncCoordinator.check(link, currentHeads, inBackground: true)`
 9. parse scripture into working state
 10. render editor immediately
 11. if remote differs, update per-project status to `remoteUpdatesAvailable` or `needsReview`
@@ -307,11 +390,11 @@ Reasoning:
 
 1. `CreateProjectFlow.onCreateRemoteIntent()`
 2. `AuthSessionProvider.getCurrentSession()` or `login()`
-3. `CloudProjectService.createRepo(input)`
-4. `CloudProjectService.attachExistingProject(input)`
-5. `writeProjectCloudLink(projectPath, link)`
-6. `cloudStatusStore.set(projectPath, "connected")`
-7. optional first publish path enters `PublishCoordinator.publishAfterSaveOrExplicitIntent()`
+3. `GitRemoteProjectService.createRepo(input)`
+4. `GitRemoteProjectService.attachExistingProject(input)`
+5. `writeProjectLocalGitRemoteInfo(projectPath, link)`
+6. `gitRemoteStatusStore.set(projectPath, "connected")`
+7. optional first publish path enters `GitRemotePublishCoordinator.publishAfterSaveOrExplicitIntent()`
 
 Reasoning:
 
@@ -321,9 +404,9 @@ Reasoning:
 ### 3. Explicit Sync With Unsaved In-Memory Changes
 
 1. `Toolbar.onSyncIntent()`
-2. `CloudSyncCoordinator.startExplicitSync(projectPath, workingFilesRef)`
-3. `CloudProjectService.fetchRemoteLatest(...)`
-4. `buildCloudCompareSource(remoteLatest, metadataRules)`
+2. `GitRemoteSyncCoordinator.startExplicitSync(projectPath, workingFilesRef)`
+3. `GitRemoteProjectService.fetchRemoteLatest(...)`
+4. `buildGitRemoteCompareSource(remoteLatest, metadataRules)`
 5. `useExternalCompare.loadRemoteLatest(compareSource)`
 6. present combined review UI
 7. user accepts/rejects incoming USFM changes into working memory
@@ -343,8 +426,8 @@ Reasoning:
 4. write changed books to workspace
 5. regenerate derived metadata if needed
 6. create local save commit
-7. if `settings.cloudAutoPushOnSave && projectHasCloudLink`
-8. `PublishCoordinator.publishCurrentLocalHead()`
+7. if `settings.gitRemoteAutoPushOnSave && projectHasRemoteLink`
+8. `GitRemotePublishCoordinator.publishCurrentLocalHead()`
 9. if publish succeeds -> set status `connected`
 10. if offline -> set status `pendingPublish`
 11. if remote advanced -> keep local commit and set status `needsReview`
@@ -356,9 +439,9 @@ Reasoning:
 
 ### 5. Reconciliation Review And Final Publish
 
-1. `CloudSyncCoordinator.enterNeedsReview(projectPath)`
-2. `CloudProjectService.fetchRemoteLatest(...)`
-3. `buildCloudCompareSource(...)`
+1. `GitRemoteSyncCoordinator.enterNeedsReview(projectPath)`
+2. `GitRemoteProjectService.fetchRemoteLatest(...)`
+3. `buildGitRemoteCompareSource(...)`
 4. `useExternalCompare` computes diffs against current in-memory left
 5. UI labels remote side as incoming cloud changes
 6. user applies incoming hunks / chapters / whole remote side as needed
@@ -373,12 +456,42 @@ Reasoning:
 - no merge-commit UX
 - resolved content is just the next working state that the user explicitly saves
 
+### 5a. Remote Advanced With Dirty Memory But No Unpublished Local Commits
+
+1. fetch `remoteLatest`
+2. compare current in-memory left against remote latest right
+3. user resolves into working memory
+4. save writes resolved state
+5. new local save commit is created directly on top of `remoteLatest`
+
+Reasoning:
+
+- no explicit rebase is required in this case
+- there is no unpublished local commit history to replay
+
+### 5b. Remote Advanced With Unpublished Local Commits
+
+1. inspect relationship -> `diverged` or `aheadOnlyThenRemoteAdvanced`
+2. fetch `remoteLatest`
+3. compare latest local working state against remote latest
+4. user resolves into working memory
+5. before final save/publish, perform hidden replay of unpublished local commits onto `remoteLatest`
+6. write resolved working state
+7. create final local save commit on top of replayed history
+8. publish branch
+
+Reasoning:
+
+- we do not want merge commits in the user-facing model
+- we do not want to squash away unpublished local commits
+- under the hood this is a rebase / cherry-pick-style replay path even though the user never sees that vocabulary
+
 ### 6. Clone From Cloud Into New Local Project
 
 1. `CreateRoute.onChooseCloudProject()`
-2. `CloudProjectService.listWritableRepos()`
+2. `GitRemoteProjectService.listWritableRepos()`
 3. user picks repo
-4. `CloudProjectService.cloneLinkedProject(...)`
+4. `GitRemoteProjectService.cloneLinkedProject(...)`
 5. validate repo content shape at import boundary
 6. if valid, keep Git history
 7. write project cloud link file
@@ -394,20 +507,20 @@ Reasoning:
 ### Durable Link File Boundary
 
 ```ts
-async function readProjectCloudLink(projectPath: string): Promise<ProjectCloudLinkFile> {
+async function readProjectLocalGitRemoteInfo(projectPath: string): Promise<ProjectLocalGitRemoteInfoFile> {
   // read Dovetail-owned cloud link file from project root
   // validate schema version and required fields
   // return null when file is absent
 }
 
-async function writeProjectCloudLink(
+async function writeProjectLocalGitRemoteInfo(
   projectPath: string,
-  link: ProjectCloudLink,
+  link: ProjectLocalGitRemoteInfo,
 ): Promise<void> {
   // persist durable cloud linkage facts only
 }
 
-async function removeProjectCloudLink(projectPath: string): Promise<void> {
+async function removeProjectLocalGitRemoteInfo(projectPath: string): Promise<void> {
   // used by export/share sanitization or explicit unlink flows
 }
 ```
@@ -415,10 +528,10 @@ async function removeProjectCloudLink(projectPath: string): Promise<void> {
 ### Project Cloud Status Store
 
 ```ts
-interface CloudStatusStore {
-  get(projectPath: string): ProjectCloudStatusRecord | null;
-  set(projectPath: string, record: ProjectCloudStatusRecord): void;
-  patch(projectPath: string, updates: Partial<ProjectCloudStatusRecord>): void;
+interface GitRemoteStatusStore {
+  get(projectPath: string): GitRemoteProjectStatusRecord | null;
+  set(projectPath: string, record: GitRemoteProjectStatusRecord): void;
+  patch(projectPath: string, updates: Partial<GitRemoteProjectStatusRecord>): void;
   clear(projectPath: string): void;
 }
 ```
@@ -429,13 +542,13 @@ interface CloudStatusStore {
 async function checkProjectCloudOnOpen(args: {
   projectPath: string;
   settings: Settings;
-  session: CloudSession | null;
-  cloudLink: ProjectCloudLink | null;
+  session: AuthSession | null;
+  remoteInfo: ProjectLocalGitRemoteInfo | null;
   gitProvider: GitProvider;
-  cloudProjectService: CloudProjectService;
-  cloudStatusStore: CloudStatusStore;
+  gitRemoteProjectService: GitRemoteProjectService;
+  gitRemoteStatusStore: GitRemoteStatusStore;
 }): Promise<void> {
-  // exit early when no cloud link
+  // exit early when no remote link
   // exit early when auto-sync-on-open is disabled
   // exit early when no current session, but mark reauth if linked
   // inspect local/remote heads
@@ -452,10 +565,10 @@ async function checkProjectCloudOnOpen(args: {
 async function beginCloudReview(args: {
   projectPath: string;
   mutWorkingFilesRef: ScriptureBookState[];
-  cloudLink: ProjectCloudLink;
-  cloudProjectService: CloudProjectService;
-  compareBridge: CloudCompareBridge;
-}): Promise<CloudReviewSession> {
+  remoteInfo: ProjectLocalGitRemoteInfo;
+  gitRemoteProjectService: GitRemoteProjectService;
+  compareBridge: GitRemoteCompareBridge;
+}): Promise<GitRemoteReviewSession> {
   // fetch remote latest scripture snapshot
   // regenerate / normalize remote-side metadata if needed for compare context
   // convert remote latest into a compare source shape
@@ -471,11 +584,11 @@ async function saveThenMaybePublish(args: {
   saveResult: LocalSaveCommitResult;
   projectPath: string;
   settings: Settings;
-  cloudLink: ProjectCloudLink | null;
-  cloudProjectService: CloudProjectService;
-  cloudStatusStore: CloudStatusStore;
+  remoteInfo: ProjectLocalGitRemoteInfo | null;
+  gitRemoteProjectService: GitRemoteProjectService;
+  gitRemoteStatusStore: GitRemoteStatusStore;
 }): Promise<void> {
-  // if no cloud link -> exit
+  // if no remote link -> exit
   // if auto-push disabled -> mark connected or pending manual publish
   // publish current tracked branch
   // on success -> patch connected + lastPublishedAt
@@ -487,6 +600,18 @@ async function saveThenMaybePublish(args: {
 ### Metadata Rewrite Boundary
 
 ```ts
+async function replayUnpublishedLocalCommitsOntoRemoteLatest(args: {
+  projectPath: string;
+  gitProvider: GitProvider;
+  remoteHead: string;
+  localAheadCommits: string[];
+}): Promise<void> {
+  // checkout or reset local branch to remoteHead
+  // replay unpublished local commits in original order
+  // use hidden rebase / cherry-pick semantics under the hood
+  // surface failure as needsReview / replayFailed for higher-level orchestration
+}
+
 async function reconcileDerivedCloudMetadata(args: {
   loadedProject: Project;
   currentWorkingFiles: ScriptureBookState[];
@@ -512,6 +637,7 @@ Focus on:
 - remote state classification
 - metadata rewrite rules
 - compare source building for remote latest
+- replay classification for unpublished local commits
 
 Why:
 
@@ -570,12 +696,11 @@ Testing cautions:
 
 ### Open Questions Still Worth Carrying Forward
 
-- exact filename and on-disk location of the Dovetail cloud link file
-- whether `CloudProjectService` should own remote Git transport directly or delegate some operations into an extended `GitProvider`
+- exact filename and on-disk location of the Dovetail remote info file
 - exact UI shape for combined save-and-sync review versus today’s diff modal
 - exact rule for non-derived manifest fields that change remotely
 - whether “manual publish pending” deserves its own user-facing status distinct from `connected`
-- whether remote-open notifications should immediately open review or just surface a banner
+- remote-open notifications should surface a banner that opens the relevant review UI, not force the modal immediately
 
 ## Suggested Implementation Slices
 
@@ -609,15 +734,16 @@ This slice establishes durable project linkage.
 
 - extend save pipeline with publish guard
 - classify success / offline / remote advanced
-- persist per-project cloud status
+- persist per-project remote status
 
 This slice delivers the core “publish my own project” story.
 
-### Slice 5: Remote Latest Compare Source
+### Slice 5: Remote Latest Compare Source And Replay
 
 - add `remoteLatest` compare source kind
 - build remote latest -> compare source bridge
 - enter combined review flow from explicit sync / needs review
+- add hidden replay path for unpublished local commits before final publish
 
 This slice delivers reconciliation without yet polishing every UI edge.
 
