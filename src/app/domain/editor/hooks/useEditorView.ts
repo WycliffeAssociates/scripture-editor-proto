@@ -4,21 +4,24 @@ import { syncReferencePaneSid } from "@/app/domain/editor/listeners/syncReferenc
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
- * Hook to manage visual-only updates in the editor.
- * Handles marker preview toggling and reference pane synchronization.
+ * Register visual-only synchronization tied to the current editor selection.
  *
- * @param editor - The Lexical editor instance
+ * This hook does not change scripture content. It keeps the reference pane
+ * scrolled to the same scripture anchor when the user enables synced
+ * navigation/scrolling, which is why it depends on both the active reference
+ * item and the current sync toggles from workspace state.
  */
 export function useEditorView(editor: LexicalEditor) {
-    const { referenceProject } = useWorkspaceContext();
+    const { referenceResource } = useWorkspaceContext();
 
     useEffect(() => {
         const syncRefScrollUnregister = syncReferencePaneSid(
             editor,
-            referenceProject?.referenceProjectId,
+            referenceResource?.activeReferenceResourcePath,
             Boolean(
-                referenceProject?.isReferenceNavSynced &&
-                    referenceProject?.isReferenceScrollSynced,
+                referenceResource?.supportsScriptureNavigation &&
+                    referenceResource?.isReferenceNavSynced &&
+                    referenceResource?.isReferenceScrollSynced,
             ),
         );
 
@@ -27,8 +30,9 @@ export function useEditorView(editor: LexicalEditor) {
         };
     }, [
         editor,
-        referenceProject?.isReferenceNavSynced,
-        referenceProject?.isReferenceScrollSynced,
-        referenceProject?.referenceProjectId,
+        referenceResource?.activeReferenceResourcePath,
+        referenceResource?.isReferenceNavSynced,
+        referenceResource?.isReferenceScrollSynced,
+        referenceResource?.supportsScriptureNavigation,
     ]);
 }

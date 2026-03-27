@@ -8,51 +8,72 @@ import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
+import { useEffect } from "react";
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { routeTree } from "@/app/generated/routeTree.gen.ts";
+import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
 import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme.ts";
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import type { ImportService } from "@/core/library/ImportService.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { IOpener } from "@/core/persistence/IOpener.ts";
-import type { IProjectRepository } from "@/core/persistence/ProjectRepository.ts";
-import { ProjectRepository } from "@/core/persistence/repositories/ProjectRepository.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 
+/**
+ * Shared app bootstrap props.
+ *
+ * The platform entrypoints in `src/web` and `src/tauri` assemble concrete
+ * adapters, then hand those shared seams to this component so the React app can
+ * stay platform-neutral.
+ */
 type EntryPointProps = {
     settingsManager: SettingsManager;
-    directoryProvider: IDirectoryProvider;
-    md5Service: IMd5Service;
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+    projectsService: ProjectsService;
+    libraryService: LibraryService;
+    importService: ImportService;
     usfmOnionService: IUsfmOnionService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
 };
 
-// Create a client for React Query
 const queryClient = new QueryClient();
 
 export interface RouterContext {
-    queryClient: QueryClient; //for if wanting to manage tanstack query in route loader,
+    /**
+     * Router-wide service bag exposed to route loaders, hooks, and components.
+     *
+     * This is the bridge between platform bootstrap and the rest of the app.
+     * Downstream code should pull shared seams from here instead of importing
+     * platform implementations directly.
+     */
+    queryClient: QueryClient;
     settingsManager: SettingsManager;
-    directoryProvider: IDirectoryProvider;
-    projectRepository: IProjectRepository;
-    md5Service: IMd5Service;
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+    projectsService: ProjectsService;
+    libraryService: LibraryService;
+    importService: ImportService;
     usfmOnionService: IUsfmOnionService;
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
 }
 
-// wrapping this let's us get it's type as ReturnType to declaration merge, whilse just receiving service deps as props to app
 const wrapCreateRouter = (
     settingsManager: SettingsManager,
-    directoryProvider: IDirectoryProvider,
-    projectRepository: IProjectRepository,
-    md5Service: IMd5Service,
+    fileSystem: FileSystem,
+    storageRoots: StorageRoots,
+    projectsService: ProjectsService,
+    libraryService: LibraryService,
+    importService: ImportService,
     usfmOnionService: IUsfmOnionService,
     gitProvider: GitProvider,
     opener: IOpener,
@@ -63,9 +84,11 @@ const wrapCreateRouter = (
         context: {
             settingsManager,
             queryClient,
-            directoryProvider,
-            projectRepository,
-            md5Service,
+            fileSystem,
+            storageRoots,
+            projectsService,
+            libraryService,
+            importService,
             usfmOnionService,
             gitProvider,
             opener,
@@ -76,36 +99,55 @@ const wrapCreateRouter = (
 };
 declare module "@tanstack/react-router" {
     interface Register {
-        // This infers the type of our router and registers it across your entire project
         router: ReturnType<typeof wrapCreateRouter>;
     }
 }
 
+/**
+ * Shared React entrypoint.
+ *
+ * This component owns framework bootstrap and one-time startup reconciliation.
+ * By the time the UI renders, platform-specific adapters have already been
+ * chosen and injected; from here on the app should operate through shared
+ * library, filesystem, import, and editor seams.
+ */
 export function App({
     settingsManager,
-    directoryProvider,
-    md5Service,
+    fileSystem,
+    storageRoots,
+    projectsService,
+    libraryService,
+    importService,
     usfmOnionService,
     gitProvider,
     opener,
     platform,
 }: EntryPointProps) {
-    const projectRepository = new ProjectRepository(
-        directoryProvider,
-        md5Service,
-    );
-
-    // Create a router
     const router = wrapCreateRouter(
         settingsManager,
-        directoryProvider,
-        projectRepository,
-        md5Service,
+        fileSystem,
+        storageRoots,
+        projectsService,
+        libraryService,
+        importService,
         usfmOnionService,
         gitProvider,
         opener,
         platform,
     );
+
+    useEffect(() => {
+        void (async () => {
+            try {
+                // Reconcile the index against managed storage before the first
+                // route render so library listings do not show stale Dexie rows.
+                await projectsService.reconcileIndex();
+                await router.invalidate();
+            } catch (error) {
+                console.error("Failed to reconcile indexed projects", error);
+            }
+        })();
+    }, [projectsService, router]);
 
     return (
         <I18nEntry>

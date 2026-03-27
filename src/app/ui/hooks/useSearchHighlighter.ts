@@ -13,19 +13,15 @@ type EditorHighlightInput = {
 };
 
 /**
- * Clear all CSS highlights from the DOM
+ * Remove all search highlight state from the shared CSS Highlight registry.
  */
 export function clearHighlights(): void {
     CSS.highlights.clear();
 }
 
 /**
- * Highlight all chapter matches and optionally emphasize one active match.
- * Also scrolls the active match into view when present.
- *
- * @param matches - All matches in the current chapter
- * @param editor - The Lexical editor instance
- * @param activeMatch - The currently selected match to emphasize
+ * Paint the current search result set for one editor instance using CSS
+ * Highlights, keeping the active result visually distinct from the rest.
  */
 export function highlightMatches(
     matches: MatchInNode[],

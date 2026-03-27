@@ -12,6 +12,13 @@ import {
     PRETTIFY_LINEBREAK_BEFORE_MARKERS,
 } from "./prettifyMarkers.ts";
 
+/**
+ * Token-level prettification pipeline for USFM.
+ *
+ * This module normalizes marker spacing, linebreak placement, malformed marker
+ * recovery, and a few Dovetail-specific cleanup heuristics before tokens are turned
+ * back into displayed/editor-facing content.
+ */
 export type PrettifyToken = {
     tokenType: string;
     text: string;

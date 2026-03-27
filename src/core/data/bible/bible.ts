@@ -1,5 +1,10 @@
-// bibleUtils.ts
-// Core canonical ordering of books (standard 66)
+/**
+ * Canonical Bible ordering and scripture-reference helpers.
+ *
+ * Search, navigation, lint grouping, reference parsing, and library sorting all
+ * need one shared understanding of book order and SID parsing. This file is that
+ * shared source of truth.
+ */
 const BIBLE_ORDER = [
     "GEN",
     "EXO",
@@ -89,8 +94,6 @@ function matchBook(input: string): string | null {
     return null;
 }
 
-// --- 1. Canonical sort of files --------------------------------------------
-
 export function sortUsfmFilesByCanonicalOrder<T, K extends keyof T>(
     files: T[],
     keyField: K,
@@ -108,6 +111,9 @@ export function sortUsfmFilesByCanonicalOrder<T, K extends keyof T>(
     });
 }
 
+/**
+ * Extract a normalized 3-letter book slug from common file-id conventions.
+ */
 export function getBookSlug(book: string): string {
     const dashIndex = book.indexOf("-");
     const slug =
@@ -116,8 +122,6 @@ export function getBookSlug(book: string): string {
             : book.slice(0, 3);
     return slug.toUpperCase();
 }
-
-// --- 3. Fuzzy book matching ------------------------------------------------
 
 // Simplified fuzzy map (abbreviations and English names)
 const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
@@ -196,25 +200,12 @@ const BOOK_ALIASES: Record<(typeof BIBLE_ORDER)[number], string[]> = {
     ],
 };
 
-// function matchBook(input: string): string | null {
-//     const normalized = input.toLowerCase().replace(/\s+/g, "");
-//     for (const [id, aliases] of Object.entries(BOOK_ALIASES)) {
-//         if (
-//             aliases.some(
-//                 (alias) =>
-//                     normalized.startsWith(alias) ||
-//                     normalized === id.toLowerCase(),
-//             )
-//         ) {
-//             return id;
-//         }
-//     }
-//     return null;
-// }
-
-// --- 4. Parse free-form references ----------------------------------------
-//word or digit 3, all ws or noe, 1-3 digits, colon, 1-3 digits optional hyphen 1-3 digits optional. I.e. this supports
-// 1CO 1:1 and 1CO 1:1-2, but not sequences like 1,2
+/**
+ * Free-form scripture reference patterns used by toolbar/reference navigation.
+ *
+ * Supports inputs like `1CO 1:1` and `1CO 1:1-2`, but intentionally not more
+ * complex sequences such as comma-separated verse groups.
+ */
 const SID_REGEX = /(.{3})\s*(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?/;
 const SID_REGEX_BOOK_CHAP_ONLY = /(.{3})\s*(\d{1,3})/;
 export interface ParsedReference {
@@ -350,5 +341,22 @@ export function sortListBySidCanonical<T extends { sid: string }>(list: T[]) {
             return aParsed.verseStart - bParsed.verseStart;
         }
         return 0;
+    });
+}
+
+export function sortListByBookCanonical<T>(
+    list: T[],
+    getBookCode: (item: T) => string,
+) {
+    return [...list].sort((a, b) => {
+        const aBookIdx = BIBLE_ORDER_MAP.get(getBookSlug(getBookCode(a)));
+        const bBookIdx = BIBLE_ORDER_MAP.get(getBookSlug(getBookCode(b)));
+        if (aBookIdx === undefined || bBookIdx === undefined) {
+            return 0;
+        }
+        if (aBookIdx !== bBookIdx) {
+            return aBookIdx - bBookIdx;
+        }
+        return getBookCode(a).localeCompare(getBookCode(b));
     });
 }

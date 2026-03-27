@@ -1,15 +1,4 @@
-export interface ProjectMetadata {
-    name: string;
-    id: string;
-    language: Language;
-}
-
-export interface Language {
-    name: string;
-    id: string;
-    direction: LanguageDirection;
-}
-
+/** Persisted language-direction values shared by metadata parsing and UI layout. */
 export const LanguageDirection = {
     LTR: "ltr",
     RTL: "rtl",

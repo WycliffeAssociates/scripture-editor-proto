@@ -1,3 +1,7 @@
+/**
+ * Core search input/output shapes. These are deliberately smaller than the full
+ * scripture workspace model so the search engine can stay pure and platform-free.
+ */
 export type ScriptureChapterRef = {
     bookCode: string;
     chapterNum: number;

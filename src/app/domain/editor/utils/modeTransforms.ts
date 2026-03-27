@@ -5,6 +5,7 @@ import type {
 } from "lexical";
 import {
     type ContentEditorModeSetting,
+    EDITOR_MODES,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
@@ -20,6 +21,7 @@ import {
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
     isDocumentMarker,
     isValidParaMarker,
@@ -30,7 +32,11 @@ export { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/seria
 export { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 /**
- * Detects if root children are wrapped in a single paragraph container (Source/Plain mode)
+ * Detect the serialized shape used by source/plain mode.
+ *
+ * Those modes keep the root wrapped in a single generic Lexical paragraph so
+ * the editor behaves like a flat text surface. Regular mode, by contrast, uses
+ * USFM paragraph containers and nested editor nodes.
  */
 export function unwrapFlatTokensFromRootChildren(
     rootChildren: SerializedLexicalNode[],
@@ -44,7 +50,8 @@ export function unwrapFlatTokensFromRootChildren(
 }
 
 /**
- * Wraps flat tokens in a Lexical paragraph container (for Source/Plain mode)
+ * Rewrap flat tokens into the generic paragraph shell expected by
+ * source/plain mode.
  */
 export function wrapFlatTokensInLexicalParagraph(
     flatTokens: SerializedLexicalNode[],
@@ -104,7 +111,7 @@ const isContainerStartMarker = (marker: string) =>
  */
 export function rewrapNestedEditorNodesFromFlatTokens(
     flatTokens: SerializedLexicalNode[],
-    direction: "ltr" | "rtl",
+    direction: LanguageDirection,
 ): SerializedLexicalNode[] {
     const out: SerializedLexicalNode[] = [];
 
@@ -222,20 +229,24 @@ export function rewrapNestedEditorNodesFromFlatTokens(
 }
 
 /**
- * Transform chapter state to a different editor mode
+ * Rematerialize one serialized chapter state for a different editor mode.
+ *
+ * Mode switches do not reparse scripture from disk. They reinterpret the
+ * already-loaded token/serialized structure into the presentation needed by the
+ * next mode, including rebuilding nested note nodes when moving back toward
+ * regular mode.
  */
 export function transformToMode(
     state: SerializedEditorState,
     targetMode: ContentEditorModeSetting,
 ): SerializedEditorState {
-    const direction = (state.root.direction ?? "ltr") as "ltr" | "rtl";
+    const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
-    // Check current format
     const isCurrentlyParagraphMode = rootChildren.some(
         (child) => (child as { type?: string }).type === "usfm-paragraph-node",
     );
-    const wantsParagraphMode = targetMode === "regular";
+    const wantsParagraphMode = targetMode === EDITOR_MODES.regular;
 
     if (isCurrentlyParagraphMode === wantsParagraphMode) {
         // Already in correct format

@@ -20,6 +20,15 @@ type LintVersesArgs = {
     editor: LexicalEditor;
 };
 
+/**
+ * Run the external USFM lint pass for the current editor snapshot and project
+ * the resulting issues back onto Lexical nodes.
+ *
+ * This listener is one stage in the editor pipeline after tokenization. It
+ * asks the onion service to lint the flattened token stream, then reconciles
+ * those issues back onto both main-editor nodes and nested footnote/cross-ref
+ * editors so downstream UI can render highlights and tooltips from node state.
+ */
 export async function lintAll(
     { editorState, editor }: LintVersesArgs,
     usfmOnionService: IUsfmOnionService,
@@ -45,6 +54,7 @@ export async function lintAll(
         {} as Record<string, LintIssue[]>,
     );
 
+    // reconcile editor with external infromation from linting
     const updateOps: LintUpdateOperation[] = [];
     dfsEditorStateForLint({
         editor,
@@ -114,6 +124,8 @@ function dfsEditorStateForLint({
     updatesToMainEditor,
     withErrorsInThisBook,
 }: DfsEditorStateForLintArgs) {
+    // Collect editor mutations first so the caller can apply all lint-driven
+    // state changes in one tagged update rather than mutating during traversal.
     editorState.read(() => {
         for (const dfsNode of $dfs()) {
             const node = dfsNode.node;
@@ -180,6 +192,9 @@ function lintNestedSerializedState(
     state: SerializedEditorState,
     withErrorsInThisBook: Record<string, LintIssue[]>,
 ): { changed: boolean; newState: SerializedEditorState } {
+    // Nested editors live inside one outer node as serialized lexical state.
+    // We update a clone of that serialized tree, then write it back only when
+    // lint metadata actually changed.
     const cloned = structuredClone(state);
     const parsed = editor.parseEditorState(state);
 

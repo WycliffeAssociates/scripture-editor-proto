@@ -1,3 +1,7 @@
+/**
+ * Canonical scripture book metadata used anywhere the app needs a stable sort
+ * order or filename convention.
+ */
 export const canonicalBookMap: {
     [key: string]: { num: string; code: string; testament: string };
 } = {
@@ -71,3 +75,28 @@ export const canonicalBookMap: {
     JUD: { num: "66", code: "JUD", testament: "nt" },
     REV: { num: "67", code: "REV", testament: "nt" },
 };
+
+/**
+ * Resolve a user- or metadata-provided book code into the canonical entry the
+ * rest of the app uses for ordering and filenames.
+ */
+export function getCanonicalBook(bookCode: string): {
+    num: string;
+    code: string;
+    testament: string;
+} {
+    const book = canonicalBookMap[bookCode.toUpperCase()];
+    if (!book) {
+        throw new Error(`Invalid book code: ${bookCode}`);
+    }
+    return book;
+}
+
+/**
+ * Generate the normalized USFM filename the app uses when saving scripture books
+ * back to disk.
+ */
+export function generateUsfmFilename(bookCode: string): string {
+    const book = getCanonicalBook(bookCode);
+    return `${book.num}-${book.code}.usfm`;
+}

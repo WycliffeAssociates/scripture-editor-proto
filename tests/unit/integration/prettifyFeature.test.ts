@@ -1,7 +1,7 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureChapterState, ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
@@ -31,12 +31,12 @@ const createSerializedState = async (
 };
 
 const createChapter = async (
-    chapNumber: number,
+    chapterNumber: number,
     usfmContent: string,
-): Promise<ParsedChapter> => {
+): Promise<ScriptureChapterState> => {
     const lexicalState = await createSerializedState(usfmContent);
     return {
-        chapNumber,
+        chapterNumber,
         lexicalState,
         loadedLexicalState: structuredClone(lexicalState),
         sourceTokens: [] as Token[],
@@ -47,8 +47,8 @@ const createChapter = async (
 
 const createFile = (
     bookCode: string,
-    chapters: ParsedChapter[],
-): ParsedFile => ({
+    chapters: ScriptureChapterState[],
+): ScriptureBookState => ({
     bookCode,
     path: `${bookCode}.usfm`,
     title: bookCode,

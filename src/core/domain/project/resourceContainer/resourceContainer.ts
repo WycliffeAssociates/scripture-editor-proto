@@ -1,5 +1,12 @@
 import { parse } from "yaml";
 
+/**
+ * Resource Container metadata shapes and parser.
+ *
+ * Container readers use these types when the loader pipeline encounters an RC
+ * manifest. The app-facing item type is decided later; this file is only about
+ * understanding the container metadata itself.
+ */
 export type ResourceContainerDublinCore = {
     conformsto: string;
     contributor: string[];
@@ -31,7 +38,7 @@ export type ResourceContainerLanguage = {
 };
 export type ResourceContainerProject = {
     title: string;
-    versification: string;
+    versification?: string;
     identifier: string;
     sort: number;
     path: string;
@@ -49,6 +56,9 @@ export type ResourceContainer = {
     projects: ResourceContainerProject[];
 };
 
+/**
+ * Parse an RC manifest into its typed metadata shape.
+ */
 export function parseResourceContainer(yamlManifest: string) {
     return parse(yamlManifest) as Partial<ResourceContainer>;
 }

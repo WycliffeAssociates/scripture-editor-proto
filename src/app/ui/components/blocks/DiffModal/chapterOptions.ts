@@ -4,6 +4,12 @@ import type {
 } from "@/app/domain/project/diffTypes.ts";
 import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 
+/**
+ * Build chapter picker options for the diff modal's structured view.
+ *
+ * This keeps the modal free of raw map-walking logic and ensures chapter options
+ * are both filtered for visible changes and sorted in canonical scripture order.
+ */
 export type ChapterOption = {
     value: string;
     label: string;

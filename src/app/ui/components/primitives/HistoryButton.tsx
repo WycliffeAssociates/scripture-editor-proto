@@ -4,6 +4,9 @@ import { Redo, Undo } from "lucide-react";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
+/**
+ * Toolbar undo/redo affordances for the current scripture workspace history.
+ */
 export function HistoryButtons() {
     const { history } = useWorkspaceContext();
     const { t } = useLingui();

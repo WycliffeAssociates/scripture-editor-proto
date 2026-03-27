@@ -2,6 +2,13 @@ import { Search } from "lucide-react";
 import React from "react";
 import type { EditorAction } from "./types.ts";
 
+/**
+ * Context-menu search affordances derived from the current editor selection.
+ *
+ * These actions do not perform the search themselves. They bridge the editor
+ * action palette into the app-level search pane by forwarding the inferred
+ * term from `useEditorContext`.
+ */
 export const SEARCH_ACTIONS: EditorAction[] = [
     {
         id: "find-selection",

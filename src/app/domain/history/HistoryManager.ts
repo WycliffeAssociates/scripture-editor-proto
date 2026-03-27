@@ -38,6 +38,14 @@ type PushTransactionArgs<TSnapshot> = {
     changes: HistorySnapshotChange<TSnapshot>[];
 };
 
+/**
+ * Generic history stack used by the scripture workspace layer.
+ *
+ * The editor emits fine-grained mutations, but the app wants undo/redo in terms of
+ * chapter snapshots and user-meaningful transactions. This manager handles entry
+ * coalescing, redo-branch truncation, and label bookkeeping without depending on
+ * any one snapshot format.
+ */
 export class HistoryManager<TSnapshot> {
     private readonly maxEntries: number;
     private readonly coalesceWindowMs: number;

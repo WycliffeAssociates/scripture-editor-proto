@@ -1,7 +1,6 @@
 import type { LexicalEditor, SerializedLexicalNode } from "lexical";
-import { useRef } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { useEffect, useRef } from "react";
+import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import {
     groupFlatNodesIntoParagraphContainers,
@@ -11,8 +10,23 @@ import {
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { updateDomForEditorMode } from "./utils/domUtils.ts";
 
+export type SetEditorModeOptions = {
+    onComplete?: () => void;
+};
+
+/**
+ * Coordinate editor-mode transitions for the scripture workspace.
+ *
+ * Switching modes is more than flipping a setting: the current chapter must be
+ * saved, every chapter may need its serialized structure rematerialized, and
+ * the mounted editor plus DOM styling need to be updated in sync.
+ */
 export function useModeSwitching({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
@@ -22,7 +36,7 @@ export function useModeSwitching({
     setEditorContent,
     saveCurrentDirtyLexical,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     appSettings: Partial<Settings>;
@@ -30,28 +44,43 @@ export function useModeSwitching({
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
         editor?: LexicalEditor,
     ) => void;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
 }) {
     const initializationRef = useRef(false);
+    const pendingModeCompleteRef = useRef<{
+        mode: EditorModeSetting;
+        onComplete: () => void;
+    } | null>(null);
     const resolvedEditorMode =
-        (appSettings.editorMode as EditorModeSetting) ?? "regular";
+        (appSettings.editorMode as EditorModeSetting) ?? EDITOR_MODES.regular;
+
+    useEffect(() => {
+        const pending = pendingModeCompleteRef.current;
+        if (!pending) return;
+        if (pending.mode !== resolvedEditorMode) return;
+        pendingModeCompleteRef.current = null;
+        const frame = window.requestAnimationFrame(() => {
+            pending.onComplete();
+        });
+        return () => {
+            window.cancelAnimationFrame(frame);
+        };
+    }, [resolvedEditorMode]);
 
     /**
-     * Initialize the editor with the current chapter content.
-     * No transformation needed - data is already in correct format from projectParamToParsed.
+     * Mount the current chapter into the Lexical editor the first time the
+     * editor instance becomes available.
      */
     function initializeEditor(editor: LexicalEditor) {
         if (initializationRef.current) return;
         initializationRef.current = true;
 
-        // Just set the editor content for the current chapter
-        // The data is already in the correct format from the loader
         const currentChapterData = mutWorkingFilesRef
             .find((f) => f.bookCode === currentFileBibleIdentifier)
-            ?.chapters.find((c) => c.chapNumber === currentChapter);
+            ?.chapters.find((c) => c.chapterNumber === currentChapter);
 
         if (currentChapterData) {
             setEditorContent(
@@ -66,17 +95,35 @@ export function useModeSwitching({
     }
 
     /**
-     * Switch editor mode and transform all chapters.
-     * This is expensive and should only be called when user explicitly switches modes.
+     * Switch editor mode and rematerialize chapter state as needed.
+     *
+     * This is intentionally explicit and relatively expensive. We only do it
+     * when the user asks to change how the scripture workspace is presented,
+     * not during ordinary editing.
      */
     function setEditorMode(
-        next: "regular" | "usfm" | "plain" | "view",
+        next: EditorModeSetting,
         editor?: LexicalEditor,
+        options?: SetEditorModeOptions,
     ) {
-        // Save current state before transforming
+        if (options?.onComplete) {
+            if (next === resolvedEditorMode) {
+                window.requestAnimationFrame(() => {
+                    options.onComplete?.();
+                });
+            } else {
+                pendingModeCompleteRef.current = {
+                    mode: next,
+                    onComplete: options.onComplete,
+                };
+            }
+        } else {
+            pendingModeCompleteRef.current = null;
+        }
+
         const inProgress = saveCurrentDirtyLexical();
         const filesToUse = inProgress || mutWorkingFilesRef;
-        let thisChapterUpdated: ParsedChapter | undefined;
+        let thisChapterUpdated: ScriptureChapterState | undefined;
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
             const direction = (chapter.lexicalState.root.direction ?? "ltr") as
@@ -85,17 +132,17 @@ export function useModeSwitching({
             const rootChildren = chapter.lexicalState.root
                 .children as SerializedLexicalNode[];
 
-            // Check if already in desired format to avoid unnecessary work
             const isCurrentlyParagraphMode = rootChildren.some(
                 (child) =>
                     (child as { type?: string }).type === "usfm-paragraph-node",
             );
-            const wantsParagraphMode = next === "regular" || next === "view";
+            const wantsParagraphMode =
+                next === EDITOR_MODES.regular || next === EDITOR_MODES.view;
 
             if (isCurrentlyParagraphMode === wantsParagraphMode) {
                 // Already in correct format, skip transformation
                 if (
-                    chapter.chapNumber === currentChapter &&
+                    chapter.chapterNumber === currentChapter &&
                     file.bookCode === currentFileBibleIdentifier
                 ) {
                     thisChapterUpdated = chapter;
@@ -108,7 +155,6 @@ export function useModeSwitching({
                 unwrapFlatTokensFromRootChildren(rootChildren);
 
             if (wantsParagraphMode) {
-                // Switching TO regular mode: wrap in paragraph containers
                 const flatTokens =
                     unwrappedFlatTokens ??
                     materializeFlatTokensArray(rootChildren, {
@@ -124,7 +170,6 @@ export function useModeSwitching({
                         direction,
                     );
             } else {
-                // Switching TO usfm/plain mode: flatten to tokens
                 const flatTokens =
                     unwrappedFlatTokens ??
                     materializeFlatTokensArray(rootChildren, {
@@ -136,14 +181,13 @@ export function useModeSwitching({
             }
 
             if (
-                chapter.chapNumber === currentChapter &&
+                chapter.chapterNumber === currentChapter &&
                 file.bookCode === currentFileBibleIdentifier
             ) {
                 thisChapterUpdated = chapter;
             }
         }
 
-        // Update editor content if current chapter was transformed
         if (thisChapterUpdated) {
             setEditorContent(
                 currentFileBibleIdentifier,

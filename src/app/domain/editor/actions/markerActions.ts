@@ -17,7 +17,11 @@ import {
     Type,
 } from "lucide-react";
 import React from "react";
-import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    type EditorModeSetting,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -38,7 +42,11 @@ import {
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTextInsertionAnchor.ts";
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
-import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
+import {
+    deriveVerseNumberForInsertionFromTokens,
+    isSelectedVerseNumber,
+    SELECTED_VERSE_NUMBER_PATTERN,
+} from "@/app/domain/editor/utils/verseNumberHeuristics.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
@@ -47,8 +55,14 @@ function isWhitespaceOnly(text: string): boolean {
     return /^[\s\u00A0\u200B]*$/.test(text);
 }
 
-const SELECTED_VERSE_NUMBER_PATTERN = /^\d+(?:-\d+)?$/;
-
+/**
+ * Detect a selection that is really "this leading number should become a verse
+ * marker" instead of ordinary text selection.
+ *
+ * The action palette uses this so it can surface verse-promotion affordances
+ * only when the current selection meaningfully represents a verse number at the
+ * start of a line.
+ */
 function parseVerseNumberSelection(
     selection: ReturnType<typeof $getSelection>,
 ): {
@@ -67,7 +81,7 @@ function parseVerseNumberSelection(
 
     const selectedText = selection.getTextContent();
     const verseNumber = selectedText.trim();
-    if (!SELECTED_VERSE_NUMBER_PATTERN.test(verseNumber)) return null;
+    if (!isSelectedVerseNumber(verseNumber)) return null;
 
     const startOffset = Math.min(
         selection.anchor.offset,
@@ -80,6 +94,13 @@ function parseVerseNumberSelection(
     return { anchorNode, startOffset, endOffset, verseNumber };
 }
 
+/**
+ * Infer the next verse number for insertion based on surrounding tokenized text
+ * nodes.
+ *
+ * This keeps marker insertion aligned with the user's current scripture context
+ * instead of forcing them to type the verse number manually for common cases.
+ */
 function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
     const textNodes = [...$dfsIterator()]
         .map((n) => n.node)
@@ -97,6 +118,14 @@ function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
     });
 }
 
+/**
+ * Execute a marker insertion from the palette against the current Lexical
+ * selection.
+ *
+ * This helper is the bridge between palette intent ("insert \\p", "insert \\v")
+ * and the lower-level insertion utilities that understand start-of-line,
+ * collapsed-vs-range selection, nested editors, and language direction.
+ */
 function insertMarker(
     editor: LexicalEditor,
     context: EditorContext,
@@ -187,6 +216,9 @@ function insertMarker(
     });
 }
 
+/**
+ * Factory for the common "insert a specific marker" action shape.
+ */
 function createMarkerAction(
     id: string,
     label: string,
@@ -306,7 +338,7 @@ const MAKE_VERSE_MARKER_ACTION: EditorAction = {
     category: "Markers",
     icon: React.createElement(Hash, { size: 16 }),
     isVisible: (context) => {
-        if (context.editorMode !== "regular") return false;
+        if (context.editorMode !== EDITOR_MODES.regular) return false;
         if (context.canMakeVerseMarkerFromCursor) return true;
         if (context.selectedText) {
             return SELECTED_VERSE_NUMBER_PATTERN.test(
@@ -402,7 +434,7 @@ const REMOVE_EMPTY_VERSES_ACTION: EditorAction = {
     category: "Formatting",
     icon: React.createElement(Trash2, { size: 16 }),
     isVisible: (context) =>
-        context.editorMode !== "plain" &&
+        context.editorMode !== EDITOR_MODES.plain &&
         !!parseSid(context.currentVerse ?? ""),
     execute: (_editor, context) => {
         const current = parseSid(context.currentVerse ?? "");

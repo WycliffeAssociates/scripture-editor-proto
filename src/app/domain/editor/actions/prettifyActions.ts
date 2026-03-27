@@ -2,10 +2,14 @@ import { BookOpen, FileStack, Wand2 } from "lucide-react";
 import React from "react";
 import type { EditorAction } from "./types.ts";
 
+/**
+ * Queue an action after the current Lexical transaction finishes.
+ *
+ * The action palette runs inside `editor.update(...)`. Prettify operations
+ * eventually replace broader editor state via hooks, so they must escape that
+ * transaction boundary before running.
+ */
 function scheduleOutsideLexicalUpdate(fn: () => void) {
-    // ActionPalette executes actions inside `editor.update(...)`.
-    // These formatting actions can call `editor.setEditorState(...)` via hook orchestration,
-    // which must not run inside an existing Lexical update.
     setTimeout(fn, 0);
 }
 
@@ -51,6 +55,9 @@ const PRETTIFY_PROJECT_ACTION: EditorAction = {
     },
 };
 
+/**
+ * Formatting commands exposed through the editor action palette.
+ */
 export const PRETTIFY_ACTIONS: EditorAction[] = [
     PRETTIFY_CHAPTER_ACTION,
     PRETTIFY_BOOK_ACTION,

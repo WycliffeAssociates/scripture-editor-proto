@@ -1,7 +1,7 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -59,7 +59,7 @@ function makeFiles(args: {
     currentText: string;
     bookCode?: string;
     chapterNum?: number;
-}): ParsedFile[] {
+}): ScriptureBookState[] {
     const bookCode = args.bookCode ?? "GEN";
     const chapterNum = args.chapterNum ?? 1;
     return [
@@ -71,7 +71,7 @@ function makeFiles(args: {
             prevBookId: null,
             chapters: [
                 {
-                    chapNumber: chapterNum,
+                    chapterNumber: chapterNum,
                     dirty: args.loadedText !== args.currentText,
                     sourceTokens: makeTokens(
                         args.loadedText,

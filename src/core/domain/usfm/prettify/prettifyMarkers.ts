@@ -1,3 +1,10 @@
+/**
+ * Marker sets that drive the prettify/token-formatting rules.
+ *
+ * The prettifier does not hard-code linebreak behavior inline; it consults these
+ * sets to decide which markers start new lines and which markers should also
+ * force trailing linebreaks.
+ */
 export const POETRY_MARKERS = new Set([
     "q",
     "q1",

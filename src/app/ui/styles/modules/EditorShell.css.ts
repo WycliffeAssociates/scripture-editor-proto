@@ -21,6 +21,29 @@ export const contentEditableSearchOpen = style({
 export const loadingReference = style({
     padding: vars.spacing.md,
 });
+
+export const translationNotesContainer = style({
+    padding: vars.spacing.md,
+    display: "grid",
+    gap: vars.spacing.md,
+});
+
+export const translationNoteCard = style({
+    border: `1px solid ${vars.colors.gray[3]}`,
+    borderRadius: vars.radius.md,
+    padding: vars.spacing.md,
+    backgroundColor: vars.colors.gray[0],
+    selectors: {
+        '[data-mantine-color-scheme="dark"] &': {
+            backgroundColor: vars.colors.dark[6],
+            borderColor: vars.colors.dark[4],
+        },
+    },
+});
+
+export const translationNoteBody = style({
+    whiteSpace: "pre-wrap",
+});
 export const contentEditableReference = style({
     outline: "none",
     width: "100%",

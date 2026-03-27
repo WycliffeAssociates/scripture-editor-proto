@@ -1,4 +1,5 @@
 import { Portal, Text } from "@mantine/core";
+import { DATA_JS } from "@/app/data/constants.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
@@ -7,6 +8,12 @@ import {
 } from "@/app/ui/i18n/usfmOnionLocalization.ts";
 import * as styles from "@/app/ui/styles/modules/LintTooltipOverlay.css.ts";
 
+/**
+ * Final presentation step for lint hover state inside the live editor.
+ *
+ * The linting pipeline annotates nodes and DOM with issue metadata; this plugin
+ * turns that hover state into a visible tooltip and optional quick-fix affordance.
+ */
 export function LintTooltipPlugin() {
     const { actions, lint } = useWorkspaceContext();
     const { hoveredErrors, tooltipPosition } = useEditorLintTooltip(
@@ -19,7 +26,7 @@ export function LintTooltipPlugin() {
         <Portal>
             <div
                 className={styles.host}
-                data-js="lint-tooltip-overlay"
+                data-js={DATA_JS.lintTooltipOverlay}
                 style={{
                     top: tooltipPosition.y,
                     left: tooltipPosition.x,

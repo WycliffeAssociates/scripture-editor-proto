@@ -1,3 +1,9 @@
+/**
+ * Helpers for storing and reshaping chapter-keyed diff maps in the app layer.
+ *
+ * Compare/save/history flows frequently update one chapter at a time while the UI
+ * often wants either a nested lookup map or a flattened list.
+ */
 export type DiffsByChapterMap<TDiff> = Record<string, Record<number, TDiff[]>>;
 
 export function replaceChapterDiffsInMap<TDiff>({

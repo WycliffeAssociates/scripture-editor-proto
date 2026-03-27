@@ -1,7 +1,7 @@
 import { useDebouncedCallback } from "@mantine/hooks";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import { EDITOR_MODES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import {
     maintainDocumentStructure,
     maintainDocumentStructureDebounced,
@@ -13,16 +13,18 @@ const changeListenerDebounceMs = 75;
 const structuralUpdateDebounceMs = 200;
 
 /**
- * Hook to manage document structure maintenance for a Lexical editor.
- * Handles throttled (60fps) and debounced (1000ms) updates to maintain
- * document structure and metadata.
+ * Register the structural reconciliation passes for one live scripture editor.
  *
- * @param editor - The Lexical editor instance
+ * The editor intentionally allows transient invalid states while the user is
+ * typing. This hook wires up the follow-up maintenance passes that normalize
+ * structure and metadata after edits, using two different debounce windows so
+ * cheap metadata updates can happen sooner than heavier structural rewrites.
  */
 export function useEditorStructure(editor: LexicalEditor) {
     const { project } = useWorkspaceContext();
     const { bookCode } = project.pickedFile;
-    const editorModeSetting = project.appSettings.editorMode ?? "regular";
+    const editorModeSetting =
+        project.appSettings.editorMode ?? EDITOR_MODES.regular;
 
     const debouncedStructuralUpdates = useDebouncedCallback(
         (editorState: EditorState) => {
@@ -61,7 +63,7 @@ export function useEditorStructure(editor: LexicalEditor) {
     );
 
     useEffect(() => {
-        if (editorModeSetting === "view") {
+        if (editorModeSetting === EDITOR_MODES.view) {
             return;
         }
         const maintainMetadata = editor.registerUpdateListener(

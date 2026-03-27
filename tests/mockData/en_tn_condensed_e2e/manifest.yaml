@@ -1,0 +1,17 @@
+dublin_core:
+  identifier: en_tn_condensed_e2e
+  title: English Translation Notes Condensed
+  source:
+    - identifier: https://example.com/en_tn_condensed.git
+      language: en
+      version: main
+  language:
+    identifier: en
+    title: English
+    direction: ltr
+projects:
+  - identifier: luk
+    title: Luke
+    path: ./luk/22/71.md
+    sort: 42
+    categories: []

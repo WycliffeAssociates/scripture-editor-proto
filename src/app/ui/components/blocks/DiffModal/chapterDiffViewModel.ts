@@ -7,6 +7,13 @@ import type {
 import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 import type { DiffTokenAlignment } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * View-model helpers for the structured chapter diff renderer.
+ *
+ * The compare layer produces diff blocks; the chapter view needs those blocks
+ * expanded into token ownership, paragraph grouping, and alignment metadata that
+ * still resembles a scripture chapter.
+ */
 export type ChapterViewEntry = {
     uniqueKey: string;
     semanticSid: string;
@@ -40,6 +47,10 @@ export type ChapterRenderParagraph = {
     tokens: ChapterTokenWithOwner[];
 };
 
+/**
+ * Convert raw project diffs into chapter-view entries with display text and
+ * action metadata ready for rendering.
+ */
 export function toChapterViewEntries(
     diffs: ProjectDiff[],
     options: ToChapterViewEntriesOptions = {},

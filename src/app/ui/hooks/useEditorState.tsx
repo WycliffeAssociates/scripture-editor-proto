@@ -1,19 +1,33 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
+/**
+ * Local editor-state mutators for the currently open scripture workspace.
+ *
+ * This hook owns the bridge between live Lexical state and the mutable
+ * `ScriptureBookState[]` workspace model that save, diff, compare, and
+ * navigation all share.
+ */
 export function useEditorState({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
     currentChapter,
     updateDiffMapForChapter,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
 }) {
+    /**
+     * Persist the latest serialized Lexical state back into the mutable
+     * workspace chapter record and refresh diff bookkeeping for that chapter.
+     */
     function updateChapterLexical({
         fileBibleIdentifier,
         chap,
@@ -29,7 +43,9 @@ export function useEditorState({
             (file) => file.bookCode === fileBibleIdentifier,
         );
         if (!file) return;
-        const chapToUpdate = file.chapters.find((c) => c.chapNumber === chap);
+        const chapToUpdate = file.chapters.find(
+            (c) => c.chapterNumber === chap,
+        );
         if (!chapToUpdate) return;
         chapToUpdate.lexicalState = newLexical;
         chapToUpdate.currentTokens = lexicalToTokens(newLexical);
@@ -41,11 +57,15 @@ export function useEditorState({
         return mutWorkingFilesRef;
     }
 
+    /**
+     * Set editor content while preserving access to the shared mutable
+     * workspace-array reference.
+     */
     function setEditorContentWithDependencies(
         editor: LexicalEditor,
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
     ) {
         return setEditorContent(
             editor,
@@ -56,9 +76,13 @@ export function useEditorState({
         );
     }
 
+    /**
+     * Snapshot the currently mounted editor back into workspace state if there
+     * is a live editor instance.
+     */
     function saveCurrentDirtyLexical(
         editor: LexicalEditor,
-    ): ParsedFile[] | undefined {
+    ): ScriptureBookState[] | undefined {
         if (!editor) return;
 
         const currentJson = editor.getEditorState().toJSON();

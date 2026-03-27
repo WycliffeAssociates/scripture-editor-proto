@@ -1,21 +1,29 @@
 import * as v from "valibot";
 
 /**
- * Reusable schema for localized text (e.g. { "en": "Genesis" })
- * Used extensively in Burrito metadata.
+ * Reusable schema for localized text (for example `{ "en": "Genesis" }`).
+ *
+ * Burrito stores many labels in locale maps. The loaders only read a subset of
+ * those fields, so these schemas intentionally validate only what the app uses.
  */
 const LocalizedTextSchema = v.record(v.string(), v.string());
 
-/**
- * Schema for ingredient checksum validation
- */
+/** Schema for the checksum payload nested inside Burrito ingredients. */
 const ChecksumSchema = v.object({
     md5: v.string(),
 });
 
+const SourceSchema = v.object({
+    identifier: v.string(),
+    language: v.optional(v.string()),
+    version: v.optional(v.string()),
+});
+
 /**
- * Schema for burrito ingredient validation
- * Only validates properties we actually access
+ * Schema for Burrito ingredient metadata.
+ *
+ * The app does not need the full Burrito spec here; it only validates the
+ * properties loaders and save flows actually consult.
  */
 const IngredientSchema = v.object({
     checksum: ChecksumSchema,
@@ -26,9 +34,7 @@ const IngredientSchema = v.object({
 
 export type Ingredient = v.InferOutput<typeof IngredientSchema>;
 
-/**
- * Schema for language definitions in burrito metadata
- */
+/** Schema for the language entries the loaders inspect for name and direction. */
 const LanguageSchema = v.object({
     tag: v.string(),
     name: v.record(v.string(), v.string()),
@@ -36,26 +42,7 @@ const LanguageSchema = v.object({
 });
 export type BurritoLanguage = v.InferOutput<typeof LanguageSchema>;
 
-/**
- * Schema for language definitions in burrito metadata
- */
-// const LanguageDefinitionSchema = v.object({
-//   tag: v.string(),
-//   name: v.record(v.string(), v.string()),
-//   direction: v.optional(v.picklist(["ltr", "rtl"])),
-// });
-
-/**
- * Schema for languages object in burrito metadata
- * Simplified to only validate what we actually use
- */
-// const LanguagesSchema = v.object({
-//   default: v.object({tag: v.string()}),
-// });
-
-/**
- * Schema for localized book names
- */
+/** Schema for localized book-name metadata used for display labels. */
 const LocalizedNameSchema = v.object({
     short: LocalizedTextSchema,
     long: v.optional(LocalizedTextSchema),
@@ -63,8 +50,11 @@ const LocalizedNameSchema = v.object({
 });
 
 /**
- * Main schema for Scripture Burrito metadata validation
- * Only validates properties we actually access, keeping everything optional for flexibility
+ * Main schema for the subset of Burrito metadata the loaders and save flows use.
+ *
+ * Keeping this narrow lets the app accept real-world Burrito files that include
+ * extra spec fields we do not care about while still failing fast on the pieces
+ * we rely on for classification and persistence.
  */
 const ScriptureBurritoMetadataSchema = v.object({
     meta: v.object({
@@ -84,6 +74,20 @@ const ScriptureBurritoMetadataSchema = v.object({
 
     ingredients: v.record(v.string(), IngredientSchema),
 
+    source: v.optional(v.array(SourceSchema)),
+
+    subject: v.optional(v.record(v.string(), v.string())),
+
+    type: v.optional(
+        v.object({
+            flavorType: v.optional(
+                v.object({
+                    name: v.optional(v.string()),
+                }),
+            ),
+        }),
+    ),
+
     localizedNames: v.optional(v.record(v.string(), LocalizedNameSchema)),
 });
 
@@ -91,17 +95,14 @@ export type ScriptureBurritoMetadata = v.InferOutput<
     typeof ScriptureBurritoMetadataSchema
 >;
 
-/**
- * Parse and validate Scripture Burrito metadata from unknown input
- * Throws if validation fails
- */
+/** Parse unknown JSON into validated Burrito metadata or throw. */
 export function parseScriptureBurritoMetadata(raw: unknown) {
     return v.parse(ScriptureBurritoMetadataSchema, raw);
 }
 
 /**
- * Safe validation function that returns tuple pattern
- * Following established patterns from ProjectRepository.ts
+ * Safe tuple-return variant used by loaders and indexing code that want to log
+ * or skip invalid metadata without throwing through the whole open pipeline.
  */
 export function tryParseScriptureBurritoMetadata(
     raw: unknown,

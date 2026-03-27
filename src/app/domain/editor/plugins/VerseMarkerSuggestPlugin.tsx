@@ -4,7 +4,8 @@ import { Button } from "@mantine/core";
 import { $getNodeByKey, type LexicalNode } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { DATA_JS } from "@/app/data/constants.ts";
+import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     $insertVerse,
@@ -30,6 +31,11 @@ type PositionedSuggestion = Suggestion & {
     height: number;
 };
 
+/**
+ * Detects the common regular-mode pattern where a user types a leading number that
+ * should really become a `\\v` marker, then offers an inline conversion affordance
+ * before the document drifts away from valid USFM structure.
+ */
 export function VerseMarkerSuggestPlugin() {
     const [editor] = useLexicalComposerContext();
     const { project, projectLanguageDirection } = useWorkspaceContext();
@@ -47,7 +53,9 @@ export function VerseMarkerSuggestPlugin() {
     const getContainerEl = useCallback((): HTMLElement | null => {
         const root = editor.getRootElement();
         if (!root) return null;
-        return root.closest<HTMLElement>('[data-js="editor-container"]');
+        return root.closest<HTMLElement>(
+            `[data-js="${DATA_JS.editorContainer}"]`,
+        );
     }, [editor]);
 
     type DecoratorProducer = (node: LexicalNode) => Suggestion | null;
@@ -73,8 +81,9 @@ export function VerseMarkerSuggestPlugin() {
     );
 
     const recomputeSuggestions = useCallback(() => {
-        const editorMode = project.appSettings.editorMode ?? "regular";
-        if (editorMode !== "regular") {
+        const editorMode =
+            project.appSettings.editorMode ?? EDITOR_MODES.regular;
+        if (editorMode !== EDITOR_MODES.regular) {
             setSuggestions([]);
             return;
         }
@@ -137,7 +146,7 @@ export function VerseMarkerSuggestPlugin() {
         if (!container) return;
         if (overlayHostEl) return;
         const host = document.createElement("div");
-        host.dataset.js = "verse-marker-suggest-overlay";
+        host.dataset.js = DATA_JS.verseMarkerSuggestOverlay;
         host.className = styles.overlayHost;
         container.appendChild(host);
         setOverlayHostEl(host);
@@ -184,7 +193,8 @@ export function VerseMarkerSuggestPlugin() {
                     restOfText: "",
                     languageDirection: projectLanguageDirection,
                     isTypedInsertion: false,
-                    editorMode: project.appSettings.editorMode ?? "regular",
+                    editorMode:
+                        project.appSettings.editorMode ?? EDITOR_MODES.regular,
                 };
 
                 $insertVerse(args, parsed.verseNumber);

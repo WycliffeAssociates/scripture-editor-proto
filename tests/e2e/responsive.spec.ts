@@ -1,19 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/e2e/fixtures.ts";
 
 /**
  * Responsive E2E tests
  *
- * - Verifies the app homepage loads (uses BASE_URL env var or http://localhost:3000)
+ * - Verifies the app homepage loads through Playwright baseURL
  * - Checks viewport dimensions appropriate to the current Playwright project (mobile vs desktop)
  *
  * These tests are intentionally small and conservative so they will work across environments.
  */
 
-const BASE_URL = process.env.BASE_URL ?? "http://localhost:5175";
-
 test.describe("responsive checks", () => {
     test("homepage loads and returns OK response", async ({ page }) => {
-        const response = await page.goto(BASE_URL, {
+        const response = await page.goto("/", {
             waitUntil: "domcontentloaded",
         });
         // If the server isn't running, response may be null. Assert we at least got a response.

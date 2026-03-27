@@ -2,6 +2,7 @@ import { $createLineBreakNode, type LexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { $createUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -20,6 +21,14 @@ export type ClipboardUsfmTokenParseResult =
     | { ok: true; tokens: Token[] }
     | { ok: false; reason: "parse-failed" };
 
+/**
+ * Helpers for the "paste raw USFM into the editor" path.
+ *
+ * Normal typing operates on existing editor nodes. Paste is trickier because the
+ * clipboard may contain raw USFM markup that needs to be parsed into token space
+ * and then turned back into insertable Lexical nodes without corrupting the
+ * current workspace structure.
+ */
 export function isUsfmLikePaste(text: string): boolean {
     const trimmed = text.trim();
     if (!trimmed.length) return false;
@@ -72,7 +81,7 @@ function hasMalformedChapterOrVerseNumber(text: string): boolean {
 export function parseClipboardUsfmToTokens(args: {
     text: string;
     bookCode: string;
-    direction: "ltr" | "rtl";
+    direction: LanguageDirection;
     usfmOnionService: IUsfmOnionService;
 }): Promise<ClipboardUsfmTokenParseResult> {
     return parseClipboardUsfmToTokensAsync(args);
@@ -81,7 +90,7 @@ export function parseClipboardUsfmToTokens(args: {
 async function parseClipboardUsfmToTokensAsync(args: {
     text: string;
     bookCode: string;
-    direction: "ltr" | "rtl";
+    direction: LanguageDirection;
     usfmOnionService: IUsfmOnionService;
 }): Promise<ClipboardUsfmTokenParseResult> {
     try {
@@ -108,6 +117,10 @@ async function parseClipboardUsfmToTokensAsync(args: {
     }
 }
 
+/**
+ * Convert parsed USFM tokens into nodes that can be inserted into the current
+ * Lexical editor selection.
+ */
 export function parsedUsfmTokensToInsertableNodes(
     tokens: Token[],
 ): LexicalNode[] {

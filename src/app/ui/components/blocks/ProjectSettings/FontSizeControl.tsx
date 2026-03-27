@@ -9,19 +9,11 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
 /**
- * FontSizeControl
+ * Workspace text-size control.
  *
- * Provides a small control very similar to ZoomControl but for editor font size.
- * - minus button to decrease by 1px
- * - editable center allowing typing (number, with or without "px")
- * - plus button to increase by 1px
- *
- * Reads/writes `project.appSettings.fontSize` (string like "16px") via project.updateAppSettings.
- *
- * Behavior:
- * - increments/decrements by 1px
- * - typing accepts either "16" or "16px" (or with whitespace)
- * - clamps between minPx and maxPx
+ * This lets the user change the scripture editor's font sizing without changing
+ * overall browser/page zoom. The setting is persisted through workspace app
+ * settings and applied elsewhere during workspace render.
  */
 export default function FontSizeControl() {
     const { project } = useWorkspaceContext();
@@ -31,7 +23,6 @@ export default function FontSizeControl() {
     const maxPx = 40;
     const step = 1;
 
-    // parse current fontSize string ("16px") into a number
     const parseFontSize = useCallback((value: string | undefined): number => {
         if (!value) return 16;
         const cleaned = value.trim().replace("px", "");
@@ -44,7 +35,6 @@ export default function FontSizeControl() {
     const [localPx, setLocalPx] = useState<number>(currentFromSettings);
     const [display, setDisplay] = useState<string>(`${currentFromSettings}px`);
 
-    // keep local state in sync when settings change externally
     useEffect(() => {
         const parsed = parseFontSize(project.appSettings.fontSize);
         setLocalPx(parsed);

@@ -1,6 +1,9 @@
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import { reduceSerializedNodesToText } from "@/app/domain/search/search.utils.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
 import { searchChapters } from "@/core/domain/search/searchEngine.ts";
 import type {
@@ -9,6 +12,13 @@ import type {
     SearchQuery,
 } from "@/core/domain/search/types.ts";
 
+/**
+ * App-facing scripture search orchestration.
+ *
+ * The core search engine only works on chapter text records. This module projects
+ * the current scripture workspace into that search input shape, runs the query, and
+ * maps hits back into rich UI results keyed by SID and source.
+ */
 export type SearchSource = "target" | "reference";
 
 export type SearchResult = {
@@ -24,27 +34,27 @@ export type SearchResult = {
 };
 
 export type SearchContentProvider = {
-    getTargetFiles: () => ParsedFile[];
-    saveDirtyAndGetTargetFiles: () => ParsedFile[];
-    getReferenceFiles: () => ParsedFile[];
+    getTargetFiles: () => ScriptureBookState[];
+    saveDirtyAndGetTargetFiles: () => ScriptureBookState[];
+    getReferenceFiles: () => ScriptureBookState[];
 };
 
 export function chapterKey(bookCode: string, chapterNum: number): string {
     return `${bookCode}:${chapterNum}`;
 }
 
-export function listChapterKeys(files: ParsedFile[]): Set<string> {
+export function listChapterKeys(files: ScriptureBookState[]): Set<string> {
     return new Set(
         files.flatMap((file) =>
             file.chapters.map((chapter) =>
-                chapterKey(file.bookCode, chapter.chapNumber),
+                chapterKey(file.bookCode, chapter.chapterNumber),
             ),
         ),
     );
 }
 
 export function buildSearchChapters(args: {
-    files: ParsedFile[];
+    files: ScriptureBookState[];
     searchUSFM: boolean;
     restrictToChapterKeys?: Set<string>;
 }): SearchChapter[] {
@@ -52,7 +62,7 @@ export function buildSearchChapters(args: {
 
     for (const { file, chapter } of walkChapters(args.files)) {
         if (args.restrictToChapterKeys) {
-            const key = chapterKey(file.bookCode, chapter.chapNumber);
+            const key = chapterKey(file.bookCode, chapter.chapterNumber);
             if (!args.restrictToChapterKeys.has(key)) continue;
         }
 
@@ -62,7 +72,7 @@ export function buildSearchChapters(args: {
         );
         out.push({
             bookCode: file.bookCode,
-            chapterNum: chapter.chapNumber,
+            chapterNum: chapter.chapterNumber,
             nodes: Object.entries(sidRecord).map(([sid, text]) => ({
                 sid,
                 text,
@@ -74,7 +84,7 @@ export function buildSearchChapters(args: {
 }
 
 export function buildTargetSidTextLookup(args: {
-    files: ParsedFile[];
+    files: ScriptureBookState[];
     searchUSFM: boolean;
 }): Map<string, string> {
     const sidToText = new Map<string, string>();
@@ -117,11 +127,11 @@ export function runSearch(args: {
 }
 
 export function findChapter(
-    files: ParsedFile[],
+    files: ScriptureBookState[],
     ref: { bookCode: string; chapterNum: number },
-): ParsedChapter | undefined {
+): ScriptureChapterState | undefined {
     const file = files.find((item) => item.bookCode === ref.bookCode);
     return file?.chapters.find(
-        (chapter) => chapter.chapNumber === ref.chapterNum,
+        (chapter) => chapter.chapterNumber === ref.chapterNum,
     );
 }

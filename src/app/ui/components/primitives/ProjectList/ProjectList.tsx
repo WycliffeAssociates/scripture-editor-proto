@@ -5,30 +5,26 @@ import { Download, Eye, Plus } from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
+import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 import classnames from "./ProjectList.module.css.ts";
 
 /**
- * ProjectList
+ * Drawer list of editable scripture items.
  *
- * - Renders a list of projects as groups of a main project button and separate
- *   action buttons (open/export).
- * - Reads `opener` and `directoryProvider` from the router context so we can
- *   show Open / Export actions when those methods are available.
- * - No `any` usage; uses `ListedProject` and `RouterContext`.
+ * The broader library index can hold many item types, but this list is
+ * intentionally biased toward the current "editable scripture workspace" story:
+ * open it, reveal it on disk, or export its managed-storage tree.
  */
 export function ProjectList() {
     const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
     const router = useRouter();
     const context = router.options.context;
-    const { opener, directoryProvider, platform } = context;
+    const { opener, platform } = context;
 
-    // Group projects by language
     const groupedProjects = useMemo(() => {
         return allProjects.reduce(
             (acc, project) => {
-                const languageName =
-                    project.metadata?.language.name || "Unknown Language";
+                const languageName = project.languageName || "Unknown Language";
                 if (!acc[languageName]) {
                     acc[languageName] = [];
                 }
@@ -54,26 +50,21 @@ export function ProjectList() {
         });
     };
 
-    async function handleOpenProject(proj: ListedProject) {
+    async function handleOpenProject(proj: ProjectListItem) {
         if (!opener || typeof opener.open !== "function") return;
-        if (!directoryProvider) return;
         try {
-            await opener.open(proj.projectDirectoryPath);
+            await opener.open(proj.projectPath);
         } catch (err) {
             console.error("Open project failed:", err);
         }
     }
 
-    async function handleExportProject(proj: ListedProject) {
+    async function handleExportProject(proj: ProjectListItem) {
         if (!opener || typeof opener.export !== "function") return;
-        if (!directoryProvider) return;
         try {
-            const dirHandle = await directoryProvider.getDirectoryHandle(
-                proj.projectDirectoryPath,
-            );
             await opener.export(
-                dirHandle,
-                `${proj.name || proj.projectDirectoryPath}.zip`,
+                proj.projectPath,
+                `${proj.displayName || proj.folderName}.zip`,
             );
         } catch (err) {
             console.error("Export project failed:", err);
@@ -96,15 +87,12 @@ export function ProjectList() {
                             </Text>
                             <Stack gap={4}>
                                 {projects.map((proj) => {
-                                    const diskProjectName =
-                                        proj.projectDirectoryPath
-                                            .split("/")
-                                            .pop() ?? "";
+                                    const diskProjectName = proj.folderName;
                                     const picked =
                                         diskProjectName === currentProjectRoute;
                                     return (
                                         <Group
-                                            key={proj.projectDirectoryPath}
+                                            key={proj.folderName}
                                             justify="apart"
                                             align="center"
                                             wrap="nowrap"
@@ -113,7 +101,6 @@ export function ProjectList() {
                                                 TESTING_IDS.project.rowLink
                                             }
                                         >
-                                            {/* Main project button that navigates to the project */}
                                             <Button
                                                 variant="transparent"
                                                 classNames={{
@@ -121,10 +108,10 @@ export function ProjectList() {
                                                 }}
                                                 onClick={() =>
                                                     navigateToProject(
-                                                        proj.projectDirectoryPath,
+                                                        proj.projectPath,
                                                     )
                                                 }
-                                                aria-label={`Open project ${proj.name}`}
+                                                aria-label={`Open project ${proj.displayName}`}
                                                 style={{ background: "none" }}
                                                 justify="start"
                                                 data-testid={
@@ -137,11 +124,10 @@ export function ProjectList() {
                                                     fw={500}
                                                     className={classnames.name}
                                                 >
-                                                    {proj.name}
+                                                    {proj.displayName}
                                                 </Text>
                                             </Button>
 
-                                            {/* Action buttons separate from the main project button */}
                                             <Group
                                                 gap="xs"
                                                 className={classnames.actions}
@@ -154,7 +140,7 @@ export function ProjectList() {
                                                         <ActionIcon
                                                             size="sm"
                                                             variant="light"
-                                                            aria-label={`Open in file manager ${proj.name}`}
+                                                            aria-label={`Open in file manager ${proj.displayName}`}
                                                             onClick={(
                                                                 e: React.MouseEvent,
                                                             ) => {
@@ -182,7 +168,7 @@ export function ProjectList() {
                                                         <ActionIcon
                                                             size="sm"
                                                             variant="light"
-                                                            aria-label={`Export project ${proj.name}`}
+                                                            aria-label={`Export project ${proj.displayName}`}
                                                             onClick={(
                                                                 e: React.MouseEvent,
                                                             ) => {

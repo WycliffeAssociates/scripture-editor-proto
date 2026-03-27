@@ -2,7 +2,7 @@
 description: Implementation Specialist. Writes code.
 mode: all
 temperature: 0.1
-model: openai/gpt-5.1-codex-mini
+model: openrouter/minimax/minimax-m2.7
 tools:
   write: true
   edit: true

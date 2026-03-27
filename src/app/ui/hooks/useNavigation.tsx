@@ -5,11 +5,22 @@ import {
     type LexicalEditor,
     type LexicalNode,
 } from "lexical";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { DATA_JS } from "@/app/data/constants.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
 
+/**
+ * Scripture workspace navigation logic.
+ *
+ * This hook owns book/chapter/reference movement within the currently loaded
+ * scripture workspace, including the important "save current dirty Lexical
+ * state before leaving the chapter" behavior.
+ */
 export function useNavigation({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
@@ -21,22 +32,26 @@ export function useNavigation({
     setEditorContent,
     saveCurrentDirtyLexical,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setCurrentFileBibleIdentifier: (file: string) => void;
     setCurrentChapter: (chapter: number) => void;
     updateAppSettings: (newSettings: Partial<Settings>) => void;
-    pickedFile: ParsedFile | null;
+    pickedFile: ScriptureBookState | null;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
 }) {
     const { t } = useLingui();
 
+    /**
+     * Switch to another book/chapter while preserving any in-progress edits in
+     * the current chapter first.
+     */
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
         const dirtySaved = saveCurrentDirtyLexical();
         const filesToUse = dirtySaved || mutWorkingFilesRef;
@@ -47,21 +62,23 @@ export function useNavigation({
 
         let chapterToSave = chapter;
         let chapterState = targetFile.chapters.find(
-            (c) => c.chapNumber === chapter,
+            (c) => c.chapterNumber === chapter,
         );
 
         if (!chapterState) {
             // Fallback: If chapter not found, use first or last chapter
             if (targetFile.chapters.length > 0) {
                 const sortedChaps = [...targetFile.chapters].sort(
-                    (a, b) => a.chapNumber - b.chapNumber,
+                    (a, b) => a.chapterNumber - b.chapterNumber,
                 );
-                if (chapter > sortedChaps[sortedChaps.length - 1].chapNumber) {
+                if (
+                    chapter > sortedChaps[sortedChaps.length - 1].chapterNumber
+                ) {
                     chapterState = sortedChaps[sortedChaps.length - 1];
                 } else {
                     chapterState = sortedChaps[0];
                 }
-                chapterToSave = chapterState.chapNumber;
+                chapterToSave = chapterState.chapterNumber;
             } else {
                 return;
             }
@@ -85,7 +102,7 @@ export function useNavigation({
         });
 
         const editorContainer = document.querySelector(
-            '[data-js="editor-container"]',
+            `[data-js="${DATA_JS.editorContainer}"]`,
         );
         if (editorContainer) {
             editorContainer.scrollTop = 0;
@@ -94,6 +111,9 @@ export function useNavigation({
         return chapterState;
     }
 
+    /**
+     * Compute the "next chapter" affordance, including cross-book transitions.
+     */
     const getChapterDisplay = (chapter: number) => {
         return chapter === 0 ? t`Introduction` : chapter.toString();
     };
@@ -105,7 +125,7 @@ export function useNavigation({
                 go: () => {},
             };
         const currentIndex = pickedFile.chapters.findIndex(
-            (ch) => ch.chapNumber === currentChapter,
+            (ch) => ch.chapterNumber === currentChapter,
         );
         if (currentIndex === -1)
             return {
@@ -127,14 +147,15 @@ export function useNavigation({
                     hasNext: false,
                     go: () => {},
                 };
-            const firstChap = nextBook.chapters[0].chapNumber;
+            const firstChap = nextBook.chapters[0].chapterNumber;
             return {
                 hasNext: true,
                 display: t`Introduction`,
                 go: () => switchBookOrChapter(nextBookId, firstChap),
             };
         } else {
-            const nextChap = pickedFile.chapters[currentIndex + 1].chapNumber;
+            const nextChap =
+                pickedFile.chapters[currentIndex + 1].chapterNumber;
             return {
                 hasNext: true,
                 display: `${getChapterDisplay(nextChap)}`,
@@ -143,6 +164,10 @@ export function useNavigation({
         }
     };
 
+    /**
+     * Compute the "previous chapter" affordance, including cross-book
+     * transitions.
+     */
     const determinePrevChapter = () => {
         if (!pickedFile || !pickedFile.chapters.length)
             return {
@@ -150,7 +175,7 @@ export function useNavigation({
                 go: () => {},
             };
         const currentIndex = pickedFile.chapters.findIndex(
-            (ch) => ch.chapNumber === currentChapter,
+            (ch) => ch.chapterNumber === currentChapter,
         );
         if (currentIndex === -1)
             return {
@@ -173,7 +198,7 @@ export function useNavigation({
                     go: () => {},
                 };
             const lastChap =
-                prevBook.chapters[prevBook.chapters.length - 1].chapNumber;
+                prevBook.chapters[prevBook.chapters.length - 1].chapterNumber;
             const title = prevBook.title || prevBook.bookCode;
             return {
                 hasPrev: true,
@@ -182,7 +207,7 @@ export function useNavigation({
             };
         } else {
             const prevChapter =
-                pickedFile.chapters[currentIndex - 1].chapNumber;
+                pickedFile.chapters[currentIndex - 1].chapterNumber;
             return {
                 hasPrev: true,
                 display: `${getChapterDisplay(prevChapter)}`,
@@ -191,6 +216,12 @@ export function useNavigation({
         }
     };
 
+    /**
+     * Parse a human-entered reference and navigate the editor there.
+     *
+     * This is the main bridge between fuzzy user input like "Mat 9:3" and the
+     * concrete book/chapter/verse navigation state used by the scripture UI.
+     */
     function goToReference(
         input: string,
         editorRef: React.RefObject<LexicalEditor | null>,

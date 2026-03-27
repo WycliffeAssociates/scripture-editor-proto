@@ -3,7 +3,11 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    USFM_PARAGRAPH_NODE_TYPE,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     createSerializedUSFMTextNode,
@@ -18,9 +22,18 @@ import {
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Adapter between serialized Lexical state and USFM token streams.
+ *
+ * This is one of the key bridge files in the editor pipeline. The editor renders
+ * and edits serialized Lexical nodes, while formatting/lint/diff logic works in
+ * token space. These helpers convert back and forth while preserving enough
+ * metadata to rebuild the right editor shape later.
+ */
 function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     for (const n of nodes) {
         const dir = (n as { direction?: unknown }).direction;
@@ -44,7 +57,7 @@ function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
 
 export type LexicalUsfmTokenStream = {
     tokens: TokenEnvelope[];
-    direction: "ltr" | "rtl";
+    direction: LanguageDirection;
     shape: RootShape;
     wrapper?: SerializedElementNode;
 };
@@ -112,6 +125,10 @@ export function lexicalRootChildrenToUsfmTokenStream(
     return { tokens, direction, shape, wrapper };
 }
 
+/**
+ * Rebuild root children from a token stream while preserving the broad editor
+ * shape the user was already in (regular tree vs wrapped flat form).
+ */
 export function usfmTokenStreamToLexicalRootChildren(
     tokens: TokenEnvelope[],
     meta: Pick<LexicalUsfmTokenStream, "direction" | "shape" | "wrapper">,
@@ -219,6 +236,9 @@ function materializeNodesForTokenization(
     return withStructuralLinebreaks;
 }
 
+/**
+ * Flatten serialized editor state into USFM tokens for save/lint/diff work.
+ */
 export function lexicalToTokens(
     state: SerializedEditorState,
     options: LexicalToTokensOptions = {},
@@ -297,7 +317,7 @@ export type TokensToLexicalMode = "regular" | "flat";
 
 export function tokensToLexical(args: {
     tokens: Token[];
-    direction: "ltr" | "rtl";
+    direction: LanguageDirection;
     mode: TokensToLexicalMode;
 }): SerializedEditorState {
     const base: SerializedEditorState = {
@@ -331,7 +351,7 @@ export function tokensToLexical(args: {
         },
     };
 
-    if (args.mode === "regular") {
+    if (args.mode === EDITOR_MODES.regular) {
         return transformToMode(base, "regular");
     }
 

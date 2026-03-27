@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { DATA_JS } from "@/app/data/constants.ts";
 
 type OverlayItem = {
     key: string;
@@ -10,10 +11,19 @@ type OverlayItem = {
     kind: "para" | "v" | "c";
 };
 
+/**
+ * Overlay labels need to stay within the visible editor container even when the
+ * underlying marker is near an edge.
+ */
 function clamp(n: number, min: number, max: number) {
     return Math.min(Math.max(n, min), max);
 }
 
+/**
+ * Nearby markers often visually overlap on the same line. Collapse them into a
+ * compound overlay label when that produces a clearer structural hint than a pile
+ * of independent badges.
+ */
 function groupNearbyItems(items: OverlayItem[]) {
     const Y_THRESHOLD_PX = 6;
     const X_THRESHOLD_PX = 80;
@@ -100,6 +110,10 @@ function groupNearbyItems(items: OverlayItem[]) {
     return grouped;
 }
 
+/**
+ * Temporarily reveals the underlying USFM markers around the current editing area
+ * without forcing a mode switch into full source view.
+ */
 export function UsfmPeekOverlayPlugin() {
     const [editor] = useLexicalComposerContext();
     const [active, setActive] = useState(false);
@@ -115,7 +129,9 @@ export function UsfmPeekOverlayPlugin() {
     const getContainerEl = useCallback((): HTMLElement | null => {
         const root = editor.getRootElement();
         if (!root) return null;
-        return root.closest<HTMLElement>('[data-js="editor-container"]');
+        return root.closest<HTMLElement>(
+            `[data-js="${DATA_JS.editorContainer}"]`,
+        );
     }, [editor]);
 
     const recompute = useCallback(() => {
@@ -218,13 +234,13 @@ export function UsfmPeekOverlayPlugin() {
 
         if (!overlayHostEl) {
             const existing = container.querySelector<HTMLElement>(
-                '[data-js="usfm-peek-overlay"]',
+                `[data-js="${DATA_JS.usfmPeekOverlay}"]`,
             );
             if (existing) {
                 setOverlayHostEl(existing);
             } else {
                 const host = document.createElement("div");
-                host.dataset.js = "usfm-peek-overlay";
+                host.dataset.js = DATA_JS.usfmPeekOverlay;
                 host.style.position = "absolute";
                 host.style.inset = "0";
                 host.style.pointerEvents = "none";

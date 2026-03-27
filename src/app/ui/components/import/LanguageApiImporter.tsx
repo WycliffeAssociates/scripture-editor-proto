@@ -16,6 +16,14 @@ interface LanguageApiImporterProps {
     headerActions?: React.ReactNode;
 }
 
+/**
+ * Remote-project search surface used on the create/import route.
+ *
+ * This component is intentionally UI-only: it queries the remote catalog,
+ * presents results, and hands the chosen download URL back to the import action
+ * upstream. The actual import branching still happens later in the import
+ * pipeline after bytes or paths are selected.
+ */
 const LanguageApiImporter: React.FC<LanguageApiImporterProps> = (props) => {
     const { t } = useLingui();
     const searchInputId = useId();

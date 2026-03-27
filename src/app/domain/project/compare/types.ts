@@ -1,8 +1,14 @@
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 
+/**
+ * Shared type surface for external-compare flows.
+ *
+ * The compare service and compare UI both depend on these shapes to describe
+ * what baseline is being used, where it came from, and what warnings/results the
+ * user should see.
+ */
 export type CompareMode = "unsaved" | "external";
-export type CompareBaseline = "currentSaved" | "currentDirty";
 export type CompareSourceKind =
     | "existingProject"
     | "zipFile"
@@ -17,7 +23,6 @@ export type CompareWarningCode =
 
 export type CompareSessionConfig = {
     mode: CompareMode;
-    baseline: CompareBaseline;
     source:
         | {
               kind: "existingProject";

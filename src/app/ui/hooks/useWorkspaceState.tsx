@@ -1,21 +1,32 @@
 import type { LexicalEditor } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 
 export type WorkspaceState = ReturnType<typeof useWorkspaceState>;
 
+/**
+ * Central React state holder for the currently open scripture workspace.
+ *
+ * This hook owns the cross-cutting UI state that is broader than any single
+ * editor plugin or panel: current book/chapter, persisted app settings,
+ * reference panel selection, long-running processing flags, and format-match
+ * UI state.
+ */
 export const useWorkspaceState = (
     settingsManager: SettingsManager,
-    allFiles: ParsedFile[],
+    allFiles: ScriptureBookState[],
     queryBookOverride?: string,
     queryChapterOverride?: number,
 ) => {
-    // for accessing editor and it's state in various places
     const editorRef = useRef<LexicalEditor | null>(null);
 
+    /**
+     * Read a persisted setting only when the user has opted into restore-on-
+     * launch behavior.
+     */
     function getSavedIfPrefersRestore<K extends keyof Settings>(
         key: K,
     ): Settings[K] | undefined {
@@ -51,6 +62,10 @@ export const useWorkspaceState = (
     const [targetMarkerPreservationMode, setTargetMarkerPreservationMode] =
         useState<TargetMarkerPreservationMode>("recommended");
 
+    /**
+     * Update React state, persist the changed settings, and apply any immediate
+     * platform/UI effects such as zoom or root font updates.
+     */
     const updateAppSettings = useCallback(
         (newSettings: Partial<Settings>) => {
             setAppSettings((prev) => ({ ...prev, ...newSettings }));
@@ -71,26 +86,33 @@ export const useWorkspaceState = (
     );
     const pickedChapter = useMemo(() => {
         let candidate = pickedFile?.chapters.find(
-            (c) => c.chapNumber === currentChapter,
+            (c) => c.chapterNumber === currentChapter,
         );
 
         if (!candidate && pickedFile?.chapters.length > 0) {
+            /**
+             * If the persisted/query chapter no longer exists for the current
+             * book, snap back to the nearest sensible chapter and persist that
+             * correction so downstream UI state stays aligned.
+             */
             const sortedChaps = [...pickedFile.chapters].sort(
-                (a, b) => a.chapNumber - b.chapNumber,
+                (a, b) => a.chapterNumber - b.chapterNumber,
             );
             const lastChap = sortedChaps[sortedChaps.length - 1];
             const firstChap = sortedChaps[0];
 
-            if (currentChapter > lastChap.chapNumber) {
-                setCurrentChapter(lastChap.chapNumber);
+            if (currentChapter > lastChap.chapterNumber) {
+                setCurrentChapter(lastChap.chapterNumber);
                 candidate = lastChap;
                 updateAppSettings({
-                    lastChapterNumber: lastChap.chapNumber,
+                    lastChapterNumber: lastChap.chapterNumber,
                 });
             } else {
-                setCurrentChapter(firstChap.chapNumber);
+                setCurrentChapter(firstChap.chapterNumber);
                 candidate = firstChap;
-                updateAppSettings({ lastChapterNumber: firstChap.chapNumber });
+                updateAppSettings({
+                    lastChapterNumber: firstChap.chapterNumber,
+                });
             }
         }
         return candidate;

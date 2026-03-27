@@ -2,6 +2,13 @@ import { type Settings, settingsDefaults } from "@/app/data/settings.ts";
 
 const APP_PREFERENCES_KEY = "app_preferences";
 
+/**
+ * Browser-backed settings manager for purely local UI preferences.
+ *
+ * These settings sit outside the scripture/library loading pipeline entirely: they
+ * are lightweight app shell preferences such as font sizing and are persisted in
+ * localStorage for the current device.
+ */
 export function getSettingsLocalStorage(): Settings {
     if (typeof window === "undefined") {
         return settingsDefaults;
@@ -37,7 +44,8 @@ export function createBaseLocalStorageSettingsManager(
         getSettings: () => ({ ...settings }),
         get: <K extends keyof Settings>(key: K) => settings[key],
         /**
-         * Set  Key and Value, and saves to localStorage
+         * Updates a single settings field and immediately persists the merged
+         * preference record back to localStorage.
          */
         set: <K extends keyof Settings>(key: K, value: Settings[K]) => {
             settings[key] = value;

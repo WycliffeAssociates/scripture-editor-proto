@@ -25,6 +25,10 @@ export type BranchInfo = {
 
 export type PreferredBranch = "main" | "master";
 
+/**
+ * Platform-neutral git contract used by save/history/version flows for editable
+ * scripture workspaces.
+ */
 export interface GitProvider {
     ensureRepo(
         projectPath: string,

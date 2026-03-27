@@ -11,6 +11,13 @@ import {
     findMatch,
 } from "@/core/domain/search/searchEngine.ts";
 
+/**
+ * Reduces serialized chapter nodes into SID-keyed text buffers for search.
+ *
+ * Search intentionally works on a text projection of the current chapter state
+ * rather than reparsing full USFM on every query. `includeUSFM` controls whether
+ * marker text participates in that projection.
+ */
 export function reduceSerializedNodesToText(
     serializedNodes: SerializedLexicalNode[],
     includeUSFM = false,

@@ -1,9 +1,12 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -12,6 +15,11 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { LintIssue, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * After a fix is applied and the book is relinted, issue ids/spans can shift.
+ * Match the requested issue back to the relinted result set using progressively
+ * looser heuristics so the UI can keep focus on the "same" logical problem.
+ */
 function sameSpan(
     left?: { start: number; end: number } | null,
     right?: { start: number; end: number } | null,
@@ -69,7 +77,7 @@ function findEquivalentIssue(
 export async function applyLintFixToFile(args: {
     err: LintIssue;
     issueFix: TokenFix;
-    file: ParsedFile;
+    file: ScriptureBookState;
     targetBookCode: string;
     targetChapterNumber: number;
     currentFileBibleIdentifier: string;
@@ -81,7 +89,7 @@ export async function applyLintFixToFile(args: {
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
         editor?: LexicalEditor,
     ) => void;
     notifySuccess: (code: string) => void;
@@ -127,7 +135,7 @@ export async function applyLintFixToFile(args: {
     args.file.chapters.forEach((updatedChapter) => {
         args.updateDiffMapForChapter(
             args.file.bookCode,
-            updatedChapter.chapNumber,
+            updatedChapter.chapterNumber,
         );
     });
 
@@ -142,7 +150,7 @@ export async function applyLintFixToFile(args: {
         args.currentChapter === args.targetChapterNumber
     ) {
         const nextChapter = args.file.chapters.find(
-            (candidate) => candidate.chapNumber === args.targetChapterNumber,
+            (candidate) => candidate.chapterNumber === args.targetChapterNumber,
         );
         args.setEditorContent(
             args.targetBookCode,
@@ -156,6 +164,13 @@ export async function applyLintFixToFile(args: {
     return true;
 }
 
+/**
+ * UI-facing lint-fix orchestration.
+ *
+ * This hook bridges from a clicked lint issue to the full workspace mutation flow:
+ * sync current editor state, apply the token fix, rebuild chapter state, relint the
+ * affected book, and record the change as one history transaction.
+ */
 export function useLintFixing({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
@@ -167,7 +182,7 @@ export function useLintFixing({
     saveCurrentDirtyLexical,
     history,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -176,10 +191,10 @@ export function useLintFixing({
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
         editor?: LexicalEditor,
     ) => void;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -204,7 +219,7 @@ export function useLintFixing({
         }
 
         const chapter = file.chapters.find(
-            (c) => c.chapNumber === sidParsed.chapter,
+            (c) => c.chapterNumber === sidParsed.chapter,
         );
         if (!chapter) {
             console.error(`Chapter not found: ${sidParsed.chapter}`);
@@ -216,7 +231,7 @@ export function useLintFixing({
             candidates: [
                 {
                     bookCode: file.bookCode,
-                    chapterNum: chapter.chapNumber,
+                    chapterNum: chapter.chapterNumber,
                 },
             ],
             run: async () => {
@@ -225,7 +240,7 @@ export function useLintFixing({
                     issueFix,
                     file,
                     targetBookCode: file.bookCode,
-                    targetChapterNumber: chapter.chapNumber,
+                    targetChapterNumber: chapter.chapterNumber,
                     currentFileBibleIdentifier,
                     currentChapter,
                     editor: editorRef.current || undefined,

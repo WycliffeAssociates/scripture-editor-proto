@@ -6,6 +6,14 @@ export type VerseNumberTokenLike = {
     text: string;
 };
 
+export const SELECTED_VERSE_NUMBER_PATTERN = /^\d+(?:-\d+)?$/;
+
+/**
+ * Verse-number parsing helpers used by editor insertion and selection logic.
+ *
+ * These functions keep the editor's lightweight heuristics for choosing verse
+ * numbers separate from the heavier USFM parser.
+ */
 export function parseVerseNumberRange(raw: string): VerseNumberRange | null {
     const text = raw.trim();
     if (!text) return null;
@@ -18,6 +26,10 @@ export function parseVerseNumberRange(raw: string): VerseNumberRange | null {
     if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
 
     return { start, end };
+}
+
+export function isSelectedVerseNumber(text: string): boolean {
+    return SELECTED_VERSE_NUMBER_PATTERN.test(text.trim());
 }
 
 export function deriveVerseNumberForInsertionFromTokens(args: {

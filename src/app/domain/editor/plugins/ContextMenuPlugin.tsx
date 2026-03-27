@@ -21,6 +21,10 @@ import {
     showContextMenuSelectionHighlight,
 } from "./ContextMenu/selectionHighlight.ts";
 
+/**
+ * Keep the action palette visible and on-screen regardless of whether it was
+ * opened from a pointer event or from keyboard-driven selection context.
+ */
 function calculateMenuPosition(
     touchPoint: { x: number; y: number },
     isMobile: boolean,
@@ -52,6 +56,14 @@ function calculateMenuPosition(
     return { x, y };
 }
 
+/**
+ * Bridges DOM gestures such as right click and keyboard shortcuts into the editor
+ * command palette.
+ *
+ * This plugin gathers the current typed `EditorContext`, decides whether a real
+ * text selection should stay visually highlighted, and mounts `ActionPalette` near
+ * the user's current focus point.
+ */
 export function NodeContextMenuPlugin() {
     const [editor] = useLexicalComposerContext();
     const [opened, setOpened] = useState(false);

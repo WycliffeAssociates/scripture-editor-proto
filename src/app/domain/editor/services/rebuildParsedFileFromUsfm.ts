@@ -1,13 +1,23 @@
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
+/**
+ * Rebuild one in-memory scripture book state from fresh USFM text.
+ *
+ * This is used when a workflow already has new USFM for a book and wants to
+ * refresh the editable workspace state without reloading the entire project
+ * from disk. It preserves mode/direction expectations from the existing book
+ * state while replacing the parsed chapter contents.
+ */
 export async function rebuildParsedFileFromUsfm(args: {
-    targetFile: ParsedFile;
+    targetFile: ScriptureBookState;
     sourceUsfm: string;
     usfmOnionService: IUsfmOnionService;
 }) {
@@ -19,28 +29,28 @@ export async function rebuildParsedFileFromUsfm(args: {
     });
 
     const direction =
-        (args.targetFile.chapters[0]?.lexicalState.root.direction ?? "ltr") ===
-        "rtl"
-            ? "rtl"
-            : "ltr";
+        (args.targetFile.chapters[0]?.lexicalState.root.direction ??
+            LanguageDirection.LTR) === LanguageDirection.RTL
+            ? LanguageDirection.RTL
+            : LanguageDirection.LTR;
     const modeSampleChapter = args.targetFile.chapters[0];
     const needsParagraphs = modeSampleChapter
         ? inferContentEditorModeFromRootChildren(
               modeSampleChapter.lexicalState.root.children,
-          ) === "regular"
+          ) === EDITOR_MODES.regular
         : true;
 
     const sourceTokensByChapter = groupFlatTokensByChapter(projection.tokens);
 
     args.targetFile.chapters = Object.entries(sourceTokensByChapter)
         .map(([chapterNum, nextCurrentTokens]) => {
-            const chapNumber = Number(chapterNum);
+            const chapterNumber = Number(chapterNum);
             const existingChapter = args.targetFile.chapters.find(
-                (candidate) => candidate.chapNumber === chapNumber,
+                (candidate) => candidate.chapterNumber === chapterNumber,
             );
             const nextSourceTokens =
                 existingChapter?.sourceTokens ??
-                sourceTokensByChapter[chapNumber] ??
+                sourceTokensByChapter[chapterNumber] ??
                 [];
             const nextLoadedState = tokensToLexical({
                 tokens: nextSourceTokens,
@@ -57,11 +67,11 @@ export async function rebuildParsedFileFromUsfm(args: {
                 loadedLexicalState: nextLoadedState,
                 sourceTokens: structuredClone(nextSourceTokens),
                 currentTokens: structuredClone(nextCurrentTokens),
-                chapNumber,
+                chapterNumber,
                 dirty:
                     nextCurrentTokens.map((token) => token.text).join("") !==
                     nextSourceTokens.map((token) => token.text).join(""),
             };
         })
-        .sort((a, b) => a.chapNumber - b.chapNumber);
+        .sort((a, b) => a.chapterNumber - b.chapterNumber);
 }

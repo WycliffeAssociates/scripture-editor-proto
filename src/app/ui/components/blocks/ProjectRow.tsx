@@ -12,13 +12,12 @@ import { Check, Pencil, Trash, X } from "lucide-react";
 import { useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
-import { deleteProjectByPath, upsertProject } from "@/app/db/api.ts";
 import { Route as projectRoute } from "@/app/routes/$project.tsx";
 import * as styles from "@/app/ui/styles/modules/ProjectRow.css.ts";
-import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
+import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
 type Props = {
-    project: ListedProject;
+    project: ProjectListItem;
     /**
      * Called to refresh the UI after a change (e.g. rename).
      * Typically index.tsx passes a function that invalidates the route.
@@ -34,14 +33,11 @@ type Props = {
 };
 
 /**
- * ProjectRow (Mantine)
+ * Row view for one editable scripture item in legacy project-list surfaces.
  *
- * Renders a project row with:
- *  - link to open project
- *  - edit action (inline input) with clearer affordance indicating you're editing the project's public name
- *  - delete action (confirmation modal) which removes the project directory and DB row
- *
- * Designed for good mobile ergonomics (no hover interactions).
+ * This component predates the newer typed library-item vocabulary, but its
+ * runtime job is still straightforward: open the current editable scripture
+ * route, rename the user-facing display name, or delete the managed item.
  */
 export default function ProjectRow({
     project,
@@ -50,23 +46,23 @@ export default function ProjectRow({
     className = "",
 }: Props) {
     const [isEditing, setIsEditing] = useState(false);
-    const [name, setName] = useState<string>(project.name ?? "");
+    const [name, setName] = useState<string>(project.displayName ?? "");
     const [isSaving, setIsSaving] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const { t } = useLingui();
     const router = useRouter();
-    const { projectRepository } = router.options.context;
+    const { projectsService } = router.options.context;
 
-    // Save updated project name to DB and refresh listing
     async function saveName() {
         const trimmed = (name ?? "").trim();
         if (!trimmed) return;
         setIsSaving(true);
         try {
-            await upsertProject(project.projectDirectoryPath, {
-                title: trimmed,
-            });
+            await projectsService.renameDisplayName(
+                project.projectPath,
+                trimmed,
+            );
             invalidateRouterAndReload();
             setIsEditing(false);
         } catch (err) {
@@ -76,45 +72,30 @@ export default function ProjectRow({
         }
     }
 
-    // Delete project: remove directory from disk via repository, then remove DB row
     async function doDelete() {
         setIsDeleting(true);
         try {
-            if (
-                projectRepository &&
-                typeof projectRepository.deleteProject === "function"
-            ) {
-                await projectRepository.deleteProject(
-                    project.projectDirectoryPath,
-                    {
-                        recursive: true,
-                    },
-                );
-            }
-        } catch (e) {
-            console.error("Failed to delete project:", e);
-        }
-        // remove DB row
-        try {
-            await deleteProjectByPath(project.projectDirectoryPath);
+            await projectsService.deleteProject(project.projectPath);
             setIsDeleting(false);
             setConfirmOpen(false);
             invalidateRouterAndReload();
-        } catch (dbErr) {
-            console.error("Failed to delete project row from DB:", dbErr);
-            // we continue; directory already removed
+        } catch (e) {
+            console.error("Failed to delete project:", e);
         } finally {
             setIsDeleting(false);
         }
     }
 
-    const diskProjectName = project.projectDirectoryPath.split("/").pop();
+    const diskProjectName = project.folderName;
     if (!diskProjectName) {
         return null;
     }
     return (
         <>
-            <div className={`${styles.row} ${className}`}>
+            <div
+                className={`${styles.row} ${className}`}
+                data-testid={TESTING_IDS.project.list}
+            >
                 {!isEditing ? (
                     <>
                         <Link
@@ -122,16 +103,15 @@ export default function ProjectRow({
                             params={{ project: diskProjectName }}
                             onClick={() => {
                                 settingsManager?.update?.({
-                                    lastProjectPath:
-                                        project.projectDirectoryPath,
+                                    lastProjectPath: project.projectPath,
                                 });
                             }}
                             className={styles.projectLink}
-                            aria-label={`Open project ${project.name}`}
+                            aria-label={`Open project ${project.displayName}`}
                             data-testid={TESTING_IDS.project.rowLink}
                         >
-                            <Text data-testid={project.name} fw={500}>
-                                {project.name}
+                            <Text data-testid={project.displayName} fw={500}>
+                                {project.displayName}
                             </Text>
                         </Link>
 
@@ -166,7 +146,7 @@ export default function ProjectRow({
                                 value={name}
                                 onChange={(e) => setName(e.currentTarget.value)}
                                 placeholder={t`Project display name`}
-                                aria-label={`Project display name for ${project.projectDirectoryPath}`}
+                                aria-label={`Project display name for ${project.projectPath}`}
                             />
                         </div>
                         <Button
@@ -183,7 +163,7 @@ export default function ProjectRow({
                             variant="default"
                             onClick={() => {
                                 setIsEditing(false);
-                                setName(project.name ?? "");
+                                setName(project.displayName ?? "");
                             }}
                         >
                             {t`Cancel`}
@@ -200,7 +180,7 @@ export default function ProjectRow({
             >
                 <Text>
                     {t`Are you sure you want to delete the project:`}{" "}
-                    <strong>{project.name}</strong>?
+                    <strong>{project.displayName}</strong>?
                 </Text>
                 <Text mt="sm">
                     {t`This will remove files from disk and delete the project's metadata from the local database.`}

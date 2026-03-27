@@ -25,6 +25,13 @@ import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
+/**
+ * Structured chapter diff renderer.
+ *
+ * This view takes chapter-scoped diff data that has already been normalized into
+ * paragraph/token ownership and renders it in a way that still resembles the
+ * scripture document rather than a flat diff list.
+ */
 function getTokenHighlightClass(
     status: "unchanged" | "added" | "deleted" | "modified" | "paired",
     viewType: "original" | "current",
@@ -114,6 +121,10 @@ function normalizeTokenChange(args: {
     return args.tokenChange;
 }
 
+/**
+ * Render one token in the chapter-structured diff view, including apply/revert
+ * overlays when that token begins an actionable diff entry.
+ */
 function ChapterStructuredToken({
     actionMode,
     paragraph,

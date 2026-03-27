@@ -15,6 +15,7 @@ import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHyd
 import { NestedEditor } from "@/app/ui/components/blocks/NestedEditor.tsx";
 import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 export const USFM_NESTED_DECORATOR_TYPE = "usfm-nested-editor";
@@ -43,6 +44,14 @@ export type USFMNestedEditorNodeJSON = Spread<
     SerializedLexicalNode
 >;
 
+/**
+ * Decorator node that embeds a secondary Lexical editor for nested USFM spans
+ * such as footnotes and cross references.
+ *
+ * The outer editor treats these as one inline token, but the nested editor
+ * still needs its own state, lint metadata, and open/closed UI state. This
+ * node is the serialization seam between those two editors.
+ */
 export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
     __text: string; //the marker text that caused this to be created
     __marker: string;
@@ -238,7 +247,7 @@ export type USFMNestedEditorNodeMetadata = {
     marker: string;
     id: string;
     usfmType: string;
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
     sid: string;
     lintErrors?: LintIssue[];
     isOpen?: boolean;
@@ -324,7 +333,7 @@ export function getSerializedNestedEditorNode({
 }: {
     token: LexicalHydrationToken;
     childrenCb: () => USFMNodeJSON[];
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
 }): USFMNestedEditorNodeJSON {
     // needed to wrap nested flat text nodes
     const serializedPara: SerializedElementNode = {

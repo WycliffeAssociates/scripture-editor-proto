@@ -1,4 +1,13 @@
-// faster and lighterweight than crypto.randomUUID(), and any dependency, but still suffienct just for likley unique enough ids. Not as lightweight as a simple counter, but more random.
+/**
+ * Small cross-cutting utilities used throughout the app.
+ */
+
+/**
+ * Lightweight ID generator for editor/runtime identifiers.
+ *
+ * These IDs do not need the guarantees of a cryptographic UUID; they mostly need
+ * to be unique enough for in-memory editor nodes and temporary UI bookkeeping.
+ */
 export function guidGenerator() {
     var S4 = () =>
         (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
@@ -28,11 +37,11 @@ export const removeLeadingDirSlashes = (relPath: string): string => {
 };
 
 /**
- * Repeatedly calls `fn` once per animation frame until:
- *   - it returns a truthy value (success), or
- *   - the timeout window expires.
+ * Retry a DOM-dependent lookup across animation frames until it appears or a
+ * timeout expires.
  *
- * Returns a Promise that resolves with the truthy result or `null` on timeout.
+ * This is mainly useful in editor/UI code that needs to wait for the DOM to
+ * catch up with state changes without blocking the main thread.
  */
 export function rafUntilSuccessOrTimeout<T>(
     fn: () => T | false | null | undefined,
@@ -42,7 +51,6 @@ export function rafUntilSuccessOrTimeout<T>(
         const start = performance.now();
 
         function tick() {
-            console.count("rafUntilSuccessOrTimeout");
             const result = fn();
             if (result) {
                 resolve(result);

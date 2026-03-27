@@ -25,6 +25,13 @@ type Props = {
     wrapperClassNames?: string;
 };
 
+/**
+ * Surface lint issues for the currently loaded scripture workspace.
+ *
+ * Lint calculation happens elsewhere in the workspace pipeline; this component's
+ * job is to make those diagnostics explorable and to bridge from a lint issue
+ * back into the live editor DOM when the user wants to inspect it.
+ */
 export function LintPopover({ wrapperClassNames }: Props) {
     const { lint, editorRef } = useWorkspaceContext();
     const hasMessages = lint.messages.length > 0;
@@ -166,6 +173,9 @@ function isRenderedElement(el: HTMLElement): boolean {
 }
 
 function findVisibleLintTarget(nodeId: string): HTMLElement | null {
+    // Some lint targets are represented by hidden marker nodes in the DOM. When
+    // that happens, walk to an adjacent visible token so the user can still land
+    // on something actionable in the editor.
     const direct = document.querySelector(
         `[data-id="${nodeId}"]`,
     ) as HTMLElement | null;
@@ -353,7 +363,7 @@ function LintMessageItem({
         };
         const currentBook = project.pickedFile.bookCode;
         const currentChapter =
-            project.pickedChapter?.chapNumber ?? project.currentChapter;
+            project.pickedChapter?.chapterNumber ?? project.currentChapter;
         if (
             sidParsed.book === currentBook &&
             sidParsed.chapter === currentChapter

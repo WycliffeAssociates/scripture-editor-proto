@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { buildBooksSavePayload } from "@/app/domain/project/saveAndRevertService.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -50,7 +50,7 @@ function makeEditorState(text: string, sid: string, id: string) {
 
 describe("buildBooksSavePayload", () => {
     it("saves full book content when any chapter in that book is dirty", () => {
-        const files: ParsedFile[] = [
+        const files: ScriptureBookState[] = [
             {
                 path: "/tmp/MRK.usfm",
                 title: "Mark",
@@ -59,7 +59,7 @@ describe("buildBooksSavePayload", () => {
                 prevBookId: null,
                 chapters: [
                     {
-                        chapNumber: 1,
+                        chapterNumber: 1,
                         dirty: false,
                         sourceTokens: makeTokens(
                             "\\c 1\n\\p\nChapter one.\n",
@@ -83,7 +83,7 @@ describe("buildBooksSavePayload", () => {
                         ),
                     },
                     {
-                        chapNumber: 15,
+                        chapterNumber: 15,
                         dirty: true,
                         sourceTokens: makeTokens(
                             "\\c 15\n\\p\nOld text.\n",

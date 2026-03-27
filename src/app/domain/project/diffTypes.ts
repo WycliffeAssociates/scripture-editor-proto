@@ -6,6 +6,13 @@ import type {
     DiffUndoSide,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * UI-facing diff types for scripture save/compare flows.
+ *
+ * The core USFM diff engine returns token-oriented data. These types represent
+ * the richer shape the React UI needs for modal rendering, chapter grouping, and
+ * apply/revert actions.
+ */
 export type ChapterRenderToken = {
     node: SerializedLexicalNode;
     sid: string;

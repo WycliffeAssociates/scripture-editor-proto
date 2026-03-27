@@ -1,205 +1,158 @@
 import type { Importer } from "@/core/domain/project/import/Importer.ts";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
-import type { IFileHandle } from "@/core/io/IFileHandle.ts";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import {
+    createImportProgressUpdate,
+    ImportProgressPhase,
+    type ImportProgressReporter,
+} from "@/core/library/ImportService.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import {
+    basenameStoragePath,
+    joinStoragePath,
+} from "@/core/persistence/pathUtils.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 /**
- * Importer class responsible for importing a project that is already available
- * as a local IDirectoryHandle (i.e., already unzipped or selected from disk).
- * It handles resolving naming conflicts and copying the directory structure
- * to the permanent projects directory.
+ * Import a directory that already exists on the local filesystem into managed
+ * app storage.
  *
- * NOTE: This class implements the Importer interface but its primary function
- * uses a dedicated method (importDirectory) to accept the IDirectoryHandle
- * as requested, as the string 'path' in the Importer interface is ambiguous
- * for local directory import.
+ * This class belongs to the "materialize onto disk" phase of the pipeline. It
+ * does not interpret metadata or build runtime objects; it only copies bytes
+ * into the library root while reporting enough progress for long folder imports.
  */
 export class ProjectDirectoryImporter implements Importer {
-    private readonly directoryProvider: IDirectoryProvider;
-    // Defines the base path where final projects are stored
+    constructor(
+        private readonly fileSystem: FileSystem,
+        private readonly roots: StorageRoots,
+    ) {}
 
-    constructor(directoryProvider: IDirectoryProvider) {
-        this.directoryProvider = directoryProvider;
-    }
-
-    /**
-     * Placeholder to satisfy the Importer interface.
-     * In a real application, this method would need a way to resolve the
-     * string path to an IDirectoryHandle, perhaps from a mounted location.
-     */
     public async import(path: string): Promise<string> {
-        const tempDir = await this.directoryProvider.tempDirectory;
-        const sourceDir = await tempDir.getDirectoryHandle(path);
-        return this.importDirectory(sourceDir);
+        return this.importDirectory(path);
     }
 
-    /**
-     * The primary entry point to import a project from an existing directory handle.
-     * @param sourceDir The IDirectoryHandle containing the project structure.
-     * @returns A promise that resolves to the path of the imported project directory if successful.
-     */
-    public async importDirectory(sourceDir: IDirectoryHandle): Promise<string> {
-        const projectsDir = await this.directoryProvider.projectsDirectory;
-        let tempProjectDir: IDirectoryHandle | null = null;
-
-        try {
-            // NEW STEP: Create a temporary directory and copy the source content there first
-            const tempDir = await this.directoryProvider.tempDirectory;
-            const tempProjectDirName = `${sourceDir.name}-import-${Date.now()}`;
-            tempProjectDir = await tempDir.getDirectoryHandle(
-                tempProjectDirName,
+    public async importDirectory(
+        sourceDirPath: string,
+        onProgress?: ImportProgressReporter,
+    ): Promise<string> {
+        const projectName = basenameStoragePath(sourceDirPath);
+        const finalProjectPath =
+            await this.resolveProjectDirectory(projectName);
+        await this.fileSystem.mkdir(finalProjectPath, { recursive: true });
+        const totalFiles = await this.countFiles(sourceDirPath);
+        await onProgress?.(
+            createImportProgressUpdate(
+                ImportProgressPhase.COPY_CONTENT,
+                `Copying source directory into app storage (0/${totalFiles})...`,
                 {
-                    create: true,
+                    current: 0,
+                    total: totalFiles,
                 },
-            );
-
-            await this.copyDirectoryContents(sourceDir, tempProjectDir);
-
-            // Look for the actual project name by examining the directory structure
-            let projectName = sourceDir.name; // fallback to source dir name
-
-            // Try to find a project directory inside the temp directory
-            for await (const [name, handle] of tempProjectDir.entries()) {
-                if (handle.isDir) {
-                    // Use the first subdirectory name as the project name
-                    projectName = name;
-                    break;
-                }
-            }
-
-            // 1. Resolve name conflicts and create the final project directory using the discovered project name
-            const finalProjectDir = await this.resolveProjectDirectory(
-                projectName,
-                projectsDir,
-            );
-
-            // 2. Copy content from temp to final destination
-            await this.copyContentToFinalDestination(
-                tempProjectDir,
-                finalProjectDir,
-            );
-            return finalProjectDir.path;
-        } finally {
-            // 3. Cleanup temporary resources
-            if (tempProjectDir) {
-                await this.cleanup(tempProjectDir);
-            }
-        }
+            ),
+        );
+        await this.copyDirectoryContents(sourceDirPath, finalProjectPath, {
+            totalFiles,
+            onProgress,
+        });
+        return finalProjectPath;
     }
 
-    /**
-     * Checks for project name conflicts in the permanent projects directory
-     * and returns a unique, newly created directory handle. (Copied from WacsRepoImporter)
-     * @param initialName The preferred project name.
-     * @param projectsDir The permanent base directory for all projects.
-     * @returns The unique IDirectoryHandle for the new project.
-     */
     private async resolveProjectDirectory(
         initialName: string,
-        projectsDir: IDirectoryHandle,
-    ): Promise<IDirectoryHandle> {
+    ): Promise<string> {
+        // Re-importing the same source should create a sibling library item
+        // rather than overwriting an existing managed directory.
         let counter = 0;
         let uniqueProjectDirName = initialName;
+        let candidate = joinStoragePath(
+            this.roots.projectsRoot,
+            uniqueProjectDirName,
+        );
 
-        let containsDir = await projectsDir.containsDir(uniqueProjectDirName);
-
-        while (containsDir === true) {
+        while (await this.fileSystem.exists(candidate)) {
             counter++;
             uniqueProjectDirName = `${initialName} (${counter})`;
-            containsDir = await projectsDir.containsDir(uniqueProjectDirName);
-        }
-
-        const finalProjectDir = await projectsDir.getDirectoryHandle(
-            uniqueProjectDirName,
-            { create: true },
-        );
-        return finalProjectDir;
-    }
-
-    /**
-     * Orchestrates the final copy operation from the source directory handle
-     * to the permanent project directory. (Adapted from WacsRepoImporter)
-     * @param sourceEntry The IDirectoryHandle to copy from.
-     * @param destinationDir The final, unique project IDirectoryHandle.
-     */
-    private async copyContentToFinalDestination(
-        sourceEntry: IDirectoryHandle,
-        destinationDir: IDirectoryHandle,
-    ): Promise<void> {
-        // Since the source is a directory, we copy its *contents* directly into the destinationDir
-        await this.copyDirectoryContents(sourceEntry, destinationDir);
-    }
-
-    /**
-     * Recursively copies contents of a source directory to a destination directory. (Copied from WacsRepoImporter)
-     */
-    private async copyDirectoryContents(
-        sourceDir: IDirectoryHandle,
-        destinationDir: IDirectoryHandle,
-    ): Promise<void> {
-        for await (const [name, handle] of sourceDir.entries()) {
-            if (name === ".git") {
-                continue;
-            }
-            if (handle.isDir) {
-                const newDestDir = await destinationDir.getDirectoryHandle(
-                    name,
-                    {
-                        create: true,
-                    },
-                );
-                await this.copyDirectoryContents(
-                    handle as IDirectoryHandle,
-                    newDestDir,
-                );
-            } else if (handle.isFile) {
-                const sourceFileHandle = handle as IFileHandle;
-                await this.copyFile(sourceFileHandle, destinationDir, name);
-            } else if (
-                handle.isDir === undefined &&
-                handle.isFile === undefined
-            ) {
-            }
-        }
-    }
-
-    /**
-     * Copies a single file from a source handle into a destination directory. (Copied from WacsRepoImporter)
-     * @param sourceFileHandle The file handle to copy.
-     * @param destinationDir The directory handle to place the copy into.
-     * @param newFileName The name for the new file.
-     */
-    private async copyFile(
-        sourceFileHandle: IFileHandle,
-        destinationDir: IDirectoryHandle,
-        newFileName: string,
-    ): Promise<void> {
-        const destFileHandle = await destinationDir.getFileHandle(newFileName, {
-            create: true,
-        });
-        const content = await sourceFileHandle
-            .getFile()
-            .then((f: File) => f.arrayBuffer());
-        const writer = await destFileHandle.createWriter();
-        await writer.write(content);
-        await writer.close();
-    }
-
-    /**
-     * Cleans up the temporary extraction directory.
-     * @param tempExtractionDir The temporary directory handle to remove.
-     */
-    private async cleanup(tempExtractionDir: IDirectoryHandle): Promise<void> {
-        try {
-            const tempDirectory = await this.directoryProvider.tempDirectory;
-            await tempDirectory.removeEntry(tempExtractionDir.name, {
-                recursive: true,
-            });
-        } catch (e) {
-            console.error(
-                "[DirectoryProjectImporter] Error during cleanup of temporary files:",
-                e,
+            candidate = joinStoragePath(
+                this.roots.projectsRoot,
+                uniqueProjectDirName,
             );
         }
+
+        return candidate;
+    }
+
+    private async copyDirectoryContents(
+        sourceDirPath: string,
+        destinationDirPath: string,
+        progress?: {
+            totalFiles: number;
+            copiedFiles?: number;
+            onProgress?: ImportProgressReporter;
+        },
+    ): Promise<void> {
+        // Import intentionally strips VCS internals. Managed storage is for app
+        // content, not for mirroring arbitrary repository internals.
+        for (const entry of await this.fileSystem.list(sourceDirPath)) {
+            if (entry.name === ".git") {
+                continue;
+            }
+
+            const destinationPath = joinStoragePath(
+                destinationDirPath,
+                entry.name,
+            );
+
+            if (entry.kind === "directory") {
+                await this.fileSystem.mkdir(destinationPath, {
+                    recursive: true,
+                });
+                await this.copyDirectoryContents(
+                    entry.path,
+                    destinationPath,
+                    progress,
+                );
+                continue;
+            }
+
+            await this.fileSystem.writeBytes(
+                destinationPath,
+                await this.fileSystem.readBytes(entry.path),
+            );
+            if (progress) {
+                progress.copiedFiles = (progress.copiedFiles ?? 0) + 1;
+                if (
+                    progress.copiedFiles === progress.totalFiles ||
+                    progress.copiedFiles % 50 === 0
+                ) {
+                    await progress.onProgress?.(
+                        createImportProgressUpdate(
+                            ImportProgressPhase.COPY_CONTENT,
+                            `Copying source directory into app storage (${progress.copiedFiles}/${progress.totalFiles})...`,
+                            {
+                                current: progress.copiedFiles,
+                                total: progress.totalFiles,
+                            },
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
+    private async countFiles(sourceDirPath: string): Promise<number> {
+        // Progress is based on leaf-file copies rather than directory creation so
+        // the UI reflects the work users actually wait on.
+        let total = 0;
+        for (const entry of await this.fileSystem.list(sourceDirPath)) {
+            if (entry.name === ".git") {
+                continue;
+            }
+
+            if (entry.kind === "file") {
+                total += 1;
+                continue;
+            }
+
+            total += await this.countFiles(entry.path);
+        }
+        return total;
     }
 }

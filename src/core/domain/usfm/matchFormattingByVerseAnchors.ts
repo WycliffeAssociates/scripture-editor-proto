@@ -2,6 +2,14 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
 
+/**
+ * Match-formatting aligns source formatting to target scripture content using verse
+ * anchors as the stable join key.
+ *
+ * This lets the app apply formatting or marker styling from one scripture source to
+ * another without blindly replacing text content. Ambiguous intra-verse placement
+ * cases are surfaced back as suggestions instead of guessed.
+ */
 export type MatchFormattingScope = "chapter" | "book" | "project";
 export type TargetMarkerPreservationMode =
     | "strip_all"

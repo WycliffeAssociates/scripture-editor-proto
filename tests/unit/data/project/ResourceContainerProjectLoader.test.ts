@@ -1,319 +1,406 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
-import type { IFileWriter } from "@/core/io/IFileWriter.ts";
-import { MockDirectoryHandle } from "@tests/helpers/mock.ts";
+import {
+    isRemoteSyncCapable,
+} from "@/core/library/ReferenceItemSupport.ts";
+import {
+    createPackedTranslationNotesBook,
+    createPackedTranslationNotesBookFileName,
+    createPackedTranslationNotesMetadataFileName,
+} from "@/core/library/stores/PackedTranslationNotesRepository.ts";
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
+import { seedEnTnCondensedFixture } from "@tests/helpers/mockData/enTnCondensed.ts";
 
-// Mock implementations for dependencies
-let inMemoryFiles: Map<string, string> = new Map();
-const mockFileWriter: IFileWriter = {
-    writeFile: vi.fn(async (filename: string, content: string) => {
-        inMemoryFiles.set(filename, content);
-    }),
-};
-
-describe("ResourceContainerProjectLoader", () => {
+describe("ResourceContainerProjectLoader path-based loading", () => {
     let loader: ResourceContainerProjectLoader;
-    let mockProjectDir: MockDirectoryHandle;
-    const MOCK_PROJECT_NAME = "My Test Resource Project";
-    const MOCK_PROJECT_ID = "test-rc-id";
-
+    let fileSystem: InMemoryFileSystem;
+    const folderName = "test-rc-id";
+    const projectRootPath = `/projects/${folderName}`;
     const sampleManifestYaml = {
         dublin_core: {
-            identifier: MOCK_PROJECT_ID,
-            title: MOCK_PROJECT_NAME,
+            identifier: "test-rc-id",
+            title: "My Test Resource Project",
             language: { identifier: "en", title: "English", direction: "ltr" },
         },
-        projects: [],
+        projects: [
+            {
+                identifier: "2jn",
+                title: "2 John",
+                path: "./64-2JN.usfm",
+                sort: 64,
+                categories: [],
+            },
+        ],
     };
 
     beforeEach(() => {
-        vi.clearAllMocks();
-        inMemoryFiles = new Map();
-        // The mockProjectDir constructor can now handle initial files as MockFileHandle instances
-        // However, for manifest, we need to ensure the correct content is set for each test
-        mockProjectDir = new MockDirectoryHandle(MOCK_PROJECT_ID);
+        fileSystem = new InMemoryFileSystem();
         loader = new ResourceContainerProjectLoader();
     });
 
-    test("loadProject should load a project from manifest.yaml", async () => {
-        // Setup manifest specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
+    test("opens a project and exposes books via storage keys", async () => {
+        await fileSystem.writeText(
+            `${projectRootPath}/manifest.yaml`,
             stringify(sampleManifestYaml),
         );
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
+        await fileSystem.writeText(
+            `${projectRootPath}/64-2JN.usfm`,
+            "\\id 2JN\n\\c 1\n\\v 1 Elder",
         );
 
-        expect(project).not.toBeNull();
-        expect(project?.id).toBe(MOCK_PROJECT_ID);
-        expect(project?.name).toBe(MOCK_PROJECT_NAME);
-        expect(project?.metadata.language.id).toBe("en");
-        // We will need to re-parse the written manifest to compare against the parsed object.
-        // This assertion can be added here if needed, but for now, focus on core functionality.
-    });
-
-    test("loadProject should return null if manifest.yaml does not exist", async () => {
-        // No manifest.yaml set up here, so it should return null
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).toBeNull();
-    });
-
-    test("addBook should add a new USFM file and update manifest.yaml", async () => {
-        // Setup manifest specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(sampleManifestYaml),
-        );
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const bookCode = "MAT";
-        const localizedBookTitle = "Matthew";
-        const bookContents = "\\id MAT \\c 1 \\v 1 In the beginning...";
-
-        await project?.addBook({
-            bookCode,
-            contents: bookContents,
-            localizedBookTitle,
+        const project = await loader.openProject({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "Adhola Bible",
         });
 
-        const expectedFilename = "41-MAT.usfm";
-        expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
-            expectedFilename,
-            bookContents,
-        );
-        // const fileHandle = mockProjectDir.files.get(expectedFilename);
-        // if (fileHandle === undefined) {
-        //   throw new Error("File not found");
-        // }
-        const memoryVersion = inMemoryFiles.get(expectedFilename);
-        expect(memoryVersion).toBe(bookContents);
-
-        const manifestFileHandle = mockProjectDir.files.get(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-        );
-        if (manifestFileHandle === undefined) {
-            throw new Error("Manifest file not found");
-        }
-        const memoryManifest = inMemoryFiles.get(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-        );
-        if (memoryManifest === undefined) {
-            throw new Error("Manifest file not found in memory");
-        }
-        const updatedManifest = parse(memoryManifest);
-        const projectsInManifest = updatedManifest.projects;
-        expect(projectsInManifest).toHaveLength(1);
-        expect(projectsInManifest[0].identifier).toBe("mat");
-        expect(projectsInManifest[0].title).toBe(localizedBookTitle);
-        expect(projectsInManifest[0].path).toBe(expectedFilename);
-        expect(projectsInManifest[0].sort).toBe(41); // Ensure sort order is correct
-    });
-
-    test("addBook should overwrite an existing file and update manifest (as resource in manifest)", async () => {
-        const existingFilename = "41-MAT.usfm";
-        const oldContent = "old content";
-        const existingResources = [
+        expect(project).not.toBeNull();
+        expect(project?.projectPath).toBe(projectRootPath);
+        expect(project?.language).toEqual({
+            code: "en",
+            name: "English",
+            direction: "ltr",
+        });
+        expect(project?.books).toEqual([
             {
-                identifier: "mat",
-                title: "Old Matthew Title",
-                path: existingFilename,
-                sort: 41,
-                versification: "ufw",
-                categories: [],
+                bookCode: "2JN",
+                title: "2 John",
+                fileName: "64-2JN.usfm",
+                storageKey: "64-2JN.usfm",
+                path: `${projectRootPath}/64-2JN.usfm`,
             },
-        ];
+        ]);
+        expect(await project?.listBooks()).toEqual([
+            {
+                bookCode: "2JN",
+                title: "2 John",
+                fileName: "64-2JN.usfm",
+                storageKey: "64-2JN.usfm",
+                path: `${projectRootPath}/64-2JN.usfm`,
+            },
+        ]);
 
-        const manifestWithExistingBook = {
-            dublin_core: sampleManifestYaml.dublin_core,
-            projects: existingResources,
-        };
-
-        // Setup manifest and existing file specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(manifestWithExistingBook),
-        );
-        mockProjectDir.files.set(existingFilename, oldContent);
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const bookCode = "MAT";
-        const newLocalizedBookTitle = "New Matthew Title";
-        const newBookContents = "\\id MAT \\c 1 \\v 1 New content here...";
-
-        await project?.addBook({
-            bookCode,
-            contents: newBookContents,
-            localizedBookTitle: newLocalizedBookTitle,
-        });
-
-        // Assert that the file content was overwritten
-        expect(mockFileWriter.writeFile).toHaveBeenCalledWith(
-            existingFilename,
-            newBookContents,
-        );
-        const fileContent = inMemoryFiles.get(existingFilename);
-        if (!fileContent) {
-            throw new Error("File not found");
-        }
-        expect(fileContent).toBe(newBookContents);
-
-        // Verify manifest was updated for this book
-        const manifestInMemory = inMemoryFiles.get(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-        );
-        if (!manifestInMemory) {
-            throw new Error("Manifest file not found");
-        }
-        const updatedManifestString = manifestInMemory;
-        const updatedManifest = parse(updatedManifestString);
-        const projectsInManifest = updatedManifest.projects;
-        expect(projectsInManifest).toHaveLength(1);
-        expect(projectsInManifest[0].identifier).toBe("mat");
-        expect(projectsInManifest[0].title).toBe(newLocalizedBookTitle);
-        expect(projectsInManifest[0].path).toBe(existingFilename); // Path should remain the same
+        const book = await project?.getBook("64-2JN.usfm");
+        expect(book?.contents).toContain("\\id 2JN");
     });
 
-    test("addBook should overwrite an existing file (as physical file, not in manifest)", async () => {
-        const existingFilename = "41-MAT.usfm";
-        const oldContent = "original content";
-
-        // Setup manifest and existing file specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(sampleManifestYaml),
-        );
-        mockProjectDir.files.set(existingFilename, oldContent);
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const bookCode = "MAT";
-        const newLocalizedBookTitle = "Matthew";
-        const newBookContents = "new content for existing file";
-
-        await project?.addBook({
-            bookCode,
-            contents: newBookContents,
-            localizedBookTitle: newLocalizedBookTitle,
-        });
-
-        // Assert that the file content was overwritten
-        const fileContent = inMemoryFiles.get(existingFilename);
-        if (!fileContent) {
-            throw new Error("File not found");
-        }
-        expect(fileContent).toBe(newBookContents);
-
-        // Verify manifest was updated (new entry should be added since it wasn't in manifest initially)
-        const manifestInMemory = inMemoryFiles.get(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-        );
-        if (!manifestInMemory) {
-            throw new Error("Manifest file not found");
-        }
-        const updatedManifestString = manifestInMemory;
-        const updatedManifest = parse(updatedManifestString);
-        const projectsInManifest = updatedManifest.projects;
-        expect(projectsInManifest).toHaveLength(1);
-        expect(projectsInManifest[0].identifier).toBe("mat");
-        expect(projectsInManifest[0].title).toBe(newLocalizedBookTitle);
-        expect(projectsInManifest[0].path).toBe(existingFilename);
-        expect(projectsInManifest[0].sort).toBe(41);
-    });
-
-    test("getBook should retrieve content for an existing book in manifest", async () => {
-        const bookCode = "MAT";
-        const existingFilename = "41-MAT.usfm";
-        const bookContents =
-            "\\id MAT \\c 1 \\v 1 Book content for getBook test.";
-
-        const manifestWithBook = {
-            dublin_core: sampleManifestYaml.dublin_core,
-            projects: [
-                {
-                    identifier: "mat",
-                    title: "Matthew",
-                    path: existingFilename,
-                    sort: 41,
-                    versification: "ufw",
-                    categories: [],
+    test("opens a non-TN resource container as a read-only translation words resource", async () => {
+        await fileSystem.writeText(
+            `${projectRootPath}/manifest.yaml`,
+            stringify({
+                dublin_core: {
+                    identifier: "en_tw",
+                    title: "English Translation Words",
+                    language: {
+                        identifier: "en",
+                        title: "English",
+                        direction: "ltr",
+                    },
                 },
+                projects: [
+                    {
+                        identifier: "faith",
+                        title: "Faith",
+                        path: "./kt/faith.md",
+                        sort: 1,
+                        categories: [],
+                    },
+                ],
+            }),
+        );
+        await fileSystem.writeText(`${projectRootPath}/kt/faith.md`, "# Faith");
+
+        const resource = await loader.openResource({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "English Translation Words",
+        });
+
+        expect(resource?.descriptor).toEqual(
+            expect.objectContaining({
+                type: "translationWords",
+                readOnly: true,
+            }),
+        );
+        expect(isRemoteSyncCapable(resource)).toBe(false);
+        await expect(resource?.listDocuments()).resolves.toEqual([
+            {
+                id: "kt/faith.md",
+                name: "Faith",
+                browsePath: ["kt", "faith"],
+            },
+        ]);
+        await expect(resource?.readDocument("kt/faith.md" as never)).resolves.toEqual(
+            expect.objectContaining({
+                contents: "# Faith",
+            }),
+        );
+    });
+
+    test("saveBook writes the USFM file without rewriting manifest.yaml", async () => {
+        const manifest = stringify(sampleManifestYaml);
+        await fileSystem.writeText(`${projectRootPath}/manifest.yaml`, manifest);
+        await fileSystem.writeText(
+            `${projectRootPath}/64-2JN.usfm`,
+            "old contents",
+        );
+
+        const project = await loader.openProject({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "Adhola Bible",
+        });
+
+        await project?.saveBook("64-2JN.usfm", "new contents");
+
+        expect(await fileSystem.readText(`${projectRootPath}/64-2JN.usfm`)).toBe(
+            "new contents",
+        );
+        expect(await fileSystem.readText(`${projectRootPath}/manifest.yaml`)).toBe(
+            manifest,
+        );
+    });
+
+    test("addBook creates a file and updates manifest.yaml", async () => {
+        await fileSystem.writeText(
+            `${projectRootPath}/manifest.yaml`,
+            stringify({
+                ...sampleManifestYaml,
+                projects: [],
+            }),
+        );
+
+        const project = await loader.openProject({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "Adhola Bible",
+        });
+
+        const added = await project?.addBook("MAT", {
+            localizedBookTitle: "Matthew",
+            contents: "\\id MAT\n\\c 1\n\\v 1 In the beginning",
+        });
+
+        expect(added).toEqual({
+            bookCode: "MAT",
+            title: "Matthew",
+            fileName: "41-MAT.usfm",
+            storageKey: "41-MAT.usfm",
+            path: `${projectRootPath}/41-MAT.usfm`,
+        });
+        expect(await fileSystem.readText(`${projectRootPath}/41-MAT.usfm`)).toContain(
+            "\\id MAT",
+        );
+
+        const updatedManifest = parse(
+            await fileSystem.readText(`${projectRootPath}/manifest.yaml`),
+        );
+        expect(updatedManifest.projects).toHaveLength(1);
+        expect(updatedManifest.projects[0].identifier).toBe("mat");
+        expect(updatedManifest.projects[0].path).toBe("41-MAT.usfm");
+        expect(project?.books).toContainEqual({
+            bookCode: "MAT",
+            title: "Matthew",
+            fileName: "41-MAT.usfm",
+            storageKey: "41-MAT.usfm",
+            path: `${projectRootPath}/41-MAT.usfm`,
+        });
+    });
+
+    test("opens the shared en_tn_condensed fixture with representative note files", async () => {
+        await seedEnTnCondensedFixture(fileSystem, projectRootPath);
+
+        const resource = await loader.openResource({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "English Translation Notes Condensed",
+        });
+
+        expect(resource).not.toBeNull();
+        expect(resource?.descriptor).toEqual({
+            id: "en_tn_condensed",
+            displayName: "English Translation Notes Condensed",
+            type: "translationNotes",
+            containerFormat: "resource-container",
+            language: {
+                code: "en",
+                name: "English",
+                direction: "ltr",
+            },
+            readOnly: true,
+        });
+        expect(isRemoteSyncCapable(resource)).toBe(false);
+        expect(resource?.remoteSource).toBeUndefined();
+        await expect(resource?.listDocuments()).resolves.toEqual([
+            {
+                id: "dan/12/03.md",
+                name: "Daniel",
+                browsePath: ["dan", "12", "03"],
+            },
+            {
+                id: "luk/22/71.md",
+                name: "Luke",
+                browsePath: ["luk", "22", "71"],
+            },
+            {
+                id: "col/01/27.md",
+                name: "Colossians",
+                browsePath: ["col", "01", "27"],
+            },
+        ]);
+        expect(
+            (await resource?.readDocument("col/01/27.md" as never))?.contents,
+        ).toContain(
+            "the riches of the glory of this mystery",
+        );
+        expect(await fileSystem.readText(`${projectRootPath}/manifest.yaml`)).toContain(
+            "en_tn_condensed",
+        );
+    });
+
+    test("does not expose remote sync capability when source metadata is absent", async () => {
+        await fileSystem.writeText(
+            `${projectRootPath}/manifest.yaml`,
+            stringify(sampleManifestYaml),
+        );
+        await fileSystem.writeText(
+            `${projectRootPath}/64-2JN.usfm`,
+            "\\id 2JN\n\\c 1\n\\v 1 Elder",
+        );
+
+        const resource = await loader.openResource({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "Adhola Bible",
+        });
+
+        expect(isRemoteSyncCapable(resource)).toBe(false);
+        expect(resource?.remoteSource).toBeUndefined();
+    });
+
+    test("does not open a TN manifest as a writable Project", async () => {
+        await seedEnTnCondensedFixture(fileSystem, projectRootPath);
+
+        await expect(
+            loader.openProject({
+                fs: fileSystem,
+                projectRootPath,
+                folderName,
+                displayName: "English Translation Notes Condensed",
+            }),
+        ).resolves.toBeNull();
+    });
+
+    test("opens packed TN books as the canonical read-only resource shape", async () => {
+        await fileSystem.writeText(
+            `${projectRootPath}/manifest.yaml`,
+            stringify({
+                dublin_core: {
+                    identifier: "en_tn_condensed",
+                    title: "English Translation Notes Condensed",
+                    language: {
+                        identifier: "en",
+                        title: "English",
+                        direction: "ltr",
+                    },
+                },
+                projects: [],
+            }),
+        );
+        await fileSystem.writeText(
+            `${projectRootPath}/${createPackedTranslationNotesMetadataFileName()}`,
+            JSON.stringify({
+                remoteSource: {
+                    kind: "git",
+                    identifier: "https://example.com/en_tn_condensed.git",
+                    ref: "main",
+                    shallowClone: true,
+                },
+            }),
+        );
+        for (const [bookCode, chapter, verse, body] of [
+            [
+                "LUK",
+                "22",
+                "71",
+                '"We have no further need for witnesses!"',
             ],
-        };
-        // Setup manifest and existing file specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(manifestWithBook),
+            [
+                "COL",
+                "1",
+                "27",
+                "the riches of the glory of this mystery",
+            ],
+        ] as const) {
+            await fileSystem.writeText(
+                `${projectRootPath}/${createPackedTranslationNotesBookFileName(
+                    bookCode,
+                )}`,
+                JSON.stringify(
+                    createPackedTranslationNotesBook({
+                        bookCode,
+                        chapters: {
+                            [chapter]: {
+                                [verse]: body,
+                            },
+                        },
+                    }),
+                    null,
+                    2,
+                ),
+            );
+        }
+
+        const resource = await loader.openResource({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "English Translation Notes Condensed",
+        });
+
+        expect(resource).not.toBeNull();
+        expect(resource?.descriptor.type).toBe("translationNotes");
+        expect(resource?.descriptor.readOnly).toBe(true);
+        expect(isRemoteSyncCapable(resource)).toBe(true);
+        expect(resource?.remoteSource).toEqual({
+            kind: "git",
+            identifier: "https://example.com/en_tn_condensed.git",
+            ref: "main",
+            shallowClone: true,
+        });
+        await expect(resource?.listDocuments()).resolves.toEqual([
+            {
+                id: "luk.json",
+                name: "LUK",
+                browsePath: ["LUK"],
+            },
+            {
+                id: "col.json",
+                name: "COL",
+                browsePath: ["COL"],
+            },
+        ]);
+        await expect(resource?.readDocument("luk.json" as never)).resolves.toEqual(
+            expect.objectContaining({
+                id: "luk.json",
+                name: "LUK",
+                contents: expect.stringContaining('"bookCode": "LUK"'),
+            }),
         );
-        mockProjectDir.files.set(existingFilename, bookContents);
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const retrievedContent = await project?.getBook(bookCode);
-        expect(retrievedContent).toBe(bookContents);
-    });
-
-    test("getBook should retrieve content for a book at default path (not in manifest)", async () => {
-        const bookCode = "MRK";
-        const defaultFilename = "42-MRK.usfm";
-        const bookContents = "\\id MRK \\c 1 \\v 1 Mark content.";
-
-        // Setup manifest and existing file specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(sampleManifestYaml),
-        ); // Manifest without MRK
-        mockProjectDir.files.set(defaultFilename, bookContents);
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const retrievedContent = await project?.getBook(bookCode);
-        expect(retrievedContent).toBe(bookContents);
-    });
-
-    test("getBook should return null for a non-existent book", async () => {
-        const bookCode = "LUK";
-
-        // Setup manifest specifically for this test
-        mockProjectDir.files.set(
-            ResourceContainerProjectLoader.MANIFEST_FILENAME,
-            stringify(sampleManifestYaml),
-        );
-
-        const project = await loader.loadProject(
-            mockProjectDir,
-            mockFileWriter,
-        );
-        expect(project).not.toBeNull();
-
-        const retrievedContent = await project?.getBook(bookCode);
-        expect(retrievedContent).toBeNull();
+        await expect(
+            loader.openProject({
+                fs: fileSystem,
+                projectRootPath,
+                folderName,
+                displayName: "English Translation Notes Condensed",
+            }),
+        ).resolves.toBeNull();
     });
 });

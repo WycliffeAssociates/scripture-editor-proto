@@ -1,44 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
-import { ensureProjectGitReady } from "@/app/domain/git/ensureProjectGitReady.ts";
+import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 
-function createProjectMock(initialGitIgnore = ""): Project {
-    let contents = initialGitIgnore;
-    const writable = {
-        write: vi.fn(async (next: string) => {
-            contents = next;
-        }),
-        close: vi.fn(async () => {}),
-    };
-    const fileHandle = {
-        getFile: vi.fn(async () => ({
-            text: async () => contents,
-        })),
-        createWritable: vi.fn(async () => writable),
-    };
-
-    const directoryHandle = {
-        getFileHandle: vi.fn(async () => fileHandle),
-    };
-
+function createProjectMock(): Project {
     return {
-        id: "p1",
-        name: "Project 1",
-        files: [],
-        metadata: {
-            id: "p1",
-            name: "Project 1",
-            language: { id: "en", name: "English", direction: "ltr" },
+        folderName: "p1",
+        displayName: "Project 1",
+        projectPath: "/userData/projects/p1",
+        projectId: "p1",
+        language: {
+            code: "en",
+            name: "English",
+            direction: "ltr",
         },
-        projectDir: {
-            path: "/userData/projects/p1",
-            asDirectoryHandle: () => directoryHandle,
+        books: [],
+        listBooks: async () => [],
+        getBook: async () => {
+            throw new Error("not used in test");
         },
-        fileWriter: {} as never,
-        addBook: async () => {},
-        getBook: async () => null,
-    } as unknown as Project;
+        saveBook: async () => {},
+        addBook: async () => {
+            throw new Error("not used in test");
+        },
+        listVersions: async () => [],
+        restoreVersion: async () => {},
+        stageAndCommit: async () => ({ hash: "abc" }),
+    };
 }
 
 function createGitProviderMock(
@@ -62,24 +51,52 @@ function createGitProviderMock(
     };
 }
 
+function createFileSystemMock(initialGitIgnore = ""): FileSystem {
+    let contents = initialGitIgnore;
+    return {
+        readText: vi.fn(async () => contents),
+        readBytes: vi.fn(async () => new Uint8Array()),
+        writeText: vi.fn(async (_path: string, next: string) => {
+            contents = next;
+        }),
+        writeBytes: vi.fn(async () => {}),
+        exists: vi.fn(async () => true),
+        list: vi.fn(async () => []),
+        mkdir: vi.fn(async () => {}),
+        remove: vi.fn(async () => {}),
+        move: vi.fn(async () => {}),
+        createTempFile: vi.fn(async () => "/appData/temp/test.txt"),
+    };
+}
+
 describe("ensureProjectGitReady", () => {
     it("creates baseline commit when history is empty", async () => {
         const project = createProjectMock();
+        const fileSystem = createFileSystemMock();
         const gitProvider = createGitProviderMock({
             listHistory: vi.fn(async () => []),
         });
 
-        await ensureProjectGitReady({ gitProvider, loadedProject: project });
+        await ensureProjectGitReady({
+            fileSystem,
+            gitProvider,
+            loadedProject: project,
+        });
 
         expect(gitProvider.ensureRepo).toHaveBeenCalledWith(
             "/userData/projects/p1",
             { defaultBranch: "main" },
         );
         expect(gitProvider.commitAll).toHaveBeenCalledTimes(1);
+        expect(fileSystem.writeText).toHaveBeenCalledWith(
+            "/userData/projects/p1/.gitignore",
+            ".DS_Store\nThumbs.db\nnode_modules\n",
+        );
     });
 
     it("attempts branch checkout when repo opens detached", async () => {
         const project = createProjectMock();
+        const fileSystem = createFileSystemMock();
         const gitProvider = createGitProviderMock({
             getBranchInfo: vi.fn(async () => ({
                 current: "",
@@ -90,7 +107,11 @@ describe("ensureProjectGitReady", () => {
             listHistory: vi.fn(async () => [{ hash: "h1" }] as never),
         });
 
-        await ensureProjectGitReady({ gitProvider, loadedProject: project });
+        await ensureProjectGitReady({
+            fileSystem,
+            gitProvider,
+            loadedProject: project,
+        });
         expect(gitProvider.checkoutPreferredBranch).toHaveBeenCalledWith(
             "/userData/projects/p1",
             { prefer: "main" },
@@ -99,18 +120,24 @@ describe("ensureProjectGitReady", () => {
 
     it("re-runs repo initialization when health check fails", async () => {
         const project = createProjectMock();
+        const fileSystem = createFileSystemMock();
         const gitProvider = createGitProviderMock({
             isRepoHealthy: vi.fn(async () => false),
             listHistory: vi.fn(async () => [{ hash: "h1" }] as never),
         });
 
-        await ensureProjectGitReady({ gitProvider, loadedProject: project });
+        await ensureProjectGitReady({
+            fileSystem,
+            gitProvider,
+            loadedProject: project,
+        });
 
         expect(gitProvider.ensureRepo).toHaveBeenCalledTimes(2);
     });
 
     it("does not throw when baseline commit fails with recoverable web git errors", async () => {
         const project = createProjectMock();
+        const fileSystem = createFileSystemMock();
         const gitProvider = createGitProviderMock({
             listHistory: vi.fn(async () => []),
             commitAll: vi.fn(async () => {
@@ -119,7 +146,11 @@ describe("ensureProjectGitReady", () => {
         });
 
         await expect(
-            ensureProjectGitReady({ gitProvider, loadedProject: project }),
+            ensureProjectGitReady({
+                fileSystem,
+                gitProvider,
+                loadedProject: project,
+            }),
         ).resolves.toBeUndefined();
     });
 });

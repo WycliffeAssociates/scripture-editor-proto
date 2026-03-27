@@ -1,17 +1,41 @@
 import { type Unzipped, unzip } from "fflate";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
-import type { IFileHandle } from "@/core/io/IFileHandle.ts";
-import type { IPathHandle } from "@/core/io/IPathHandle.ts";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
+import { SCRIPTURE_BURRITO_METADATA_FILENAME } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
+import {
+    createImportProgressUpdate,
+    ImportProgressPhase,
+    type ImportProgressReporter,
+} from "@/core/library/ImportService.ts";
+import type {
+    FileSystem,
+    FileSystemEntry,
+} from "@/core/persistence/FileSystem.ts";
+import {
+    joinStoragePath,
+    stripFileExtension,
+} from "@/core/persistence/pathUtils.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 type ExtractionResult = {
-    tempDirHandle: IDirectoryHandle;
-    extractedTopLevelItem: IPathHandle;
+    tempDirPath: string;
+    extractedTopLevelItem: FileSystemEntry;
     topLevelEntryName: string;
+    extractedFileCount: number;
 };
 
+/**
+ * Shared archive pipeline used by both local zip imports and downloaded remote
+ * archives.
+ *
+ * This is still import-phase code: it extracts bytes into temporary storage,
+ * chooses the real top-level directory, and copies that directory into managed
+ * app storage. Type-specific reshaping happens later once the item has been
+ * classified.
+ */
 export class ZipImportPipeline {
-    constructor(private readonly directoryProvider: IDirectoryProvider) {}
+    constructor(
+        public readonly fileSystem: FileSystem,
+        private readonly roots: StorageRoots,
+    ) {}
 
     private isGitMetadataPath(path: string): boolean {
         return path.split("/").filter(Boolean).includes(".git");
@@ -19,61 +43,97 @@ export class ZipImportPipeline {
 
     async importFromZipData(args: {
         archiveName: string;
-        data: ArrayBuffer;
-        stagedZipHandle?: IFileHandle;
+        data: Uint8Array;
+        stagedZipPath?: string;
+        onProgress?: ImportProgressReporter;
     }): Promise<string> {
-        const projectsDir = await this.directoryProvider.projectsDirectory;
-        const tempDirectory = await this.directoryProvider.tempDirectory;
-
-        let tempExtractionDir: IDirectoryHandle | null = null;
+        let tempExtractionDirPath: string | null = null;
 
         try {
             const extractionResult = await this.extractZipToTemp({
                 archiveName: args.archiveName,
                 data: args.data,
-                tempDirectory,
+                onProgress: args.onProgress,
             });
-            tempExtractionDir = extractionResult.tempDirHandle;
+            tempExtractionDirPath = extractionResult.tempDirPath;
 
-            const finalProjectDir = await this.resolveProjectDirectory(
+            const finalProjectPath = await this.resolveProjectDirectory(
                 extractionResult.topLevelEntryName,
-                projectsDir,
             );
 
+            await args.onProgress?.(
+                createImportProgressUpdate(
+                    ImportProgressPhase.COPY_CONTENT,
+                    `Copying extracted archive into app storage (0/${extractionResult.extractedFileCount})...`,
+                    {
+                        current: 0,
+                        total: extractionResult.extractedFileCount,
+                    },
+                ),
+            );
             await this.copyContentToFinalDestination(
                 extractionResult.extractedTopLevelItem,
-                finalProjectDir,
+                finalProjectPath,
+                {
+                    totalFiles: extractionResult.extractedFileCount,
+                    onProgress: args.onProgress,
+                },
             );
 
-            return finalProjectDir.path;
+            return finalProjectPath;
         } finally {
-            await this.cleanup(tempExtractionDir, args.stagedZipHandle ?? null);
+            // Zip import stages temp data while extraction is in flight. Cleanup
+            // happens even on failure so repeated imports do not leak artifacts.
+            await this.cleanup(
+                tempExtractionDirPath,
+                args.stagedZipPath ?? null,
+            );
         }
     }
 
     private async extractZipToTemp(args: {
         archiveName: string;
-        data: ArrayBuffer;
-        tempDirectory: IDirectoryHandle;
+        data: Uint8Array;
+        onProgress?: ImportProgressReporter;
     }): Promise<ExtractionResult> {
-        const tempExtractionDirName = `${args.archiveName.split(".")[0]}-extract-${Date.now()}`;
-        const tempExtractionDir = await args.tempDirectory.getDirectoryHandle(
-            tempExtractionDirName,
-            { create: true },
+        const tempExtractionDirPath = joinStoragePath(
+            this.roots.tempRoot,
+            `${stripFileExtension(args.archiveName)}-extract-${Date.now()}`,
         );
+        await this.fileSystem.mkdir(tempExtractionDirPath, { recursive: true });
 
         const loadedZip = await new Promise<Unzipped>((resolve, reject) => {
-            unzip(new Uint8Array(args.data), {}, (err, result) => {
+            unzip(args.data, {}, (err, result) => {
                 if (err) reject(err);
                 else resolve(result);
             });
         });
 
+        const zipEntries = Object.keys(loadedZip).filter(
+            (fileName) =>
+                !this.isGitMetadataPath(fileName) &&
+                !(
+                    fileName.endsWith("/") &&
+                    fileName.split("/").filter(Boolean).length === 0
+                ),
+        );
+        await args.onProgress?.(
+            createImportProgressUpdate(
+                ImportProgressPhase.EXTRACT_ARCHIVE,
+                `Extracting archive contents (0/${zipEntries.length})...`,
+                {
+                    current: 0,
+                    total: zipEntries.length,
+                },
+            ),
+        );
+
+        let extractedEntries = 0;
+
         for (const fileName of Object.keys(loadedZip)) {
             if (this.isGitMetadataPath(fileName)) {
                 continue;
             }
-            const file = loadedZip[fileName];
 
             if (
                 fileName.endsWith("/") &&
@@ -84,54 +144,57 @@ export class ZipImportPipeline {
 
             const entryPathParts = fileName.split("/").filter(Boolean);
             const entryName = entryPathParts.pop();
-            const entryDirPath = entryPathParts.join("/");
+            if (!entryName) continue;
 
-            let currentExtractionTargetDir: IDirectoryHandle =
-                tempExtractionDir;
-
-            if (entryDirPath) {
-                const intermediateDirs = entryDirPath.split("/");
-                let tempSubDir = tempExtractionDir;
-                for (const dirPart of intermediateDirs) {
-                    tempSubDir = await tempSubDir.getDirectoryHandle(dirPart, {
-                        create: true,
-                    });
-                }
-                currentExtractionTargetDir = tempSubDir;
-            }
+            const targetPath = joinStoragePath(
+                tempExtractionDirPath,
+                ...entryPathParts,
+                entryName,
+            );
 
             if (fileName.endsWith("/")) {
-                if (entryName) {
-                    await currentExtractionTargetDir.getDirectoryHandle(
-                        entryName,
-                        {
-                            create: true,
-                        },
+                await this.fileSystem.mkdir(targetPath, { recursive: true });
+                extractedEntries += 1;
+                if (
+                    extractedEntries === zipEntries.length ||
+                    extractedEntries % 50 === 0
+                ) {
+                    await args.onProgress?.(
+                        createImportProgressUpdate(
+                            ImportProgressPhase.EXTRACT_ARCHIVE,
+                            `Extracting archive contents (${extractedEntries}/${zipEntries.length})...`,
+                            {
+                                current: extractedEntries,
+                                total: zipEntries.length,
+                            },
+                        ),
                     );
                 }
                 continue;
             }
 
-            if (!entryName) continue;
-
-            const fileHandle = await currentExtractionTargetDir.getFileHandle(
-                entryName,
-                {
-                    create: true,
-                },
-            );
-            const writer = await fileHandle.createWriter();
-            await writer.write(file);
-            console.log(`closing for ${entryName}`);
-            await writer.close();
+            await this.fileSystem.writeBytes(targetPath, loadedZip[fileName]);
+            extractedEntries += 1;
+            if (
+                extractedEntries === zipEntries.length ||
+                extractedEntries % 50 === 0
+            ) {
+                await args.onProgress?.(
+                    createImportProgressUpdate(
+                        ImportProgressPhase.EXTRACT_ARCHIVE,
+                        `Extracting archive contents (${extractedEntries}/${zipEntries.length})...`,
+                        {
+                            current: extractedEntries,
+                            total: zipEntries.length,
+                        },
+                    ),
+                );
+            }
         }
 
-        const topLevelEntries: Array<{ name: string; handle: IPathHandle }> =
-            [];
-        for await (const [name, handle] of tempExtractionDir.entries()) {
-            topLevelEntries.push({ name, handle });
-        }
-
+        const topLevelEntries = await this.fileSystem.list(
+            tempExtractionDirPath,
+        );
         if (topLevelEntries.length === 0) {
             throw new Error("No content extracted from zip.");
         }
@@ -140,24 +203,34 @@ export class ZipImportPipeline {
             await this.selectTopLevelEntry(topLevelEntries);
 
         return {
-            tempDirHandle: tempExtractionDir,
-            extractedTopLevelItem: selectedTopLevel.handle,
+            tempDirPath: tempExtractionDirPath,
+            extractedTopLevelItem: selectedTopLevel,
             topLevelEntryName: selectedTopLevel.name,
+            extractedFileCount: await this.countFiles(selectedTopLevel),
         };
     }
 
     private async selectTopLevelEntry(
-        entries: Array<{ name: string; handle: IPathHandle }>,
-    ) {
+        entries: FileSystemEntry[],
+    ): Promise<FileSystemEntry> {
         if (entries.length === 1) {
             return entries[0];
         }
 
+        // Some archives contain multiple top-level folders. Prefer the one that
+        // actually looks like a recognized container so later loaders see the
+        // intended root.
         for (const entry of entries) {
-            if (!entry.handle.isDir) continue;
-            const dir = entry.handle as IDirectoryHandle;
-            const hasMetadata = await dir.containsFile("metadata.json");
-            const hasManifest = await dir.containsFile("manifest.yaml");
+            if (entry.kind !== "directory") continue;
+            const hasMetadata = await this.fileSystem.exists(
+                joinStoragePath(
+                    entry.path,
+                    SCRIPTURE_BURRITO_METADATA_FILENAME,
+                ),
+            );
+            const hasManifest = await this.fileSystem.exists(
+                joinStoragePath(entry.path, "manifest.yaml"),
+            );
             if (hasMetadata || hasManifest) {
                 return entry;
             }
@@ -168,114 +241,159 @@ export class ZipImportPipeline {
 
     private async resolveProjectDirectory(
         initialName: string,
-        projectsDir: IDirectoryHandle,
-    ): Promise<IDirectoryHandle> {
+    ): Promise<string> {
         let counter = 0;
         let uniqueProjectDirName = initialName;
+        let candidate = joinStoragePath(
+            this.roots.projectsRoot,
+            uniqueProjectDirName,
+        );
 
-        let containsDir = await projectsDir.containsDir(uniqueProjectDirName);
-
-        while (containsDir === true) {
+        while (await this.fileSystem.exists(candidate)) {
             counter++;
             uniqueProjectDirName = `${initialName} (${counter})`;
-            containsDir = await projectsDir.containsDir(uniqueProjectDirName);
+            candidate = joinStoragePath(
+                this.roots.projectsRoot,
+                uniqueProjectDirName,
+            );
         }
 
-        return projectsDir.getDirectoryHandle(uniqueProjectDirName, {
-            create: true,
-        });
+        await this.fileSystem.mkdir(candidate, { recursive: true });
+        return candidate;
     }
 
     private async copyContentToFinalDestination(
-        sourceEntry: IPathHandle,
-        destinationDir: IDirectoryHandle,
+        sourceEntry: FileSystemEntry,
+        destinationDirPath: string,
+        progress?: {
+            totalFiles: number;
+            copiedFiles?: number;
+            onProgress?: ImportProgressReporter;
+        },
     ): Promise<void> {
-        if (sourceEntry.isDir) {
+        // Once extraction picks the root entry, the remaining copy step should
+        // behave the same whether that root is a directory or a single file.
+        if (sourceEntry.kind === "directory") {
             await this.copyDirectoryContents(
-                sourceEntry as IDirectoryHandle,
-                destinationDir,
+                sourceEntry.path,
+                destinationDirPath,
+                progress,
             );
             return;
         }
 
-        if (sourceEntry.isFile) {
-            const sourceFileHandle = sourceEntry as IFileHandle;
-            await this.copyFile(
-                sourceFileHandle,
-                destinationDir,
-                sourceFileHandle.name,
-            );
+        await this.fileSystem.writeBytes(
+            joinStoragePath(destinationDirPath, sourceEntry.name),
+            await this.fileSystem.readBytes(sourceEntry.path),
+        );
+        if (progress) {
+            progress.copiedFiles = (progress.copiedFiles ?? 0) + 1;
+            if (
+                progress.copiedFiles === progress.totalFiles ||
+                progress.copiedFiles % 50 === 0
+            ) {
+                await progress.onProgress?.(
+                    createImportProgressUpdate(
+                        ImportProgressPhase.COPY_CONTENT,
+                        `Copying extracted archive into app storage (${progress.copiedFiles}/${progress.totalFiles})...`,
+                        {
+                            current: progress.copiedFiles,
+                            total: progress.totalFiles,
+                        },
+                    ),
+                );
+            }
         }
     }
 
     private async copyDirectoryContents(
-        sourceDir: IDirectoryHandle,
-        destinationDir: IDirectoryHandle,
+        sourceDirPath: string,
+        destinationDirPath: string,
+        progress?: {
+            totalFiles: number;
+            copiedFiles?: number;
+            onProgress?: ImportProgressReporter;
+        },
     ): Promise<void> {
-        for await (const [name, handle] of sourceDir.entries()) {
-            if (handle.isDir) {
-                const newDestDir = await destinationDir.getDirectoryHandle(
-                    name,
-                    {
-                        create: true,
-                    },
-                );
+        for (const entry of await this.fileSystem.list(sourceDirPath)) {
+            const destinationPath = joinStoragePath(
+                destinationDirPath,
+                entry.name,
+            );
+
+            if (entry.kind === "directory") {
+                await this.fileSystem.mkdir(destinationPath, {
+                    recursive: true,
+                });
                 await this.copyDirectoryContents(
-                    handle as IDirectoryHandle,
-                    newDestDir,
+                    entry.path,
+                    destinationPath,
+                    progress,
                 );
-            } else if (handle.isFile) {
-                await this.copyFile(
-                    handle as IFileHandle,
-                    destinationDir,
-                    name,
-                );
+                continue;
+            }
+
+            await this.fileSystem.writeBytes(
+                destinationPath,
+                await this.fileSystem.readBytes(entry.path),
+            );
+            if (progress) {
+                progress.copiedFiles = (progress.copiedFiles ?? 0) + 1;
+                if (
+                    progress.copiedFiles === progress.totalFiles ||
+                    progress.copiedFiles % 50 === 0
+                ) {
+                    await progress.onProgress?.(
+                        createImportProgressUpdate(
+                            ImportProgressPhase.COPY_CONTENT,
+                            `Copying extracted archive into app storage (${progress.copiedFiles}/${progress.totalFiles})...`,
+                            {
+                                current: progress.copiedFiles,
+                                total: progress.totalFiles,
+                            },
+                        ),
+                    );
+                }
             }
         }
     }
 
-    private async copyFile(
-        sourceFileHandle: IFileHandle,
-        destinationDir: IDirectoryHandle,
-        newFileName: string,
-    ): Promise<void> {
-        const destFileHandle = await destinationDir.getFileHandle(newFileName, {
-            create: true,
-        });
+    private async countFiles(entry: FileSystemEntry): Promise<number> {
+        // Progress should reflect leaf-file copies, not directory creation.
+        if (entry.kind === "file") {
+            return 1;
+        }
 
-        const content = await sourceFileHandle
-            .getFile()
-            .then((f: File) => f.arrayBuffer());
-        const writer = await destFileHandle.createWriter();
-        await writer.write(content);
-        await writer.close();
+        let total = 0;
+        for (const child of await this.fileSystem.list(entry.path)) {
+            total += await this.countFiles(child);
+        }
+        return total;
     }
 
     private async cleanup(
-        tempExtractionDir: IDirectoryHandle | null,
-        stagedZipHandle: IFileHandle | null,
+        tempExtractionDirPath: string | null,
+        stagedZipPath: string | null,
     ): Promise<void> {
-        const tempDirectory = await this.directoryProvider.tempDirectory;
-
-        if (tempExtractionDir) {
+        // Best-effort cleanup. Import success should not depend on whether temp
+        // deletion succeeds after the final content is already written.
+        if (tempExtractionDirPath) {
             try {
-                await tempDirectory.removeEntry(tempExtractionDir.name, {
+                await this.fileSystem.remove(tempExtractionDirPath, {
                     recursive: true,
                 });
             } catch (error) {
                 console.error("Error cleaning up temp extraction dir:", error);
-                // best-effort cleanup
             }
         }
 
-        if (stagedZipHandle) {
+        if (stagedZipPath) {
             try {
-                await tempDirectory.removeEntry(stagedZipHandle.name, {
+                await this.fileSystem.remove(stagedZipPath, {
                     recursive: false,
                 });
             } catch (error) {
-                console.error("Error cleaning up staged zip handle:", error);
-                // best-effort cleanup
+                console.error("Error cleaning up staged zip file:", error);
             }
         }
     }

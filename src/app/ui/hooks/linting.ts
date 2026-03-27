@@ -1,4 +1,4 @@
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
     collectFileTokens,
     collectWorkingFileTokens,
@@ -6,6 +6,13 @@ import {
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Re-run linting against the token view of the current scripture workspace.
+ *
+ * These helpers are used after history replay and similar in-memory mutations
+ * where the app already has chapter/book state and simply needs fresh diagnostics
+ * without going back through a load or import step.
+ */
 async function relintFlatTokens(
     tokens: Token[],
     usfmOnionService: IUsfmOnionService,
@@ -19,7 +26,7 @@ async function relintFlatTokens(
 }
 
 export async function relintBookFile(
-    file: ParsedFile,
+    file: ScriptureBookState,
     usfmOnionService: IUsfmOnionService,
 ): Promise<LintIssue[]> {
     const tokens = collectFileTokens(file, {
@@ -32,8 +39,12 @@ export async function relintBookFile(
     return relintFlatTokens(tokens, usfmOnionService);
 }
 
+/**
+ * Re-lint many scripture books in one batch so workspace-level refreshes can
+ * update diagnostics without issuing one USFM service call per chapter.
+ */
 export async function relintBookFiles(
-    files: ParsedFile[],
+    files: ScriptureBookState[],
     usfmOnionService: IUsfmOnionService,
 ): Promise<Record<string, LintIssue[]>> {
     if (!files.length) return {};

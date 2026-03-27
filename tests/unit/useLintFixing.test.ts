@@ -1,7 +1,7 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { applyLintFixToFile } from "@/app/ui/hooks/useLintFixing.tsx";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -49,7 +49,7 @@ function makeEditorState(
     };
 }
 
-function makeParsedFile(): ParsedFile {
+function makeScriptureBookState(): ScriptureBookState {
     return {
         path: "/tmp/GEN.usfm",
         title: "Genesis",
@@ -58,7 +58,7 @@ function makeParsedFile(): ParsedFile {
         prevBookId: null,
         chapters: [
             {
-                chapNumber: 1,
+                chapterNumber: 1,
                 dirty: false,
                 sourceTokens: [],
                 currentTokens: [],
@@ -66,7 +66,7 @@ function makeParsedFile(): ParsedFile {
                 lexicalState: makeEditorState("one", "GEN 1:1", "tok-1"),
             },
             {
-                chapNumber: 2,
+                chapterNumber: 2,
                 dirty: false,
                 sourceTokens: [],
                 currentTokens: [],
@@ -150,7 +150,7 @@ describe("applyLintFixToFile", () => {
     });
 
     it("applies an off-screen fix in one click without refreshing the current editor", async () => {
-        const file = makeParsedFile();
+        const file = makeScriptureBookState();
         rebuildParsedFileFromUsfmMock.mockImplementation(
             async ({ targetFile }) => {
                 targetFile.chapters = file.chapters;
@@ -193,7 +193,7 @@ describe("applyLintFixToFile", () => {
     });
 
     it("re-lints once and retries when the original fix no longer anchors", async () => {
-        const file = makeParsedFile();
+        const file = makeScriptureBookState();
         rebuildParsedFileFromUsfmMock.mockImplementation(
             async ({ targetFile }) => {
                 targetFile.chapters = file.chapters;
@@ -283,7 +283,7 @@ describe("applyLintFixToFile", () => {
     });
 
     it("returns false and does not notify when retry still cannot apply", async () => {
-        const file = makeParsedFile();
+        const file = makeScriptureBookState();
         const applyTokenFixes = vi.fn().mockResolvedValue({
             tokens: [],
             appliedChanges: [],
@@ -320,12 +320,12 @@ describe("applyLintFixToFile", () => {
     });
 
     it("clears stale off-screen lint in one click by relinting the rebuilt file", async () => {
-        const file = makeParsedFile();
+        const file = makeScriptureBookState();
         rebuildParsedFileFromUsfmMock.mockImplementation(
             async ({ targetFile }) => {
                 targetFile.chapters = [
                     {
-                        chapNumber: 1,
+                        chapterNumber: 1,
                         dirty: false,
                         sourceTokens: [],
                         currentTokens: [],
@@ -341,7 +341,7 @@ describe("applyLintFixToFile", () => {
                         ),
                     },
                     {
-                        chapNumber: 2,
+                        chapterNumber: 2,
                         dirty: true,
                         sourceTokens: [],
                         currentTokens: [],

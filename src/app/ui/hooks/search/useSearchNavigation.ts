@@ -1,12 +1,12 @@
 import { $getRoot, type LexicalEditor } from "lexical";
 import { type RefObject, useCallback, useState } from "react";
-import type { ParsedChapter } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type {
     SearchResult,
     SearchSource,
 } from "@/app/domain/search/SearchService.ts";
 import { escapeRegex } from "@/app/domain/search/search.utils.ts";
+import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type {
     SearchMatch,
     SearchRunOptionOverrides,
@@ -24,9 +24,16 @@ type Params = {
     switchBookOrChapter: (
         file: string,
         chapter: number,
-    ) => ParsedChapter | undefined;
+    ) => ScriptureChapterState | undefined;
 };
 
+/**
+ * Hook that turns search results into editor navigation and highlight state.
+ *
+ * Search execution can find matches across multiple chapters and even the
+ * reference pane. This hook is responsible for opening the right chapter,
+ * collecting the rendered node matches, and synchronizing the active highlight.
+ */
 export function useSearchNavigation({
     editorRef,
     referenceEditorRef,

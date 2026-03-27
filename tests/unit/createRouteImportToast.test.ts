@@ -3,7 +3,7 @@ import {
     buildPersistentImportSuccessNotification,
     getProjectParamFromImportedPath,
     resolveImportErrorMessage,
-} from "@/app/routes/create.tsx";
+} from "@/app/routes/createRouteHelpers.ts";
 
 describe("create route import toast helpers", () => {
     it("extracts project param from imported path", () => {

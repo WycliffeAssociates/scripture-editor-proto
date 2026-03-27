@@ -1,6 +1,13 @@
 import { parseSid, sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Canonical lint-state shape keyed by book.
+ *
+ * The workspace UI often needs book-scoped updates even when the visible editor
+ * only shows one chapter. Keeping lint grouped by book lets history replay,
+ * save/revert, and editor updates replace the narrow slice they touched.
+ */
 export type LintMessagesByBook = Record<string, LintIssue[]>;
 
 function lintIssueIdentity(issue: LintIssue): string {
@@ -100,6 +107,9 @@ export function flattenLintMessagesByBook(
     );
 }
 
+/**
+ * Replace one book's lint slice while preserving the rest of the workspace map.
+ */
 export function replaceLintErrorsForBook(
     prevMessagesByBook: LintMessagesByBook,
     book: string,
@@ -117,6 +127,9 @@ export function replaceLintErrorsForBook(
     };
 }
 
+/**
+ * Replace only one chapter's lint results inside a book-scoped lint map.
+ */
 export function replaceLintErrorsForChapter(
     prevMessagesByBook: LintMessagesByBook,
     book: string,

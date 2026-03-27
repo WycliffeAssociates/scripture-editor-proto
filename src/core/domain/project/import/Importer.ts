@@ -1,3 +1,12 @@
+/**
+ * @interface Importer
+ * Minimal contract shared by the low-level import implementations in this
+ * folder.
+ *
+ * These classes all accept some external source identifier, materialize it into
+ * managed app storage, and return the resulting directory path for the next stage
+ * of the pipeline.
+ */
 export interface Importer {
     /**
      * Import something identified by a string `path`.

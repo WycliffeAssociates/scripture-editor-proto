@@ -8,7 +8,7 @@ import {
     useRef,
     useState,
 } from "react";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { DATA_JS } from "@/app/data/constants.ts";
 import {
     alignTargetResultsToReferenceOrder,
     applySort,
@@ -28,6 +28,10 @@ import {
     type SearchResult,
 } from "@/app/domain/search/SearchService.ts";
 import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
     SearchMatch,
     SearchRunOptionOverrides,
     SearchRunResult,
@@ -41,8 +45,8 @@ import type { SearchQuery } from "@/core/domain/search/types.ts";
 
 type Params = {
     resolvedContentProvider: SearchContentProvider;
-    pickedFile: ParsedFile;
-    pickedChapter?: ParsedChapter;
+    pickedFile: ScriptureBookState;
+    pickedChapter?: ScriptureChapterState;
     currentChapterSid: string;
     editorRef: RefObject<LexicalEditor | null>;
     collectMatchesInCurrentEditor: (
@@ -70,6 +74,13 @@ type Params = {
     };
 };
 
+/**
+ * Reset visible search state before starting a new run or clearing a query.
+ *
+ * Search spans editor highlights, picked result state, and possibly two result
+ * lists when reference searching is enabled, so this helper centralizes the
+ * teardown step.
+ */
 function resetSearchUiState(args: {
     searchAbortController: MutableRefObject<AbortController | null>;
     setTargetResults: (value: SearchResult[]) => void;
@@ -91,6 +102,13 @@ function resetSearchUiState(args: {
     args.setIsSearching(false);
 }
 
+/**
+ * Hook that owns search execution and result-list state for the workspace.
+ *
+ * Navigation/highlighting and replace behavior live in sibling hooks. This one
+ * is specifically about building the search scope, running the query, sorting
+ * results, and exposing the current result collections back to the UI.
+ */
 export function useSearchExecution({
     resolvedContentProvider,
     pickedFile,
@@ -226,7 +244,7 @@ export function useSearchExecution({
             setIsSearching(true);
 
             const searchResultsContainer = document.querySelector(
-                '[data-js="search-results-scroll-container"]',
+                `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
             );
             if (searchResultsContainer) {
                 searchResultsContainer.scrollTop = 0;
@@ -261,7 +279,7 @@ export function useSearchExecution({
                     });
                 } else {
                     const currentBookId = pickedFile.bookCode;
-                    const currentChapNum = pickedChapter?.chapNumber ?? 1;
+                    const currentChapNum = pickedChapter?.chapterNumber ?? 1;
                     const targetChapter = findChapter(targetFilesToSearch, {
                         bookCode: currentBookId,
                         chapterNum: currentChapNum,
@@ -406,7 +424,7 @@ export function useSearchExecution({
             matchCase,
             matchWholeWord,
             pick,
-            pickedChapter?.chapNumber,
+            pickedChapter?.chapterNumber,
             pickedFile.bookCode,
             referenceResults,
             resolvedContentProvider,
@@ -439,7 +457,7 @@ export function useSearchExecution({
             }
 
             const searchResultsContainer = document.querySelector(
-                '[data-js="search-results-scroll-container"]',
+                `[data-js="${DATA_JS.searchResultsScrollContainer}"]`,
             );
             if (searchResultsContainer) {
                 searchResultsContainer.scrollTop = 0;

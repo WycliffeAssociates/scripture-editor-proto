@@ -9,16 +9,23 @@ import {
     useCombobox,
 } from "@mantine/core";
 import { $getRoot, $isElementNode, type LexicalNode } from "lexical";
-import { useEffect, useMemo, useState } from "react";
+import {
+    type ChangeEvent,
+    type KeyboardEvent,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 
-import { getVisibleActions } from "../../actions/registry.ts";
+import { getVisibleActions } from "@/app/domain/editor/actions/registry.ts";
 import type {
     ActionStep,
     EditorAction,
     EditorContext,
-} from "../../actions/types.ts";
-import { $isUSFMTextNode } from "../../nodes/USFMTextNode.ts";
+} from "@/app/domain/editor/actions/types.ts";
+import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import * as classes from "./ActionPalette.css.ts";
 
 interface ActionPaletteProps {
@@ -26,6 +33,33 @@ interface ActionPaletteProps {
     onClose: () => void;
 }
 
+/**
+ * Some palette actions switch editor mode instead of mutating content directly.
+ * Preserve verse context through that transition so the palette behaves like an
+ * in-place command surface rather than jumping the user to a different spot.
+ */
+function getModeForAction(actionId: string): EditorModeSetting | null {
+    switch (actionId) {
+        case "switch-plain":
+            return EDITOR_MODES.plain;
+        case "switch-regular":
+            return EDITOR_MODES.regular;
+        case "switch-view":
+            return EDITOR_MODES.view;
+        case "switch-usfm":
+            return EDITOR_MODES.usfm;
+        default:
+            return null;
+    }
+}
+
+/**
+ * Command palette for the current editor selection/caret context.
+ *
+ * Upstream, `NodeContextMenuPlugin` decides when enough editor context exists to
+ * open the palette. Downstream, actions either perform direct Lexical mutations or
+ * dispatch workspace-level commands such as changing editor mode.
+ */
 export function ActionPalette({ context, onClose }: ActionPaletteProps) {
     const [editor] = useLexicalComposerContext();
     const [search, setSearch] = useState("");
@@ -44,6 +78,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
     const filteredActions = useMemo(() => {
         const s = search.toLowerCase();
         return visibleActions.filter((action) => {
+            // @todo, was probably lingui related which need to reintroduce the localization of action pallete
             const label =
                 typeof action.label === "function"
                     ? action.label(context)
@@ -72,47 +107,56 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
         // Capture SID for restoration after mode change
         const sid = context.currentVerse;
 
-        editor.update(() => {
-            result = action.execute(editor, context) || undefined;
-        });
-
         // Restore focus and selection after mode change
         if (action.category === "Modes") {
-            setTimeout(() => {
-                editor.update(() => {
-                    if (sid) {
-                        // Find the first USFMTextNode with the matching SID
-                        const root = $getRoot();
-                        const nodes = root.getChildren();
-                        // Recursive search for the SID
-                        const findNodeBySid = (
-                            nodes: LexicalNode[],
-                        ): LexicalNode | null => {
-                            for (const node of nodes) {
-                                if (
-                                    $isUSFMTextNode(node) &&
-                                    node.getSid() === sid
-                                ) {
-                                    return node;
-                                }
-                                if ($isElementNode(node)) {
-                                    const found = findNodeBySid(
-                                        node.getChildren(),
-                                    );
-                                    if (found) return found;
+            const nextMode = getModeForAction(action.id);
+            if (nextMode) {
+                context.actions.setEditorMode?.(nextMode, {
+                    onComplete: () => {
+                        editor.update(() => {
+                            if (sid) {
+                                // Find the first USFMTextNode with the matching SID
+                                const root = $getRoot();
+                                const nodes = root.getChildren();
+                                // Recursive search for the SID
+                                const findNodeBySid = (
+                                    nodes: LexicalNode[],
+                                ): LexicalNode | null => {
+                                    for (const node of nodes) {
+                                        if (
+                                            $isUSFMTextNode(node) &&
+                                            node.getSid() === sid
+                                        ) {
+                                            return node;
+                                        }
+                                        if ($isElementNode(node)) {
+                                            const found = findNodeBySid(
+                                                node.getChildren(),
+                                            );
+                                            if (found) return found;
+                                        }
+                                    }
+                                    return null;
+                                };
+
+                                const targetNode = findNodeBySid(nodes);
+                                if (targetNode && $isUSFMTextNode(targetNode)) {
+                                    targetNode.select();
                                 }
                             }
-                            return null;
-                        };
-
-                        const targetNode = findNodeBySid(nodes);
-                        if (targetNode && $isUSFMTextNode(targetNode)) {
-                            targetNode.select();
-                        }
-                    }
-                    editor.focus();
+                            editor.focus();
+                        });
+                    },
                 });
-            }, 150);
+            } else {
+                editor.update(() => {
+                    result = action.execute(editor, context) || undefined;
+                });
+            }
+        } else {
+            editor.update(() => {
+                result = action.execute(editor, context) || undefined;
+            });
         }
 
         const step = result as ActionStep | undefined;
@@ -223,7 +267,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                         variant="unstyled"
                         placeholder={activeStep.placeholder || "Enter value..."}
                         autoFocus
-                        onKeyDown={(e) => {
+                        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                             if (e.key === "Enter") {
                                 handleStepComplete(e.currentTarget.value);
                             }
@@ -248,10 +292,12 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                                     activeStep.placeholder || "Search..."
                                 }
                                 value={stepSearch}
-                                onChange={(e) =>
+                                onChange={(e: ChangeEvent<HTMLInputElement>) =>
                                     setStepSearch(e.currentTarget.value)
                                 }
-                                onKeyDown={(e) => {
+                                onKeyDown={(
+                                    e: KeyboardEvent<HTMLInputElement>,
+                                ) => {
                                     if (e.key === "Escape") {
                                         setActiveStep(null);
                                         setActiveAction(null);
@@ -312,7 +358,9 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                             data-testid={TESTING_IDS.contextMenu.searchInput}
                             placeholder="Search actions..."
                             value={search}
-                            onChange={(event) => {
+                            onChange={(
+                                event: ChangeEvent<HTMLInputElement>,
+                            ) => {
                                 setSearch(event.currentTarget.value);
                                 combobox.updateSelectedOptionIndex();
                             }}

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     buildCondensedLexicalSelectionSnapshot,
     buildFullLexicalSelectionSnapshot,
@@ -43,13 +44,27 @@ import type {
     SkippedMarkerSuggestion,
     TargetMarkerPreservationMode,
 } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
+import type {
+    ResourceLibraryGroup,
+    ResourceLibraryItem,
+} from "@/core/library/ProjectIndex.ts";
+import { isEditableScriptureProjectLibraryItem } from "@/core/library/ProjectIndex.ts";
 import { formatChapterSummary } from "@/core/persistence/gitVersionUtils.ts";
 
+/**
+ * Primary command bar for the scripture workspace route.
+ *
+ * This component sits one level above the editor and reference panes. It exposes
+ * navigation, save/history, search, reference-item selection, and review
+ * surfaces that operate on the current typed workspace and reference item.
+ */
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions, editorRef, isProcessing, project, saveDiff } =
+    const { actions, editorRef, isProcessing, project, save } =
         useWorkspaceContext();
     const { t } = useLingui();
-    const isViewOnly = (project.appSettings.editorMode ?? "regular") === "view";
+    const isViewOnly =
+        (project.appSettings.editorMode ?? EDITOR_MODES.regular) ===
+        EDITOR_MODES.view;
 
     const copyLexicalSnapshot = async (
         scope: "context" | "full" = "context",
@@ -121,7 +136,7 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                         </Tooltip>
 
                         <ReferencePicker />
-                        <ReferenceProjectList />
+                        <ReferenceResourceList />
                         {import.meta.env.DEV && (
                             <Menu
                                 shadow="md"
@@ -172,7 +187,7 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                         <LintPopover wrapperClassNames="relative" />
                         <SaveAndReviewChanges />
                         <SecondaryActionsMenu isProcessing={isProcessing} />
-                        {saveDiff.isViewingOlderVersion ? (
+                        {save.versions.isViewingOlderVersion ? (
                             <Group gap={rem(4)}>
                                 <Text c="orange.7" size="xs" fw={600}>
                                     <Trans>Viewing older version</Trans>
@@ -181,7 +196,7 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                                     size="compact-xs"
                                     variant="light"
                                     onClick={() =>
-                                        void saveDiff.backToLatest(
+                                        void save.versions.backToLatest(
                                             actions.saveCurrentDirtyLexical,
                                         )
                                     }
@@ -216,8 +231,7 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
 function SecondaryActionsMenu(props: { isProcessing: boolean }) {
     const { t } = useLingui();
-    const { actions, referenceProject, project, saveDiff } =
-        useWorkspaceContext();
+    const { actions, referenceResource, project, save } = useWorkspaceContext();
     const suggestionCount = project.formatMatchReport?.suggestions.length ?? 0;
     const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
     const [scope, setScope] = useState<"chapter" | "book" | "project">(
@@ -264,7 +278,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                         leftSection={<BookCopy size={rem(14)} />}
                         data-testid={TESTING_IDS.versions.trigger}
                         onClick={() =>
-                            void saveDiff.openPreviousVersions(
+                            void save.versions.open(
                                 actions.saveCurrentDirtyLexical,
                             )
                         }
@@ -286,7 +300,8 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                         <Trans>Format Project</Trans>
                     </Menu.Item>
 
-                    {referenceProject?.referenceProjectId && (
+                    {referenceResource?.activeReferenceResourcePath &&
+                    referenceResource.supportsScriptureNavigation ? (
                         <>
                             <Menu.Divider />
                             <Menu.Item
@@ -311,7 +326,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                                 </Menu.Item>
                             ) : null}
                         </>
-                    )}
+                    ) : null}
                 </Menu.Dropdown>
             </Menu>
 
@@ -404,8 +419,8 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
             </Modal>
 
             <Modal
-                opened={saveDiff.openVersionModal}
-                onClose={saveDiff.dismissPreviousVersions}
+                opened={save.versions.isOpen}
+                onClose={save.versions.close}
                 title={t`Previous Versions`}
                 centered
                 size="lg"
@@ -416,7 +431,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                     mah={420}
                     style={{ overflowY: "auto" }}
                 >
-                    {saveDiff.versions.map((version) => {
+                    {save.versions.entries.map((version) => {
                         const localizedTime = new Intl.DateTimeFormat(
                             undefined,
                             {
@@ -430,7 +445,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                                 ? formatChapterSummary(version.chapterSummary)
                                 : version.subject;
                         const isSelected =
-                            saveDiff.selectedVersionHash === version.hash;
+                            save.versions.selectedHash === version.hash;
                         return (
                             <Button
                                 key={version.hash}
@@ -440,7 +455,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                                 data-testid={TESTING_IDS.versions.row}
                                 h={"3rem"}
                                 onClick={() =>
-                                    void saveDiff.selectVersion(
+                                    void save.versions.select(
                                         version.hash,
                                         actions.saveCurrentDirtyLexical,
                                     )
@@ -466,31 +481,31 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                             </Button>
                         );
                     })}
-                    {saveDiff.isLoadingVersions ? <Loader size="sm" /> : null}
+                    {save.versions.isLoading ? <Loader size="sm" /> : null}
                     <Group justify="space-between">
                         <Button
                             variant="default"
                             onClick={() =>
-                                void saveDiff.backToLatest(
+                                void save.versions.backToLatest(
                                     actions.saveCurrentDirtyLexical,
                                 )
                             }
-                            disabled={!saveDiff.isViewingOlderVersion}
+                            disabled={!save.versions.isViewingOlderVersion}
                             data-testid={TESTING_IDS.versions.backToLatest}
                         >
                             <Trans>Back to latest</Trans>
                         </Button>
                         <Button
                             variant="subtle"
-                            onClick={() => void saveDiff.loadMoreVersions()}
-                            disabled={saveDiff.isLoadingVersions}
+                            onClick={() => void save.versions.loadMore()}
+                            disabled={save.versions.isLoading}
                             data-testid={TESTING_IDS.versions.loadMore}
                         >
                             <Trans>Load more</Trans>
                         </Button>
                     </Group>
-                    {!saveDiff.versions.length &&
-                    !saveDiff.isLoadingVersions ? (
+                    {!save.versions.entries.length &&
+                    !save.versions.isLoading ? (
                         <Text c="dimmed" size="sm">
                             <Trans>
                                 Save changes to create additional versions.
@@ -501,8 +516,8 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
             </Modal>
 
             <Modal
-                opened={saveDiff.openVersionDirtyPrompt}
-                onClose={saveDiff.dismissVersionDirtyPrompt}
+                opened={save.versions.dirtyPrompt.isOpen}
+                onClose={save.versions.dirtyPrompt.dismiss}
                 title={t`Unsaved Changes`}
                 centered
                 size="sm"
@@ -517,7 +532,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                     <Group justify="flex-end">
                         <Button
                             variant="subtle"
-                            onClick={saveDiff.dismissVersionDirtyPrompt}
+                            onClick={save.versions.dirtyPrompt.dismiss}
                             data-testid={TESTING_IDS.versions.dirtyPromptCancel}
                         >
                             <Trans>Cancel</Trans>
@@ -526,7 +541,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                             variant="light"
                             color="red"
                             onClick={() =>
-                                void saveDiff.continueVersionPromptDiscard()
+                                void save.versions.dirtyPrompt.discardAndContinue()
                             }
                             data-testid={
                                 TESTING_IDS.versions.dirtyPromptDiscard
@@ -535,7 +550,7 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                             <Trans>Discard</Trans>
                         </Button>
                         <Button
-                            onClick={saveDiff.continueVersionPromptSave}
+                            onClick={save.versions.dirtyPrompt.saveAndContinue}
                             data-testid={TESTING_IDS.versions.dirtyPromptSave}
                         >
                             <Trans>Review &amp; Save</Trans>
@@ -547,41 +562,148 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
     );
 }
 
-function ReferenceProjectList() {
-    const { t } = useLingui();
-    const { allProjects, referenceProject, currentProjectRoute } =
-        useWorkspaceContext();
-    const { isSm, setMobileTab } = useWorkspaceMediaQuery();
+type ReferenceResourceGroup = {
+    group: ResourceLibraryGroup;
+    label: string;
+    languages: Array<{
+        languageName: string;
+        resources: ResourceLibraryItem[];
+    }>;
+};
 
-    // Group projects by language
-    const groupedProjects = useMemo(() => {
-        return allProjects.reduce(
-            (acc, project) => {
-                const languageName =
-                    project.metadata?.language.name || "Unknown Language";
-                if (!acc[languageName]) {
-                    acc[languageName] = [];
-                }
-                acc[languageName].push(project);
-                return acc;
-            },
-            {} as Record<string, typeof allProjects>,
-        );
-    }, [allProjects]);
+const RESOURCE_GROUP_ORDER: ResourceLibraryGroup[] = [
+    "scripture",
+    "translation-notes",
+    "translation-words",
+    "other",
+];
+
+function ReferenceResourceMenuSections(props: {
+    groupedResources: ReferenceResourceGroup[];
+    isCurrentProject: (resource: ResourceLibraryItem) => boolean;
+    setActiveReferenceResourcePath: (projectPath: string | undefined) => void;
+}) {
+    return props.groupedResources.map((resourceGroup) => (
+        <div key={resourceGroup.group}>
+            <Menu.Label className={styles.languageLabel}>
+                {resourceGroup.label}
+            </Menu.Label>
+            {resourceGroup.languages.map(({ languageName, resources }) => (
+                <div key={`${resourceGroup.group}:${languageName}`}>
+                    <Menu.Label className={styles.languageLabel}>
+                        {languageName}
+                    </Menu.Label>
+                    {resources.map((resource) => {
+                        const isCurrent = props.isCurrentProject(resource);
+                        return (
+                            <Menu.Item
+                                key={resource.folderName}
+                                onClick={() =>
+                                    !isCurrent &&
+                                    props.setActiveReferenceResourcePath(
+                                        resource.projectPath,
+                                    )
+                                }
+                                data-testid={TESTING_IDS.referenceProjectItem}
+                                disabled={isCurrent}
+                                color={isCurrent ? "gray" : undefined}
+                                className={styles.projectItem}
+                            >
+                                <span className={styles.projectItemContent}>
+                                    {resource.displayName}
+                                    {isCurrent && (
+                                        <span
+                                            className={
+                                                styles.currentProjectIndicator
+                                            }
+                                        >
+                                            <Trans>(Current)</Trans>
+                                        </span>
+                                    )}
+                                </span>
+                            </Menu.Item>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
+    ));
+}
+
+export function ReferenceResourceList() {
+    const { t } = useLingui();
+    const { referenceResource, currentProjectRoute } = useWorkspaceContext();
+    const { isSm, setMobileTab } = useWorkspaceMediaQuery();
+    const availableReferenceResources =
+        referenceResource.referenceResourcesQuery.data ?? [];
+
+    const resourceGroupLabels = useMemo<Record<ResourceLibraryGroup, string>>(
+        () => ({
+            scripture: t`Scripture`,
+            "translation-notes": t`Translation Notes`,
+            "translation-words": t`Translation Words`,
+            other: t`Other Resources`,
+        }),
+        [t],
+    );
+
+    const groupedResources = useMemo<ReferenceResourceGroup[]>(() => {
+        const resourcesByGroup = new Map<
+            ResourceLibraryGroup,
+            Map<string, ResourceLibraryItem[]>
+        >();
+
+        for (const resource of availableReferenceResources) {
+            const group = resource.libraryGroup;
+            const languageName = resource.languageName || "Unknown Language";
+            const groupBucket =
+                resourcesByGroup.get(group) ??
+                new Map<string, ResourceLibraryItem[]>();
+            const languageBucket = groupBucket.get(languageName) ?? [];
+            languageBucket.push(resource);
+            groupBucket.set(languageName, languageBucket);
+            resourcesByGroup.set(group, groupBucket);
+        }
+
+        return RESOURCE_GROUP_ORDER.flatMap((group) => {
+            const groupBucket = resourcesByGroup.get(group);
+            if (!groupBucket || groupBucket.size === 0) return [];
+
+            const languages = [...groupBucket.entries()]
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([languageName, resources]) => ({
+                    languageName,
+                    resources: [...resources].sort((left, right) =>
+                        left.displayName.localeCompare(right.displayName),
+                    ),
+                }));
+
+            return [
+                {
+                    group,
+                    label: resourceGroupLabels[group],
+                    languages,
+                },
+            ];
+        });
+    }, [availableReferenceResources, resourceGroupLabels]);
 
     // Check if a project is the current working project
-    const isCurrentProject = (project: (typeof allProjects)[0]) => {
+    const isCurrentProject = (
+        project: (typeof availableReferenceResources)[0],
+    ) => {
         return (
-            currentProjectRoute ===
-            project.projectDirectoryPath.split("/").pop()
+            isEditableScriptureProjectLibraryItem(project) &&
+            currentProjectRoute === project.folderName
         );
     };
 
     const selected =
-        allProjects.find(
+        availableReferenceResources.find(
             (p) =>
-                p.projectDirectoryPath === referenceProject?.referenceProjectId,
-        )?.name ?? t`Select Reference Project`;
+                p.projectPath ===
+                referenceResource?.activeReferenceResourcePath,
+        )?.displayName ?? t`Select Reference Resource`;
 
     if (isSm) {
         return (
@@ -593,7 +715,7 @@ function ReferenceProjectList() {
                 <Menu.Target>
                     <ActionIconSimple
                         data-testid={TESTING_IDS.referenceProjectTrigger}
-                        aria-label={t`Select reference project`}
+                        aria-label={t`Select reference resource`}
                     >
                         <BookCopy size={16} />
                     </ActionIconSimple>
@@ -606,62 +728,23 @@ function ReferenceProjectList() {
                 >
                     <Menu.Item
                         onClick={() => {
-                            referenceProject.setReferenceProjectId(undefined);
+                            referenceResource.setActiveReferenceResourcePath(
+                                undefined,
+                            );
                             setMobileTab("main");
                         }}
                         data-testid={TESTING_IDS.referenceProjectClear}
                         className={styles.clearReferenceProject}
                     >
-                        {t`Clear Reference Project`}
+                        {t`Clear Reference Resource`}
                     </Menu.Item>
-                    {Object.entries(groupedProjects).map(
-                        ([languageName, projects]) => (
-                            <div key={languageName}>
-                                <Menu.Label className={styles.languageLabel}>
-                                    {languageName}
-                                </Menu.Label>
-                                {projects.map((project) => {
-                                    const isCurrent = isCurrentProject(project);
-                                    return (
-                                        <Menu.Item
-                                            key={project.id}
-                                            onClick={() =>
-                                                !isCurrent &&
-                                                referenceProject.setReferenceProjectId(
-                                                    project.projectDirectoryPath,
-                                                )
-                                            }
-                                            data-testid={
-                                                TESTING_IDS.referenceProjectItem
-                                            }
-                                            disabled={isCurrent}
-                                            color={
-                                                isCurrent ? "gray" : undefined
-                                            }
-                                            className={styles.projectItem}
-                                        >
-                                            <span
-                                                className={
-                                                    styles.projectItemContent
-                                                }
-                                            >
-                                                {project.name}
-                                                {isCurrent && (
-                                                    <span
-                                                        className={
-                                                            styles.currentProjectIndicator
-                                                        }
-                                                    >
-                                                        <Trans>(Current)</Trans>
-                                                    </span>
-                                                )}
-                                            </span>
-                                        </Menu.Item>
-                                    );
-                                })}
-                            </div>
-                        ),
-                    )}
+                    <ReferenceResourceMenuSections
+                        groupedResources={groupedResources}
+                        isCurrentProject={isCurrentProject}
+                        setActiveReferenceResourcePath={
+                            referenceResource.setActiveReferenceResourcePath
+                        }
+                    />
                 </Menu.Dropdown>
             </Menu>
         );
@@ -675,6 +758,7 @@ function ReferenceProjectList() {
         >
             <Menu.Target>
                 <Button
+                    data-testid={TESTING_IDS.referenceProjectTrigger}
                     variant="light"
                     rightSection={<ChevronDown size={16} />}
                     className={styles.referenceProjectButton}
@@ -693,60 +777,23 @@ function ReferenceProjectList() {
             >
                 <Menu.Item
                     onClick={() => {
-                        referenceProject.setReferenceProjectId(undefined);
+                        referenceResource.setActiveReferenceResourcePath(
+                            undefined,
+                        );
                         setMobileTab("main");
                     }}
                     data-testid={TESTING_IDS.referenceProjectClear}
                     className={styles.clearReferenceProject}
                 >
-                    <Trans>Clear Reference Project</Trans>
+                    <Trans>Clear Reference Resource</Trans>
                 </Menu.Item>
-                {Object.entries(groupedProjects).map(
-                    ([languageName, projects]) => (
-                        <div key={languageName}>
-                            <Menu.Label className={styles.languageLabel}>
-                                {languageName}
-                            </Menu.Label>
-                            {projects.map((project) => {
-                                const isCurrent = isCurrentProject(project);
-                                return (
-                                    <Menu.Item
-                                        key={project.id}
-                                        data-testid={
-                                            TESTING_IDS.referenceProjectItem
-                                        }
-                                        onClick={() =>
-                                            !isCurrent &&
-                                            referenceProject.setReferenceProjectId(
-                                                project.projectDirectoryPath,
-                                            )
-                                        }
-                                        disabled={isCurrent}
-                                        color={isCurrent ? "gray" : undefined}
-                                        className={styles.projectItem}
-                                    >
-                                        <span
-                                            className={
-                                                styles.projectItemContent
-                                            }
-                                        >
-                                            {project.name}
-                                            {isCurrent && (
-                                                <span
-                                                    className={
-                                                        styles.currentProjectIndicator
-                                                    }
-                                                >
-                                                    <Trans>(Current)</Trans>
-                                                </span>
-                                            )}
-                                        </span>
-                                    </Menu.Item>
-                                );
-                            })}
-                        </div>
-                    ),
-                )}
+                <ReferenceResourceMenuSections
+                    groupedResources={groupedResources}
+                    isCurrentProject={isCurrentProject}
+                    setActiveReferenceResourcePath={
+                        referenceResource.setActiveReferenceResourcePath
+                    }
+                />
             </Menu.Dropdown>
         </Menu>
     );

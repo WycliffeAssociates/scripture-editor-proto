@@ -1,17 +1,16 @@
 import type { LexicalEditor, LexicalNode } from "lexical";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 /**
- * Calculates if the current position is visually at the start of a line,
- * accounting for the first preceding node and linebreaks.
- *
- * @param anchorNode - The USFMTextNode where the selection is anchored
- * @param anchorOffset - The offset within the anchorNode
- * @returns An object containing the calculated start-of-line status and the adjusted anchor node/offset
+ * Lexical's logical anchor does not always match the user's visual caret position.
+ * In regular mode, hidden marker nodes can sit immediately before the visible
+ * token the user thinks they are editing. This helper resolves that visual
+ * intention back to the structural node/offset the insertion pipeline should
+ * actually mutate.
  */
 export function calculateIsStartOfLine(
     anchorNode: USFMTextNode,
@@ -41,7 +40,7 @@ export function calculateIsStartOfLine(
     // at the start of a line while still being inside a hidden marker node (e.g. inside `\\v `).
     const anchorIsHidden =
         isDomHidden(anchorNode) ||
-        (opts?.editorMode === "regular" &&
+        (opts?.editorMode === EDITOR_MODES.regular &&
             (anchorNode.getTokenType() === "marker" ||
                 anchorNode.getTokenType() === "endMarker"));
 
@@ -60,7 +59,7 @@ export function calculateIsStartOfLine(
     // If the caret is sitting at the end of a hidden structural marker (e.g. `\v `)
     // in regular mode, treat that as the start of the line for insertion purposes.
     if (
-        opts?.editorMode === "regular" &&
+        opts?.editorMode === EDITOR_MODES.regular &&
         anchorIsHidden &&
         (anchorNode.getTokenType() === "marker" ||
             anchorNode.getTokenType() === "endMarker")
@@ -82,7 +81,7 @@ export function calculateIsStartOfLine(
     // When we're at a start-of-line candidate, shift the anchor backward to the
     // earliest contiguous hidden marker immediately preceding the anchor.
     if (
-        opts?.editorMode === "regular" &&
+        opts?.editorMode === EDITOR_MODES.regular &&
         anchorOffset === 0 &&
         !anchorIsHidden
     ) {
@@ -142,7 +141,10 @@ export function calculateIsStartOfLine(
         }
 
         // Heuristic fallback when DOM is unavailable: in regular mode, marker tokens are hidden.
-        if (opts?.editorMode === "regular" && $isUSFMTextNode(prev)) {
+        if (
+            opts?.editorMode === EDITOR_MODES.regular &&
+            $isUSFMTextNode(prev)
+        ) {
             const tt = prev.getTokenType();
             if (tt === "marker" || tt === "endMarker") {
                 prev = prev.getPreviousSibling();

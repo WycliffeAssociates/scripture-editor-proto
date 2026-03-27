@@ -11,6 +11,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHydrationToken.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
     isDocumentMarker,
     isValidParaMarker,
@@ -18,9 +19,15 @@ import {
 
 type NestedEditorSerialization = "decorator" | "flat";
 
+/**
+ * The editor persists Lexical JSON, but several downstream flows still need a
+ * flat, reading-order USFM-like representation. These helpers rebuild that bridge
+ * while preserving enough metadata for mode switching, diffing, and nested editor
+ * content.
+ */
 function serializeTokens(
     tokens: LexicalHydrationToken[],
-    languageDirection: "ltr" | "rtl",
+    languageDirection: LanguageDirection,
     nestedEditors: NestedEditorSerialization,
 ): USFMNodeJSON[] {
     const out: USFMNodeJSON[] = [];
@@ -34,7 +41,7 @@ function serializeTokens(
 
 function serializeTokenToNodes(
     token: LexicalHydrationToken,
-    languageDirection: "ltr" | "rtl",
+    languageDirection: LanguageDirection,
     nestedEditors: NestedEditorSerialization,
 ): USFMNodeJSON[] {
     const marker = token.marker ?? "";
@@ -83,11 +90,12 @@ function serializeTokenToNodes(
 
 function serializeLeafToken(
     token: LexicalHydrationToken,
-    languageDirection: "ltr" | "rtl",
+    languageDirection: LanguageDirection,
 ): USFMNodeJSON {
     return serializeToken(token, languageDirection);
 }
 
+// TODO: move this into the shared onion marker registry once `s5` is modeled there.
 const isSectionMarker = (marker: string) =>
     marker === "s" || /^s\d+$/u.test(marker);
 const isContainerStartMarker = (marker: string) =>
@@ -98,12 +106,12 @@ const isContainerStartMarker = (marker: string) =>
 
 export function groupFlatNodesIntoParagraphContainers(
     flatNodes: USFMNodeJSON[],
-    languageDirection: "ltr" | "rtl",
+    languageDirection: LanguageDirection,
 ): USFMNodeJSON[] {
     type ParagraphContainer = {
         type: typeof USFM_PARAGRAPH_NODE_TYPE;
         version: 1;
-        direction: "ltr" | "rtl";
+        direction: LanguageDirection;
         format: "start";
         indent: 0;
         tokenType: string;
@@ -237,7 +245,7 @@ function getContainerStartMarkerFromNode(
 
 function serializeToken(
     token: LexicalHydrationToken,
-    languageDirection: "ltr" | "rtl",
+    languageDirection: LanguageDirection,
 ): USFMNodeJSON {
     //
     if (

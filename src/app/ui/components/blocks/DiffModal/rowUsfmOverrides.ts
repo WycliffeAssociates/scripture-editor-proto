@@ -1,5 +1,12 @@
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 
+/**
+ * Per-row USFM visibility overrides for the diff list.
+ *
+ * The diff modal has a global “show markers” toggle, but users sometimes need
+ * to inspect one row in USFM without switching the entire modal. This tiny state
+ * helper keeps that override logic out of the renderer.
+ */
 export type RowUsfmOverrides = Record<string, boolean>;
 
 export function getRowUsfmOverrideKey(diff: ProjectDiff): string {

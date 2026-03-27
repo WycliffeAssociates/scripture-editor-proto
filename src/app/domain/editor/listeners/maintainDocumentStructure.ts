@@ -7,7 +7,11 @@ import {
     type LexicalEditor,
     type LexicalNode,
 } from "lexical";
-import { EDITOR_TAGS_USED, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    EDITOR_TAGS_USED,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { $isUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { $isUSFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
@@ -36,15 +40,22 @@ export type DocStructureFxnArgs = {
 };
 export type MainDocumentStrutureFxn = (args: DocStructureFxnArgs) => void;
 
-// only works on 1 main editor
-// This function is concnered with making sure the eidtor doesn't get into weird states where you can add text between a marker or after averse number cause you deleted it all. It also keeps the document flat by merging adjacent text nodes of the same type.
+/**
+ * Sweep the current editor state for structural invariants that should hold
+ * after user edits.
+ *
+ * The interactive listeners handle fast, local fixes while the user types.
+ * This function is the broader repair pass that keeps the document from
+ * drifting into impossible USFM states such as detached markers, malformed
+ * number ranges, or token boundaries that no longer make sense after edits.
+ */
 export function maintainDocumentStructure(
     editorState: EditorState,
     editor: LexicalEditor,
     appSettings: Settings,
 ) {
-    const editorModeSetting = appSettings.editorMode ?? "regular";
-    const tierBEnabled = editorModeSetting !== "plain";
+    const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
+    const tierBEnabled = editorModeSetting !== EDITOR_MODES.plain;
     const allNodes = editorState.read(() => [...$dfsIterator()]);
     let totalUpdates = 0;
 
@@ -110,11 +121,6 @@ export function maintainDocumentStructure(
     }
     if (totalUpdates > 0) {
     }
-
-    // Regular-mode structural enforcement
-    //   if (editorModeSetting === "regular") {
-    //     enforceRegularModeParagraphStructure(editor);
-    //   }
 }
 
 /**
@@ -228,7 +234,13 @@ export function maintainDocumentStructure(
     );
 } */
 
-// This function shouldn't be run often. It's just to keep the dom size down by merging similar nodes and anythign else that isn't frame rate sensitive.. when it wasn't debounced, it was causing issues with copy/paste
+/**
+ * Debounced wrapper for the broader structure-maintenance sweep.
+ *
+ * Some repairs are valuable but too expensive or disruptive to run on every
+ * keystroke. This version is used where we want the document to settle back
+ * into shape shortly after editing without fighting copy/paste or rapid input.
+ */
 export function maintainDocumentStructureDebounced(
     editorState: EditorState,
     editor: LexicalEditor,
@@ -256,16 +268,6 @@ export function maintainDocumentStructureDebounced(
         //     updates,
         //     appSettings,
         // });
-
-        // if (editorModeSetting === "regular") {
-        //     for (const { node } of allNodes) {
-        //         if (!$isUSFMParagraphNode(node)) continue;
-        //         const hasAnyTextNode = node.getChildren().some($isUSFMTextNode);
-        //         if (!hasAnyTextNode) {
-        //             paraKeysNeedingEditableFallback.push(node.getKey());
-        //         }
-        //     }
-        // }
     });
 
     if (updates.length) {
@@ -496,8 +498,9 @@ const fixNumberRangeReparenting: MainDocumentStrutureFxn = ({
 
 export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrutureFxn =
     ({ node, tokenType, updates, appSettings }) => {
-        const editorModeSetting = appSettings.editorMode ?? "regular";
-        const tierBEnabled = editorModeSetting !== "plain";
+        const editorModeSetting =
+            appSettings.editorMode ?? EDITOR_MODES.regular;
+        const tierBEnabled = editorModeSetting !== EDITOR_MODES.plain;
         if (!tierBEnabled) return;
 
         const nextSibling = node.getNextSibling();
@@ -508,7 +511,7 @@ export const ensureNumberRangeAlwaysFollowsMarkerExpectingNum: MainDocumentStrut
         if (!marker) return;
         if (!CHAPTER_VERSE_MARKERS.has(marker)) return;
 
-        const isRegularMode = editorModeSetting === "regular";
+        const isRegularMode = editorModeSetting === EDITOR_MODES.regular;
 
         // Regular mode only: if a chapter/verse marker is separated from its numberRange by
         // one or more linebreaks (e.g. "\\v" then Enter, resulting in "\\v\n13"), treat that as accidental.
@@ -769,6 +772,7 @@ type DebouncedStructuralUpdatesArgs = {
     }>;
 };
 
+// for lint which depends on tokens, it's actually needed to merge things are logically same type same sid together.
 const mergeAdjacentTextNodesOfSameType = ({
     allNodes,
     updates,

@@ -66,15 +66,16 @@ export type MaterializeOptions = {
 /**
  * Materializes a flat token stream from serialized Lexical root children.
  *
- * This adapter handles both:
- * 1. **Flat token streams** (legacy/USFM mode): nodes are yielded as-is
- * 2. **Paragraph-tree structure** (Regular mode): USFMParagraphNode containers are
- *    expanded into a synthetic paragraph marker token followed by their children
+ * The editor stores different tree shapes depending on mode. Search, lint, diff,
+ * and some import/export paths still need one consistent flat reading-order stream.
+ * This adapter is the bridge back to that representation.
  *
- * Nested editor content is included in reading order.
+ * It handles both:
+ * 1. flat token streams from source-oriented modes
+ * 2. paragraph-container trees from regular mode
  *
- * @param rootChildren - The serialized root children from Lexical editor state
- * @yields SerializedLexicalNode in flat reading order
+ * Nested editor content is included in reading order unless callers explicitly ask
+ * to preserve nested nodes as atomic entries.
  */
 function* materializeFlatTokensFromSerialized(
     rootChildren: SerializedLexicalNode[],
@@ -143,8 +144,8 @@ export function materializeFlatTokensArray(
 }
 
 /**
- * A sliding window iterator for linting operations.
- * Yields { prev, curr, next } tuples for each token in the flat stream.
+ * Yields a sliding window over the materialized flat stream for transforms that
+ * need local neighbor context without repeatedly rewriting index math.
  */
 export type TokenWindow = {
     prev: SerializedLexicalNode | undefined;

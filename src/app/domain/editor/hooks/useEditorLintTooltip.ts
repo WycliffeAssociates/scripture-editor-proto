@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DATA_JS } from "@/app/data/constants.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type TooltipPosition = { x: number; y: number };
@@ -8,6 +9,14 @@ export type UseEditorLintTooltipReturn = {
     tooltipPosition: TooltipPosition | null;
 };
 
+/**
+ * Drive the hover tooltip for lint markers rendered inside the editor DOM.
+ *
+ * Lint issues are attached to token DOM nodes after the lint pass runs. This
+ * hook listens at the document level so the tooltip can stay open while the
+ * pointer moves between the highlighted token and the overlay itself, without
+ * each token needing its own React event wiring.
+ */
 export function useEditorLintTooltip(
     allLintMessages: LintIssue[],
 ): UseEditorLintTooltipReturn {
@@ -22,7 +31,9 @@ export function useEditorLintTooltip(
         let hideTimeout: number | null = null;
         const isWithinLintTooltip = (target: EventTarget | null) => {
             if (!(target instanceof HTMLElement)) return false;
-            return Boolean(target.closest('[data-js="lint-tooltip-overlay"]'));
+            return Boolean(
+                target.closest(`[data-js="${DATA_JS.lintTooltipOverlay}"]`),
+            );
         };
         const getLintTarget = (target: EventTarget | null) => {
             if (!(target instanceof HTMLElement)) return null;

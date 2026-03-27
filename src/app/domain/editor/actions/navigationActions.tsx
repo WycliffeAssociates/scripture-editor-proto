@@ -1,6 +1,10 @@
 import { BookIcon } from "lucide-react";
 import type { EditorAction } from "./types.ts";
 
+/**
+ * Palette commands that leave the current cursor context and move the user to a
+ * scripture reference.
+ */
 export const NAVIGATION_ACTIONS: EditorAction[] = [
     {
         id: "go-to-reference",

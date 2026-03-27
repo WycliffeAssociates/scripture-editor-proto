@@ -6,6 +6,12 @@ import { SEARCH_ACTIONS } from "./searchActions.ts";
 import { THEME_ACTIONS } from "./themeActions.ts";
 import type { EditorAction, EditorContext } from "./types.ts";
 
+/**
+ * Full action-palette registry.
+ *
+ * The palette composes multiple action families into one searchable command
+ * surface rather than each UI feature owning its own bespoke launcher.
+ */
 const EDITOR_ACTIONS: EditorAction[] = [
     ...NAVIGATION_ACTIONS,
     ...SEARCH_ACTIONS,
@@ -15,12 +21,17 @@ const EDITOR_ACTIONS: EditorAction[] = [
     ...PRETTIFY_ACTIONS,
 ];
 
+/**
+ * Reorder visible actions for the current context.
+ *
+ * This exists because some contexts have a single highly likely intent. For
+ * example, when the caret can promote a verse number, the "make verse marker"
+ * action is disproportionately relevant and should surface first.
+ */
 function sortVisibleActions(
     visible: EditorAction[],
     context: EditorContext,
 ): EditorAction[] {
-    //  1. If we're in regular mode and have a verse number selection, move the "make verse marker" action to the front since it's most likely
-
     if (!context.canMakeVerseMarkerFromCursor) return visible;
 
     const index = visible.findIndex(
@@ -33,6 +44,10 @@ function sortVisibleActions(
     return visible;
 }
 
+/**
+ * Return the context-filtered action palette entries for the current editor
+ * state.
+ */
 export function getVisibleActions(context: EditorContext): EditorAction[] {
     const visible = EDITOR_ACTIONS.filter((action) =>
         action.isVisible(context),

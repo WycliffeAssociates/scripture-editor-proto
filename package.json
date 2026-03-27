@@ -56,7 +56,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-highlight-words": "^0.21.0",
-    "react-use": "17.6.0",
+    "react-markdown": "^10.1.0",
     "usfm-onion-web": "github:WycliffeAssociates/usfm-onion#03947775b9c0c67830ea1de9df8659841bd2008d",
     "valibot": "^1.3.0",
     "yaml": "2.8.1"

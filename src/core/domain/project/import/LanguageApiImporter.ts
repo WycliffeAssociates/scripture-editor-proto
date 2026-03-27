@@ -1,5 +1,9 @@
 import * as v from "valibot";
 
+/**
+ * Schema for the subset of the language API payload the import UI actually uses
+ * to render candidate resources and turn a selection into an archive URL.
+ */
 const ConsolidatedRepoSchema = v.object({
     language_ietf: v.string(),
     language_name: v.string(),
@@ -24,6 +28,13 @@ export interface ConsolidatedRepo {
     username: string;
 }
 
+/**
+ * Discover remote resources that can be imported through the create/import UI.
+ *
+ * This is source discovery, not the import pipeline itself. The chosen repo
+ * still becomes a zip URL that later flows through the normal archive import
+ * path.
+ */
 export async function fetchConsolidatedRepos(): Promise<ConsolidatedRepo[]> {
     // TODO: remove this default URL when the environment variable is set
     const DEFAULT_LANGUAGE_API_URL =
@@ -41,6 +52,10 @@ export async function fetchConsolidatedRepos(): Promise<ConsolidatedRepo[]> {
     return v.parse(ConsolidatedReposResponseSchema, data).vw_consolidated_repos;
 }
 
+/**
+ * Produce a user-facing label for one repo entry while disambiguating duplicate
+ * titles that appear in the same UI group.
+ */
 export function formatRepoDisplay(
     repo: ConsolidatedRepo,
     reposInGroup: ConsolidatedRepo[],
@@ -60,6 +75,10 @@ export function formatRepoDisplay(
     }
 }
 
+/**
+ * Probe common default branches and return a direct archive URL the import
+ * pipeline can download.
+ */
 export async function getZipUrl(repo: ConsolidatedRepo): Promise<string> {
     const branches = ["master", "main"];
 

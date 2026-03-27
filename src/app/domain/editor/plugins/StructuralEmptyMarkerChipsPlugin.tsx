@@ -2,8 +2,14 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useEffect } from "react";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
+/**
+ * Structural empty paragraphs are meaningful USFM structure but visually subtle in
+ * regular mode because their marker tokens are hidden. Map them to human-readable
+ * labels so users understand what kind of blank line they are looking at.
+ */
 function getMarkerChipLabel(marker: string): string {
     switch (marker) {
         case "b":
@@ -35,12 +41,16 @@ function getMarkerChipLabel(marker: string): string {
     }
 }
 
+/**
+ * Annotates structurally empty paragraph containers with a visible label/tooltip in
+ * regular mode so blank-but-significant USFM structure remains discoverable.
+ */
 export function StructuralEmptyMarkerChipsPlugin() {
     const [editor] = useLexicalComposerContext();
     const { project } = useWorkspaceContext();
     const { i18n } = useLingui();
 
-    const editorMode = project?.appSettings.editorMode ?? "regular";
+    const editorMode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -65,7 +75,7 @@ export function StructuralEmptyMarkerChipsPlugin() {
                 }
             }
 
-            if (editorMode !== "regular") {
+            if (editorMode !== EDITOR_MODES.regular) {
                 const labeled = root.querySelectorAll<HTMLElement>(
                     ".usfm-para-container[data-marker-label]",
                 );

@@ -3,6 +3,11 @@ import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
 
 export type SortOption = "canonical" | "caseMismatch";
 
+/**
+ * Search execution produces raw result sets; this module reshapes them for UI use.
+ * That includes deduping, ordering, and aligning target/reference result sets so
+ * the search pane can render meaningful side-by-side comparisons.
+ */
 export function dedupeByVerse(items: SearchResult[]): SearchResult[] {
     const seen = new Set<string>();
     const deduped: SearchResult[] = [];

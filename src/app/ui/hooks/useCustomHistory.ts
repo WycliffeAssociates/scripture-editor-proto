@@ -7,7 +7,6 @@ import type {
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
@@ -21,6 +20,10 @@ import {
     HistoryManager,
 } from "@/app/domain/history/HistoryManager.ts";
 import { getUndoRedoNotificationTarget } from "@/app/domain/history/historyUndoRedoNotifications.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 
@@ -45,7 +48,7 @@ export type UndoRedoEvent = {
 };
 
 type UseCustomHistoryArgs = {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     editorRef: React.RefObject<LexicalEditor | null>;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -54,8 +57,8 @@ type UseCustomHistoryArgs = {
 };
 
 type HistoryChapterRecord = {
-    file: ParsedFile;
-    chapter: ParsedChapter;
+    file: ScriptureBookState;
+    chapter: ScriptureChapterState;
 };
 type SerializedEditorStateLike =
     SerializedEditorState<SerializedLexicalNode> & {
@@ -89,6 +92,14 @@ function cloneSelection(
 
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
 
+/**
+ * Workspace-owned history hook for scripture editing.
+ *
+ * Lexical emits granular updates, but the app wants undo/redo in terms of chapter
+ * snapshots, selection restoration, and user-visible transactions. This hook is
+ * the orchestration layer that captures editor changes, feeds `HistoryManager`,
+ * and reapplies snapshots back onto the working scripture noun.
+ */
 export function useCustomHistory({
     mutWorkingFilesRef,
     editorRef,
@@ -130,7 +141,8 @@ export function useCustomHistory({
             );
             if (!file) return null;
             const chapter = file.chapters.find(
-                (candidate) => candidate.chapNumber === chapterRef.chapterNum,
+                (candidate) =>
+                    candidate.chapterNumber === chapterRef.chapterNum,
             );
             if (!chapter) return null;
             return { file, chapter };
@@ -207,7 +219,7 @@ export function useCustomHistory({
         [readSelectionFromChapter],
     );
 
-    const markChapterDirty = useCallback((chapter: ParsedChapter) => {
+    const markChapterDirty = useCallback((chapter: ScriptureChapterState) => {
         chapter.currentTokens = lexicalToTokens(chapter.lexicalState);
         chapter.dirty =
             chapter.currentTokens.map((token) => token.text).join("") !==

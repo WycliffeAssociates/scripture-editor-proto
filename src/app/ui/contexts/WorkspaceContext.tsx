@@ -1,8 +1,8 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { createContext, useEffect, useRef } from "react";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import {
@@ -19,13 +19,10 @@ import {
 } from "@/app/ui/hooks/useDynamicStyles.tsx";
 import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint.tsx";
 import {
-    type ReferenceProjectHook,
-    useReferenceProject,
-} from "@/app/ui/hooks/useReferenceProject.tsx";
-import {
-    type UseProjectDiffsReturn,
-    useProjectDiffs,
-} from "@/app/ui/hooks/useSave.tsx";
+    type ReferenceItemHook,
+    useReferenceItem,
+} from "@/app/ui/hooks/useReferenceItem.tsx";
+import { type UseSaveReturn, useSave } from "@/app/ui/hooks/useSave.tsx";
 import {
     type UseSearchReturn,
     useProjectSearch,
@@ -34,26 +31,35 @@ import {
     useWorkspaceState,
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type {
-    ListedProject,
     Project,
-} from "@/core/persistence/ProjectRepository.ts";
+    ProjectListItem,
+} from "@/core/persistence/ScriptureWorkspace.ts";
 
+/**
+ * Aggregated workspace context for the scripture route.
+ *
+ * This is the main app-side handoff from loaded nouns and service seams into the
+ * UI layer. Downstream components should read the already-composed workspace,
+ * reference, search, lint, save, and history behaviors from here instead of
+ * reassembling those concerns ad hoc.
+ */
 export interface WorkSpaceContextType {
     editorRef: React.RefObject<LexicalEditor | null>;
     referenceEditorRef: React.RefObject<LexicalEditor | null>;
     settingsManager: SettingsManager;
-    allProjects: ListedProject[];
+    allProjects: ProjectListItem[];
     currentProjectRoute: string;
     project: WorkspaceState;
     actions: UseActionsHook;
-    referenceProject: ReferenceProjectHook;
+    referenceResource: ReferenceItemHook;
     search: UseSearchReturn;
     lint: UseLintReturn;
     cssStyleSheet: UseDynamicStylesheetHook;
-    saveDiff: UseProjectDiffsReturn;
+    save: UseSaveReturn;
     history: CustomHistoryHook;
-    projectLanguageDirection: "ltr" | "rtl";
+    projectLanguageDirection: LanguageDirection;
     isProcessing: boolean;
     bookCodeToProjectLocalizedTitle({
         bookCode,
@@ -66,7 +72,7 @@ export interface WorkSpaceContextType {
 
 type ProjectProviderProps = {
     currentProjectRoute: string;
-    projectFiles: ParsedFile[];
+    projectFiles: ScriptureBookState[];
     initialLintErrorsByBook: LintMessagesByBook;
     children: React.ReactNode;
     loadedProject: Project;
@@ -79,6 +85,14 @@ const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
 
 export { WorkspaceContext };
 
+/**
+ * Provider that assembles the live scripture workspace view model.
+ *
+ * Upstream route loaders have already produced the editable scripture noun and
+ * initial parsed state. This provider wires together the hooks that sit on top of
+ * that noun so child components can operate without repeated type narrowing or
+ * service plumbing.
+ */
 export const ProjectProvider = ({
     currentProjectRoute,
     projectFiles,
@@ -91,16 +105,17 @@ export const ProjectProvider = ({
     const editorRef = useRef<LexicalEditor | null>(null);
     const referenceEditorRef = useRef<LexicalEditor | null>(null);
     const { projects } = useLoaderData({ from: "__root__" });
-    const projectLanguageDirection = loadedProject.metadata.language.direction;
+    const projectLanguageDirection = loadedProject.language.direction;
 
     // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
     const mutWorkingFilesRef = useRef(projectFiles);
 
     const {
         settingsManager,
-        projectRepository,
-        directoryProvider,
-        md5Service,
+        projectsService,
+        libraryService,
+        fileSystem,
+        storageRoots,
         usfmOnionService,
         gitProvider,
     } = useRouter().options.context;
@@ -116,9 +131,9 @@ export const ProjectProvider = ({
         editorRef,
         currentFileBibleIdentifier: project.pickedFile.bookCode,
         currentChapter:
-            project.pickedChapter?.chapNumber || project.currentChapter,
+            project.pickedChapter?.chapterNumber || project.currentChapter,
     });
-    const saveDiff = useProjectDiffs({
+    const save = useSave({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         // setWorkingFiles,
         editorRef: editorRef,
@@ -126,9 +141,9 @@ export const ProjectProvider = ({
         pickedChapter: project.pickedChapter || null,
         loadedProject,
         history,
-        projectRepository,
-        directoryProvider,
-        md5Service,
+        projectsService,
+        fileSystem,
+        storageRoots,
         gitProvider,
         editorMode: settingsManager.get("editorMode"),
         allProjects: projects,
@@ -140,10 +155,12 @@ export const ProjectProvider = ({
         initialLintErrorsByBook,
     });
 
-    const referenceProject = useReferenceProject({
-        projectRepository: projectRepository,
+    const referenceResource = useReferenceItem({
+        projectsService,
+        libraryService,
+        fileSystem,
         pickedFileIdentifier: project.pickedFile.bookCode,
-        pickedChapterNumber: project.pickedChapter?.chapNumber || 0,
+        pickedChapterNumber: project.pickedChapter?.chapterNumber || 0,
         gitProvider,
     });
 
@@ -151,7 +168,7 @@ export const ProjectProvider = ({
         editorRef,
         loadedProject,
         currentChapter:
-            project.pickedChapter?.chapNumber || project.currentChapter,
+            project.pickedChapter?.chapterNumber || project.currentChapter,
         currentFileBibleIdentifier: project.pickedFile.bookCode,
         setCurrentChapter: project.setCurrentChapter,
         setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
@@ -161,10 +178,10 @@ export const ProjectProvider = ({
         // setWorkingFiles,
         pickedFile: project.pickedFile,
         mutWorkingFilesRef: mutWorkingFilesRef.current,
-        toggleDiffModal: saveDiff.toggleDiffModal,
-        updateDiffMapForChapter: saveDiff.updateDiffMapForChapter,
+        toggleDiffModal: save.diff.open,
+        updateDiffMapForChapter: save.diff.refreshChapter,
         replaceLintErrorsForBook: lint.replaceErrorsForBook,
-        referenceProject,
+        referenceResource,
         setIsProcessing: project.setIsProcessing,
         setFormatMatchReport: project.setFormatMatchReport,
         autoOpenFormatMatchSuggestions: project.autoOpenFormatMatchSuggestions,
@@ -176,7 +193,8 @@ export const ProjectProvider = ({
     });
     const search = useProjectSearch({
         workingFiles: projectFiles,
-        referenceFiles: referenceProject.referenceQuery.data?.parsedFiles,
+        referenceFiles:
+            referenceResource.referenceScriptureQuery.data?.parsedFiles,
         saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
@@ -200,7 +218,9 @@ export const ProjectProvider = ({
                             (candidate) => candidate.bookCode === bookCode,
                         ),
                     )
-                    .filter((file): file is ParsedFile => Boolean(file));
+                    .filter((file): file is ScriptureBookState =>
+                        Boolean(file),
+                    );
 
                 if (!touchedFiles.length) return;
 
@@ -226,7 +246,7 @@ export const ProjectProvider = ({
         bookCode: string;
         replaceCodeInString?: string;
     }) {
-        const file = loadedProject.files.find(
+        const file = loadedProject.books.find(
             (file) => file.bookCode === bookCode,
         );
         if (!file) return bookCode;
@@ -256,11 +276,11 @@ export const ProjectProvider = ({
                 currentProjectRoute,
                 project,
                 actions,
-                referenceProject,
+                referenceResource,
                 search,
                 lint,
                 cssStyleSheet,
-                saveDiff,
+                save,
                 history,
                 projectLanguageDirection,
                 isProcessing: project.isProcessing,

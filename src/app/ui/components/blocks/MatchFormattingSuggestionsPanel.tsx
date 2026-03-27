@@ -44,6 +44,13 @@ type PanelSize = {
     height: number;
 };
 
+/**
+ * Floating review panel for skipped formatting suggestions.
+ *
+ * Formatting runs can deliberately avoid auto-applying some changes when the app
+ * thinks user review is safer. This panel is the UI surface for stepping through
+ * those deferred suggestions near the user's current cursor context.
+ */
 function suggestionId({
     id,
     scope,

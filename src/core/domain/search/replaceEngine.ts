@@ -1,5 +1,12 @@
 import { escapeRegex } from "@/core/domain/search/searchEngine.ts";
 
+/**
+ * Replace helpers shared by app-level search/replace flows.
+ *
+ * The search layer finds matches against projected chapter text. These helpers are
+ * the small pure string operations used once a caller has already decided which
+ * match or text block should be rewritten.
+ */
 function buildSearchRegex(args: {
     searchTerm: string;
     matchCase: boolean;
@@ -11,6 +18,9 @@ function buildSearchRegex(args: {
     return new RegExp(pattern, flags);
 }
 
+/**
+ * Replace one known match span inside a single text buffer.
+ */
 export function replaceInNodeText(args: {
     text: string;
     start: number;
@@ -24,6 +34,9 @@ export function replaceInNodeText(args: {
     );
 }
 
+/**
+ * Replace every match of the current search query inside one text buffer.
+ */
 export function replaceMatchesInText(args: {
     text: string;
     searchTerm: string;

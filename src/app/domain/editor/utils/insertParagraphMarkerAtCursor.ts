@@ -6,8 +6,14 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { resolveTextInsertionAnchor } from "@/app/domain/editor/utils/resolveTextInsertionAnchor.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import { VALID_PARA_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
+/**
+ * Toolbar and action-palette commands need a simple "insert paragraph marker at
+ * the current caret" entrypoint. This helper resolves the live selection into the
+ * lower-level arguments expected by the shared marker insertion pipeline.
+ */
 export function insertParagraphMarkerAtCursor({
     editor,
     marker,
@@ -16,7 +22,7 @@ export function insertParagraphMarkerAtCursor({
 }: {
     editor: LexicalEditor;
     marker: string;
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
     editorMode: EditorModeSetting;
 }): boolean {
     let inserted = false;

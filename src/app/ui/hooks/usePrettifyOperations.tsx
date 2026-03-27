@@ -1,11 +1,15 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
     hideNotification,
     ShowNotificationInfo,
@@ -18,6 +22,13 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Higher-level formatting operations for the scripture workspace.
+ *
+ * These actions sit above the raw formatter/match-formatting engines. They decide
+ * which chapters or books are in scope, wrap the mutation in history/lint/update
+ * plumbing, and push the resulting lexical state back into the visible editor.
+ */
 export function useFormatOperations({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
@@ -29,7 +40,7 @@ export function useFormatOperations({
     saveCurrentDirtyLexical,
     history,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
@@ -38,25 +49,25 @@ export function useFormatOperations({
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
     const { usfmOnionService } = useRouter().options.context;
 
     type FormatScope = MatchFormattingScope;
-    const toChapterRefs = (file: ParsedFile) =>
+    const toChapterRefs = (file: ScriptureBookState) =>
         file.chapters.map((chapter) => ({
             bookCode: file.bookCode,
-            chapterNum: chapter.chapNumber,
+            chapterNum: chapter.chapterNumber,
         }));
 
     const allChapterRefs = () =>
         mutWorkingFilesRef.flatMap((file) => toChapterRefs(file));
 
-    const refreshLintForFiles = async (files: ParsedFile[]) => {
+    const refreshLintForFiles = async (files: ScriptureBookState[]) => {
         if (!files.length) return;
         const lintResultsByBook = await relintBookFiles(
             files,
@@ -70,14 +81,16 @@ export function useFormatOperations({
         }
     };
 
-    const chapterTokensForFormatting = (chapter: ParsedChapter) =>
+    const chapterTokensForFormatting = (chapter: ScriptureChapterState) =>
         chapter.currentTokens;
 
     const formatChapterInPlace = async (
-        file: ParsedFile,
+        file: ScriptureBookState,
         chapterNum: number,
     ) => {
-        const chapter = file.chapters.find((c) => c.chapNumber === chapterNum);
+        const chapter = file.chapters.find(
+            (c) => c.chapterNumber === chapterNum,
+        );
         if (!chapter) return { changed: false as const };
 
         const chapterTokens = chapterTokensForFormatting(chapter);
@@ -99,7 +112,7 @@ export function useFormatOperations({
         chapter.lexicalState = tokensToLexical({
             tokens: result.tokens,
             direction,
-            mode: targetMode === "regular" ? "regular" : "flat",
+            mode: targetMode === EDITOR_MODES.regular ? "regular" : "flat",
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =
@@ -108,7 +121,7 @@ export function useFormatOperations({
         return { changed: true as const };
     };
 
-    const formatBookInPlace = async (file: ParsedFile) => {
+    const formatBookInPlace = async (file: ScriptureBookState) => {
         const baselineTokens = file.chapters.flatMap((chapter) =>
             chapterTokensForFormatting(chapter),
         );
@@ -183,7 +196,7 @@ export function useFormatOperations({
                             targetChapterNumber === currentChapter
                         ) {
                             const chapter = file.chapters.find(
-                                (c) => c.chapNumber === targetChapterNumber,
+                                (c) => c.chapterNumber === targetChapterNumber,
                             );
                             if (!chapter) return;
                             setEditorContent(
@@ -235,7 +248,7 @@ export function useFormatOperations({
 
                         if (file.bookCode === currentFileBibleIdentifier) {
                             const currentChap = file.chapters.find(
-                                (c) => c.chapNumber === currentChapter,
+                                (c) => c.chapterNumber === currentChapter,
                             );
 
                             if (currentChap) {
@@ -285,7 +298,7 @@ export function useFormatOperations({
                         },
                     );
 
-                    const modifiedFiles: ParsedFile[] = [];
+                    const modifiedFiles: ScriptureBookState[] = [];
                     for (let i = 0; i < mutWorkingFilesRef.length; i++) {
                         const file = mutWorkingFilesRef[i];
                         const result = batchResults[i];
@@ -341,7 +354,7 @@ export function useFormatOperations({
                             (f) => f.bookCode === currentFileBibleIdentifier,
                         );
                         const currentChap = currentFile?.chapters.find(
-                            (c) => c.chapNumber === currentChapter,
+                            (c) => c.chapterNumber === currentChapter,
                         );
                         if (currentChap) {
                             setEditorContent(
@@ -372,7 +385,7 @@ export function useFormatOperations({
         }
     }
 
-    async function revertFormat(backup: ParsedFile[]) {
+    async function revertFormat(backup: ScriptureBookState[]) {
         mutWorkingFilesRef.length = 0;
         mutWorkingFilesRef.push(...backup);
 
@@ -380,7 +393,7 @@ export function useFormatOperations({
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         const currentChap = currentFile?.chapters.find(
-            (c) => c.chapNumber === currentChapter,
+            (c) => c.chapterNumber === currentChapter,
         );
         if (currentChap) {
             setEditorContent(

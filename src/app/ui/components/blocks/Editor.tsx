@@ -7,7 +7,7 @@ import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -24,6 +24,14 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
+/**
+ * Main editable scripture surface.
+ *
+ * The route and workspace provider have already narrowed the current item to an
+ * editable scripture workspace before this component renders. That lets this
+ * component stay focused on mounting the Lexical editor shell and the plugins
+ * that keep it aligned with USFM semantics.
+ */
 export function MainEditor() {
     const { editorRef, project, search } = useWorkspaceContext();
 
@@ -34,7 +42,7 @@ export function MainEditor() {
         >
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
-                    data-js="editor-container"
+                    data-js={DATA_JS.editorContainer}
                     data-testid={TESTING_IDS.mainEditorContainer}
                     className={`editor-container ${shellStyles.editorContainer}`}
                 >
@@ -97,6 +105,12 @@ export function MainEditor() {
     );
 }
 
+/**
+ * Lexical configuration for the main scripture editor.
+ *
+ * This is the point where the generic Lexical runtime is taught about the
+ * custom USFM node model the rest of the editor pipeline expects.
+ */
 function getIntialConfig(): InitialConfigType {
     return {
         namespace: "USFMEditor",

@@ -1,5 +1,12 @@
 import type { UsfmMarkerCatalog } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Marker registry used by editor/import/prettify code that needs fast membership
+ * checks without repeatedly carrying the whole marker catalog around.
+ *
+ * The registry is initialized from the USFM Onion marker catalog and then exposes
+ * readonly marker sets for the rest of the application.
+ */
 const LOCAL_ONLY_MARKERS = [
     "lim4",
     "liv1",

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
-import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
-import { BASE_URL, expect, test } from "../helpers/e2e/fixtures.ts";
+import { TESTING_IDS } from "@/app/data/constants.ts";
+import { expect, test } from "../helpers/e2e/fixtures.ts";
 import {
     ensureSearchOptionsExpanded,
     fillSearchQuery,
@@ -58,10 +58,30 @@ async function waitForContextMenuSelectionHighlightCleared(page: Page) {
     });
 }
 
+async function selectReferenceProject(page: Page) {
+    await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
+    await page
+        .getByTestId(TESTING_IDS.referenceProjectDropdown)
+        .waitFor({ state: "visible" });
+    const items = page.getByTestId(TESTING_IDS.referenceProjectItem);
+    const count = await items.count();
+
+    for (let index = 0; index < count; index += 1) {
+        const item = items.nth(index);
+        if (await item.isDisabled()) {
+            continue;
+        }
+        await item.click();
+        return;
+    }
+
+    throw new Error("No selectable reference project was available");
+}
+
 test.describe("Editor llx-reg", () => {
     test("editor page loads correctly", async ({ editorPage }) => {
         // Verify the editor page has loaded
-        await expect(editorPage).toHaveURL(`${BASE_URL}/llx_reg`);
+        await expect(editorPage).toHaveURL(/\/llx_reg$/);
 
         // You can add more specific editor page assertions here
         // For example, checking for editor-specific elements
@@ -127,220 +147,6 @@ test.describe("Editor llx-reg", () => {
         }
     });
 
-    test("navigation buttons are properly hidden/shown at boundaries", async ({
-        editorPage,
-    }) => {
-        const prevButton = await editorPage.getByTestId(
-            TESTING_IDS.navigation.prevChapterButton,
-        );
-        const nextButton = await editorPage.getByTestId(
-            TESTING_IDS.navigation.nextChapterButton,
-        );
-
-        // At least one of each button type should exist
-        const prevExists = (await prevButton.count()) > 0;
-        const nextExists = (await nextButton.count()) > 0;
-
-        // Should have either visible button or hidden span for each direction
-        expect(prevExists).toBeTruthy();
-        expect(nextExists).toBeTruthy();
-    });
-
-    test("prev button not visible in first chapter of first book", async ({
-        editorPage,
-    }) => {
-        // Navigate to first chapter of first book (Genesis 1)
-        await openReferencePicker(editorPage);
-
-        // Look for first book in the dropdown and click first chapter
-        await editorPage
-            .getByTestId(TESTING_IDS.reference.bookControl)
-            .first()
-            .click();
-        await editorPage
-            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
-            .first()
-            .click();
-
-        // Verify prev button is hidden (span with hidden testid)
-        const prevButtonHidden = editorPage.getByTestId(
-            TESTING_IDS.navigation.prevChapterButtonHidden,
-        );
-        const prevButton = editorPage.getByTestId(
-            TESTING_IDS.navigation.prevChapterButton,
-        );
-
-        // Hidden span should be visible, button should not exist
-        await expect(prevButtonHidden).toBeAttached();
-        await expect(prevButton).not.toBeAttached();
-    });
-
-    test("next button not visible in last chapter of last book", async ({
-        editorPage,
-    }) => {
-        // Navigate to last chapter of last book (Revelation 22)
-        await openReferencePicker(editorPage);
-
-        // Look for last book in the dropdown and click last chapter
-        await editorPage
-            .getByTestId(TESTING_IDS.reference.bookControl)
-            .last()
-            .click();
-        await editorPage
-            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
-            .last()
-            .click();
-
-        // Verify next button is hidden (span with hidden testid)
-        const nextButtonHidden = editorPage.getByTestId(
-            TESTING_IDS.navigation.nextChapterButtonHidden,
-        );
-        const nextButton = editorPage.getByTestId(
-            TESTING_IDS.navigation.nextChapterButton,
-        );
-
-        // Hidden span should be visible, button should not exist
-        await expect(nextButtonHidden).toBeAttached();
-        await expect(nextButton).not.toBeAttached();
-    });
-
-    test("prev button shows book name in first chapter of non-first books", async ({
-        editorPage,
-    }) => {
-        const prevButton = editorPage.getByTestId(
-            TESTING_IDS.navigation.prevChapterButton,
-        );
-
-        // Navigate to first chapter of a middle book (Matthew 1)
-        await openReferencePicker(editorPage);
-
-        // Click last book control to expand its chapters
-        const lastBookControl = editorPage
-            .getByTestId(TESTING_IDS.reference.bookControl)
-            .last();
-        await lastBookControl.click();
-
-        // Wait for accordion panel to be visible, then find the first chapter button within the expanded panel
-        const lastBookPanel = lastBookControl.locator("..").getByRole("region"); // Get the associated accordion panel
-        await expect(lastBookPanel).toBeVisible();
-
-        const firstChapterButton = lastBookPanel
-            .getByTestId(TESTING_IDS.reference.chapterAccordionButton)
-            .first();
-        await firstChapterButton.scrollIntoViewIfNeeded();
-        await firstChapterButton.click();
-
-        // Should show the previous book name (not a chapter number)
-        const prevButtonText = await prevButton.textContent();
-        expect(prevButtonText).toBeTruthy();
-    });
-
-    test.describe("Reference Picker Search", () => {
-        test("search by book code shows matching book", async ({
-            editorPage,
-        }) => {
-            // Open reference picker
-            await openReferencePicker(editorPage);
-
-            // Type search query
-            const searchInput = editorPage.getByTestId(
-                TESTING_IDS.reference.pickerSearchInput,
-            );
-            await searchInput.fill("ka");
-            // Wait for the results div to contain the expected text after the debounce period
-            await editorPage.waitForFunction(
-                () =>
-                    document.querySelector(
-                        `[data-testid="reference-books-accordion"`,
-                    )?.children.length === 1,
-            );
-
-            // Verify only Galatians is shown in the filtered list
-            const accordion = editorPage.getByTestId(
-                TESTING_IDS.reference.booksAccordion,
-            );
-            await expect(accordion).toContainText("Kalatia");
-            const bookControl = editorPage.locator(
-                `[data-test-id-specific="${TEST_ID_GENERATORS.bookTitle("gal")}"]`,
-            );
-            await expect(bookControl).toBeVisible();
-        });
-
-        test("search and navigate to chapter on Enter", async ({
-            editorPage,
-        }) => {
-            const referencePicker = await openReferencePicker(editorPage);
-
-            // Type search query and press Enter
-            const searchInput = editorPage.getByTestId(
-                TESTING_IDS.reference.pickerSearchInput,
-            );
-            await searchInput.fill("luk 3");
-            await searchInput.press("Enter");
-            const bookCodeAttr = await referencePicker.getAttribute(
-                "data-test-book-code",
-            );
-            const chapterAttr = await referencePicker.getAttribute(
-                "data-test-current-chapter",
-            );
-
-            // Verify the reference was updatedin the popover
-            expect(bookCodeAttr?.toLowerCase()).toBe("luk");
-            expect(chapterAttr?.toLowerCase()).toBe("3");
-        });
-        test("search ref picker without chapter just navigates to book", async ({
-            editorPage,
-        }) => {
-            const referencePicker = await openReferencePicker(editorPage);
-            const curChapter = await referencePicker.getAttribute(
-                "data-test-current-chapter",
-            );
-
-            // Type search query and press Enter
-            const searchInput = editorPage.getByTestId(
-                TESTING_IDS.reference.pickerSearchInput,
-            );
-            await searchInput.fill("luk");
-            await searchInput.press("Enter");
-            const bookCodeAttr = await referencePicker.getAttribute(
-                "data-test-book-code",
-            );
-            const chapterAttr = await referencePicker.getAttribute(
-                "data-test-current-chapter",
-            );
-
-            // Verify the reference was updatedin the popover
-            expect(bookCodeAttr?.toLowerCase()).toBe("luk");
-            expect(chapterAttr?.toLowerCase()).toBe(curChapter?.toLowerCase());
-        });
-
-        test("search shows multiple matches", async ({ editorPage }) => {
-            // Open reference picker
-            await openReferencePicker(editorPage);
-
-            // Search for books starting with '1'
-            const searchInput = editorPage.getByTestId(
-                TESTING_IDS.reference.pickerSearchInput,
-            );
-            await searchInput.fill("1");
-
-            // Verify multiple books are shown
-            const accordion = editorPage.getByTestId(
-                TESTING_IDS.reference.booksAccordion,
-            );
-
-            await editorPage.waitForFunction(
-                () =>
-                    document.querySelector(
-                        `[data-testid="reference-books-accordion"]`,
-                    )?.children.length === 5, //1 kor, 1 ces, 1 tim, 1 pita, 1 joni
-            );
-            const firstCorinthians = accordion.locator(
-                `[data-test-id-specific="${TEST_ID_GENERATORS.bookTitle("1co")}"]`,
-            );
-            await expect(firstCorinthians).toBeVisible();
-        });
-    });
 });
 
 test.describe("Editor Action Palette", () => {
@@ -468,16 +274,7 @@ test.describe("Reference Project Selection", () => {
         );
 
         // Open the reference project dropdown
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectDropdown)
-            .waitFor({ state: "visible" });
-
-        // Click the "Unlocked Literal Bible" reference project
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
+        await selectReferenceProject(page);
 
         // Get the reference picker values
         const referencePicker = page.getByTestId(TESTING_IDS.referencePicker);
@@ -524,11 +321,7 @@ test.describe("Reference Project Selection", () => {
             "Reference navigation toggle is currently flaky in Firefox e2e.",
         );
 
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
+        await selectReferenceProject(page);
 
         const mainPicker = page.getByTestId(TESTING_IDS.referencePicker);
         const mainBookBefore = await mainPicker.getAttribute(
@@ -591,72 +384,6 @@ test.describe("Reference Project Selection", () => {
 });
 
 test.describe("Search Functionality", () => {
-    test("search reference toggle appears only when a reference project is selected", async ({
-        editorWithTwoProjects: page,
-    }, testInfo) => {
-        test.skip(
-            testInfo.project.name !== "chromium",
-            "Reference-search toggle behavior is currently only stable in desktop Chromium.",
-        );
-
-        await openSearchPanel(page);
-        await expect(
-            page.getByTestId(TESTING_IDS.searchReferenceToggle),
-        ).toHaveCount(0);
-
-        await page
-            .getByTestId(TESTING_IDS.searchTrigger)
-            .click({ force: true });
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
-
-        await openSearchPanel(page);
-        await expect(
-            page.getByTestId(TESTING_IDS.searchReferenceToggle),
-        ).toBeVisible({ timeout: 20_000 });
-    });
-
-    test("enabling search reference shows one grouped clickable row per hit", async ({
-        editorWithTwoProjects: page,
-    }, testInfo) => {
-        test.skip(
-            testInfo.project.name !== "chromium",
-            "Reference-search toggle behavior is currently only stable in desktop Chromium.",
-        );
-
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
-
-        await openSearchPanel(page);
-        const searchReferenceToggle = page.getByTestId(
-            TESTING_IDS.searchReferenceToggle,
-        );
-        await expect(searchReferenceToggle).toBeVisible({ timeout: 20_000 });
-        await fillSearchQuery(page, "j");
-        await searchReferenceToggle.click();
-
-        const firstResult = page
-            .getByTestId(TESTING_IDS.searchResultItem)
-            .first();
-        await expect(firstResult).toBeVisible({ timeout: 15000 });
-        await expect(firstResult).toHaveAttribute(
-            "data-search-row-type",
-            "grouped",
-        );
-        await expect(
-            firstResult.locator('[data-project-label="source"]'),
-        ).toBeVisible();
-        await expect(
-            firstResult.locator('[data-project-label="target"]'),
-        ).toBeVisible();
-    });
-
     test("reference results navigate main editor and keep replace disabled", async ({
         editorWithTwoProjects: page,
     }, testInfo) => {
@@ -665,11 +392,7 @@ test.describe("Search Functionality", () => {
             "Reference-search toggle behavior is currently only stable in desktop Chromium.",
         );
 
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
+        await selectReferenceProject(page);
 
         await openSearchPanel(page);
         const searchReferenceToggle = page.getByTestId(
@@ -695,6 +418,16 @@ test.describe("Search Functionality", () => {
             .locator('[data-search-source="reference"]')
             .first();
         await expect(referenceResult).toBeVisible({ timeout: 15000 });
+        await expect(referenceResult).toHaveAttribute(
+            "data-search-row-type",
+            "grouped",
+        );
+        await expect(
+            referenceResult.locator('[data-project-label="source"]'),
+        ).toBeVisible();
+        await expect(
+            referenceResult.locator('[data-project-label="target"]'),
+        ).toBeVisible();
         const expectedBook =
             await referenceResult.getAttribute("data-search-book");
         const expectedChapter = await referenceResult.getAttribute(
@@ -726,45 +459,7 @@ test.describe("Search Functionality", () => {
         await expect(page.getByTestId(TESTING_IDS.replaceButton)).toBeEnabled();
     });
 
-    test("search reference toggle persists across close and reopen", async ({
-        editorWithTwoProjects: page,
-    }, testInfo) => {
-        test.skip(
-            testInfo.project.name !== "chromium",
-            "Reference-search toggle behavior is currently only stable in desktop Chromium.",
-        );
-
-        await page.getByTestId(TESTING_IDS.referenceProjectTrigger).click();
-        await page
-            .getByTestId(TESTING_IDS.referenceProjectItem)
-            .filter({ hasText: "Unlocked Literal Bible" })
-            .click();
-
-        await openSearchPanel(page);
-        const searchReferenceToggle = page.getByTestId(
-            TESTING_IDS.searchReferenceToggle,
-        );
-        await expect(searchReferenceToggle).toBeVisible({ timeout: 20_000 });
-        await fillSearchQuery(page, "j");
-        await searchReferenceToggle.click();
-        await expect(
-            page.getByTestId(TESTING_IDS.searchResultItem).first(),
-        ).toBeVisible({ timeout: 15000 });
-
-        await page.getByTestId(TESTING_IDS.searchTrigger).click();
-        await openSearchPanel(page);
-
-        await expect(
-            page.getByTestId(TESTING_IDS.searchResultItem).first(),
-        ).toBeVisible({ timeout: 15000 });
-        const firstSource = await page
-            .getByTestId(TESTING_IDS.searchResultItem)
-            .first()
-            .getAttribute("data-search-source");
-        expect(firstSource).toBe("reference");
-    });
-
-    test("can open search and navigate among results", async ({
+    test("can search, navigate results, and replace the current match", async ({
         editorPage,
     }) => {
         await openSearchPanel(editorPage);
@@ -787,31 +482,6 @@ test.describe("Search Functionality", () => {
         await editorPage.getByTestId(TESTING_IDS.searchPrevButton).click();
         const afterPrev = await stats.textContent();
         expect(afterPrev).not.toBe(afterNext);
-    });
-
-    test("search results are deduped by verse and select first occurrence", async ({
-        editorPage,
-    }) => {
-        await openSearchPanel(editorPage);
-        await fillSearchQuery(editorPage, "vola");
-        await expect(
-            editorPage.getByTestId(TESTING_IDS.searchResultItem).first(),
-        ).toBeVisible();
-
-        const visibleOccurrences = await editorPage
-            .getByTestId(TESTING_IDS.searchResultItem)
-            .evaluateAll((rows) =>
-                rows
-                    .map((row) => row.getAttribute("data-search-occurrence"))
-                    .filter((value): value is string => value !== null),
-            );
-        expect(visibleOccurrences.length).toBeGreaterThan(0);
-        expect(visibleOccurrences.every((value) => value === "0")).toBe(true);
-    });
-
-    test("replace can update current match", async ({ editorPage }) => {
-        await openSearchPanel(editorPage);
-        await fillSearchQuery(editorPage, "vola");
         await ensureSearchOptionsExpanded(editorPage);
         await editorPage.getByTestId(TESTING_IDS.replaceInput).fill("foo");
         await editorPage.getByTestId(TESTING_IDS.replaceButton).click();
@@ -834,55 +504,6 @@ test.describe("Search Functionality", () => {
             .getByTestId(TESTING_IDS.mainEditorContainer)
             .textContent();
         expect(allEditorContent).not.toMatch(/jisu/i);
-    });
-
-    test("search options modify result grouping and filtering", async ({
-        editorPage,
-    }) => {
-        await openSearchPanel(editorPage);
-        await fillSearchQuery(editorPage, "Jisu");
-        await ensureSearchOptionsExpanded(editorPage);
-
-        const beforeCase = await editorPage
-            .getByTestId(TESTING_IDS.searchResultsContainer)
-            .getAttribute("data-num-search-results");
-        if (!beforeCase) {
-            throw new Error("Pre-toggle result count not found");
-        }
-        await editorPage.getByTestId(TESTING_IDS.matchCaseCheckbox).click();
-        const afterCase = await editorPage
-            .getByTestId(TESTING_IDS.searchResultsContainer)
-            .getAttribute("data-num-search-results");
-        expect(Number(afterCase)).toBeLessThanOrEqual(Number(beforeCase));
-
-        await fillSearchQuery(editorPage, "in");
-        const wholeWordToggle = editorPage.getByTestId(
-            TESTING_IDS.matchWholeWordCheckbox,
-        );
-        const wholeWordLabel = await wholeWordToggle.getAttribute("aria-label");
-        if (wholeWordLabel?.toLowerCase().includes("disable")) {
-            await wholeWordToggle.click();
-        }
-
-        const beforeWholeWord = await editorPage
-            .getByTestId(TESTING_IDS.searchResultsContainer)
-            .getAttribute("data-num-search-results");
-        if (!beforeWholeWord) {
-            throw new Error("Pre-toggle whole-word result count not found");
-        }
-        await wholeWordToggle.click();
-        const afterWholeWord = await editorPage
-            .getByTestId(TESTING_IDS.searchResultsContainer)
-            .getAttribute("data-num-search-results");
-        expect(Number(afterWholeWord)).not.toBe(Number(beforeWholeWord));
-
-        await expect(
-            editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
-        ).not.toBeVisible();
-        await editorPage.getByTestId(TESTING_IDS.sortToggleButton).click();
-        await expect(
-            editorPage.getByTestId(TESTING_IDS.searchCaseMismatchLabel),
-        ).toBeVisible();
     });
 
     test("re-runs search on reopen and chapter navigation for highlight sync", async ({

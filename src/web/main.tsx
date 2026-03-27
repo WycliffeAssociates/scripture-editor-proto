@@ -2,37 +2,71 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import { App } from "@/app/entrypoint.tsx";
+import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
+import {
+    buildProjectIndexDbName,
+    DexieProjectIndex,
+} from "@/app/persistence/DexieProjectIndex.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
-import { WebDirectoryProvider } from "@/web/persistence/WebDirectoryProvider.ts";
+import { OpfsFileSystem } from "@/web/persistence/OpfsFileSystem.ts";
+import { OpfsStorageRoots } from "@/web/persistence/OpfsStorageRoots.ts";
+import { resolveWebStorageNamespace } from "@/web/persistence/storageNamespace.ts";
+import { WebImportService } from "@/web/persistence/WebImportService.ts";
 import { WebOpener } from "@/web/persistence/WebOpener.ts";
 
-// instantiante services
+/**
+ * Web bootstrap.
+ *
+ * Like the desktop entrypoint, this file assembles platform-specific adapters and
+ * hands them to the shared app. The rest of the product should keep talking to
+ * shared service contracts instead of OPFS, browser settings, or web-only git
+ * details directly.
+ */
 const settingsManager = createBrowserSettingsManager();
 
-// react entry stuff
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 const platform: PlatformAndWeb = "web";
-const directoryProvider = await WebDirectoryProvider.create();
+const storageRoots = new OpfsStorageRoots();
+const fileSystem = new OpfsFileSystem(storageRoots);
 const gitProvider = new WebGitProvider(new OpfsGitFs());
-const opener = new WebOpener();
+const opener = new WebOpener(fileSystem);
+const projectIndex = new DexieProjectIndex(
+    buildProjectIndexDbName(resolveWebStorageNamespace()),
+);
+const libraryService = new DefaultLibraryService(
+    fileSystem,
+    storageRoots,
+    projectIndex,
+    webMd5Service,
+    gitProvider,
+);
+const projectsService = libraryService;
+const importService = new WebImportService(
+    storageRoots,
+    projectsService,
+    fileSystem,
+);
 initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
 root.render(
     <StrictMode>
         <App
             settingsManager={settingsManager}
-            directoryProvider={directoryProvider}
-            md5Service={webMd5Service}
+            fileSystem={fileSystem}
+            storageRoots={storageRoots}
             usfmOnionService={webUsfmOnionService}
             gitProvider={gitProvider}
             opener={opener}
             platform={platform}
+            projectsService={projectsService}
+            libraryService={libraryService}
+            importService={importService}
         />
     </StrictMode>,
 );

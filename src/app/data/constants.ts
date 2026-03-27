@@ -1,7 +1,16 @@
 import type { Platform } from "@tauri-apps/plugin-os";
 
+/**
+ * Runtime platform discriminator used by app settings and environment-aware UI.
+ */
 export type PlatformAndWeb = Platform | "web";
 
+/**
+ * Stable test identifiers shared across UI components and integration tests.
+ *
+ * Centralizing these avoids brittle string drift when tests need to locate the
+ * same UI affordance from multiple suites.
+ */
 export const TESTING_IDS = {
     import: {
         importer: "file-importer",
@@ -155,7 +164,29 @@ export const TESTING_IDS = {
     },
 } as const;
 
-// Dynamic test ID generators
+/**
+ * `data-*` hooks used by imperative UI logic where test IDs would be the wrong
+ * semantic tool.
+ *
+ * These selectors are primarily for runtime behavior such as overlays and
+ * editor wiring rather than end-user tests.
+ */
+export const DATA_JS = {
+    editorContainer: "editor-container",
+    referenceEditorContainer: "reference-editor-container",
+    searchInput: "search-input",
+    searchPopoverDropdown: "search-popover-dropdown",
+    searchPopoverContent: "search-popover-content",
+    searchResultsScrollContainer: "search-results-scroll-container",
+    lintTooltipOverlay: "lint-tooltip-overlay",
+    searchReplaceSuggestOverlay: "search-replace-suggest-overlay",
+    verseMarkerSuggestOverlay: "verse-marker-suggest-overlay",
+    usfmPeekOverlay: "usfm-peek-overlay",
+} as const;
+
+/**
+ * Dynamic test-id builders for UI repeated structures such as books and groups.
+ */
 export const TEST_ID_GENERATORS = {
     projectListItem: (name: string) =>
         `project-list-item-${name.toLowerCase().replace(/\s+/g, "-")}`,

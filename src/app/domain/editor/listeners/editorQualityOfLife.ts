@@ -41,7 +41,7 @@ export function moveToAdjacentNodesWhenSeemsAppropriate(
     // We will return this value. It's set to true inside the update if we handle the event.
     let isHandled = false;
     const key = event.key;
-    // todo: make trigger configurable
+    // todo: make trigger configurable maybe
     if (key !== " ") return false;
     const selection = $getSelection();
     // This logic only applies to a collapsed cursor (a caret), not a range selection.

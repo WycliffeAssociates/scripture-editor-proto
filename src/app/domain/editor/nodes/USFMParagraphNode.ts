@@ -24,6 +24,13 @@ export type USFMParagraphNodeJSON = SerializedElementNode & {
     version: 1;
 };
 
+/**
+ * Paragraph-container node for the scripture editor's Lexical tree.
+ *
+ * USFM paragraph markers are not just text tokens; they delimit structural
+ * runs that downstream metadata, diffing, and display logic care about. This
+ * node holds that structural context while still serializing cleanly.
+ */
 export class USFMParagraphNode extends ElementNode {
     static getType(): string {
         return USFM_PARAGRAPH_NODE_TYPE;
@@ -33,6 +40,8 @@ export class USFMParagraphNode extends ElementNode {
      * This significantly reduces boilerplate code.
      */
     $config() {
+        // NodeState keeps paragraph metadata colocated with the Lexical node so
+        // later maintenance passes can update structure without a separate map.
         return this.config(USFM_PARAGRAPH_NODE_TYPE, {
             extends: TextNode,
             stateConfigs: [

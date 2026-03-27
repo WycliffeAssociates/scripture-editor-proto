@@ -4,6 +4,12 @@ import { useEffect } from "react";
 import { detectLocale } from "@/app/ui/i18n/detectLocale.ts";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 
+/**
+ * React-side i18n bootstrap wrapper.
+ *
+ * The app entrypoint mounts this once near the top of the tree so Lingui is
+ * activated before downstream components start rendering localized strings.
+ */
 export function I18nEntry({
     children,
     defaultLocale,

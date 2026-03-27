@@ -2,17 +2,21 @@ import { useLingui } from "@lingui/react/macro";
 import type { LexicalEditor, SerializedLexicalNode } from "lexical";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { insertParagraphMarkerAtCursor } from "@/app/domain/editor/utils/insertParagraphMarkerAtCursor.ts";
 import {
     lexicalRootChildrenToUsfmTokenStream,
     lexicalToTokens,
     usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
-import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
+import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
     type MatchFormattingScope,
     matchFormattingByVerseAnchors,
@@ -49,11 +53,19 @@ function sumStats(
     };
 }
 
+/**
+ * Workspace hook for "match formatting from reference" flows.
+ *
+ * This sits at the boundary between the current editable scripture workspace and
+ * the currently loaded reference item. It extracts token streams from both,
+ * applies verse-anchor formatting transfer, updates workspace state in place, and
+ * publishes a UI report for skipped suggestions.
+ */
 export function useFormatMatching({
     mutWorkingFilesRef,
     currentFileBibleIdentifier,
     currentChapter,
-    referenceProject,
+    referenceResource,
     updateDiffMapForChapter,
     setEditorContent,
     saveCurrentDirtyLexical,
@@ -66,17 +78,17 @@ export function useFormatMatching({
     targetMarkerPreservationMode,
     history,
 }: {
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     currentFileBibleIdentifier: string;
     currentChapter: number;
-    referenceProject: ReferenceProjectHook;
+    referenceResource: ReferenceItemHook;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
@@ -84,7 +96,7 @@ export function useFormatMatching({
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
     editorRef: RefObject<LexicalEditor | null>;
     editorMode: EditorModeSetting;
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
     history: CustomHistoryHook;
 }) {
@@ -101,10 +113,10 @@ export function useFormatMatching({
         }
     };
 
-    const toChapterRefs = (file: ParsedFile) =>
+    const toChapterRefs = (file: ScriptureBookState) =>
         file.chapters.map((chapter) => ({
             bookCode: file.bookCode,
-            chapterNum: chapter.chapNumber,
+            chapterNum: chapter.chapterNumber,
         }));
 
     const applyChapterMatchInPlace = ({
@@ -114,8 +126,8 @@ export function useFormatMatching({
         bookCode,
         targetMarkerPreservation,
     }: {
-        chapter: ParsedChapter;
-        sourceChapter: ParsedChapter;
+        chapter: ScriptureChapterState;
+        sourceChapter: ScriptureChapterState;
         scope: MatchFormattingScope;
         bookCode: string;
         targetMarkerPreservation: TargetMarkerPreservationMode;
@@ -162,7 +174,7 @@ export function useFormatMatching({
         chapter.dirty =
             chapter.currentTokens.map((token) => token.text).join("") !==
             chapter.sourceTokens.map((token) => token.text).join("");
-        updateDiffMapForChapter(bookCode, chapter.chapNumber);
+        updateDiffMapForChapter(bookCode, chapter.chapterNumber);
 
         return {
             changed: true,
@@ -172,7 +184,7 @@ export function useFormatMatching({
     };
 
     async function matchFormattingChapter() {
-        if (!referenceProject.referenceChapter) return;
+        if (!referenceResource.referenceChapter) return;
         saveCurrentDirtyLexical();
 
         const file = mutWorkingFilesRef.find(
@@ -191,12 +203,12 @@ export function useFormatMatching({
             run: async () => {
                 const previous = structuredClone(mutWorkingFilesRef);
                 const chapter = file.chapters.find(
-                    (c) => c.chapNumber === currentChapter,
+                    (c) => c.chapterNumber === currentChapter,
                 );
                 const sourceChapter =
-                    referenceProject.referenceFile?.chapters.find(
-                        (c) => c.chapNumber === currentChapter,
-                    ) ?? referenceProject.referenceChapter;
+                    referenceResource.referenceFile?.chapters.find(
+                        (c) => c.chapterNumber === currentChapter,
+                    ) ?? referenceResource.referenceChapter;
 
                 if (!chapter || !sourceChapter) return previous;
 
@@ -240,7 +252,7 @@ export function useFormatMatching({
     }
 
     async function matchFormattingBook() {
-        if (!referenceProject.referenceFile) return;
+        if (!referenceResource.referenceFile) return;
         saveCurrentDirtyLexical();
 
         const file = mutWorkingFilesRef.find(
@@ -261,8 +273,8 @@ export function useFormatMatching({
 
                 file.chapters.forEach((chapter) => {
                     const refChapter =
-                        referenceProject.referenceFile?.chapters.find(
-                            (rc) => rc.chapNumber === chapter.chapNumber,
+                        referenceResource.referenceFile?.chapters.find(
+                            (rc) => rc.chapterNumber === chapter.chapterNumber,
                         );
                     if (!refChapter) return;
                     chaptersScanned++;
@@ -279,7 +291,7 @@ export function useFormatMatching({
 
                     if (!result.changed) return;
                     modifiedChaptersCount++;
-                    if (chapter.chapNumber === currentChapter) {
+                    if (chapter.chapterNumber === currentChapter) {
                         currentChapterModified = true;
                     }
                 });
@@ -296,7 +308,7 @@ export function useFormatMatching({
 
                 if (currentChapterModified) {
                     const currentChap = file.chapters.find(
-                        (c) => c.chapNumber === currentChapter,
+                        (c) => c.chapterNumber === currentChapter,
                     );
                     if (currentChap) {
                         setEditorContent(
@@ -324,7 +336,7 @@ export function useFormatMatching({
     }
 
     async function matchFormattingProject() {
-        const referenceData = referenceProject.referenceQuery.data;
+        const referenceData = referenceResource.referenceQuery.data;
         if (!referenceData) return;
         saveCurrentDirtyLexical();
 
@@ -351,7 +363,7 @@ export function useFormatMatching({
                     let fileModified = false;
                     targetFile.chapters.forEach((chapter) => {
                         const refChapter = refFile.chapters.find(
-                            (rc) => rc.chapNumber === chapter.chapNumber,
+                            (rc) => rc.chapterNumber === chapter.chapterNumber,
                         );
                         if (!refChapter) return;
                         chaptersScanned++;
@@ -373,7 +385,7 @@ export function useFormatMatching({
                         if (
                             targetFile.bookCode ===
                                 currentFileBibleIdentifier &&
-                            chapter.chapNumber === currentChapter
+                            chapter.chapterNumber === currentChapter
                         ) {
                             currentChapterModified = true;
                         }
@@ -399,7 +411,7 @@ export function useFormatMatching({
                         (f) => f.bookCode === currentFileBibleIdentifier,
                     );
                     const currentChap = currentFile?.chapters.find(
-                        (c) => c.chapNumber === currentChapter,
+                        (c) => c.chapterNumber === currentChapter,
                     );
                     if (currentChap) {
                         setEditorContent(

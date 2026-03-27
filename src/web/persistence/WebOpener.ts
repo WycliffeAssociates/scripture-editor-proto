@@ -1,57 +1,30 @@
 import { zipSync } from "fflate";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { IOpener } from "@/core/persistence/IOpener.ts";
+import {
+    basenameStoragePath,
+    joinStoragePath,
+} from "@/core/persistence/pathUtils.ts";
 
 /**
- * Web-specific opener implementation.
+ * Browser adapter for "export this managed tree" actions.
  *
- * Notes:
- * - All imports are at the top of the file.
- * - Uses `fflate`'s `zipSync` to create a zip from a map of file path -> Uint8Array.
+ * The web build cannot reveal local folders like desktop can, but it still needs
+ * to let the user take the current on-disk project or item shape with them. This
+ * adapter walks the managed storage tree, omits git internals, and triggers a zip
+ * download from the browser.
  */
 export class WebOpener implements IOpener {
-    // async open(dir: IDirectoryHandle): Promise<void> {
-    //   throw new Error(
-    //     "Opening directories in file manager is not supported in web/OPFS.",
-    //   );
-    // }
+    constructor(private readonly fileSystem: FileSystem) {}
 
-    async export(dir: IDirectoryHandle, filename?: string): Promise<void> {
-        // Recursively collect all files as { fullPath: string, data: Uint8Array }[]
-        async function collectFiles(
-            d: IDirectoryHandle,
-            relPath = "",
-        ): Promise<{ fullPath: string; data: Uint8Array }[]> {
-            const files: { fullPath: string; data: Uint8Array }[] = [];
-            for await (const [name, entry] of d.entries()) {
-                if (name === ".git") {
-                    continue;
-                }
-                const fullPath = relPath ? `${relPath}/${name}` : name;
-                if (entry.isDir) {
-                    const subdir = entry.asDirectoryHandle();
-                    if (subdir) {
-                        files.push(...(await collectFiles(subdir, fullPath)));
-                    }
-                } else {
-                    const fileHandle = entry.asFileHandle();
-                    if (fileHandle) {
-                        const f = await fileHandle.getFile();
-                        const data = new Uint8Array(await f.arrayBuffer());
-                        files.push({ fullPath, data });
-                    }
-                }
-            }
-            return files;
-        }
-
-        const allFiles = await collectFiles(dir);
+    async export(projectPath: string, filename?: string): Promise<void> {
+        const allFiles = await collectFiles(this.fileSystem, projectPath);
 
         // Build a map of path -> Uint8Array expected by fflate.zipSync
         // Prefix every entry with a leading slash and a root folder name to
         // mimic Gitea-style archives (e.g. "/repo-name/path/to/file").
         const filesMap: Record<string, Uint8Array> = {};
-        const rootName = dir.name.replace(/\/+$/g, "");
+        const rootName = basenameStoragePath(projectPath).replace(/\/+$/g, "");
         const rootPrefix = `${rootName}/`;
 
         // Include an explicit directory entry for the root folder (trailing slash).
@@ -72,11 +45,43 @@ export class WebOpener implements IOpener {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = filename || `${dir.name || "project"}.zip`;
+        a.download = filename || `${rootName || "project"}.zip`;
         // Some environments require the link be attached to the DOM for click() to work
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+}
+
+async function collectFiles(
+    fileSystem: FileSystem,
+    directoryPath: string,
+    relPath = "",
+): Promise<{ fullPath: string; data: Uint8Array }[]> {
+    /**
+     * Export should mirror the current managed storage tree regardless of whether
+     * the item came from scripture source files or packed translation notes.
+     */
+    const files: { fullPath: string; data: Uint8Array }[] = [];
+    for (const entry of await fileSystem.list(directoryPath)) {
+        if (entry.name === ".git") {
+            continue;
+        }
+        const fullPath = relPath ? `${relPath}/${entry.name}` : entry.name;
+        if (entry.kind === "directory") {
+            files.push(
+                ...(await collectFiles(fileSystem, entry.path, fullPath)),
+            );
+            continue;
+        }
+
+        files.push({
+            fullPath,
+            data: await fileSystem.readBytes(
+                joinStoragePath(directoryPath, entry.name),
+            ),
+        });
+    }
+    return files;
 }

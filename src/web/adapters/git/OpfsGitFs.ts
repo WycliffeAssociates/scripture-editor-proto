@@ -158,11 +158,12 @@ function createStats(args: {
 }
 
 /**
- * Minimal OPFS-backed fs client for isomorphic-git.
+ * OPFS-backed fs shim for `isomorphic-git`.
  *
- * This intentionally implements only the subset of Node fs that the app and
- * isomorphic-git rely on. It keeps browser file IO on native OPFS handles so
- * git and editor writes share one storage model.
+ * Web git support lives entirely inside managed browser storage, so this class
+ * exposes just enough of the Node-style fs surface for `isomorphic-git` to work
+ * without introducing a second storage model. The rest of the app should keep
+ * talking to the higher-level git and filesystem seams.
  */
 export class OpfsGitFs {
     readonly fs = {

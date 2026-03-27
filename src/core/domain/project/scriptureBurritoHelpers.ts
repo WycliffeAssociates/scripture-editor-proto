@@ -1,32 +1,13 @@
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
-import type { ScriptureBurritoProject } from "@/core/domain/project/ScriptureBurritoProjectLoader.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import type { ScriptureBurritoMetadata } from "./scriptureBurritoSchemas.ts";
 
 /**
- * @function generateUsfmFilename
- * @description Generates a canonical USFM filename based on the book code.
- *              The format is "{canonical book number, 0 padded to 2 digits}-{book code, in caps}.usfm".
- * @param bookCode - The three-letter book code (e.g., "MAT").
- * @returns The generated USFM filename.
- * @throws {Error} If an invalid book code is provided.
- */
-export function generateUsfmFilename(bookCode: string): string {
-    const book = canonicalBookMap[bookCode.toUpperCase()];
-    if (!book) {
-        throw new Error(`Invalid book code: ${bookCode}`);
-    }
-    return `${book.num}-${book.code}.usfm`;
-}
-
-/**
- * @function createBurritoIngredient
- * @description Creates a Scripture Burrito ingredient object for a given file.
- * @param filePath - The relative path of the file within the project.
- * @param contents - The content of the file.
- * @param md5Service - An IMd5Service instance to calculate the MD5 checksum.
- * @param localizedBookTitle - Optional. The localized title of the book.
- * @param bookCode - Optional. The book code, used if localizedBookTitle is not provided.
- * @returns A JavaScript object representing the Burrito ingredient.
+ * Build the Burrito `ingredient` metadata entry for one scripture file.
+ *
+ * When the editor saves a book back to a Burrito-backed workspace, the metadata
+ * file has to keep its checksum and title information in sync with the rewritten
+ * USFM file on disk.
  */
 export async function createBurritoIngredient(
     filePath: string,
@@ -47,24 +28,21 @@ export async function createBurritoIngredient(
 }
 
 /**
- * @async
- * @function updateBurritoMetadata
- * @description Updates the `metadata.json` of a Scripture Burrito project with a new ingredient
- *              and writes the updated metadata back to the file system.
- * @param project - The Project object (must be a Scripture Burrito project with `metadataJson` and `fileWriter`).
- * @param filePath - The relative path of the file for which the ingredient is being added/updated.
- * @param ingredientData - The ingredient data object to add to `metadata.json`.
- * @returns A Promise that resolves when `metadata.json` has been successfully updated and written.
+ * Persist one updated ingredient entry back into the Burrito metadata file after
+ * a save operation changes a scripture book on disk.
  */
-export async function updateBurritoMetadata(
-    project: ScriptureBurritoProject,
-    filePath: string,
-    // biome-ignore lint/suspicious/noExplicitAny: <ingredient data cause also take many shapes>
-    ingredientData: any,
-): Promise<void> {
-    project.metadataJson.ingredients = project.metadataJson.ingredients || {};
-    project.metadataJson.ingredients[filePath] = ingredientData;
-
-    const updatedMetadataString = JSON.stringify(project.metadataJson, null, 2);
-    await project.fileWriter.writeFile("metadata.json", updatedMetadataString);
+export async function updateBurritoMetadataFile(args: {
+    fs: FileSystem;
+    metadataPath: string;
+    metadata: ScriptureBurritoMetadata;
+    filePath: string;
+    // biome-ignore lint/suspicious/noExplicitAny: ingredient payload is schema-shaped and varied
+    ingredientData: any;
+}): Promise<void> {
+    args.metadata.ingredients = args.metadata.ingredients || {};
+    args.metadata.ingredients[args.filePath] = args.ingredientData;
+    await args.fs.writeText(
+        args.metadataPath,
+        JSON.stringify(args.metadata, null, 2),
+    );
 }

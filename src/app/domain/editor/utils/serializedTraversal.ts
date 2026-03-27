@@ -1,6 +1,9 @@
 import type { SerializedLexicalNode } from "lexical";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 
 function isSerializedElementWithChildren(
     node: SerializedLexicalNode,
@@ -9,11 +12,11 @@ function isSerializedElementWithChildren(
 }
 
 /**
- * Generator to walk through all chapters in a set of files.
+ * Serialized-tree traversal helpers used by editor analysis utilities.
  */
 export function* walkChapters(
-    files: ParsedFile[],
-): Generator<{ file: ParsedFile; chapter: ParsedChapter }> {
+    files: ScriptureBookState[],
+): Generator<{ file: ScriptureBookState; chapter: ScriptureChapterState }> {
     for (const file of files) {
         for (const chapter of file.chapters) {
             yield { file, chapter };
@@ -22,8 +25,7 @@ export function* walkChapters(
 }
 
 /**
- * Generator to walk through all nodes in a serialized lexical tree (DFS).
- * Yields nodes one by one, including children of elements and nested editors.
+ * Walk a serialized Lexical tree depth-first, including nested editor payloads.
  */
 export function* walkNodes(
     nodes: SerializedLexicalNode[],

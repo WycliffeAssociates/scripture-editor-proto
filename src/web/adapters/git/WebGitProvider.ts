@@ -12,6 +12,13 @@ import {
 } from "@/core/persistence/gitVersionUtils.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 
+/**
+ * Browser implementation of the shared git seam.
+ *
+ * This adapter exists so editable scripture items can still expose history and
+ * restore behavior on web, even though the underlying repo lives in OPFS and is
+ * driven by `isomorphic-git` rather than desktop-native git.
+ */
 type WebGitRuntime = {
     ensureReady(): Promise<void>;
     fs: {

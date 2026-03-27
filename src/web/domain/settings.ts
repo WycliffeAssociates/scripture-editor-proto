@@ -5,6 +5,13 @@ import {
     setDocumentRootFontSize,
 } from "@/app/domain/settings/settings.ts";
 
+/**
+ * Browser settings adapter used during web bootstrap.
+ *
+ * It reuses the shared local-storage settings behavior and only adds the web-only
+ * constraints: browser builds cannot control page zoom and cannot enumerate system
+ * fonts, so those capabilities stay disabled here.
+ */
 export function createBrowserSettingsManager(): SettingsManager {
     const persisted = getSettingsLocalStorage();
     const base = createBaseLocalStorageSettingsManager({
@@ -15,7 +22,9 @@ export function createBrowserSettingsManager(): SettingsManager {
     return {
         ...base,
         applySettings: () => {
-            setDocumentRootFontSize(base.get("fontSize")); //preferable to do on bootstrap as plain js instead of in react lifecycle or something
+            // Apply typography as early as possible so the first paint matches
+            // persisted settings instead of snapping after React mounts.
+            setDocumentRootFontSize(base.get("fontSize"));
         },
     };
 }

@@ -1,19 +1,18 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import {
+    buildCompareResult,
+    type CompareMetadataSummary,
+} from "@/app/domain/project/compare/compareService.ts";
 import {
     applyIncomingChapter,
     applyIncomingChapterAll,
     applyIncomingHunk,
-    buildCompareResult,
-    type CompareMetadataSummary,
-} from "@/app/domain/project/compare/compareService.ts";
-import type {
-    CompareBaseline,
-    CompareSessionConfig,
-} from "@/app/domain/project/compare/types.ts";
+} from "@/app/domain/project/compare/compareMutations.ts";
+import type { CompareSessionConfig } from "@/app/domain/project/compare/types.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Diff, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
@@ -70,7 +69,7 @@ function makeFiles(args: {
     currentText: string;
     bookCode?: string;
     chapterNum?: number;
-}): ParsedFile[] {
+}): ScriptureBookState[] {
     const bookCode = args.bookCode ?? "GEN";
     const chapterNum = args.chapterNum ?? 1;
     return [
@@ -82,7 +81,7 @@ function makeFiles(args: {
             prevBookId: null,
             chapters: [
                 {
-                    chapNumber: chapterNum,
+                    chapterNumber: chapterNum,
                     dirty: args.loadedText !== args.currentText,
                     sourceTokens: makeTokens(
                         args.loadedText,
@@ -110,10 +109,9 @@ function makeFiles(args: {
     ];
 }
 
-function config(baseline: CompareBaseline): CompareSessionConfig {
+function config(): CompareSessionConfig {
     return {
         mode: "external",
-        baseline,
         source: {
             kind: "existingProject",
             projectId: "source",
@@ -180,7 +178,7 @@ function createStubUsfmOnionService(): IUsfmOnionService {
 const usfmOnionService = createStubUsfmOnionService();
 
 describe("compareService.buildCompareResult", () => {
-    it("uses current-saved baseline when selected", async () => {
+    it("uses the current dirty workspace as the compare baseline", async () => {
         const current = makeFiles({
             loadedText: "alpha",
             currentText: "beta",
@@ -192,35 +190,7 @@ describe("compareService.buildCompareResult", () => {
 
         const result = await buildCompareResult({
             currentFiles: current,
-            config: config("currentSaved"),
-            sourceFiles: source,
-            currentMetadata: undefined,
-            sourceMetadata: undefined,
-            usfmOnionService,
-        });
-
-        expect(result.diffs).toHaveLength(1);
-        expect(result.diffs[0]?.originalDisplayText).toContain("alpha");
-        expect(result.diffs[0]?.currentDisplayText).toContain("gamma");
-        expect(result.diffs[0]?.originalRenderTokens?.length).toBeGreaterThan(
-            0,
-        );
-        expect(result.diffs[0]?.currentRenderTokens?.length).toBeGreaterThan(0);
-    });
-
-    it("uses current-dirty baseline when selected", async () => {
-        const current = makeFiles({
-            loadedText: "alpha",
-            currentText: "beta",
-        });
-        const source = makeFiles({
-            loadedText: "gamma",
-            currentText: "gamma",
-        });
-
-        const result = await buildCompareResult({
-            currentFiles: current,
-            config: config("currentDirty"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -246,7 +216,7 @@ describe("compareService.buildCompareResult", () => {
 
         const result = await buildCompareResult({
             currentFiles: current,
-            config: config("currentSaved"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -281,7 +251,7 @@ describe("compareService.buildCompareResult", () => {
 
         const result = await buildCompareResult({
             currentFiles: current,
-            config: config("currentSaved"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: currentMeta,
             sourceMetadata: sourceMeta,
@@ -310,7 +280,7 @@ describe("compareService apply incoming", () => {
         });
         const result = await buildCompareResult({
             currentFiles: current,
-            config: config("currentSaved"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -330,7 +300,7 @@ describe("compareService apply incoming", () => {
 
         const after = await buildCompareResult({
             currentFiles: current,
-            config: config("currentDirty"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -360,7 +330,7 @@ describe("compareService apply incoming", () => {
 
         const after = await buildCompareResult({
             currentFiles: current,
-            config: config("currentDirty"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -398,7 +368,7 @@ describe("compareService apply incoming", () => {
 
         const after = await buildCompareResult({
             currentFiles: current,
-            config: config("currentDirty"),
+            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,

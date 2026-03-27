@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { expect, test } from "../helpers/e2e/fixtures.ts";
 import {
     gotoCreate,
     gotoHomeAndExpectProjectCount,

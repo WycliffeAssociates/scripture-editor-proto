@@ -1,11 +1,23 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 
+/**
+ * Locale identifiers currently shipped with the app bundle.
+ */
 export const SUPPORTED_LOCALES = ["en", "es"];
+
+/**
+ * Lazy descriptor map for locale labels and direction metadata.
+ *
+ * Keeping this as a function allows the Lingui message descriptors to stay in a
+ * place the i18n pipeline can consume while still giving runtime code a simple
+ * lookup table.
+ */
 export const GET_LOCALES: () => Record<
     SupportedLocales,
-    { nativeName: MessageDescriptor; direction: "ltr" | "rtl" }
+    { nativeName: MessageDescriptor; direction: LanguageDirection }
 > = () => {
     return {
         en: {
@@ -20,6 +32,12 @@ export const GET_LOCALES: () => Record<
 };
 type SupportedLocales = (typeof SUPPORTED_LOCALES)[number];
 
+/**
+ * Persisted app settings surface.
+ *
+ * This is the contract shared by web and desktop settings managers and by the
+ * UI that reads/writes user preferences.
+ */
 export type Settings = {
     fontSize: string;
     fontFamily: string;
@@ -32,10 +50,13 @@ export type Settings = {
     restoreToLastProjectOnLaunch: true;
     editorMode: EditorModeSetting;
     appLanguage: SupportedLocales;
-    appDirection: "ltr" | "rtl";
+    appDirection: LanguageDirection;
     colorScheme: "light" | "dark";
 };
 
+/**
+ * Defaults applied when no persisted setting exists yet.
+ */
 export const settingsDefaults: Settings = {
     fontSize: "16px",
     fontFamily: "Inter",
@@ -52,6 +73,9 @@ export const settingsDefaults: Settings = {
     colorScheme: "light",
 };
 
+/**
+ * Platform-neutral settings persistence seam.
+ */
 export interface SettingsManager {
     getSettings: () => Settings;
     get: <K extends keyof Settings>(key: K) => Settings[K];

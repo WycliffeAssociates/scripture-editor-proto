@@ -1,42 +1,42 @@
 import { Trans } from "@lingui/react/macro";
 import { FileArchive, FolderOpen } from "lucide-react";
 import type React from "react";
-import { useRef } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import LanguageApiImporter from "@/app/ui/components/import/LanguageApiImporter.tsx";
 import * as styles from "@/app/ui/styles/modules/newProjectSearch.css.ts";
 
 type ProjectCreatorProps = {
     onDownload: (url: string) => void;
-    onOpenDirectory: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onOpenFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onDirectoryAction: () => void;
+    onZipAction: () => void;
+    onDirectorySelected?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onZipSelected?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    directoryInputRef?: React.RefObject<HTMLInputElement | null>;
+    zipInputRef?: React.RefObject<HTMLInputElement | null>;
     isDownloadDisabled?: boolean;
     isImporting?: boolean;
     className?: string;
 };
 
 /**
- * ProjectCreator block
+ * Import-entry surface shown on the create route.
  *
- * Composes the three small primitives:
- * - WacsImporter (remote repo / search)
- * - DirImporter (select folder)
- * - FileImporter (select zip)
- *
- * Uses vanilla-extract styles from projectCreate.css.ts so this block can be
- * re-used in modals or other layouts without Tailwind.
+ * This is the UI front door to the import pipeline: remote lookup, local folder,
+ * or local zip. It does not decide how items are stored or loaded; it just
+ * gathers the user's chosen source and hands it to the import actions upstream.
  */
 export default function ProjectCreator({
     onDownload,
-    onOpenDirectory,
-    onOpenFile,
+    onDirectoryAction,
+    onZipAction,
+    onDirectorySelected,
+    onZipSelected,
+    directoryInputRef,
+    zipInputRef,
     isDownloadDisabled = false,
     isImporting = false,
     className = "",
 }: ProjectCreatorProps) {
-    const dirInputRef = useRef<HTMLInputElement | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
-
     return (
         <section className={`${className}`}>
             <LanguageApiImporter
@@ -47,7 +47,7 @@ export default function ProjectCreator({
                         <button
                             type="button"
                             className={styles.topActionButton}
-                            onClick={() => dirInputRef.current?.click()}
+                            onClick={onDirectoryAction}
                             disabled={isImporting}
                         >
                             <FolderOpen size={18} />
@@ -57,45 +57,49 @@ export default function ProjectCreator({
                         <button
                             type="button"
                             className={styles.topActionButton}
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={onZipAction}
                             disabled={isImporting}
                         >
                             <FileArchive size={18} />
                             <Trans>ZIP</Trans>
                         </button>
 
-                        <input
-                            data-testid={TESTING_IDS.import.dirImporter}
-                            ref={dirInputRef}
-                            type="file"
-                            webkitdirectory="true"
-                            multiple
-                            className={styles.hiddenInput}
-                            style={{
-                                position: "absolute",
-                                opacity: 0,
-                                width: 1,
-                                height: 1,
-                            }}
-                            onChange={onOpenDirectory}
-                            disabled={isImporting}
-                        />
+                        {onDirectorySelected ? (
+                            <input
+                                data-testid={TESTING_IDS.import.dirImporter}
+                                ref={directoryInputRef}
+                                type="file"
+                                webkitdirectory="true"
+                                multiple
+                                className={styles.hiddenInput}
+                                style={{
+                                    position: "absolute",
+                                    opacity: 0,
+                                    width: 1,
+                                    height: 1,
+                                }}
+                                onChange={onDirectorySelected}
+                                disabled={isImporting}
+                            />
+                        ) : null}
 
-                        <input
-                            data-testid={TESTING_IDS.import.importer}
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".zip"
-                            className={styles.hiddenInput}
-                            style={{
-                                position: "absolute",
-                                opacity: 0,
-                                width: 1,
-                                height: 1,
-                            }}
-                            onChange={onOpenFile}
-                            disabled={isImporting}
-                        />
+                        {onZipSelected ? (
+                            <input
+                                data-testid={TESTING_IDS.import.importer}
+                                ref={zipInputRef}
+                                type="file"
+                                accept=".zip"
+                                className={styles.hiddenInput}
+                                style={{
+                                    position: "absolute",
+                                    opacity: 0,
+                                    width: 1,
+                                    height: 1,
+                                }}
+                                onChange={onZipSelected}
+                                disabled={isImporting}
+                            />
+                        ) : null}
                     </>
                 }
             />

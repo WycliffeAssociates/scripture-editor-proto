@@ -4,6 +4,11 @@ import type {
     PreferredBranch,
 } from "@/core/persistence/GitProvider.ts";
 
+/**
+ * Shared commit metadata formatting/parsing helpers for Dovetail-managed git
+ * history. These utilities let the app distinguish its own save/baseline commits
+ * from external git activity while still using normal git commits underneath.
+ */
 type ParseAppCommitMetadataArgs = {
     subject: string;
     body?: string;

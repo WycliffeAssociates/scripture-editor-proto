@@ -1,9 +1,16 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Utilities for moving between the visible Lexical editor instance and the
+ * scripture workspace noun held in React state.
+ */
 function collectChapterTokens(
     serializedEditorState: SerializedEditorState,
     options?: { structuralParagraphBreaks?: boolean },
@@ -12,7 +19,7 @@ function collectChapterTokens(
 }
 
 export function collectFileTokens(
-    file: ParsedFile | null,
+    file: ScriptureBookState | null,
     options?: { structuralParagraphBreaks?: boolean },
 ): Token[] {
     if (!file) return [];
@@ -29,21 +36,26 @@ export function collectFileTokens(
 }
 
 export function collectWorkingFileTokens(args: {
-    files: ParsedFile[];
+    files: ScriptureBookState[];
     options?: { structuralParagraphBreaks?: boolean };
-}): Array<{ file: ParsedFile; tokens: Token[] }> {
+}): Array<{ file: ScriptureBookState; tokens: Token[] }> {
     return args.files.map((file) => ({
         file,
         tokens: collectFileTokens(file, args.options),
     }));
 }
 
+/**
+ * Push one chapter's current lexical state into the mounted editor instance. This
+ * is the final handoff point after navigation, undo/redo, compare apply, or other
+ * workspace-level mutations decide what chapter should be visible.
+ */
 export function setEditorContent(
     editor: LexicalEditor,
     fileBibleIdentifier: string,
     chapter: number,
-    chapterContent: ParsedChapter | undefined,
-    mutWorkingFilesRef: ParsedFile[],
+    chapterContent: ScriptureChapterState | undefined,
+    mutWorkingFilesRef: ScriptureBookState[],
     selectionOverride?: unknown,
     editorStateOverride?: SerializedEditorState,
 ) {
@@ -61,7 +73,7 @@ export function setEditorContent(
         : mutWorkingFilesRef.find((f) => f.bookCode === fileBibleIdentifier);
     const chapterState =
         chapterContent ||
-        targetFile?.chapters.find((c) => c.chapNumber === chapter);
+        targetFile?.chapters.find((c) => c.chapterNumber === chapter);
     if (!chapterState) return;
 
     // Avoid wrapping setEditorState in editor.update(). Lexical treats setEditorState

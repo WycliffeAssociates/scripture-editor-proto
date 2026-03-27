@@ -38,12 +38,18 @@ import {
     useState,
 } from "react";
 import Highlighter from "react-highlight-words";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import type { UseSearchReturn } from "@/app/ui/hooks/useSearch.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import searchClassNames from "@/app/ui/styles/modules/Search.module.css.ts";
 
+/**
+ * Search pane shell for the current scripture workspace.
+ *
+ * Search state, execution, and replace logic live in hooks and services; this
+ * component chooses the mobile vs desktop shell and renders the current results.
+ */
 export function SearchPanel() {
     const { search } = useWorkspaceContext();
     const { isSm, isDarkTheme } = useWorkspaceMediaQuery();
@@ -87,6 +93,13 @@ export function SearchPanel() {
     );
 }
 
+/**
+ * Search/replace controls shared by desktop and mobile search presentations.
+ *
+ * This is the command surface over the workspace search hook: it edits query
+ * state, runs searches, and triggers replace operations, but it does not own the
+ * underlying search algorithm.
+ */
 function SearchControls({ search }: { search: UseSearchReturn }) {
     const { t } = useLingui();
     const { isSm } = useWorkspaceMediaQuery();
@@ -125,7 +138,7 @@ function SearchControls({ search }: { search: UseSearchReturn }) {
                         radius="md"
                         value={search.searchTerm}
                         data-testid={TESTING_IDS.searchInput}
-                        data-js="search-input"
+                        data-js={DATA_JS.searchInput}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
                                 search.submitSearchNow();
@@ -533,7 +546,7 @@ export function SearchPopoverControls({
         search.pickedResult?.bibleIdentifier ?? project.pickedFile.bookCode;
     const activeChapter =
         search.pickedResult?.chapNum ??
-        project.pickedChapter?.chapNumber ??
+        project.pickedChapter?.chapterNumber ??
         project.currentChapter;
     const chapterResults = search.results.filter(
         (result) =>
@@ -561,7 +574,7 @@ export function SearchPopoverControls({
     return (
         <Popover.Dropdown
             ref={dropdownRef}
-            data-js="search-popover-dropdown"
+            data-js={DATA_JS.searchPopoverDropdown}
             className={searchClassNames.popoverDropdown}
             style={dropdownStyle}
             p="sm"
@@ -619,7 +632,7 @@ export function SearchPopoverControls({
                 </div>
             </div>
             <div
-                data-js="search-popover-content"
+                data-js={DATA_JS.searchPopoverContent}
                 className={searchClassNames.popoverBody}
             >
                 <SearchControls search={search} />
@@ -649,25 +662,23 @@ function SearchResults({
     isMobile: boolean;
 }) {
     const { t } = useLingui();
-    const { allProjects, currentProjectRoute, referenceProject } =
+    const { allProjects, currentProjectRoute, referenceResource } =
         useWorkspaceContext();
     const parentRef = useRef<HTMLDivElement>(null);
     const isGroupedMode =
         search.searchReference && search.hasReferenceSearchAvailable;
     const currentProjectName = useMemo(() => {
         const project = allProjects.find(
-            (item) => item.projectDirectoryPath === currentProjectRoute,
+            (item) => item.folderName === currentProjectRoute,
         );
-        return project?.name || t`Current project`;
+        return project?.displayName || t`Current project`;
     }, [allProjects, currentProjectRoute, t]);
     const sourceProjectName = useMemo(() => {
-        const project = allProjects.find(
-            (item) =>
-                item.projectDirectoryPath ===
-                referenceProject.referenceProjectId,
+        return (
+            referenceResource.activeReferenceResourceDisplayName ||
+            t`Reference project`
         );
-        return project?.name || t`Reference project`;
-    }, [allProjects, referenceProject.referenceProjectId, t]);
+    }, [referenceResource.activeReferenceResourceDisplayName, t]);
     const groupedItems = useMemo(() => {
         if (!isGroupedMode) return [];
         const targetByKey = new Map(
@@ -739,7 +750,7 @@ function SearchResults({
     return (
         <div
             data-testid={TESTING_IDS.searchResultsContainer}
-            data-js="search-results-scroll-container"
+            data-js={DATA_JS.searchResultsScrollContainer}
             data-num-search-results={search.results.length}
             ref={parentRef}
             className={searchClassNames.resultsContainer}

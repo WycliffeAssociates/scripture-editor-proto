@@ -21,8 +21,8 @@ import * as classes from "@/app/ui/styles/modules/ReferencePicker.css.ts";
 type ReferencePickerFile = {
     title: string;
     bookCode: string;
-    chapters: Array<{ chapNumber: number }>;
-    _chaptersSorted: Array<{ chapNumber: number }>;
+    chapters: Array<{ chapterNumber: number }>;
+    _chaptersSorted: Array<{ chapterNumber: number }>;
     _titleLower: string;
     _bookCodeLower: string;
 };
@@ -36,13 +36,21 @@ type ReferencePickerProps = {
     workingFiles?: Array<{
         title: string;
         bookCode: string;
-        chapters: Array<{ chapNumber: number }>;
+        chapters: Array<{ chapterNumber: number }>;
     }>;
     onSwitchBookOrChapter?: (bookCode: string, chapter: number) => void;
     onGoToReference?: (input: string) => boolean;
     disabled?: boolean;
 };
 
+/**
+ * Shared book/chapter picker used by both the main scripture toolbar and the
+ * scripture reference pane.
+ *
+ * Upstream callers provide the current file set and navigation callbacks. This
+ * component stays purely about finding a target reference quickly and handing the
+ * choice back to the workspace or reference navigation layer.
+ */
 export function ReferencePicker(props: ReferencePickerProps = {}) {
     const { t } = useLingui();
     const scope = props.scope ?? "main";
@@ -79,7 +87,7 @@ export function ReferencePicker(props: ReferencePickerProps = {}) {
             _titleLower: f.title?.toLocaleLowerCase() ?? "",
             _bookCodeLower: f.bookCode?.toLocaleLowerCase() ?? "",
             _chaptersSorted: [...f.chapters].sort(
-                (a, b) => a.chapNumber - b.chapNumber,
+                (a, b) => a.chapterNumber - b.chapterNumber,
             ),
         }));
     }, [workingFiles]);
@@ -162,6 +170,12 @@ export function ReferencePicker(props: ReferencePickerProps = {}) {
     );
 }
 
+/**
+ * Popover body for the picker.
+ *
+ * Split out so the trigger shell can stay small while the actual book/chapter
+ * search UI manages its own local search state and expansion state.
+ */
 function ReferencePickerDropdown({
     search,
     setSearch,
@@ -318,7 +332,7 @@ function BookAccordionItem({
                 {isOpen ? (
                     <Grid gutter="xs" justify="flex-start">
                         {file._chaptersSorted.map((chap) => (
-                            <Grid.Col span="content" key={chap.chapNumber}>
+                            <Grid.Col span="content" key={chap.chapterNumber}>
                                 <Button
                                     size="xs"
                                     data-testid={
@@ -327,16 +341,16 @@ function BookAccordionItem({
                                     }
                                     data-test-id-specific={TEST_ID_GENERATORS.bookChapterBtn(
                                         file.bookCode,
-                                        chap.chapNumber,
+                                        chap.chapterNumber,
                                     )}
                                     variant={
-                                        chap.chapNumber === currentChapter &&
+                                        chap.chapterNumber === currentChapter &&
                                         isCurrentBook
                                             ? "filled"
                                             : "subtle"
                                     }
                                     className={
-                                        chap.chapNumber === currentChapter &&
+                                        chap.chapterNumber === currentChapter &&
                                         isCurrentBook
                                             ? classes.activeChapter
                                             : undefined
@@ -346,19 +360,19 @@ function BookAccordionItem({
                                     onClick={() => {
                                         switchBookOrChapter(
                                             file.bookCode,
-                                            chap.chapNumber,
+                                            chap.chapterNumber,
                                         );
                                         setOpen(false);
                                     }}
                                 >
-                                    {chap.chapNumber === 0 ? (
+                                    {chap.chapterNumber === 0 ? (
                                         <Tooltip
                                             label={t`This is introductory material for this book`}
                                         >
                                             <InfoIcon size={16} />
                                         </Tooltip>
                                     ) : (
-                                        chap.chapNumber
+                                        chap.chapterNumber
                                     )}
                                 </Button>
                             </Grid.Col>

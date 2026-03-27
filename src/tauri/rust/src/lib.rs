@@ -1,4 +1,5 @@
 mod git;
+mod import;
 mod md5;
 mod usfm_onion;
 use tauri::Manager;
@@ -44,6 +45,10 @@ pub fn run() {
             git::git_restore_tracked_files_from_commit,
             git::git_commit_all,
             git::git_is_repo_healthy,
+            import::import_copy_directory_to_managed_storage,
+            import::import_download_remote_archive_to_managed_storage,
+            import::import_extract_zip_to_managed_storage,
+            import::finalize_imported_resource,
             hello_world
         ])
         .setup(move |app| {

@@ -2,27 +2,33 @@ import { useMantineColorScheme } from "@mantine/core";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
 import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
+import type { SetEditorModeOptions } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
 import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
-import type { ReferenceProjectHook } from "@/app/ui/hooks/useReferenceProject.tsx";
+import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import type { Project } from "@/core/persistence/ProjectRepository.ts";
+import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import { useEditorState } from "./useEditorState.tsx";
 
 export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
-    mutWorkingFilesRef: ParsedFile[];
+    mutWorkingFilesRef: ScriptureBookState[];
     loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -30,22 +36,31 @@ type Props = {
     setCurrentChapter: (chapter: number) => void;
     appSettings: Settings;
     updateAppSettings: (newSettings: Partial<Settings>) => void;
-    pickedFile: ParsedFile | null;
+    pickedFile: ScriptureBookState | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
-    referenceProject: ReferenceProjectHook;
+    referenceResource: ReferenceItemHook;
     setIsProcessing: (isProcessing: boolean) => void;
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
     autoOpenFormatMatchSuggestions: boolean;
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
-    projectLanguageDirection: "ltr" | "rtl";
+    projectLanguageDirection: LanguageDirection;
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
     history: CustomHistoryHook;
 };
 
+/**
+ * Compose the workspace-level action API consumed by the editor UI and command
+ * palette.
+ *
+ * This hook is intentionally an orchestration layer. It gathers narrower hooks
+ * for navigation, mode switching, prettify, format matching, lint fixing, and
+ * editor state so the rest of the UI can call one coherent set of workspace
+ * verbs instead of manually stitching those concerns together.
+ */
 export const useWorkspaceActions = ({
     mutWorkingFilesRef,
     editorRef,
@@ -59,7 +74,7 @@ export const useWorkspaceActions = ({
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
     replaceLintErrorsForBook,
-    referenceProject,
+    referenceResource,
     setIsProcessing,
     setFormatMatchReport,
     autoOpenFormatMatchSuggestions,
@@ -70,7 +85,10 @@ export const useWorkspaceActions = ({
 }: Props) => {
     const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
 
-    // Wrapper functions to handle null editor
+    /**
+     * Guard editor-dependent operations so callers do not have to repeat
+     * null-checks for the mounted Lexical instance.
+     */
     const saveCurrentDirtyLexicalWrapper = () => {
         if (editorRef.current) {
             return editorState.saveCurrentDirtyLexical(editorRef.current);
@@ -81,7 +99,7 @@ export const useWorkspaceActions = ({
     const setEditorContentWrapper = (
         fileBibleIdentifier: string,
         chapter: number,
-        chapterContent: ParsedChapter | undefined,
+        chapterContent: ScriptureChapterState | undefined,
         editor?: LexicalEditor,
     ) => {
         const editorToUse = editor || editorRef.current;
@@ -95,7 +113,6 @@ export const useWorkspaceActions = ({
         }
     };
 
-    // Initialize all focused hooks
     const editorState = useEditorState({
         mutWorkingFilesRef,
         currentFileBibleIdentifier,
@@ -141,7 +158,7 @@ export const useWorkspaceActions = ({
         mutWorkingFilesRef,
         currentFileBibleIdentifier,
         currentChapter,
-        referenceProject,
+        referenceResource,
         updateDiffMapForChapter,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
@@ -149,7 +166,7 @@ export const useWorkspaceActions = ({
         autoOpenFormatMatchSuggestions,
         setIsFormatMatchSuggestionsOpen,
         editorRef,
-        editorMode: appSettings.editorMode ?? "regular",
+        editorMode: appSettings.editorMode ?? EDITOR_MODES.regular,
         languageDirection: projectLanguageDirection,
         targetMarkerPreservationMode,
         history,
@@ -167,7 +184,11 @@ export const useWorkspaceActions = ({
         history,
     });
 
-    // Utility functions that need access to current state
+    /**
+     * Collect the current file's flat token view for downstream operations such
+     * as linting/format matching, saving the current editor state first so the
+     * token view reflects what the user most recently typed.
+     */
     function getFlatFileTokens(
         _currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
@@ -196,7 +217,6 @@ export const useWorkspaceActions = ({
         setMantineColorScheme(value);
     };
 
-    // Return same interface as before for backward compatibility
     return {
         // Editor state management
         updateChapterLexical: editorState.updateChapterLexical,
@@ -210,8 +230,15 @@ export const useWorkspaceActions = ({
         goToReference,
 
         // Mode switching
-        setEditorMode: (next: EditorModeSetting) =>
-            modeSwitching.setEditorMode(next, editorRef.current ?? undefined),
+        setEditorMode: (
+            next: EditorModeSetting,
+            options?: SetEditorModeOptions,
+        ) =>
+            modeSwitching.setEditorMode(
+                next,
+                editorRef.current ?? undefined,
+                options,
+            ),
         initializeEditor: modeSwitching.initializeEditor,
 
         // Prettify operations

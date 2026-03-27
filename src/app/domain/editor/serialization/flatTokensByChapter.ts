@@ -1,16 +1,23 @@
+import { parseSid } from "@/core/data/bible/bible.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Flat USFM tokens do not carry a stable chapter bucket by themselves. Rebuild that
+ * grouping from SIDs and explicit chapter markers so downstream compare, history,
+ * and search flows can reason chapter-by-chapter.
+ */
 function chapterFromSid(
     sid: string | null | undefined,
     fallback: number,
 ): number {
     if (!sid) return fallback;
-    const parts = sid.split(/\s+/, 2);
-    if (parts.length < 2) return fallback;
-    const chapterPart = parts[1]?.split(":")[0] ?? "";
-    return Number.parseInt(chapterPart, 10) || fallback;
+    return parseSid(sid)?.chapter ?? fallback;
 }
 
+/**
+ * Groups a flat token stream by chapter number using the strongest signal present
+ * on each token.
+ */
 export function groupFlatTokensByChapter(
     tokens: Token[],
 ): Record<number, Token[]> {

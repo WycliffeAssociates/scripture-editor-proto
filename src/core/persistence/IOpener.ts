@@ -1,6 +1,7 @@
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
-
+/**
+ * Platform-specific "open/export with the host environment" seam.
+ */
 export interface IOpener {
-    open?(dir: string): Promise<void>;
-    export(dir: IDirectoryHandle, filename?: string): Promise<void>;
+    open?(path: string): Promise<void>;
+    export(path: string, filename?: string): Promise<void>;
 }

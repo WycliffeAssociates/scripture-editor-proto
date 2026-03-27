@@ -6,20 +6,10 @@ import { useEffect, useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
- * ZoomControl
+ * Workspace zoom control.
  *
- * Small primitive that allows adjusting the editor zoom:
- * - minus button to decrease
- * - editable center showing percent (typing allowed)
- * - plus button to increase
- *
- * It reads/writes `project.appSettings.zoom` (a number like 1 === 100%)
- * via `project.updateAppSettings`.
- *
- * Behavior:
- * - increments/decrements by 5% (0.05)
- * - typing accepts a number or percent (e.g. "120" or "120%")
- * - value is clamped between 50% and 300% by default (0.5 - 3.0)
+ * This is separate from font size because desktop builds can restore actual
+ * webview zoom. When that capability is unavailable, the control hides itself.
  */
 export default function ZoomControl() {
     const { project } = useWorkspaceContext();
@@ -33,7 +23,6 @@ export default function ZoomControl() {
     );
     const [localZoom, setLocalZoom] = useState<number>(zoomFromSettings);
 
-    // keep local state in sync when settings change externally
     useEffect(() => {
         setLocalZoom(zoomFromSettings);
         setDisplay(`${Math.round(zoomFromSettings * 100)}%`);
@@ -64,7 +53,6 @@ export default function ZoomControl() {
     const handleInputBlur = () => {
         const parsed = parseInputToZoom(display);
         if (parsed === null) {
-            // reset to current real value
             setDisplay(`${Math.round(localZoom * 100)}%`);
             return;
         }

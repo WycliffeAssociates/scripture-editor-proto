@@ -4,6 +4,13 @@ import fs from "fs";
 import path from "path";
 import {fileURLToPath} from "url";
 
+/**
+ * Keep package/app versions aligned across JS and Tauri metadata files.
+ *
+ * Release/version bumps start in `package.json`; this script propagates that
+ * value to the Rust/Tauri side and verifies the remaining config still points at
+ * the shared source of truth.
+ */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

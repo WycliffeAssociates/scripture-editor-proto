@@ -24,6 +24,14 @@ import type {
     UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Browser implementation of the shared USFM-onion seam.
+ *
+ * This service gives the editor, lint, diff, and formatting flows the same API
+ * they use on desktop, but everything runs in-browser against already-loaded
+ * token arrays or file contents because web builds do not have path-based native
+ * IO into the USFM engine.
+ */
 class UnsupportedError extends Error {
     constructor(message: string) {
         super(message);

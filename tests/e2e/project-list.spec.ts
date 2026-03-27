@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { BASE_URL, expect, test } from "../helpers/e2e/fixtures.ts";
+import { expect, test } from "../helpers/e2e/fixtures.ts";
 
 async function openProjectDrawer(page: Page) {
     await page.getByTestId(TESTING_IDS.settings.drawerOpenButton).click();
@@ -42,7 +42,7 @@ test.describe("Project Drawer Workflows", () => {
         await openProjectDrawer(page);
         await expect(page.getByText("New Project")).toBeVisible();
         await page.getByTestId(TESTING_IDS.appDrawer.newProject).click();
-        expect(page.url()).toBe(`${BASE_URL}/create`);
+        await expect(page).toHaveURL(/\/create$/);
     });
 
     test("handles multiple projects in drawer", async ({

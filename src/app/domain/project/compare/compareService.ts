@@ -1,10 +1,9 @@
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
-import {
-    inferContentEditorModeFromRootChildren,
-    tokensToLexical,
-    tokensToRenderTokens,
-} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import { isChapterDirtyUsfm } from "@/app/domain/project/saveAndRevertService.ts";
+import { tokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import {
     flattenDiffMap,
@@ -12,7 +11,6 @@ import {
 } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
-    CompareBaseline,
     CompareDiff,
     CompareResult,
     CompareSessionConfig,
@@ -22,7 +20,7 @@ import type {
 export type CompareMetadataSummary = {
     projectId?: string;
     languageId?: string;
-    languageDirection?: "ltr" | "rtl";
+    languageDirection?: LanguageDirection;
 };
 
 type ChapterCoverage = {
@@ -40,13 +38,12 @@ type CompareDiffMapBuildArgs = {
         string,
         { bookCode: string; chapterNum: number; side: ChapterSide }
     >;
-    baseline: CompareBaseline;
 };
 
 type BuildCompareResultArgs = {
-    currentFiles: ParsedFile[];
+    currentFiles: ScriptureBookState[];
     config: CompareSessionConfig;
-    sourceFiles: ParsedFile[];
+    sourceFiles: ScriptureBookState[];
     currentMetadata?: CompareMetadataSummary;
     sourceMetadata?: CompareMetadataSummary;
     usfmOnionService: IUsfmOnionService;
@@ -55,21 +52,26 @@ type BuildCompareResultArgs = {
 };
 
 type ChapterSide = {
-    file: ParsedFile;
-    chapter: ParsedChapter;
+    file: ScriptureBookState;
+    chapter: ScriptureChapterState;
 };
 
-function getBaselineTokens(
-    chapter: ParsedChapter,
-    baseline: CompareBaseline,
-): Token[] {
-    return baseline === "currentSaved"
-        ? chapter.sourceTokens
-        : chapter.currentTokens;
+/**
+ * Compares the current scripture workspace against an external or historical
+ * scripture source.
+ *
+ * By the time code reaches this module, both sides have already been loaded into
+ * `ScriptureBookState` nouns. This service stays at that workspace layer: it
+ * computes metadata warnings, chapter coverage, and diff hunks. Mutation/apply
+ * flows live in `compareMutations.ts` so callers can depend on either the pure
+ * result builder or the workspace mutation layer independently.
+ */
+function getBaselineTokens(chapter: ScriptureChapterState): Token[] {
+    return chapter.currentTokens;
 }
 
 function buildChapterMap(
-    files: ParsedFile[],
+    files: ScriptureBookState[],
 ): Map<string, { bookCode: string; chapterNum: number; side: ChapterSide }> {
     const out = new Map<
         string,
@@ -77,7 +79,7 @@ function buildChapterMap(
     >();
     for (const file of files) {
         for (const chapter of file.chapters) {
-            const chapterNum = chapter.chapNumber;
+            const chapterNum = chapter.chapterNumber;
             out.set(`${file.bookCode}:${chapterNum}`, {
                 bookCode: file.bookCode,
                 chapterNum,
@@ -174,7 +176,7 @@ async function buildChapterDiffMapAsync(
             if (!bookCode || Number.isNaN(chapterNum)) continue;
 
             const baselineTokens = baselineEntry
-                ? getBaselineTokens(baselineEntry.side.chapter, args.baseline)
+                ? getBaselineTokens(baselineEntry.side.chapter)
                 : [];
             const sourceTokens = sourceEntry
                 ? sourceEntry.side.chapter.currentTokens
@@ -271,7 +273,6 @@ export async function buildCompareResultAsync(
         baselineMap,
         sourceMap,
         usfmOnionService: args.usfmOnionService,
-        baseline: args.config.baseline,
         batchSize: args.batchSize ?? 8,
         onBatchComplete: args.onBatchComplete,
     });
@@ -303,192 +304,4 @@ export async function buildCompareResultAsync(
             overlapping: coverage.overlap,
         },
     };
-}
-
-function findWorkingChapter(
-    workingFiles: ParsedFile[],
-    bookCode: string,
-    chapterNum: number,
-) {
-    const file = workingFiles.find(
-        (candidate) => candidate.bookCode === bookCode,
-    );
-    const chapter = file?.chapters.find((c) => c.chapNumber === chapterNum);
-    return { file, chapter };
-}
-
-function ensureWorkingChapterFromSource(args: {
-    workingFiles: ParsedFile[];
-    sourceFiles: ParsedFile[];
-    bookCode: string;
-    chapterNum: number;
-}) {
-    const existing = findWorkingChapter(
-        args.workingFiles,
-        args.bookCode,
-        args.chapterNum,
-    );
-    if (existing.file && existing.chapter) return existing;
-
-    const sourceFile = args.sourceFiles.find(
-        (f) => f.bookCode === args.bookCode,
-    );
-    const sourceChapter = sourceFile?.chapters.find(
-        (c) => c.chapNumber === args.chapterNum,
-    );
-    if (!sourceFile || !sourceChapter) return existing;
-
-    if (!existing.file) {
-        const newFile: ParsedFile = {
-            path: sourceFile.path,
-            title: sourceFile.title,
-            bookCode: sourceFile.bookCode,
-            nextBookId: sourceFile.nextBookId,
-            prevBookId: sourceFile.prevBookId,
-            sort: sourceFile.sort,
-            chapters: [],
-        };
-        args.workingFiles.push(newFile);
-        existing.file = newFile;
-    }
-
-    if (!existing.chapter) {
-        const newChapter: ParsedChapter = {
-            chapNumber: args.chapterNum,
-            lexicalState: structuredClone(sourceChapter.lexicalState),
-            loadedLexicalState: structuredClone(
-                sourceChapter.loadedLexicalState,
-            ),
-            sourceTokens: structuredClone(sourceChapter.sourceTokens),
-            currentTokens: structuredClone(sourceChapter.currentTokens),
-            dirty: false,
-        };
-        existing.file.chapters.push(newChapter);
-        existing.chapter = newChapter;
-    }
-
-    return existing;
-}
-
-function applyTokensToWorkingChapter(args: {
-    chapter: ParsedChapter;
-    nextTokens: Token[];
-}) {
-    const direction =
-        (args.chapter.lexicalState.root.direction ?? "ltr") === "rtl"
-            ? "rtl"
-            : "ltr";
-    const currentMode = inferContentEditorModeFromRootChildren(
-        args.chapter.lexicalState.root.children,
-    );
-    args.chapter.lexicalState = tokensToLexical({
-        tokens: args.nextTokens,
-        direction,
-        mode: currentMode === "regular" ? "regular" : "flat",
-    });
-    args.chapter.currentTokens = args.nextTokens;
-    args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
-}
-
-export async function applyIncomingHunk(args: {
-    workingFiles: ParsedFile[];
-    sourceFiles: ParsedFile[];
-    diff: CompareDiff;
-    usfmOnionService: IUsfmOnionService;
-}): Promise<void> {
-    const sourceChapter = findWorkingChapter(
-        args.sourceFiles,
-        args.diff.bookCode,
-        args.diff.chapterNum,
-    ).chapter;
-    if (!sourceChapter) return;
-
-    const ensured = ensureWorkingChapterFromSource({
-        workingFiles: args.workingFiles,
-        sourceFiles: args.sourceFiles,
-        bookCode: args.diff.bookCode,
-        chapterNum: args.diff.chapterNum,
-    });
-    const workingChapter = ensured.chapter;
-    if (!workingChapter) return;
-
-    const sourceTokens = sourceChapter.currentTokens;
-    const workingTokens = workingChapter.currentTokens;
-
-    // Take-incoming = treat source as baseline and revert the current working
-    // side for this block back to source semantics.
-    const nextTokens = await args.usfmOnionService.revertDiffBlock(
-        sourceTokens,
-        workingTokens,
-        args.diff.uniqueKey,
-    );
-
-    applyTokensToWorkingChapter({
-        chapter: workingChapter,
-        nextTokens,
-    });
-}
-
-export function applyIncomingChapter(args: {
-    workingFiles: ParsedFile[];
-    sourceFiles: ParsedFile[];
-    bookCode: string;
-    chapterNum: number;
-}) {
-    const sourceChapter = findWorkingChapter(
-        args.sourceFiles,
-        args.bookCode,
-        args.chapterNum,
-    ).chapter;
-    const ensured = ensureWorkingChapterFromSource({
-        workingFiles: args.workingFiles,
-        sourceFiles: args.sourceFiles,
-        bookCode: args.bookCode,
-        chapterNum: args.chapterNum,
-    });
-    const workingChapter = ensured.chapter;
-    if (!workingChapter) return;
-
-    if (!sourceChapter) {
-        applyTokensToWorkingChapter({
-            chapter: workingChapter,
-            nextTokens: [],
-        });
-        return;
-    }
-
-    const incomingTokens = sourceChapter.currentTokens;
-    applyTokensToWorkingChapter({
-        chapter: workingChapter,
-        nextTokens: incomingTokens,
-    });
-}
-
-export function applyIncomingChapterAll(args: {
-    workingFiles: ParsedFile[];
-    sourceFiles: ParsedFile[];
-}) {
-    const chapterKeys = new Set<string>();
-    for (const file of args.workingFiles) {
-        for (const chapter of file.chapters) {
-            chapterKeys.add(`${file.bookCode}:${chapter.chapNumber}`);
-        }
-    }
-    for (const file of args.sourceFiles) {
-        for (const chapter of file.chapters) {
-            chapterKeys.add(`${file.bookCode}:${chapter.chapNumber}`);
-        }
-    }
-
-    for (const key of chapterKeys) {
-        const [bookCode, chapterPart] = key.split(":");
-        const chapterNum = Number(chapterPart);
-        if (!bookCode || Number.isNaN(chapterNum)) continue;
-        applyIncomingChapter({
-            workingFiles: args.workingFiles,
-            sourceFiles: args.sourceFiles,
-            bookCode,
-            chapterNum,
-        });
-    }
 }

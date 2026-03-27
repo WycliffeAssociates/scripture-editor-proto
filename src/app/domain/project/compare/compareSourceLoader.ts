@@ -1,44 +1,48 @@
-import { strFromU8, type Unzipped, unzip } from "fflate";
+import { type Unzipped, unzip } from "fflate";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
-import { loadedProjectToParsedFiles } from "@/app/domain/api/loadedProjectToParsedFiles.ts";
-import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
-import { ProjectLoader } from "@/core/domain/project/ProjectLoader.ts";
+import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import { FileWriter } from "@/core/io/DefaultFileWriter.ts";
-import type { IDirectoryHandle } from "@/core/io/IDirectoryHandle.ts";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
-import type {
-    IProjectRepository,
-    Project,
-} from "@/core/persistence/ProjectRepository.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import { joinStoragePath } from "@/core/persistence/pathUtils.ts";
+import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import type { ReadOnlyOpenProjectService } from "@/core/persistence/WorkspaceService.ts";
 import type { CompareMetadataSummary } from "./compareService.ts";
 
 export type CompareSourceLoadResult = {
-    parsedFiles: ParsedFile[];
+    parsedFiles: ScriptureBookState[];
     metadataSummary: CompareMetadataSummary;
     cleanup: () => Promise<void>;
 };
 
 type CompareSourceLoaderArgs = {
-    projectRepository: IProjectRepository;
-    directoryProvider: IDirectoryProvider;
-    md5Service: IMd5Service;
+    projectsService: ReadOnlyOpenProjectService;
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
     editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 };
 
+/**
+ * Normalizes the different compare-source entrypoints into the same parsed
+ * scripture workspace shape.
+ *
+ * Compare can start from an already-indexed project, a picked directory, or an
+ * uploaded zip. This loader hides that branching so the compare service only sees
+ * `ScriptureBookState[]` plus lightweight metadata and cleanup hooks.
+ */
 export class CompareSourceLoader {
-    private readonly projectRepository: IProjectRepository;
-    private readonly directoryProvider: IDirectoryProvider;
-    private readonly md5Service: IMd5Service;
+    private readonly projectsService: ReadOnlyOpenProjectService;
+    private readonly fileSystem: FileSystem;
+    private readonly storageRoots: StorageRoots;
     private readonly editorMode: EditorModeSetting;
     private readonly usfmOnionService: IUsfmOnionService;
 
     constructor(args: CompareSourceLoaderArgs) {
-        this.projectRepository = args.projectRepository;
-        this.directoryProvider = args.directoryProvider;
-        this.md5Service = args.md5Service;
+        this.projectsService = args.projectsService;
+        this.fileSystem = args.fileSystem;
+        this.storageRoots = args.storageRoots;
         this.editorMode = args.editorMode;
         this.usfmOnionService = args.usfmOnionService;
     }
@@ -46,35 +50,33 @@ export class CompareSourceLoader {
     async loadExistingProject(
         projectId: string,
     ): Promise<CompareSourceLoadResult> {
-        const loaded = await this.projectRepository.loadProject(
-            projectId,
-            this.md5Service,
-        );
-        if (!loaded) {
+        const opened =
+            await this.projectsService.openProjectReadOnly(projectId);
+        if (!opened) {
             throw new Error("Failed to load selected source project.");
         }
-        const parsed = await loadedProjectToParsedFiles({
-            loadedProject: loaded,
+        const parsed = await scriptureProjectToParsedFiles({
+            loadedProject: opened,
             editorMode: this.editorMode,
             usfmOnionService: this.usfmOnionService,
         });
         return {
             parsedFiles: parsed.parsedFiles,
-            metadataSummary: toMetadataSummary(loaded),
+            metadataSummary: toMetadataSummary(opened),
             cleanup: async () => {},
         };
     }
 
     async loadFromZipFile(file: File): Promise<CompareSourceLoadResult> {
-        const tempDirectory = await this.directoryProvider.tempDirectory;
-        const tempDirName = `compare-zip-${Date.now()}`;
-        const tempRoot = await tempDirectory.getDirectoryHandle(tempDirName, {
-            create: true,
-        });
-        await extractZipToDirectory(file, tempRoot);
-        const projectRoot = await resolveProjectRoot(tempRoot);
+        const tempRoot = joinStoragePath(
+            this.storageRoots.tempRoot,
+            `compare-zip-${Date.now()}`,
+        );
+        await this.fileSystem.mkdir(tempRoot, { recursive: true });
+        await extractZipToDirectory(file, tempRoot, this.fileSystem);
+        const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
         const loaded = await this.loadProjectFromDirectory(projectRoot);
-        const parsed = await loadedProjectToParsedFiles({
+        const parsed = await scriptureProjectToParsedFiles({
             loadedProject: loaded,
             editorMode: this.editorMode,
             usfmOnionService: this.usfmOnionService,
@@ -84,7 +86,7 @@ export class CompareSourceLoader {
             parsedFiles: parsed.parsedFiles,
             metadataSummary: toMetadataSummary(loaded),
             cleanup: async () => {
-                await tempDirectory.removeEntry(tempDirName, {
+                await this.fileSystem.remove(tempRoot, {
                     recursive: true,
                 });
             },
@@ -94,15 +96,15 @@ export class CompareSourceLoader {
     async loadFromDirectoryFiles(
         files: FileList,
     ): Promise<CompareSourceLoadResult> {
-        const tempDirectory = await this.directoryProvider.tempDirectory;
-        const tempDirName = `compare-dir-${Date.now()}`;
-        const tempRoot = await tempDirectory.getDirectoryHandle(tempDirName, {
-            create: true,
-        });
-        await copyDirectorySelectionToTemp(files, tempRoot);
-        const projectRoot = await resolveProjectRoot(tempRoot);
+        const tempRoot = joinStoragePath(
+            this.storageRoots.tempRoot,
+            `compare-dir-${Date.now()}`,
+        );
+        await this.fileSystem.mkdir(tempRoot, { recursive: true });
+        await copyDirectorySelectionToTemp(files, tempRoot, this.fileSystem);
+        const projectRoot = await resolveProjectRoot(tempRoot, this.fileSystem);
         const loaded = await this.loadProjectFromDirectory(projectRoot);
-        const parsed = await loadedProjectToParsedFiles({
+        const parsed = await scriptureProjectToParsedFiles({
             loadedProject: loaded,
             editorMode: this.editorMode,
             usfmOnionService: this.usfmOnionService,
@@ -111,7 +113,7 @@ export class CompareSourceLoader {
             parsedFiles: parsed.parsedFiles,
             metadataSummary: toMetadataSummary(loaded),
             cleanup: async () => {
-                await tempDirectory.removeEntry(tempDirName, {
+                await this.fileSystem.remove(tempRoot, {
                     recursive: true,
                 });
             },
@@ -119,11 +121,10 @@ export class CompareSourceLoader {
     }
 
     private async loadProjectFromDirectory(
-        dirHandle: IDirectoryHandle,
+        directoryPath: string,
     ): Promise<Project> {
-        const loader = new ProjectLoader(this.md5Service);
-        const fileWriter = new FileWriter(this.directoryProvider, dirHandle);
-        const loaded = await loader.loadProject(dirHandle, fileWriter);
+        const loaded =
+            await this.projectsService.openProjectReadOnly(directoryPath);
         if (!loaded) {
             throw new Error(
                 "Selected compare source is not a supported project.",
@@ -135,15 +136,16 @@ export class CompareSourceLoader {
 
 function toMetadataSummary(project: Project): CompareMetadataSummary {
     return {
-        projectId: project.metadata.id,
-        languageId: project.metadata.language.id,
-        languageDirection: project.metadata.language.direction,
+        projectId: project.projectId ?? project.folderName,
+        languageId: project.language.code,
+        languageDirection: project.language.direction,
     };
 }
 
 async function copyDirectorySelectionToTemp(
     files: FileList,
-    tempRoot: IDirectoryHandle,
+    tempRoot: string,
+    fileSystem: FileSystem,
 ) {
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -152,27 +154,17 @@ async function copyDirectorySelectionToTemp(
             .slice(1)
             .join("/");
         if (!relativePath) continue;
-        const pathParts = relativePath.split("/");
-        const fileName = pathParts.pop();
-        if (!fileName) continue;
-        let currentDir = tempRoot;
-        for (const dirPart of pathParts) {
-            currentDir = await currentDir.getDirectoryHandle(dirPart, {
-                create: true,
-            });
-        }
-        const fileHandle = await currentDir.getFileHandle(fileName, {
-            create: true,
-        });
-        const writer = await fileHandle.createWriter();
-        await writer.write(await file.arrayBuffer());
-        await writer.close();
+        await fileSystem.writeBytes(
+            joinStoragePath(tempRoot, relativePath),
+            new Uint8Array(await file.arrayBuffer()),
+        );
     }
 }
 
 async function extractZipToDirectory(
     file: File,
-    destination: IDirectoryHandle,
+    destination: string,
+    fileSystem: FileSystem,
 ) {
     const data = await file.arrayBuffer();
     const loadedZip = await new Promise<Unzipped>((resolve, reject) => {
@@ -192,33 +184,28 @@ async function extractZipToDirectory(
         }
         const pathParts = fileName.split("/").filter(Boolean);
         const entryName = pathParts.pop();
-        let dir = destination;
-        for (const part of pathParts) {
-            dir = await dir.getDirectoryHandle(part, { create: true });
-        }
         if (!entryName) continue;
+        const targetPath = joinStoragePath(
+            destination,
+            ...pathParts,
+            entryName,
+        );
         if (fileName.endsWith("/")) {
-            await dir.getDirectoryHandle(entryName, { create: true });
+            await fileSystem.mkdir(targetPath, { recursive: true });
             continue;
         }
-        const fileHandle = await dir.getFileHandle(entryName, { create: true });
-        const writer = await fileHandle.createWriter();
-        await writer.write(strFromU8(zipEntry));
-        await writer.close();
+        await fileSystem.writeBytes(targetPath, zipEntry);
     }
 }
 
 async function resolveProjectRoot(
-    tempRoot: IDirectoryHandle,
-): Promise<IDirectoryHandle> {
-    const entries: Array<{ name: string; dir: IDirectoryHandle }> = [];
-    for await (const [name, handle] of tempRoot.entries()) {
-        if (handle.isDir) {
-            entries.push({ name, dir: handle as IDirectoryHandle });
-        }
-    }
-    if (entries.length === 1) {
-        return entries[0].dir;
+    tempRoot: string,
+    fileSystem: FileSystem,
+): Promise<string> {
+    const entries = await fileSystem.list(tempRoot);
+    const directories = entries.filter((entry) => entry.kind === "directory");
+    if (directories.length === 1) {
+        return directories[0].path;
     }
     return tempRoot;
 }

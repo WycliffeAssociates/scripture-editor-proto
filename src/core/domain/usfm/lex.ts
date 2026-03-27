@@ -1,3 +1,8 @@
+/**
+ * Shared lexical constants used by the USFM token pipeline. These values keep the
+ * editor-side adapters and the lower-level USFM helpers talking about the same
+ * token kinds and marker patterns.
+ */
 const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
 export const markerTrimNoSlash = (text: string) =>
     markerWithoutBackslash(text.trim());

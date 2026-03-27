@@ -10,6 +10,11 @@ export type UndoRedoNotificationTarget =
     | { kind: "single-remote"; chapter: HistoryChapterRef }
     | { kind: "multiple"; count: number };
 
+/**
+ * Undo/redo can touch chapters other than the one currently on screen. Reduce that
+ * change set to the minimal notification the UI should show after the action
+ * completes.
+ */
 function chapterKey(chapter: HistoryChapterRef) {
     return `${chapter.bookCode}:${chapter.chapterNum}`;
 }

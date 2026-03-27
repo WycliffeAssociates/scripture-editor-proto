@@ -7,7 +7,11 @@ import {
     $isRangeSelection,
     type LexicalNode,
 } from "lexical";
-import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    type EditorModeSetting,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     $createUSFMParagraphNode,
@@ -21,6 +25,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
     isValidParaMarker,
     VALID_CHAR_MARKERS,
@@ -46,7 +51,7 @@ export type BaseInsertArgs = {
     marker: string;
     isStartOfLine: boolean;
     restOfText: string;
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
     isTypedInsertion?: boolean;
     editorMode: EditorModeSetting;
 };
@@ -113,7 +118,9 @@ function $createMarkerNode({
 }
 
 /**
- * Creates a text node with common properties
+ * Creates the editable text node that often accompanies a newly inserted marker.
+ * The surrounding paragraph and char context is copied forward so the new content
+ * immediately participates in the same structural scope.
  */
 type CreateContextTextNodeArgs = {
     text: string;
@@ -137,7 +144,9 @@ function $createContextTextNode({
 }
 
 /**
- * Ensures a linebreak precedes the given node
+ * Some insertions are only structurally correct if the new marker starts on a new
+ * line. Insert that break when the surrounding token stream does not already
+ * provide one.
  */
 function $ensureLineBreakBefore(node: USFMTextNode): void {
     const prevSibling = node.getPreviousSibling();
@@ -177,6 +186,10 @@ export function mapMarkerToInsertionType(
     return InsertionTypes.para; // default fallback
 }
 
+/**
+ * Walk backward from the insertion anchor to recover the surrounding paragraph and
+ * most recent verse/chapter SID context needed for new markers.
+ */
 function findContextForVerseInsert(anchorNode: LexicalNode): {
     nearestParaMarker: string | null;
     prevSidInfo: ParsedReference | null;
@@ -393,7 +406,7 @@ export function $insertChapter(args: BaseInsertArgs): void {
 
 export function $insertPara(args: BaseInsertArgs): void {
     // Regular mode uses tree structure with USFMParagraphNode containers
-    if (args.editorMode === "regular") {
+    if (args.editorMode === EDITOR_MODES.regular) {
         $insertParaRegularMode(args);
     } else {
         $insertParaSourceMode(args);
@@ -768,7 +781,7 @@ export function $insertNote(args: BaseInsertArgs): void {
 
     if (!$isRangeSelection(selection)) return;
 
-    if (args.editorMode !== "regular") {
+    if (args.editorMode !== EDITOR_MODES.regular) {
         // In USFM/Plain mode, notes are edited inline as flat tokens (no nested decorator).
         // Insert a minimal `\f + \f*` scaffold and place the cursor inside.
         const openingMarker = $createUSFMTextNode(`\\${marker} `, {

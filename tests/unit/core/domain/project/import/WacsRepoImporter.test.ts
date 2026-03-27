@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WacsRepoImporter } from "@/core/domain/project/import/WacsRepoImporter.ts";
-import type { IDirectoryProvider } from "@/core/persistence/DirectoryProvider.ts";
-import { MockDirectoryHandle } from "@tests/helpers/mock.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -15,40 +15,24 @@ vi.mock("fflate", () => ({
 }));
 
 describe("WacsRepoImporter", () => {
-    let mockDirectoryProvider: IDirectoryProvider;
-    let mockProjectsDir: MockDirectoryHandle;
-    let mockTempDir: MockDirectoryHandle;
+    let fileSystem: InMemoryFileSystem;
+    let roots: StorageRoots;
     let importer: WacsRepoImporter;
 
     beforeEach(() => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         vi.spyOn(console, "log").mockImplementation(() => {});
 
-        mockProjectsDir = new MockDirectoryHandle("projects");
-        mockTempDir = new MockDirectoryHandle("temp");
-
-        mockDirectoryProvider = {
-            projectsDirectory: Promise.resolve(mockProjectsDir),
-            tempDirectory: Promise.resolve(mockTempDir),
-            // Mock other required methods
-            getAppPublicDirectory: vi.fn(),
-            getAppPrivateDirectory: vi.fn(),
-            getDirectoryHandle: vi.fn(),
-            getProjectDirectory: vi.fn(),
-            newFileWriter: vi.fn(),
-            newFileReader: vi.fn(),
-            createTempFile: vi.fn(),
-            cleanTempDirectory: vi.fn(),
-            openInFileManager: vi.fn(),
-            databaseDirectory: Promise.resolve(new MockDirectoryHandle("db")),
-            logsDirectory: Promise.resolve(new MockDirectoryHandle("logs")),
-            cacheDirectory: Promise.resolve(new MockDirectoryHandle("cache")),
-            getHandle: vi.fn(),
-            resolveHandle: vi.fn(),
-            removeDirectory: vi.fn(),
+        fileSystem = new InMemoryFileSystem();
+        roots = {
+            projectsRoot: "/userData/projects",
+            tempRoot: "/appData/temp",
+            cacheRoot: "/appData/cache",
+            logsRoot: "/appData/logs",
+            databaseRoot: "/appData/database",
         };
 
-        importer = new WacsRepoImporter(mockDirectoryProvider);
+        importer = new WacsRepoImporter(fileSystem, roots);
 
         // Reset fetch mock
         mockFetch.mockReset();
@@ -61,7 +45,7 @@ describe("WacsRepoImporter", () => {
     describe("import method", () => {
         it("should accept a URL string parameter", async () => {
             const testUrl = "https://example.com/project.zip";
-            const zipContent = new ArrayBuffer(100);
+            const zipContent = new Uint8Array(100);
             vi.spyOn(importer, "downloadData").mockResolvedValue({
                 data: zipContent,
                 filename: "project.zip",
@@ -72,7 +56,7 @@ describe("WacsRepoImporter", () => {
                 ] as unknown as {
                     importFromZipData: (args: {
                         archiveName: string;
-                        data: ArrayBuffer;
+                        data: Uint8Array;
                     }) => Promise<string>;
                 },
                 "importFromZipData",
@@ -90,7 +74,7 @@ describe("WacsRepoImporter", () => {
             ];
             vi.spyOn(importer, "downloadData").mockImplementation(
                 async (url: string) => ({
-                    data: new ArrayBuffer(100),
+                    data: new Uint8Array(100),
                     filename: url.split("/").at(-1) ?? "archive.zip",
                 }),
             );
@@ -100,7 +84,7 @@ describe("WacsRepoImporter", () => {
                 ] as unknown as {
                     importFromZipData: (args: {
                         archiveName: string;
-                        data: ArrayBuffer;
+                        data: Uint8Array;
                     }) => Promise<string>;
                 },
                 "importFromZipData",
@@ -152,7 +136,7 @@ describe("WacsRepoImporter", () => {
             const result = await downloadData(testUrl);
 
             expect(result.filename).toBe("my-project.zip");
-            expect(result.data).toBe(zipContent);
+            expect(result.data).toEqual(new Uint8Array(zipContent));
         });
     });
 });

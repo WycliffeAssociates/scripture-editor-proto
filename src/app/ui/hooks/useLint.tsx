@@ -11,6 +11,14 @@ export type UseLintReturn = ReturnType<typeof useLint>;
 type UseLintProps = {
     initialLintErrorsByBook: LintMessagesByBook;
 };
+
+/**
+ * Local lint-state adapter for the workspace shell.
+ *
+ * Core linting produces per-book/per-chapter issue maps. This hook keeps that map
+ * in React state and exposes the small mutation helpers the rest of the UI needs
+ * after relinting, fixing, or importing.
+ */
 export function useLint({ initialLintErrorsByBook }: UseLintProps) {
     // todo: like initial files data, this is that semi anti pattern of change in props won't sync without reload or an effect, but right now we just hard reload on project change
     const [messagesByBook, setMessagesByBook] = useState<LintMessagesByBook>(

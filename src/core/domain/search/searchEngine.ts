@@ -4,6 +4,13 @@ import type {
     SearchQuery,
 } from "@/core/domain/search/types.ts";
 
+/**
+ * Pure text-search engine over chapter/node text projections.
+ *
+ * App code is responsible for projecting scripture workspace state into
+ * `SearchChapter` inputs. This module stays pure and deterministic: given chapter
+ * text and a query, it returns match ranges and hit metadata.
+ */
 export function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

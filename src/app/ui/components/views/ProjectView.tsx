@@ -9,22 +9,32 @@ import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx"
 import { SearchPanel } from "@/app/ui/components/blocks/Search.tsx";
 import { Toolbar } from "@/app/ui/components/blocks/Toolbar.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
-import type { ReferenceProject } from "@/app/ui/hooks/useReferenceProject.tsx";
+import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
+/**
+ * Main workspace route view.
+ *
+ * By the time this component renders, the route has already loaded an editable
+ * scripture workspace and the workspace provider has assembled the hooks that sit
+ * on top of it. This component is responsible for layout only: toolbar, search
+ * panel, main editor, and optional reference pane.
+ */
 export function ProjectView() {
-    const { referenceProject, search } = useWorkspaceContext();
+    const { referenceResource, search } = useWorkspaceContext();
     const [opened, { open, close }] = useDisclosure(false);
     const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
-    const hasReferenceProject = Boolean(referenceProject.referenceProjectId);
+    const hasReferenceResource = Boolean(
+        referenceResource.activeReferenceResourcePath,
+    );
 
     const desktopColumns = (() => {
-        if (search.isSearchPaneOpen && hasReferenceProject)
+        if (search.isSearchPaneOpen && hasReferenceResource)
             return "minmax(20rem, 24rem) minmax(0, 1fr) minmax(20rem, 28rem)";
-        if (search.isSearchPaneOpen && !hasReferenceProject)
+        if (search.isSearchPaneOpen && !hasReferenceResource)
             return "minmax(20rem, 24rem) minmax(0, 1fr)";
-        if (!search.isSearchPaneOpen && hasReferenceProject)
+        if (!search.isSearchPaneOpen && hasReferenceResource)
             return "minmax(0, 1fr) minmax(20rem, 28rem)";
         return "1fr";
     })();
@@ -32,22 +42,20 @@ export function ProjectView() {
     return (
         <div
             className={
-                referenceProject.referenceProjectId
+                referenceResource.activeReferenceResourcePath
                     ? styles.appLayoutWithReference
                     : styles.appLayout
             }
         >
             <TopToolbar isSmall={isSm} openDrawer={open} />
 
-            {/* MOBILE TABS (CSS toggles visibility, editors remain mounted) */}
             <MobileReferenceTabs
                 isSmall={isSm}
-                referenceProject={referenceProject}
+                referenceResource={referenceResource}
                 mobileTab={mobileTab}
                 setMobileTab={setMobileTab}
             />
 
-            {/* EDITORS ALWAYS MOUNTED — only layout changes */}
             <div
                 className={
                     isSm
@@ -58,10 +66,8 @@ export function ProjectView() {
                     isSm ? undefined : { gridTemplateColumns: desktopColumns }
                 }
             >
-                {/* Desktop search panel */}
                 <SearchPanel />
 
-                {/* Main editor area */}
                 <div
                     className={
                         isSm
@@ -69,7 +75,7 @@ export function ProjectView() {
                             : styles.editorWrapperDesktop
                     }
                     style={
-                        isSm && hasReferenceProject
+                        isSm && hasReferenceResource
                             ? {
                                   display:
                                       mobileTab === "main" ? "block" : "none",
@@ -82,8 +88,7 @@ export function ProjectView() {
                     </div>
                 </div>
 
-                {/* Reference editor */}
-                {hasReferenceProject && (
+                {hasReferenceResource && (
                     <div
                         className={
                             isSm
@@ -111,6 +116,12 @@ export function ProjectView() {
     );
 }
 
+/**
+ * Toolbar row plus chapter-navigation chrome.
+ *
+ * Split out so the main layout stays focused on column composition while this
+ * helper owns the responsive toolbar/navigation arrangement.
+ */
 function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
     return (
         <nav className={styles.navRibbon}>
@@ -145,12 +156,15 @@ function TopToolbar(props: { isSmall: boolean; openDrawer: () => void }) {
     );
 }
 
+/**
+ * Current location pill for the loaded scripture workspace.
+ */
 function LocationIndicator(props: { isCompact?: boolean }) {
     const { project, bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const { t } = useLingui();
 
     const chapter =
-        project.pickedChapter?.chapNumber ?? project.currentChapter ?? 0;
+        project.pickedChapter?.chapterNumber ?? project.currentChapter ?? 0;
 
     const bookTitle = bookCodeToProjectLocalizedTitle({
         bookCode: project.pickedFile.bookCode,
@@ -177,15 +191,21 @@ function LocationIndicator(props: { isCompact?: boolean }) {
     );
 }
 
+/**
+ * Small-screen tab switcher for toggling between editable and reference panes.
+ *
+ * Desktop can show both columns at once. On small screens we keep both mounted
+ * but switch visibility so editor and reference state are preserved.
+ */
 function MobileReferenceTabs(props: {
     isSmall: boolean;
-    referenceProject: ReferenceProject;
+    referenceResource: ReferenceItemHook;
     mobileTab: "main" | "ref";
     setMobileTab: (tab: "main" | "ref") => void;
 }) {
     return (
         props.isSmall &&
-        props.referenceProject.referenceProjectId && (
+        props.referenceResource.activeReferenceResourcePath && (
             <div className={styles.mobileTabsBar}>
                 <button
                     type="button"

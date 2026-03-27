@@ -2,7 +2,7 @@ import { useDebouncedCallback } from "@mantine/hooks";
 import { useRouter } from "@tanstack/react-router";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
-import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import { EDITOR_MODES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -39,15 +39,18 @@ export function shouldRunLintForEditorUpdate({
 }
 
 /**
- * Hook to manage linting for a Lexical editor.
- * Registers an update listener that debounces linting and merges errors into the lint state.
+ * Register the lint pass for one live scripture editor.
  *
- * @param editor - The Lexical editor instance
+ * This hook is the bridge from Lexical mutations back into the external USFM
+ * linter. It deliberately skips hydration-only and selection-only updates,
+ * debounces real content changes, and also re-runs lint after undo/redo so the
+ * lint pane stays aligned with whichever chapter snapshot the user restored.
  */
 export function useEditorLinter(editor: LexicalEditor) {
     const { actions, history, lint, project } = useWorkspaceContext();
     const { usfmOnionService } = useRouter().options.context;
-    const editorModeSetting = project.appSettings.editorMode ?? "regular";
+    const editorModeSetting =
+        project.appSettings.editorMode ?? EDITOR_MODES.regular;
     const currentBookCode = project.pickedFile.bookCode;
     const currentChapter = project.currentChapter;
     const lintDebounceMs = 300;
@@ -67,7 +70,10 @@ export function useEditorLinter(editor: LexicalEditor) {
     );
 
     useEffect(() => {
-        if (editorModeSetting === "plain" || editorModeSetting === "view") {
+        if (
+            editorModeSetting === EDITOR_MODES.plain ||
+            editorModeSetting === EDITOR_MODES.view
+        ) {
             return;
         }
 
@@ -106,7 +112,10 @@ export function useEditorLinter(editor: LexicalEditor) {
     ]);
 
     useEffect(() => {
-        if (editorModeSetting === "plain" || editorModeSetting === "view") {
+        if (
+            editorModeSetting === EDITOR_MODES.plain ||
+            editorModeSetting === EDITOR_MODES.view
+        ) {
             return;
         }
 

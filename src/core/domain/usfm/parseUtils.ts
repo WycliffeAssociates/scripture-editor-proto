@@ -1,6 +1,11 @@
 import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
 import { numRangeRe } from "@/core/domain/usfm/lex.ts";
 
+/**
+ * Shared token-level parsing helpers used while projecting raw/serialized USFM into
+ * the token streams and SID annotations the editor and search/history layers rely
+ * on.
+ */
 type WhitespaceMergeToken = {
     tokenType: string;
     text: string;
@@ -15,6 +20,10 @@ export type TokenForSidCalculation = {
     sid?: string;
 };
 
+/**
+ * Move inline horizontal whitespace onto neighboring text-like tokens so later
+ * structural passes do not have to treat standalone whitespace tokens as content.
+ */
 export const mergeHorizontalWhitespaceToAdjacent = (
     tokens: WhitespaceMergeToken[],
 ): WhitespaceMergeToken[] => {
@@ -64,12 +73,10 @@ function makeVerseSid(bookCode: string, chapter: number, verse: string) {
 }
 
 /**
- * Mutates tokens in-place, adding a `sid` for each token.
+ * Add SIDs in-place across a token stream using chapter/verse marker context.
  *
- * Heuristic (simple, forward):
- * - Before the first `\\c`, everything is attributed to `0:0` (intro material).
- * - On `\\c <n>`, switch to chapter `n:0` (everything until first `\\v`).
- * - On `\\v <n|n-n>`, switch to verse `n` (everything until next `\\v` or `\\c`).
+ * This is a core bridge from raw tokenization into the anchor-addressable model the
+ * rest of Dovetail uses for navigation, diffing, lint, and reference sync.
  */
 export function mutAddSids<T extends TokenForSidCalculation>(
     tokens: T[],

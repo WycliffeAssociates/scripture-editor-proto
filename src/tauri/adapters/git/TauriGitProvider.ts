@@ -10,6 +10,14 @@ import {
     parseAppCommitMetadata,
 } from "@/core/persistence/gitVersionUtils.ts";
 
+/**
+ * Desktop git adapter for the shared {@link GitProvider} seam.
+ *
+ * The app uses this after a scripture item has already been imported and loaded.
+ * From the rest of the app's perspective, git history and restore operations are
+ * just capabilities on an editable scripture workspace. This adapter isolates the
+ * Tauri/Rust IPC needed to make that possible on desktop.
+ */
 type TauriBranchInfo = {
     current: string;
     has_master: boolean;

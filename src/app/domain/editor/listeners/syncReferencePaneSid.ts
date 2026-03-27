@@ -5,6 +5,7 @@ import {
     type LexicalEditor,
     SELECTION_CHANGE_COMMAND,
 } from "lexical";
+import { DATA_JS } from "@/app/data/constants.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
 function isVisibleElement(element: Element): element is HTMLElement {
@@ -13,6 +14,14 @@ function isVisibleElement(element: Element): element is HTMLElement {
     return getComputedStyle(element).display !== "none";
 }
 
+/**
+ * Pick the best DOM target inside the reference pane for a given scripture id.
+ *
+ * The reference pane may contain multiple DOM nodes for one SID, especially in
+ * read-only scripture where markers and text tokens render separately. Prefer a
+ * visible text token when possible so scrolling lands on what the user can
+ * actually read.
+ */
 export function findBestReferenceScrollTarget(
     refPanel: ParentNode,
     sid: string,
@@ -37,6 +46,10 @@ export function syncReferencePaneSid(
     referenceProjectId: string | undefined,
     isSyncEnabled: boolean,
 ) {
+    /**
+     * Keep the read-only reference pane visually aligned with the user's caret
+     * in the main editor when scripture sync is enabled.
+     */
     return editor.registerCommand(
         SELECTION_CHANGE_COMMAND,
         () => {
@@ -53,7 +66,7 @@ export function syncReferencePaneSid(
             if (!$isUSFMTextNode(node)) return wasHandled;
             const sid = node.getSid();
             const refPanel = document.querySelector(
-                "[data-js='reference-editor-container']",
+                `[data-js="${DATA_JS.referenceEditorContainer}"]`,
             );
             if (!refPanel) return wasHandled;
             const sidInThatPanel = findBestReferenceScrollTarget(refPanel, sid);

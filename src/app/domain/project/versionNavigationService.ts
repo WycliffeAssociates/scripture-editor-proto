@@ -1,10 +1,15 @@
-import type { ParsedFile } from "@/app/data/parsedProject.ts";
-import { applyIncomingChapterAll } from "@/app/domain/project/compare/compareService.ts";
+import { applyIncomingChapterAll } from "@/app/domain/project/compare/compareMutations.ts";
 import { markFilesAsSaved } from "@/app/domain/project/saveAndRevertService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 
+/**
+ * Version navigation rehydrates the workspace from a saved snapshot and then makes
+ * that snapshot the new clean baseline. Moving to a version is therefore more than
+ * a preview; it resets what counts as "saved" in the current session.
+ */
 export function applyVersionSnapshotToWorkingFiles(args: {
-    workingFiles: ParsedFile[];
-    sourceFiles: ParsedFile[];
+    workingFiles: ScriptureBookState[];
+    sourceFiles: ScriptureBookState[];
 }) {
     applyIncomingChapterAll({
         workingFiles: args.workingFiles,

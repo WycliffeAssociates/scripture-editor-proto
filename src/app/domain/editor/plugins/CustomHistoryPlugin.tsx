@@ -8,6 +8,14 @@ import {
 import { useEffect } from "react";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
+/**
+ * Redirects Lexical's update and undo/redo signals into the workspace-owned
+ * history system.
+ *
+ * The app tracks chapter snapshots, save points, and selection restoration outside
+ * Lexical's built-in history plugin, so this plugin is the bridge between editor
+ * mutations and that richer history pipeline.
+ */
 export function CustomHistoryPlugin() {
     const [editor] = useLexicalComposerContext();
     const { history } = useWorkspaceContext();

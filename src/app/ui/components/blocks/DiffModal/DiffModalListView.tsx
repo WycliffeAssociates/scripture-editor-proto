@@ -20,6 +20,13 @@ import {
     toggleRowUsfmOverride,
 } from "./rowUsfmOverrides.ts";
 
+/**
+ * Flat, virtualized diff-list presentation.
+ *
+ * When users want a quick scan of all changes across the workspace, this view is
+ * more efficient than the structured chapter renderer. It emphasizes change rows
+ * and actions over document shape.
+ */
 type HighlightedDiffProps = {
     changes: Change[];
     viewType: "original" | "current";
@@ -107,6 +114,12 @@ function getDisplayTextPair(diff: ProjectDiff, showUsfmMarkers: boolean) {
     };
 }
 
+/**
+ * One diff row in the virtualized list view.
+ *
+ * It owns the row-level display-mode toggle, action buttons, and “jump to this
+ * location in the editor” affordance for a single diff block.
+ */
 function DiffItem({
     actionMode,
     diff,

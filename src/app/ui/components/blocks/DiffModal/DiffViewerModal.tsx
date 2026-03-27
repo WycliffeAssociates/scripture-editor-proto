@@ -34,7 +34,7 @@ import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffMo
 import { VirtualizedDiffList } from "@/app/ui/components/blocks/DiffModal/DiffModalListView.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
-import type { ListedProject } from "@/core/persistence/ProjectRepository.ts";
+import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
 type DiffActionMode = "unsaved" | "external";
 
@@ -59,7 +59,7 @@ export type DiffViewerModalProps = {
     setCompareSourceProjectId: (id: string) => void;
     compareSourceVersionHash: string;
     setCompareSourceVersionHash: (id: string) => void;
-    compareProjects: ListedProject[];
+    compareProjects: ProjectListItem[];
     compareVersionOptions: Array<{ value: string; label: string }>;
     loadCompareProject: (projectId: string) => Promise<void>;
     loadCompareZip: (file: File) => Promise<void>;
@@ -76,6 +76,13 @@ export type DiffViewerModalProps = {
 type DiffViewMode = "list" | "chapter";
 const DIFF_VIEW_STORAGE_KEY = "diff-modal:last-view-mode";
 
+/**
+ * Shared save/compare review modal.
+ *
+ * This modal can present unsaved local changes or an external-compare baseline.
+ * It owns the overall review workflow shell, while child files handle chapter
+ * view models and list/chapter rendering details.
+ */
 function parseChapterKey(value: string): {
     bookCode: string;
     chapterNum: number;
@@ -231,15 +238,12 @@ export function DiffViewerModal({
     };
 
     const compareProjectOptions = compareProjects.map((project) => {
-        const routeProjectId =
-            project.projectDirectoryPath.split("/").pop() ??
-            project.projectDirectoryPath;
         return {
-            value: routeProjectId,
+            value: project.folderName,
             label:
-                project.id && project.id !== project.name
-                    ? `${project.name} (${project.id})`
-                    : project.name,
+                project.projectId && project.projectId !== project.displayName
+                    ? `${project.displayName} (${project.projectId})`
+                    : project.displayName,
         };
     });
 

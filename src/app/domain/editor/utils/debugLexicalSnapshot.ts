@@ -26,6 +26,10 @@ type CondensedPointSummary = {
     node: CondensedNodeSummary | null;
 };
 
+/**
+ * Debug snapshots are intentionally lossy so tricky selection bugs can be logged
+ * or copied into tests without dumping the full editor state tree.
+ */
 function summarizeNode(node: LexicalNode): CondensedNodeSummary {
     const summary: CondensedNodeSummary = {
         key: node.getKey(),
@@ -75,6 +79,9 @@ function summarizePoint(
     };
 }
 
+/**
+ * Produces a compact selection-centered snapshot for cursor/selection debugging.
+ */
 export function buildCondensedLexicalSelectionSnapshot(): string {
     const selection = $getSelection();
     const allNodes = [...$dfsIterator()].map((entry) => entry.node);
@@ -107,6 +114,10 @@ export function buildCondensedLexicalSelectionSnapshot(): string {
     });
 }
 
+/**
+ * Produces the full node walk when the condensed snapshot is not enough to explain
+ * a structural or serialization bug.
+ */
 export function buildFullLexicalSelectionSnapshot(): string {
     const allNodes = [...$dfsIterator()].map((entry) => entry.node);
     const selection = $getSelection();

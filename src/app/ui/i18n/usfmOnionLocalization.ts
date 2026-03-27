@@ -1,6 +1,13 @@
 import { t } from "@lingui/core/macro";
 import type { LintIssue, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * UI-localized labels for USFM onion diagnostics and fixes.
+ *
+ * The underlying parser/linter emits stable machine-readable codes. This file
+ * translates those codes into user-facing text close to the UI layer so the core
+ * token pipeline can stay language-neutral.
+ */
 function getParam(
     params: Record<string, string> | undefined,
     key: string,
@@ -17,6 +24,7 @@ function markerForFix(fix: TokenFix) {
     return getParam(fix.labelParams, "marker", "");
 }
 
+// todo: this and it's accompanying test likely not needed. Would rather have a function that says it returns type Record<onionLintCode, descriptor> or whatever:
 export const LOCALIZED_LINT_CODES = [
     "missing-id-marker",
     "missing-separator-after-marker",

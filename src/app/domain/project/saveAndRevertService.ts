@@ -1,19 +1,32 @@
 import type { SerializedLexicalNode } from "lexical";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
-export function isChapterDirtyUsfm(chapter: ParsedChapter): boolean {
+/**
+ * Save/revert operations work on the scripture workspace noun after editing has
+ * already happened. This module is the boundary where dirty chapter state is
+ * compared against its loaded baseline and converted back into save payloads or
+ * reverted lexical state.
+ */
+export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
+    // TODO(usfm-onion): this token-based dirty check is pure USFM logic and is a
+    // candidate to move behind the crate boundary in a later pass.
     return (
         chapter.currentTokens.map((token) => token.text).join("") !==
         chapter.sourceTokens.map((token) => token.text).join("")
     );
 }
 
-export function revertChapterToLoadedState(chapter: ParsedChapter) {
+export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
     const currentMode = inferContentEditorModeFromRootChildren(
         chapter.lexicalState.root.children as SerializedLexicalNode[],
     );
@@ -23,13 +36,13 @@ export function revertChapterToLoadedState(chapter: ParsedChapter) {
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
                 : "ltr",
-        mode: currentMode === "regular" ? "regular" : "flat",
+        mode: currentMode === EDITOR_MODES.regular ? "regular" : "flat",
     });
     chapter.currentTokens = structuredClone(chapter.sourceTokens);
     chapter.dirty = false;
 }
 
-export function revertAllChaptersToLoadedState(files: ParsedFile[]) {
+export function revertAllChaptersToLoadedState(files: ScriptureBookState[]) {
     for (const file of files) {
         for (const chapter of file.chapters) {
             revertChapterToLoadedState(chapter);
@@ -38,7 +51,7 @@ export function revertAllChaptersToLoadedState(files: ParsedFile[]) {
 }
 
 export async function revertChapterDiffByBlockId(args: {
-    chapter: ParsedChapter;
+    chapter: ScriptureChapterState;
     diffBlockId: string;
     usfmOnionService: IUsfmOnionService;
 }) {
@@ -62,22 +75,24 @@ export async function revertChapterDiffByBlockId(args: {
     args.chapter.lexicalState = tokensToLexical({
         tokens: nextTokens,
         direction,
-        mode: currentMode === "regular" ? "regular" : "flat",
+        mode: currentMode === EDITOR_MODES.regular ? "regular" : "flat",
     });
     args.chapter.currentTokens = nextTokens;
     args.chapter.dirty = isChapterDirtyUsfm(args.chapter);
 }
 
 export function buildBooksSavePayload(
-    files: ParsedFile[],
+    files: ScriptureBookState[],
 ): Record<string, string> {
+    // TODO(usfm-onion): token-to-USFM serialization here is another future
+    // crate candidate once the app/UI orchestration is fully separated.
     const toSave: Record<string, string> = {};
     for (const file of files) {
         const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
         if (!shouldSaveBook) continue;
 
         const orderedChapters = [...file.chapters].sort(
-            (a, b) => a.chapNumber - b.chapNumber,
+            (a, b) => a.chapterNumber - b.chapterNumber,
         );
 
         toSave[file.bookCode] = orderedChapters
@@ -89,15 +104,15 @@ export function buildBooksSavePayload(
     return toSave;
 }
 
-export function markFilesAsSaved(files: ParsedFile[]) {
+export function markFilesAsSaved(files: ScriptureBookState[]) {
     for (const file of files) {
         for (const chapter of file.chapters) {
             const direction =
                 (chapter.loadedLexicalState.root.direction ??
                     chapter.lexicalState.root.direction ??
-                    "ltr") === "rtl"
-                    ? "rtl"
-                    : "ltr";
+                    LanguageDirection.LTR) === LanguageDirection.RTL
+                    ? LanguageDirection.RTL
+                    : LanguageDirection.LTR;
             chapter.sourceTokens = structuredClone(chapter.currentTokens);
             chapter.loadedLexicalState = tokensToLexical({
                 tokens: chapter.sourceTokens,

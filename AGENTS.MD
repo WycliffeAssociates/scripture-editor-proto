@@ -36,5 +36,9 @@ Use the docs below when relevant to the task instead of adding large rule sets h
 - Current and archived plans:
   - `plans/`
 
+## Beads Workflow (i.e. issue tracking and doing work)
+- `product-docs/for-agents/beads.md`
+
 ## Notes for maintainers
 Keep this root file short and stable. Add domain-specific guidance to dedicated docs and link it here.
+

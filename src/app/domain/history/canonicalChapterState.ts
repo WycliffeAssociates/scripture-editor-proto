@@ -1,18 +1,31 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import type { ContentEditorModeSetting } from "@/app/data/editor.ts";
+import {
+    type ContentEditorModeSetting,
+    EDITOR_MODES,
+} from "@/app/data/editor.ts";
 import {
     materializeFlatTokensArray,
     transformToMode,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
 
+/**
+ * History/version features need a mode-independent representation of a chapter.
+ * Canonical snapshots flatten the chapter into a stable token stream so regular
+ * mode and source mode can round-trip through the same history entry.
+ */
 export type CanonicalChapterSnapshot = {
-    direction: "ltr" | "rtl";
+    direction: LanguageDirection;
     flatNodes: SerializedLexicalNode[];
 };
 
 export type ChapterMode = ContentEditorModeSetting;
 
+/**
+ * Infer which editor mode originally produced this serialized state so a canonical
+ * snapshot can later be rehydrated into the same user-facing shape if needed.
+ */
 export function inferChapterModeFromState(
     state: SerializedEditorState,
 ): ChapterMode {
@@ -20,13 +33,13 @@ export function inferChapterModeFromState(
     const isRegular = rootChildren.some(
         (child) => (child as { type?: string }).type === "usfm-paragraph-node",
     );
-    return isRegular ? "regular" : "usfm";
+    return isRegular ? EDITOR_MODES.regular : EDITOR_MODES.usfm;
 }
 
 export function chapterStateToCanonicalSnapshot(
     state: SerializedEditorState,
 ): CanonicalChapterSnapshot {
-    const direction = (state.root.direction ?? "ltr") as "ltr" | "rtl";
+    const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
     const flatNodes = materializeFlatTokensArray(rootChildren, {
         nested: "flatten",

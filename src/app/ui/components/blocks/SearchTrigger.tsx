@@ -8,7 +8,7 @@ import {
     useRef,
     useState,
 } from "react";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { SearchPopoverControls } from "@/app/ui/components/blocks/Search.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -37,6 +37,13 @@ const VIEWPORT_GUTTER_PX = 8;
 const MIN_POPOVER_WIDTH_PX = 320;
 const MIN_POPOVER_HEIGHT_PX = 220;
 
+/**
+ * Compact toolbar trigger for search controls.
+ *
+ * On desktop this behaves like a draggable/resizable command palette for search
+ * and replace, while smaller layouts fall back to the dedicated drawer handled
+ * by `SearchPanel`.
+ */
 export function SearchInput() {
     const { search } = useWorkspaceContext();
     const { isSm } = useWorkspaceMediaQuery();
@@ -57,7 +64,7 @@ export function SearchInput() {
         search.setIsSearchPaneOpen((o) => !o);
         setTimeout(() => {
             const input = document.querySelector(
-                'input[data-js="search-input"]',
+                `input[data-js="${DATA_JS.searchInput}"]`,
             ) as HTMLInputElement | null;
             input?.focus();
         }, 50);
@@ -124,7 +131,7 @@ export function SearchInput() {
         const dropdownEl = dropdownRef.current;
         if (!dropdownEl) return MIN_POPOVER_HEIGHT_PX;
         const contentEl = dropdownEl.querySelector(
-            '[data-js="search-popover-content"]',
+            `[data-js="${DATA_JS.searchPopoverContent}"]`,
         ) as HTMLElement | null;
         const measured = Math.ceil(
             contentEl?.scrollHeight ?? dropdownEl.scrollHeight,

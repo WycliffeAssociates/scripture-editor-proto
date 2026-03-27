@@ -1,116 +1,91 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Anchor, Button, Container, Group, Stack, Title } from "@mantine/core";
-import type { NotificationData } from "@mantine/notifications";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { createProjectImportFacade } from "@/app/domain/api/import.ts";
 import {
-    handleDownload,
-    handleOpenDirectory,
-    handleOpenFile,
-} from "@/app/domain/api/import.tsx";
+    buildPersistentImportSuccessNotification,
+    getProjectParamFromImportedPath,
+    resolveImportErrorMessage,
+} from "@/app/routes/createRouteHelpers.ts";
 import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import {
+    hideNotification,
     ShowErrorNotification,
-    ShowImportStartedNotification,
+    ShowNotificationInfo,
     ShowNotificationSuccess,
+    showProgressNotification,
+    updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
-import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
+import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
+import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
+/**
+ * Create/import route.
+ *
+ * This route stays at the app-shell level: it gathers user intent, forwards it to
+ * the import facade, and reflects progress/result notifications. Import branching
+ * and managed-disk shaping live below this UI layer.
+ */
 export const Route = createFileRoute("/create")({
     component: CreateProject,
 });
 
-export function getProjectParamFromImportedPath(
-    importedPath: string | null | undefined,
-): string | null {
-    if (!importedPath) return null;
-    const projectParam = importedPath.split("/").filter(Boolean).at(-1);
-    return projectParam || null;
-}
-
-export function buildPersistentImportSuccessNotification(
-    title: string,
-    message: string,
-): NotificationData {
-    return {
-        title,
-        message,
-        autoClose: false,
-        withCloseButton: true,
-    };
-}
-
-function getImportErrorDebugDetails(error: unknown): string[] {
-    if (error instanceof Error) {
-        const details: string[] = [];
-        if (error.name && error.name !== "Error") {
-            details.push(`name=${error.name}`);
-        }
-        const maybeCode = (error as { code?: unknown }).code;
-        if (typeof maybeCode === "string" && maybeCode.trim().length > 0) {
-            details.push(`code=${maybeCode}`);
-        }
-        const message = error.message?.trim();
-        if (message) {
-            details.push(`message=${message}`);
-        }
-        return details;
-    }
-
-    if (typeof error === "string" && error.trim().length > 0) {
-        return [`message=${error.trim()}`];
-    }
-    return [];
-}
-
-export function resolveImportErrorMessage(args: {
-    error: unknown;
-    fallback: string;
-}): string {
-    if (args.error instanceof Error) {
-        const trimmed = args.error.message.trim();
-        if (trimmed && trimmed !== args.fallback) {
-            return `${args.fallback}. ${trimmed}`;
-        }
-    }
-
-    const debugDetails = getImportErrorDebugDetails(args.error);
-    if (debugDetails.length > 0) {
-        return `${args.fallback}. Debug: ${debugDetails.join(", ")}`;
-    }
-    return args.fallback;
-}
-
 function CreateProject() {
     const { t } = useLingui();
     const router = useRouter();
-    const invalidateRouterAndReload = () => router.invalidate();
 
-    const {
-        settingsManager,
-        directoryProvider,
-        projectRepository,
-        md5Service,
-        gitProvider,
-    } = router.options.context;
+    const { settingsManager, importService } = router.options.context;
+    const importController = useMemo(
+        () =>
+            createProjectImportFacade({
+                importService,
+                invalidateRouterAndReload: () => router.invalidate(),
+            }),
+        [importService, router],
+    );
+    const directoryInputRef = useRef<HTMLInputElement | null>(null);
+    const zipInputRef = useRef<HTMLInputElement | null>(null);
 
     const [currentLanguage, setCurrentLanguage] = useState<string | null>(
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
-    const projectImporter = new ProjectImporter(directoryProvider);
-
+    const showImportGitWarningToast = (warning: string | undefined) => {
+        if (!warning) return;
+        ShowNotificationInfo({
+            notification: {
+                title: t`Version history unavailable`,
+                message: warning,
+                autoClose: false,
+                withCloseButton: true,
+            },
+        });
+    };
     const showImportSuccessToast = ({
-        importedPath,
+        importedProject,
         message,
+        isEditableProject,
     }: {
-        importedPath: string | null | undefined;
+        importedProject: ProjectListItem | null | undefined;
         message: string;
+        isEditableProject: boolean;
     }) => {
+        if (!isEditableProject) {
+            ShowNotificationSuccess({
+                notification: buildPersistentImportSuccessNotification(
+                    t`Success`,
+                    message,
+                ),
+            });
+            return;
+        }
+
+        const importedPath = importedProject?.projectPath;
         const projectParam = getProjectParamFromImportedPath(importedPath);
         if (!projectParam) return;
 
@@ -144,30 +119,53 @@ function CreateProject() {
         });
     };
 
+    /**
+     * Wrap one import action with the shared progress-notification lifecycle used by
+     * every create/import entrypoint on this route.
+     */
+    const runImportWithProgress = async <T,>(
+        initialMessage: string,
+        run: (args: {
+            onProgress: (update: ImportProgressUpdate) => void;
+        }) => Promise<T>,
+    ): Promise<T> => {
+        const notificationId = showProgressNotification({
+            title: t`Import Started`,
+            message: initialMessage,
+        });
+
+        try {
+            return await run({
+                onProgress: ({ message }) => {
+                    updateProgressNotification(notificationId, {
+                        title: t`Import Started`,
+                        message,
+                    });
+                },
+            });
+        } finally {
+            hideNotification(notificationId);
+        }
+    };
+
     const onDownload = async (url: string) => {
         try {
             setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Downloading repository...`,
-                    title: t`Download Started`,
-                },
-            });
-
-            const importedPath = await handleDownload(
-                {
-                    importer: projectImporter,
-                    projectRepository,
-                    md5Service,
-                    gitProvider,
-                    invalidateRouterAndReload,
-                },
-                url,
+            const importedProject = await runImportWithProgress(
+                t`Downloading repository...`,
+                ({ onProgress }) =>
+                    importController.download(url, {
+                        onProgress,
+                    }),
             );
             showImportSuccessToast({
-                importedPath,
-                message: t`Project downloaded successfully!`,
+                importedProject: importedProject.project,
+                message: importedProject.isEditableProject
+                    ? t`Project downloaded successfully!`
+                    : t`Resource downloaded successfully! It is available in the reference picker.`,
+                isEditableProject: importedProject.isEditableProject,
             });
+            showImportGitWarningToast(importedProject.warning);
         } catch (error) {
             ShowErrorNotification({
                 notification: {
@@ -188,25 +186,22 @@ function CreateProject() {
     ) => {
         try {
             setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Importing directory...`,
-                    title: t`Import Started`,
-                },
-            });
-
-            const importedPath = await handleOpenDirectory(event, {
-                directoryProvider,
-                projectImporter,
-                projectRepository,
-                md5Service,
-                gitProvider,
-                invalidateRouterAndReload,
-            });
+            const importedProject = await runImportWithProgress(
+                t`Importing directory...`,
+                ({ onProgress }) =>
+                    importController.importDirectorySelection(event, {
+                        onProgress,
+                    }),
+            );
             showImportSuccessToast({
-                importedPath,
-                message: t`Directory imported successfully!`,
+                importedProject: importedProject?.project,
+                message:
+                    importedProject?.isEditableProject === false
+                        ? t`Resource imported successfully! It is available in the reference picker.`
+                        : t`Directory imported successfully!`,
+                isEditableProject: importedProject?.isEditableProject ?? false,
             });
+            showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
             ShowErrorNotification({
                 notification: {
@@ -225,25 +220,22 @@ function CreateProject() {
     const onOpenFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
         try {
             setIsImporting(true);
-            ShowImportStartedNotification({
-                notification: {
-                    message: t`Importing file...`,
-                    title: t`Import Started`,
-                },
-            });
-
-            const importedPath = await handleOpenFile(event, {
-                directoryProvider,
-                projectImporter,
-                projectRepository,
-                md5Service,
-                gitProvider,
-                invalidateRouterAndReload,
-            });
+            const importedProject = await runImportWithProgress(
+                t`Importing file...`,
+                ({ onProgress }) =>
+                    importController.importZipSelection(event, {
+                        onProgress,
+                    }),
+            );
             showImportSuccessToast({
-                importedPath,
-                message: t`File imported successfully!`,
+                importedProject: importedProject?.project,
+                message:
+                    importedProject?.isEditableProject === false
+                        ? t`Resource imported successfully! It is available in the reference picker.`
+                        : t`File imported successfully!`,
+                isEditableProject: importedProject?.isEditableProject ?? false,
             });
+            showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
             ShowErrorNotification({
                 notification: {
@@ -258,6 +250,87 @@ function CreateProject() {
             setIsImporting(false);
         }
     };
+
+    const onDirectoryAction = importService.pickDirectory
+        ? async () => {
+              try {
+                  setIsImporting(true);
+                  const selectedPath = await importController.pickDirectory({
+                      title: t`Select folder`,
+                  });
+                  if (!selectedPath) return;
+                  const importedProject = await runImportWithProgress(
+                      t`Importing directory...`,
+                      ({ onProgress }) =>
+                          importController.importNativeDirectoryPath(
+                              selectedPath,
+                              { onProgress },
+                          ),
+                  );
+                  showImportSuccessToast({
+                      importedProject: importedProject.project,
+                      message:
+                          importedProject.isEditableProject === false
+                              ? t`Resource imported successfully! It is available in the reference picker.`
+                              : t`Directory imported successfully!`,
+                      isEditableProject: importedProject.isEditableProject,
+                  });
+                  showImportGitWarningToast(importedProject.warning);
+              } catch (error) {
+                  ShowErrorNotification({
+                      notification: {
+                          message: resolveImportErrorMessage({
+                              error,
+                              fallback: t`Failed to import directory`,
+                          }),
+                          title: t`Import Error`,
+                      },
+                  });
+              } finally {
+                  setIsImporting(false);
+              }
+          }
+        : () => directoryInputRef.current?.click();
+
+    const onZipAction = importService.pickZip
+        ? async () => {
+              try {
+                  setIsImporting(true);
+                  const selectedPath = await importController.pickZip({
+                      title: t`Select ZIP file`,
+                  });
+                  if (!selectedPath) return;
+                  const importedProject = await runImportWithProgress(
+                      t`Importing file...`,
+                      ({ onProgress }) =>
+                          importController.importNativeZipPath(selectedPath, {
+                              onProgress,
+                          }),
+                  );
+                  showImportSuccessToast({
+                      importedProject: importedProject.project,
+                      message:
+                          importedProject.isEditableProject === false
+                              ? t`Resource imported successfully! It is available in the reference picker.`
+                              : t`File imported successfully!`,
+                      isEditableProject: importedProject.isEditableProject,
+                  });
+                  showImportGitWarningToast(importedProject.warning);
+              } catch (error) {
+                  ShowErrorNotification({
+                      notification: {
+                          message: resolveImportErrorMessage({
+                              error,
+                              fallback: t`Failed to import file`,
+                          }),
+                          title: t`Import Error`,
+                      },
+                  });
+              } finally {
+                  setIsImporting(false);
+              }
+          }
+        : () => zipInputRef.current?.click();
 
     return (
         <Container size="xl" className={styles.pageContainer}>
@@ -300,8 +373,18 @@ function CreateProject() {
 
                 <ProjectCreator
                     onDownload={onDownload}
-                    onOpenDirectory={onOpenDirectory}
-                    onOpenFile={onOpenFile}
+                    onDirectoryAction={onDirectoryAction}
+                    onZipAction={onZipAction}
+                    onDirectorySelected={
+                        !importService.pickDirectory
+                            ? onOpenDirectory
+                            : undefined
+                    }
+                    onZipSelected={
+                        !importService.pickZip ? onOpenFile : undefined
+                    }
+                    directoryInputRef={directoryInputRef}
+                    zipInputRef={zipInputRef}
                     isDownloadDisabled={isImporting}
                     isImporting={isImporting}
                 />

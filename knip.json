@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/web/main.tsx!", "src/tauri/main.tsx!", "src/app/entrypoint.tsx!"],
+  "entry": ["src/web/main.tsx!", "src/app/entrypoint.tsx!"],
   "project": [
     "src/**/*.{ts,tsx,css}!",
     "tests/**/*.{ts,tsx}!",

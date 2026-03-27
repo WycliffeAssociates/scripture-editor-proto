@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './../routes/__root'
 import { Route as ScaffoldRouteImport } from './../routes/scaffold'
+import { Route as PlaygroundRouteImport } from './../routes/playground'
 import { Route as CreateRouteImport } from './../routes/create'
 import { Route as ProjectRouteImport } from './../routes/$project'
 import { Route as IndexRouteImport } from './../routes/index'
@@ -19,6 +20,11 @@ const ScaffoldRoute = ScaffoldRouteImport.update({
   path: '/scaffold',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./../routes/playground.lazy').then((d) => d.Route))
 const CreateRoute = CreateRouteImport.update({
   id: '/create',
   path: '/create',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
+  '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$project' | '/create' | '/scaffold'
+  fullPaths: '/' | '/$project' | '/create' | '/playground' | '/scaffold'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$project' | '/create' | '/scaffold'
-  id: '__root__' | '/' | '/$project' | '/create' | '/scaffold'
+  to: '/' | '/$project' | '/create' | '/playground' | '/scaffold'
+  id: '__root__' | '/' | '/$project' | '/create' | '/playground' | '/scaffold'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectRoute: typeof ProjectRoute
   CreateRoute: typeof CreateRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   ScaffoldRoute: typeof ScaffoldRoute
 }
 
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/scaffold'
       fullPath: '/scaffold'
       preLoaderRoute: typeof ScaffoldRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create': {
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectRoute: ProjectRoute,
   CreateRoute: CreateRoute,
+  PlaygroundRoute: PlaygroundRoute,
   ScaffoldRoute: ScaffoldRoute,
 }
 export const routeTree = rootRouteImport

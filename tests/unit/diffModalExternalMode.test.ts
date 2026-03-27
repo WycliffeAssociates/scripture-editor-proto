@@ -86,6 +86,7 @@ function makeWorkspaceValue(): WorkSpaceContextType {
             switchBookOrChapter: vi.fn(),
             toggleDiffModal: vi.fn(),
         },
+        save: {},
         bookCodeToProjectLocalizedTitle: ({
             bookCode,
             replaceCodeInString,

@@ -1,10 +1,15 @@
 import { $getSelection, $isRangeSelection, type LexicalEditor } from "lexical";
-import { type EditorModeSetting, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    type EditorModeSetting,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
     $createUSFMTextNode,
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import { ALL_USFM_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 import {
     $insertChapter,
@@ -30,15 +35,29 @@ type TextNodeTransformParams = {
     node: USFMTextNode;
     editor: LexicalEditor;
     editorMode: EditorModeSetting;
-    languageDirection: "ltr" | "rtl";
+    languageDirection: LanguageDirection;
 };
+
+/**
+ * Transform typed text into explicit USFM marker nodes when the user is
+ * authoring in source/plain modes.
+ *
+ * This is the core "I typed `\\v ` and now it should become a verse marker"
+ * bridge. Regular/view mode intentionally bypass this because markers are
+ * manipulated there through higher-level UI affordances instead of raw typing.
+ */
 export function textNodeTransform({
     node,
     editorMode,
     languageDirection,
 }: TextNodeTransformParams) {
     // Regular mode (WYSIWYG) currently inserts markers via UI actions, not typed USFM.
-    if (editorMode === "regular" || editorMode === "view") return;
+    if (
+        editorMode === EDITOR_MODES.regular ||
+        editorMode === EDITOR_MODES.view
+    ) {
+        return;
+    }
 
     const text = node.getTextContent();
     const tokenType = node.getTokenType();
@@ -163,6 +182,14 @@ export function textNodeTransform({
     }
 }
 
+/**
+ * Undo marker-token interpretation when a node no longer represents a valid
+ * marker after edits.
+ *
+ * Users can partially delete or mutate marker text. This inverse transform
+ * prevents the editor from leaving behind a marker-typed node whose contents no
+ * longer correspond to a real USFM marker.
+ */
 export function inverseTextNodeTransform({ node }: TextNodeTransformParams) {
     const undoableNodeTypes = [
         UsfmTokenTypes.marker,
@@ -193,17 +220,5 @@ export function inverseTextNodeTransform({ node }: TextNodeTransformParams) {
         );
         node.replace(replacement);
         replacement.select();
-    }
-    if (nodeTokenType === UsfmTokenTypes.numberRange) {
-        // const isValid = numRangeAtTokenStartWithWsRe.test(content);
-        // if (isValid) return;
-        // const replacement = $createUSFMTextNode(node.getTextContent().trimEnd(), {
-        //   id: node.getId(),
-        //   sid: node.getSid(),
-        //   inPara: node.getInPara(),
-        //   tokenType: UsfmTokenTypes.text,
-        // });
-        // node.replace(replacement);
-        // replacement.select();
     }
 }

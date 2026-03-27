@@ -2,6 +2,7 @@
 description: Quality Assurance. Checks logic and requirements.
 mode: subagent
 temperature: 0.1
+model: openrouter/minimax/minimax-m2.7
 tools:
   write: false
   edit: false

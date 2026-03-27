@@ -15,7 +15,8 @@ import {
     SELECTION_CHANGE_COMMAND,
 } from "lexical";
 import { useEffect } from "react";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { DATA_JS } from "@/app/data/constants.ts";
+import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
     handleBackslashOnStartOfVerse,
     handleBackspaceToRemoveLinebreakBeforeVerse,
@@ -51,22 +52,23 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
 
 /**
- * Hook that registers all editor input handling including:
- * - Node transforms for USFMTextNode
- * - Paragraph to line break redirection
- * - Command handlers for keydown, paste, and cut operations
+ * Register the main input/command pipeline for the scripture editor.
  *
- * @param editor - The LexicalEditor instance
+ * This hook is where low-level typing, backspace, enter, paste, and selection
+ * behavior get connected to the USFM-aware listener helpers. In practice this
+ * is one of the places where the generic Lexical editor becomes "our USFM
+ * editor" because it starts enforcing marker boundaries, structural-empty
+ * paragraphs, verse behavior, and paste normalization.
  */
 export function useEditorInput(editor: LexicalEditor) {
     const { project, projectLanguageDirection, search, history } =
         useWorkspaceContext();
     const { usfmOnionService } = useRouter().options.context;
     const { appSettings } = project;
-    const editorModeSetting = appSettings.editorMode ?? "regular";
+    const editorModeSetting = appSettings.editorMode;
 
     useEffect(() => {
-        if (editorModeSetting === "view") {
+        if (editorModeSetting === EDITOR_MODES.view) {
             return;
         }
         // Register USFMTextNode transform
@@ -92,7 +94,8 @@ export function useEditorInput(editor: LexicalEditor) {
             editor.registerCommand(
                 SELECTION_CHANGE_COMMAND,
                 () => {
-                    if (editorModeSetting !== "regular") return false;
+                    if (editorModeSetting !== EDITOR_MODES.regular)
+                        return false;
                     return normalizeSelectionAtHiddenMarkerBoundary(editor);
                 },
                 COMMAND_PRIORITY_HIGH,
@@ -103,7 +106,7 @@ export function useEditorInput(editor: LexicalEditor) {
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {
                 if (
-                    editorModeSetting === "regular" &&
+                    editorModeSetting === EDITOR_MODES.regular &&
                     redirectPrintableTypingAtHiddenMarkerBoundary(editor, event)
                 ) {
                     return true;
@@ -117,7 +120,8 @@ export function useEditorInput(editor: LexicalEditor) {
             editor.registerCommand(
                 KEY_BACKSPACE_COMMAND,
                 (event: KeyboardEvent) => {
-                    if (editorModeSetting !== "regular") return false;
+                    if (editorModeSetting !== EDITOR_MODES.regular)
+                        return false;
                     if (
                         handleBackspaceToRemoveLinebreakBeforeVerse(
                             editor,
@@ -197,7 +201,8 @@ export function useEditorInput(editor: LexicalEditor) {
             editor.registerCommand(
                 KEY_ENTER_COMMAND,
                 (event: KeyboardEvent) => {
-                    if (editorModeSetting !== "regular") return false;
+                    if (editorModeSetting !== EDITOR_MODES.regular)
+                        return false;
 
                     const selection = $getSelection();
                     if (
@@ -268,7 +273,7 @@ export function useEditorInput(editor: LexicalEditor) {
         const expandVerseCopySelectionUnregister = editor.registerCommand(
             COPY_COMMAND,
             (payload) => {
-                if (editorModeSetting !== "regular") return false;
+                if (editorModeSetting !== EDITOR_MODES.regular) return false;
 
                 const event =
                     payload instanceof Event
@@ -363,7 +368,7 @@ export function useEditorInput(editor: LexicalEditor) {
         const expandVerseCutSelectionUnregister = editor.registerCommand(
             CUT_COMMAND,
             (payload) => {
-                if (editorModeSetting !== "regular") return false;
+                if (editorModeSetting !== EDITOR_MODES.regular) return false;
 
                 const event =
                     payload instanceof Event
@@ -511,7 +516,7 @@ export function useEditorInput(editor: LexicalEditor) {
                 }
                 requestAnimationFrame(() => {
                     const searchInput = document.querySelector(
-                        '[data-js="search-input"]',
+                        `[data-js="${DATA_JS.searchInput}"]`,
                     ) as HTMLInputElement;
                     if (searchInput) {
                         searchInput.focus();

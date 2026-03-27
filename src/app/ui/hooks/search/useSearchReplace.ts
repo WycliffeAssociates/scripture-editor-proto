@@ -1,9 +1,12 @@
 import type { LexicalEditor, LexicalNode } from "lexical";
 import { type RefObject, useCallback, useState } from "react";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
 import { replaceMatchesInText } from "@/app/domain/search/search.utils.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type {
     SearchMatch,
     SearchRunResult,
@@ -41,12 +44,19 @@ type Params = {
     ) => Promise<SearchRunResult | null>;
     matchCase: boolean;
     matchWholeWord: boolean;
-    pickedFile: ParsedFile;
-    pickedChapter?: ParsedChapter;
+    pickedFile: ScriptureBookState;
+    pickedChapter?: ScriptureChapterState;
     setTargetResults: (value: SearchResult[]) => void;
     setReferenceResults: (value: SearchResult[]) => void;
 };
 
+/**
+ * Hook that owns inline replace operations for the current scripture editor.
+ *
+ * Replace always acts on the live editable scripture workspace, never on the
+ * reference pane. After mutating the current editor tree it re-runs scoped search
+ * so result selection and highlights stay accurate.
+ */
 export function useSearchReplace({
     history,
     editorRef,
@@ -147,7 +157,7 @@ export function useSearchReplace({
                     r.sidOccurrenceIndex ===
                         nextActiveMatch.sidOccurrenceIndex &&
                     r.bibleIdentifier === pickedFile.bookCode &&
-                    r.chapNum === pickedChapter?.chapNumber,
+                    r.chapNum === pickedChapter?.chapterNumber,
             );
             setPickedResult(nextResult ?? null);
         },
@@ -156,7 +166,7 @@ export function useSearchReplace({
             editorRef,
             findMatchIndex,
             history,
-            pickedChapter?.chapNumber,
+            pickedChapter?.chapterNumber,
             pickedFile.bookCode,
             pickedResult?.source,
             replaceTerm,
@@ -229,7 +239,7 @@ export function useSearchReplace({
                 r.sid === nextActiveMatch.sid &&
                 r.sidOccurrenceIndex === nextActiveMatch.sidOccurrenceIndex &&
                 r.bibleIdentifier === pickedFile.bookCode &&
-                r.chapNum === pickedChapter?.chapNumber,
+                r.chapNum === pickedChapter?.chapterNumber,
         );
         setPickedResult(nextResult ?? null);
     }, [
@@ -237,7 +247,7 @@ export function useSearchReplace({
         currentMatches,
         editorRef,
         history,
-        pickedChapter?.chapNumber,
+        pickedChapter?.chapterNumber,
         pickedFile.bookCode,
         pickedResult,
         replaceTerm,

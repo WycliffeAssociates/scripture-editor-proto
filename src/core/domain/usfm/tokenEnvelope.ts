@@ -1,3 +1,7 @@
+/**
+ * Lightweight token wrapper used by formatting/diff transforms that need token text
+ * plus surrounding metadata without depending on a full editor node shape.
+ */
 export type TokenEnvelope = {
     tokenType: string;
     text: string;

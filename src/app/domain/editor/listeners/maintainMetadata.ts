@@ -17,6 +17,14 @@ import {
     type TokenForSidCalculation,
 } from "@/core/domain/usfm/parseUtils.ts";
 
+/**
+ * Recompute derived node metadata after structure/content edits.
+ *
+ * This pass runs after the user has already changed the editor. It does not
+ * decide the document shape; instead it normalizes metadata that other stages
+ * depend on later, such as marker identity, enclosing paragraph context, SIDs,
+ * and whether a paragraph marker is only structural UI scaffolding.
+ */
 export function maintainDocumentMetaData(
     _editorState: EditorState,
     editor: LexicalEditor,
@@ -43,7 +51,8 @@ export function maintainDocumentMetaData(
         const allNodes = [...$dfsIterator()].map((n) => n.node);
         const filteredNodes = allNodes.filter($isUSFMTextNode);
 
-        // 1) Normalize markers (based on text) so downstream logic doesn't depend on stale state.
+        // Normalize markers first so later metadata passes can trust the marker
+        // inferred from visible token text instead of stale node state.
         for (const node of filteredNodes) {
             const tokenType = node.getTokenType();
             const rawText = node.getTextContent();
@@ -66,7 +75,8 @@ export function maintainDocumentMetaData(
             }
         }
 
-        // 2) inPara forward propagation (uses the derived marker).
+        // Carry paragraph context forward so inline tokens know which
+        // paragraph run they currently belong to.
         let lastPara: string | null = null;
         for (const node of filteredNodes) {
             const tokenType = node.getTokenType();
@@ -111,7 +121,8 @@ export function maintainDocumentMetaData(
             }
         }
 
-        // 3) SID computation (reverse attribution within chapters).
+        // Recompute scripture identifiers after edits so reference syncing,
+        // lint, and navigation continue to point at the correct verse.
         const sidNodes: Array<USFMParagraphNode | USFMTextNode> =
             allNodes.filter(
                 (n) => $isUSFMTextNode(n) || $isUSFMParagraphNode(n),
@@ -141,7 +152,8 @@ export function maintainDocumentMetaData(
                 sidUpdates.push({ key: node.getKey(), sid: targetSid });
             }
         }
-        // 4) Structural-empty paragraph markers (for regular-mode UI affordances).
+        // Mark paragraph nodes that exist only as structural scaffolding so the
+        // regular-mode UI can render them differently from real prose.
         const paraNodes = allNodes.filter($isUSFMParagraphNode);
 
         for (const para of paraNodes) {

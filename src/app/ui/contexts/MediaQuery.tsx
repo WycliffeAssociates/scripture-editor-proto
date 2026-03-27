@@ -27,7 +27,6 @@ const MediaQueryContext = createContext<MediaQueryContextType | undefined>(
     undefined,
 );
 
-// Default breakpoints (in px)
 const BREAKPOINTS = {
     xs: em(0),
     sm: em(576),
@@ -36,13 +35,20 @@ const BREAKPOINTS = {
     xl: em(1200),
 };
 
+/**
+ * UI-only responsive context.
+ *
+ * This context does not participate in the import/load/item architecture. Its
+ * role is to keep layout decisions, theme flags, and small-screen reference-tab
+ * state in one place so route and component code can stay focused on workspace
+ * behavior.
+ */
 export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
 }) => {
-    const [breakpoint, setBreakpoint] = useState<Breakpoint>("lg"); // Default to lg
+    const [breakpoint, setBreakpoint] = useState<Breakpoint>("lg");
     const [mobileTab, setMobileTab] = useState<"main" | "ref">("main");
 
-    // Use Mantine's useMediaQuery to detect screen size changes
     const isXs = useMantineMediaQuery(`(max-width: ${BREAKPOINTS.sm})`);
     const isSm = useMantineMediaQuery(
         `(min-width: ${BREAKPOINTS.xs}) and (max-width: ${BREAKPOINTS.md})`,
@@ -57,7 +63,6 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     const theme = useMantineTheme();
     const isDarkTheme = colorScheme === "dark";
 
-    // Update breakpoint based on media queries
     useEffect(() => {
         if (isXs) setBreakpoint("xs");
         else if (isSm) setBreakpoint("sm");
@@ -87,6 +92,9 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
+/**
+ * Read the current responsive UI context for workspace screens.
+ */
 export const useWorkspaceMediaQuery = (): MediaQueryContextType => {
     const context = useContext(MediaQueryContext);
     if (context === undefined) {

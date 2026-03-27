@@ -2,7 +2,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { TESTING_IDS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchReplaceSuggestOverlay.css.ts";
@@ -19,6 +19,10 @@ type PositionedSuggestion = SearchSuggestion & {
     height: number;
 };
 
+/**
+ * Search matches are keyed by node + offsets so the overlay can survive editor
+ * rerenders without inventing a second identity model.
+ */
 function suggestionKey(match: MatchInNode) {
     return `${match.node.getKey()}:${match.start}:${match.end}`;
 }
@@ -29,6 +33,10 @@ function getLabelText(match: MatchInNode, textNode: Text) {
     return text.slice(match.start, match.end);
 }
 
+/**
+ * Shows the inline "replace this match" affordance over currently highlighted
+ * search results when the search pane is in replace mode.
+ */
 export function SearchReplaceSuggestPlugin() {
     const [editor] = useLexicalComposerContext();
     const { search } = useWorkspaceContext();
@@ -52,7 +60,9 @@ export function SearchReplaceSuggestPlugin() {
     const getContainerEl = useCallback((): HTMLElement | null => {
         const root = editor.getRootElement();
         if (!root) return null;
-        return root.closest<HTMLElement>('[data-js="editor-container"]');
+        return root.closest<HTMLElement>(
+            `[data-js="${DATA_JS.editorContainer}"]`,
+        );
     }, [editor]);
 
     const clearCloseTimer = useCallback(() => {
@@ -129,7 +139,7 @@ export function SearchReplaceSuggestPlugin() {
         if (!container) return;
         if (overlayHostEl) return;
         const host = document.createElement("div");
-        host.dataset.js = "search-replace-suggest-overlay";
+        host.dataset.js = DATA_JS.searchReplaceSuggestOverlay;
         host.className = styles.overlayHost;
         container.appendChild(host);
         setOverlayHostEl(host);

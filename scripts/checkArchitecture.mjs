@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * Lightweight architecture guard for CI/local checks.
+ *
+ * This script enforces the repository rule that `src/core` stays free of imports
+ * from app or platform layers. It is intentionally simple: walk core files,
+ * inspect import specifiers, and fail on forbidden upward dependencies.
+ */
 const rootDir = process.cwd();
 const coreDir = path.join(rootDir, "src", "core");
 
@@ -10,9 +17,6 @@ const allowedNodePrefixes = ["node:"];
 
 const violations = [];
 const allowedLegacyViolations = new Set([
-  "src/core/persistence/ProjectRepository.ts:@/app/data/parsedProject.ts",
-  "src/core/persistence/repositories/ProjectRepository.ts:@/app/data/parsedProject.ts",
-  "src/core/persistence/repositories/ProjectRepository.ts:@/app/db/api.ts",
 ]);
 
 function walk(dir) {

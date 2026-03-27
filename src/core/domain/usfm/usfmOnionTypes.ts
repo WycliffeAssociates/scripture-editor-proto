@@ -16,6 +16,12 @@ import type {
     TokenFix,
 } from "usfm-onion-web";
 
+/**
+ * Shared USFM Onion type surface re-exported into Dovetail's core domain.
+ *
+ * Keeping these aliases here prevents the rest of the codebase from depending
+ * directly on package-specific names at every call site.
+ */
 export type Span = OnionSpan;
 export type Token = OnionToken;
 export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
@@ -91,6 +97,7 @@ export type ProjectUsfmOptions = {
     lintOptions?: LintOptions | null;
 };
 
+// todo: this is a whacky type. and I still dislike how much we are recreating some of this stuff ourself
 export type LintIssue = Omit<
     OnionLintIssue,
     | "code"

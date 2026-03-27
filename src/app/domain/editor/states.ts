@@ -5,6 +5,14 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
+ * Shared Lexical NodeState definitions for USFM nodes.
+ *
+ * These states are the metadata glue for the editor pipeline: tokenization,
+ * structural maintenance, lint reconciliation, reference syncing, and DOM
+ * styling all read/write these keys instead of maintaining separate maps.
+ */
+
+/**
  * Defines the NodeState for 'id'. It's a unique identifier for the node.
  */
 const idState = createState("id", {

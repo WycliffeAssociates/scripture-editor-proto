@@ -1,13 +1,20 @@
 import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
+/**
+ * Applies dynamic styles derived from the current editor mode and rendered USFM
+ * structure. This keeps presentation concerns out of the editing logic while still
+ * letting the document react to mode changes and poetry/layout markers.
+ */
 export function UsfmStylesPlugin() {
     const { project } = useWorkspaceContext();
 
-    const editorModeSetting = project.appSettings.editorMode ?? "regular";
-    const isUsfmMode = editorModeSetting === "usfm";
+    const editorModeSetting =
+        project.appSettings.editorMode ?? EDITOR_MODES.regular;
+    const isUsfmMode = editorModeSetting === EDITOR_MODES.usfm;
     // Using useRef to hold the stylesheet instance to avoid re-creation on re-renders.
     const dynamicCssStyleSheet = useRef(new CSSStyleSheet()).current;
     const prevStyles = useRef<string>("");

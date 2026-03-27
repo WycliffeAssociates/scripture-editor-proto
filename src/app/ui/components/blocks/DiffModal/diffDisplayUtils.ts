@@ -1,6 +1,13 @@
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ChapterRenderToken } from "@/app/domain/project/diffTypes.ts";
 
+/**
+ * Diff-display helpers shared by list and chapter views.
+ *
+ * These functions are about presentation, not diff calculation: deciding when a
+ * structural linebreak should stay visible and how to strip marker text while
+ * preserving meaningful whitespace in regular-mode displays.
+ */
 function isStructuralGlueMarker(marker?: string): boolean {
     return Boolean(marker) && marker !== "lb";
 }

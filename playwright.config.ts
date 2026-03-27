@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const requestedWorkers = process.env.PLAYWRIGHT_WORKERS
+  ? Number(process.env.PLAYWRIGHT_WORKERS)
+  : null;
+const useLocalParallelBrowsers =
+  !process.env.CI && requestedWorkers !== null && requestedWorkers > 1;
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -14,15 +20,18 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   /* Run tests in files in parallel */
-  fullyParallel: false,
+  fullyParallel: !process.env.CI,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Use one worker by default for deterministic OPFS-backed runs. Override with PLAYWRIGHT_WORKERS. */
-  workers:
-    process.env.PLAYWRIGHT_WORKERS && Number(process.env.PLAYWRIGHT_WORKERS) > 0
-      ? Number(process.env.PLAYWRIGHT_WORKERS)
+  /* Keep local default at one worker for reliability in this macOS environment.
+   * Parallelism can still be requested explicitly via PLAYWRIGHT_WORKERS.
+   */
+  workers: process.env.PLAYWRIGHT_WORKERS
+    ? requestedWorkers ?? undefined
+    : process.env.CI
+      ? 2
       : 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters
    * Can be configured via the PLAYWRIGHT_REPORTER environment variable.
@@ -32,7 +41,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL ?? "http://localhost:5175",
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
@@ -43,10 +52,13 @@ export default defineConfig({
     {
       name: "chromium",
       // Local dev: use system Chrome so Playwright doesn't require bundled browser downloads.
-      // CI: keep Playwright-managed browsers for reproducibility.
+      // For local parallel runs, fall back to Playwright-managed Chromium because
+      // concurrent system-Chrome launches are unstable in this environment.
       use: process.env.CI
         ? { ...devices["Desktop Chrome"] }
-        : { ...devices["Desktop Chrome"], channel: "chrome" },
+        : useLocalParallelBrowsers
+          ? { ...devices["Desktop Chrome"] }
+          : { ...devices["Desktop Chrome"], channel: "chrome" },
     },
 
     {
@@ -65,7 +77,9 @@ export default defineConfig({
       name: "Mobile Chrome",
       use: process.env.CI
         ? { ...devices["Pixel 5"] }
-        : { ...devices["Pixel 5"], channel: "chrome" },
+        : useLocalParallelBrowsers
+          ? { ...devices["Pixel 5"] }
+          : { ...devices["Pixel 5"], channel: "chrome" },
     },
     // {
     //   name: "Mobile Safari",

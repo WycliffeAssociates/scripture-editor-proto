@@ -20,6 +20,12 @@ import FontSizeControl from "./FontSizeControl.tsx";
 import styles from "./Settings.module.css";
 import ZoomControl from "./ZoomControl.tsx";
 
+/**
+ * Settings surface for the active workspace and overall app presentation.
+ *
+ * These controls sit above the persistence layer: they update saved app settings
+ * and immediately apply the visual/runtime side effects the current route needs.
+ */
 export function SettingsPanel() {
     const { project } = useWorkspaceContext();
 
@@ -45,6 +51,9 @@ export function SettingsPanel() {
     );
 }
 
+/**
+ * Theme toggle for the current app session and persisted workspace settings.
+ */
 function DisplayThemeToggle() {
     const { project } = useWorkspaceContext();
     const { setColorScheme } = useMantineColorScheme();
@@ -114,6 +123,12 @@ function DisplayThemeToggle() {
     );
 }
 
+/**
+ * Language picker used inside the settings panel.
+ *
+ * The parent owns the current value and persistence behavior; this component is
+ * just the localized selector UI plus the async locale activation handoff.
+ */
 export function LanguageSelector({
     value,
     onChange,

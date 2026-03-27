@@ -11,6 +11,13 @@ function isMarkerExpectingNumberRange(marker: string | undefined): boolean {
     return !!marker && CHAPTER_VERSE_MARKERS.has(marker);
 }
 
+/**
+ * Heuristics for promoting a plain text prefix into a verse-number token.
+ *
+ * These are used in editing flows where the user types a verse number into plain
+ * text and the editor wants to help turn it into the structured marker+number
+ * representation the rest of the pipeline expects.
+ */
 export function getLeadingVerseNumberFromText(text: string): {
     leadingWhitespace: string;
     verseNumber: string;

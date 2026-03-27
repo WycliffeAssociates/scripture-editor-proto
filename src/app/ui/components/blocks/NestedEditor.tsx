@@ -17,6 +17,8 @@ import {
 } from "lexical";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DATA_JS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     inverseTextNodeTransform,
     textNodeTransform,
@@ -44,6 +46,14 @@ type Props = {
     setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
 };
 
+/**
+ * Inline nested editor used for note-like USFM structures.
+ *
+ * The main scripture editor owns the surrounding document, but some markers need
+ * a focused editing surface with their own Lexical state. This component mounts
+ * that temporary nested editor and synchronizes the serialized result back into
+ * the main editor when the popover closes.
+ */
 export function NestedEditor({
     outerMarker,
     initialEditorState,
@@ -57,13 +67,13 @@ export function NestedEditor({
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
     const { project, projectLanguageDirection } = useWorkspaceContext();
     const { appSettings } = project;
-    const editorModeSetting = appSettings.editorMode ?? "regular";
+    const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
     const [mainEditor] = useLexicalComposerContext();
     const [hasOpened, setHasOpened] = useState(false);
 
     const nestedConfig = {
         namespace: `nested-${outerMarker}-${id}`,
-        editable: editorModeSetting !== "view",
+        editable: editorModeSetting !== EDITOR_MODES.view,
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
@@ -90,7 +100,7 @@ export function NestedEditor({
     useEffect(() => {
         const editor = nestedEditorRef.current;
         if (!editor) return;
-        editor.setEditable(editorModeSetting !== "view");
+        editor.setEditable(editorModeSetting !== EDITOR_MODES.view);
     }, [editorModeSetting]);
 
     const handleSave = useCallback(() => {
@@ -98,7 +108,8 @@ export function NestedEditor({
         if (!editor) return;
         const state = editor.getEditorState();
         const json = state.toJSON();
-        // bubble serialized state to parent
+        // Bubble the serialized nested state back to the parent editor so the
+        // surrounding scripture workspace remains the source of truth.
         onChange(json, mainEditor);
     }, [onChange, mainEditor]);
 
@@ -209,7 +220,7 @@ export function NestedEditor({
                             contentEditable={
                                 <ContentEditable
                                     data-id={id}
-                                    data-js="editor-container"
+                                    data-js={DATA_JS.editorContainer}
                                     className={nestedStyles.contentEditable}
                                 />
                             }

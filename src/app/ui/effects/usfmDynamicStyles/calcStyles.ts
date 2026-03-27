@@ -2,6 +2,14 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 
 type MarkerViewState = "always" | "never" | "whenEditing";
 
+/**
+ * Build runtime CSS for marker/poetry presentation in the editor.
+ *
+ * Some indentation and hidden-marker rules depend on the current rendered DOM
+ * structure, so they cannot be expressed as purely static styles. This helper
+ * inspects the current editor DOM and emits a stylesheet string the workspace can
+ * install dynamically.
+ */
 export function getPoetryStylesAsCssStyleSheet(
     markerViewState: MarkerViewState,
 ) {

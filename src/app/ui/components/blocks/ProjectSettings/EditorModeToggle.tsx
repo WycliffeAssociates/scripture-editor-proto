@@ -7,26 +7,24 @@ import {
     Text,
     Tooltip,
 } from "@mantine/core";
+import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import styles from "./Settings.module.css";
 
 /**
- * EditorModeToggle
+ * Editor-mode selector for the current scripture workspace.
  *
- * Single segmented control that collapses marker/view/mode settings into three presets:
- * - regular: WYSIWYG, markers hidden (never), immutable
- * - plain: source mode (fewer helpers)
- * - usfm: WYSIWYG, markers always visible, mutable
- *
- * This component mirrors the styling used by `DisplayThemeToggle` in Settings.
+ * The workspace already knows how to apply each mode. This component simply
+ * exposes those mode presets in settings so the user can switch between
+ * scripture-reading, plain-source, and full-USFM editing views.
  */
 function EditorModeToggle() {
     const { project, actions } = useWorkspaceContext();
 
-    const value = project.appSettings.editorMode ?? "regular";
+    const value = project.appSettings.editorMode ?? EDITOR_MODES.regular;
 
     const handleChange = (v: string) => {
-        const nextMode = v as "regular" | "plain" | "usfm" | "view";
+        const nextMode = v as EditorModeSetting;
         if (actions.setEditorMode) {
             actions.setEditorMode(nextMode);
             return;
@@ -53,10 +51,10 @@ function EditorModeToggle() {
                 onChange={handleChange}
                 data={[
                     {
-                        value: "regular",
+                        value: EDITOR_MODES.regular,
                         label: (
                             <ModeLabel
-                                value="regular"
+                                value={EDITOR_MODES.regular}
                                 tooltip={
                                     <Trans>
                                         Normal — shows only the bible text and
@@ -68,10 +66,10 @@ function EditorModeToggle() {
                         ),
                     },
                     {
-                        value: "view",
+                        value: EDITOR_MODES.view,
                         label: (
                             <ModeLabel
-                                value="view"
+                                value={EDITOR_MODES.view}
                                 tooltip={
                                     <Trans>
                                         View — read-only, regular layout with
@@ -83,10 +81,10 @@ function EditorModeToggle() {
                         ),
                     },
                     {
-                        value: "plain",
+                        value: EDITOR_MODES.plain,
                         label: (
                             <ModeLabel
-                                value="plain"
+                                value={EDITOR_MODES.plain}
                                 tooltip={
                                     <Trans>
                                         Plain — shows the underlying markup;
@@ -98,10 +96,10 @@ function EditorModeToggle() {
                         ),
                     },
                     {
-                        value: "usfm",
+                        value: EDITOR_MODES.usfm,
                         label: (
                             <ModeLabel
-                                value="usfm"
+                                value={EDITOR_MODES.usfm}
                                 tooltip={
                                     <Trans>
                                         USFM — shows special metadata (such as
@@ -131,7 +129,7 @@ const ModeLabel = ({
     labelText: React.ReactNode;
 }) => {
     const { project } = useWorkspaceContext();
-    const current = project.appSettings.editorMode ?? "regular";
+    const current = project.appSettings.editorMode ?? EDITOR_MODES.regular;
     const isActive = value === current;
 
     return (

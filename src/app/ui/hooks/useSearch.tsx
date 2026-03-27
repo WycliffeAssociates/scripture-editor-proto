@@ -1,11 +1,14 @@
 import type { LexicalEditor } from "lexical";
 import { type RefObject, useEffect, useMemo } from "react";
-import type { ParsedChapter, ParsedFile } from "@/app/data/parsedProject.ts";
 import type {
     SearchContentProvider,
     SearchResult,
 } from "@/app/domain/search/SearchService.ts";
 import { escapeRegex } from "@/app/domain/search/search.utils.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { useSearchExecution } from "@/app/ui/hooks/search/useSearchExecution.ts";
 import { useSearchNavigation } from "@/app/ui/hooks/search/useSearchNavigation.ts";
 import { useSearchReplace } from "@/app/ui/hooks/search/useSearchReplace.ts";
@@ -13,18 +16,18 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { makeSid } from "@/core/data/bible/bible.ts";
 
 type Props = {
-    workingFiles: ParsedFile[];
-    referenceFiles?: ParsedFile[];
-    saveCurrentDirtyLexical: () => ParsedFile[] | undefined;
+    workingFiles: ScriptureBookState[];
+    referenceFiles?: ScriptureBookState[];
+    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     contentProvider?: SearchContentProvider;
     switchBookOrChapter: (
         file: string,
         chapter: number,
-    ) => ParsedChapter | undefined;
+    ) => ScriptureChapterState | undefined;
     editorRef: RefObject<LexicalEditor | null>;
     referenceEditorRef: RefObject<LexicalEditor | null>;
-    pickedFile: ParsedFile;
-    pickedChapter?: ParsedChapter;
+    pickedFile: ScriptureBookState;
+    pickedChapter?: ScriptureChapterState;
     history: CustomHistoryHook;
 };
 
@@ -36,6 +39,14 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
     setSearchReference: (value: boolean) => void;
 };
 
+/**
+ * Composes workspace search behavior across execution, navigation, highlighting,
+ * and replace.
+ *
+ * The underlying search modules stay narrowly focused; this hook wires them to the
+ * currently loaded scripture noun, visible editor refs, and optional reference
+ * search source so the route-level editor shell can consume one cohesive search API.
+ */
 export function useProjectSearch({
     workingFiles,
     referenceFiles,
@@ -66,7 +77,7 @@ export function useProjectSearch({
 
     const currentChapterSid = makeSid({
         bookId: pickedFile.bookCode,
-        chapter: pickedChapter?.chapNumber || 1,
+        chapter: pickedChapter?.chapterNumber || 1,
     });
 
     const navigation = useSearchNavigation({

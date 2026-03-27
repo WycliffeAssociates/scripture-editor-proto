@@ -5,11 +5,20 @@ import { TESTING_IDS } from "@/app/data/constants.ts";
 import { SettingsPanel } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import { ProjectList } from "@/app/ui/components/primitives/ProjectList/ProjectList.tsx";
 import styles from "../../styles/modules/AppDrawer.module.css";
+
 export type AppDrawerProps = {
     opened: boolean;
     close: () => void;
 };
 
+/**
+ * Mobile-first drawer that exposes the two global side rails of the app:
+ * library navigation and workspace settings.
+ *
+ * The main editor route stays focused on the current workspace. This drawer is
+ * the overflow surface for jumping to other items and changing settings without
+ * dedicating permanent desktop chrome on small screens.
+ */
 export function AppDrawer({ opened, close }: AppDrawerProps) {
     return (
         <Drawer

@@ -50,6 +50,14 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
     [key: string]: unknown;
 };
 
+/**
+ * Primary inline token node for the scripture editor.
+ *
+ * Almost every visible token in the editable scripture surface becomes one of
+ * these nodes. The node carries both the user-visible text and the derived
+ * metadata needed by later passes such as lint, SID syncing, marker-aware
+ * cursor movement, and serialization back into a token stream.
+ */
 export class USFMTextNode extends TextNode {
     static getType(): string {
         return USFM_TEXT_NODE_TYPE;
@@ -59,6 +67,9 @@ export class USFMTextNode extends TextNode {
      * This significantly reduces boilerplate code.
      */
     $config() {
+        // NodeState lets the editor keep token metadata attached directly to
+        // the node so post-edit maintenance passes can mutate metadata without
+        // rebuilding the whole tree.
         return this.config(USFM_TEXT_NODE_TYPE, {
             extends: TextNode,
             stateConfigs: [
@@ -81,7 +92,7 @@ export class USFMTextNode extends TextNode {
             lexicalType: USFM_TEXT_NODE_TYPE,
             tokenType: this.getTokenType(),
             id: this.getId(),
-            lintErrors: [], //todo: decide do we want to serialize lint errors
+            lintErrors: [],
             sid: this.getSid(),
             inPara: this.getInPara(),
             inChars: this.getInChars(),
@@ -215,6 +226,9 @@ export class USFMTextNode extends TextNode {
         dom: HTMLElement,
         config: EditorConfig,
     ): boolean {
+        // Any NodeState change means the CSS/data-attribute surface the rest of
+        // the app reads from may have changed, so we ask Lexical to refresh the
+        // DOM even when plain text content stayed the same.
         // super.updateDOM returns true if the text content or format has changed.
         let needsUpdate = super.updateDOM(prevNode as this, dom, config);
         [

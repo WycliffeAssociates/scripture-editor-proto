@@ -24,6 +24,15 @@ import type {
     UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
+/**
+ * Desktop implementation of the shared USFM-onion seam.
+ *
+ * The editor, compare flows, linting, and prettify logic all talk to the same
+ * {@link IUsfmOnionService} contract. On desktop we route heavier parsing,
+ * diffing, and formatting work through Tauri commands so large scripture
+ * workspaces can use path-based batch operations instead of reading everything
+ * into JS first.
+ */
 function toTauriBatchOptions(batchOptions?: BatchExecutionOptions | null) {
     return {
         parallel: batchOptions?.parallel ?? true,

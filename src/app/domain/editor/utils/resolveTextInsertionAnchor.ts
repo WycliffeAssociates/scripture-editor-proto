@@ -4,6 +4,13 @@ import {
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
+/**
+ * Resolve a real USFM text node near a selection anchor.
+ *
+ * Paste/insert flows can land on element boundaries instead of directly inside a
+ * text node. This helper snaps that location to the nearest concrete USFM text
+ * node so downstream insertion code can mutate the editor tree safely.
+ */
 export function resolveTextInsertionAnchor(
     anchorNode: LexicalNode,
     anchorOffset: number,

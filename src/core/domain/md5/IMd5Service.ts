@@ -1,14 +1,12 @@
 /**
- * @interface IMd5Service
- * @description Defines the contract for an MD5 checksum calculation service.
- *              This allows for dependency injection of different MD5 implementations (e.g., web crypto, native Tauri).
+ * Shared checksum seam.
+ *
+ * Import/index code uses this when it needs a stable content fingerprint without
+ * caring whether hashing is done by browser code or a desktop-native backend.
  */
 export interface IMd5Service {
     /**
-     * @method calculateMd5
-     * @description Calculates the MD5 checksum of a given text string.
-     * @param text - The input string for which to calculate the MD5 checksum.
-     * @returns A Promise that resolves to the MD5 checksum as a hexadecimal string.
+     * Calculate a stable checksum for text content.
      */
     calculateMd5(text: string): Promise<string>;
 }

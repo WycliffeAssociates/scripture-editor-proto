@@ -2,6 +2,13 @@ import { Moon, Sun } from "lucide-react";
 import React from "react";
 import type { EditorAction } from "./types.ts";
 
+/**
+ * Display-theme actions exposed through the editor action registry.
+ *
+ * The editor command surface is one of the places users can change visual
+ * settings without leaving the scripture workspace, so these actions forward
+ * directly into workspace settings rather than manipulating DOM theme classes.
+ */
 export const THEME_ACTIONS: EditorAction[] = [
     {
         id: "set-light-theme",
