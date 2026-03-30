@@ -9,12 +9,16 @@ import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
  * user should see.
  */
 export type CompareMode = "unsaved" | "external";
+export const COMPARE_SOURCE_KIND = {
+    EXISTING_PROJECT: "existingProject",
+    ZIP_FILE: "zipFile",
+    DIRECTORY: "directory",
+    PREVIOUS_VERSION: "previousVersion",
+    REMOTE_LATEST: "remoteLatest",
+} as const;
+
 export type CompareSourceKind =
-    | "existingProject"
-    | "zipFile"
-    | "directory"
-    | "previousVersion"
-    | "remoteLatest";
+    (typeof COMPARE_SOURCE_KIND)[keyof typeof COMPARE_SOURCE_KIND];
 
 export type CompareWarningCode =
     | "language_id_mismatch"

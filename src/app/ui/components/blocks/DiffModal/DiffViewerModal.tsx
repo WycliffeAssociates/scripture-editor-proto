@@ -25,6 +25,7 @@ import type {
     CompareSourceKind,
     CompareWarning,
 } from "@/app/domain/project/compare/types.ts";
+import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
 import type {
     DiffsByChapter,
     ProjectDiff,
@@ -94,6 +95,34 @@ function parseChapterKey(value: string): {
         bookCode: value.slice(0, separator),
         chapterNum: Number(value.slice(separator + 1)),
     };
+}
+
+function getCompareSourceLabel(args: {
+    compareSourceKind: CompareSourceKind;
+    compareProjectLabelById: Map<string, string>;
+    compareSourceProjectId: string;
+    compareVersionOptions: Array<{ value: string; label: string }>;
+    compareSourceVersionHash: string;
+}) {
+    switch (args.compareSourceKind) {
+        case COMPARE_SOURCE_KIND.EXISTING_PROJECT:
+            return (
+                args.compareProjectLabelById.get(args.compareSourceProjectId) ??
+                t`No source selected`
+            );
+        case COMPARE_SOURCE_KIND.PREVIOUS_VERSION:
+            return (
+                args.compareVersionOptions.find(
+                    (option) => option.value === args.compareSourceVersionHash,
+                )?.label ?? t`No version selected`
+            );
+        case COMPARE_SOURCE_KIND.REMOTE_LATEST:
+            return t`Incoming cloud changes`;
+        case COMPARE_SOURCE_KIND.ZIP_FILE:
+            return t`ZIP file`;
+        case COMPARE_SOURCE_KIND.DIRECTORY:
+            return t`Folder`;
+    }
 }
 
 export function DiffViewerModal({
@@ -261,28 +290,21 @@ export function DiffViewerModal({
     const unsavedBooksCount = new Set(
         (visibleDiffs ?? []).map((d) => d.bookCode),
     ).size;
-    const sourceLabel =
-        compareSourceKind === "existingProject"
-            ? (compareProjectLabelById.get(compareSourceProjectId) ??
-              t`No source selected`)
-            : compareSourceKind === "previousVersion"
-              ? (compareVersionOptions.find(
-                    (option) => option.value === compareSourceVersionHash,
-                )?.label ?? t`No version selected`)
-              : // @ai -> avoid string types and use exported constants for string. I.e. COMPARE_SOURCE_KIND.REMOTE_LATEST. THAT FOR ALL THESE.  PROBABLY WRAP     const sourceLabel = IN A FUNCTION AND SWITCH ON TYPE FOR CLEANER SYNTAX.
-                compareSourceKind === "remoteLatest"
-                ? t`Incoming cloud changes`
-                : compareSourceKind === "zipFile"
-                  ? t`ZIP file`
-                  : t`Folder`;
+    const sourceLabel = getCompareSourceLabel({
+        compareSourceKind,
+        compareProjectLabelById,
+        compareSourceProjectId,
+        compareVersionOptions,
+        compareSourceVersionHash,
+    });
     const compareSummaryText =
         compareMode === "external"
             ? t`Comparing your current vs ${sourceLabel}`
             : t`Unsaved changes in ${unsavedBooksCount} book(s)`;
     const hasCompareSourceSelection =
-        compareSourceKind === "existingProject"
+        compareSourceKind === COMPARE_SOURCE_KIND.EXISTING_PROJECT
             ? Boolean(compareSourceProjectId)
-            : compareSourceKind === "previousVersion"
+            : compareSourceKind === COMPARE_SOURCE_KIND.PREVIOUS_VERSION
               ? Boolean(compareSourceVersionHash)
               : hasComputedCompare;
     const canApplyIncomingAll =
@@ -569,7 +591,7 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() =>
                                                                         setCompareSourceKind(
-                                                                            "existingProject",
+                                                                            COMPARE_SOURCE_KIND.EXISTING_PROJECT,
                                                                         )
                                                                     }
                                                                 >
@@ -582,7 +604,7 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() =>
                                                                         setCompareSourceKind(
-                                                                            "previousVersion",
+                                                                            COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
                                                                         )
                                                                     }
                                                                 >
@@ -595,7 +617,7 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() => {
                                                                         setCompareSourceKind(
-                                                                            "remoteLatest",
+                                                                            COMPARE_SOURCE_KIND.REMOTE_LATEST,
                                                                         );
                                                                         void loadCompareRemoteLatest();
                                                                     }}
@@ -609,7 +631,7 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() => {
                                                                         setCompareSourceKind(
-                                                                            "zipFile",
+                                                                            COMPARE_SOURCE_KIND.ZIP_FILE,
                                                                         );
                                                                         fileInputRef.current?.click();
                                                                     }}
@@ -623,7 +645,7 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() => {
                                                                         setCompareSourceKind(
-                                                                            "directory",
+                                                                            COMPARE_SOURCE_KIND.DIRECTORY,
                                                                         );
                                                                         dirInputRef.current?.click();
                                                                     }}
@@ -634,7 +656,7 @@ export function DiffViewerModal({
                                                                 </Button>
                                                             </Group>
                                                             {compareSourceKind ===
-                                                                "existingProject" && (
+                                                                COMPARE_SOURCE_KIND.EXISTING_PROJECT && (
                                                                 <Select
                                                                     data={
                                                                         compareProjectOptions
@@ -665,7 +687,7 @@ export function DiffViewerModal({
                                                                 />
                                                             )}
                                                             {compareSourceKind ===
-                                                                "previousVersion" && (
+                                                                COMPARE_SOURCE_KIND.PREVIOUS_VERSION && (
                                                                 <Select
                                                                     data={
                                                                         compareVersionOptions
@@ -779,7 +801,7 @@ export function DiffViewerModal({
                                                         <Menu.Item
                                                             onClick={() =>
                                                                 setCompareSourceKind(
-                                                                    "existingProject",
+                                                                    COMPARE_SOURCE_KIND.EXISTING_PROJECT,
                                                                 )
                                                             }
                                                         >
@@ -790,7 +812,7 @@ export function DiffViewerModal({
                                                         <Menu.Item
                                                             onClick={() =>
                                                                 setCompareSourceKind(
-                                                                    "previousVersion",
+                                                                    COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
                                                                 )
                                                             }
                                                         >
@@ -801,7 +823,7 @@ export function DiffViewerModal({
                                                         <Menu.Item
                                                             onClick={() => {
                                                                 setCompareSourceKind(
-                                                                    "remoteLatest",
+                                                                    COMPARE_SOURCE_KIND.REMOTE_LATEST,
                                                                 );
                                                                 void loadCompareRemoteLatest();
                                                             }}
@@ -814,7 +836,7 @@ export function DiffViewerModal({
                                                         <Menu.Item
                                                             onClick={() => {
                                                                 setCompareSourceKind(
-                                                                    "zipFile",
+                                                                    COMPARE_SOURCE_KIND.ZIP_FILE,
                                                                 );
                                                                 fileInputRef.current?.click();
                                                             }}
@@ -826,7 +848,7 @@ export function DiffViewerModal({
                                                         <Menu.Item
                                                             onClick={() => {
                                                                 setCompareSourceKind(
-                                                                    "directory",
+                                                                    COMPARE_SOURCE_KIND.DIRECTORY,
                                                                 );
                                                                 dirInputRef.current?.click();
                                                             }}
@@ -838,7 +860,7 @@ export function DiffViewerModal({
                                                     </Menu.Dropdown>
                                                 </Menu>
                                                 {compareSourceKind ===
-                                                    "existingProject" && (
+                                                    COMPARE_SOURCE_KIND.EXISTING_PROJECT && (
                                                     <Select
                                                         data={
                                                             compareProjectOptions
@@ -864,7 +886,7 @@ export function DiffViewerModal({
                                                     />
                                                 )}
                                                 {compareSourceKind ===
-                                                    "previousVersion" && (
+                                                    COMPARE_SOURCE_KIND.PREVIOUS_VERSION && (
                                                     <Select
                                                         data={
                                                             compareVersionOptions
@@ -1085,7 +1107,9 @@ export function DiffViewerModal({
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 if (!file) return;
-                                setCompareSourceKind("zipFile");
+                                setCompareSourceKind(
+                                    COMPARE_SOURCE_KIND.ZIP_FILE,
+                                );
                                 void loadCompareZip(file);
                                 event.currentTarget.value = "";
                             }}
@@ -1100,7 +1124,9 @@ export function DiffViewerModal({
                             onChange={(event) => {
                                 const files = event.target.files;
                                 if (!files?.length) return;
-                                setCompareSourceKind("directory");
+                                setCompareSourceKind(
+                                    COMPARE_SOURCE_KIND.DIRECTORY,
+                                );
                                 void loadCompareDirectory(files);
                                 event.currentTarget.value = "";
                             }}

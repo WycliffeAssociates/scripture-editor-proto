@@ -21,6 +21,7 @@ import {
     Info,
     Lock,
     MoreHorizontal,
+    RefreshCw,
     Unlock,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -30,6 +31,7 @@ import {
     buildCondensedLexicalSelectionSnapshot,
     buildFullLexicalSelectionSnapshot,
 } from "@/app/domain/editor/utils/debugLexicalSnapshot.ts";
+import { CloudProjectStatusBadge } from "@/app/ui/components/blocks/CloudProjectStatus.tsx";
 import { SaveAndReviewChanges } from "@/app/ui/components/blocks/DiffModal/DiffModal.tsx";
 import { LintPopover } from "@/app/ui/components/blocks/LintPopover.tsx";
 import { MatchFormattingSuggestionsPanel } from "@/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx";
@@ -59,7 +61,7 @@ import { formatChapterSummary } from "@/core/persistence/gitVersionUtils.ts";
  * surfaces that operate on the current typed workspace and reference item.
  */
 export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
-    const { actions, editorRef, isProcessing, project, save } =
+    const { actions, editorRef, isProcessing, project, remote, save } =
         useWorkspaceContext();
     const { t } = useLingui();
     const isViewOnly =
@@ -185,6 +187,10 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
                     <Group gap="xs" className={styles.toolbarSection}>
                         <SearchInput />
                         <LintPopover wrapperClassNames="relative" />
+                        <CloudProjectStatusBadge
+                            status={remote.status}
+                            isRefreshing={remote.isRefreshing}
+                        />
                         <SaveAndReviewChanges />
                         <SecondaryActionsMenu isProcessing={isProcessing} />
                         {save.versions.isViewingOlderVersion ? (
@@ -231,7 +237,8 @@ export function Toolbar({ openDrawer }: { openDrawer: () => void }) {
 
 function SecondaryActionsMenu(props: { isProcessing: boolean }) {
     const { t } = useLingui();
-    const { actions, referenceResource, project, save } = useWorkspaceContext();
+    const { actions, referenceResource, project, remote, save } =
+        useWorkspaceContext();
     const suggestionCount = project.formatMatchReport?.suggestions.length ?? 0;
     const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
     const [scope, setScope] = useState<"chapter" | "book" | "project">(
@@ -285,6 +292,23 @@ function SecondaryActionsMenu(props: { isProcessing: boolean }) {
                     >
                         <Trans>Previous Versions</Trans>
                     </Menu.Item>
+                    {remote.status ? (
+                        <Menu.Item
+                            leftSection={
+                                remote.isRefreshing ? (
+                                    <Loader size={rem(14)} />
+                                ) : (
+                                    <RefreshCw size={rem(14)} />
+                                )
+                            }
+                            onClick={() => {
+                                void remote.syncNow();
+                            }}
+                            disabled={remote.isRefreshing}
+                        >
+                            <Trans>Sync updates</Trans>
+                        </Menu.Item>
+                    ) : null}
                     <Menu.Item
                         leftSection={
                             props.isProcessing ? (

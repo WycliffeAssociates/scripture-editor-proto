@@ -16,6 +16,7 @@ import type {
     CompareSourceKind,
     CompareWarning,
 } from "@/app/domain/project/compare/types.ts";
+import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
 import type {
     DiffsByChapter,
     ProjectDiff,
@@ -55,6 +56,34 @@ import {
 
 const DIFF_CHUNK_SIZE = 8;
 
+function buildExternalCompareSource(args: {
+    sourceProjectId: string;
+    sourceKind: CompareSourceKind;
+    sourceVersionHash: string;
+}) {
+    if (args.sourceProjectId) {
+        return {
+            kind: COMPARE_SOURCE_KIND.EXISTING_PROJECT,
+            projectId: args.sourceProjectId,
+        } as const;
+    }
+
+    switch (args.sourceKind) {
+        case COMPARE_SOURCE_KIND.PREVIOUS_VERSION:
+            return {
+                kind: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
+                commitHash: args.sourceVersionHash,
+            } as const;
+        case COMPARE_SOURCE_KIND.REMOTE_LATEST:
+            return { kind: COMPARE_SOURCE_KIND.REMOTE_LATEST } as const;
+        case COMPARE_SOURCE_KIND.ZIP_FILE:
+            return { kind: COMPARE_SOURCE_KIND.ZIP_FILE } as const;
+        case COMPARE_SOURCE_KIND.DIRECTORY:
+        case COMPARE_SOURCE_KIND.EXISTING_PROJECT:
+            return { kind: COMPARE_SOURCE_KIND.DIRECTORY } as const;
+    }
+}
+
 /**
  * External-compare hook for the scripture workspace.
  *
@@ -81,8 +110,9 @@ export function useExternalCompare(args: {
     authSessionProvider: AuthSessionProvider;
 }) {
     const [mode, setMode] = useState<CompareMode>("unsaved");
-    const [sourceKind, setSourceKind] =
-        useState<CompareSourceKind>("existingProject");
+    const [sourceKind, setSourceKind] = useState<CompareSourceKind>(
+        COMPARE_SOURCE_KIND.EXISTING_PROJECT,
+    );
     const [sourceProjectId, setSourceProjectId] = useState("");
     const [sourceVersionHash, setSourceVersionHash] = useState("");
     const [compareResult, setCompareResult] = useState<{
@@ -112,21 +142,11 @@ export function useExternalCompare(args: {
     function buildExternalCompareConfig() {
         return {
             mode: "external" as const,
-            source: sourceProjectId
-                ? {
-                      kind: "existingProject" as const,
-                      projectId: sourceProjectId,
-                  }
-                : sourceKind === "previousVersion" && sourceVersionHash
-                  ? {
-                        kind: "previousVersion" as const,
-                        commitHash: sourceVersionHash,
-                    }
-                  : sourceKind === "remoteLatest"
-                    ? { kind: "remoteLatest" as const }
-                    : sourceKind === "zipFile"
-                      ? { kind: "zipFile" as const }
-                      : { kind: "directory" as const },
+            source: buildExternalCompareSource({
+                sourceProjectId,
+                sourceKind,
+                sourceVersionHash,
+            }),
         };
     }
 
@@ -212,7 +232,7 @@ export function useExternalCompare(args: {
         setCompareResult(null);
         setSourceProjectId("");
         setSourceVersionHash("");
-        setSourceKind("existingProject");
+        setSourceKind(COMPARE_SOURCE_KIND.EXISTING_PROJECT);
     };
 
     async function loadFromProject(projectId: string) {
@@ -307,6 +327,20 @@ export function useExternalCompare(args: {
                 loaded.cleanup,
             );
         });
+    }
+
+    async function openRemoteLatestReview(
+        saveCurrentDirtyLexical: () => void,
+        openDiffModal: (saveCurrentDirtyLexical: () => void) => Promise<void>,
+        isDiffModalOpen: boolean,
+    ) {
+        saveCurrentDirtyLexical();
+        setMode("external");
+        setSourceKind(COMPARE_SOURCE_KIND.REMOTE_LATEST);
+        if (!isDiffModalOpen) {
+            await openDiffModal(saveCurrentDirtyLexical);
+        }
+        await loadFromRemoteLatest();
     }
 
     function applyIncomingHunkToCurrent(diff: ProjectDiff) {
@@ -432,6 +466,7 @@ export function useExternalCompare(args: {
             loadFromDirectory,
             loadFromVersion,
             loadFromRemoteLatest,
+            openRemoteLatestReview,
             applyIncomingHunk: applyIncomingHunkToCurrent,
             applyIncomingChapter: applyIncomingChapterToCurrent,
             applyIncomingAll: applyIncomingAllToCurrent,

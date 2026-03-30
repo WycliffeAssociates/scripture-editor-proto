@@ -92,6 +92,10 @@ export const mobileRibbonLeft = style({
 
 export const mobileRibbonRight = style([mobileRibbonLeft]);
 
+export const statusBannerRow = style({
+    padding: "0.5rem 1rem 0",
+});
+
 export const editorWrapperDesktop = style({
     width: "100%",
     minWidth: 0,

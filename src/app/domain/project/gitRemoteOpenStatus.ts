@@ -77,6 +77,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
     settingsManager: SettingsManager;
     authSessionProvider: AuthSessionProvider;
     gitProvider: GitProvider;
+    forceSync?: boolean;
     now?: () => string;
 }): Promise<GitRemoteOpenStatusResult> {
     const remoteInfo = await readGitRemoteProjectInfo({
@@ -110,7 +111,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         };
     }
 
-    if (!args.settingsManager.get("autoSyncOnOpen")) {
+    if (!args.forceSync && !args.settingsManager.get("autoSyncOnOpen")) {
         const status =
             existingStatus.lastCheckedAt ||
             existingStatus.kind !== GIT_REMOTE_PROJECT_STATUS_CONNECTED

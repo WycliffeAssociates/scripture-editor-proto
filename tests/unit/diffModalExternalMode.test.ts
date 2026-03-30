@@ -9,6 +9,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
 import type {
     ChapterRenderToken,
     ProjectDiff,
@@ -240,7 +241,7 @@ describe("diff modal external compare UI", () => {
                 revertAllChanges: vi.fn(),
                 compareMode: "external",
                 setCompareMode: vi.fn(),
-                compareSourceKind: "previousVersion",
+                compareSourceKind: COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
                 setCompareSourceKind: vi.fn(),
                 compareSourceProjectId: "",
                 setCompareSourceProjectId: vi.fn(),
@@ -288,7 +289,7 @@ describe("diff modal external compare UI", () => {
                 revertAllChanges: vi.fn(),
                 compareMode: "external",
                 setCompareMode: vi.fn(),
-                compareSourceKind: "remoteLatest",
+                compareSourceKind: COMPARE_SOURCE_KIND.REMOTE_LATEST,
                 setCompareSourceKind: vi.fn(),
                 compareSourceProjectId: "",
                 setCompareSourceProjectId: vi.fn(),

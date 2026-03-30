@@ -1,8 +1,12 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import { createContext, useEffect, useRef } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsManager } from "@/app/data/settings.ts";
-import { hydrateGitRemoteStatusOnOpen } from "@/app/domain/project/gitRemoteOpenStatus.ts";
+import {
+    GIT_REMOTE_OPEN_STATUS_NOT_LINKED,
+    type GitRemoteOpenStatusResult,
+    hydrateGitRemoteStatusOnOpen,
+} from "@/app/domain/project/gitRemoteOpenStatus.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -33,6 +37,7 @@ import {
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
+import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
 import type {
     Project,
     ProjectListItem,
@@ -60,6 +65,12 @@ export interface WorkSpaceContextType {
     cssStyleSheet: UseDynamicStylesheetHook;
     save: UseSaveReturn;
     history: CustomHistoryHook;
+    remote: {
+        status: GitRemoteProjectStatus | null;
+        isRefreshing: boolean;
+        syncNow(): Promise<void>;
+        reviewIncoming(): Promise<void>;
+    };
     projectLanguageDirection: LanguageDirection;
     isProcessing: boolean;
     bookCodeToProjectLocalizedTitle({
@@ -135,6 +146,10 @@ export const ProjectProvider = ({
         currentChapter:
             project.pickedChapter?.chapterNumber || project.currentChapter,
     });
+    const [remoteStatus, setRemoteStatus] =
+        useState<GitRemoteProjectStatus | null>(null);
+    const [isRefreshingRemoteStatus, setIsRefreshingRemoteStatus] =
+        useState(false);
     const save = useSave({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         // setWorkingFiles,
@@ -150,6 +165,7 @@ export const ProjectProvider = ({
         editorMode: settingsManager.get("editorMode"),
         allProjects: projects,
         currentProjectRoute,
+        onGitRemoteStatusChanged: setRemoteStatus,
         // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 
@@ -206,30 +222,57 @@ export const ProjectProvider = ({
         history,
     });
 
+    const applyHydratedRemoteResult = useCallback(
+        (result: GitRemoteOpenStatusResult) => {
+            if (result.kind === GIT_REMOTE_OPEN_STATUS_NOT_LINKED) {
+                setRemoteStatus(null);
+                return;
+            }
+            setRemoteStatus(result.status);
+        },
+        [],
+    );
+
+    const syncRemoteStatus = useCallback(
+        async (forceSync = false) => {
+            setIsRefreshingRemoteStatus(true);
+            try {
+                const result = await hydrateGitRemoteStatusOnOpen({
+                    projectPath: loadedProject.projectPath,
+                    fileSystem,
+                    storageRoots,
+                    settingsManager,
+                    authSessionProvider,
+                    gitProvider,
+                    forceSync,
+                });
+                applyHydratedRemoteResult(result);
+                return result;
+            } finally {
+                setIsRefreshingRemoteStatus(false);
+            }
+        },
+        [
+            applyHydratedRemoteResult,
+            authSessionProvider,
+            fileSystem,
+            gitProvider,
+            loadedProject.projectPath,
+            settingsManager,
+            storageRoots,
+        ],
+    );
+
     // Keep lint state in sync after history replay (undo/redo), including
     // entries that touch chapters outside the currently visible editor.
     useEffect(() => {
-        void hydrateGitRemoteStatusOnOpen({
-            projectPath: loadedProject.projectPath,
-            fileSystem,
-            storageRoots,
-            settingsManager,
-            authSessionProvider,
-            gitProvider,
-        }).catch((error) => {
+        void syncRemoteStatus().catch((error) => {
             console.error(
                 "Failed to hydrate remote project status on open",
                 error,
             );
         });
-    }, [
-        authSessionProvider,
-        fileSystem,
-        gitProvider,
-        loadedProject.projectPath,
-        settingsManager,
-        storageRoots,
-    ]);
+    }, [syncRemoteStatus]);
 
     useEffect(() => {
         return history.registerPostUndoRedoAction((event) => {
@@ -307,6 +350,18 @@ export const ProjectProvider = ({
                 cssStyleSheet,
                 save,
                 history,
+                remote: {
+                    status: remoteStatus,
+                    isRefreshing: isRefreshingRemoteStatus,
+                    syncNow: async () => {
+                        await syncRemoteStatus(true);
+                    },
+                    reviewIncoming: async () => {
+                        await save.compare.openRemoteLatestReview(
+                            actions.saveCurrentDirtyLexical,
+                        );
+                    },
+                },
                 projectLanguageDirection,
                 isProcessing: project.isProcessing,
                 bookCodeToProjectLocalizedTitle,

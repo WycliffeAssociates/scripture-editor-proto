@@ -4,6 +4,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { InfoIcon } from "lucide-react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { AppDrawer } from "@/app/ui/components/blocks/AppDrawer.tsx";
+import { CloudProjectStatusBanner } from "@/app/ui/components/blocks/CloudProjectStatus.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { SearchPanel } from "@/app/ui/components/blocks/Search.tsx";
@@ -22,7 +23,7 @@ import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
  * panel, main editor, and optional reference pane.
  */
 export function ProjectView() {
-    const { referenceResource, search } = useWorkspaceContext();
+    const { referenceResource, remote, search } = useWorkspaceContext();
     const [opened, { open, close }] = useDisclosure(false);
     const { isSm, mobileTab, setMobileTab } = useWorkspaceMediaQuery();
     const hasReferenceResource = Boolean(
@@ -48,6 +49,19 @@ export function ProjectView() {
             }
         >
             <TopToolbar isSmall={isSm} openDrawer={open} />
+
+            <div className={styles.statusBannerRow}>
+                <CloudProjectStatusBanner
+                    status={remote.status}
+                    isRefreshing={remote.isRefreshing}
+                    onSync={() => {
+                        void remote.syncNow();
+                    }}
+                    onReview={() => {
+                        void remote.reviewIncoming();
+                    }}
+                />
+            </div>
 
             <MobileReferenceTabs
                 isSmall={isSm}

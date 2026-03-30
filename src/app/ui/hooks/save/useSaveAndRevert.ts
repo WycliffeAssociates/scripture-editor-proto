@@ -31,6 +31,8 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
+import { readGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import {
@@ -68,6 +70,7 @@ export function useSaveAndRevert(args: {
     bumpDirtyVersion: () => void;
     refreshUnsavedChapter: (bookCode: string, chapterNum: number) => void;
     rerunCompareForChapters: (chapters: ChapterRef[]) => Promise<void>;
+    onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 }) {
     const hasUnsavedChanges = args.mutWorkingFilesRef.some((file) =>
         file.chapters.some((chapter) => chapter.dirty),
@@ -170,6 +173,14 @@ export function useSaveAndRevert(args: {
                                 "Your changes were saved locally, but publishing to the cloud could not be completed.",
                         },
                     });
+                } finally {
+                    args.onGitRemoteStatusChanged?.(
+                        await readGitRemoteProjectStatus({
+                            fileSystem: args.fileSystem,
+                            storageRoots: args.storageRoots,
+                            projectPath: args.loadedProject.projectPath,
+                        }),
+                    );
                 }
             }
             await args.refreshVersions();

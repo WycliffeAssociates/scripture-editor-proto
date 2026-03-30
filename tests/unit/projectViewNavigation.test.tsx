@@ -80,6 +80,12 @@ beforeAll(() => {
 beforeEach(() => {
     useWorkspaceContextMock.mockReturnValue({
         referenceResource: { activeReferenceResourcePath: null },
+        remote: {
+            status: null,
+            isRefreshing: false,
+            syncNow: vi.fn(),
+            reviewIncoming: vi.fn(),
+        },
         search: {
             isSearchPaneOpen: false,
             rerunForCurrentChapter: vi.fn(),
@@ -173,6 +179,12 @@ describe("ProjectView navigation", () => {
                 pickedFile: { bookCode: "REV" },
             },
             bookCodeToProjectLocalizedTitle: () => "Revelation",
+            remote: {
+                status: null,
+                isRefreshing: false,
+                syncNow: vi.fn(),
+                reviewIncoming: vi.fn(),
+            },
         });
 
         render(<ProjectView />);
@@ -197,6 +209,12 @@ describe("ProjectView navigation", () => {
     it("shows the previous book label when the current chapter is the first chapter of a non-first book", () => {
         useWorkspaceContextMock.mockReturnValue({
             referenceResource: { activeReferenceResourcePath: null },
+            remote: {
+                status: null,
+                isRefreshing: false,
+                syncNow: vi.fn(),
+                reviewIncoming: vi.fn(),
+            },
             search: {
                 isSearchPaneOpen: false,
                 rerunForCurrentChapter: vi.fn(),

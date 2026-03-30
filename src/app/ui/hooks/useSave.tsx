@@ -14,6 +14,7 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { flattenDiffMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
 import type {
     Project,
     ProjectListItem,
@@ -38,6 +39,7 @@ type UseSaveProps = {
     editorMode: EditorModeSetting;
     allProjects: ProjectListItem[];
     currentProjectRoute: string;
+    onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 };
 
 export type UseSaveReturn = ReturnType<typeof useSave>;
@@ -65,6 +67,7 @@ export function useSave({
     editorMode,
     allProjects,
     currentProjectRoute,
+    onGitRemoteStatusChanged,
 }: UseSaveProps) {
     const { usfmOnionService, settingsManager, authSessionProvider } =
         useRouter().options.context;
@@ -142,6 +145,7 @@ export function useSave({
         bumpDirtyVersion,
         refreshUnsavedChapter: diff.actions.refreshChapter,
         rerunCompareForChapters: compare.actions.rerunForChapters,
+        onGitRemoteStatusChanged,
     });
 
     const activeDiffsByChapter = useMemo(() => {
@@ -236,6 +240,15 @@ export function useSave({
         },
     };
 
+    const openRemoteLatestReview = async (
+        saveCurrentDirtyLexical: () => void,
+    ) =>
+        compare.actions.openRemoteLatestReview(
+            saveCurrentDirtyLexical,
+            diff.actions.open,
+            diff.state.isOpen,
+        );
+
     return {
         diff: {
             isOpen: diff.state.isOpen,
@@ -278,6 +291,7 @@ export function useSave({
             loadFromDirectory: compare.actions.loadFromDirectory,
             loadFromVersion: compare.actions.loadFromVersion,
             loadFromRemoteLatest: compare.actions.loadFromRemoteLatest,
+            openRemoteLatestReview,
             applyIncomingHunk: compare.actions.applyIncomingHunk,
             applyIncomingChapter: compare.actions.applyIncomingChapter,
             applyIncomingAll: compare.actions.applyIncomingAll,
