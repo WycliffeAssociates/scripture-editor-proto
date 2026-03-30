@@ -17,6 +17,8 @@ const PROJECT_STATUS_DIRECTORY = "project-status";
 
 export const GIT_REMOTE_INFO_FILENAME = "git-remote-info.json";
 export const GIT_REMOTE_SESSION_FILENAME = "git-remote-session.json";
+export const GIT_REMOTE_PENDING_REVOCATION_FILENAME =
+    "git-remote-pending-revocation.json";
 
 export function getGitRemoteStateRoot(storageRoots: StorageRoots): string {
     return joinStoragePath(
@@ -29,6 +31,15 @@ export function getGitRemoteSessionPath(storageRoots: StorageRoots): string {
     return joinStoragePath(
         getGitRemoteStateRoot(storageRoots),
         GIT_REMOTE_SESSION_FILENAME,
+    );
+}
+
+export function getGitRemotePendingRevocationPath(
+    storageRoots: StorageRoots,
+): string {
+    return joinStoragePath(
+        getGitRemoteStateRoot(storageRoots),
+        GIT_REMOTE_PENDING_REVOCATION_FILENAME,
     );
 }
 

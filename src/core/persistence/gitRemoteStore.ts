@@ -1,14 +1,17 @@
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import {
+    type GitRemotePendingRevocation,
     type GitRemoteProjectInfo,
     type GitRemoteProjectStatus,
     type GitRemoteSession,
     normalizeGitRemoteProjectPath,
+    parseGitRemotePendingRevocation,
     parseGitRemoteProjectInfo,
     parseGitRemoteProjectStatus,
     parseGitRemoteSession,
 } from "@/core/persistence/gitRemoteModels.ts";
 import {
+    getGitRemotePendingRevocationPath,
     getGitRemoteProjectInfoPath,
     getGitRemoteProjectStatusPath,
     getGitRemoteSessionPath,
@@ -144,6 +147,39 @@ export async function deleteGitRemoteSession(args: {
     storageRoots: StorageRoots;
 }): Promise<void> {
     const path = getGitRemoteSessionPath(args.storageRoots);
+    if (!(await args.fileSystem.exists(path))) return;
+    await args.fileSystem.remove(path);
+}
+
+export async function readGitRemotePendingRevocation(args: {
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+}): Promise<GitRemotePendingRevocation | null> {
+    return readJsonRecord({
+        fileSystem: args.fileSystem,
+        path: getGitRemotePendingRevocationPath(args.storageRoots),
+        parse: parseGitRemotePendingRevocation,
+    });
+}
+
+export async function writeGitRemotePendingRevocation(args: {
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+    pending: GitRemotePendingRevocation;
+}): Promise<void> {
+    const path = getGitRemotePendingRevocationPath(args.storageRoots);
+    await ensureParentDirectory(args.fileSystem, path);
+    await args.fileSystem.writeText(
+        path,
+        JSON.stringify(args.pending, null, 2),
+    );
+}
+
+export async function deleteGitRemotePendingRevocation(args: {
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+}): Promise<void> {
+    const path = getGitRemotePendingRevocationPath(args.storageRoots);
     if (!(await args.fileSystem.exists(path))) return;
     await args.fileSystem.remove(path);
 }

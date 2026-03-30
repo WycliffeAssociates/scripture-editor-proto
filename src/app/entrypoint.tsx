@@ -18,6 +18,7 @@ import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
 import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ImportService } from "@/core/library/ImportService.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { IOpener } from "@/core/persistence/IOpener.ts";
@@ -34,6 +35,7 @@ import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 type EntryPointProps = {
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
+    authSessionProvider: AuthSessionProvider;
     storageRoots: StorageRoots;
     projectsService: ProjectsService;
     libraryService: LibraryService;
@@ -57,6 +59,7 @@ export interface RouterContext {
     queryClient: QueryClient;
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
+    authSessionProvider: AuthSessionProvider;
     storageRoots: StorageRoots;
     projectsService: ProjectsService;
     libraryService: LibraryService;
@@ -70,6 +73,7 @@ export interface RouterContext {
 const wrapCreateRouter = (
     settingsManager: SettingsManager,
     fileSystem: FileSystem,
+    authSessionProvider: AuthSessionProvider,
     storageRoots: StorageRoots,
     projectsService: ProjectsService,
     libraryService: LibraryService,
@@ -85,6 +89,7 @@ const wrapCreateRouter = (
             settingsManager,
             queryClient,
             fileSystem,
+            authSessionProvider,
             storageRoots,
             projectsService,
             libraryService,
@@ -114,6 +119,7 @@ declare module "@tanstack/react-router" {
 export function App({
     settingsManager,
     fileSystem,
+    authSessionProvider,
     storageRoots,
     projectsService,
     libraryService,
@@ -126,6 +132,7 @@ export function App({
     const router = wrapCreateRouter(
         settingsManager,
         fileSystem,
+        authSessionProvider,
         storageRoots,
         projectsService,
         libraryService,

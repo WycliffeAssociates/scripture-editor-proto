@@ -23,6 +23,15 @@ export const GIT_REMOTE_PROJECT_STATUS_VALUES = [
 export type GitRemoteProjectStatusKind =
     (typeof GIT_REMOTE_PROJECT_STATUS_VALUES)[number];
 
+export const GIT_REMOTE_REVOCATION_STATE_VALUES = [
+    "pending",
+    "terminalFailure",
+    "retryLimitReached",
+] as const;
+
+export type GitRemoteRevocationState =
+    (typeof GIT_REMOTE_REVOCATION_STATE_VALUES)[number];
+
 const NonEmptyStringSchema = v.pipe(v.string(), v.nonEmpty());
 
 const GitRemoteProjectInfoSchema = v.object({
@@ -53,6 +62,16 @@ const GitRemoteSessionSchema = v.object({
     tokenId: v.nullish(v.string()),
 });
 
+const GitRemotePendingRevocationSchema = v.object({
+    hostBaseUrl: NonEmptyStringSchema,
+    tokenId: NonEmptyStringSchema,
+    tokenName: v.nullish(v.string()),
+    retryCount: v.number(),
+    lastAttemptedAt: v.nullish(v.string()),
+    lastFailureReason: v.nullish(v.string()),
+    state: v.picklist(GIT_REMOTE_REVOCATION_STATE_VALUES),
+});
+
 export type GitRemoteProjectInfo = v.InferOutput<
     typeof GitRemoteProjectInfoSchema
 >;
@@ -62,6 +81,10 @@ export type GitRemoteProjectStatus = v.InferOutput<
 >;
 
 export type GitRemoteSession = v.InferOutput<typeof GitRemoteSessionSchema>;
+
+export type GitRemotePendingRevocation = v.InferOutput<
+    typeof GitRemotePendingRevocationSchema
+>;
 
 export function normalizeGitRemoteProjectPath(projectPath: string): string {
     return normalizeStoragePath(projectPath);
@@ -153,6 +176,21 @@ export function parseGitRemoteSession(value: unknown): GitRemoteSession {
         token: parsed.token,
         tokenName: parsed.tokenName ?? null,
         tokenId: parsed.tokenId ?? null,
+    };
+}
+
+export function parseGitRemotePendingRevocation(
+    value: unknown,
+): GitRemotePendingRevocation {
+    const parsed = v.parse(GitRemotePendingRevocationSchema, value);
+    return {
+        hostBaseUrl: parsed.hostBaseUrl,
+        tokenId: parsed.tokenId,
+        tokenName: parsed.tokenName ?? null,
+        retryCount: parsed.retryCount,
+        lastAttemptedAt: parsed.lastAttemptedAt ?? null,
+        lastFailureReason: parsed.lastFailureReason ?? null,
+        state: parsed.state,
     };
 }
 

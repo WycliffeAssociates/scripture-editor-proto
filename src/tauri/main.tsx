@@ -8,6 +8,7 @@ import {
     DexieProjectIndex,
 } from "@/app/persistence/DexieProjectIndex.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
+import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
@@ -28,6 +29,10 @@ import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
 const settingsManager = createTauriSettingsManager();
 const storageRoots = await TauriStorageRoots.create();
 const fileSystem = new TauriFileSystem(storageRoots);
+const authSessionProvider = new FsBackedAuthSessionProvider(
+    fileSystem,
+    storageRoots,
+);
 const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
 const gitProvider = new TauriGitProvider();
@@ -57,6 +62,7 @@ root.render(
         <App
             settingsManager={settingsManager}
             fileSystem={fileSystem}
+            authSessionProvider={authSessionProvider}
             storageRoots={storageRoots}
             projectsService={projectsService}
             libraryService={libraryService}
