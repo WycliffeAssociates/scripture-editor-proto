@@ -36,6 +36,7 @@ type EntryPointProps = {
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
     authSessionProvider: AuthSessionProvider;
+    giteaHostBaseUrl: string | null;
     storageRoots: StorageRoots;
     projectsService: ProjectsService;
     libraryService: LibraryService;
@@ -60,6 +61,7 @@ export interface RouterContext {
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
     authSessionProvider: AuthSessionProvider;
+    giteaHostBaseUrl: string | null;
     storageRoots: StorageRoots;
     projectsService: ProjectsService;
     libraryService: LibraryService;
@@ -74,6 +76,7 @@ const wrapCreateRouter = (
     settingsManager: SettingsManager,
     fileSystem: FileSystem,
     authSessionProvider: AuthSessionProvider,
+    giteaHostBaseUrl: string | null,
     storageRoots: StorageRoots,
     projectsService: ProjectsService,
     libraryService: LibraryService,
@@ -90,6 +93,7 @@ const wrapCreateRouter = (
             queryClient,
             fileSystem,
             authSessionProvider,
+            giteaHostBaseUrl,
             storageRoots,
             projectsService,
             libraryService,
@@ -120,6 +124,7 @@ export function App({
     settingsManager,
     fileSystem,
     authSessionProvider,
+    giteaHostBaseUrl,
     storageRoots,
     projectsService,
     libraryService,
@@ -133,6 +138,7 @@ export function App({
         settingsManager,
         fileSystem,
         authSessionProvider,
+        giteaHostBaseUrl,
         storageRoots,
         projectsService,
         libraryService,

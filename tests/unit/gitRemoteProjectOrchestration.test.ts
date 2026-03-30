@@ -20,6 +20,7 @@ function createAuthSessionProvider(
 ): AuthSessionProvider {
     return {
         getCurrentSession: vi.fn().mockResolvedValue(session),
+        loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),
         clearSession: vi.fn(),
         getPendingRevocation: vi.fn(),

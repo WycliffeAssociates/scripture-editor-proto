@@ -158,6 +158,7 @@ export class OpfsFileSystem implements FileSystem {
     private assertManagedPath(path: string): string {
         const normalized = normalizePath(path);
         const managedRoots = [
+            this.roots.appDataRoot,
             this.roots.projectsRoot,
             this.roots.tempRoot,
             this.roots.cacheRoot,

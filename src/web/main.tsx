@@ -11,6 +11,7 @@ import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
+import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
@@ -35,6 +36,9 @@ const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 const platform: PlatformAndWeb = "web";
+const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
+    import.meta.env.VITE_GITEA_HOST,
+);
 const storageRoots = new OpfsStorageRoots();
 const fileSystem = new OpfsFileSystem(storageRoots);
 const authSessionProvider = new FsBackedAuthSessionProvider(
@@ -71,6 +75,7 @@ root.render(
             settingsManager={settingsManager}
             fileSystem={fileSystem}
             authSessionProvider={authSessionProvider}
+            giteaHostBaseUrl={giteaHostBaseUrl}
             storageRoots={storageRoots}
             usfmOnionService={webUsfmOnionService}
             gitProvider={gitProvider}

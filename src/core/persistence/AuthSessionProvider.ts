@@ -12,6 +12,12 @@ import type {
  */
 export interface AuthSessionProvider {
     getCurrentSession(): Promise<GitRemoteSession | null>;
+    loginWithPassword(args: {
+        hostBaseUrl: string;
+        username: string;
+        password: string;
+        otp?: string | null;
+    }): Promise<GitRemoteSession>;
     replaceSession(session: GitRemoteSession): Promise<void>;
     clearSession(): Promise<void>;
     getPendingRevocation(): Promise<GitRemotePendingRevocation | null>;

@@ -260,6 +260,44 @@ export const emptyState = style({
     fontSize: vars.fontSizes.md,
 });
 
+export const loginForm = style({
+    display: "grid",
+    gap: vars.spacing.md,
+    maxWidth: "28rem",
+});
+
+export const loginField = style({
+    display: "grid",
+    gap: vars.spacing.xs,
+});
+
+export const loginLabel = style({
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 600,
+    color: vars.colors.primary[9],
+});
+
+export const loginInput = style({
+    width: "100%",
+    borderRadius: vars.radius.lg,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    fontSize: vars.fontSizes.md,
+    color: vars.colors.text,
+    selectors: {
+        "&:focus": {
+            outline: "none",
+            borderColor: vars.colors.primary[5],
+            boxShadow: `0 0 0 3px ${vars.colors.primary[1]}`,
+        },
+        [`${darkSelector} &`]: {
+            backgroundColor: vars.colors.gray[9],
+            borderColor: vars.colors.gray[7],
+        },
+    },
+});
+
 export const errorState = style({
     margin: vars.spacing.md,
     padding: `${vars.spacing.sm} ${vars.spacing.md}`,

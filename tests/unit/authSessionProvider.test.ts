@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
+import { describe, expect, it, vi } from "vitest";
 import {
-    GIT_REMOTE_REVOCATION_STATE_VALUES,
-} from "@/core/persistence/gitRemoteModels.ts";
+    FsBackedAuthSessionProvider,
+    GIT_REMOTE_SESSION_TOKEN_SCOPES,
+} from "@/core/persistence/FsBackedAuthSessionProvider.ts";
+import { GIT_REMOTE_REVOCATION_STATE_VALUES } from "@/core/persistence/gitRemoteModels.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import { readGitRemotePendingRevocation } from "@/core/persistence/gitRemoteStore.ts";
 import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
@@ -52,6 +53,58 @@ describe("FsBackedAuthSessionProvider", () => {
             tokenName: "dovetail-web",
             tokenId: "2",
         });
+    });
+
+    it("creates and persists a session token using basic auth against the configured Gitea host", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const fetchImpl = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: 7,
+                name: "dovetail-123",
+                sha1: "created-token",
+            }),
+        });
+        const provider = new FsBackedAuthSessionProvider(
+            fileSystem,
+            storageRoots,
+            fetchImpl as typeof fetch,
+        );
+
+        const session = await provider.loginWithPassword({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            password: "secret",
+            otp: "123456",
+        });
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            new URL(
+                "/api/v1/users/alice/tokens",
+                "https://gitea.example.org",
+            ),
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Authorization: expect.stringMatching(/^Basic /u),
+                    "Content-Type": "application/json",
+                    "X-Gitea-OTP": "123456",
+                }),
+            }),
+        );
+        const requestInit = fetchImpl.mock.calls[0]?.[1];
+        expect(JSON.parse(String(requestInit?.body))).toEqual({
+            name: expect.stringMatching(/^dovetail-/u),
+            scopes: [...GIT_REMOTE_SESSION_TOKEN_SCOPES],
+        });
+        expect(session).toEqual({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "created-token",
+            tokenName: "dovetail-123",
+            tokenId: "7",
+        });
+        await expect(provider.getCurrentSession()).resolves.toEqual(session);
     });
 
     it("clears local session immediately without touching pending revocation state", async () => {

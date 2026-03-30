@@ -53,7 +53,7 @@ type GiteaRepoRecord = v.InferOutput<typeof GiteaRepoRecordSchema>;
 type GiteaSearchResponse = v.InferOutput<typeof GiteaSearchResponseSchema>;
 
 export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
-    constructor(private readonly fetchImpl: FetchLike = fetch) {}
+    constructor(private readonly fetchImpl: FetchLike = getDefaultFetch()) {}
 
     async listWritableRepos(args: {
         hostBaseUrl: string;
@@ -124,6 +124,10 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         const repo = parseGiteaRepoRecord(await response.json());
         return mapRepoSummary(repo, args.username);
     }
+}
+
+function getDefaultFetch(): FetchLike {
+    return globalThis.fetch.bind(globalThis);
 }
 
 function parseGiteaSearchPayload(

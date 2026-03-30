@@ -64,14 +64,23 @@ describe("CloudProjectImporter", () => {
     it("shows an account-required empty state when no cloud session is present", () => {
         render(
             <CloudProjectImporter
+                hostBaseUrl="https://gitea.example.org"
                 sessionUsername={null}
                 repos={[]}
                 isLoading={false}
                 isImporting={false}
+                isConnecting={false}
                 isDisconnecting={false}
+                loginUsername=""
+                loginPassword=""
+                loginOtp=""
                 error={null}
                 hasLoaded={false}
                 hasNextPage={false}
+                onLoginUsernameChange={vi.fn()}
+                onLoginPasswordChange={vi.fn()}
+                onLoginOtpChange={vi.fn()}
+                onConnect={vi.fn()}
                 onRefresh={vi.fn()}
                 onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
@@ -80,7 +89,7 @@ describe("CloudProjectImporter", () => {
         );
 
         expect(document.body.textContent).toContain(
-            "No cloud account is connected on this device yet.",
+            "Connect to https://gitea.example.org",
         );
     });
 
@@ -88,6 +97,7 @@ describe("CloudProjectImporter", () => {
         const onCloneRepo = vi.fn();
         render(
             <CloudProjectImporter
+                hostBaseUrl="https://gitea.example.org"
                 sessionUsername="alice"
                 repos={[
                     {
@@ -105,10 +115,18 @@ describe("CloudProjectImporter", () => {
                 ]}
                 isLoading={false}
                 isImporting={false}
+                isConnecting={false}
                 isDisconnecting={false}
+                loginUsername=""
+                loginPassword=""
+                loginOtp=""
                 error={null}
                 hasLoaded={true}
                 hasNextPage={true}
+                onLoginUsernameChange={vi.fn()}
+                onLoginPasswordChange={vi.fn()}
+                onLoginOtpChange={vi.fn()}
+                onConnect={vi.fn()}
                 onRefresh={vi.fn()}
                 onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
@@ -140,14 +158,23 @@ describe("CloudProjectImporter", () => {
         const onDisconnect = vi.fn();
         render(
             <CloudProjectImporter
+                hostBaseUrl="https://gitea.example.org"
                 sessionUsername="alice"
                 repos={[]}
                 isLoading={false}
                 isImporting={false}
+                isConnecting={false}
                 isDisconnecting={false}
+                loginUsername=""
+                loginPassword=""
+                loginOtp=""
                 error={null}
                 hasLoaded={true}
                 hasNextPage={false}
+                onLoginUsernameChange={vi.fn()}
+                onLoginPasswordChange={vi.fn()}
+                onLoginOtpChange={vi.fn()}
+                onConnect={vi.fn()}
                 onRefresh={vi.fn()}
                 onDisconnect={onDisconnect}
                 onLoadMore={vi.fn()}
@@ -167,5 +194,48 @@ describe("CloudProjectImporter", () => {
         });
 
         expect(onDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it("renders a connect form when a host is configured but no session exists", () => {
+        const onConnect = vi.fn();
+        render(
+            <CloudProjectImporter
+                hostBaseUrl="https://gitea.example.org"
+                sessionUsername={null}
+                repos={[]}
+                isLoading={false}
+                isImporting={false}
+                isConnecting={false}
+                isDisconnecting={false}
+                loginUsername="alice"
+                loginPassword="secret"
+                loginOtp=""
+                error={null}
+                hasLoaded={false}
+                hasNextPage={false}
+                onLoginUsernameChange={vi.fn()}
+                onLoginPasswordChange={vi.fn()}
+                onLoginOtpChange={vi.fn()}
+                onConnect={onConnect}
+                onRefresh={vi.fn()}
+                onDisconnect={vi.fn()}
+                onLoadMore={vi.fn()}
+                onCloneRepo={vi.fn()}
+            />,
+        );
+
+        expect(document.body.textContent).toContain("Connect account");
+        const connectButton = [...document.querySelectorAll("button")].find(
+            (button) => button.textContent?.includes("Connect account"),
+        );
+        expect(connectButton).toBeTruthy();
+
+        act(() => {
+            connectButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+        });
+
+        expect(onConnect).toHaveBeenCalledTimes(1);
     });
 });

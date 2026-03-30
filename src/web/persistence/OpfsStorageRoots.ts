@@ -6,10 +6,14 @@ function joinRoot(
     namespace: string | null,
     leaf: string,
 ): string {
+    const namespacedBase = namespace ? `${base}/${namespace}` : base;
+    if (!leaf) {
+        return namespacedBase;
+    }
     if (!namespace) {
         return `${base}/${leaf}`;
     }
-    return `${base}/${namespace}/${leaf}`;
+    return `${namespacedBase}/${leaf}`;
 }
 
 /**

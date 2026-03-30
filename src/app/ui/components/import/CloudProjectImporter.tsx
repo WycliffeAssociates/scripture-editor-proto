@@ -4,14 +4,23 @@ import * as styles from "@/app/ui/styles/modules/newProjectSearch.css.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
 type CloudProjectImporterProps = {
+    hostBaseUrl: string | null;
     sessionUsername: string | null;
     repos: RemoteRepoSummary[];
     isLoading: boolean;
     isImporting: boolean;
+    isConnecting: boolean;
     isDisconnecting: boolean;
+    loginUsername: string;
+    loginPassword: string;
+    loginOtp: string;
     error: string | null;
     hasLoaded: boolean;
     hasNextPage: boolean;
+    onLoginUsernameChange: (value: string) => void;
+    onLoginPasswordChange: (value: string) => void;
+    onLoginOtpChange: (value: string) => void;
+    onConnect: () => void;
     onRefresh: () => void;
     onDisconnect: () => void;
     onLoadMore: () => void;
@@ -41,9 +50,11 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                                     Connected as {props.sessionUsername}
                                 </Trans>
                             </>
+                        ) : props.hostBaseUrl ? (
+                            <Trans>Connect to {props.hostBaseUrl}</Trans>
                         ) : (
                             <Trans>
-                                No cloud account is connected on this device
+                                Cloud login is not configured for this build
                                 yet.
                             </Trans>
                         )}
@@ -119,10 +130,123 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                             <tr>
                                 <td className={styles.td} colSpan={4}>
                                     <div className={styles.emptyState}>
-                                        <Trans>
-                                            Connect an account to import
-                                            projects from the cloud.
-                                        </Trans>
+                                        {props.hostBaseUrl ? (
+                                            <div className={styles.loginForm}>
+                                                <label
+                                                    className={
+                                                        styles.loginField
+                                                    }
+                                                >
+                                                    <span
+                                                        className={
+                                                            styles.loginLabel
+                                                        }
+                                                    >
+                                                        <Trans>Username</Trans>
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        aria-label="Cloud username"
+                                                        value={
+                                                            props.loginUsername
+                                                        }
+                                                        onInput={(event) =>
+                                                            props.onLoginUsernameChange(
+                                                                (
+                                                                    event.target as HTMLInputElement
+                                                                ).value,
+                                                            )
+                                                        }
+                                                        className={
+                                                            styles.loginInput
+                                                        }
+                                                    />
+                                                </label>
+                                                <label
+                                                    className={
+                                                        styles.loginField
+                                                    }
+                                                >
+                                                    <span
+                                                        className={
+                                                            styles.loginLabel
+                                                        }
+                                                    >
+                                                        <Trans>Password</Trans>
+                                                    </span>
+                                                    <input
+                                                        type="password"
+                                                        aria-label="Cloud password"
+                                                        value={
+                                                            props.loginPassword
+                                                        }
+                                                        onInput={(event) =>
+                                                            props.onLoginPasswordChange(
+                                                                (
+                                                                    event.target as HTMLInputElement
+                                                                ).value,
+                                                            )
+                                                        }
+                                                        className={
+                                                            styles.loginInput
+                                                        }
+                                                    />
+                                                </label>
+                                                <label
+                                                    className={
+                                                        styles.loginField
+                                                    }
+                                                >
+                                                    <span
+                                                        className={
+                                                            styles.loginLabel
+                                                        }
+                                                    >
+                                                        <Trans>
+                                                            One-time code
+                                                            (optional)
+                                                        </Trans>
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        aria-label="Cloud one-time code"
+                                                        value={props.loginOtp}
+                                                        onInput={(event) =>
+                                                            props.onLoginOtpChange(
+                                                                (
+                                                                    event.target as HTMLInputElement
+                                                                ).value,
+                                                            )
+                                                        }
+                                                        className={
+                                                            styles.loginInput
+                                                        }
+                                                    />
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    className={
+                                                        styles.topActionButton
+                                                    }
+                                                    aria-label="Connect cloud account"
+                                                    onClick={props.onConnect}
+                                                    disabled={
+                                                        props.isConnecting
+                                                    }
+                                                >
+                                                    <Trans>
+                                                        {props.isConnecting
+                                                            ? "Connecting..."
+                                                            : "Connect account"}
+                                                    </Trans>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <Trans>
+                                                Set `VITE_GITEA_HOST` to enable
+                                                cloud login in this build.
+                                            </Trans>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

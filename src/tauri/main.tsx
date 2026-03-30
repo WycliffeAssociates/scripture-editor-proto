@@ -10,6 +10,7 @@ import {
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
+import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
@@ -28,6 +29,9 @@ import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
  * `src/app`.
  */
 const settingsManager = createTauriSettingsManager();
+const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
+    import.meta.env.VITE_GITEA_HOST,
+);
 const storageRoots = await TauriStorageRoots.create();
 const fileSystem = new TauriFileSystem(storageRoots);
 const authSessionProvider = new FsBackedAuthSessionProvider(
@@ -69,6 +73,7 @@ root.render(
             settingsManager={settingsManager}
             fileSystem={fileSystem}
             authSessionProvider={authSessionProvider}
+            giteaHostBaseUrl={giteaHostBaseUrl}
             storageRoots={storageRoots}
             projectsService={projectsService}
             libraryService={libraryService}

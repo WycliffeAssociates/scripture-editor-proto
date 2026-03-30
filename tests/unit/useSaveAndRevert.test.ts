@@ -156,6 +156,7 @@ function createAuthSessionProvider(): AuthSessionProvider {
             tokenId: "1",
             tokenName: "dovetail-web",
         }),
+        loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),
         clearSession: vi.fn(),
         getPendingRevocation: vi.fn(),

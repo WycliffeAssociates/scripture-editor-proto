@@ -47,6 +47,7 @@ export function CreateProject() {
         importService,
         projectsService,
         authSessionProvider,
+        giteaHostBaseUrl,
     } = router.options.context;
     const importController = useMemo(
         () =>
@@ -63,9 +64,14 @@ export function CreateProject() {
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
+    const [isConnectingCloudAccount, setIsConnectingCloudAccount] =
+        useState(false);
     const [cloudSessionUsername, setCloudSessionUsername] = useState<
         string | null
     >(null);
+    const [loginUsername, setLoginUsername] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
+    const [loginOtp, setLoginOtp] = useState("");
     const [cloudRepos, setCloudRepos] = useState<RemoteRepoSummary[]>([]);
     const [cloudNextPage, setCloudNextPage] = useState<number | null>(null);
     const [hasLoadedCloudRepos, setHasLoadedCloudRepos] = useState(false);
@@ -237,6 +243,14 @@ export function CreateProject() {
     const disconnectCloudAccount = useCallback(async () => {
         try {
             setIsDisconnectingCloudAccount(true);
+            const session = await authSessionProvider.getCurrentSession();
+            if (session?.tokenId) {
+                await authSessionProvider.queueTokenRevocation({
+                    hostBaseUrl: session.hostBaseUrl,
+                    tokenId: session.tokenId,
+                    tokenName: session.tokenName,
+                });
+            }
             await authSessionProvider.clearSession();
             setCloudSessionUsername(null);
             setCloudRepos([]);
@@ -264,6 +278,73 @@ export function CreateProject() {
             setIsDisconnectingCloudAccount(false);
         }
     }, [authSessionProvider, t]);
+
+    const connectCloudAccount = useCallback(async () => {
+        if (!giteaHostBaseUrl) {
+            ShowErrorNotification({
+                notification: {
+                    title: t`Cloud login unavailable`,
+                    message: t`This build is missing the configured Gitea host.`,
+                },
+            });
+            return;
+        }
+        if (!loginUsername.trim() || !loginPassword) {
+            ShowErrorNotification({
+                notification: {
+                    title: t`Enter your credentials`,
+                    message: t`Username and password are required to connect your cloud account.`,
+                },
+            });
+            return;
+        }
+
+        try {
+            setIsConnectingCloudAccount(true);
+            setCloudError(null);
+            const session = await authSessionProvider.loginWithPassword({
+                hostBaseUrl: giteaHostBaseUrl,
+                username: loginUsername.trim(),
+                password: loginPassword,
+                otp: loginOtp.trim() || null,
+            });
+            setCloudSessionUsername(session.username);
+            setCloudRepos([]);
+            setCloudNextPage(null);
+            setHasLoadedCloudRepos(false);
+            setLoginPassword("");
+            setLoginOtp("");
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Cloud account connected`,
+                    message: t`You can now browse your writable cloud projects.`,
+                    autoClose: 4000,
+                },
+            });
+        } catch (error) {
+            console.error("Cloud login failed", error);
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : t`Could not connect your cloud account.`;
+            setCloudError(message);
+            ShowErrorNotification({
+                notification: {
+                    title: t`Cloud login failed`,
+                    message,
+                },
+            });
+        } finally {
+            setIsConnectingCloudAccount(false);
+        }
+    }, [
+        authSessionProvider,
+        giteaHostBaseUrl,
+        loginOtp,
+        loginPassword,
+        loginUsername,
+        t,
+    ]);
 
     const cloneCloudRepo = async (repo: RemoteRepoSummary) => {
         try {
@@ -539,14 +620,25 @@ export function CreateProject() {
                 />
 
                 <CloudProjectImporter
+                    hostBaseUrl={giteaHostBaseUrl}
                     sessionUsername={cloudSessionUsername}
                     repos={cloudRepos}
                     isLoading={isLoadingCloudRepos}
                     isImporting={isImporting}
+                    isConnecting={isConnectingCloudAccount}
                     isDisconnecting={isDisconnectingCloudAccount}
+                    loginUsername={loginUsername}
+                    loginPassword={loginPassword}
+                    loginOtp={loginOtp}
                     error={cloudError}
                     hasLoaded={hasLoadedCloudRepos}
                     hasNextPage={Boolean(cloudNextPage)}
+                    onLoginUsernameChange={setLoginUsername}
+                    onLoginPasswordChange={setLoginPassword}
+                    onLoginOtpChange={setLoginOtp}
+                    onConnect={() => {
+                        void connectCloudAccount();
+                    }}
                     onRefresh={() => {
                         void refreshCloudRepos();
                     }}

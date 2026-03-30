@@ -173,8 +173,21 @@ describe("OpfsFileSystem", () => {
         await expect(fs.exists(tempPath)).resolves.toBe(true);
     });
 
+    it("allows app-local files directly beneath the app data root", async () => {
+        const fs = new OpfsFileSystem(new OpfsStorageRoots());
+        await fs.writeText(
+            "/appData/git-remote/git-remote-session.json",
+            '{"username":"alice"}',
+        );
+
+        await expect(
+            fs.readText("/appData/git-remote/git-remote-session.json"),
+        ).resolves.toBe('{"username":"alice"}');
+    });
+
     it("supports namespaced storage roots for isolated browser runs", async () => {
         const roots = new OpfsStorageRoots("pw-worker-2");
+        expect(roots.appDataRoot).toBe("/appData/pw-worker-2");
         expect(roots.projectsRoot).toBe("/userData/pw-worker-2/projects");
         expect(roots.tempRoot).toBe("/appData/pw-worker-2/temp");
         expect(roots.cacheRoot).toBe("/appData/pw-worker-2/cache");

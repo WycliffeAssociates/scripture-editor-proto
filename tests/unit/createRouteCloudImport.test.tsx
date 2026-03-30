@@ -129,6 +129,7 @@ describe("CreateProject cloud import", () => {
                         listWritableRemoteRepos,
                         cloneWritableRemoteProject,
                     },
+                    giteaHostBaseUrl: "https://gitea.example.org",
                     authSessionProvider: {
                         getCurrentSession: vi.fn().mockResolvedValue({
                             username: "alice",
@@ -137,6 +138,7 @@ describe("CreateProject cloud import", () => {
                             tokenId: "1",
                             tokenName: "dovetail-web",
                         }),
+                        loginWithPassword: vi.fn(),
                     },
                 },
             },
@@ -210,6 +212,7 @@ describe("CreateProject cloud import", () => {
                         listWritableRemoteRepos,
                         cloneWritableRemoteProject: vi.fn(),
                     },
+                    giteaHostBaseUrl: "https://gitea.example.org",
                     authSessionProvider: {
                         getCurrentSession: vi.fn().mockResolvedValue({
                             username: "alice",
@@ -218,7 +221,9 @@ describe("CreateProject cloud import", () => {
                             tokenId: "1",
                             tokenName: "dovetail-web",
                         }),
+                        loginWithPassword: vi.fn(),
                         clearSession,
+                        queueTokenRevocation: vi.fn(),
                     },
                 },
             },
@@ -245,8 +250,103 @@ describe("CreateProject cloud import", () => {
 
         expect(clearSession).toHaveBeenCalledTimes(1);
         expect(document.body.textContent).toContain(
-            "No cloud account is connected on this device yet.",
+            "Connect to https://gitea.example.org",
         );
         expect(document.body.textContent).not.toContain("bho-bible");
+    });
+
+    it("creates a cloud session from the login form when a host is configured", async () => {
+        const loginWithPassword = vi.fn().mockResolvedValue({
+            username: "alice",
+            hostBaseUrl: "https://gitea.example.org",
+            token: "created-token",
+            tokenId: "7",
+            tokenName: "dovetail-7",
+        });
+        const listWritableRemoteRepos = vi.fn().mockResolvedValue({
+            repos: [],
+            nextPage: null,
+        });
+
+        useRouterMock.mockReturnValue({
+            invalidate: vi.fn(async () => {}),
+            navigate: vi.fn(),
+            options: {
+                context: {
+                    settingsManager: {
+                        get: vi.fn().mockReturnValue("en"),
+                        set: vi.fn(),
+                        applySettings: vi.fn(),
+                        update: vi.fn(),
+                    },
+                    importService: {},
+                    projectsService: {
+                        listWritableRemoteRepos,
+                        cloneWritableRemoteProject: vi.fn(),
+                    },
+                    giteaHostBaseUrl: "https://gitea.example.org",
+                    authSessionProvider: {
+                        getCurrentSession: vi.fn().mockResolvedValue(null),
+                        loginWithPassword,
+                        clearSession: vi.fn(),
+                        queueTokenRevocation: vi.fn(),
+                    },
+                },
+            },
+        });
+
+        render(<CreateProject />);
+
+        const usernameInput = document.querySelector(
+            'input[aria-label="Cloud username"]',
+        ) as HTMLInputElement | null;
+        const passwordInput = document.querySelector(
+            'input[aria-label="Cloud password"]',
+        ) as HTMLInputElement | null;
+        expect(usernameInput).toBeTruthy();
+        expect(passwordInput).toBeTruthy();
+
+        await act(async () => {
+            usernameInput!.value = "alice";
+            usernameInput!.dispatchEvent(
+                new Event("input", { bubbles: true }),
+            );
+            usernameInput!.dispatchEvent(
+                new Event("change", { bubbles: true }),
+            );
+            passwordInput!.value = "secret";
+            passwordInput!.dispatchEvent(
+                new Event("input", { bubbles: true }),
+            );
+            passwordInput!.dispatchEvent(
+                new Event("change", { bubbles: true }),
+            );
+            await Promise.resolve();
+        });
+
+        const connectButton = document.querySelector(
+            'button[aria-label="Connect cloud account"]',
+        );
+        expect(connectButton).toBeTruthy();
+
+        await act(async () => {
+            connectButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(loginWithPassword).toHaveBeenCalledWith({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            password: "secret",
+            otp: null,
+        });
+        expect(listWritableRemoteRepos).toHaveBeenCalledWith({
+            page: 1,
+            pageSize: 20,
+            topic: "consolidated",
+        });
     });
 });
