@@ -4,6 +4,7 @@ import type {
     DiffsByChapter,
     ProjectDiff,
 } from "@/app/domain/project/diffTypes.ts";
+import { resolveGitCommitAuthorForProject } from "@/app/domain/project/gitCommitAuthorResolver.ts";
 import { publishLinkedProjectAfterSave } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import {
     BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
@@ -30,7 +31,6 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
-import { GIT_COMMIT_AUTHOR } from "@/core/persistence/gitConstants.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import {
@@ -121,6 +121,12 @@ export function useSaveAndRevert(args: {
                 },
             });
             try {
+                const commitAuthor = await resolveGitCommitAuthorForProject({
+                    projectPath: args.loadedProject.projectPath,
+                    fileSystem: args.fileSystem,
+                    storageRoots: args.storageRoots,
+                    authSessionProvider: args.authSessionProvider,
+                });
                 const committed = await args.gitProvider.commitAll(
                     args.loadedProject.projectPath,
                     {
@@ -128,7 +134,7 @@ export function useSaveAndRevert(args: {
                         timestampIso: new Date().toISOString(),
                         changedChapters: dirtyChapterRefs,
                     },
-                    GIT_COMMIT_AUTHOR,
+                    commitAuthor,
                 );
                 savedVersionHash = committed.hash;
             } catch (commitErr) {
