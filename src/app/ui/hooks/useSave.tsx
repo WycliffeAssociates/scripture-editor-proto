@@ -66,7 +66,8 @@ export function useSave({
     allProjects,
     currentProjectRoute,
 }: UseSaveProps) {
-    const { usfmOnionService } = useRouter().options.context;
+    const { usfmOnionService, settingsManager, authSessionProvider } =
+        useRouter().options.context;
     const [, setDirtyVersion] = useState(0);
     const saveCurrentDirtyRef = useRef<(() => void) | null>(null);
 
@@ -123,6 +124,10 @@ export function useSave({
         loadedProject,
         history,
         gitProvider,
+        settingsManager,
+        authSessionProvider,
+        fileSystem,
+        storageRoots,
         usfmOnionService,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
         selectedVersionHash: versions.state.selectedHash,

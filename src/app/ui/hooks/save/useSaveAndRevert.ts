@@ -1,9 +1,13 @@
 import type { LexicalEditor } from "lexical";
+import type { SettingsManager } from "@/app/data/settings.ts";
 import type {
     DiffsByChapter,
     ProjectDiff,
 } from "@/app/domain/project/diffTypes.ts";
+import { publishLinkedProjectAfterSave } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import {
+    BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
+    buildBookPersistencePlan,
     buildBooksSavePayload,
     markFilesAsSaved,
     revertChapterDiffByBlockId,
@@ -23,9 +27,12 @@ import {
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
+import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import { GIT_COMMIT_AUTHOR } from "@/core/persistence/gitConstants.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import {
     type ChapterRef,
     revertAllChanges,
@@ -47,6 +54,10 @@ export function useSaveAndRevert(args: {
     loadedProject: Project;
     history: CustomHistoryHook;
     gitProvider: GitProvider;
+    settingsManager: SettingsManager;
+    authSessionProvider: AuthSessionProvider;
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
     usfmOnionService: IUsfmOnionService;
     isViewingOlderVersion: boolean;
     selectedVersionHash: string | null;
@@ -68,6 +79,10 @@ export function useSaveAndRevert(args: {
         ).map(({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`);
         const filesToSave = getDirtyFiles(args.mutWorkingFilesRef);
         const toSave = buildBooksSavePayload(filesToSave);
+        const persistencePlan = buildBookPersistencePlan({
+            existingBooks: args.loadedProject.books,
+            payload: toSave,
+        });
         let savedVersionHash: string | null = null;
 
         if (args.isViewingOlderVersion && args.selectedVersionHash) {
@@ -78,11 +93,18 @@ export function useSaveAndRevert(args: {
         }
 
         let saveError: unknown = null;
-        for (const [bookCode, content] of Object.entries(toSave)) {
+        for (const action of persistencePlan) {
             try {
-                await args.loadedProject.addBook(bookCode, {
-                    contents: content,
-                });
+                if (action.kind === BOOK_PERSISTENCE_ACTION_SAVE_EXISTING) {
+                    await args.loadedProject.saveBook(
+                        action.storageKey,
+                        action.contents,
+                    );
+                } else {
+                    await args.loadedProject.addBook(action.bookCode, {
+                        contents: action.contents,
+                    });
+                }
             } catch (error) {
                 saveError = error;
                 break;
@@ -118,6 +140,31 @@ export function useSaveAndRevert(args: {
                             "Your changes were saved, but a local version checkpoint could not be created.",
                     },
                 });
+            }
+            if (savedVersionHash) {
+                try {
+                    await publishLinkedProjectAfterSave({
+                        projectPath: args.loadedProject.projectPath,
+                        localHead: savedVersionHash,
+                        fileSystem: args.fileSystem,
+                        storageRoots: args.storageRoots,
+                        settingsManager: args.settingsManager,
+                        authSessionProvider: args.authSessionProvider,
+                        gitProvider: args.gitProvider,
+                    });
+                } catch (publishErr) {
+                    console.error(
+                        "Remote publish after save failed:",
+                        publishErr,
+                    );
+                    ShowErrorNotification({
+                        notification: {
+                            title: "Cloud Publish Warning",
+                            message:
+                                "Your changes were saved locally, but publishing to the cloud could not be completed.",
+                        },
+                    });
+                }
             }
             await args.refreshVersions();
             if (savedVersionHash) {

@@ -10,6 +10,7 @@ import type {
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
  * Save/revert operations work on the scripture workspace noun after editing has
@@ -102,6 +103,59 @@ export function buildBooksSavePayload(
             .join("");
     }
     return toSave;
+}
+
+export const BOOK_PERSISTENCE_ACTION_VALUES = [
+    "saveExisting",
+    "addNew",
+] as const;
+
+export type BookPersistenceActionKind =
+    (typeof BOOK_PERSISTENCE_ACTION_VALUES)[number];
+
+export const [
+    BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
+    BOOK_PERSISTENCE_ACTION_ADD_NEW,
+] = BOOK_PERSISTENCE_ACTION_VALUES;
+
+export type BookPersistenceAction =
+    | {
+          kind: typeof BOOK_PERSISTENCE_ACTION_SAVE_EXISTING;
+          bookCode: string;
+          storageKey: string;
+          contents: string;
+      }
+    | {
+          kind: typeof BOOK_PERSISTENCE_ACTION_ADD_NEW;
+          bookCode: string;
+          contents: string;
+      };
+
+export function buildBookPersistencePlan(args: {
+    existingBooks: Pick<BookRef, "bookCode" | "storageKey">[];
+    payload: Record<string, string>;
+}): BookPersistenceAction[] {
+    const existingByBookCode = new Map(
+        args.existingBooks.map((book) => [book.bookCode, book.storageKey]),
+    );
+
+    return Object.entries(args.payload).map(([bookCode, contents]) => {
+        const storageKey = existingByBookCode.get(bookCode);
+        if (storageKey) {
+            return {
+                kind: BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
+                bookCode,
+                storageKey,
+                contents,
+            };
+        }
+
+        return {
+            kind: BOOK_PERSISTENCE_ACTION_ADD_NEW,
+            bookCode,
+            contents,
+        };
+    });
 }
 
 export function markFilesAsSaved(files: ScriptureBookState[]) {

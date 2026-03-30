@@ -23,6 +23,16 @@ export const GIT_REMOTE_PROJECT_STATUS_VALUES = [
 export type GitRemoteProjectStatusKind =
     (typeof GIT_REMOTE_PROJECT_STATUS_VALUES)[number];
 
+export const [
+    GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+    GIT_REMOTE_PROJECT_STATUS_SYNCING,
+    GIT_REMOTE_PROJECT_STATUS_OFFLINE,
+    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
+    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
+    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
+    GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
+] = GIT_REMOTE_PROJECT_STATUS_VALUES;
+
 export const GIT_REMOTE_REVOCATION_STATE_VALUES = [
     "pending",
     "terminalFailure",
@@ -95,7 +105,7 @@ export function createDefaultGitRemoteProjectStatus(
 ): GitRemoteProjectStatus {
     return {
         projectPath: normalizeGitRemoteProjectPath(projectPath),
-        kind: "connected",
+        kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
         lastCheckedAt: null,
         lastPublishedAt: null,
         lastKnownLocalHead: null,
