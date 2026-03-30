@@ -1,9 +1,13 @@
 import { type Unzipped, unzip } from "fflate";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
+import { buildRemoteLatestCompareSource } from "@/app/domain/project/compare/remoteCompareSource.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import { joinStoragePath } from "@/core/persistence/pathUtils.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
@@ -13,7 +17,7 @@ import type { CompareMetadataSummary } from "./compareService.ts";
 export type CompareSourceLoadResult = {
     parsedFiles: ScriptureBookState[];
     metadataSummary: CompareMetadataSummary;
-    cleanup: () => Promise<void>;
+    cleanup?: () => Promise<void>;
 };
 
 type CompareSourceLoaderArgs = {
@@ -22,6 +26,8 @@ type CompareSourceLoaderArgs = {
     storageRoots: StorageRoots;
     editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
+    authSessionProvider: AuthSessionProvider;
+    gitProvider: GitProvider;
 };
 
 /**
@@ -38,6 +44,8 @@ export class CompareSourceLoader {
     private readonly storageRoots: StorageRoots;
     private readonly editorMode: EditorModeSetting;
     private readonly usfmOnionService: IUsfmOnionService;
+    private readonly authSessionProvider: AuthSessionProvider;
+    private readonly gitProvider: GitProvider;
 
     constructor(args: CompareSourceLoaderArgs) {
         this.projectsService = args.projectsService;
@@ -45,6 +53,8 @@ export class CompareSourceLoader {
         this.storageRoots = args.storageRoots;
         this.editorMode = args.editorMode;
         this.usfmOnionService = args.usfmOnionService;
+        this.authSessionProvider = args.authSessionProvider;
+        this.gitProvider = args.gitProvider;
     }
 
     async loadExistingProject(
@@ -63,7 +73,6 @@ export class CompareSourceLoader {
         return {
             parsedFiles: parsed.parsedFiles,
             metadataSummary: toMetadataSummary(opened),
-            cleanup: async () => {},
         };
     }
 
@@ -117,6 +126,43 @@ export class CompareSourceLoader {
                     recursive: true,
                 });
             },
+        };
+    }
+
+    async loadRemoteLatest(
+        loadedProject: Project,
+    ): Promise<CompareSourceLoadResult> {
+        const remoteInfo = await readGitRemoteProjectInfo({
+            fileSystem: this.fileSystem,
+            storageRoots: this.storageRoots,
+            projectPath: loadedProject.projectPath,
+        });
+        if (!remoteInfo) {
+            throw new Error("Project is not linked to a remote source.");
+        }
+
+        const session = await this.authSessionProvider.getCurrentSession();
+        if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
+            throw new Error(
+                "Remote compare requires an active session for the linked host.",
+            );
+        }
+
+        const remoteSource = await buildRemoteLatestCompareSource({
+            loadedProject,
+            remoteInfo,
+            auth: {
+                username: session.username,
+                token: session.token,
+            },
+            gitProvider: this.gitProvider,
+            editorMode: this.editorMode,
+            usfmOnionService: this.usfmOnionService,
+        });
+
+        return {
+            parsedFiles: remoteSource.parsedFiles,
+            metadataSummary: remoteSource.metadataSummary,
         };
     }
 

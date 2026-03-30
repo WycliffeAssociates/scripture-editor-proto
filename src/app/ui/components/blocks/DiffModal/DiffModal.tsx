@@ -57,6 +57,7 @@ export function SaveAndReviewChanges() {
                 loadCompareZip={save.compare.loadFromZip}
                 loadCompareDirectory={save.compare.loadFromDirectory}
                 loadCompareVersion={save.compare.loadFromVersion}
+                loadCompareRemoteLatest={save.compare.loadFromRemoteLatest}
                 compareWarnings={save.compare.warnings}
                 takeIncomingAll={save.compare.applyIncomingAll}
                 hasComputedCompare={save.compare.hasComputed}

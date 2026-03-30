@@ -254,6 +254,7 @@ describe("diff modal external compare UI", () => {
                 loadCompareZip: vi.fn(async () => {}),
                 loadCompareDirectory: vi.fn(async () => {}),
                 loadCompareVersion: vi.fn(async () => {}),
+                loadCompareRemoteLatest: vi.fn(async () => {}),
                 compareWarnings: [],
                 takeIncomingAll: vi.fn(),
                 hasComputedCompare: true,
@@ -268,5 +269,49 @@ describe("diff modal external compare UI", () => {
         );
         expect(document.body.textContent).not.toContain("Current saved");
         expect(document.body.textContent).not.toContain("Current dirty");
+    });
+
+    it("shows incoming cloud changes when the remote compare source is active", () => {
+        render(
+            React.createElement(DiffViewerModal, {
+                isOpen: true,
+                onClose: vi.fn(),
+                diffs: [makeDiff()],
+                diffsByChapter: { GEN: { 1: [makeDiff()] } },
+                isCalculating: false,
+                actionMode: "external",
+                onRevertDiff: vi.fn(),
+                onRevertChapter: vi.fn(),
+                onApplyDiffToCurrent: vi.fn(),
+                onApplyChapterToCurrent: vi.fn(),
+                saveAllChanges: vi.fn(),
+                revertAllChanges: vi.fn(),
+                compareMode: "external",
+                setCompareMode: vi.fn(),
+                compareSourceKind: "remoteLatest",
+                setCompareSourceKind: vi.fn(),
+                compareSourceProjectId: "",
+                setCompareSourceProjectId: vi.fn(),
+                compareSourceVersionHash: "",
+                setCompareSourceVersionHash: vi.fn(),
+                compareProjects: [],
+                compareVersionOptions: [],
+                loadCompareProject: vi.fn(async () => {}),
+                loadCompareZip: vi.fn(async () => {}),
+                loadCompareDirectory: vi.fn(async () => {}),
+                loadCompareVersion: vi.fn(async () => {}),
+                loadCompareRemoteLatest: vi.fn(async () => {}),
+                compareWarnings: [],
+                takeIncomingAll: vi.fn(),
+                hasComputedCompare: true,
+                resetExternalCompare: vi.fn(),
+                isSm: false,
+                isXs: false,
+            }),
+        );
+
+        expect(document.body.textContent).toContain(
+            "Comparing your current vs Incoming cloud changes",
+        );
     });
 });

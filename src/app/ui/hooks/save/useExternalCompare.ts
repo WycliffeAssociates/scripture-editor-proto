@@ -31,6 +31,7 @@ import {
 } from "@/app/ui/hooks/diffCalculationRunner.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type {
     GitProvider,
@@ -77,6 +78,7 @@ export function useExternalCompare(args: {
     history: CustomHistoryHook;
     gitProvider: GitProvider;
     versions: VersionEntry[];
+    authSessionProvider: AuthSessionProvider;
 }) {
     const [mode, setMode] = useState<CompareMode>("unsaved");
     const [sourceKind, setSourceKind] =
@@ -103,6 +105,8 @@ export function useExternalCompare(args: {
         storageRoots: args.storageRoots,
         editorMode: args.editorMode,
         usfmOnionService: args.usfmOnionService,
+        authSessionProvider: args.authSessionProvider,
+        gitProvider: args.gitProvider,
     });
 
     function buildExternalCompareConfig() {
@@ -118,9 +122,11 @@ export function useExternalCompare(args: {
                         kind: "previousVersion" as const,
                         commitHash: sourceVersionHash,
                     }
-                  : sourceKind === "zipFile"
-                    ? { kind: "zipFile" as const }
-                    : { kind: "directory" as const },
+                  : sourceKind === "remoteLatest"
+                    ? { kind: "remoteLatest" as const }
+                    : sourceKind === "zipFile"
+                      ? { kind: "zipFile" as const }
+                      : { kind: "directory" as const },
         };
     }
 
@@ -285,6 +291,24 @@ export function useExternalCompare(args: {
         });
     }
 
+    async function loadFromRemoteLatest() {
+        await calculationRunnerRef.current.run(async () => {
+            if (compareResult?.cleanup) {
+                await compareResult.cleanup();
+            }
+            const loaded = await compareSourceLoader.loadRemoteLatest(
+                args.loadedProject,
+            );
+            setSourceProjectId("");
+            setSourceVersionHash("");
+            await computeExternalDiffs(
+                loaded.parsedFiles,
+                loaded.metadataSummary,
+                loaded.cleanup,
+            );
+        });
+    }
+
     function applyIncomingHunkToCurrent(diff: ProjectDiff) {
         if (!compareResult?.sourceFiles) return;
         void args.history.runTransaction({
@@ -407,6 +431,7 @@ export function useExternalCompare(args: {
             loadFromZip,
             loadFromDirectory,
             loadFromVersion,
+            loadFromRemoteLatest,
             applyIncomingHunk: applyIncomingHunkToCurrent,
             applyIncomingChapter: applyIncomingChapterToCurrent,
             applyIncomingAll: applyIncomingAllToCurrent,

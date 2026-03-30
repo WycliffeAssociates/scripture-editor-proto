@@ -13,7 +13,8 @@ export type CompareSourceKind =
     | "existingProject"
     | "zipFile"
     | "directory"
-    | "previousVersion";
+    | "previousVersion"
+    | "remoteLatest";
 
 export type CompareWarningCode =
     | "language_id_mismatch"
@@ -39,6 +40,9 @@ export type CompareSessionConfig = {
         | {
               kind: "previousVersion";
               commitHash: string;
+          }
+        | {
+              kind: "remoteLatest";
           };
 };
 

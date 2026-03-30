@@ -65,6 +65,7 @@ export type DiffViewerModalProps = {
     loadCompareZip: (file: File) => Promise<void>;
     loadCompareDirectory: (files: FileList) => Promise<void>;
     loadCompareVersion: (commitHash: string) => Promise<void>;
+    loadCompareRemoteLatest: () => Promise<void>;
     compareWarnings: CompareWarning[];
     takeIncomingAll: () => void;
     hasComputedCompare: boolean;
@@ -122,6 +123,7 @@ export function DiffViewerModal({
     loadCompareZip,
     loadCompareDirectory,
     loadCompareVersion,
+    loadCompareRemoteLatest,
     compareWarnings,
     takeIncomingAll,
     hasComputedCompare,
@@ -267,9 +269,12 @@ export function DiffViewerModal({
               ? (compareVersionOptions.find(
                     (option) => option.value === compareSourceVersionHash,
                 )?.label ?? t`No version selected`)
-              : compareSourceKind === "zipFile"
-                ? t`ZIP file`
-                : t`Folder`;
+              : // @ai -> avoid string types and use exported constants for string. I.e. COMPARE_SOURCE_KIND.REMOTE_LATEST. THAT FOR ALL THESE.  PROBABLY WRAP     const sourceLabel = IN A FUNCTION AND SWITCH ON TYPE FOR CLEANER SYNTAX.
+                compareSourceKind === "remoteLatest"
+                ? t`Incoming cloud changes`
+                : compareSourceKind === "zipFile"
+                  ? t`ZIP file`
+                  : t`Folder`;
     const compareSummaryText =
         compareMode === "external"
             ? t`Comparing your current vs ${sourceLabel}`
@@ -590,6 +595,20 @@ export function DiffViewerModal({
                                                                     size="xs"
                                                                     onClick={() => {
                                                                         setCompareSourceKind(
+                                                                            "remoteLatest",
+                                                                        );
+                                                                        void loadCompareRemoteLatest();
+                                                                    }}
+                                                                >
+                                                                    <Trans>
+                                                                        Cloud
+                                                                    </Trans>
+                                                                </Button>
+                                                                <Button
+                                                                    variant="default"
+                                                                    size="xs"
+                                                                    onClick={() => {
+                                                                        setCompareSourceKind(
                                                                             "zipFile",
                                                                         );
                                                                         fileInputRef.current?.click();
@@ -777,6 +796,19 @@ export function DiffViewerModal({
                                                         >
                                                             <Trans>
                                                                 Previous version
+                                                            </Trans>
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            onClick={() => {
+                                                                setCompareSourceKind(
+                                                                    "remoteLatest",
+                                                                );
+                                                                void loadCompareRemoteLatest();
+                                                            }}
+                                                        >
+                                                            <Trans>
+                                                                Incoming cloud
+                                                                changes
                                                             </Trans>
                                                         </Menu.Item>
                                                         <Menu.Item

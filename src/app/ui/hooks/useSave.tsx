@@ -105,6 +105,7 @@ export function useSave({
         history,
         gitProvider,
         versions: versions.state.entries,
+        authSessionProvider,
     });
 
     const diff = useDiffModalState({
@@ -276,6 +277,7 @@ export function useSave({
             loadFromZip: compare.actions.loadFromZip,
             loadFromDirectory: compare.actions.loadFromDirectory,
             loadFromVersion: compare.actions.loadFromVersion,
+            loadFromRemoteLatest: compare.actions.loadFromRemoteLatest,
             applyIncomingHunk: compare.actions.applyIncomingHunk,
             applyIncomingChapter: compare.actions.applyIncomingChapter,
             applyIncomingAll: compare.actions.applyIncomingAll,
