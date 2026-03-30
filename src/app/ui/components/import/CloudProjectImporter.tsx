@@ -8,10 +8,12 @@ type CloudProjectImporterProps = {
     repos: RemoteRepoSummary[];
     isLoading: boolean;
     isImporting: boolean;
+    isDisconnecting: boolean;
     error: string | null;
     hasLoaded: boolean;
     hasNextPage: boolean;
     onRefresh: () => void;
+    onDisconnect: () => void;
     onLoadMore: () => void;
     onCloneRepo: (repo: RemoteRepoSummary) => void;
 };
@@ -54,10 +56,30 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                             type="button"
                             className={styles.topActionButton}
                             onClick={props.onRefresh}
-                            disabled={props.isLoading || props.isImporting}
+                            disabled={
+                                props.isLoading ||
+                                props.isImporting ||
+                                props.isDisconnecting
+                            }
                         >
                             <RefreshCw size={18} />
                             <Trans>Refresh</Trans>
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.topActionButton}
+                            onClick={props.onDisconnect}
+                            disabled={
+                                props.isLoading ||
+                                props.isImporting ||
+                                props.isDisconnecting
+                            }
+                        >
+                            <Trans>
+                                {props.isDisconnecting
+                                    ? "Disconnecting..."
+                                    : "Disconnect"}
+                            </Trans>
                         </button>
                     </div>
                 ) : null}
@@ -150,7 +172,8 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                                             }
                                             disabled={
                                                 props.isImporting ||
-                                                props.isLoading
+                                                props.isLoading ||
+                                                props.isDisconnecting
                                             }
                                         >
                                             <Trans>Add</Trans>
@@ -169,7 +192,11 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                         type="button"
                         className={styles.topActionButton}
                         onClick={props.onLoadMore}
-                        disabled={props.isLoading || props.isImporting}
+                        disabled={
+                            props.isLoading ||
+                            props.isImporting ||
+                            props.isDisconnecting
+                        }
                     >
                         <Trans>Load more</Trans>
                     </button>

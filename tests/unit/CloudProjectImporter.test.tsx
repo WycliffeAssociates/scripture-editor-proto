@@ -68,10 +68,12 @@ describe("CloudProjectImporter", () => {
                 repos={[]}
                 isLoading={false}
                 isImporting={false}
+                isDisconnecting={false}
                 error={null}
                 hasLoaded={false}
                 hasNextPage={false}
                 onRefresh={vi.fn()}
+                onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
                 onCloneRepo={vi.fn()}
             />,
@@ -103,10 +105,12 @@ describe("CloudProjectImporter", () => {
                 ]}
                 isLoading={false}
                 isImporting={false}
+                isDisconnecting={false}
                 error={null}
                 hasLoaded={true}
                 hasNextPage={true}
                 onRefresh={vi.fn()}
+                onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
                 onCloneRepo={onCloneRepo}
             />,
@@ -116,14 +120,52 @@ describe("CloudProjectImporter", () => {
         expect(document.body.textContent).toContain("bho-bible");
         expect(document.body.textContent).toContain("Load more");
 
+        const addButton = [...document.querySelectorAll("button")].find(
+            (button) => button.textContent?.includes("Add"),
+        );
+        expect(addButton).toBeTruthy();
+
         act(() => {
-            document
-                .querySelectorAll("button")[1]
-                ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            addButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
         });
 
         expect(onCloneRepo).toHaveBeenCalledWith(
             expect.objectContaining({ name: "bho-bible" }),
         );
+    });
+
+    it("renders a disconnect action for a connected session", () => {
+        const onDisconnect = vi.fn();
+        render(
+            <CloudProjectImporter
+                sessionUsername="alice"
+                repos={[]}
+                isLoading={false}
+                isImporting={false}
+                isDisconnecting={false}
+                error={null}
+                hasLoaded={true}
+                hasNextPage={false}
+                onRefresh={vi.fn()}
+                onDisconnect={onDisconnect}
+                onLoadMore={vi.fn()}
+                onCloneRepo={vi.fn()}
+            />,
+        );
+
+        const disconnectButton = [
+            ...document.querySelectorAll("button"),
+        ].find((button) => button.textContent?.includes("Disconnect"));
+        expect(disconnectButton).toBeTruthy();
+
+        act(() => {
+            disconnectButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+        });
+
+        expect(onDisconnect).toHaveBeenCalledTimes(1);
     });
 });

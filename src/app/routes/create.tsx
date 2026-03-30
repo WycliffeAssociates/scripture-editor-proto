@@ -2,7 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Anchor, Button, Container, Group, Stack, Title } from "@mantine/core";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
 import { GIT_REMOTE_DEFAULT_TOPIC } from "@/app/domain/project/gitRemoteProjectService.ts";
 import {
@@ -70,6 +70,8 @@ export function CreateProject() {
     const [cloudNextPage, setCloudNextPage] = useState<number | null>(null);
     const [hasLoadedCloudRepos, setHasLoadedCloudRepos] = useState(false);
     const [isLoadingCloudRepos, setIsLoadingCloudRepos] = useState(false);
+    const [isDisconnectingCloudAccount, setIsDisconnectingCloudAccount] =
+        useState(false);
     const [cloudError, setCloudError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -84,16 +86,6 @@ export function CreateProject() {
             });
     }, [authSessionProvider]);
 
-    useEffect(() => {
-        if (
-            !cloudSessionUsername ||
-            hasLoadedCloudRepos ||
-            isLoadingCloudRepos
-        ) {
-            return;
-        }
-        void loadCloudRepoPage(1, false);
-    }, [cloudSessionUsername, hasLoadedCloudRepos, isLoadingCloudRepos]);
     const showImportGitWarningToast = (warning: string | undefined) => {
         if (!warning) return;
         ShowNotificationInfo({
@@ -187,41 +179,91 @@ export function CreateProject() {
         }
     };
 
-    const loadCloudRepoPage = async (page: number, append: boolean) => {
-        if (!cloudSessionUsername) return;
+    const loadCloudRepoPage = useCallback(
+        async (page: number, append: boolean) => {
+            if (!cloudSessionUsername) return;
 
-        setIsLoadingCloudRepos(true);
-        setCloudError(null);
-        try {
-            const result = await projectsService.listWritableRemoteRepos({
-                page,
-                pageSize: 20,
-                topic: GIT_REMOTE_DEFAULT_TOPIC,
-            });
-            setCloudRepos((previous) =>
-                append ? [...previous, ...result.repos] : result.repos,
-            );
-            setCloudNextPage(result.nextPage);
-            setHasLoadedCloudRepos(true);
-        } catch (error) {
-            setCloudError(
-                error instanceof Error
-                    ? error.message
-                    : t`Failed to load cloud projects`,
-            );
-        } finally {
-            setIsLoadingCloudRepos(false);
+            setIsLoadingCloudRepos(true);
+            setCloudError(null);
+            try {
+                const result = await projectsService.listWritableRemoteRepos({
+                    page,
+                    pageSize: 20,
+                    topic: GIT_REMOTE_DEFAULT_TOPIC,
+                });
+                setCloudRepos((previous) =>
+                    append ? [...previous, ...result.repos] : result.repos,
+                );
+                setCloudNextPage(result.nextPage);
+                setHasLoadedCloudRepos(true);
+            } catch (error) {
+                setCloudError(
+                    error instanceof Error
+                        ? error.message
+                        : t`Failed to load cloud projects`,
+                );
+            } finally {
+                setIsLoadingCloudRepos(false);
+            }
+        },
+        [cloudSessionUsername, projectsService, t],
+    );
+
+    useEffect(() => {
+        if (
+            !cloudSessionUsername ||
+            hasLoadedCloudRepos ||
+            isLoadingCloudRepos
+        ) {
+            return;
         }
-    };
+        void loadCloudRepoPage(1, false);
+    }, [
+        cloudSessionUsername,
+        hasLoadedCloudRepos,
+        isLoadingCloudRepos,
+        loadCloudRepoPage,
+    ]);
 
-    const refreshCloudRepos = async () => {
+    const refreshCloudRepos = useCallback(async () => {
         await loadCloudRepoPage(1, false);
-    };
+    }, [loadCloudRepoPage]);
 
-    const loadMoreCloudRepos = async () => {
+    const loadMoreCloudRepos = useCallback(async () => {
         if (!cloudNextPage) return;
         await loadCloudRepoPage(cloudNextPage, true);
-    };
+    }, [cloudNextPage, loadCloudRepoPage]);
+
+    const disconnectCloudAccount = useCallback(async () => {
+        try {
+            setIsDisconnectingCloudAccount(true);
+            await authSessionProvider.clearSession();
+            setCloudSessionUsername(null);
+            setCloudRepos([]);
+            setCloudNextPage(null);
+            setHasLoadedCloudRepos(false);
+            setCloudError(null);
+            ShowNotificationInfo({
+                notification: {
+                    title: t`Cloud account disconnected`,
+                    message: t`This device no longer has access to your cloud session.`,
+                    autoClose: 4000,
+                },
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    title: t`Could not disconnect cloud account`,
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Please try again.`,
+                },
+            });
+        } finally {
+            setIsDisconnectingCloudAccount(false);
+        }
+    }, [authSessionProvider, t]);
 
     const cloneCloudRepo = async (repo: RemoteRepoSummary) => {
         try {
@@ -501,11 +543,15 @@ export function CreateProject() {
                     repos={cloudRepos}
                     isLoading={isLoadingCloudRepos}
                     isImporting={isImporting}
+                    isDisconnecting={isDisconnectingCloudAccount}
                     error={cloudError}
                     hasLoaded={hasLoadedCloudRepos}
                     hasNextPage={Boolean(cloudNextPage)}
                     onRefresh={() => {
                         void refreshCloudRepos();
+                    }}
+                    onDisconnect={() => {
+                        void disconnectCloudAccount();
                     }}
                     onLoadMore={() => {
                         void loadMoreCloudRepos();

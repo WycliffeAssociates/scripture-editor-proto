@@ -174,4 +174,79 @@ describe("CreateProject cloud import", () => {
         });
         expect(invalidate).toHaveBeenCalled();
     });
+
+    it("clears the local cloud session and resets the repo list when disconnect is pressed", async () => {
+        const clearSession = vi.fn().mockResolvedValue(undefined);
+        const listWritableRemoteRepos = vi.fn().mockResolvedValue({
+            repos: [
+                {
+                    id: "1",
+                    owner: "alice",
+                    name: "bho-bible",
+                    fullName: "alice/bho-bible",
+                    htmlUrl: "https://gitea.example.org/alice/bho-bible",
+                    cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+            ],
+            nextPage: null,
+        });
+
+        useRouterMock.mockReturnValue({
+            invalidate: vi.fn(async () => {}),
+            navigate: vi.fn(),
+            options: {
+                context: {
+                    settingsManager: {
+                        get: vi.fn().mockReturnValue("en"),
+                        set: vi.fn(),
+                        applySettings: vi.fn(),
+                        update: vi.fn(),
+                    },
+                    importService: {},
+                    projectsService: {
+                        listWritableRemoteRepos,
+                        cloneWritableRemoteProject: vi.fn(),
+                    },
+                    authSessionProvider: {
+                        getCurrentSession: vi.fn().mockResolvedValue({
+                            username: "alice",
+                            hostBaseUrl: "https://gitea.example.org",
+                            token: "secret-token",
+                            tokenId: "1",
+                            tokenName: "dovetail-web",
+                        }),
+                        clearSession,
+                    },
+                },
+            },
+        });
+
+        render(<CreateProject />);
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        const disconnectButton = [
+            ...document.querySelectorAll("button"),
+        ].find((button) => button.textContent?.includes("Disconnect"));
+        expect(disconnectButton).toBeTruthy();
+
+        await act(async () => {
+            disconnectButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+            await Promise.resolve();
+        });
+
+        expect(clearSession).toHaveBeenCalledTimes(1);
+        expect(document.body.textContent).toContain(
+            "No cloud account is connected on this device yet.",
+        );
+        expect(document.body.textContent).not.toContain("bho-bible");
+    });
 });
