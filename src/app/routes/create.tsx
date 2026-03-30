@@ -2,8 +2,9 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Anchor, Button, Container, Group, Stack, Title } from "@mantine/core";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
+import { GIT_REMOTE_DEFAULT_TOPIC } from "@/app/domain/project/gitRemoteProjectService.ts";
 import {
     buildPersistentImportSuccessNotification,
     getProjectParamFromImportedPath,
@@ -11,6 +12,7 @@ import {
 } from "@/app/routes/createRouteHelpers.ts";
 import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
+import { CloudProjectImporter } from "@/app/ui/components/import/CloudProjectImporter.tsx";
 import {
     hideNotification,
     ShowErrorNotification,
@@ -22,6 +24,7 @@ import {
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
 import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
+import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -35,11 +38,16 @@ export const Route = createFileRoute("/create")({
     component: CreateProject,
 });
 
-function CreateProject() {
+export function CreateProject() {
     const { t } = useLingui();
     const router = useRouter();
 
-    const { settingsManager, importService } = router.options.context;
+    const {
+        settingsManager,
+        importService,
+        projectsService,
+        authSessionProvider,
+    } = router.options.context;
     const importController = useMemo(
         () =>
             createProjectImportFacade({
@@ -55,6 +63,37 @@ function CreateProject() {
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
+    const [cloudSessionUsername, setCloudSessionUsername] = useState<
+        string | null
+    >(null);
+    const [cloudRepos, setCloudRepos] = useState<RemoteRepoSummary[]>([]);
+    const [cloudNextPage, setCloudNextPage] = useState<number | null>(null);
+    const [hasLoadedCloudRepos, setHasLoadedCloudRepos] = useState(false);
+    const [isLoadingCloudRepos, setIsLoadingCloudRepos] = useState(false);
+    const [cloudError, setCloudError] = useState<string | null>(null);
+
+    useEffect(() => {
+        void authSessionProvider
+            .getCurrentSession()
+            .then((session) => {
+                setCloudSessionUsername(session?.username ?? null);
+            })
+            .catch((error) => {
+                console.error("Failed to load cloud session", error);
+                setCloudSessionUsername(null);
+            });
+    }, [authSessionProvider]);
+
+    useEffect(() => {
+        if (
+            !cloudSessionUsername ||
+            hasLoadedCloudRepos ||
+            isLoadingCloudRepos
+        ) {
+            return;
+        }
+        void loadCloudRepoPage(1, false);
+    }, [cloudSessionUsername, hasLoadedCloudRepos, isLoadingCloudRepos]);
     const showImportGitWarningToast = (warning: string | undefined) => {
         if (!warning) return;
         ShowNotificationInfo({
@@ -145,6 +184,74 @@ function CreateProject() {
             });
         } finally {
             hideNotification(notificationId);
+        }
+    };
+
+    const loadCloudRepoPage = async (page: number, append: boolean) => {
+        if (!cloudSessionUsername) return;
+
+        setIsLoadingCloudRepos(true);
+        setCloudError(null);
+        try {
+            const result = await projectsService.listWritableRemoteRepos({
+                page,
+                pageSize: 20,
+                topic: GIT_REMOTE_DEFAULT_TOPIC,
+            });
+            setCloudRepos((previous) =>
+                append ? [...previous, ...result.repos] : result.repos,
+            );
+            setCloudNextPage(result.nextPage);
+            setHasLoadedCloudRepos(true);
+        } catch (error) {
+            setCloudError(
+                error instanceof Error
+                    ? error.message
+                    : t`Failed to load cloud projects`,
+            );
+        } finally {
+            setIsLoadingCloudRepos(false);
+        }
+    };
+
+    const refreshCloudRepos = async () => {
+        await loadCloudRepoPage(1, false);
+    };
+
+    const loadMoreCloudRepos = async () => {
+        if (!cloudNextPage) return;
+        await loadCloudRepoPage(cloudNextPage, true);
+    };
+
+    const cloneCloudRepo = async (repo: RemoteRepoSummary) => {
+        try {
+            setIsImporting(true);
+            const importedProject = await runImportWithProgress(
+                t`Importing cloud project...`,
+                () => projectsService.cloneWritableRemoteProject({ repo }),
+            );
+            await router.invalidate();
+            showImportSuccessToast({
+                importedProject: importedProject.project,
+                message:
+                    importedProject.isEditableProject === false
+                        ? t`Resource imported successfully! It is available in the reference picker.`
+                        : t`Cloud project imported successfully!`,
+                isEditableProject: importedProject.isEditableProject,
+            });
+            showImportGitWarningToast(importedProject.warning);
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    message: resolveImportErrorMessage({
+                        error,
+                        fallback: t`Failed to import cloud project`,
+                    }),
+                    title: t`Import Error`,
+                },
+            });
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -387,6 +494,25 @@ function CreateProject() {
                     zipInputRef={zipInputRef}
                     isDownloadDisabled={isImporting}
                     isImporting={isImporting}
+                />
+
+                <CloudProjectImporter
+                    sessionUsername={cloudSessionUsername}
+                    repos={cloudRepos}
+                    isLoading={isLoadingCloudRepos}
+                    isImporting={isImporting}
+                    error={cloudError}
+                    hasLoaded={hasLoadedCloudRepos}
+                    hasNextPage={Boolean(cloudNextPage)}
+                    onRefresh={() => {
+                        void refreshCloudRepos();
+                    }}
+                    onLoadMore={() => {
+                        void loadMoreCloudRepos();
+                    }}
+                    onCloneRepo={(repo) => {
+                        void cloneCloudRepo(repo);
+                    }}
                 />
             </Stack>
         </Container>

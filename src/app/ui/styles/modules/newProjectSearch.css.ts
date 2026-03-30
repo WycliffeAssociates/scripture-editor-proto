@@ -47,6 +47,13 @@ export const topBarRight = style({
     },
 });
 
+export const inlineActions = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    justifyContent: "flex-end",
+});
+
 export const searchField = style({
     position: "relative",
     minWidth: 0,
@@ -259,6 +266,22 @@ export const errorState = style({
     borderRadius: vars.radius.lg,
     backgroundColor: vars.colors.error[0],
     color: vars.colors.error[7],
+});
+
+export const sectionSubtext = style({
+    marginTop: vars.spacing.xs,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    color: vars.colors.gray[7],
+    fontSize: vars.fontSizes.sm,
+});
+
+export const footerActions = style({
+    display: "flex",
+    justifyContent: "flex-end",
+    padding: vars.spacing.md,
+    borderTop: `1px solid ${vars.colors.gray[3]}`,
 });
 
 export const hiddenInput = style({
