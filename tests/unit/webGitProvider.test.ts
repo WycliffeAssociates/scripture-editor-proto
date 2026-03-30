@@ -18,6 +18,8 @@ const {
     gitCommitMock,
     gitFetchMock,
     gitPushMock,
+    gitWriteRefMock,
+    gitCherryPickMock,
 } = vi.hoisted(() => ({
     gitInitMock: vi.fn(),
     gitListBranchesMock: vi.fn(),
@@ -34,6 +36,8 @@ const {
     gitCommitMock: vi.fn(),
     gitFetchMock: vi.fn(),
     gitPushMock: vi.fn(),
+    gitWriteRefMock: vi.fn(),
+    gitCherryPickMock: vi.fn(),
 }));
 
 vi.mock("isomorphic-git", () => ({
@@ -52,6 +56,8 @@ vi.mock("isomorphic-git", () => ({
     commit: gitCommitMock,
     fetch: gitFetchMock,
     push: gitPushMock,
+    writeRef: gitWriteRefMock,
+    cherryPick: gitCherryPickMock,
 }));
 
 vi.mock("isomorphic-git/http/web", () => ({
@@ -135,6 +141,8 @@ describe("WebGitProvider", () => {
         gitCommitMock.mockReset();
         gitFetchMock.mockReset();
         gitPushMock.mockReset();
+        gitWriteRefMock.mockReset();
+        gitCherryPickMock.mockReset();
         gitListBranchesMock.mockResolvedValue(["main"]);
         gitStatusMatrixMock.mockResolvedValue([]);
     });
@@ -396,6 +404,45 @@ describe("WebGitProvider", () => {
             outcome: GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
             localHead: "local-head",
             remoteHead: null,
+        });
+    });
+
+    it("resets the branch to remote latest and replays local commits oldest-first", async () => {
+        const runtime = makeRuntime();
+        gitWriteRefMock.mockResolvedValue(undefined);
+        gitCheckoutMock.mockResolvedValue(undefined);
+        gitCherryPickMock.mockResolvedValue("new-commit");
+        gitResolveRefMock.mockResolvedValueOnce("replayed-head");
+
+        const provider = new WebGitProvider(runtime as never);
+        const result = await provider.applyReplayPlanOntoRemote({
+            projectPath: "/userData/projects/p",
+            branch: "master",
+            remoteHead: "remote-head",
+            commitHashes: ["c3", "c2", "c1"],
+        });
+
+        expect(gitWriteRefMock).toHaveBeenCalledWith({
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            ref: "refs/heads/master",
+            value: "remote-head",
+            force: true,
+        });
+        expect(gitCheckoutMock).toHaveBeenCalledWith({
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            ref: "master",
+            force: true,
+        });
+        expect(gitCherryPickMock.mock.calls.map(([args]) => args.oid)).toEqual([
+            "c1",
+            "c2",
+            "c3",
+        ]);
+        expect(result).toEqual({
+            head: "replayed-head",
+            replayedCommitHashes: ["c3", "c2", "c1"],
         });
     });
 });

@@ -48,6 +48,7 @@ pub fn run() {
             git::git_fetch_remote_heads,
             git::git_push_current_branch,
             git::git_plan_replay_onto_remote,
+            git::git_apply_replay_plan_onto_remote,
             git::git_is_repo_healthy,
             import::import_copy_directory_to_managed_storage,
             import::import_download_remote_archive_to_managed_storage,

@@ -45,6 +45,7 @@ const mockGitProvider: GitProvider = {
     fetchRemoteHeads: vi.fn(),
     pushCurrentBranch: vi.fn(),
     planReplayOntoRemote: vi.fn(),
+    applyReplayPlanOntoRemote: vi.fn(),
     isRepoHealthy: vi.fn(),
 };
 

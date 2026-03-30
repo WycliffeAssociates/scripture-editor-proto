@@ -7,6 +7,7 @@ import type {
     GitRemoteInspection,
     GitRemotePublishResult,
     GitRemoteReplayPlan,
+    GitRemoteReplayResult,
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import {
@@ -55,6 +56,11 @@ type TauriRemoteReplayPlan = {
     strategy: string;
     commit_hashes: string[];
     relationship: TauriRemoteRelationship;
+};
+
+type TauriRemoteReplayResult = {
+    head: string | null;
+    replayed_commit_hashes: string[];
 };
 
 type TauriRemotePublishResult = {
@@ -268,6 +274,27 @@ export class TauriGitProvider implements GitProvider {
                 remoteHead: raw.relationship.remote_head,
                 mergeBase: raw.relationship.merge_base,
             },
+        };
+    }
+
+    async applyReplayPlanOntoRemote(_args: {
+        projectPath: string;
+        branch: string;
+        remoteHead: string;
+        commitHashes: string[];
+    }): Promise<GitRemoteReplayResult> {
+        const raw = await invoke<TauriRemoteReplayResult>(
+            "git_apply_replay_plan_onto_remote",
+            {
+                repoPath: _args.projectPath,
+                branch: _args.branch,
+                remoteHead: _args.remoteHead,
+                commitHashes: _args.commitHashes,
+            },
+        );
+        return {
+            head: raw.head,
+            replayedCommitHashes: raw.replayed_commit_hashes,
         };
     }
 

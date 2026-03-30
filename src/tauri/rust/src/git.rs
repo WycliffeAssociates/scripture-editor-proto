@@ -144,6 +144,12 @@ pub struct GitRemoteReplayPlan {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct GitRemoteReplayResult {
+    pub head: Option<String>,
+    pub replayed_commit_hashes: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct GitRemotePublishResult {
     pub outcome: String,
     pub local_head: Option<String>,
@@ -214,6 +220,56 @@ fn collect_local_only_commits(
         commits.push(oid.to_string());
     }
     Ok(commits)
+}
+
+fn reset_branch_to_commit(repo: &Repository, branch: &str, target: Oid) -> Result<(), String> {
+    let ref_name = format!("refs/heads/{branch}");
+    repo.reference(&ref_name, target, true, "dovetail remote replay")
+        .map_err(|e| e.message().to_string())?;
+    repo.set_head(&ref_name)
+        .map_err(|e| e.message().to_string())?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force()))
+        .map_err(|e| e.message().to_string())?;
+    Ok(())
+}
+
+fn replay_commits_onto_current_head(
+    repo: &Repository,
+    commit_hashes: &[String],
+) -> Result<(), String> {
+    for commit_hash in commit_hashes.iter().rev() {
+        let oid = Oid::from_str(commit_hash).map_err(|e| e.message().to_string())?;
+        let commit = repo.find_commit(oid).map_err(|e| e.message().to_string())?;
+        repo.cherrypick(&commit, None)
+            .map_err(|e| e.message().to_string())?;
+
+        let mut index = repo.index().map_err(|e| e.message().to_string())?;
+        if index.has_conflicts() {
+            let _ = repo.cleanup_state();
+            return Err(format!(
+                "Cherry-pick produced conflicts for commit {}",
+                commit_hash
+            ));
+        }
+
+        index.write().map_err(|e| e.message().to_string())?;
+        let tree_oid = index.write_tree_to(repo).map_err(|e| e.message().to_string())?;
+        let tree = repo.find_tree(tree_oid).map_err(|e| e.message().to_string())?;
+        let parent = repo
+            .head()
+            .map_err(|e| e.message().to_string())?
+            .peel_to_commit()
+            .map_err(|e| e.message().to_string())?;
+        let author = commit.author().to_owned();
+        let committer = commit.committer().to_owned();
+        let message = commit.message().unwrap_or("");
+
+        repo.commit(Some("HEAD"), &author, &committer, message, &tree, &[&parent])
+            .map_err(|e| e.message().to_string())?;
+        repo.cleanup_state().map_err(|e| e.message().to_string())?;
+    }
+
+    Ok(())
 }
 
 fn remote_callbacks_for_token(username: &str, token: &str) -> RemoteCallbacks<'static> {
@@ -629,6 +685,31 @@ pub fn git_plan_replay_onto_remote(
         strategy: strategy.to_string(),
         commit_hashes,
         relationship: inspection.relationship,
+    })
+}
+
+#[tauri::command]
+pub fn git_apply_replay_plan_onto_remote(
+    repo_path: String,
+    branch: String,
+    remote_head: String,
+    commit_hashes: Vec<String>,
+) -> Result<GitRemoteReplayResult, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let remote_oid = Oid::from_str(&remote_head).map_err(|e| e.message().to_string())?;
+
+    reset_branch_to_commit(&repo, &branch, remote_oid)?;
+    replay_commits_onto_current_head(&repo, &commit_hashes)?;
+
+    let head = repo
+        .head()
+        .ok()
+        .and_then(|reference| reference.target())
+        .map(|oid| oid.to_string());
+
+    Ok(GitRemoteReplayResult {
+        head,
+        replayed_commit_hashes: commit_hashes,
     })
 }
 

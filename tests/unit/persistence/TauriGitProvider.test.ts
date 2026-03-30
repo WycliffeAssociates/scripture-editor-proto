@@ -174,4 +174,34 @@ describe("TauriGitProvider", () => {
             token: "secret",
         });
     });
+
+    it("maps replay-application payloads into the shared contract", async () => {
+        mocks.invokeMock.mockResolvedValueOnce({
+            head: "replayed-head",
+            replayed_commit_hashes: ["c3", "c2", "c1"],
+        });
+
+        const provider = new TauriGitProvider();
+        await expect(
+            provider.applyReplayPlanOntoRemote({
+                projectPath: "/userData/projects/p",
+                branch: "master",
+                remoteHead: "remote-head",
+                commitHashes: ["c3", "c2", "c1"],
+            }),
+        ).resolves.toEqual({
+            head: "replayed-head",
+            replayedCommitHashes: ["c3", "c2", "c1"],
+        });
+
+        expect(mocks.invokeMock).toHaveBeenCalledWith(
+            "git_apply_replay_plan_onto_remote",
+            {
+                repoPath: "/userData/projects/p",
+                branch: "master",
+                remoteHead: "remote-head",
+                commitHashes: ["c3", "c2", "c1"],
+            },
+        );
+    });
 });

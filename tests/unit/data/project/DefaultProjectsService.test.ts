@@ -51,6 +51,10 @@ const mockGitProvider: GitProvider = {
     planReplayOntoRemote: vi.fn(async () => {
         throw new Error("not used in test");
     }),
+    applyReplayPlanOntoRemote: vi.fn(async () => ({
+        head: null,
+        replayedCommitHashes: [],
+    })),
     isRepoHealthy: vi.fn(async () => true),
 };
 

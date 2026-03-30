@@ -8,6 +8,7 @@ import type {
     GitRemoteInspection,
     GitRemotePublishResult,
     GitRemoteReplayPlan,
+    GitRemoteReplayResult,
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import {
@@ -792,6 +793,44 @@ export class WebGitProvider implements GitProvider {
             strategy: decision.strategy,
             commitHashes,
             relationship: inspection.relationship,
+        };
+    }
+
+    async applyReplayPlanOntoRemote(args: {
+        projectPath: string;
+        branch: string;
+        remoteHead: string;
+        commitHashes: string[];
+    }): Promise<GitRemoteReplayResult> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        const branchRef = `refs/heads/${args.branch}`;
+
+        await git.writeRef({
+            fs,
+            dir,
+            ref: branchRef,
+            value: args.remoteHead,
+            force: true,
+        });
+        await git.checkout({
+            fs,
+            dir,
+            ref: args.branch,
+            force: true,
+        });
+
+        for (const commitHash of [...args.commitHashes].reverse()) {
+            await git.cherryPick({
+                fs,
+                dir,
+                oid: commitHash,
+            });
+        }
+
+        return {
+            head: await this.tryResolveRef(fs, dir, "HEAD"),
+            replayedCommitHashes: [...args.commitHashes],
         };
     }
 
