@@ -49,6 +49,7 @@ function createGitProviderMock(
         readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
         restoreTrackedFilesFromCommit: vi.fn(async () => {}),
         commitAll: vi.fn(async () => ({ hash: "abc" })),
+        cloneRemoteRepo: vi.fn(async () => ({ head: "abc" })),
         inspectRemoteHeads: vi.fn(async () => {
             throw new Error("not used in test");
         }),

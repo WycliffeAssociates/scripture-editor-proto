@@ -313,18 +313,34 @@ fn classify_remote_transport_failure(message: &str) -> Option<&'static str> {
 }
 
 #[tauri::command]
-pub fn clone_repo(url: String, path: String) -> Result<(), String> {
-    let repo_name = url
-        .trim_end_matches('/')
-        .split('/')
-        .last()
-        .filter(|s| !s.is_empty())
-        .map(|s| s.strip_suffix(".git").unwrap_or(s))
-        .ok_or_else(|| "Invalid repository URL".to_string())?;
+pub fn git_clone_remote_repo(
+    repo_path: String,
+    remote_url: String,
+    branch: Option<String>,
+    username: String,
+    token: String,
+) -> Result<Option<String>, String> {
+    let repo_path_buf = PathBuf::from(&repo_path);
+    if let Some(parent) = repo_path_buf.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
 
-    let fs_path = PathBuf::from(path).join(repo_name);
-    Repository::clone(&url, &fs_path).map_err(|e| e.message().to_string())?;
-    Ok(())
+    let callbacks = remote_callbacks_for_token(&username, &token);
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+
+    let mut builder = git2::build::RepoBuilder::new();
+    builder.fetch_options(fetch_options);
+    if let Some(branch_name) = branch.as_deref() {
+        builder.branch(branch_name);
+    }
+
+    let repo = builder
+        .clone(&remote_url, &repo_path_buf)
+        .map_err(|e| e.message().to_string())?;
+
+    let head = repo.head().ok().and_then(|head| head.target()).map(|oid| oid.to_string());
+    Ok(head)
 }
 
 #[tauri::command]

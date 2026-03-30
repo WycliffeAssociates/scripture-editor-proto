@@ -79,6 +79,10 @@ export type GitRemoteReplayResult = {
     replayedCommitHashes: string[];
 };
 
+export type GitRemoteCloneResult = {
+    head: string | null;
+};
+
 /**
  * Platform-neutral git contract used by save/history/version flows for editable
  * scripture workspaces.
@@ -110,6 +114,12 @@ export interface GitProvider {
         request: CommitRequest,
         author: { name: string; email: string },
     ): Promise<{ hash: string }>;
+    cloneRemoteRepo(args: {
+        projectPath: string;
+        remoteUrl: string;
+        branch?: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteCloneResult>;
     inspectRemoteHeads(args: {
         projectPath: string;
         remoteName: string;

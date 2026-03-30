@@ -10,6 +10,7 @@ import {
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
+import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
@@ -41,17 +42,22 @@ const authSessionProvider = new FsBackedAuthSessionProvider(
     storageRoots,
 );
 const gitProvider = new WebGitProvider(new OpfsGitFs());
+const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const opener = new WebOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(
     buildProjectIndexDbName(resolveWebStorageNamespace()),
 );
-const libraryService = new DefaultLibraryService(
+const libraryService = new DefaultLibraryService({
     fileSystem,
-    storageRoots,
+    roots: storageRoots,
     projectIndex,
-    webMd5Service,
+    md5Service: webMd5Service,
     gitProvider,
-);
+    remote: {
+        authSessionProvider,
+        remoteRepoProvider,
+    },
+});
 const projectsService = libraryService;
 const importService = new WebImportService(
     storageRoots,

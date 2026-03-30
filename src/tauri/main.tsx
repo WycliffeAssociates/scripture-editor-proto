@@ -9,6 +9,7 @@ import {
 } from "@/app/persistence/DexieProjectIndex.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
+import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
@@ -36,15 +37,20 @@ const authSessionProvider = new FsBackedAuthSessionProvider(
 const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
 const gitProvider = new TauriGitProvider();
+const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const opener = new TauriOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(buildProjectIndexDbName());
-const libraryService = new DefaultLibraryService(
+const libraryService = new DefaultLibraryService({
     fileSystem,
-    storageRoots,
+    roots: storageRoots,
     projectIndex,
     md5Service,
     gitProvider,
-);
+    remote: {
+        authSessionProvider,
+        remoteRepoProvider,
+    },
+});
 const projectsService = libraryService;
 const importService = new TauriImportService(
     storageRoots,

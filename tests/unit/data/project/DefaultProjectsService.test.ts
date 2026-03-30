@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import { ProjectImporter } from "@/core/domain/project/import/ProjectImporter.ts";
 import {
@@ -10,9 +11,12 @@ import {
     GIT_REMOTE_PUBLISH_PUBLISHED,
 } from "@/core/persistence/GitProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { RemoteRepoProvider } from "@/core/persistence/RemoteRepoProvider.ts";
 import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
+import type { ImportProjectResult } from "@/core/persistence/WorkspaceService.ts";
 import type { Project, ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
+import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import { DefaultProjectsService } from "@/app/persistence/DefaultProjectsService.ts";
 import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
@@ -37,6 +41,7 @@ const mockGitProvider: GitProvider = {
     readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
     restoreTrackedFilesFromCommit: vi.fn(async () => {}),
     commitAll: vi.fn(async () => ({ hash: "abc123" })),
+    cloneRemoteRepo: vi.fn(async () => ({ head: "abc123" })),
     inspectRemoteHeads: vi.fn(async () => {
         throw new Error("not used in test");
     }),
@@ -76,6 +81,31 @@ const projectIndex: ProjectIndex = {
     renameDisplayName: vi.fn(async () => {}),
     deleteProject: vi.fn(async () => {}),
 };
+
+function createAuthSessionProvider(): AuthSessionProvider {
+    return {
+        getCurrentSession: vi.fn().mockResolvedValue({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "secret-token",
+            tokenId: "1",
+            tokenName: "dovetail-web",
+        }),
+        replaceSession: vi.fn(),
+        clearSession: vi.fn(),
+        getPendingRevocation: vi.fn(),
+        queueTokenRevocation: vi.fn(),
+        recordRevocationFailure: vi.fn(),
+        clearPendingRevocation: vi.fn(),
+    };
+}
+
+function createRemoteRepoProvider(): RemoteRepoProvider {
+    return {
+        listWritableRepos: vi.fn(),
+        createRepo: vi.fn(),
+    };
+}
 
 function makeOpenedProject(overrides: Partial<Project> = {}): Project {
     return {
@@ -203,11 +233,13 @@ describe("DefaultProjectsService", () => {
             "/userData/projects/reg/manifest.yaml": "projects: []",
         });
         projectsService = new DefaultProjectsService(
-            fileSystem,
-            roots,
-            projectIndex,
-            mockMd5Service,
-            mockGitProvider,
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+            },
         );
     });
 
@@ -680,11 +712,13 @@ projects:
             "/userData/projects/en_tn_condensed/manifest.yaml": "projects: []",
         });
         projectsService = new DefaultProjectsService(
-            fileSystem,
-            roots,
-            projectIndex,
-            mockMd5Service,
-            mockGitProvider,
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+            },
         );
 
         vi.mocked(projectIndex.listLibraryItems).mockResolvedValueOnce([]);
@@ -734,5 +768,172 @@ projects:
                 managedPath: "/userData/projects/en_tn_condensed",
             }),
         );
+    });
+
+    test("createRemoteForProject creates a repo and persists the link for editable scripture", async () => {
+        const remoteRepoProvider = createRemoteRepoProvider();
+        vi.mocked(remoteRepoProvider.createRepo).mockResolvedValueOnce({
+            id: "1",
+            owner: "alice",
+            name: "adh-reg",
+            fullName: "alice/adh-reg",
+            htmlUrl: "https://gitea.example.org/alice/adh-reg",
+            cloneUrl: "https://gitea.example.org/alice/adh-reg.git",
+            defaultBranch: "master",
+            topics: ["consolidated"],
+            canWrite: true,
+        });
+        projectsService = new DefaultProjectsService(
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+                remote: {
+                    authSessionProvider: createAuthSessionProvider(),
+                    remoteRepoProvider,
+                },
+            },
+        );
+        vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
+            project: makeOpenedProject(),
+        });
+
+        const result = await projectsService.createRemoteForProject("reg");
+
+        expect(vi.mocked(remoteRepoProvider.createRepo)).toHaveBeenCalledWith({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "secret-token",
+            request: {
+                name: "adh-reg",
+                visibility: "public",
+                topics: ["consolidated"],
+                defaultBranch: "master",
+            },
+        });
+        await expect(
+            readGitRemoteProjectInfo({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
+            }),
+        ).resolves.toEqual(result.remoteInfo);
+    });
+
+    test("cloneWritableRemoteProject reuses the prepared-dir import path after cloning", async () => {
+        const remoteRepoProvider = createRemoteRepoProvider();
+        projectsService = new DefaultProjectsService(
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+                remote: {
+                    authSessionProvider: createAuthSessionProvider(),
+                    remoteRepoProvider,
+                },
+            },
+        );
+        const importResult = {
+            project: {
+                folderName: "bho-bible",
+                projectPath: "/userData/projects/bho-bible",
+                displayName: "Bho Bible",
+                projectId: "bho-bible",
+                languageCode: "bho",
+                languageName: "Bhojpuri",
+            },
+            gitReady: true,
+            isEditableProject: true,
+        } satisfies ImportProjectResult;
+        const importSpy = vi
+            .spyOn(projectsService, "importProject")
+            .mockResolvedValueOnce(importResult);
+
+        const result = await projectsService.cloneWritableRemoteProject({
+            repo: {
+                id: "1",
+                owner: "alice",
+                name: "bho-bible",
+                fullName: "alice/bho-bible",
+                htmlUrl: "https://gitea.example.org/alice/bho-bible",
+                cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
+                defaultBranch: "master",
+                topics: ["consolidated"],
+                canWrite: true,
+            },
+        });
+
+        expect(mockGitProvider.cloneRemoteRepo).toHaveBeenCalledWith({
+            projectPath: "/userData/projects/bho-bible",
+            remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+            branch: "master",
+            auth: {
+                username: "alice",
+                token: "secret-token",
+            },
+        });
+        expect(importSpy).toHaveBeenCalledWith({
+            type: "fromPreparedDir",
+            directoryPath: "/userData/projects/bho-bible",
+        });
+        expect(result).toEqual(importResult);
+    });
+
+    test("cloneWritableRemoteProject cleans up the cloned directory and remote link on import failure", async () => {
+        const remoteRepoProvider = createRemoteRepoProvider();
+        projectsService = new DefaultProjectsService(
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+                remote: {
+                    authSessionProvider: createAuthSessionProvider(),
+                    remoteRepoProvider,
+                },
+            },
+        );
+        vi.mocked(mockGitProvider.cloneRemoteRepo).mockImplementationOnce(
+            async ({ projectPath }) => {
+                await fileSystem.mkdir(projectPath, { recursive: true });
+                return { head: "abc123" };
+            },
+        );
+        const importSpy = vi
+            .spyOn(projectsService, "importProject")
+            .mockRejectedValueOnce(new Error("Invalid repo structure"));
+
+        await expect(
+            projectsService.cloneWritableRemoteProject({
+                repo: {
+                    id: "1",
+                    owner: "alice",
+                    name: "bho-bible",
+                    fullName: "alice/bho-bible",
+                    htmlUrl: "https://gitea.example.org/alice/bho-bible",
+                    cloneUrl: "https://gitea.example.org/alice/bho-bible.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+            }),
+        ).rejects.toThrow("Invalid repo structure");
+
+        expect(importSpy).toHaveBeenCalled();
+        await expect(
+            fileSystem.exists("/userData/projects/bho-bible"),
+        ).resolves.toBe(false);
+        await expect(
+            readGitRemoteProjectInfo({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/bho-bible",
+            }),
+        ).resolves.toBeNull();
     });
 });

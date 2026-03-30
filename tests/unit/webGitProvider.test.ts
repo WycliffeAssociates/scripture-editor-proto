@@ -20,6 +20,7 @@ const {
     gitPushMock,
     gitWriteRefMock,
     gitCherryPickMock,
+    gitCloneMock,
 } = vi.hoisted(() => ({
     gitInitMock: vi.fn(),
     gitListBranchesMock: vi.fn(),
@@ -38,6 +39,7 @@ const {
     gitPushMock: vi.fn(),
     gitWriteRefMock: vi.fn(),
     gitCherryPickMock: vi.fn(),
+    gitCloneMock: vi.fn(),
 }));
 
 vi.mock("isomorphic-git", () => ({
@@ -58,6 +60,7 @@ vi.mock("isomorphic-git", () => ({
     push: gitPushMock,
     writeRef: gitWriteRefMock,
     cherryPick: gitCherryPickMock,
+    clone: gitCloneMock,
 }));
 
 vi.mock("isomorphic-git/http/web", () => ({
@@ -143,8 +146,38 @@ describe("WebGitProvider", () => {
         gitPushMock.mockReset();
         gitWriteRefMock.mockReset();
         gitCherryPickMock.mockReset();
+        gitCloneMock.mockReset();
         gitListBranchesMock.mockResolvedValue(["main"]);
         gitStatusMatrixMock.mockResolvedValue([]);
+    });
+
+    it("clones a remote repo into the requested project path", async () => {
+        const runtime = makeRuntime();
+        gitCloneMock.mockResolvedValue(undefined);
+        gitResolveRefMock.mockResolvedValue("cloned-head");
+
+        const provider = new WebGitProvider(runtime as never);
+        await expect(
+            provider.cloneRemoteRepo({
+                projectPath: "/userData/projects/p",
+                remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+                branch: "master",
+                auth: { username: "alice", token: "secret" },
+            }),
+        ).resolves.toEqual({ head: "cloned-head" });
+
+        expect(runtime.mkdir).toHaveBeenCalledWith("/userData/projects", {
+            recursive: true,
+        });
+        expect(gitCloneMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                dir: "/userData/projects/p",
+                url: "https://gitea.example.org/alice/bho-bible.git",
+                ref: "master",
+                singleBranch: true,
+                depth: 1,
+            }),
+        );
     });
 
     it("serializes concurrent ensureRepo calls for the same project path", async () => {

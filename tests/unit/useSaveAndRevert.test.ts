@@ -177,6 +177,7 @@ function createGitProvider(spies: {
         readProjectSnapshotAtCommit: vi.fn(),
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: spies.commitAll,
+        cloneRemoteRepo: vi.fn(),
         inspectRemoteHeads: vi.fn(),
         fetchRemoteHeads: vi.fn(),
         pushCurrentBranch: spies.pushCurrentBranch,

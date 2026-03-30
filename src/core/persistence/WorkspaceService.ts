@@ -9,6 +9,11 @@ import type {
     ResourceLibraryGroup,
     ResourceLibraryItem,
 } from "@/core/library/ProjectIndex.ts";
+import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
+import type {
+    RemoteRepoPage,
+    RemoteRepoSummary,
+} from "@/core/persistence/RemoteRepoProvider.ts";
 import type {
     ScriptureWorkspace,
     ScriptureWorkspaceListItem,
@@ -49,6 +54,16 @@ export type OpenEditableWorkspaceResult = {
     rejectionReason?: "not-found" | "not-editable";
 };
 
+export type ListWritableRemoteReposArgs = {
+    page: number;
+    pageSize: number;
+    topic?: string;
+};
+
+export type CloneWritableRemoteProjectArgs = {
+    repo: RemoteRepoSummary;
+};
+
 /**
  * Editor-oriented facade over editable scripture workspaces and reference items.
  *
@@ -70,6 +85,23 @@ export interface WorkspaceService {
     importProject(
         source: ImportSource,
         options?: ImportProjectOptions,
+    ): Promise<ImportProjectResult>;
+    listWritableRemoteRepos(
+        args: ListWritableRemoteReposArgs,
+    ): Promise<RemoteRepoPage>;
+    createRemoteForProject(projectRef: string): Promise<{
+        repo: RemoteRepoSummary;
+        remoteInfo: GitRemoteProjectInfo;
+    }>;
+    attachProjectToRemote(args: {
+        projectRef: string;
+        repo: Pick<
+            RemoteRepoSummary,
+            "id" | "owner" | "name" | "htmlUrl" | "defaultBranch"
+        >;
+    }): Promise<GitRemoteProjectInfo>;
+    cloneWritableRemoteProject(
+        args: CloneWritableRemoteProjectArgs,
     ): Promise<ImportProjectResult>;
     deleteProject(workspacePath: string): Promise<void>;
     renameDisplayName(

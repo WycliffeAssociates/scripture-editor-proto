@@ -654,6 +654,33 @@ export class WebGitProvider implements GitProvider {
         return { hash };
     }
 
+    async cloneRemoteRepo(args: {
+        projectPath: string;
+        remoteUrl: string;
+        branch?: string;
+        auth: GitRemoteAuth;
+    }): Promise<{ head: string | null }> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        await fs.promises.mkdir(dirname(dir), { recursive: true });
+        await git.clone({
+            fs,
+            http,
+            dir,
+            url: args.remoteUrl,
+            singleBranch: args.branch != null,
+            ref: args.branch,
+            depth: 1,
+            onAuth: () => ({
+                username: args.auth.username,
+                password: args.auth.token,
+            }),
+        });
+        return {
+            head: await this.tryResolveRef(fs, dir, "HEAD"),
+        };
+    }
+
     async inspectRemoteHeads(args: {
         projectPath: string;
         remoteName: string;

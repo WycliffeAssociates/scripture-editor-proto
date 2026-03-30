@@ -19,6 +19,28 @@ describe("TauriGitProvider", () => {
         mocks.invokeMock.mockReset();
     });
 
+    it("passes remote clone args through the tauri bridge", async () => {
+        mocks.invokeMock.mockResolvedValueOnce("cloned-head");
+
+        const provider = new TauriGitProvider();
+        await expect(
+            provider.cloneRemoteRepo({
+                projectPath: "/userData/projects/p",
+                remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+                branch: "master",
+                auth: { username: "alice", token: "secret" },
+            }),
+        ).resolves.toEqual({ head: "cloned-head" });
+
+        expect(mocks.invokeMock).toHaveBeenCalledWith("git_clone_remote_repo", {
+            repoPath: "/userData/projects/p",
+            remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+            branch: "master",
+            username: "alice",
+            token: "secret",
+        });
+    });
+
     it("maps snake_case remote inspection payloads into the shared contract", async () => {
         mocks.invokeMock.mockResolvedValueOnce({
             local_head: "local-head",

@@ -163,6 +163,19 @@ describe("path-based persistence contracts", () => {
                 gitReady: true,
                 isEditableProject: true,
             }),
+            listWritableRemoteRepos: async () => ({
+                repos: [],
+                nextPage: null,
+            }),
+            createRemoteForProject: async () => {
+                throw new Error("not implemented in contract test");
+            },
+            attachProjectToRemote: async () => {
+                throw new Error("not implemented in contract test");
+            },
+            cloneWritableRemoteProject: async () => {
+                throw new Error("not implemented in contract test");
+            },
             deleteProject: async () => {},
             renameDisplayName: async () => {},
             reconcileIndex: async () => {},

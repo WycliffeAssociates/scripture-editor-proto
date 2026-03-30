@@ -1,3 +1,4 @@
+import { GitRemoteProjectService } from "@/app/domain/project/gitRemoteProjectService.ts";
 import { attachTranslationNotesRemoteSync } from "@/app/reference/translationNotesRemoteSync.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import {
@@ -23,21 +24,34 @@ import type {
 } from "@/core/library/ProjectIndex.ts";
 import { packTranslationNotesDirectory } from "@/core/library/stores/PackedTranslationNotesRepository.ts";
 import { ItemLoader } from "@/core/loading/ItemLoader.ts";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
+import {
+    deleteGitRemoteProjectInfo,
+    deleteGitRemoteProjectStatus,
+} from "@/core/persistence/gitRemoteStore.ts";
 import {
     basenameStoragePath,
     joinStoragePath,
 } from "@/core/persistence/pathUtils.ts";
+import type {
+    RemoteRepoPage,
+    RemoteRepoProvider,
+    RemoteRepoSummary,
+} from "@/core/persistence/RemoteRepoProvider.ts";
 import type {
     Project as FacadeProject,
     ProjectListItem,
 } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type {
+    CloneWritableRemoteProjectArgs,
     ImportProjectOptions,
     ImportProjectResult,
+    ListWritableRemoteReposArgs,
     OpenEditableProjectResult,
     ProjectsService,
     ReferenceResourceQuery,
@@ -51,20 +65,40 @@ import type {
  * opening items, importing, indexing, reconcile-on-startup, and wiring remote TN
  * update behavior back into the catalog.
  */
+export type DefaultProjectsServiceDeps = {
+    fileSystem: FileSystem;
+    roots: StorageRoots;
+    projectIndex: ProjectIndex;
+    md5Service: IMd5Service;
+    gitProvider: GitProvider;
+    remote?: {
+        authSessionProvider: AuthSessionProvider;
+        remoteRepoProvider: RemoteRepoProvider;
+    };
+};
+
 export class DefaultProjectsService implements ProjectsService {
+    protected readonly fileSystem: FileSystem;
+    protected readonly roots: StorageRoots;
+    protected readonly projectIndex: ProjectIndex;
     protected readonly projectImporter: ProjectImporter;
     protected readonly gitProvider: GitProvider;
     protected readonly itemLoader: ItemLoader;
     protected readonly resourceContainerLoader: ResourceContainerProjectLoader;
     protected readonly scriptureBurritoLoader: ScriptureBurritoProjectLoader;
+    private readonly gitRemoteProjectService: GitRemoteProjectService | null;
 
-    constructor(
-        protected readonly fileSystem: FileSystem,
-        protected readonly roots: StorageRoots,
-        protected readonly projectIndex: ProjectIndex,
-        md5Service: IMd5Service,
-        gitProvider: GitProvider,
-    ) {
+    constructor({
+        fileSystem,
+        roots,
+        projectIndex,
+        md5Service,
+        gitProvider,
+        remote,
+    }: DefaultProjectsServiceDeps) {
+        this.fileSystem = fileSystem;
+        this.roots = roots;
+        this.projectIndex = projectIndex;
         this.projectImporter = new ProjectImporter(fileSystem, roots);
         this.gitProvider = gitProvider;
         this.itemLoader = new ItemLoader(md5Service);
@@ -72,6 +106,14 @@ export class DefaultProjectsService implements ProjectsService {
         this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader(
             md5Service,
         );
+        this.gitRemoteProjectService = remote
+            ? new GitRemoteProjectService(
+                  fileSystem,
+                  roots,
+                  remote.authSessionProvider,
+                  remote.remoteRepoProvider,
+              )
+            : null;
     }
 
     protected isAbsoluteProjectPath(projectRef: string): boolean {
@@ -482,6 +524,76 @@ export class DefaultProjectsService implements ProjectsService {
         }
     }
 
+    async listWritableRemoteRepos(
+        args: ListWritableRemoteReposArgs,
+    ): Promise<RemoteRepoPage> {
+        return this.requireGitRemoteProjectService().listWritableRepos(args);
+    }
+
+    async createRemoteForProject(projectRef: string): Promise<{
+        repo: RemoteRepoSummary;
+        remoteInfo: GitRemoteProjectInfo;
+    }> {
+        const { project, rejectionReason } =
+            await this.openEditableProject(projectRef);
+        if (!project) {
+            throw new Error(
+                rejectionReason === "not-editable"
+                    ? "Remote linking only supports editable scripture projects"
+                    : "Project not found",
+            );
+        }
+        return this.requireGitRemoteProjectService().createRemoteForProject(
+            project,
+        );
+    }
+
+    async attachProjectToRemote(args: {
+        projectRef: string;
+        repo: Pick<
+            RemoteRepoSummary,
+            "id" | "owner" | "name" | "htmlUrl" | "defaultBranch"
+        >;
+    }): Promise<GitRemoteProjectInfo> {
+        const { project, rejectionReason } = await this.openEditableProject(
+            args.projectRef,
+        );
+        if (!project) {
+            throw new Error(
+                rejectionReason === "not-editable"
+                    ? "Remote linking only supports editable scripture projects"
+                    : "Project not found",
+            );
+        }
+        return this.requireGitRemoteProjectService().attachProjectToRemote({
+            projectPath: project.projectPath,
+            repo: args.repo,
+        });
+    }
+
+    async cloneWritableRemoteProject(
+        args: CloneWritableRemoteProjectArgs,
+    ): Promise<ImportProjectResult> {
+        const remoteService = this.requireGitRemoteProjectService();
+        const projectPath = await this.allocateCloneProjectPath(args.repo.name);
+
+        try {
+            await remoteService.cloneRemoteRepoToManagedPath({
+                projectPath,
+                repo: args.repo,
+                gitProvider: this.gitProvider,
+            });
+
+            return await this.importProject({
+                type: "fromPreparedDir",
+                directoryPath: projectPath,
+            });
+        } catch (error) {
+            await this.cleanupFailedClonedProject(projectPath);
+            throw error;
+        }
+    }
+
     async listProjects(): Promise<ProjectListItem[]> {
         return this.projectIndex.listProjects();
     }
@@ -544,5 +656,49 @@ export class DefaultProjectsService implements ProjectsService {
         displayName: string,
     ): Promise<void> {
         await this.projectIndex.renameDisplayName(projectPath, displayName);
+    }
+
+    private requireGitRemoteProjectService(): GitRemoteProjectService {
+        if (!this.gitRemoteProjectService) {
+            throw new Error("Remote project operations are not configured");
+        }
+        return this.gitRemoteProjectService;
+    }
+
+    private async allocateCloneProjectPath(repoName: string): Promise<string> {
+        const basePath = joinStoragePath(this.roots.projectsRoot, repoName);
+        if (!(await this.fileSystem.exists(basePath))) {
+            return basePath;
+        }
+
+        let suffix = 2;
+        while (true) {
+            const candidate = joinStoragePath(
+                this.roots.projectsRoot,
+                `${repoName}-${suffix}`,
+            );
+            if (!(await this.fileSystem.exists(candidate))) {
+                return candidate;
+            }
+            suffix += 1;
+        }
+    }
+
+    private async cleanupFailedClonedProject(
+        projectPath: string,
+    ): Promise<void> {
+        if (await this.fileSystem.exists(projectPath)) {
+            await this.fileSystem.remove(projectPath, { recursive: true });
+        }
+        await deleteGitRemoteProjectInfo({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
+        await deleteGitRemoteProjectStatus({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
     }
 }

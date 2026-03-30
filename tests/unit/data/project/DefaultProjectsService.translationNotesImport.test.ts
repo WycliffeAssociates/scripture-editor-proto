@@ -30,6 +30,7 @@ const mockGitProvider: GitProvider = {
     readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
     restoreTrackedFilesFromCommit: vi.fn(async () => {}),
     commitAll: vi.fn(async () => ({ hash: "abc123" })),
+    cloneRemoteRepo: vi.fn(async () => ({ head: "abc123" })),
     inspectRemoteHeads: vi.fn(async () => {
         throw new Error("not used in test");
     }),
@@ -84,11 +85,13 @@ describe("DefaultProjectsService translation notes import", () => {
         });
         projectIndex = makeProjectIndex();
         projectsService = new DefaultLibraryService(
-            fileSystem,
-            roots,
-            projectIndex,
-            mockMd5Service,
-            mockGitProvider,
+            {
+                fileSystem,
+                roots,
+                projectIndex,
+                md5Service: mockMd5Service,
+                gitProvider: mockGitProvider,
+            },
         );
     });
 

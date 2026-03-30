@@ -168,8 +168,23 @@ export class TauriGitProvider implements GitProvider {
         });
         return { hash };
     }
+    async cloneRemoteRepo(args: {
+        projectPath: string;
+        remoteUrl: string;
+        branch?: string;
+        auth: GitRemoteAuth;
+    }): Promise<{ head: string | null }> {
+        const head = await invoke<string | null>("git_clone_remote_repo", {
+            repoPath: args.projectPath,
+            remoteUrl: args.remoteUrl,
+            branch: args.branch ?? null,
+            username: args.auth.username,
+            token: args.auth.token,
+        });
+        return { head };
+    }
 
-    async inspectRemoteHeads(_args: {
+    async inspectRemoteHeads(args: {
         projectPath: string;
         remoteName: string;
         branch: string;
@@ -178,9 +193,9 @@ export class TauriGitProvider implements GitProvider {
         const raw = await invoke<TauriRemoteInspection>(
             "git_inspect_remote_heads",
             {
-                repoPath: _args.projectPath,
-                remoteName: _args.remoteName,
-                branch: _args.branch,
+                repoPath: args.projectPath,
+                remoteName: args.remoteName,
+                branch: args.branch,
             },
         );
         return {
@@ -197,7 +212,7 @@ export class TauriGitProvider implements GitProvider {
         };
     }
 
-    async fetchRemoteHeads(_args: {
+    async fetchRemoteHeads(args: {
         projectPath: string;
         remoteName: string;
         branch: string;
@@ -206,11 +221,11 @@ export class TauriGitProvider implements GitProvider {
         const raw = await invoke<TauriRemoteInspection>(
             "git_fetch_remote_heads",
             {
-                repoPath: _args.projectPath,
-                remoteName: _args.remoteName,
-                branch: _args.branch,
-                username: _args.auth.username,
-                token: _args.auth.token,
+                repoPath: args.projectPath,
+                remoteName: args.remoteName,
+                branch: args.branch,
+                username: args.auth.username,
+                token: args.auth.token,
             },
         );
         return {
@@ -227,7 +242,7 @@ export class TauriGitProvider implements GitProvider {
         };
     }
 
-    async pushCurrentBranch(_args: {
+    async pushCurrentBranch(args: {
         projectPath: string;
         remoteName: string;
         branch: string;
@@ -236,11 +251,11 @@ export class TauriGitProvider implements GitProvider {
         const raw = await invoke<TauriRemotePublishResult>(
             "git_push_current_branch",
             {
-                repoPath: _args.projectPath,
-                remoteName: _args.remoteName,
-                branch: _args.branch,
-                username: _args.auth.username,
-                token: _args.auth.token,
+                repoPath: args.projectPath,
+                remoteName: args.remoteName,
+                branch: args.branch,
+                username: args.auth.username,
+                token: args.auth.token,
             },
         );
         return {
@@ -250,7 +265,7 @@ export class TauriGitProvider implements GitProvider {
         };
     }
 
-    async planReplayOntoRemote(_args: {
+    async planReplayOntoRemote(args: {
         projectPath: string;
         remoteName: string;
         branch: string;
@@ -259,9 +274,9 @@ export class TauriGitProvider implements GitProvider {
         const raw = await invoke<TauriRemoteReplayPlan>(
             "git_plan_replay_onto_remote",
             {
-                repoPath: _args.projectPath,
-                remoteName: _args.remoteName,
-                branch: _args.branch,
+                repoPath: args.projectPath,
+                remoteName: args.remoteName,
+                branch: args.branch,
             },
         );
         return {
@@ -277,7 +292,7 @@ export class TauriGitProvider implements GitProvider {
         };
     }
 
-    async applyReplayPlanOntoRemote(_args: {
+    async applyReplayPlanOntoRemote(args: {
         projectPath: string;
         branch: string;
         remoteHead: string;
@@ -286,10 +301,10 @@ export class TauriGitProvider implements GitProvider {
         const raw = await invoke<TauriRemoteReplayResult>(
             "git_apply_replay_plan_onto_remote",
             {
-                repoPath: _args.projectPath,
-                branch: _args.branch,
-                remoteHead: _args.remoteHead,
-                commitHashes: _args.commitHashes,
+                repoPath: args.projectPath,
+                branch: args.branch,
+                remoteHead: args.remoteHead,
+                commitHashes: args.commitHashes,
             },
         );
         return {
