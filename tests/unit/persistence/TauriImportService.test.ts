@@ -28,6 +28,7 @@ import { TauriImportService } from "@/tauri/persistence/TauriImportService.ts";
 
 describe("TauriImportService", () => {
     const roots: StorageRoots = {
+        appDataRoot: "/userData/app-data",
         projectsRoot: "/userData/projects",
         tempRoot: "/userData/temp",
         cacheRoot: "/userData/cache",

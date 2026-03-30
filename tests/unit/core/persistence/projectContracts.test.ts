@@ -18,6 +18,7 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 describe("path-based persistence contracts", () => {
     it("pins the path-based storage surface", () => {
         const roots: StorageRoots = {
+            appDataRoot: "/appData",
             projectsRoot: "/userData/projects",
             tempRoot: "/appData/temp",
             cacheRoot: "/appData/cache",

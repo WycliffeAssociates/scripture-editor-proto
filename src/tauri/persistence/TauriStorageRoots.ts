@@ -10,6 +10,7 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
  */
 export class TauriStorageRoots implements StorageRoots {
     private constructor(
+        readonly appDataRoot: string,
         readonly projectsRoot: string,
         readonly tempRoot: string,
         readonly cacheRoot: string,
@@ -24,6 +25,7 @@ export class TauriStorageRoots implements StorageRoots {
         const privateRoot = await appLocalDataDir();
 
         return new TauriStorageRoots(
+            privateRoot,
             await join(publicRoot, "projects"),
             await join(privateRoot, "temp"),
             await join(privateRoot, "cache"),

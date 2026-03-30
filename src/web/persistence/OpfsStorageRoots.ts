@@ -20,6 +20,7 @@ function joinRoot(
  * optional namespace keeps separate web app instances from trampling each other.
  */
 export class OpfsStorageRoots implements StorageRoots {
+    readonly appDataRoot: string;
     readonly projectsRoot: string;
     readonly tempRoot: string;
     readonly cacheRoot: string;
@@ -27,6 +28,7 @@ export class OpfsStorageRoots implements StorageRoots {
     readonly databaseRoot: string;
 
     constructor(namespace = resolveWebStorageNamespace()) {
+        this.appDataRoot = joinRoot("/appData", namespace, "");
         this.projectsRoot = joinRoot("/userData", namespace, "projects");
         this.tempRoot = joinRoot("/appData", namespace, "temp");
         this.cacheRoot = joinRoot("/appData", namespace, "cache");

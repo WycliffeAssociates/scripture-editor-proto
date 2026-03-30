@@ -52,6 +52,8 @@ export type Settings = {
     appLanguage: SupportedLocales;
     appDirection: LanguageDirection;
     colorScheme: "light" | "dark";
+    autoSyncOnOpen: boolean;
+    autoPushOnSave: boolean;
 };
 
 /**
@@ -71,6 +73,8 @@ export const settingsDefaults: Settings = {
     appLanguage: "en",
     appDirection: "ltr",
     colorScheme: "light",
+    autoSyncOnOpen: true,
+    autoPushOnSave: true,
 };
 
 /**

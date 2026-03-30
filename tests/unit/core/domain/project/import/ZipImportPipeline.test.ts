@@ -19,6 +19,7 @@ describe("ZipImportPipeline", () => {
         vi.clearAllMocks();
         fileSystem = new InMemoryFileSystem();
         roots = {
+            appDataRoot: "/appData",
             projectsRoot: "/userData/projects",
             tempRoot: "/appData/temp",
             cacheRoot: "/appData/cache",

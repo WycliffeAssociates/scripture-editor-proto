@@ -38,6 +38,7 @@ const mockGitProvider: GitProvider = {
 };
 
 const roots: StorageRoots = {
+    appDataRoot: "/appData",
     projectsRoot: "/userData/projects",
     tempRoot: "/appData/temp",
     cacheRoot: "/appData/cache",
