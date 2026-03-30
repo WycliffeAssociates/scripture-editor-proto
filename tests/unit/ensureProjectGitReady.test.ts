@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import {
+    GIT_REMOTE_PUBLISH_PUBLISHED,
+} from "@/core/persistence/GitProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 
@@ -46,6 +49,20 @@ function createGitProviderMock(
         readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
         restoreTrackedFilesFromCommit: vi.fn(async () => {}),
         commitAll: vi.fn(async () => ({ hash: "abc" })),
+        inspectRemoteHeads: vi.fn(async () => {
+            throw new Error("not used in test");
+        }),
+        fetchRemoteHeads: vi.fn(async () => {
+            throw new Error("not used in test");
+        }),
+        pushCurrentBranch: vi.fn(async () => ({
+            outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
+            localHead: null,
+            remoteHead: null,
+        })),
+        planReplayOntoRemote: vi.fn(async () => {
+            throw new Error("not used in test");
+        }),
         isRepoHealthy: vi.fn(async () => true),
         ...overrides,
     };

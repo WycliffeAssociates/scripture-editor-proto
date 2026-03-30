@@ -3,6 +3,10 @@ import type {
     BranchInfo,
     CommitRequest,
     GitProvider,
+    GitRemoteAuth,
+    GitRemoteInspection,
+    GitRemotePublishResult,
+    GitRemoteReplayPlan,
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import {
@@ -31,6 +35,32 @@ type TauriHistoryEntry = {
     authored_at_unix: number;
     subject: string;
     body: string;
+};
+
+type TauriRemoteRelationship = {
+    kind: string;
+    local_head: string | null;
+    remote_head: string | null;
+    merge_base: string | null;
+};
+
+type TauriRemoteInspection = {
+    local_head: string | null;
+    remote_head: string | null;
+    merge_base: string | null;
+    relationship: TauriRemoteRelationship;
+};
+
+type TauriRemoteReplayPlan = {
+    strategy: string;
+    commit_hashes: string[];
+    relationship: TauriRemoteRelationship;
+};
+
+type TauriRemotePublishResult = {
+    outcome: GitRemotePublishResult["outcome"];
+    local_head: string | null;
+    remote_head: string | null;
 };
 
 export class TauriGitProvider implements GitProvider {
@@ -131,6 +161,114 @@ export class TauriGitProvider implements GitProvider {
             authorEmail: author.email,
         });
         return { hash };
+    }
+
+    async inspectRemoteHeads(_args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection> {
+        const raw = await invoke<TauriRemoteInspection>(
+            "git_inspect_remote_heads",
+            {
+                repoPath: _args.projectPath,
+                remoteName: _args.remoteName,
+                branch: _args.branch,
+            },
+        );
+        return {
+            localHead: raw.local_head,
+            remoteHead: raw.remote_head,
+            mergeBase: raw.merge_base,
+            relationship: {
+                kind: raw.relationship
+                    .kind as GitRemoteInspection["relationship"]["kind"],
+                localHead: raw.relationship.local_head,
+                remoteHead: raw.relationship.remote_head,
+                mergeBase: raw.relationship.merge_base,
+            },
+        };
+    }
+
+    async fetchRemoteHeads(_args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection> {
+        const raw = await invoke<TauriRemoteInspection>(
+            "git_fetch_remote_heads",
+            {
+                repoPath: _args.projectPath,
+                remoteName: _args.remoteName,
+                branch: _args.branch,
+                username: _args.auth.username,
+                token: _args.auth.token,
+            },
+        );
+        return {
+            localHead: raw.local_head,
+            remoteHead: raw.remote_head,
+            mergeBase: raw.merge_base,
+            relationship: {
+                kind: raw.relationship
+                    .kind as GitRemoteInspection["relationship"]["kind"],
+                localHead: raw.relationship.local_head,
+                remoteHead: raw.relationship.remote_head,
+                mergeBase: raw.relationship.merge_base,
+            },
+        };
+    }
+
+    async pushCurrentBranch(_args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemotePublishResult> {
+        const raw = await invoke<TauriRemotePublishResult>(
+            "git_push_current_branch",
+            {
+                repoPath: _args.projectPath,
+                remoteName: _args.remoteName,
+                branch: _args.branch,
+                username: _args.auth.username,
+                token: _args.auth.token,
+            },
+        );
+        return {
+            outcome: raw.outcome,
+            localHead: raw.local_head,
+            remoteHead: raw.remote_head,
+        };
+    }
+
+    async planReplayOntoRemote(_args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteReplayPlan> {
+        const raw = await invoke<TauriRemoteReplayPlan>(
+            "git_plan_replay_onto_remote",
+            {
+                repoPath: _args.projectPath,
+                remoteName: _args.remoteName,
+                branch: _args.branch,
+            },
+        );
+        return {
+            strategy: raw.strategy as GitRemoteReplayPlan["strategy"],
+            commitHashes: raw.commit_hashes,
+            relationship: {
+                kind: raw.relationship
+                    .kind as GitRemoteInspection["relationship"]["kind"],
+                localHead: raw.relationship.local_head,
+                remoteHead: raw.relationship.remote_head,
+                mergeBase: raw.relationship.merge_base,
+            },
+        };
     }
 
     async isRepoHealthy(projectPath: string): Promise<boolean> {

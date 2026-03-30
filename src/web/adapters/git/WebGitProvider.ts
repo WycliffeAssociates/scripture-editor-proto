@@ -1,10 +1,25 @@
 import * as git from "isomorphic-git";
+import http from "isomorphic-git/http/web";
 import type {
     BranchInfo,
     CommitRequest,
     GitProvider,
+    GitRemoteAuth,
+    GitRemoteInspection,
+    GitRemotePublishResult,
+    GitRemoteReplayPlan,
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
+import {
+    GIT_REMOTE_PUBLISH_AUTH_FAILED,
+    GIT_REMOTE_PUBLISH_OFFLINE,
+    GIT_REMOTE_PUBLISH_PUBLISHED,
+    GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+} from "@/core/persistence/GitProvider.ts";
+import {
+    chooseCommittedHistoryReplayStrategy,
+    classifyGitRemoteRelationship,
+} from "@/core/persistence/gitRemoteRelationship.ts";
 import {
     buildCommitMessage,
     parseAppCommitMetadata,
@@ -69,6 +84,17 @@ function isMissingHeadError(error: unknown): boolean {
     );
 }
 
+function isMissingRefError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return (
+        isMissingHeadError(error) ||
+        message.includes("Could not find refs/remotes/") ||
+        message.includes("Could not find") ||
+        /ENOENT|No such file or directory/i.test(message)
+    );
+}
+
 function isLikelyGitDirRace(error: unknown): boolean {
     const message =
         error instanceof Error ? error.message : String(error ?? "");
@@ -97,6 +123,32 @@ function isGitNotFoundError(error: unknown): boolean {
         message.includes("Could not find") ||
         message.includes("NotFoundError") ||
         /ENOENT|No such file or directory/i.test(message)
+    );
+}
+
+function isGitAuthError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return /401|403|authentication|authorization|access denied|forbidden/i.test(
+        message,
+    );
+}
+
+function isGitPushRejectedError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return (
+        /non-fast-forward|fetch first|failed to push some refs|push rejected/i.test(
+            message,
+        ) || message.includes("PushRejectedError")
+    );
+}
+
+function isGitOfflineError(error: unknown): boolean {
+    const message =
+        error instanceof Error ? error.message : String(error ?? "");
+    return /network|offline|enotfound|econn|cors|failed to fetch/i.test(
+        message,
     );
 }
 
@@ -601,8 +653,188 @@ export class WebGitProvider implements GitProvider {
         return { hash };
     }
 
+    async inspectRemoteHeads(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        const localHead = await this.tryResolveRef(fs, dir, "HEAD");
+        const remoteRef = `refs/remotes/${args.remoteName}/${args.branch}`;
+        const remoteHead = await this.tryResolveRef(fs, dir, remoteRef);
+        const mergeBase =
+            localHead && remoteHead
+                ? ((
+                      await git.findMergeBase({
+                          fs,
+                          dir,
+                          oids: [localHead, remoteHead],
+                      })
+                  )[0] ?? null)
+                : null;
+        const relationship = classifyGitRemoteRelationship({
+            localHead,
+            remoteHead,
+            mergeBase,
+        });
+
+        return {
+            localHead,
+            remoteHead,
+            mergeBase,
+            relationship,
+        };
+    }
+
+    async fetchRemoteHeads(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        await git.fetch({
+            fs,
+            http,
+            dir,
+            remote: args.remoteName,
+            ref: args.branch,
+            remoteRef: args.branch,
+            singleBranch: true,
+            prune: true,
+            onAuth: () => ({
+                username: args.auth.username,
+                password: args.auth.token,
+            }),
+        });
+        return this.inspectRemoteHeads(args);
+    }
+
+    async pushCurrentBranch(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemotePublishResult> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        const localHead = await this.tryResolveRef(fs, dir, "HEAD");
+
+        try {
+            await git.push({
+                fs,
+                http,
+                dir,
+                remote: args.remoteName,
+                ref: args.branch,
+                remoteRef: args.branch,
+                onAuth: () => ({
+                    username: args.auth.username,
+                    password: args.auth.token,
+                }),
+            });
+        } catch (error) {
+            if (isGitPushRejectedError(error)) {
+                return {
+                    outcome: GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+                    localHead,
+                    remoteHead: null,
+                };
+            }
+            if (isGitAuthError(error)) {
+                return {
+                    outcome: GIT_REMOTE_PUBLISH_AUTH_FAILED,
+                    localHead,
+                    remoteHead: null,
+                };
+            }
+            if (isGitOfflineError(error)) {
+                return {
+                    outcome: GIT_REMOTE_PUBLISH_OFFLINE,
+                    localHead,
+                    remoteHead: null,
+                };
+            }
+            throw error;
+        }
+
+        const inspection = await this.inspectRemoteHeads(args);
+        return {
+            outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
+            localHead: inspection.localHead,
+            remoteHead: inspection.remoteHead,
+        };
+    }
+
+    async planReplayOntoRemote(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteReplayPlan> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        const inspection = await this.inspectRemoteHeads(args);
+        const commitHashes = await this.collectLocalOnlyCommitHashes({
+            fs,
+            dir,
+            mergeBase: inspection.mergeBase,
+        });
+        const decision = chooseCommittedHistoryReplayStrategy(
+            inspection.relationship,
+            commitHashes.length,
+        );
+
+        return {
+            strategy: decision.strategy,
+            commitHashes,
+            relationship: inspection.relationship,
+        };
+    }
+
     async isRepoHealthy(projectPath: string): Promise<boolean> {
         const dir = normalizeDir(projectPath);
         return this.isHealthy(dir);
+    }
+
+    private async tryResolveRef(
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>,
+        dir: string,
+        ref: string,
+    ): Promise<string | null> {
+        try {
+            return await git.resolveRef({ fs, dir, ref });
+        } catch (error) {
+            if (isMissingRefError(error)) {
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    private async collectLocalOnlyCommitHashes(args: {
+        fs: Awaited<ReturnType<WebGitProvider["getFs"]>>;
+        dir: string;
+        mergeBase: string | null;
+    }): Promise<string[]> {
+        if (!args.mergeBase) return [];
+        const entries = await git.log({
+            fs: args.fs,
+            dir: args.dir,
+            ref: "HEAD",
+            depth: 500,
+        });
+
+        const localOnly: string[] = [];
+        for (const entry of entries) {
+            if (entry.oid === args.mergeBase) {
+                break;
+            }
+            localOnly.push(entry.oid);
+        }
+        return localOnly;
     }
 }

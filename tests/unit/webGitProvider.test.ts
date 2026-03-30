@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GIT_REMOTE_PUBLISH_REMOTE_ADVANCED } from "@/core/persistence/GitProvider.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 
 const {
@@ -13,7 +14,10 @@ const {
     gitRemoveMock,
     gitAddMock,
     gitResolveRefMock,
+    gitFindMergeBaseMock,
     gitCommitMock,
+    gitFetchMock,
+    gitPushMock,
 } = vi.hoisted(() => ({
     gitInitMock: vi.fn(),
     gitListBranchesMock: vi.fn(),
@@ -26,7 +30,10 @@ const {
     gitRemoveMock: vi.fn(),
     gitAddMock: vi.fn(),
     gitResolveRefMock: vi.fn(),
+    gitFindMergeBaseMock: vi.fn(),
     gitCommitMock: vi.fn(),
+    gitFetchMock: vi.fn(),
+    gitPushMock: vi.fn(),
 }));
 
 vi.mock("isomorphic-git", () => ({
@@ -41,7 +48,14 @@ vi.mock("isomorphic-git", () => ({
     remove: gitRemoveMock,
     add: gitAddMock,
     resolveRef: gitResolveRefMock,
+    findMergeBase: gitFindMergeBaseMock,
     commit: gitCommitMock,
+    fetch: gitFetchMock,
+    push: gitPushMock,
+}));
+
+vi.mock("isomorphic-git/http/web", () => ({
+    default: { __http: true },
 }));
 
 function makeRuntime() {
@@ -117,7 +131,10 @@ describe("WebGitProvider", () => {
         gitRemoveMock.mockReset();
         gitAddMock.mockReset();
         gitResolveRefMock.mockReset();
+        gitFindMergeBaseMock.mockReset();
         gitCommitMock.mockReset();
+        gitFetchMock.mockReset();
+        gitPushMock.mockReset();
         gitListBranchesMock.mockResolvedValue(["main"]);
         gitStatusMatrixMock.mockResolvedValue([]);
     });
@@ -258,5 +275,127 @@ describe("WebGitProvider", () => {
         expect(result).toEqual({ hash: "hash-1" });
         expect(gitAddMock).toHaveBeenCalledTimes(2);
         expect(gitCommitMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("inspects local and tracked remote heads without fetching full contents", async () => {
+        const runtime = makeRuntime();
+        gitResolveRefMock
+            .mockResolvedValueOnce("local-head")
+            .mockResolvedValueOnce("remote-head");
+        gitFindMergeBaseMock.mockResolvedValue(["base-head"]);
+
+        const provider = new WebGitProvider(runtime as never);
+        const result = await provider.inspectRemoteHeads({
+            projectPath: "/userData/projects/p",
+            remoteName: "origin",
+            branch: "master",
+            auth: { username: "alice", token: "token" },
+        });
+
+        expect(result).toEqual({
+            localHead: "local-head",
+            remoteHead: "remote-head",
+            mergeBase: "base-head",
+            relationship: {
+                kind: "diverged",
+                localHead: "local-head",
+                remoteHead: "remote-head",
+                mergeBase: "base-head",
+            },
+        });
+        expect(gitResolveRefMock).toHaveBeenNthCalledWith(1, {
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            ref: "HEAD",
+        });
+        expect(gitResolveRefMock).toHaveBeenNthCalledWith(2, {
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            ref: "refs/remotes/origin/master",
+        });
+    });
+
+    it("plans replay commits from local history above the merge base", async () => {
+        const runtime = makeRuntime();
+        gitResolveRefMock
+            .mockResolvedValueOnce("local-head")
+            .mockResolvedValueOnce("remote-head");
+        gitFindMergeBaseMock.mockResolvedValue(["base-head"]);
+        gitLogMock.mockResolvedValue([
+            { oid: "local-head" },
+            { oid: "local-parent" },
+            { oid: "base-head" },
+        ]);
+
+        const provider = new WebGitProvider(runtime as never);
+        const result = await provider.planReplayOntoRemote({
+            projectPath: "/userData/projects/p",
+            remoteName: "origin",
+            branch: "master",
+            auth: { username: "alice", token: "token" },
+        });
+
+        expect(result).toEqual({
+            strategy: "replayLocalCommitsOntoRemoteLatest",
+            commitHashes: ["local-head", "local-parent"],
+            relationship: {
+                kind: "diverged",
+                localHead: "local-head",
+                remoteHead: "remote-head",
+                mergeBase: "base-head",
+            },
+        });
+    });
+
+    it("fetches remote tracking heads before returning inspection", async () => {
+        const runtime = makeRuntime();
+        gitFetchMock.mockResolvedValue({});
+        gitResolveRefMock
+            .mockResolvedValueOnce("local-head")
+            .mockResolvedValueOnce("remote-head");
+        gitFindMergeBaseMock.mockResolvedValue(["base-head"]);
+
+        const provider = new WebGitProvider(runtime as never);
+        const result = await provider.fetchRemoteHeads({
+            projectPath: "/userData/projects/p",
+            remoteName: "origin",
+            branch: "master",
+            auth: { username: "alice", token: "token" },
+        });
+
+        expect(gitFetchMock).toHaveBeenCalledWith({
+            fs: runtime.fs,
+            http: { __http: true },
+            dir: "/userData/projects/p",
+            remote: "origin",
+            ref: "master",
+            remoteRef: "master",
+            singleBranch: true,
+            prune: true,
+            onAuth: expect.any(Function),
+        });
+        expect(result.relationship.kind).toBe("diverged");
+    });
+
+    it("classifies non-fast-forward push rejection as remoteAdvanced", async () => {
+        const runtime = makeRuntime();
+        gitResolveRefMock.mockResolvedValueOnce("local-head");
+        gitPushMock.mockRejectedValue(
+            new Error("PushRejectedError: non-fast-forward update"),
+        );
+
+        const provider = new WebGitProvider(runtime as never);
+        await expect(
+            provider.pushCurrentBranch({
+                projectPath: "/userData/projects/p",
+                remoteName: "origin",
+                branch: "master",
+                auth: { username: "alice", token: "token" },
+            }),
+        ).resolves.toEqual({
+            outcome: GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+            localHead: "local-head",
+            remoteHead: null,
+        });
     });
 });

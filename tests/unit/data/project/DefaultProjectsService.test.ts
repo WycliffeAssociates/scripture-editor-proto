@@ -6,6 +6,9 @@ import {
 } from "@/core/library/ReferenceDocuments.ts";
 import type { LoadedReferenceItem } from "@/core/library/LoadedReferenceItem.ts";
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
+import {
+    GIT_REMOTE_PUBLISH_PUBLISHED,
+} from "@/core/persistence/GitProvider.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
 import type { Project, ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -34,6 +37,20 @@ const mockGitProvider: GitProvider = {
     readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
     restoreTrackedFilesFromCommit: vi.fn(async () => {}),
     commitAll: vi.fn(async () => ({ hash: "abc123" })),
+    inspectRemoteHeads: vi.fn(async () => {
+        throw new Error("not used in test");
+    }),
+    fetchRemoteHeads: vi.fn(async () => {
+        throw new Error("not used in test");
+    }),
+    pushCurrentBranch: vi.fn(async () => ({
+        outcome: GIT_REMOTE_PUBLISH_PUBLISHED,
+        localHead: null,
+        remoteHead: null,
+    })),
+    planReplayOntoRemote: vi.fn(async () => {
+        throw new Error("not used in test");
+    }),
     isRepoHealthy: vi.fn(async () => true),
 };
 

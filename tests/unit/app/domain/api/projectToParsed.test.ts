@@ -41,6 +41,10 @@ const mockGitProvider: GitProvider = {
     readProjectSnapshotAtCommit: vi.fn(),
     restoreTrackedFilesFromCommit: vi.fn(),
     commitAll: vi.fn(),
+    inspectRemoteHeads: vi.fn(),
+    fetchRemoteHeads: vi.fn(),
+    pushCurrentBranch: vi.fn(),
+    planReplayOntoRemote: vi.fn(),
     isRepoHealthy: vi.fn(),
 };
 

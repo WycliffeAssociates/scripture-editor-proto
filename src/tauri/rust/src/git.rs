@@ -3,9 +3,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use git2::{
-    build::CheckoutBuilder, BranchType, ErrorCode, IndexAddOption, ObjectType, Oid, Repository,
-    RepositoryInitOptions, Signature, Sort, Tree,
+    build::CheckoutBuilder, BranchType, Cred, ErrorCode, FetchOptions, IndexAddOption,
+    ObjectType, Oid, PushOptions, RemoteCallbacks, Repository, RepositoryInitOptions, Signature,
+    Sort, Tree,
 };
+use serde::Deserialize;
 use serde::Serialize;
 
 fn branch_exists(repo: &Repository, branch_name: &str) -> bool {
@@ -116,6 +118,142 @@ pub struct GitHistoryEntry {
     pub authored_at_unix: i64,
     pub subject: String,
     pub body: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GitRemoteRelationship {
+    pub kind: String,
+    pub local_head: Option<String>,
+    pub remote_head: Option<String>,
+    pub merge_base: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GitRemoteInspection {
+    pub local_head: Option<String>,
+    pub remote_head: Option<String>,
+    pub merge_base: Option<String>,
+    pub relationship: GitRemoteRelationship,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GitRemoteReplayPlan {
+    pub strategy: String,
+    pub commit_hashes: Vec<String>,
+    pub relationship: GitRemoteRelationship,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GitRemotePublishResult {
+    pub outcome: String,
+    pub local_head: Option<String>,
+    pub remote_head: Option<String>,
+}
+
+fn classify_remote_relationship(
+    local_head: Option<String>,
+    remote_head: Option<String>,
+    merge_base: Option<String>,
+) -> GitRemoteRelationship {
+    let kind = if remote_head.is_none() {
+        "untrackedRemote"
+    } else if local_head == remote_head {
+        "upToDate"
+    } else if local_head.is_none() || merge_base.is_none() {
+        "diverged"
+    } else if merge_base == local_head {
+        "behindOnly"
+    } else if merge_base == remote_head {
+        "aheadOnly"
+    } else {
+        "diverged"
+    };
+
+    GitRemoteRelationship {
+        kind: kind.to_string(),
+        local_head,
+        remote_head,
+        merge_base,
+    }
+}
+
+fn try_resolve_reference_target(repo: &Repository, reference: &str) -> Result<Option<Oid>, String> {
+    match repo.find_reference(reference) {
+        Ok(reference) => Ok(reference.target()),
+        Err(error) => {
+            if error.code() == ErrorCode::NotFound {
+                Ok(None)
+            } else {
+                Err(error.message().to_string())
+            }
+        }
+    }
+}
+
+fn collect_local_only_commits(
+    repo: &Repository,
+    local_head: Oid,
+    merge_base: Option<Oid>,
+) -> Result<Vec<String>, String> {
+    let Some(base_oid) = merge_base else {
+        return Ok(Vec::new());
+    };
+
+    let mut revwalk = repo.revwalk().map_err(|e| e.message().to_string())?;
+    revwalk.push(local_head).map_err(|e| e.message().to_string())?;
+    revwalk
+        .set_sorting(Sort::TOPOLOGICAL | Sort::TIME)
+        .map_err(|e| e.message().to_string())?;
+
+    let mut commits = Vec::new();
+    for oid_result in revwalk {
+        let oid = oid_result.map_err(|e| e.message().to_string())?;
+        if oid == base_oid {
+            break;
+        }
+        commits.push(oid.to_string());
+    }
+    Ok(commits)
+}
+
+fn remote_callbacks_for_token(username: &str, token: &str) -> RemoteCallbacks<'static> {
+    let username = username.to_string();
+    let token = token.to_string();
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
+        Cred::userpass_plaintext(&username, &token)
+    });
+    callbacks
+}
+
+fn classify_remote_transport_failure(message: &str) -> Option<&'static str> {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("non-fast-forward")
+        || normalized.contains("fetch first")
+        || normalized.contains("failed to push some refs")
+        || normalized.contains("push rejected")
+    {
+        return Some("remoteAdvanced");
+    }
+    if normalized.contains("401")
+        || normalized.contains("403")
+        || normalized.contains("authentication")
+        || normalized.contains("authorization")
+        || normalized.contains("forbidden")
+        || normalized.contains("access denied")
+    {
+        return Some("authFailed");
+    }
+    if normalized.contains("offline")
+        || normalized.contains("network")
+        || normalized.contains("timed out")
+        || normalized.contains("could not resolve host")
+        || normalized.contains("connection")
+        || normalized.contains("dns")
+    {
+        return Some("offline");
+    }
+    None
 }
 
 #[tauri::command]
@@ -365,6 +503,133 @@ pub fn git_commit_all(
     };
 
     Ok(oid.to_string())
+}
+
+#[tauri::command]
+pub fn git_inspect_remote_heads(
+    repo_path: String,
+    remote_name: String,
+    branch: String,
+) -> Result<GitRemoteInspection, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let local_head = repo.head().ok().and_then(|head| head.target());
+    let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch);
+    let remote_head = try_resolve_reference_target(&repo, &remote_ref)?;
+    let merge_base = match (local_head, remote_head) {
+        (Some(local), Some(remote)) => repo.merge_base(local, remote).ok(),
+        _ => None,
+    };
+    let relationship = classify_remote_relationship(
+        local_head.map(|oid| oid.to_string()),
+        remote_head.map(|oid| oid.to_string()),
+        merge_base.map(|oid| oid.to_string()),
+    );
+
+    Ok(GitRemoteInspection {
+        local_head: local_head.map(|oid| oid.to_string()),
+        remote_head: remote_head.map(|oid| oid.to_string()),
+        merge_base: merge_base.map(|oid| oid.to_string()),
+        relationship,
+    })
+}
+
+#[tauri::command]
+pub fn git_fetch_remote_heads(
+    repo_path: String,
+    remote_name: String,
+    branch: String,
+    username: String,
+    token: String,
+) -> Result<GitRemoteInspection, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let refspec = format!("refs/heads/{branch}:refs/remotes/{remote_name}/{branch}");
+    let mut remote = repo
+        .find_remote(&remote_name)
+        .map_err(|e| e.message().to_string())?;
+    let callbacks = remote_callbacks_for_token(&username, &token);
+    let mut options = FetchOptions::new();
+    options.remote_callbacks(callbacks);
+    remote
+        .fetch(&[refspec.as_str()], Some(&mut options), None)
+        .map_err(|e| e.message().to_string())?;
+    git_inspect_remote_heads(repo_path, remote_name, branch)
+}
+
+#[tauri::command]
+pub fn git_push_current_branch(
+    repo_path: String,
+    remote_name: String,
+    branch: String,
+    username: String,
+    token: String,
+) -> Result<GitRemotePublishResult, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let local_head = repo.head().ok().and_then(|head| head.target()).map(|oid| oid.to_string());
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let mut remote = repo
+        .find_remote(&remote_name)
+        .map_err(|e| e.message().to_string())?;
+    let callbacks = remote_callbacks_for_token(&username, &token);
+    let mut options = PushOptions::new();
+    options.remote_callbacks(callbacks);
+
+    match remote.push(&[refspec.as_str()], Some(&mut options)) {
+        Ok(()) => {
+            let inspection = git_inspect_remote_heads(repo_path, remote_name, branch)?;
+            Ok(GitRemotePublishResult {
+                outcome: "published".to_string(),
+                local_head: inspection.local_head,
+                remote_head: inspection.remote_head,
+            })
+        }
+        Err(error) => {
+            let message = error.message().to_string();
+            if let Some(outcome) = classify_remote_transport_failure(&message) {
+                Ok(GitRemotePublishResult {
+                    outcome: outcome.to_string(),
+                    local_head,
+                    remote_head: None,
+                })
+            } else {
+                Err(message)
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn git_plan_replay_onto_remote(
+    repo_path: String,
+    remote_name: String,
+    branch: String,
+) -> Result<GitRemoteReplayPlan, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let inspection = git_inspect_remote_heads(repo_path, remote_name, branch)?;
+    let local_head_oid = inspection
+        .local_head
+        .as_deref()
+        .map(|value| Oid::from_str(value).map_err(|e| e.message().to_string()))
+        .transpose()?;
+    let merge_base_oid = inspection
+        .merge_base
+        .as_deref()
+        .map(|value| Oid::from_str(value).map_err(|e| e.message().to_string()))
+        .transpose()?;
+    let commit_hashes = match local_head_oid {
+        Some(local_oid) => collect_local_only_commits(&repo, local_oid, merge_base_oid)?,
+        None => Vec::new(),
+    };
+    let strategy = if inspection.relationship.kind == "diverged" && !commit_hashes.is_empty() {
+        "replayLocalCommitsOntoRemoteLatest"
+    } else {
+        "none"
+    };
+
+    Ok(GitRemoteReplayPlan {
+        strategy: strategy.to_string(),
+        commit_hashes,
+        relationship: inspection.relationship,
+    })
 }
 
 #[tauri::command]

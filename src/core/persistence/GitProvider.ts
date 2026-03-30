@@ -1,3 +1,8 @@
+import type {
+    GitRemoteRelationship,
+    GitRemoteReplayStrategy,
+} from "@/core/persistence/gitRemoteRelationship.ts";
+
 export type CommitOperation = "baseline" | "save";
 
 export type VersionEntry = {
@@ -24,6 +29,50 @@ export type BranchInfo = {
 };
 
 export type PreferredBranch = "main" | "master";
+
+export type GitRemoteHeads = {
+    localHead: string | null;
+    remoteHead: string | null;
+    mergeBase: string | null;
+};
+
+export type GitRemoteInspection = GitRemoteHeads & {
+    relationship: GitRemoteRelationship;
+};
+
+export type GitRemoteAuth = {
+    username: string;
+    token: string;
+};
+
+export type GitRemoteReplayPlan = {
+    strategy: GitRemoteReplayStrategy;
+    commitHashes: string[];
+    relationship: GitRemoteRelationship;
+};
+
+export const GIT_REMOTE_PUBLISH_OUTCOME_VALUES = [
+    "published",
+    "remoteAdvanced",
+    "offline",
+    "authFailed",
+] as const;
+
+export type GitRemotePublishOutcome =
+    (typeof GIT_REMOTE_PUBLISH_OUTCOME_VALUES)[number];
+
+export const [
+    GIT_REMOTE_PUBLISH_PUBLISHED,
+    GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
+    GIT_REMOTE_PUBLISH_OFFLINE,
+    GIT_REMOTE_PUBLISH_AUTH_FAILED,
+] = GIT_REMOTE_PUBLISH_OUTCOME_VALUES;
+
+export type GitRemotePublishResult = {
+    outcome: GitRemotePublishOutcome;
+    localHead: string | null;
+    remoteHead: string | null;
+};
 
 /**
  * Platform-neutral git contract used by save/history/version flows for editable
@@ -56,5 +105,29 @@ export interface GitProvider {
         request: CommitRequest,
         author: { name: string; email: string },
     ): Promise<{ hash: string }>;
+    inspectRemoteHeads(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection>;
+    fetchRemoteHeads(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteInspection>;
+    pushCurrentBranch(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemotePublishResult>;
+    planReplayOntoRemote(args: {
+        projectPath: string;
+        remoteName: string;
+        branch: string;
+        auth: GitRemoteAuth;
+    }): Promise<GitRemoteReplayPlan>;
     isRepoHealthy(projectPath: string): Promise<boolean>;
 }
