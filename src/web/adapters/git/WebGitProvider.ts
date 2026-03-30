@@ -815,6 +815,12 @@ export class WebGitProvider implements GitProvider {
             inspection.relationship,
             commitHashes.length,
         );
+        console.debug("[WebGitProvider] Planned replay onto remote latest.", {
+            projectPath: args.projectPath,
+            relationship: inspection.relationship.kind,
+            commitHashCount: commitHashes.length,
+            strategy: decision.strategy,
+        });
 
         return {
             strategy: decision.strategy,
@@ -854,6 +860,16 @@ export class WebGitProvider implements GitProvider {
                 oid: commitHash,
             });
         }
+
+        console.debug(
+            "[WebGitProvider] Replayed local commits onto remote latest.",
+            {
+                projectPath: args.projectPath,
+                branch: args.branch,
+                remoteHead: args.remoteHead,
+                replayedCommitHashes: [...args.commitHashes],
+            },
+        );
 
         return {
             head: await this.tryResolveRef(fs, dir, "HEAD"),

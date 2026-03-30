@@ -46,3 +46,21 @@ When building new USFM actions (formatting, matching, lint autofix, etc), do **n
 ## Rule of thumb
 If a new feature needs flat tokens, plug into the current conversion boundary and core pass.  
 Prefer improving one shared adapter over creating another parallel adapter.
+
+# Cloud Publishing And Reconciliation
+## State ownership split
+- Cloud session is app-local and install-global.
+- Per-project cloud status is app-local and keyed by project path.
+- Export/share/import portability only strips project artifacts, not app-local cloud state, because session and mutable cloud status never live inside the project tree.
+
+## Portable project boundary
+- Use `src/core/persistence/portableProjectSanitization.ts` as the single rule for what should be stripped when a project crosses export/share/import boundaries.
+- Today that means Git internals such as `.git`.
+- Do not scatter new `.git` or portability checks across import/export adapters; extend the shared helper instead.
+
+## Cloud orchestration logging
+- The useful debug boundaries are:
+  - open-time remote classification in `gitRemoteOpenStatus.ts`
+  - save-time publish outcome in `gitRemotePublishCoordinator.ts`
+  - replay planning/application in the Git provider adapters
+- If a future cloud bug is hard to diagnose, add logs at those orchestration seams before adding UI-level logging.

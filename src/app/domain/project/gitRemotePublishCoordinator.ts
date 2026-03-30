@@ -89,6 +89,13 @@ export async function publishLinkedProjectAfterSave(args: {
     const now = args.now?.() ?? new Date().toISOString();
 
     if (!args.settingsManager.get("autoPushOnSave")) {
+        console.debug(
+            "[gitRemotePublishCoordinator] Local save left project pending publish because auto-push-on-save is disabled.",
+            {
+                projectPath: args.projectPath,
+                localHead: args.localHead,
+            },
+        );
         await writeStatus({
             fileSystem: args.fileSystem,
             storageRoots: args.storageRoots,
@@ -107,6 +114,15 @@ export async function publishLinkedProjectAfterSave(args: {
 
     const session = await args.authSessionProvider.getCurrentSession();
     if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
+        console.debug(
+            "[gitRemotePublishCoordinator] Local save requires cloud reauth before publish.",
+            {
+                projectPath: args.projectPath,
+                linkedHost: remoteInfo.hostBaseUrl,
+                sessionHost: session?.hostBaseUrl ?? null,
+                localHead: args.localHead,
+            },
+        );
         await writeStatus({
             fileSystem: args.fileSystem,
             storageRoots: args.storageRoots,
@@ -132,6 +148,17 @@ export async function publishLinkedProjectAfterSave(args: {
 
     switch (publishResult.outcome) {
         case GIT_REMOTE_PUBLISH_PUBLISHED:
+            console.debug(
+                "[gitRemotePublishCoordinator] Published local save to remote.",
+                {
+                    projectPath: args.projectPath,
+                    localHead: publishResult.localHead ?? args.localHead,
+                    remoteHead:
+                        publishResult.remoteHead ??
+                        publishResult.localHead ??
+                        args.localHead,
+                },
+            );
             await writeStatus({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
@@ -149,6 +176,14 @@ export async function publishLinkedProjectAfterSave(args: {
             });
             return { kind: PUBLISH_AFTER_SAVE_PUBLISHED };
         case GIT_REMOTE_PUBLISH_OFFLINE:
+            console.debug(
+                "[gitRemotePublishCoordinator] Publish deferred because remote is offline or unreachable.",
+                {
+                    projectPath: args.projectPath,
+                    localHead: publishResult.localHead ?? args.localHead,
+                    remoteHead: publishResult.remoteHead,
+                },
+            );
             await writeStatus({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
@@ -165,6 +200,14 @@ export async function publishLinkedProjectAfterSave(args: {
                 reason: PUBLISH_AFTER_SAVE_PENDING_OFFLINE,
             };
         case GIT_REMOTE_PUBLISH_REMOTE_ADVANCED:
+            console.debug(
+                "[gitRemotePublishCoordinator] Publish requires review because remote advanced.",
+                {
+                    projectPath: args.projectPath,
+                    localHead: publishResult.localHead ?? args.localHead,
+                    remoteHead: publishResult.remoteHead,
+                },
+            );
             await writeStatus({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
@@ -178,6 +221,14 @@ export async function publishLinkedProjectAfterSave(args: {
             });
             return { kind: PUBLISH_AFTER_SAVE_NEEDS_REVIEW };
         case GIT_REMOTE_PUBLISH_AUTH_FAILED:
+            console.debug(
+                "[gitRemotePublishCoordinator] Publish failed because the cloud session is no longer valid.",
+                {
+                    projectPath: args.projectPath,
+                    localHead: publishResult.localHead ?? args.localHead,
+                    remoteHead: publishResult.remoteHead,
+                },
+            );
             await writeStatus({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,

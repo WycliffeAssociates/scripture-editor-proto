@@ -99,6 +99,11 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
     const session = await args.authSessionProvider.getCurrentSession();
 
     if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
+        console.debug("[gitRemoteOpenStatus] Remote status requires reauth.", {
+            projectPath: args.projectPath,
+            linkedHost: remoteInfo.hostBaseUrl,
+            sessionHost: session?.hostBaseUrl ?? null,
+        });
         const status = buildStatus({
             existingStatus,
             kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
@@ -112,6 +117,13 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
     }
 
     if (!args.forceSync && !args.settingsManager.get("autoSyncOnOpen")) {
+        console.debug(
+            "[gitRemoteOpenStatus] Skipping remote inspection because auto-sync-on-open is disabled.",
+            {
+                projectPath: args.projectPath,
+                statusKind: existingStatus.kind,
+            },
+        );
         const status =
             existingStatus.lastCheckedAt ||
             existingStatus.kind !== GIT_REMOTE_PROJECT_STATUS_CONNECTED
@@ -143,6 +155,14 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         const kind = isGitAuthLikeError(error)
             ? GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED
             : GIT_REMOTE_PROJECT_STATUS_OFFLINE;
+        console.debug(
+            "[gitRemoteOpenStatus] Remote inspection failed during open hydration.",
+            {
+                projectPath: args.projectPath,
+                statusKind: kind,
+                error: error instanceof Error ? error.message : String(error),
+            },
+        );
         const status = buildStatus({
             existingStatus,
             kind,
@@ -162,6 +182,13 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         existingStatus,
         inspection,
         checkedAt,
+    });
+    console.debug("[gitRemoteOpenStatus] Classified remote status on open.", {
+        projectPath: args.projectPath,
+        relationship: inspection.relationship.kind,
+        localHead: inspection.localHead,
+        remoteHead: inspection.remoteHead,
+        statusKind: status.kind,
     });
     await persistStatus(args.fileSystem, args.storageRoots, status);
     return {
