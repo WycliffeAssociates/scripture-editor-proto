@@ -2,6 +2,7 @@ import { useLoaderData, useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { createContext, useEffect, useRef } from "react";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import { hydrateGitRemoteStatusOnOpen } from "@/app/domain/project/gitRemoteOpenStatus.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -115,6 +116,7 @@ export const ProjectProvider = ({
         projectsService,
         libraryService,
         fileSystem,
+        authSessionProvider,
         storageRoots,
         usfmOnionService,
         gitProvider,
@@ -206,6 +208,29 @@ export const ProjectProvider = ({
 
     // Keep lint state in sync after history replay (undo/redo), including
     // entries that touch chapters outside the currently visible editor.
+    useEffect(() => {
+        void hydrateGitRemoteStatusOnOpen({
+            projectPath: loadedProject.projectPath,
+            fileSystem,
+            storageRoots,
+            settingsManager,
+            authSessionProvider,
+            gitProvider,
+        }).catch((error) => {
+            console.error(
+                "Failed to hydrate remote project status on open",
+                error,
+            );
+        });
+    }, [
+        authSessionProvider,
+        fileSystem,
+        gitProvider,
+        loadedProject.projectPath,
+        settingsManager,
+        storageRoots,
+    ]);
+
     useEffect(() => {
         return history.registerPostUndoRedoAction((event) => {
             void (async () => {
