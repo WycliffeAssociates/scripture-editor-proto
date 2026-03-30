@@ -13,6 +13,7 @@ import {
     joinStoragePath,
     stripFileExtension,
 } from "@/core/persistence/pathUtils.ts";
+import { shouldStripPortableProjectPath } from "@/core/persistence/portableProjectSanitization.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 type ExtractionResult = {
@@ -36,10 +37,6 @@ export class ZipImportPipeline {
         public readonly fileSystem: FileSystem,
         private readonly roots: StorageRoots,
     ) {}
-
-    private isGitMetadataPath(path: string): boolean {
-        return path.split("/").filter(Boolean).includes(".git");
-    }
 
     async importFromZipData(args: {
         archiveName: string;
@@ -111,7 +108,7 @@ export class ZipImportPipeline {
 
         const zipEntries = Object.keys(loadedZip).filter(
             (fileName) =>
-                !this.isGitMetadataPath(fileName) &&
+                !shouldStripPortableProjectPath(fileName) &&
                 !(
                     fileName.endsWith("/") &&
                     fileName.split("/").filter(Boolean).length === 0
@@ -131,7 +128,7 @@ export class ZipImportPipeline {
         let extractedEntries = 0;
 
         for (const fileName of Object.keys(loadedZip)) {
-            if (this.isGitMetadataPath(fileName)) {
+            if (shouldStripPortableProjectPath(fileName)) {
                 continue;
             }
 

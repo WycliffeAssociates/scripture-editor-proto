@@ -5,6 +5,7 @@ import {
     basenameStoragePath,
     joinStoragePath,
 } from "@/core/persistence/pathUtils.ts";
+import { shouldStripPortableProjectPath } from "@/core/persistence/portableProjectSanitization.ts";
 
 /**
  * Browser adapter for "export this managed tree" actions.
@@ -65,7 +66,7 @@ async function collectFiles(
      */
     const files: { fullPath: string; data: Uint8Array }[] = [];
     for (const entry of await fileSystem.list(directoryPath)) {
-        if (entry.name === ".git") {
+        if (shouldStripPortableProjectPath(entry.name)) {
             continue;
         }
         const fullPath = relPath ? `${relPath}/${entry.name}` : entry.name;

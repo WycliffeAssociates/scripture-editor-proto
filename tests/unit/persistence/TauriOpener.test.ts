@@ -45,6 +45,7 @@ describe("TauriOpener", () => {
         const fileSystem = new InMemoryFileSystem({
             "/userData/projects/reg/manifest.yaml": "projects: []",
             "/userData/projects/reg/content/usfm.txt": "hello",
+            "/userData/projects/reg/.git/config": "[core]",
         });
         const opener = new TauriOpener(fileSystem);
 
@@ -60,6 +61,7 @@ describe("TauriOpener", () => {
         expect(zipInput?.["/reg/content/usfm.txt"]).toBeInstanceOf(
             Uint8Array,
         );
+        expect(Object.keys(zipInput ?? {})).not.toContain("/reg/.git/config");
         expect(mocks.saveMock).toHaveBeenCalledWith({
             defaultPath: "reg.zip",
             filters: [{ name: "Zip", extensions: ["zip"] }],

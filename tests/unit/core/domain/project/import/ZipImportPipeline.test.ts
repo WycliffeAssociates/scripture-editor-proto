@@ -122,4 +122,42 @@ describe("ZipImportPipeline", () => {
             { recursive: false },
         );
     });
+
+    it("strips git metadata when importing a zip archive", async () => {
+        unzipMock.mockImplementation(
+            (
+                _data: Uint8Array,
+                _opts: unknown,
+                cb: (err: unknown, result?: Record<string, Uint8Array>) => void,
+            ) => {
+                cb(null, {
+                    "project/manifest.yaml": new TextEncoder().encode(
+                        "dublin_core: {}",
+                    ),
+                    "project/.git/config": new TextEncoder().encode("[core]"),
+                    "project/content/usfm.txt": new TextEncoder().encode(
+                        "hello",
+                    ),
+                });
+            },
+        );
+
+        const pipeline = new ZipImportPipeline(fileSystem, roots);
+
+        const result = await pipeline.importFromZipData({
+            archiveName: "project.zip",
+            data: new Uint8Array([1, 2, 3]),
+        });
+
+        expect(result).toBe("/userData/projects/project");
+        await expect(
+            fileSystem.exists("/userData/projects/project/.git/config"),
+        ).resolves.toBe(false);
+        await expect(
+            fileSystem.readText("/userData/projects/project/manifest.yaml"),
+        ).resolves.toBe("dublin_core: {}");
+        await expect(
+            fileSystem.readText("/userData/projects/project/content/usfm.txt"),
+        ).resolves.toBe("hello");
+    });
 });

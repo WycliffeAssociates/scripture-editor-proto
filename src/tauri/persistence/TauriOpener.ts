@@ -6,6 +6,7 @@ import { zipSync } from "fflate";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { IOpener } from "@/core/persistence/IOpener.ts";
 import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
+import { shouldStripPortableProjectPath } from "@/core/persistence/portableProjectSanitization.ts";
 
 /**
  * Desktop adapter for "show this on disk" and "export this tree" actions.
@@ -64,7 +65,7 @@ async function collectFiles(
      */
     const files: { fullPath: string; data: Uint8Array }[] = [];
     for (const entry of await fileSystem.list(directoryPath)) {
-        if (entry.name === ".git") {
+        if (shouldStripPortableProjectPath(entry.name)) {
             continue;
         }
 

@@ -9,6 +9,7 @@ import {
     basenameStoragePath,
     joinStoragePath,
 } from "@/core/persistence/pathUtils.ts";
+import { shouldStripPortableProjectPath } from "@/core/persistence/portableProjectSanitization.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 /**
@@ -91,7 +92,7 @@ export class ProjectDirectoryImporter implements Importer {
         // Import intentionally strips VCS internals. Managed storage is for app
         // content, not for mirroring arbitrary repository internals.
         for (const entry of await this.fileSystem.list(sourceDirPath)) {
-            if (entry.name === ".git") {
+            if (shouldStripPortableProjectPath(entry.name)) {
                 continue;
             }
 
@@ -142,7 +143,7 @@ export class ProjectDirectoryImporter implements Importer {
         // the UI reflects the work users actually wait on.
         let total = 0;
         for (const entry of await this.fileSystem.list(sourceDirPath)) {
-            if (entry.name === ".git") {
+            if (shouldStripPortableProjectPath(entry.name)) {
                 continue;
             }
 

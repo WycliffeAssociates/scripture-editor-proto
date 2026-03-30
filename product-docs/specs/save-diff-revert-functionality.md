@@ -20,6 +20,8 @@
   - List view (SID-block entries)
   - Chapter view (full chapter original/current panes with changed hunk overlays)
 - Saves changed content back to project files on disk.
+- Reuses the same review surface for incoming cloud changes when a linked project needs explicit reconciliation.
+- Keeps local save authoritative: linked projects save locally first, then optionally publish to cloud as follow-on behavior.
 
 ## How to access it in the app
 - In a project toolbar, click `Review & Save` (or save icon on smaller screens).
@@ -47,6 +49,17 @@
 6. Revert specific blocks, revert the selected chapter, or revert all changes.
 7. Save all changes to persist to disk.
 
+## Linked cloud project behavior
+- `Review & Save` still means local save first.
+- If the project is cloud-linked and auto-publish is enabled, publish happens after the local save completes.
+- If publish cannot complete:
+  - offline or transient failure -> project status becomes `Changes not yet published`
+  - remote advanced or diverged -> project status becomes `Needs review`
+- Explicit `Sync` or banner/status entry can reopen the same review modal with:
+  - current local working state on the left
+  - incoming cloud changes on the right
+- The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
+
 ## Current limits and non-goals
 - Saving writes changed books as full USFM book content assembled from chapter state.
 - No background autosave; explicit save is required.
@@ -55,14 +68,18 @@
 - `Hide whitespace-only diffs` only filters what is shown in the modal.
 - Revert operations are token-stream based by block/chapter, not character-level patching.
 - Diff granularity is SID block based (not character-level persistence units).
+- For v1 cloud reconciliation, USFM content is the primary explicit review target. Derived metadata is regenerated later rather than reviewed as a primary user-edit surface.
 
 ## Key modules (for agents)
 - `src/app/ui/hooks/useSave.tsx`
+- `src/app/ui/hooks/save/useExternalCompare.ts`
 - `src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx`
 - `src/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts`
 - `src/app/domain/project/saveAndRevertService.ts`
+- `src/app/domain/project/gitRemotePublishCoordinator.ts`
+- `src/app/domain/project/compare/compareSourceLoader.ts`
 - `src/core/domain/usfm/chapterDiffOperation.ts`
 - `src/core/domain/usfm/sidBlockDiff.ts`
 - `src/core/domain/usfm/sidBlockRevert.ts`

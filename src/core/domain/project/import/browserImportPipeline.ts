@@ -31,6 +31,7 @@ import {
     joinStoragePath,
     normalizeStoragePath,
 } from "@/core/persistence/pathUtils.ts";
+import { shouldStripPortableProjectPath } from "@/core/persistence/portableProjectSanitization.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 
@@ -105,14 +106,6 @@ async function resolveUploadedProjectDirectory(args: {
     return candidatePath;
 }
 
-function isGitPath(relativePath: string): boolean {
-    return (
-        relativePath === ".git" ||
-        relativePath.startsWith(".git/") ||
-        relativePath.includes("/.git/")
-    );
-}
-
 function collectUploadedDirectoryEntries(
     files: FileList,
 ): UploadedDirectoryEntry[] {
@@ -126,7 +119,7 @@ function collectUploadedDirectoryEntries(
             .split("/")
             .slice(1)
             .join("/");
-        if (!relativePath || isGitPath(relativePath)) {
+        if (!relativePath || shouldStripPortableProjectPath(relativePath)) {
             continue;
         }
 
