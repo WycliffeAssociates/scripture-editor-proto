@@ -62,6 +62,10 @@ type WebGitRuntime = {
     };
 };
 
+type WebGitProviderOptions = {
+    requestedWithHeaderValue?: string | null;
+};
+
 function normalizeDir(path: string): string {
     return path.startsWith("/") ? path : `/${path}`;
 }
@@ -188,11 +192,25 @@ export class WebGitProvider implements GitProvider {
         Promise<{ hash: string }>
     >();
 
-    constructor(private readonly runtime: WebGitRuntime = new OpfsGitFs()) {}
+    constructor(
+        private readonly runtime: WebGitRuntime = new OpfsGitFs(),
+        private readonly options: WebGitProviderOptions = {},
+    ) {}
 
     private async getFs() {
         await this.runtime.ensureReady();
         return this.runtime.fs;
+    }
+
+    private buildGitTransportHeaders(): Record<string, string> | undefined {
+        const requestedWithHeaderValue =
+            this.options.requestedWithHeaderValue?.trim();
+        if (!requestedWithHeaderValue) {
+            return undefined;
+        }
+        return {
+            "X-Requested-With": requestedWithHeaderValue,
+        };
     }
 
     private async fileExists(path: string): Promise<boolean> {
@@ -668,6 +686,7 @@ export class WebGitProvider implements GitProvider {
             http,
             dir,
             url: args.remoteUrl,
+            headers: this.buildGitTransportHeaders(),
             singleBranch: args.branch != null,
             ref: args.branch,
             depth: 1,
@@ -728,6 +747,7 @@ export class WebGitProvider implements GitProvider {
             fs,
             http,
             dir,
+            headers: this.buildGitTransportHeaders(),
             remote: args.remoteName,
             ref: args.branch,
             remoteRef: args.branch,
@@ -752,10 +772,16 @@ export class WebGitProvider implements GitProvider {
         const localHead = await this.tryResolveRef(fs, dir, "HEAD");
 
         try {
+            // Browser Git smart-HTTP commonly gets an initial 401 challenge on
+            // `info/refs?service=git-receive-pack`. `isomorphic-git` then calls
+            // `onAuth`, retries with credentials, and the push continues. That
+            // first 401 is expected so long as the subsequent authenticated
+            // discovery/request succeeds and the final push completes.
             await git.push({
                 fs,
                 http,
                 dir,
+                headers: this.buildGitTransportHeaders(),
                 remote: args.remoteName,
                 ref: args.branch,
                 remoteRef: args.branch,

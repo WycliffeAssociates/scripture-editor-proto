@@ -93,17 +93,15 @@ function createAuthSessionProvider(): AuthSessionProvider {
         }),
         loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),
+        logoutCurrentSession: vi.fn().mockResolvedValue(undefined),
         clearSession: vi.fn(),
-        getPendingRevocation: vi.fn(),
-        queueTokenRevocation: vi.fn(),
-        recordRevocationFailure: vi.fn(),
-        clearPendingRevocation: vi.fn(),
     };
 }
 
 function createRemoteRepoProvider(): RemoteRepoProvider {
     return {
         listWritableRepos: vi.fn(),
+        listOwnedRepos: vi.fn(),
         createRepo: vi.fn(),
     };
 }
@@ -449,9 +447,7 @@ describe("DefaultProjectsService", () => {
     test("deleteProject removes disk contents and indexed rows through one service call", async () => {
         const removeSpy = vi.spyOn(fileSystem, "remove");
 
-        await projectsService.deleteProject("/userData/projects/reg", {
-            recursive: true,
-        });
+        await projectsService.deleteProject("/userData/projects/reg");
 
         expect(removeSpy).toHaveBeenCalledWith("/userData/projects/reg", {
             recursive: true,
@@ -459,6 +455,18 @@ describe("DefaultProjectsService", () => {
         expect(projectIndex.deleteProject).toHaveBeenCalledWith(
             "/userData/projects/reg",
         );
+    });
+
+    test("deleteProject still accepts an explicit recursive option", async () => {
+        const removeSpy = vi.spyOn(fileSystem, "remove");
+
+        await projectsService.deleteProject("/userData/projects/reg", {
+            recursive: true,
+        });
+
+        expect(removeSpy).toHaveBeenCalledWith("/userData/projects/reg", {
+            recursive: true,
+        });
     });
 
     test("renameDisplayName updates the indexed project row through the service", async () => {

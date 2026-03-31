@@ -22,17 +22,15 @@ function createAuthSessionProvider(
         getCurrentSession: vi.fn().mockResolvedValue(session),
         loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),
+        logoutCurrentSession: vi.fn().mockResolvedValue(undefined),
         clearSession: vi.fn(),
-        getPendingRevocation: vi.fn(),
-        queueTokenRevocation: vi.fn(),
-        recordRevocationFailure: vi.fn(),
-        clearPendingRevocation: vi.fn(),
     };
 }
 
 function createRemoteRepoProvider(): RemoteRepoProvider {
     return {
         listWritableRepos: vi.fn(),
+        listOwnedRepos: vi.fn(),
         createRepo: vi.fn(),
     };
 }
@@ -69,6 +67,41 @@ describe("GitRemoteProjectService", () => {
             token: "token",
             page: 2,
             pageSize: 25,
+            topic: "consolidated",
+        });
+    });
+
+    it("passes owned-only listing through to the remote repo provider", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const remoteRepoProvider = createRemoteRepoProvider();
+        vi.mocked(remoteRepoProvider.listOwnedRepos).mockResolvedValue({
+            repos: [],
+            nextPage: null,
+        });
+        const service = new GitRemoteProjectService(
+            fileSystem,
+            storageRoots,
+            createAuthSessionProvider({
+                hostBaseUrl: "https://gitea.example.org",
+                username: "alice",
+                token: "token",
+                tokenId: "1",
+                tokenName: "dovetail-web",
+            }),
+            remoteRepoProvider,
+        );
+
+        await service.listOwnedRepos({
+            page: 3,
+            pageSize: 10,
+        });
+
+        expect(remoteRepoProvider.listOwnedRepos).toHaveBeenCalledWith({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "token",
+            page: 3,
+            pageSize: 10,
             topic: "consolidated",
         });
     });

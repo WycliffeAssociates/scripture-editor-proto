@@ -11,7 +11,10 @@ import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
-import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
+import {
+    normalizeGiteaHostBaseUrl,
+    normalizeOptionalHeaderValue,
+} from "@/core/persistence/giteaConfig.ts";
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
@@ -39,13 +42,18 @@ const platform: PlatformAndWeb = "web";
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
     import.meta.env.VITE_GITEA_HOST,
 );
+const gitProxyRequestedWithHeaderValue = normalizeOptionalHeaderValue(
+    import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH,
+);
 const storageRoots = new OpfsStorageRoots();
 const fileSystem = new OpfsFileSystem(storageRoots);
 const authSessionProvider = new FsBackedAuthSessionProvider(
     fileSystem,
     storageRoots,
 );
-const gitProvider = new WebGitProvider(new OpfsGitFs());
+const gitProvider = new WebGitProvider(new OpfsGitFs(), {
+    requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
+});
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const opener = new WebOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(

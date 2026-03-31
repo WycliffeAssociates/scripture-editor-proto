@@ -66,6 +66,7 @@ describe("TauriImportService", () => {
             openResource: vi.fn(),
             importProject: vi.fn().mockResolvedValue(importedResult),
             listWritableRemoteRepos: vi.fn(),
+            listOwnedRemoteRepos: vi.fn(),
             createRemoteForProject: vi.fn(),
             attachProjectToRemote: vi.fn(),
             cloneWritableRemoteProject: vi.fn(),

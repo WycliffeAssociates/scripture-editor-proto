@@ -34,6 +34,14 @@ export interface RemoteRepoProvider {
         pageSize: number;
         topic?: string;
     }): Promise<RemoteRepoPage>;
+    listOwnedRepos(args: {
+        hostBaseUrl: string;
+        username: string;
+        token: string;
+        page: number;
+        pageSize: number;
+        topic?: string;
+    }): Promise<RemoteRepoPage>;
     createRepo(args: {
         hostBaseUrl: string;
         username: string;

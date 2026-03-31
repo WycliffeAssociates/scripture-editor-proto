@@ -28,6 +28,10 @@ const GiteaRepoPermissionsSchema = v.object({
     write: v.optional(v.boolean()),
 });
 
+const GiteaCurrentUserSchema = v.object({
+    id: v.union([v.number(), v.string()]),
+});
+
 const GiteaRepoRecordSchema = v.object({
     id: v.optional(v.union([v.number(), v.string()])),
     name: v.optional(v.string()),
@@ -51,6 +55,7 @@ const GiteaSearchPayloadSchema = v.union([
 
 type GiteaRepoRecord = v.InferOutput<typeof GiteaRepoRecordSchema>;
 type GiteaSearchResponse = v.InferOutput<typeof GiteaSearchResponseSchema>;
+type GiteaCurrentUser = v.InferOutput<typeof GiteaCurrentUserSchema>;
 
 export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
     constructor(private readonly fetchImpl: FetchLike = getDefaultFetch()) {}
@@ -63,38 +68,43 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         pageSize: number;
         topic?: string;
     }): Promise<RemoteRepoPage> {
-        const url = new URL("/api/v1/repos/search", args.hostBaseUrl);
-        url.searchParams.set("page", String(args.page));
-        url.searchParams.set("limit", String(args.pageSize));
-        url.searchParams.set("private", "true");
-        if (args.topic) {
-            url.searchParams.set("q", args.topic);
-            url.searchParams.set("topic", "true");
-        }
-
-        const response = await this.fetchImpl(url, {
-            method: "GET",
-            headers: buildAuthHeaders(args.token),
+        return await this.listRepoPage({
+            hostBaseUrl: args.hostBaseUrl,
+            token: args.token,
+            page: args.page,
+            pageSize: args.pageSize,
+            topic: args.topic,
+            username: args.username,
+            fallbackMessage: "Failed to list writable repositories",
+            query: {},
+            map: (repo) => mapRepoSummary(repo, args.username),
+            filter: (repo) => mapRepoSummary(repo, args.username).canWrite,
         });
-        await throwIfNotOk(response, "Failed to list writable repositories");
+    }
 
-        const payload = parseGiteaSearchPayload(await response.json());
-        const repoRecords = extractRepoRecords(payload);
-        const repos = repoRecords
-            .map((repo) => mapRepoSummary(repo, args.username))
-            .filter((repo) => repo.canWrite);
-
-        return {
-            repos,
-            nextPage: hasNextPage(
-                response,
-                args.page,
-                args.pageSize,
-                repoRecords.length,
-            )
-                ? args.page + 1
-                : null,
-        };
+    async listOwnedRepos(args: {
+        hostBaseUrl: string;
+        username: string;
+        token: string;
+        page: number;
+        pageSize: number;
+        topic?: string;
+    }): Promise<RemoteRepoPage> {
+        const userId = await this.resolveCurrentUserId(args);
+        return await this.listRepoPage({
+            hostBaseUrl: args.hostBaseUrl,
+            token: args.token,
+            page: args.page,
+            pageSize: args.pageSize,
+            topic: args.topic,
+            username: args.username,
+            fallbackMessage: "Failed to list owned repositories",
+            query: {
+                exclusive: "true",
+                uid: userId,
+            },
+            map: (repo) => mapRepoSummary(repo, args.username),
+        });
     }
 
     async createRepo(args: {
@@ -124,6 +134,68 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         const repo = parseGiteaRepoRecord(await response.json());
         return mapRepoSummary(repo, args.username);
     }
+
+    private async listRepoPage(args: {
+        hostBaseUrl: string;
+        token: string;
+        username: string;
+        page: number;
+        pageSize: number;
+        topic?: string;
+        query?: Record<string, string>;
+        fallbackMessage: string;
+        map: (repo: GiteaRepoRecord) => RemoteRepoSummary;
+        filter?: (repo: GiteaRepoRecord) => boolean;
+    }): Promise<RemoteRepoPage> {
+        const response = await this.fetchImpl(
+            buildRepoSearchUrl(args.hostBaseUrl, {
+                page: args.page,
+                pageSize: args.pageSize,
+                topic: args.topic,
+                query: args.query,
+            }),
+            {
+                method: "GET",
+                headers: buildAuthHeaders(args.token),
+            },
+        );
+        await throwIfNotOk(response, args.fallbackMessage);
+
+        const payload = parseGiteaSearchPayload(await response.json());
+        const repoRecords = extractRepoRecords(payload);
+        const filteredRecords = repoRecords.filter(
+            args.filter ?? ((repo) => isWritableRepo(repo, args.username)),
+        );
+        const repos = filteredRecords.map(args.map);
+
+        return {
+            repos,
+            nextPage: hasNextPage(
+                response,
+                args.page,
+                args.pageSize,
+                repoRecords.length,
+            )
+                ? args.page + 1
+                : null,
+        };
+    }
+
+    private async resolveCurrentUserId(args: {
+        hostBaseUrl: string;
+        token: string;
+    }): Promise<string> {
+        const response = await this.fetchImpl(
+            new URL("/api/v1/user", args.hostBaseUrl),
+            {
+                method: "GET",
+                headers: buildAuthHeaders(args.token),
+            },
+        );
+        await throwIfNotOk(response, "Failed to resolve the current user");
+        const currentUser = parseGiteaCurrentUser(await response.json());
+        return String(currentUser.id);
+    }
 }
 
 function getDefaultFetch(): FetchLike {
@@ -140,6 +212,10 @@ function parseGiteaRepoRecord(payload: unknown): GiteaRepoRecord {
     return v.parse(GiteaRepoRecordSchema, payload);
 }
 
+function parseGiteaCurrentUser(payload: unknown): GiteaCurrentUser {
+    return v.parse(GiteaCurrentUserSchema, payload);
+}
+
 function extractRepoRecords(
     payload: GiteaSearchResponse | GiteaRepoRecord[],
 ): GiteaRepoRecord[] {
@@ -147,6 +223,29 @@ function extractRepoRecords(
         return payload;
     }
     return payload.data ?? [];
+}
+
+function buildRepoSearchUrl(
+    hostBaseUrl: string,
+    args: {
+        page: number;
+        pageSize: number;
+        topic?: string;
+        query?: Record<string, string>;
+    },
+): URL {
+    const url = new URL("/api/v1/repos/search", hostBaseUrl);
+    url.searchParams.set("page", String(args.page));
+    url.searchParams.set("limit", String(args.pageSize));
+    url.searchParams.set("private", "true");
+    if (args.topic) {
+        url.searchParams.set("q", args.topic);
+        url.searchParams.set("topic", "true");
+    }
+    for (const [key, value] of Object.entries(args.query ?? {})) {
+        url.searchParams.set(key, value);
+    }
+    return url;
 }
 
 function mapRepoSummary(
@@ -173,9 +272,18 @@ function mapRepoSummary(
     };
 }
 
+function isWritableRepo(repo: GiteaRepoRecord, username: string): boolean {
+    return (
+        repo.permissions?.admin === true ||
+        repo.permissions?.push === true ||
+        repo.permissions?.write === true ||
+        (repo.owner?.username || repo.owner?.login || username) === username
+    );
+}
+
 function buildAuthHeaders(token: string): HeadersInit {
     return {
-        Authorization: `Bearer ${token}`,
+        Authorization: `token ${token}`,
         Accept: "application/json",
     };
 }

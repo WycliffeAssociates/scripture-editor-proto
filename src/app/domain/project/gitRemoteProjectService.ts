@@ -46,6 +46,22 @@ export class GitRemoteProjectService {
         });
     }
 
+    async listOwnedRepos(args: {
+        page: number;
+        pageSize: number;
+        topic?: string;
+    }) {
+        const session = await this.requireSession();
+        return this.remoteRepoProvider.listOwnedRepos({
+            hostBaseUrl: session.hostBaseUrl,
+            username: session.username,
+            token: session.token,
+            page: args.page,
+            pageSize: args.pageSize,
+            topic: args.topic ?? GIT_REMOTE_DEFAULT_TOPIC,
+        });
+    }
+
     async createRemoteForProject(
         project: Pick<
             Project,

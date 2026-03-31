@@ -54,6 +54,50 @@ export const inlineActions = style({
     justifyContent: "flex-end",
 });
 
+export const controls = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+});
+
+export const ownedOnlyControl = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    borderRadius: vars.radius.lg,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 600,
+    color: vars.colors.gray[7],
+    userSelect: "none",
+    selectors: {
+        [`${darkSelector} &`]: {
+            backgroundColor: vars.colors.gray[9],
+            borderColor: vars.colors.gray[7],
+        },
+        "&:hover": {
+            color: vars.colors.primary[8],
+            borderColor: vars.colors.primary[3],
+        },
+    },
+});
+
+export const ownedOnlyCheckbox = style({
+    margin: 0,
+    width: "1rem",
+    height: "1rem",
+    accentColor: vars.colors.primary[6],
+    cursor: "pointer",
+});
+
+export const ownedOnlyLabel = style({
+    whiteSpace: "nowrap",
+});
+
 export const searchField = style({
     position: "relative",
     minWidth: 0,

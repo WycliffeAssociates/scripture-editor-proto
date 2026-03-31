@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { Cloud, RefreshCw, UserRound } from "lucide-react";
+import { useId } from "react";
 import * as styles from "@/app/ui/styles/modules/newProjectSearch.css.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
@@ -11,6 +12,7 @@ type CloudProjectImporterProps = {
     isImporting: boolean;
     isConnecting: boolean;
     isDisconnecting: boolean;
+    isOwnedOnly: boolean;
     loginUsername: string;
     loginPassword: string;
     loginOtp: string;
@@ -24,6 +26,7 @@ type CloudProjectImporterProps = {
     onRefresh: () => void;
     onDisconnect: () => void;
     onLoadMore: () => void;
+    onOwnedOnlyChange: (value: boolean) => void;
     onCloneRepo: (repo: RemoteRepoSummary) => void;
 };
 
@@ -35,6 +38,8 @@ type CloudProjectImporterProps = {
  * live in the route above.
  */
 export function CloudProjectImporter(props: CloudProjectImporterProps) {
+    const ownedOnlyId = useId();
+
     return (
         <div className={styles.shell}>
             <div className={styles.topBar}>
@@ -62,7 +67,26 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                 </div>
 
                 {props.sessionUsername ? (
-                    <div className={styles.inlineActions}>
+                    <div className={styles.controls}>
+                        <label
+                            className={styles.ownedOnlyControl}
+                            htmlFor={ownedOnlyId}
+                        >
+                            <input
+                                id={ownedOnlyId}
+                                type="checkbox"
+                                checked={props.isOwnedOnly}
+                                onChange={(event) =>
+                                    props.onOwnedOnlyChange(
+                                        event.currentTarget.checked,
+                                    )
+                                }
+                                className={styles.ownedOnlyCheckbox}
+                            />
+                            <span className={styles.ownedOnlyLabel}>
+                                <Trans>Only repos I own</Trans>
+                            </span>
+                        </label>
                         <button
                             type="button"
                             className={styles.topActionButton}
@@ -88,8 +112,8 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                         >
                             <Trans>
                                 {props.isDisconnecting
-                                    ? "Disconnecting..."
-                                    : "Disconnect"}
+                                    ? "Logging out..."
+                                    : "Log out"}
                             </Trans>
                         </button>
                     </div>
@@ -255,6 +279,17 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                                 <td className={styles.td} colSpan={4}>
                                     <div className={styles.emptyState}>
                                         <Trans>Loading cloud projects...</Trans>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : props.isOwnedOnly && props.repos.length === 0 ? (
+                            <tr>
+                                <td className={styles.td} colSpan={4}>
+                                    <div className={styles.emptyState}>
+                                        <Trans>
+                                            No repositories you own are visible
+                                            in this list yet.
+                                        </Trans>
                                     </div>
                                 </td>
                             </tr>

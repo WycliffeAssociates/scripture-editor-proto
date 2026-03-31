@@ -156,7 +156,9 @@ describe("WebGitProvider", () => {
         gitCloneMock.mockResolvedValue(undefined);
         gitResolveRefMock.mockResolvedValue("cloned-head");
 
-        const provider = new WebGitProvider(runtime as never);
+        const provider = new WebGitProvider(runtime as never, {
+            requestedWithHeaderValue: "dovetail-web",
+        });
         await expect(
             provider.cloneRemoteRepo({
                 projectPath: "/userData/projects/p",
@@ -176,6 +178,9 @@ describe("WebGitProvider", () => {
                 ref: "master",
                 singleBranch: true,
                 depth: 1,
+                headers: {
+                    "X-Requested-With": "dovetail-web",
+                },
             }),
         );
     });
@@ -396,7 +401,9 @@ describe("WebGitProvider", () => {
             .mockResolvedValueOnce("remote-head");
         gitFindMergeBaseMock.mockResolvedValue(["base-head"]);
 
-        const provider = new WebGitProvider(runtime as never);
+        const provider = new WebGitProvider(runtime as never, {
+            requestedWithHeaderValue: "dovetail-web",
+        });
         const result = await provider.fetchRemoteHeads({
             projectPath: "/userData/projects/p",
             remoteName: "origin",
@@ -408,6 +415,9 @@ describe("WebGitProvider", () => {
             fs: runtime.fs,
             http: { __http: true },
             dir: "/userData/projects/p",
+            headers: {
+                "X-Requested-With": "dovetail-web",
+            },
             remote: "origin",
             ref: "master",
             remoteRef: "master",
@@ -425,7 +435,9 @@ describe("WebGitProvider", () => {
             new Error("PushRejectedError: non-fast-forward update"),
         );
 
-        const provider = new WebGitProvider(runtime as never);
+        const provider = new WebGitProvider(runtime as never, {
+            requestedWithHeaderValue: "dovetail-web",
+        });
         await expect(
             provider.pushCurrentBranch({
                 projectPath: "/userData/projects/p",
@@ -438,6 +450,13 @@ describe("WebGitProvider", () => {
             localHead: "local-head",
             remoteHead: null,
         });
+        expect(gitPushMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                headers: {
+                    "X-Requested-With": "dovetail-web",
+                },
+            }),
+        );
     });
 
     it("resets the branch to remote latest and replays local commits oldest-first", async () => {

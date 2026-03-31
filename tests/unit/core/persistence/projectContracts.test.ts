@@ -167,6 +167,10 @@ describe("path-based persistence contracts", () => {
                 repos: [],
                 nextPage: null,
             }),
+            listOwnedRemoteRepos: async () => ({
+                repos: [],
+                nextPage: null,
+            }),
             createRemoteForProject: async () => {
                 throw new Error("not implemented in contract test");
             },

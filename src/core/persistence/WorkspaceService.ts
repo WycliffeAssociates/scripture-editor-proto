@@ -60,6 +60,12 @@ export type ListWritableRemoteReposArgs = {
     topic?: string;
 };
 
+export type ListOwnedRemoteReposArgs = {
+    page: number;
+    pageSize: number;
+    topic?: string;
+};
+
 export type CloneWritableRemoteProjectArgs = {
     repo: RemoteRepoSummary;
 };
@@ -88,6 +94,9 @@ export interface WorkspaceService {
     ): Promise<ImportProjectResult>;
     listWritableRemoteRepos(
         args: ListWritableRemoteReposArgs,
+    ): Promise<RemoteRepoPage>;
+    listOwnedRemoteRepos(
+        args: ListOwnedRemoteReposArgs,
     ): Promise<RemoteRepoPage>;
     createRemoteForProject(projectRef: string): Promise<{
         repo: RemoteRepoSummary;

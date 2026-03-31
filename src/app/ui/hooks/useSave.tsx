@@ -73,6 +73,13 @@ export function useSave({
         useRouter().options.context;
     const [, setDirtyVersion] = useState(0);
     const saveCurrentDirtyRef = useRef<(() => void) | null>(null);
+    const refreshUnsavedChaptersRef = useRef<
+        (
+            chapters: Array<{ bookCode: string; chapterNum: number }>,
+        ) => Promise<void>
+    >(async () => {
+        bumpDirtyVersion();
+    });
 
     /**
      * Lightweight invalidation knob for memoized derived save/diff state.
@@ -109,6 +116,9 @@ export function useSave({
         gitProvider,
         versions: versions.state.entries,
         authSessionProvider,
+        bumpDirtyVersion,
+        refreshUnsavedChapters: (chapters) =>
+            refreshUnsavedChaptersRef.current(chapters),
     });
 
     const diff = useDiffModalState({
@@ -119,6 +129,7 @@ export function useSave({
         closeCompare: compare.actions.reset,
         bumpDirtyVersion,
     });
+    refreshUnsavedChaptersRef.current = diff.actions.refreshChapters;
 
     const saveAndRevert = useSaveAndRevert({
         mutWorkingFilesRef,

@@ -158,11 +158,8 @@ function createAuthSessionProvider(): AuthSessionProvider {
         }),
         loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),
+        logoutCurrentSession: vi.fn().mockResolvedValue(undefined),
         clearSession: vi.fn(),
-        getPendingRevocation: vi.fn(),
-        queueTokenRevocation: vi.fn(),
-        recordRevocationFailure: vi.fn(),
-        clearPendingRevocation: vi.fn(),
     };
 }
 

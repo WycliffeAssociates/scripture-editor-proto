@@ -70,7 +70,7 @@ describe("GiteaRemoteRepoProvider", () => {
         expect(init).toMatchObject({
             method: "GET",
             headers: {
-                Authorization: "Bearer secret-token",
+                Authorization: "token secret-token",
                 Accept: "application/json",
             },
         });
@@ -124,6 +124,80 @@ describe("GiteaRemoteRepoProvider", () => {
         expect(page.nextPage).toBeNull();
     });
 
+    it("lists only owned repos by resolving the current user id first", async () => {
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 42,
+                    login: "alice",
+                    username: "alice",
+                }),
+            )
+            .mockResolvedValueOnce(
+                jsonResponse(
+                    {
+                        data: [
+                            {
+                                id: 3,
+                                name: "alice-bible",
+                                full_name: "alice/alice-bible",
+                                html_url:
+                                    "https://gitea.example.org/alice/alice-bible",
+                                clone_url:
+                                    "https://gitea.example.org/alice/alice-bible.git",
+                                default_branch: "master",
+                                topics: ["consolidated"],
+                                owner: { username: "alice" },
+                                permissions: { write: true },
+                            },
+                        ],
+                    },
+                    {
+                        headers: {
+                            Link: '<https://gitea.example.org/api/v1/repos/search?page=2>; rel="next"',
+                        },
+                    },
+                ),
+            );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        const page = await provider.listOwnedRepos({
+            hostBaseUrl: "https://gitea.example.org",
+            username: "alice",
+            token: "secret-token",
+            page: 1,
+            pageSize: 20,
+            topic: "consolidated",
+        });
+
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        expect(String(vi.mocked(fetchImpl).mock.calls[0]?.[0])).toBe(
+            "https://gitea.example.org/api/v1/user",
+        );
+        expect(String(vi.mocked(fetchImpl).mock.calls[1]?.[0])).toBe(
+            "https://gitea.example.org/api/v1/repos/search?page=1&limit=20&private=true&q=consolidated&topic=true&exclusive=true&uid=42",
+        );
+        expect(page).toEqual({
+            repos: [
+                {
+                    id: "3",
+                    owner: "alice",
+                    name: "alice-bible",
+                    fullName: "alice/alice-bible",
+                    htmlUrl:
+                        "https://gitea.example.org/alice/alice-bible",
+                    cloneUrl:
+                        "https://gitea.example.org/alice/alice-bible.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+            ],
+            nextPage: 2,
+        });
+    });
+
     it("creates a repo with the requested visibility and default branch", async () => {
         const fetchImpl = vi.fn().mockResolvedValue(
             jsonResponse(
@@ -160,7 +234,7 @@ describe("GiteaRemoteRepoProvider", () => {
         expect(String(url)).toBe("https://gitea.example.org/api/v1/user/repos");
         expect(init?.method).toBe("POST");
         expect(init?.headers).toMatchObject({
-            Authorization: "Bearer secret-token",
+            Authorization: "token secret-token",
             Accept: "application/json",
             "Content-Type": "application/json",
         });

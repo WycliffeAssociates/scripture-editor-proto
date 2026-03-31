@@ -71,6 +71,7 @@ describe("CloudProjectImporter", () => {
                 isImporting={false}
                 isConnecting={false}
                 isDisconnecting={false}
+                isOwnedOnly={false}
                 loginUsername=""
                 loginPassword=""
                 loginOtp=""
@@ -84,6 +85,7 @@ describe("CloudProjectImporter", () => {
                 onRefresh={vi.fn()}
                 onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
+                onOwnedOnlyChange={vi.fn()}
                 onCloneRepo={vi.fn()}
             />,
         );
@@ -91,10 +93,14 @@ describe("CloudProjectImporter", () => {
         expect(document.body.textContent).toContain(
             "Connect to https://gitea.example.org",
         );
+        expect(
+            document.querySelector('input[type="checkbox"]'),
+        ).toBeNull();
     });
 
-    it("renders cloud repos and calls clone when the add button is pressed", () => {
+    it("renders cloud repos, shows the owned-only filter, and calls clone when the add button is pressed", () => {
         const onCloneRepo = vi.fn();
+        const onOwnedOnlyChange = vi.fn();
         render(
             <CloudProjectImporter
                 hostBaseUrl="https://gitea.example.org"
@@ -112,11 +118,24 @@ describe("CloudProjectImporter", () => {
                         topics: ["consolidated"],
                         canWrite: true,
                     },
+                    {
+                        id: "2",
+                        owner: "someone",
+                        name: "not-owned",
+                        fullName: "someone/not-owned",
+                        htmlUrl: "https://gitea.example.org/someone/not-owned",
+                        cloneUrl:
+                            "https://gitea.example.org/someone/not-owned.git",
+                        defaultBranch: "master",
+                        topics: ["consolidated"],
+                        canWrite: true,
+                    },
                 ]}
                 isLoading={false}
                 isImporting={false}
                 isConnecting={false}
                 isDisconnecting={false}
+                isOwnedOnly={false}
                 loginUsername=""
                 loginPassword=""
                 loginOtp=""
@@ -130,13 +149,27 @@ describe("CloudProjectImporter", () => {
                 onRefresh={vi.fn()}
                 onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
+                onOwnedOnlyChange={onOwnedOnlyChange}
                 onCloneRepo={onCloneRepo}
             />,
         );
 
         expect(document.body.textContent).toContain("Connected as alice");
         expect(document.body.textContent).toContain("bho-bible");
+        expect(document.body.textContent).toContain("not-owned");
         expect(document.body.textContent).toContain("Load more");
+        expect(document.body.textContent).toContain("Only repos I own");
+
+        const filterCheckbox = document.querySelector<HTMLInputElement>(
+            'input[type="checkbox"]',
+        );
+        expect(filterCheckbox).toBeTruthy();
+        expect(filterCheckbox?.checked).toBe(false);
+
+        act(() => {
+            filterCheckbox?.click();
+        });
+        expect(onOwnedOnlyChange).toHaveBeenCalledWith(true);
 
         const addButton = [...document.querySelectorAll("button")].find(
             (button) => button.textContent?.includes("Add"),
@@ -154,7 +187,50 @@ describe("CloudProjectImporter", () => {
         );
     });
 
-    it("renders a disconnect action for a connected session", () => {
+    it("shows an owned-only empty state when no loaded repo is owned by the session", () => {
+        render(
+            <CloudProjectImporter
+                hostBaseUrl="https://gitea.example.org"
+                sessionUsername="alice"
+                repos={[]}
+                isLoading={false}
+                isImporting={false}
+                isConnecting={false}
+                isDisconnecting={false}
+                isOwnedOnly={true}
+                loginUsername=""
+                loginPassword=""
+                loginOtp=""
+                error={null}
+                hasLoaded={true}
+                hasNextPage={false}
+                onLoginUsernameChange={vi.fn()}
+                onLoginPasswordChange={vi.fn()}
+                onLoginOtpChange={vi.fn()}
+                onConnect={vi.fn()}
+                onRefresh={vi.fn()}
+                onDisconnect={vi.fn()}
+                onLoadMore={vi.fn()}
+                onOwnedOnlyChange={vi.fn()}
+                onCloneRepo={vi.fn()}
+            />,
+        );
+
+        const filterCheckbox = document.querySelector<HTMLInputElement>(
+            'input[type="checkbox"]',
+        );
+        expect(filterCheckbox).toBeTruthy();
+
+        act(() => {
+            filterCheckbox?.click();
+        });
+
+        expect(document.body.textContent).toContain(
+            "No repositories you own are visible in this list yet.",
+        );
+    });
+
+    it("renders a logout action for a connected session", () => {
         const onDisconnect = vi.fn();
         render(
             <CloudProjectImporter
@@ -165,6 +241,7 @@ describe("CloudProjectImporter", () => {
                 isImporting={false}
                 isConnecting={false}
                 isDisconnecting={false}
+                isOwnedOnly={false}
                 loginUsername=""
                 loginPassword=""
                 loginOtp=""
@@ -178,13 +255,14 @@ describe("CloudProjectImporter", () => {
                 onRefresh={vi.fn()}
                 onDisconnect={onDisconnect}
                 onLoadMore={vi.fn()}
+                onOwnedOnlyChange={vi.fn()}
                 onCloneRepo={vi.fn()}
             />,
         );
 
         const disconnectButton = [
             ...document.querySelectorAll("button"),
-        ].find((button) => button.textContent?.includes("Disconnect"));
+        ].find((button) => button.textContent?.includes("Log out"));
         expect(disconnectButton).toBeTruthy();
 
         act(() => {
@@ -207,6 +285,7 @@ describe("CloudProjectImporter", () => {
                 isImporting={false}
                 isConnecting={false}
                 isDisconnecting={false}
+                isOwnedOnly={false}
                 loginUsername="alice"
                 loginPassword="secret"
                 loginOtp=""
@@ -220,6 +299,7 @@ describe("CloudProjectImporter", () => {
                 onRefresh={vi.fn()}
                 onDisconnect={vi.fn()}
                 onLoadMore={vi.fn()}
+                onOwnedOnlyChange={vi.fn()}
                 onCloneRepo={vi.fn()}
             />,
         );

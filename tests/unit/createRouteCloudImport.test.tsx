@@ -127,6 +127,7 @@ describe("CreateProject cloud import", () => {
                     importService: {},
                     projectsService: {
                         listWritableRemoteRepos,
+                        listOwnedRemoteRepos: vi.fn(),
                         cloneWritableRemoteProject,
                     },
                     giteaHostBaseUrl: "https://gitea.example.org",
@@ -139,6 +140,7 @@ describe("CreateProject cloud import", () => {
                             tokenName: "dovetail-web",
                         }),
                         loginWithPassword: vi.fn(),
+                        logoutCurrentSession: vi.fn(),
                     },
                 },
             },
@@ -177,8 +179,122 @@ describe("CreateProject cloud import", () => {
         expect(invalidate).toHaveBeenCalled();
     });
 
-    it("clears the local cloud session and resets the repo list when disconnect is pressed", async () => {
-        const clearSession = vi.fn().mockResolvedValue(undefined);
+    it("loads owned repos from Gitea when the owned-only checkbox is checked", async () => {
+        const listWritableRemoteRepos = vi.fn().mockResolvedValue({
+            repos: [
+                {
+                    id: "1",
+                    owner: "alice",
+                    name: "bho-bible",
+                    fullName: "alice/bho-bible",
+                    htmlUrl: "https://gitea.example.org/alice/bho-bible",
+                    cloneUrl:
+                        "https://gitea.example.org/alice/bho-bible.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+                {
+                    id: "2",
+                    owner: "someone",
+                    name: "not-owned",
+                    fullName: "someone/not-owned",
+                    htmlUrl: "https://gitea.example.org/someone/not-owned",
+                    cloneUrl:
+                        "https://gitea.example.org/someone/not-owned.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+            ],
+            nextPage: null,
+        });
+        const listOwnedRemoteRepos = vi.fn().mockResolvedValue({
+            repos: [
+                {
+                    id: "1",
+                    owner: "alice",
+                    name: "bho-bible",
+                    fullName: "alice/bho-bible",
+                    htmlUrl: "https://gitea.example.org/alice/bho-bible",
+                    cloneUrl:
+                        "https://gitea.example.org/alice/bho-bible.git",
+                    defaultBranch: "master",
+                    topics: ["consolidated"],
+                    canWrite: true,
+                },
+            ],
+            nextPage: null,
+        });
+
+        useRouterMock.mockReturnValue({
+            invalidate: vi.fn(async () => {}),
+            navigate: vi.fn(),
+            options: {
+                context: {
+                    settingsManager: {
+                        get: vi.fn().mockReturnValue("en"),
+                        set: vi.fn(),
+                        applySettings: vi.fn(),
+                        update: vi.fn(),
+                    },
+                    importService: {},
+                    projectsService: {
+                        listWritableRemoteRepos,
+                        listOwnedRemoteRepos,
+                        cloneWritableRemoteProject: vi.fn(),
+                    },
+                    giteaHostBaseUrl: "https://gitea.example.org",
+                    authSessionProvider: {
+                        getCurrentSession: vi.fn().mockResolvedValue({
+                            username: "alice",
+                            hostBaseUrl: "https://gitea.example.org",
+                            token: "secret-token",
+                            tokenId: "1",
+                            tokenName: "dovetail-web",
+                        }),
+                        loginWithPassword: vi.fn(),
+                        logoutCurrentSession: vi.fn(),
+                    },
+                },
+            },
+        });
+
+        render(<CreateProject />);
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(listWritableRemoteRepos).toHaveBeenCalledWith({
+            page: 1,
+            pageSize: 20,
+            topic: "consolidated",
+        });
+
+        const ownedToggle = document.querySelector<HTMLInputElement>(
+            'input[type="checkbox"]',
+        );
+        expect(ownedToggle).toBeTruthy();
+
+        await act(async () => {
+            ownedToggle?.click();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(listOwnedRemoteRepos).toHaveBeenCalledWith({
+            page: 1,
+            pageSize: 20,
+            topic: "consolidated",
+        });
+        expect(document.body.textContent).toContain("bho-bible");
+        expect(document.body.textContent).not.toContain("not-owned");
+    });
+
+    it("logs out the cloud session and resets the repo list when log out is pressed", async () => {
+        const logoutCurrentSession = vi.fn().mockResolvedValue(undefined);
         const listWritableRemoteRepos = vi.fn().mockResolvedValue({
             repos: [
                 {
@@ -210,6 +326,7 @@ describe("CreateProject cloud import", () => {
                     importService: {},
                     projectsService: {
                         listWritableRemoteRepos,
+                        listOwnedRemoteRepos: vi.fn(),
                         cloneWritableRemoteProject: vi.fn(),
                     },
                     giteaHostBaseUrl: "https://gitea.example.org",
@@ -222,8 +339,8 @@ describe("CreateProject cloud import", () => {
                             tokenName: "dovetail-web",
                         }),
                         loginWithPassword: vi.fn(),
-                        clearSession,
-                        queueTokenRevocation: vi.fn(),
+                        logoutCurrentSession,
+                        clearSession: vi.fn(),
                     },
                 },
             },
@@ -238,7 +355,7 @@ describe("CreateProject cloud import", () => {
 
         const disconnectButton = [
             ...document.querySelectorAll("button"),
-        ].find((button) => button.textContent?.includes("Disconnect"));
+        ].find((button) => button.textContent?.includes("Log out"));
         expect(disconnectButton).toBeTruthy();
 
         await act(async () => {
@@ -248,7 +365,7 @@ describe("CreateProject cloud import", () => {
             await Promise.resolve();
         });
 
-        expect(clearSession).toHaveBeenCalledTimes(1);
+        expect(logoutCurrentSession).toHaveBeenCalledTimes(1);
         expect(document.body.textContent).toContain(
             "Connect to https://gitea.example.org",
         );
@@ -282,14 +399,15 @@ describe("CreateProject cloud import", () => {
                     importService: {},
                     projectsService: {
                         listWritableRemoteRepos,
+                        listOwnedRemoteRepos: vi.fn(),
                         cloneWritableRemoteProject: vi.fn(),
                     },
                     giteaHostBaseUrl: "https://gitea.example.org",
                     authSessionProvider: {
                         getCurrentSession: vi.fn().mockResolvedValue(null),
                         loginWithPassword,
+                        logoutCurrentSession: vi.fn(),
                         clearSession: vi.fn(),
-                        queueTokenRevocation: vi.fn(),
                     },
                 },
             },

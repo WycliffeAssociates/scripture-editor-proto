@@ -109,6 +109,40 @@ export function syncEditorToPickedChapter(args: {
 }
 
 /**
+ * Notify the workspace after mutating the in-memory scripture nouns.
+ *
+ * The compare/save flows intentionally mutate the shared working files in place
+ * so expensive editor state can stay stable. React still needs an explicit
+ * invalidation signal for derived workspace state to catch up.
+ */
+export async function invalidateWorkingScriptureChanges(args: {
+    chapters: ChapterRef[];
+    bumpDirtyVersion: () => void;
+    refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
+    editorRef: RefObject<LexicalEditor | null>;
+    workingFiles: ScriptureBookState[];
+    pickedFile: ScriptureBookState | null;
+    pickedChapter: ScriptureChapterState | null;
+}) {
+    if (args.refreshUnsavedChapters && args.chapters.length > 0) {
+        await args.refreshUnsavedChapters(args.chapters);
+    } else {
+        args.bumpDirtyVersion();
+    }
+
+    for (const { bookCode, chapterNum } of args.chapters) {
+        syncEditorToChapter({
+            editorRef: args.editorRef,
+            workingFiles: args.workingFiles,
+            pickedFile: args.pickedFile,
+            pickedChapter: args.pickedChapter,
+            bookCode,
+            chapterNum,
+        });
+    }
+}
+
+/**
  * Metadata the compare UI uses to label the current loaded scripture workspace.
  */
 export function buildCurrentProjectCompareMetadata(

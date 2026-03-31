@@ -51,6 +51,7 @@ import type {
     CloneWritableRemoteProjectArgs,
     ImportProjectOptions,
     ImportProjectResult,
+    ListOwnedRemoteReposArgs,
     ListWritableRemoteReposArgs,
     OpenEditableProjectResult,
     ProjectsService,
@@ -530,6 +531,12 @@ export class DefaultProjectsService implements ProjectsService {
         return this.requireGitRemoteProjectService().listWritableRepos(args);
     }
 
+    async listOwnedRemoteRepos(
+        args: ListOwnedRemoteReposArgs,
+    ): Promise<RemoteRepoPage> {
+        return this.requireGitRemoteProjectService().listOwnedRepos(args);
+    }
+
     async createRemoteForProject(projectRef: string): Promise<{
         repo: RemoteRepoSummary;
         remoteInfo: GitRemoteProjectInfo;
@@ -645,7 +652,7 @@ export class DefaultProjectsService implements ProjectsService {
 
     async deleteProject(
         projectPath: string,
-        options: { recursive: boolean } = { recursive: false },
+        options: { recursive: boolean } = { recursive: true },
     ): Promise<void> {
         await this.fileSystem.remove(projectPath, options);
         await this.projectIndex.deleteProject(projectPath);

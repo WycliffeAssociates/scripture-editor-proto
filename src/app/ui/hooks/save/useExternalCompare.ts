@@ -50,8 +50,8 @@ import type {
 import {
     buildCurrentProjectCompareMetadata,
     type ChapterRef,
+    invalidateWorkingScriptureChanges,
     selectScriptureBookStatesForChapterRefs,
-    syncEditorToChapter,
 } from "./shared.ts";
 
 const DIFF_CHUNK_SIZE = 8;
@@ -108,6 +108,8 @@ export function useExternalCompare(args: {
     gitProvider: GitProvider;
     versions: VersionEntry[];
     authSessionProvider: AuthSessionProvider;
+    bumpDirtyVersion: () => void;
+    refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
 }) {
     const [mode, setMode] = useState<CompareMode>("unsaved");
     const [sourceKind, setSourceKind] = useState<CompareSourceKind>(
@@ -223,6 +225,31 @@ export function useExternalCompare(args: {
         void calculationRunnerRef.current.run(async () => {
             await computeExternalDiffs(sourceFiles, metadata, cleanup);
         });
+    }
+
+    function listCompareChapterRefs(): ChapterRef[] {
+        const keys = new Set<string>();
+        for (const file of args.mutWorkingFilesRef) {
+            for (const chapter of file.chapters) {
+                keys.add(`${file.bookCode}:${chapter.chapterNumber}`);
+            }
+        }
+        for (const file of compareResult?.sourceFiles ?? []) {
+            for (const chapter of file.chapters) {
+                keys.add(`${file.bookCode}:${chapter.chapterNumber}`);
+            }
+        }
+
+        return Array.from(keys, (key) => {
+            const [bookCode, chapterPart] = key.split(":");
+            return {
+                bookCode: bookCode ?? "",
+                chapterNum: Number(chapterPart),
+            };
+        }).filter(
+            (chapter): chapter is ChapterRef =>
+                Boolean(chapter.bookCode) && !Number.isNaN(chapter.chapterNum),
+        );
     }
 
     const reset = () => {
@@ -357,13 +384,19 @@ export function useExternalCompare(args: {
                     diff,
                     usfmOnionService: args.usfmOnionService,
                 });
-                syncEditorToChapter({
+                await invalidateWorkingScriptureChanges({
+                    chapters: [
+                        {
+                            bookCode: diff.bookCode,
+                            chapterNum: diff.chapterNum,
+                        },
+                    ],
+                    bumpDirtyVersion: args.bumpDirtyVersion,
+                    refreshUnsavedChapters: args.refreshUnsavedChapters,
                     editorRef: args.editorRef,
                     workingFiles: args.mutWorkingFilesRef,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
-                    bookCode: diff.bookCode,
-                    chapterNum: diff.chapterNum,
                 });
                 await rerunForChapters([
                     {
@@ -390,13 +423,14 @@ export function useExternalCompare(args: {
                     bookCode,
                     chapterNum,
                 });
-                syncEditorToChapter({
+                await invalidateWorkingScriptureChanges({
+                    chapters: [{ bookCode, chapterNum }],
+                    bumpDirtyVersion: args.bumpDirtyVersion,
+                    refreshUnsavedChapters: args.refreshUnsavedChapters,
                     editorRef: args.editorRef,
                     workingFiles: args.mutWorkingFilesRef,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
-                    bookCode,
-                    chapterNum,
                 });
                 await rerunForChapters([{ bookCode, chapterNum }]);
             },
@@ -417,6 +451,15 @@ export function useExternalCompare(args: {
                 applyIncomingChapterAll({
                     workingFiles: args.mutWorkingFilesRef,
                     sourceFiles: compareResult.sourceFiles ?? [],
+                });
+                await invalidateWorkingScriptureChanges({
+                    chapters: listCompareChapterRefs(),
+                    bumpDirtyVersion: args.bumpDirtyVersion,
+                    refreshUnsavedChapters: args.refreshUnsavedChapters,
+                    editorRef: args.editorRef,
+                    workingFiles: args.mutWorkingFilesRef,
+                    pickedFile: args.pickedFile,
+                    pickedChapter: args.pickedChapter,
                 });
                 refresh();
             },
