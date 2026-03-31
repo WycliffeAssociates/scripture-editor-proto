@@ -7,6 +7,8 @@ import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 const hydrateGitRemoteStatusOnOpenMock = vi.fn();
+const publishLinkedProjectNowMock = vi.fn();
+const readGitRemoteProjectStatusMock = vi.fn();
 const useLoaderDataMock = vi.fn();
 const useRouterMock = vi.fn();
 const openRemoteLatestReviewMock = vi.fn();
@@ -32,6 +34,30 @@ vi.mock("@/app/domain/project/gitRemoteOpenStatus.ts", async () => {
         ...actual,
         hydrateGitRemoteStatusOnOpen: (...args: unknown[]) =>
             hydrateGitRemoteStatusOnOpenMock(...args),
+    };
+});
+
+vi.mock("@/app/domain/project/gitRemotePublishCoordinator.ts", async () => {
+    const actual =
+        await vi.importActual<
+            typeof import("@/app/domain/project/gitRemotePublishCoordinator.ts")
+        >("@/app/domain/project/gitRemotePublishCoordinator.ts");
+    return {
+        ...actual,
+        publishLinkedProjectNow: (...args: unknown[]) =>
+            publishLinkedProjectNowMock(...args),
+    };
+});
+
+vi.mock("@/core/persistence/gitRemoteStore.ts", async () => {
+    const actual =
+        await vi.importActual<typeof import("@/core/persistence/gitRemoteStore.ts")>(
+            "@/core/persistence/gitRemoteStore.ts",
+        );
+    return {
+        ...actual,
+        readGitRemoteProjectStatus: (...args: unknown[]) =>
+            readGitRemoteProjectStatusMock(...args),
     };
 });
 
@@ -132,6 +158,8 @@ beforeAll(() => {
 
 beforeEach(() => {
     hydrateGitRemoteStatusOnOpenMock.mockReset();
+    publishLinkedProjectNowMock.mockReset();
+    readGitRemoteProjectStatusMock.mockReset();
     openRemoteLatestReviewMock.mockReset();
     hydrateGitRemoteStatusOnOpenMock.mockResolvedValue({
         kind: "connected",
@@ -143,6 +171,15 @@ beforeEach(() => {
             lastKnownLocalHead: null,
             lastKnownRemoteHead: null,
         },
+    });
+    publishLinkedProjectNowMock.mockResolvedValue({ kind: "published" });
+    readGitRemoteProjectStatusMock.mockResolvedValue({
+        projectPath: "/userData/projects/foo",
+        kind: "connected",
+        lastCheckedAt: "2026-03-31T10:00:00.000Z",
+        lastPublishedAt: "2026-03-31T10:00:00.000Z",
+        lastKnownLocalHead: "local-head",
+        lastKnownRemoteHead: "local-head",
     });
     useLoaderDataMock.mockReturnValue({ projects: [] });
     useRouterMock.mockReturnValue({
@@ -343,6 +380,100 @@ describe("ProjectProvider remote open hydration", () => {
             expect.objectContaining({
                 projectPath: "/userData/projects/foo",
                 forceSync: true,
+            }),
+        );
+    });
+
+    it("publishes immediately when explicit sync is triggered from pending publish status", async () => {
+        hydrateGitRemoteStatusOnOpenMock.mockResolvedValue({
+            kind: "pendingPublish",
+            status: {
+                projectPath: "/userData/projects/foo",
+                kind: "pendingPublish",
+                lastCheckedAt: null,
+                lastPublishedAt: null,
+                lastKnownLocalHead: "local-head",
+                lastKnownRemoteHead: "remote-head",
+            },
+        });
+
+        render(
+            <ProjectProvider
+                currentProjectRoute="foo"
+                projectFiles={[
+                    {
+                        path: "/userData/projects/foo/41-MAT.usfm",
+                        title: "Matthew",
+                        bookCode: "MAT",
+                        nextBookId: null,
+                        prevBookId: null,
+                        chapters: [
+                            {
+                                chapterNumber: 1,
+                                lexicalState: { root: { children: [] } } as never,
+                                loadedLexicalState: {
+                                    root: { children: [] },
+                                } as never,
+                                sourceTokens: [],
+                                currentTokens: [],
+                                dirty: false,
+                            },
+                        ],
+                    },
+                ]}
+                initialLintErrorsByBook={{}}
+                loadedProject={{
+                    folderName: "foo",
+                    displayName: "Foo",
+                    projectPath: "/userData/projects/foo",
+                    projectId: "foo",
+                    projectType: "scripture-burrito",
+                    language: {
+                        code: "en",
+                        name: "English",
+                        direction: "ltr",
+                    },
+                    books: [{ bookCode: "MAT", title: "Matthew" }] as never,
+                    listBooks: async () => [],
+                    getBook: async () => {
+                        throw new Error("not needed");
+                    },
+                    saveBook: async () => {},
+                    addBook: async () => {
+                        throw new Error("not needed");
+                    },
+                    listVersions: async () => [],
+                    restoreVersion: async () => {},
+                    stageAndCommit: async () => ({ hash: "abc" }),
+                }}
+            >
+                <RemoteStatusConsumer />
+            </ProjectProvider>,
+        );
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        const syncButton = document.querySelector("button");
+        expect(syncButton).not.toBeNull();
+
+        await act(async () => {
+            syncButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+            await Promise.resolve();
+        });
+
+        expect(publishLinkedProjectNowMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                projectPath: "/userData/projects/foo",
+            }),
+        );
+        expect(hydrateGitRemoteStatusOnOpenMock).toHaveBeenCalledTimes(1);
+        expect(readGitRemoteProjectStatusMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                projectPath: "/userData/projects/foo",
             }),
         );
     });

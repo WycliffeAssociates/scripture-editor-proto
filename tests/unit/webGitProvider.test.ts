@@ -20,6 +20,7 @@ const {
     gitPushMock,
     gitWriteRefMock,
     gitCherryPickMock,
+    gitReadCommitMock,
     gitCloneMock,
 } = vi.hoisted(() => ({
     gitInitMock: vi.fn(),
@@ -39,6 +40,7 @@ const {
     gitPushMock: vi.fn(),
     gitWriteRefMock: vi.fn(),
     gitCherryPickMock: vi.fn(),
+    gitReadCommitMock: vi.fn(),
     gitCloneMock: vi.fn(),
 }));
 
@@ -60,6 +62,7 @@ vi.mock("isomorphic-git", () => ({
     push: gitPushMock,
     writeRef: gitWriteRefMock,
     cherryPick: gitCherryPickMock,
+    readCommit: gitReadCommitMock,
     clone: gitCloneMock,
 }));
 
@@ -464,6 +467,22 @@ describe("WebGitProvider", () => {
         gitWriteRefMock.mockResolvedValue(undefined);
         gitCheckoutMock.mockResolvedValue(undefined);
         gitCherryPickMock.mockResolvedValue("new-commit");
+        gitReadCommitMock.mockImplementation(async ({ oid }: { oid: string }) => ({
+            commit: {
+                author: {
+                    name: `author-${oid}`,
+                    email: `${oid}@authors.test`,
+                    timestamp: 1700000000,
+                    timezoneOffset: 0,
+                },
+                committer: {
+                    name: `committer-${oid}`,
+                    email: `${oid}@committers.test`,
+                    timestamp: 1700000001,
+                    timezoneOffset: 60,
+                },
+            },
+        }));
         gitResolveRefMock.mockResolvedValueOnce("replayed-head");
 
         const provider = new WebGitProvider(runtime as never);
@@ -492,6 +511,16 @@ describe("WebGitProvider", () => {
             "c2",
             "c3",
         ]);
+        expect(gitCherryPickMock).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                oid: "c1",
+                committer: expect.objectContaining({
+                    name: "committer-c1",
+                    email: "c1@committers.test",
+                }),
+            }),
+        );
         expect(result).toEqual({
             head: "replayed-head",
             replayedCommitHashes: ["c3", "c2", "c1"],

@@ -308,4 +308,77 @@ describe("useSaveAndRevert", () => {
             },
         });
     });
+
+    it("prepares the remote base before saving when reconciliation is pending", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const workingFiles = [makeWorkingFile()];
+        const callOrder: string[] = [];
+        const saveBook: Project["saveBook"] = vi
+            .fn<Project["saveBook"]>(async () => {
+                callOrder.push("saveBook");
+                return Promise.resolve(undefined);
+            });
+        const addBook: Project["addBook"] = vi
+            .fn<Project["addBook"]>()
+            .mockResolvedValue({
+                bookCode: "MAT",
+                title: "Matthew",
+                fileName: "41-MAT.usfm",
+                storageKey: "41-MAT.usfm",
+                path: "/userData/projects/foo/41-MAT.usfm",
+            });
+        const commitAll: GitProvider["commitAll"] = vi
+            .fn<GitProvider["commitAll"]>(async () => {
+                callOrder.push("commitAll");
+                return { hash: "local-save-hash" };
+            });
+        const pushCurrentBranch: GitProvider["pushCurrentBranch"] = vi
+            .fn<GitProvider["pushCurrentBranch"]>()
+            .mockResolvedValue({
+                outcome: "published",
+                localHead: "local-save-hash",
+                remoteHead: "local-save-hash",
+            });
+        const prepareRemoteBaseForSave = vi.fn(async () => {
+            callOrder.push("prepare");
+        });
+
+        const save = useSaveAndRevert({
+            mutWorkingFilesRef: workingFiles,
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject: createProject({ saveBook, addBook }),
+            history: createHistory(),
+            gitProvider: createGitProvider({ commitAll, pushCurrentBranch }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockImplementation((key: string) =>
+                    key === "autoPushOnSave" ? true : undefined,
+                ),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem,
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+            prepareRemoteBaseForSave,
+        });
+
+        await save.actions.saveProjectToDisk();
+
+        expect(prepareRemoteBaseForSave).toHaveBeenCalledTimes(1);
+        expect(callOrder).toEqual(["prepare", "saveBook", "commitAll"]);
+    });
 });

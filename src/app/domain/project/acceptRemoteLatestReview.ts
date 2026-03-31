@@ -1,3 +1,4 @@
+import { adoptRemoteLatestAsLocalBase } from "@/app/domain/project/adoptRemoteLatestAsLocalBase.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import {
@@ -27,11 +28,11 @@ export async function acceptRemoteLatestReview(args: {
     gitProvider: GitProvider;
     now?: () => string;
 }): Promise<GitRemoteProjectStatus> {
-    const replay = await args.gitProvider.applyReplayPlanOntoRemote({
+    const replay = await adoptRemoteLatestAsLocalBase({
         projectPath: args.projectPath,
-        branch: args.trackedBranch,
+        trackedBranch: args.trackedBranch,
         remoteHead: args.remoteHead,
-        commitHashes: [],
+        gitProvider: args.gitProvider,
     });
     const existingStatus =
         (await readGitRemoteProjectStatus({

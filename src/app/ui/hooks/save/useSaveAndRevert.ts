@@ -71,6 +71,7 @@ export function useSaveAndRevert(args: {
     refreshUnsavedChapter: (bookCode: string, chapterNum: number) => void;
     rerunCompareForChapters: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
+    prepareRemoteBaseForSave?: () => Promise<void>;
 }) {
     const hasUnsavedChanges = args.mutWorkingFilesRef.some((file) =>
         file.chapters.some((chapter) => chapter.dirty),
@@ -93,6 +94,10 @@ export function useSaveAndRevert(args: {
                 args.loadedProject.projectPath,
                 args.selectedVersionHash,
             );
+        }
+
+        if (args.prepareRemoteBaseForSave) {
+            await args.prepareRemoteBaseForSave();
         }
 
         let saveError: unknown = null;

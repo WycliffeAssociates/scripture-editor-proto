@@ -7,6 +7,10 @@ import {
     type GitRemoteOpenStatusResult,
     hydrateGitRemoteStatusOnOpen,
 } from "@/app/domain/project/gitRemoteOpenStatus.ts";
+import {
+    PUBLISH_AFTER_SAVE_PUBLISHED,
+    publishLinkedProjectNow,
+} from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -37,7 +41,11 @@ import {
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
-import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
+import {
+    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
+    type GitRemoteProjectStatus,
+} from "@/core/persistence/gitRemoteModels.ts";
+import { readGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
 import type {
     Project,
     ProjectListItem,
@@ -354,6 +362,40 @@ export const ProjectProvider = ({
                     status: remoteStatus,
                     isRefreshing: isRefreshingRemoteStatus,
                     syncNow: async () => {
+                        if (
+                            remoteStatus?.kind ===
+                            GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH
+                        ) {
+                            setIsRefreshingRemoteStatus(true);
+                            try {
+                                const publishResult =
+                                    await publishLinkedProjectNow({
+                                        projectPath: loadedProject.projectPath,
+                                        fileSystem,
+                                        storageRoots,
+                                        authSessionProvider,
+                                        gitProvider,
+                                    });
+                                if (
+                                    publishResult.kind !==
+                                    PUBLISH_AFTER_SAVE_PUBLISHED
+                                ) {
+                                    await syncRemoteStatus(true);
+                                    return;
+                                }
+
+                                const persistedStatus =
+                                    await readGitRemoteProjectStatus({
+                                        fileSystem,
+                                        storageRoots,
+                                        projectPath: loadedProject.projectPath,
+                                    });
+                                setRemoteStatus(persistedStatus);
+                                return;
+                            } finally {
+                                setIsRefreshingRemoteStatus(false);
+                            }
+                        }
                         await syncRemoteStatus(true);
                     },
                     reviewIncoming: async () => {

@@ -22,6 +22,7 @@ import type {
     DiffsByChapter,
     ProjectDiff,
 } from "@/app/domain/project/diffTypes.ts";
+import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type {
     ScriptureBookState,
@@ -40,7 +41,11 @@ import type {
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
-import { GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY } from "@/core/persistence/gitRemoteRelationship.ts";
+import {
+    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,
+    GIT_REMOTE_RELATIONSHIP_DIVERGED,
+    type GitRemoteRelationshipKind,
+} from "@/core/persistence/gitRemoteRelationship.ts";
 import type {
     Project,
     ProjectListItem,
@@ -87,6 +92,13 @@ function buildExternalCompareSource(args: {
     }
 }
 
+function hasDiffsByChapter(diffsByChapter: DiffsByChapter | null | undefined) {
+    if (!diffsByChapter) return false;
+    return Object.values(diffsByChapter).some((book) =>
+        Object.values(book).some((chapterDiffs) => chapterDiffs.length > 0),
+    );
+}
+
 /**
  * External-compare hook for the scripture workspace.
  *
@@ -130,7 +142,7 @@ export function useExternalCompare(args: {
         remoteSync?: {
             remoteHead: string;
             trackedBranch: string;
-            relationship: string;
+            relationship: GitRemoteRelationshipKind;
         };
     } | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
@@ -483,6 +495,10 @@ export function useExternalCompare(args: {
                     compareResult.remoteSync?.relationship ===
                     GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
                 ) {
+                    applyVersionSnapshotToWorkingFiles({
+                        workingFiles: args.mutWorkingFilesRef,
+                        sourceFiles: compareResult.sourceFiles ?? [],
+                    });
                     const nextStatus = await acceptRemoteLatestReview({
                         projectPath: args.loadedProject.projectPath,
                         trackedBranch: compareResult.remoteSync.trackedBranch,
@@ -492,6 +508,16 @@ export function useExternalCompare(args: {
                         gitProvider: args.gitProvider,
                     });
                     args.onGitRemoteStatusChanged?.(nextStatus);
+                    setCompareResult((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  diffsByChapter: {},
+                                  warnings: [],
+                              }
+                            : prev,
+                    );
+                    return;
                 }
                 refresh();
             },
@@ -530,6 +556,18 @@ export function useExternalCompare(args: {
             versionOptions,
             diffsByChapter: compareResult?.diffsByChapter ?? null,
             isCalculating,
+            pendingRemotePartialReconciliation:
+                (compareResult?.remoteSync?.relationship ===
+                    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
+                    compareResult?.remoteSync?.relationship ===
+                        GIT_REMOTE_RELATIONSHIP_DIVERGED) &&
+                hasDiffsByChapter(compareResult.diffsByChapter)
+                    ? {
+                          remoteHead: compareResult.remoteSync.remoteHead,
+                          trackedBranch: compareResult.remoteSync.trackedBranch,
+                          relationship: compareResult.remoteSync.relationship,
+                      }
+                    : null,
         },
         actions: {
             setMode,

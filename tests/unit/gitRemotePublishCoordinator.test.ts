@@ -7,6 +7,7 @@ import {
     PUBLISH_AFTER_SAVE_PENDING_PUBLISH,
     PUBLISH_AFTER_SAVE_PUBLISHED,
     PUBLISH_AFTER_SAVE_REAUTH_REQUIRED,
+    publishLinkedProjectNow,
     publishLinkedProjectAfterSave,
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
@@ -355,5 +356,46 @@ describe("publishLinkedProjectAfterSave", () => {
                 now: () => "2026-03-30T20:00:00.000Z",
             }),
         ).resolves.toEqual({ kind: PUBLISH_AFTER_SAVE_REAUTH_REQUIRED });
+    });
+});
+
+describe("publishLinkedProjectNow", () => {
+    it("publishes even when auto-push-on-save is disabled", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        await seedLinkedProject(fileSystem);
+
+        await expect(
+            publishLinkedProjectNow({
+                projectPath: "/userData/projects/foo",
+                fileSystem,
+                storageRoots,
+                authSessionProvider: createAuthSessionProvider({
+                    hostBaseUrl: "https://gitea.example.org",
+                    username: "alice",
+                    token: "token",
+                    tokenId: "1",
+                    tokenName: "dovetail-web",
+                }),
+                gitProvider: createGitProvider(
+                    GIT_REMOTE_PUBLISH_PUBLISHED,
+                    "local-head",
+                    "local-head",
+                ),
+                now: () => "2026-03-30T20:00:00.000Z",
+            }),
+        ).resolves.toEqual({ kind: PUBLISH_AFTER_SAVE_PUBLISHED });
+
+        await expect(
+            readGitRemoteProjectStatus({
+                fileSystem,
+                storageRoots,
+                projectPath: "/userData/projects/foo",
+            }),
+        ).resolves.toMatchObject({
+            kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            lastKnownLocalHead: "local-head",
+            lastKnownRemoteHead: "local-head",
+            lastPublishedAt: "2026-03-30T20:00:00.000Z",
+        });
     });
 });

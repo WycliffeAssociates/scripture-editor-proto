@@ -55,6 +55,10 @@
 - If publish cannot complete:
   - offline or transient failure -> project status becomes `Changes not yet published`
   - remote advanced or diverged -> project status becomes `Needs review`
+- Explicit `Sync` from `Changes not yet published` is an explicit publish action.
+  - when the project is only ahead locally, `Sync` tries to push the current local head immediately
+  - on success, project cloud status returns to `Connected`
+  - if the remote has advanced in the meantime, the project transitions into the normal review flow instead
 - Explicit `Sync` or banner/status entry can reopen the same review modal with:
   - current local working state on the left
   - incoming cloud changes on the right
@@ -62,6 +66,16 @@
   - when the local branch is only behind, the app fast-forwards local git state to the fetched remote head
   - this does not create a new save commit
   - project cloud status returns to `Connected`
+- In remote review, if the local branch is only behind and the user accepts only some incoming changes:
+  - the reviewed working USFM result remains the source of truth in memory
+  - on the next `Review & Save`, the app first adopts the fetched remote latest as the local git base
+  - then it writes the reviewed working USFM result and creates one new save commit on top
+  - publish then proceeds normally from that new head
+- In remote review, if local and cloud history have diverged and the user accepts only some incoming changes:
+  - the user still reviews only latest local working state vs latest cloud state
+  - on the next `Review & Save`, the app treats the reviewed working USFM result as the single squashed local outcome
+  - it adopts the fetched remote latest as base, then writes that reviewed working result as one new save commit on top
+  - the app does not replay diverged local-only commits one by one during this reconciliation path
 - The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
 
 ## Current limits and non-goals

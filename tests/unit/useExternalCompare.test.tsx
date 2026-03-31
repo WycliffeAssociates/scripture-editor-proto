@@ -452,5 +452,10 @@ describe("useExternalCompare", () => {
                 kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
             }),
         );
+        expect(latestState?.state.diffsByChapter).toEqual({});
+        expect(compareServiceMock.buildCompareResultAsync).toHaveBeenCalledTimes(
+            1,
+        );
+        expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
     });
 });

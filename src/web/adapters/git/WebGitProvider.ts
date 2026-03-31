@@ -880,10 +880,26 @@ export class WebGitProvider implements GitProvider {
         });
 
         for (const commitHash of [...args.commitHashes].reverse()) {
+            const sourceCommit = await git.readCommit({
+                fs,
+                dir,
+                oid: commitHash,
+            });
             await git.cherryPick({
                 fs,
                 dir,
                 oid: commitHash,
+                committer: {
+                    name:
+                        sourceCommit.commit.committer.name ||
+                        sourceCommit.commit.author.name,
+                    email:
+                        sourceCommit.commit.committer.email ||
+                        sourceCommit.commit.author.email,
+                    timestamp: sourceCommit.commit.committer.timestamp,
+                    timezoneOffset:
+                        sourceCommit.commit.committer.timezoneOffset,
+                },
             });
         }
 

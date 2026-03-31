@@ -2,6 +2,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -158,6 +159,24 @@ export function useSave({
         refreshUnsavedChapter: diff.actions.refreshChapter,
         rerunCompareForChapters: compare.actions.rerunForChapters,
         onGitRemoteStatusChanged,
+        prepareRemoteBaseForSave: (() => {
+            const pendingRemotePartialReconciliation =
+                compare.state.pendingRemotePartialReconciliation;
+            if (!pendingRemotePartialReconciliation) {
+                return undefined;
+            }
+            return async () => {
+                await prepareRemoteBaseForReconciliation({
+                    projectPath: loadedProject.projectPath,
+                    trackedBranch:
+                        pendingRemotePartialReconciliation.trackedBranch,
+                    remoteHead: pendingRemotePartialReconciliation.remoteHead,
+                    relationship:
+                        pendingRemotePartialReconciliation.relationship,
+                    gitProvider,
+                });
+            };
+        })(),
     });
 
     const activeDiffsByChapter = useMemo(() => {
