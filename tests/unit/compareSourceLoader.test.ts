@@ -151,7 +151,11 @@ describe("CompareSourceLoader.loadRemoteLatest", () => {
         remoteCompareSourceMock.buildRemoteLatestCompareSource.mockResolvedValue({
             parsedFiles,
             metadataSummary,
-            remoteHead: "remote-head",
+            remoteSync: {
+                remoteHead: "remote-head",
+                trackedBranch: "master",
+                relationship: "behindOnly",
+            },
         });
 
         const result = await loader.loadRemoteLatest(project);
@@ -174,6 +178,11 @@ describe("CompareSourceLoader.loadRemoteLatest", () => {
         expect(result).toEqual({
             parsedFiles,
             metadataSummary,
+            remoteSync: {
+                remoteHead: "remote-head",
+                trackedBranch: "master",
+                relationship: "behindOnly",
+            },
         });
     });
 

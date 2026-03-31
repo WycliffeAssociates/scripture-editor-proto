@@ -14,6 +14,10 @@ import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type { ChapterRef } from "@/app/ui/hooks/save/shared.ts";
+import {
+    GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+    type GitRemoteProjectStatus,
+} from "@/core/persistence/gitRemoteModels.ts";
 
 const compareServiceMock = vi.hoisted(() => ({
     buildCompareResultAsync: vi.fn(),
@@ -21,6 +25,10 @@ const compareServiceMock = vi.hoisted(() => ({
 
 const compareSourceLoaderMock = vi.hoisted(() => ({
     loadRemoteLatest: vi.fn(),
+}));
+
+const acceptRemoteLatestReviewMock = vi.hoisted(() => ({
+    acceptRemoteLatestReview: vi.fn(),
 }));
 
 vi.mock("@/app/domain/project/compare/compareService.ts", () => ({
@@ -34,6 +42,10 @@ vi.mock("@/app/domain/project/compare/compareSourceLoader.ts", () => ({
         loadFromDirectoryFiles = vi.fn();
         loadRemoteLatest = compareSourceLoaderMock.loadRemoteLatest;
     },
+}));
+
+vi.mock("@/app/domain/project/acceptRemoteLatestReview.ts", () => ({
+    acceptRemoteLatestReview: acceptRemoteLatestReviewMock.acceptRemoteLatestReview,
 }));
 
 type HookState = ReturnType<typeof useExternalCompare> | null;
@@ -174,6 +186,7 @@ function HookHarness(props: {
     } | null>;
     refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
+    onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     onState: (state: ReturnType<typeof useExternalCompare>) => void;
 }) {
     const state = useExternalCompare({
@@ -208,6 +221,7 @@ function HookHarness(props: {
         authSessionProvider: createAuthProvider(),
         bumpDirtyVersion: props.bumpDirtyVersion,
         refreshUnsavedChapters: props.refreshUnsavedChapters,
+        onGitRemoteStatusChanged: props.onGitRemoteStatusChanged,
     });
 
     props.onState(state);
@@ -236,6 +250,19 @@ beforeEach(() => {
             languageId: "en",
             languageDirection: "ltr",
         },
+        remoteSync: {
+            remoteHead: "remote-head",
+            trackedBranch: "master",
+            relationship: "behindOnly",
+        },
+    });
+    acceptRemoteLatestReviewMock.acceptRemoteLatestReview.mockResolvedValue({
+        projectPath: "/userData/projects/demo",
+        kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+        lastCheckedAt: "2026-03-31T15:00:00.000Z",
+        lastPublishedAt: null,
+        lastKnownLocalHead: "remote-head",
+        lastKnownRemoteHead: "remote-head",
     });
 });
 
@@ -259,6 +286,7 @@ function renderHarness(args: {
     } | null>;
     refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
+    onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 }) {
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -270,6 +298,7 @@ function renderHarness(args: {
                 editorRef={args.editorRef}
                 refreshUnsavedChapters={args.refreshUnsavedChapters}
                 bumpDirtyVersion={args.bumpDirtyVersion}
+                onGitRemoteStatusChanged={args.onGitRemoteStatusChanged}
                 onState={(state) => {
                     latestState = state;
                 }}
@@ -372,8 +401,14 @@ describe("useExternalCompare", () => {
                 languageId: "en",
                 languageDirection: "ltr",
             },
+            remoteSync: {
+                remoteHead: "remote-head",
+                trackedBranch: "master",
+                relationship: "behindOnly",
+            },
         });
         const refreshUnsavedChapters = vi.fn(async () => {});
+        const onGitRemoteStatusChanged = vi.fn();
 
         renderHarness({
             workingFiles,
@@ -385,6 +420,7 @@ describe("useExternalCompare", () => {
             },
             refreshUnsavedChapters,
             bumpDirtyVersion: vi.fn(),
+            onGitRemoteStatusChanged,
         });
 
         await act(async () => {
@@ -403,6 +439,18 @@ describe("useExternalCompare", () => {
                 { bookCode: "GEN", chapterNum: 1 },
                 { bookCode: "GEN", chapterNum: 2 },
             ]),
+        );
+        expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalledWith(
+            expect.objectContaining({
+                projectPath: "/userData/projects/demo",
+                trackedBranch: "master",
+                remoteHead: "remote-head",
+            }),
+        );
+        expect(onGitRemoteStatusChanged).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            }),
         );
     });
 });

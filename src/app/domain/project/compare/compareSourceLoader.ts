@@ -7,6 +7,7 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import type { GitRemoteRelationshipKind } from "@/core/persistence/gitRemoteRelationship.ts";
 import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import { joinStoragePath } from "@/core/persistence/pathUtils.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -18,6 +19,11 @@ export type CompareSourceLoadResult = {
     parsedFiles: ScriptureBookState[];
     metadataSummary: CompareMetadataSummary;
     cleanup?: () => Promise<void>;
+    remoteSync?: {
+        remoteHead: string;
+        trackedBranch: string;
+        relationship: GitRemoteRelationshipKind;
+    };
 };
 
 type CompareSourceLoaderArgs = {
@@ -163,6 +169,7 @@ export class CompareSourceLoader {
         return {
             parsedFiles: remoteSource.parsedFiles,
             metadataSummary: remoteSource.metadataSummary,
+            remoteSync: remoteSource.remoteSync,
         };
     }
 

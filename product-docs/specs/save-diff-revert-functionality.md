@@ -58,6 +58,10 @@
 - Explicit `Sync` or banner/status entry can reopen the same review modal with:
   - current local working state on the left
   - incoming cloud changes on the right
+- In remote review, `Apply all` is explicit approval to accept the fetched cloud latest.
+  - when the local branch is only behind, the app fast-forwards local git state to the fetched remote head
+  - this does not create a new save commit
+  - project cloud status returns to `Connected`
 - The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
 
 ## Current limits and non-goals

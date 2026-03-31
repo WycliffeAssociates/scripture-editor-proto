@@ -119,6 +119,7 @@ export function useSave({
         bumpDirtyVersion,
         refreshUnsavedChapters: (chapters) =>
             refreshUnsavedChaptersRef.current(chapters),
+        onGitRemoteStatusChanged,
     });
 
     const diff = useDiffModalState({

@@ -105,7 +105,11 @@ describe("buildRemoteLatestCompareSource", () => {
                 languageId: "bho",
                 languageDirection: "ltr",
             },
-            remoteHead: "remote-head",
+            remoteSync: {
+                remoteHead: "remote-head",
+                trackedBranch: "master",
+                relationship: GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,
+            },
         });
     });
 

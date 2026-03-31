@@ -5,6 +5,7 @@ import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts"
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import { GIT_REMOTE_DEFAULT_NAME } from "@/core/persistence/gitConstants.ts";
 import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
+import type { GitRemoteRelationshipKind } from "@/core/persistence/gitRemoteRelationship.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -27,7 +28,11 @@ export async function buildRemoteLatestCompareSource(args: {
 }): Promise<{
     parsedFiles: Awaited<ReturnType<typeof snapshotToScriptureBookStates>>;
     metadataSummary: CompareMetadataSummary;
-    remoteHead: string;
+    remoteSync: {
+        remoteHead: string;
+        trackedBranch: string;
+        relationship: GitRemoteRelationshipKind;
+    };
 }> {
     const inspection = await args.gitProvider.fetchRemoteHeads({
         projectPath: args.loadedProject.projectPath,
@@ -58,6 +63,10 @@ export async function buildRemoteLatestCompareSource(args: {
             languageId: args.loadedProject.language.code,
             languageDirection: args.loadedProject.language.direction,
         },
-        remoteHead: inspection.remoteHead,
+        remoteSync: {
+            remoteHead: inspection.remoteHead,
+            trackedBranch: args.remoteInfo.trackedBranch,
+            relationship: inspection.relationship.kind,
+        },
     };
 }

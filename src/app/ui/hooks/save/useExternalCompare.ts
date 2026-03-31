@@ -1,6 +1,7 @@
 import type { LexicalEditor } from "lexical";
 import { useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import {
     applyIncomingChapter,
     applyIncomingChapterAll,
@@ -38,6 +39,8 @@ import type {
     GitProvider,
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
+import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
+import { GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY } from "@/core/persistence/gitRemoteRelationship.ts";
 import type {
     Project,
     ProjectListItem,
@@ -110,6 +113,7 @@ export function useExternalCompare(args: {
     authSessionProvider: AuthSessionProvider;
     bumpDirtyVersion: () => void;
     refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
+    onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 }) {
     const [mode, setMode] = useState<CompareMode>("unsaved");
     const [sourceKind, setSourceKind] = useState<CompareSourceKind>(
@@ -123,6 +127,11 @@ export function useExternalCompare(args: {
         metadata?: CompareMetadataSummary;
         cleanup?: () => Promise<void>;
         sourceFiles?: ScriptureBookState[];
+        remoteSync?: {
+            remoteHead: string;
+            trackedBranch: string;
+            relationship: string;
+        };
     } | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
     const calculationRunnerRef = useRef(
@@ -175,6 +184,7 @@ export function useExternalCompare(args: {
             metadata,
             cleanup,
             sourceFiles,
+            remoteSync: undefined,
         });
     }
 
@@ -353,6 +363,14 @@ export function useExternalCompare(args: {
                 loaded.metadataSummary,
                 loaded.cleanup,
             );
+            setCompareResult((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          remoteSync: loaded.remoteSync,
+                      }
+                    : prev,
+            );
         });
     }
 
@@ -461,6 +479,20 @@ export function useExternalCompare(args: {
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                 });
+                if (
+                    compareResult.remoteSync?.relationship ===
+                    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+                ) {
+                    const nextStatus = await acceptRemoteLatestReview({
+                        projectPath: args.loadedProject.projectPath,
+                        trackedBranch: compareResult.remoteSync.trackedBranch,
+                        remoteHead: compareResult.remoteSync.remoteHead,
+                        fileSystem: args.fileSystem,
+                        storageRoots: args.storageRoots,
+                        gitProvider: args.gitProvider,
+                    });
+                    args.onGitRemoteStatusChanged?.(nextStatus);
+                }
                 refresh();
             },
         });
