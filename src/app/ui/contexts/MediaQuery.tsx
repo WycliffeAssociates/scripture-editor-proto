@@ -1,11 +1,11 @@
 import {
-    em,
     type MantineTheme,
     useMantineColorScheme,
     useMantineTheme,
 } from "@mantine/core";
 import { useMediaQuery as useMantineMediaQuery } from "@mantine/hooks";
 import { createContext, useContext, useEffect, useState } from "react";
+import { runtimeMediaQuery } from "@/app/ui/styles/breakpoints.ts";
 
 type Breakpoint = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -27,14 +27,6 @@ const MediaQueryContext = createContext<MediaQueryContextType | undefined>(
     undefined,
 );
 
-const BREAKPOINTS = {
-    xs: em(0),
-    sm: em(576),
-    md: em(768),
-    lg: em(992),
-    xl: em(1200),
-};
-
 /**
  * UI-only responsive context.
  *
@@ -49,15 +41,11 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     const [breakpoint, setBreakpoint] = useState<Breakpoint>("lg");
     const [mobileTab, setMobileTab] = useState<"main" | "ref">("main");
 
-    const isXs = useMantineMediaQuery(`(max-width: ${BREAKPOINTS.sm})`);
-    const isSm = useMantineMediaQuery(
-        `(min-width: ${BREAKPOINTS.xs}) and (max-width: ${BREAKPOINTS.md})`,
-    );
-    const isMd = useMantineMediaQuery(
-        `(min-width: ${BREAKPOINTS.md}) and (max-width: ${BREAKPOINTS.lg})`,
-    );
-    const isLg = useMantineMediaQuery(`(min-width: ${BREAKPOINTS.lg})`);
-    const isXl = useMantineMediaQuery(`(min-width: ${BREAKPOINTS.xl})`);
+    const isXs = useMantineMediaQuery(runtimeMediaQuery.down("sm"));
+    const isSm = useMantineMediaQuery(runtimeMediaQuery.between("xs", "md"));
+    const isMd = useMantineMediaQuery(runtimeMediaQuery.between("md", "lg"));
+    const isLg = useMantineMediaQuery(runtimeMediaQuery.up("lg"));
+    const isXl = useMantineMediaQuery(runtimeMediaQuery.up("xl"));
     const isTouch = useMantineMediaQuery("(hover: none)");
     const { colorScheme } = useMantineColorScheme();
     const theme = useMantineTheme();

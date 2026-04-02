@@ -1,11 +1,9 @@
 // import "./App.css";
 // import "./ui/styles/";
 import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
 import "@/app/ui/styles/global.css";
 import "@/app/ui/styles/usfm.css";
 import { MantineProvider } from "@mantine/core";
-import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -13,6 +11,7 @@ import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { routeTree } from "@/app/generated/routeTree.gen.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
+import { NotificationViewport } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
 import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme.ts";
@@ -173,7 +172,7 @@ export function App({
                     }
                 >
                     <ThemeQueryProvider>
-                        <Notifications />
+                        <NotificationViewport />
                         <RouterProvider router={router} />
                     </ThemeQueryProvider>
                 </MantineProvider>

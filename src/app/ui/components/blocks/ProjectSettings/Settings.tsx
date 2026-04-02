@@ -23,6 +23,7 @@ import {
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
@@ -88,6 +89,7 @@ function DisplayThemeToggle() {
                     if (value === "light" || value === "dark") {
                         project.updateAppSettings({ colorScheme: value });
                         setColorScheme(value);
+                        applyColorSchemeToDocument(value);
                     }
                 }}
                 data={[

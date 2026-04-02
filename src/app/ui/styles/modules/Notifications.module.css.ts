@@ -1,118 +1,150 @@
-import { darken } from "@mantine/core";
-import { createVar, keyframes, style } from "@vanilla-extract/css";
-import { darkSelector } from "@/app/ui/styles/theme.css.ts";
-import { vars } from "../theme.css.ts";
+import { keyframes, style } from "@vanilla-extract/css";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
-// Create reusable CSS variables
-const notificationBg = createVar();
-const notificationBorder = createVar();
-const notificationHoverBg = createVar();
-function getDarkVar(color: string) {
-    return {
-        [`${darkSelector} &`]: {
-            vars: {
-                [notificationBg]: darken(color, 0.4),
-                [notificationBorder]: color,
-            },
-        },
-    };
-}
-// Color definitions for different notification types
-const errorColors = style({
-    vars: {
-        [notificationBg]: vars.colors.red[2],
-        [notificationBorder]: vars.colors.red.filled,
-        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
-    },
-    selectors: {
-        ...getDarkVar(vars.colors.red.filled),
-    },
+const slideIn = keyframes({
+    from: { opacity: 0, transform: "translateY(0.5rem)" },
+    to: { opacity: 1, transform: "translateY(0)" },
 });
 
-const successColors = style({
-    vars: {
-        [notificationBg]: vars.colors.green[2],
-        [notificationBorder]: vars.colors.green.filled,
-        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
-    },
-    selectors: {
-        ...getDarkVar(vars.colors.green.filled),
-    },
+const spin = keyframes({
+    from: { transform: "rotate(0deg)" },
+    to: { transform: "rotate(360deg)" },
 });
 
-const infoColors = style({
-    vars: {
-        [notificationBg]: vars.colors.primary[2],
-        [notificationBorder]: vars.colors.primary.filled,
-        [notificationHoverBg]: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
-    },
-    selectors: {
-        ...getDarkVar(vars.colors.primary.filled),
-    },
-});
-
-// Shared base styles that reference the CSS variables
-const baseRoot = style({
-    color: vars.colors.text,
-    borderRadius: vars.radiusDefault,
-    backgroundColor: notificationBg,
-    border: `1px solid ${notificationBorder}`,
-});
-
-const baseIcon = style({
-    backgroundColor: darken(notificationBg, 0.3),
-    color: vars.colors.text,
-    borderRadius: "999px",
+export const viewport = style({
+    position: "fixed",
+    right: vars.spacing.md,
+    bottom: vars.spacing.md,
+    zIndex: 1000,
+    width: "min(24rem, calc(100vw - 2rem))",
     display: "flex",
+    flexDirection: "column-reverse",
+    gap: vars.spacing.sm,
+    pointerEvents: "none",
+});
+
+const toastToneStyles = {
+    error: {
+        background: vars.color.surfaceError,
+        border: vars.color.onSurfaceError,
+        icon: vars.color.onSurfaceError,
+    },
+    success: {
+        background: vars.color.surfaceSuccess,
+        border: vars.color.onSurfaceSuccess,
+        icon: vars.color.onSurfaceSuccess,
+    },
+    info: {
+        background: vars.color.surfaceSecondary,
+        border: vars.color.brandBase,
+        icon: vars.color.brandBase,
+    },
+};
+
+const toastRootBase = style({
+    pointerEvents: "auto",
+    borderRadius: vars.border.radius.lg,
+    borderWidth: vars.border.width.thin,
+    borderStyle: "solid",
+    boxShadow: vars.shadow.medium,
+    animation: `${slideIn} 140ms ease-out`,
+});
+
+export const toastRootByTone = {
+    error: style([
+        toastRootBase,
+        {
+            backgroundColor: toastToneStyles.error.background,
+            borderColor: toastToneStyles.error.border,
+        },
+    ]),
+    success: style([
+        toastRootBase,
+        {
+            backgroundColor: toastToneStyles.success.background,
+            borderColor: toastToneStyles.success.border,
+        },
+    ]),
+    info: style([
+        toastRootBase,
+        {
+            backgroundColor: toastToneStyles.info.background,
+            borderColor: toastToneStyles.info.border,
+        },
+    ]),
+};
+
+export const toastContent = style({
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr) auto",
+    alignItems: "start",
+    gap: vars.spacing.sm,
+    padding: vars.spacing.md,
+});
+
+const toastIconBase = style({
+    width: "2rem",
+    height: "2rem",
+    borderRadius: vars.border.radius.full,
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: vars.color.surfacePrimary,
 });
 
-const baseCloseButton = style({
-    color: vars.colors.text,
-    transition: "color 0.2s ease, background-color 0.2s ease",
-    selectors: {
-        "&:hover": {
-            color: vars.colors.text,
-            backgroundColor: `color-mix(in srgb, ${vars.colors.white} 10%, transparent)`,
-        },
-    },
+export const toastIconByTone = {
+    error: style([toastIconBase, { color: toastToneStyles.error.icon }]),
+    success: style([toastIconBase, { color: toastToneStyles.success.icon }]),
+    info: style([toastIconBase, { color: toastToneStyles.info.icon }]),
+};
+
+export const textContent = style({
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
 });
 
-const closeButtonHover = style({
-    selectors: {
-        "&:hover": {
-            backgroundColor: notificationHoverBg,
-        },
-    },
+export const title = style({
+    margin: 0,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 700,
+    lineHeight: vars.typography.bodySmall.lineHeight,
 });
 
-// Root styles for different notification types
-export const errorRoot = style([baseRoot, errorColors]);
-export const successRoot = style([baseRoot, successColors]);
-export const infoRoot = style([baseRoot, infoColors]);
-
-// Icon styles (all share the same base style)
-export const errorIcon = baseIcon;
-export const successIcon = baseIcon;
-export const infoIcon = baseIcon;
-
-// Close button styles
-export const errorCloseButton = style([baseCloseButton, closeButtonHover]);
-export const successCloseButton = style([baseCloseButton, closeButtonHover]);
-export const infoCloseButton = style([baseCloseButton, closeButtonHover]);
-
-// Message text color for better contrast
 export const message = style({
-    color: vars.colors.text,
-    opacity: 0.95,
+    margin: 0,
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
 });
 
-// Spinning animation for progress notifications
-const spin = keyframes({
-    "0%": { transform: "rotate(0deg)" },
-    "100%": { transform: "rotate(360deg)" },
+const toastCloseButtonBase = style({
+    width: "2rem",
+    height: "2rem",
+    border: "none",
+    borderRadius: vars.border.radius.md,
+    backgroundColor: "transparent",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.color.surfacePrimary,
+        },
+    },
 });
+
+export const toastCloseButtonByTone = {
+    error: style([toastCloseButtonBase, { color: toastToneStyles.error.icon }]),
+    success: style([
+        toastCloseButtonBase,
+        { color: toastToneStyles.success.icon },
+    ]),
+    info: style([toastCloseButtonBase, { color: toastToneStyles.info.icon }]),
+};
 
 export const spinningIcon = style({
     animation: `${spin} 1s linear infinite`,

@@ -1,6 +1,7 @@
 // theme.css.ts
 
 import { themeToVars } from "@mantine/vanilla-extract";
+import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
 import { theme } from "@/app/ui/styles/mantineTheme.ts";
 
 // CSS variables object, can be access in *.css.ts files
@@ -12,10 +13,10 @@ export const virtualVars = {
 };
 export const darkSelector = "[data-mantine-color-scheme='dark']";
 export const breakpoints = {
-    minWSmall: `screen and (min-width: ${vars.breakpoints.sm})`,
-    minWMd: `screen and (min-width: ${vars.breakpoints.md})`,
-    minWLg: `screen and (min-width: ${vars.breakpoints.lg})`,
-    minWXl: `screen and (min-width: ${vars.breakpoints.xl})`,
+    minWSmall: mediaQuery.up("sm"),
+    minWMd: mediaQuery.up("md"),
+    minWLg: mediaQuery.up("lg"),
+    minWXl: mediaQuery.up("xl"),
 };
 // export const
 // export const virtualColors = {

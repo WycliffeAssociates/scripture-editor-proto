@@ -1,4 +1,4 @@
-import type { NotificationData } from "@mantine/notifications";
+import type { NotificationData } from "@/app/ui/components/primitives/Notifications.tsx";
 
 export function getProjectParamFromImportedPath(
     importedPath: string | null | undefined,

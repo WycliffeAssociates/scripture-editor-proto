@@ -18,6 +18,7 @@ import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
 import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
+import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -215,6 +216,7 @@ export const useWorkspaceActions = ({
     const setColorScheme = (value: "light" | "dark") => {
         updateAppSettings({ colorScheme: value });
         setMantineColorScheme(value);
+        applyColorSchemeToDocument(value);
     };
 
     return {

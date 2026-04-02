@@ -7,6 +7,7 @@ import {
     buildProjectIndexDbName,
     DexieProjectIndex,
 } from "@/app/persistence/DexieProjectIndex.ts";
+import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
 import { GiteaRemoteRepoProvider } from "@/core/persistence/GiteaRemoteRepoProvider.ts";
@@ -29,6 +30,7 @@ import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
  * `src/app`.
  */
 const settingsManager = createTauriSettingsManager();
+applyColorSchemeToDocument(settingsManager.get("colorScheme") ?? "light");
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
     import.meta.env.VITE_GITEA_DESKTOP_HOST,
 );
