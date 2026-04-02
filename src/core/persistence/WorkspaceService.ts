@@ -1,5 +1,10 @@
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import type {
+    MetadataEditorDocument,
+    MetadataEditorDraft,
+    MetadataIssue,
+} from "@/core/domain/project/metadataEditor.ts";
+import type {
     ImportProjectOptions,
     ImportProjectResult,
 } from "@/core/library/ImportService.ts";
@@ -51,7 +56,8 @@ export type ReferenceResourceQuery = {
  */
 export type OpenEditableWorkspaceResult = {
     project: ScriptureWorkspace | null;
-    rejectionReason?: "not-found" | "not-editable";
+    rejectionReason?: "not-found" | "not-editable" | "metadata-invalid";
+    metadataIssues?: MetadataIssue[];
 };
 
 export type ListWritableRemoteReposArgs = {
@@ -85,6 +91,16 @@ export interface WorkspaceService {
     openEditableProject(
         projectRef: string,
     ): Promise<OpenEditableWorkspaceResult>;
+    loadMetadataEditor(
+        projectRef: string,
+        options?: {
+            includeIssues?: boolean;
+        },
+    ): Promise<MetadataEditorDocument | null>;
+    saveMetadataEditor(
+        projectRef: string,
+        draft: MetadataEditorDraft,
+    ): Promise<MetadataEditorDocument | null>;
     openProject(projectRef: string): Promise<ScriptureWorkspace | null>;
     openProjectReadOnly(projectRef: string): Promise<ScriptureWorkspace | null>;
     openResource(projectRef: string): Promise<LoadedReferenceItem | null>;
@@ -106,7 +122,7 @@ export interface WorkspaceService {
         projectRef: string;
         repo: Pick<
             RemoteRepoSummary,
-            "id" | "owner" | "name" | "htmlUrl" | "defaultBranch"
+            "id" | "owner" | "name" | "htmlUrl" | "cloneUrl" | "defaultBranch"
         >;
     }): Promise<GitRemoteProjectInfo>;
     cloneWritableRemoteProject(

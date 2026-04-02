@@ -46,6 +46,7 @@ export class TauriImportService implements ImportService {
         private readonly roots: StorageRoots,
         private readonly projectsService: ProjectsService,
         private readonly fileSystem: FileSystem,
+        private readonly requestedWithHeaderValue: string | null = null,
     ) {}
 
     /**
@@ -268,6 +269,8 @@ export class TauriImportService implements ImportService {
                     projectsRoot: this.roots.projectsRoot,
                     tempRoot: this.roots.tempRoot,
                     progressEvent,
+                    requestedWithHeaderValue:
+                        this.requestedWithHeaderValue ?? null,
                 },
             );
             await this.finalizeImportedResource(

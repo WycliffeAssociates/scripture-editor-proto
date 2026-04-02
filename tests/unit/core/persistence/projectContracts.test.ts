@@ -155,6 +155,8 @@ describe("path-based persistence contracts", () => {
                 ({
                     project,
                 }) satisfies OpenEditableProjectResult,
+            loadMetadataEditor: async () => null,
+            saveMetadataEditor: async () => null,
             openProject: async () => project,
             openProjectReadOnly: async () => project,
             openResource: async () => null,

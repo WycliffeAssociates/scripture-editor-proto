@@ -120,7 +120,7 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
         expect(project?.books).toEqual([
             {
                 bookCode: "MAT",
-                title: "MAT",
+                title: "Matthew",
                 fileName: "41-MAT.usfm",
                 storageKey: "41-MAT.usfm",
                 path: `${projectRootPath}/41-MAT.usfm`,
@@ -129,7 +129,7 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
         expect(await project?.listBooks()).toEqual([
             {
                 bookCode: "MAT",
-                title: "MAT",
+                title: "Matthew",
                 fileName: "41-MAT.usfm",
                 storageKey: "41-MAT.usfm",
                 path: `${projectRootPath}/41-MAT.usfm`,
@@ -138,6 +138,93 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
 
         const book = await project?.getBook("41-MAT.usfm");
         expect(book?.contents).toContain("\\id MAT");
+    });
+
+    test("opens numbered-book ingredients from scripture burrito metadata", async () => {
+        const numberedMetadata = {
+            ...sampleMetadataJson,
+            identification: {
+                ...sampleMetadataJson.identification,
+                name: { en: "Numbered Book Project" },
+            },
+            localizedNames: {
+                "1CO": {
+                    short: { en: "1 Corinthians" },
+                    abbr: { en: "1CO" },
+                    long: { en: "1 Corinthians" },
+                },
+                "2TH": {
+                    short: { en: "2 Thessalonians" },
+                    abbr: { en: "2TH" },
+                    long: { en: "2 Thessalonians" },
+                },
+            },
+            ingredients: {
+                "47-1CO.usfm": {
+                    checksum: { md5: "old-md5-1co" },
+                    mimeType: "text/usfm",
+                    size: 12,
+                    scope: { "1CO": [] },
+                },
+                "54-2TH.usfm": {
+                    checksum: { md5: "old-md5-2th" },
+                    mimeType: "text/usfm",
+                    size: 12,
+                    scope: { "2TH": [] },
+                },
+            },
+        };
+
+        await fileSystem.writeText(
+            `${projectRootPath}/metadata.json`,
+            JSON.stringify(numberedMetadata),
+        );
+        await fileSystem.writeText(`${projectRootPath}/47-1CO.usfm`, "\\id 1CO");
+        await fileSystem.writeText(`${projectRootPath}/54-2TH.usfm`, "\\id 2TH");
+
+        const project = await loader.openProject({
+            fs: fileSystem,
+            projectRootPath,
+            folderName,
+            displayName: "Numbered Book Project",
+        });
+
+        expect(project?.books).toEqual([
+            {
+                bookCode: "1CO",
+                title: "1 Corinthians",
+                fileName: "47-1CO.usfm",
+                storageKey: "47-1CO.usfm",
+                path: `${projectRootPath}/47-1CO.usfm`,
+            },
+            {
+                bookCode: "2TH",
+                title: "2 Thessalonians",
+                fileName: "54-2TH.usfm",
+                storageKey: "54-2TH.usfm",
+                path: `${projectRootPath}/54-2TH.usfm`,
+            },
+        ]);
+        expect(await project?.listBooks()).toEqual([
+            {
+                bookCode: "1CO",
+                title: "1 Corinthians",
+                fileName: "47-1CO.usfm",
+                storageKey: "47-1CO.usfm",
+                path: `${projectRootPath}/47-1CO.usfm`,
+            },
+            {
+                bookCode: "2TH",
+                title: "2 Thessalonians",
+                fileName: "54-2TH.usfm",
+                storageKey: "54-2TH.usfm",
+                path: `${projectRootPath}/54-2TH.usfm`,
+            },
+        ]);
+        await expect(project?.getBook("47-1CO.usfm")).resolves.toMatchObject({
+            contents: "\\id 1CO",
+            bookCode: "1CO",
+        });
     });
 
     test("opens a scripture burrito as a loaded reference item", async () => {
@@ -174,7 +261,7 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
         await expect(resource?.listDocuments()).resolves.toEqual([
             {
                 id: "41-MAT.usfm",
-                name: "MAT",
+                name: "Matthew",
                 browsePath: ["41-MAT"],
             },
         ]);
@@ -182,7 +269,7 @@ describe("ScriptureBurritoProjectLoader path-based loading", () => {
             resource?.readDocument("41-MAT.usfm" as never),
         ).resolves.toEqual({
             id: "41-MAT.usfm",
-            name: "MAT",
+            name: "Matthew",
             browsePath: ["41-MAT"],
             contents: "\\id MAT\n\\c 1\n\\v 1 In the beginning",
         });

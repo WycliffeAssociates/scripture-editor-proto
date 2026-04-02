@@ -4,6 +4,7 @@ import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
 import { writeGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
 import type {
+    RemoteRepoProjectMetadata,
     RemoteRepoProvider,
     RemoteRepoSummary,
 } from "@/core/persistence/RemoteRepoProvider.ts";
@@ -91,15 +92,28 @@ export class GitRemoteProjectService {
     }
 
     async attachProjectToRemote(args: {
-        projectPath: string;
+        project: Pick<Project, "projectPath" | "displayName" | "language">;
         repo: Pick<
             RemoteRepoSummary,
             "id" | "owner" | "name" | "htmlUrl" | "defaultBranch"
         >;
     }) {
         const session = await this.requireSession();
+        const remoteMetadata =
+            await this.remoteRepoProvider.inspectProjectMetadata({
+                hostBaseUrl: session.hostBaseUrl,
+                token: session.token,
+                repoOwner: args.repo.owner,
+                repoName: args.repo.name,
+                ref: args.repo.defaultBranch,
+            });
+        assertRemoteRepoMatchesProject({
+            project: args.project,
+            repo: args.repo,
+            remoteMetadata,
+        });
         const remoteInfo = buildGitRemoteProjectInfo({
-            projectPath: args.projectPath,
+            projectPath: args.project.projectPath,
             hostBaseUrl: session.hostBaseUrl,
             repo: args.repo,
         });
@@ -201,4 +215,41 @@ function normalizeRepoSegment(value: string): string {
         .replace(/^-+|-+$/gu, "");
 
     return normalized || "project";
+}
+
+function assertRemoteRepoMatchesProject(args: {
+    project: Pick<Project, "displayName" | "language">;
+    repo: Pick<RemoteRepoSummary, "owner" | "name" | "defaultBranch">;
+    remoteMetadata: RemoteRepoProjectMetadata | null;
+}) {
+    if (!args.remoteMetadata) {
+        throw new Error(
+            `This cloud repository is missing metadata.json or manifest.yaml on ${args.repo.defaultBranch}.`,
+        );
+    }
+
+    if (!args.remoteMetadata.isScriptureTextTranslation) {
+        throw new Error(
+            "Only scripture text-translation cloud projects can be attached right now.",
+        );
+    }
+
+    const localLanguage = normalizeMetadataTag(args.project.language.code);
+    const remoteLanguage = normalizeMetadataTag(
+        args.remoteMetadata.languageTag,
+    );
+    if (!remoteLanguage) {
+        throw new Error(
+            `This cloud repository does not declare a language tag in ${args.remoteMetadata.metadataPath}.`,
+        );
+    }
+    if (localLanguage !== remoteLanguage) {
+        throw new Error(
+            `This cloud repository is ${remoteLanguage}, but ${args.project.displayName} is ${localLanguage}.`,
+        );
+    }
+}
+
+function normalizeMetadataTag(value?: string | null): string {
+    return value?.trim().toLowerCase() ?? "";
 }

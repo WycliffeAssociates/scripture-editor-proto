@@ -16,6 +16,7 @@ function createGitProvider(): GitProvider {
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: vi.fn(),
         cloneRemoteRepo: vi.fn(),
+        ensureRemote: vi.fn(),
         inspectRemoteHeads: vi.fn(),
         fetchRemoteHeads: vi.fn(),
         pushCurrentBranch: vi.fn(),

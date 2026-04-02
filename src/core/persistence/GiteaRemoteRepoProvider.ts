@@ -1,7 +1,11 @@
 import * as v from "valibot";
+import { classifyResourceKindFromResourceContainer } from "@/core/domain/project/referenceItemLoading.ts";
+import { parseResourceContainer } from "@/core/domain/project/resourceContainer/resourceContainer.ts";
+import { tryParseScriptureBurritoMetadata } from "@/core/domain/project/scriptureBurritoSchemas.ts";
 import type {
     CreateRemoteRepoRequest,
     RemoteRepoPage,
+    RemoteRepoProjectMetadata,
     RemoteRepoProvider,
     RemoteRepoSummary,
 } from "@/core/persistence/RemoteRepoProvider.ts";
@@ -44,6 +48,12 @@ const GiteaRepoRecordSchema = v.object({
     permissions: v.optional(GiteaRepoPermissionsSchema),
 });
 
+const GiteaRepoContentSchema = v.object({
+    content: v.optional(v.string()),
+    encoding: v.optional(v.string()),
+    type: v.optional(v.string()),
+});
+
 const GiteaSearchResponseSchema = v.object({
     data: v.optional(v.array(GiteaRepoRecordSchema)),
 });
@@ -77,8 +87,10 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
             username: args.username,
             fallbackMessage: "Failed to list writable repositories",
             query: {},
-            map: (repo) => mapRepoSummary(repo, args.username),
-            filter: (repo) => mapRepoSummary(repo, args.username).canWrite,
+            map: (repo) =>
+                mapRepoSummary(repo, args.username, args.hostBaseUrl),
+            filter: (repo) =>
+                mapRepoSummary(repo, args.username, args.hostBaseUrl).canWrite,
         });
     }
 
@@ -103,7 +115,8 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
                 exclusive: "true",
                 uid: userId,
             },
-            map: (repo) => mapRepoSummary(repo, args.username),
+            map: (repo) =>
+                mapRepoSummary(repo, args.username, args.hostBaseUrl),
         });
     }
 
@@ -132,7 +145,33 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         await throwIfNotOk(response, "Failed to create remote repository");
 
         const repo = parseGiteaRepoRecord(await response.json());
-        return mapRepoSummary(repo, args.username);
+        return mapRepoSummary(repo, args.username, args.hostBaseUrl);
+    }
+
+    async inspectProjectMetadata(args: {
+        hostBaseUrl: string;
+        token: string;
+        repoOwner: string;
+        repoName: string;
+        ref?: string;
+    }): Promise<RemoteRepoProjectMetadata | null> {
+        const metadataText = await this.readRepoFileText({
+            ...args,
+            filePath: "metadata.json",
+        });
+        if (metadataText) {
+            return inspectScriptureBurritoMetadata(metadataText);
+        }
+
+        const manifestText = await this.readRepoFileText({
+            ...args,
+            filePath: "manifest.yaml",
+        });
+        if (manifestText) {
+            return inspectResourceContainerMetadata(manifestText);
+        }
+
+        return null;
     }
 
     private async listRepoPage(args: {
@@ -196,6 +235,51 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         const currentUser = parseGiteaCurrentUser(await response.json());
         return String(currentUser.id);
     }
+
+    private async readRepoFileText(args: {
+        hostBaseUrl: string;
+        token: string;
+        repoOwner: string;
+        repoName: string;
+        filePath: string;
+        ref?: string;
+    }): Promise<string | null> {
+        const response = await this.fetchImpl(
+            buildRepoContentsUrl(args.hostBaseUrl, {
+                repoOwner: args.repoOwner,
+                repoName: args.repoName,
+                filePath: args.filePath,
+                ref: args.ref,
+            }),
+            {
+                method: "GET",
+                headers: buildAuthHeaders(args.token),
+            },
+        );
+
+        if (response.status === 404) {
+            return null;
+        }
+
+        await throwIfNotOk(
+            response,
+            `Failed to inspect ${args.filePath} in remote repository`,
+        );
+
+        const payload = parseGiteaRepoContent(await response.json());
+        if (payload.type && payload.type !== "file") {
+            throw new Error(
+                `Expected ${args.filePath} to be a file in remote repository`,
+            );
+        }
+        if (!payload.content) {
+            throw new Error(
+                `Remote repository response did not include ${args.filePath} contents`,
+            );
+        }
+
+        return decodeBase64Content(payload.content);
+    }
 }
 
 function getDefaultFetch(): FetchLike {
@@ -214,6 +298,10 @@ function parseGiteaRepoRecord(payload: unknown): GiteaRepoRecord {
 
 function parseGiteaCurrentUser(payload: unknown): GiteaCurrentUser {
     return v.parse(GiteaCurrentUserSchema, payload);
+}
+
+function parseGiteaRepoContent(payload: unknown) {
+    return v.parse(GiteaRepoContentSchema, payload);
 }
 
 function extractRepoRecords(
@@ -248,19 +336,49 @@ function buildRepoSearchUrl(
     return url;
 }
 
+function buildRepoContentsUrl(
+    hostBaseUrl: string,
+    args: {
+        repoOwner: string;
+        repoName: string;
+        filePath: string;
+        ref?: string;
+    },
+): URL {
+    const encodedOwner = encodeURIComponent(args.repoOwner);
+    const encodedName = encodeURIComponent(args.repoName);
+    const encodedPath = args.filePath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+    const url = new URL(
+        `/api/v1/repos/${encodedOwner}/${encodedName}/contents/${encodedPath}`,
+        hostBaseUrl,
+    );
+    if (args.ref) {
+        url.searchParams.set("ref", args.ref);
+    }
+    return url;
+}
+
 function mapRepoSummary(
     repo: GiteaRepoRecord,
     username: string,
+    hostBaseUrl: string,
 ): RemoteRepoSummary {
     const owner = repo.owner?.username || repo.owner?.login || username;
     const name = repo.name || "unknown";
+    const htmlUrl = repo.html_url || "";
     return {
         id: String(repo.id ?? `${owner}/${name}`),
         owner,
         name,
         fullName: repo.full_name || `${owner}/${name}`,
-        htmlUrl: repo.html_url || "",
-        cloneUrl: repo.clone_url || `${repo.html_url || ""}.git`,
+        htmlUrl,
+        cloneUrl:
+            repo.clone_url ||
+            buildCloneUrlFromHtmlUrl(htmlUrl) ||
+            buildCloneUrlFromHost(hostBaseUrl, owner, name),
         defaultBranch:
             repo.default_branch || REMOTE_REPO_CREATED_DEFAULT_BRANCH,
         topics: repo.topics ?? [],
@@ -281,11 +399,86 @@ function isWritableRepo(repo: GiteaRepoRecord, username: string): boolean {
     );
 }
 
+function buildCloneUrlFromHost(
+    hostBaseUrl: string,
+    owner: string,
+    repoName: string,
+): string {
+    return new URL(
+        `/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}.git`,
+        hostBaseUrl,
+    ).toString();
+}
+
+function buildCloneUrlFromHtmlUrl(htmlUrl: string): string | null {
+    const trimmed = htmlUrl.trim();
+    if (!trimmed) {
+        return null;
+    }
+    return `${trimmed.replace(/\/+$/u, "")}.git`;
+}
+
 function buildAuthHeaders(token: string): HeadersInit {
     return {
         Authorization: `token ${token}`,
         Accept: "application/json",
     };
+}
+
+function decodeBase64Content(content: string): string {
+    const normalized = content.replace(/\s+/gu, "");
+    const binary = globalThis.atob(normalized);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+}
+
+function inspectScriptureBurritoMetadata(
+    metadataText: string,
+): RemoteRepoProjectMetadata {
+    const [metadata] = tryParseScriptureBurritoMetadata(
+        JSON.parse(metadataText),
+    );
+    if (!metadata) {
+        throw new Error(
+            "Remote metadata.json is not a valid Scripture Burrito file",
+        );
+    }
+
+    return {
+        format: "scripture-burrito",
+        metadataPath: "metadata.json",
+        languageTag: metadata.languages?.[0]?.tag ?? null,
+        isScriptureTextTranslation:
+            normalizeMetadataToken(metadata.type?.flavorType?.name) ===
+                "scripture" &&
+            normalizeMetadataToken(metadata.type?.flavorType?.flavor?.name) ===
+                "texttranslation" &&
+            normalizeMetadataToken(
+                metadata.type?.flavorType?.flavor?.projectType,
+            ) === "standard",
+    };
+}
+
+function inspectResourceContainerMetadata(
+    manifestText: string,
+): RemoteRepoProjectMetadata {
+    const manifest = parseResourceContainer(manifestText);
+    return {
+        format: "resource-container",
+        metadataPath: "manifest.yaml",
+        languageTag: manifest.dublin_core?.language?.identifier ?? null,
+        isScriptureTextTranslation:
+            classifyResourceKindFromResourceContainer({
+                identifier: manifest.dublin_core?.identifier,
+                title: manifest.dublin_core?.title,
+                subject: manifest.dublin_core?.subject,
+                format: manifest.dublin_core?.format,
+            }) === "usfmScripture",
+    };
+}
+
+function normalizeMetadataToken(value?: string | null): string {
+    return value?.trim().toLowerCase() ?? "";
 }
 
 async function throwIfNotOk(response: Response, fallbackMessage: string) {

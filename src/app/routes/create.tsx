@@ -5,11 +5,6 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
 import { GIT_REMOTE_DEFAULT_TOPIC } from "@/app/domain/project/gitRemoteProjectService.ts";
-import {
-    buildPersistentImportSuccessNotification,
-    getProjectParamFromImportedPath,
-    resolveImportErrorMessage,
-} from "@/app/routes/createRouteHelpers.ts";
 import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import { CloudProjectImporter } from "@/app/ui/components/import/CloudProjectImporter.tsx";
@@ -23,6 +18,11 @@ import {
 } from "@/app/ui/components/primitives/Notifications.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
+import {
+    buildPersistentImportSuccessNotification,
+    getProjectParamFromImportedPath,
+    resolveImportErrorMessage,
+} from "@/app/utils/createRouteHelpers.ts";
 import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -120,10 +120,12 @@ export function CreateProject() {
         importedProject,
         message,
         isEditableProject,
+        requiresMetadataReview = false,
     }: {
         importedProject: ProjectListItem | null | undefined;
         message: string;
         isEditableProject: boolean;
+        requiresMetadataReview?: boolean;
     }) => {
         if (!isEditableProject) {
             ShowNotificationSuccess({
@@ -156,12 +158,25 @@ export function CreateProject() {
                                     lastProjectPath: importedPath ?? "",
                                 });
                                 router.navigate({
-                                    to: "/$project",
+                                    to: requiresMetadataReview
+                                        ? "/$project/metadata"
+                                        : "/$project",
                                     params: { project: projectParam },
+                                    ...(requiresMetadataReview
+                                        ? {
+                                              search: {
+                                                  issues: "open" as const,
+                                              },
+                                          }
+                                        : {}),
                                 });
                             }}
                         >
-                            <Trans>Open project</Trans>
+                            {requiresMetadataReview ? (
+                                <Trans>Review metadata</Trans>
+                            ) : (
+                                <Trans>Open project</Trans>
+                            )}
                         </Anchor>
                     </>
                 ),
@@ -413,11 +428,13 @@ export function CreateProject() {
             await router.invalidate();
             showImportSuccessToast({
                 importedProject: importedProject.project,
-                message:
-                    importedProject.isEditableProject === false
-                        ? t`Resource imported successfully! It is available in the reference picker.`
-                        : t`Cloud project imported successfully!`,
+                message: importedProject.requiresMetadataReview
+                    ? t`Project imported successfully. Metadata needs review before opening it.`
+                    : importedProject.isEditableProject === false
+                      ? t`Resource imported successfully! It is available in the reference picker.`
+                      : t`Cloud project imported successfully!`,
                 isEditableProject: importedProject.isEditableProject,
+                requiresMetadataReview: importedProject.requiresMetadataReview,
             });
             showImportGitWarningToast(importedProject.warning);
         } catch (error) {
@@ -448,9 +465,12 @@ export function CreateProject() {
             showImportSuccessToast({
                 importedProject: importedProject.project,
                 message: importedProject.isEditableProject
-                    ? t`Project downloaded successfully!`
+                    ? importedProject.requiresMetadataReview
+                        ? t`Project downloaded successfully. Metadata needs review before opening it.`
+                        : t`Project downloaded successfully!`
                     : t`Resource downloaded successfully! It is available in the reference picker.`,
                 isEditableProject: importedProject.isEditableProject,
+                requiresMetadataReview: importedProject.requiresMetadataReview,
             });
             showImportGitWarningToast(importedProject.warning);
         } catch (error) {
@@ -482,11 +502,13 @@ export function CreateProject() {
             );
             showImportSuccessToast({
                 importedProject: importedProject?.project,
-                message:
-                    importedProject?.isEditableProject === false
-                        ? t`Resource imported successfully! It is available in the reference picker.`
-                        : t`Directory imported successfully!`,
+                message: importedProject?.requiresMetadataReview
+                    ? t`Project imported successfully. Metadata needs review before opening it.`
+                    : importedProject?.isEditableProject === false
+                      ? t`Resource imported successfully! It is available in the reference picker.`
+                      : t`Directory imported successfully!`,
                 isEditableProject: importedProject?.isEditableProject ?? false,
+                requiresMetadataReview: importedProject?.requiresMetadataReview,
             });
             showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
@@ -516,11 +538,13 @@ export function CreateProject() {
             );
             showImportSuccessToast({
                 importedProject: importedProject?.project,
-                message:
-                    importedProject?.isEditableProject === false
-                        ? t`Resource imported successfully! It is available in the reference picker.`
-                        : t`File imported successfully!`,
+                message: importedProject?.requiresMetadataReview
+                    ? t`Project imported successfully. Metadata needs review before opening it.`
+                    : importedProject?.isEditableProject === false
+                      ? t`Resource imported successfully! It is available in the reference picker.`
+                      : t`File imported successfully!`,
                 isEditableProject: importedProject?.isEditableProject ?? false,
+                requiresMetadataReview: importedProject?.requiresMetadataReview,
             });
             showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
@@ -556,11 +580,14 @@ export function CreateProject() {
                   );
                   showImportSuccessToast({
                       importedProject: importedProject.project,
-                      message:
-                          importedProject.isEditableProject === false
-                              ? t`Resource imported successfully! It is available in the reference picker.`
-                              : t`Directory imported successfully!`,
+                      message: importedProject.requiresMetadataReview
+                          ? t`Project imported successfully. Metadata needs review before opening it.`
+                          : importedProject.isEditableProject === false
+                            ? t`Resource imported successfully! It is available in the reference picker.`
+                            : t`Directory imported successfully!`,
                       isEditableProject: importedProject.isEditableProject,
+                      requiresMetadataReview:
+                          importedProject.requiresMetadataReview,
                   });
                   showImportGitWarningToast(importedProject.warning);
               } catch (error) {
@@ -596,11 +623,14 @@ export function CreateProject() {
                   );
                   showImportSuccessToast({
                       importedProject: importedProject.project,
-                      message:
-                          importedProject.isEditableProject === false
-                              ? t`Resource imported successfully! It is available in the reference picker.`
-                              : t`File imported successfully!`,
+                      message: importedProject.requiresMetadataReview
+                          ? t`Project imported successfully. Metadata needs review before opening it.`
+                          : importedProject.isEditableProject === false
+                            ? t`Resource imported successfully! It is available in the reference picker.`
+                            : t`File imported successfully!`,
                       isEditableProject: importedProject.isEditableProject,
+                      requiresMetadataReview:
+                          importedProject.requiresMetadataReview,
                   });
                   showImportGitWarningToast(importedProject.warning);
               } catch (error) {

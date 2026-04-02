@@ -1,9 +1,9 @@
 /**
- * Normalize the configured Gitea host for this build.
+ * Normalize a configured platform-specific Gitea host.
  *
- * The cloud feature currently targets one deployment host at a time. Keeping the
- * normalization logic shared prevents web and desktop bootstrap from drifting on
- * trailing slashes or empty-string handling.
+ * Web and desktop may target different hosts. Keeping the normalization logic
+ * shared prevents those bootstraps from drifting on trailing slashes or empty
+ * string handling.
  */
 export function normalizeGiteaHostBaseUrl(
     value: string | null | undefined,

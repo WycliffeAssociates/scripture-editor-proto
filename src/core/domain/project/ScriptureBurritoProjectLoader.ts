@@ -44,9 +44,10 @@ function isBibleBookIngredient(
     _filePath: string,
     ingredient: Ingredient,
 ): boolean {
+    const bookCodePattern = /^(?:[1-3][A-Z]{2}|[A-Z]{3})$/;
     if (ingredient.scope && typeof ingredient.scope === "object") {
         const bookCodes = Object.keys(ingredient.scope);
-        return bookCodes.some((code) => /^[A-Z]{3}$/.test(code));
+        return bookCodes.some((code) => bookCodePattern.test(code));
     }
 
     const scriptureMimeTypes = [
@@ -62,14 +63,19 @@ function extractBookCodeFromIngredient(
     filePath: string,
     ingredient: Ingredient,
 ): string | null {
+    const bookCodePattern = /^(?:[1-3][A-Z]{2}|[A-Z]{3})$/;
     if (ingredient.scope && typeof ingredient.scope === "object") {
         const bookCodes = Object.keys(ingredient.scope);
-        const validBookCode = bookCodes.find((code) => /^[A-Z]{3}$/.test(code));
+        const validBookCode = bookCodes.find((code) =>
+            bookCodePattern.test(code),
+        );
         if (validBookCode) return validBookCode;
     }
 
     const filename = filePath.split("/").pop() || filePath;
-    const match = filename.match(/(\d{2})-([A-Z]{3})\.(usfm|usx|txt)/i);
+    const match = filename.match(
+        /(\d{2})-((?:[1-3][A-Z]{2}|[A-Z]{3}))\.(usfm|usx|txt)/i,
+    );
     return match ? match[2].toUpperCase() : null;
 }
 
@@ -78,9 +84,10 @@ function getBookTitle(
     metadata: ScriptureBurritoMetadata,
     langCode: string,
 ): string {
-    if (metadata.localizedNames?.[`book-${bookCode.toLowerCase()}`]) {
-        const nameObj =
-            metadata.localizedNames[`book-${bookCode.toLowerCase()}`];
+    const nameObj =
+        metadata.localizedNames?.[bookCode] ??
+        metadata.localizedNames?.[`book-${bookCode.toLowerCase()}`];
+    if (nameObj) {
         return nameObj.short[langCode] || nameObj?.long?.[langCode] || bookCode;
     }
 

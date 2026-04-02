@@ -247,6 +247,7 @@ export const ProjectProvider = ({
             try {
                 const result = await hydrateGitRemoteStatusOnOpen({
                     projectPath: loadedProject.projectPath,
+                    loadedProject,
                     fileSystem,
                     storageRoots,
                     settingsManager,

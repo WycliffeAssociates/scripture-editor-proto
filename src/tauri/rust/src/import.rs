@@ -84,6 +84,7 @@ pub fn import_download_remote_archive_to_managed_storage(
     projects_root: String,
     temp_root: String,
     progress_event: String,
+    requested_with_header_value: Option<String>,
 ) -> Result<String, String> {
     let mut emit_progress = |payload: ImportProgressPayload| {
         app.emit(progress_event.as_str(), payload)
@@ -95,7 +96,14 @@ pub fn import_download_remote_archive_to_managed_storage(
         Path::new(&projects_root),
         Path::new(&temp_root),
         &mut emit_progress,
-        &download_remote_archive_to_temp,
+        &|url, temp_root, emit_progress| {
+            download_remote_archive_to_temp(
+                url,
+                temp_root,
+                emit_progress,
+                requested_with_header_value.as_deref(),
+            )
+        },
         &|source, destination| fs::copy(source, destination).map(|_| ()),
     )?;
 
@@ -394,6 +402,7 @@ fn download_remote_archive_to_temp<F>(
     url: &str,
     temp_root: &Path,
     emit_progress: &mut F,
+    requested_with_header_value: Option<&str>,
 ) -> Result<PathBuf, String>
 where
     F: FnMut(ImportProgressPayload) -> Result<(), String>,
@@ -410,17 +419,33 @@ where
     let client = Client::builder()
         .build()
         .map_err(|error| format!("Failed to initialize HTTP client: {}", error))?;
-    let mut response = client
-        .get(url)
+    let mut request = client.get(url);
+    if let Some(value) = requested_with_header_value.filter(|value| !value.trim().is_empty()) {
+        request = request.header("X-Requested-With", value);
+    }
+    let mut response = request
         .send()
         .map_err(|error| format!("Failed to download remote archive {url}: {error}"))?;
 
     if !response.status().is_success() {
+        let status = response.status();
+        let headers = format!("{:?}", response.headers());
+        let body = response.text().unwrap_or_default();
+        let body_preview = if body.len() > 500 {
+            format!("{}...", &body[..500])
+        } else {
+            body
+        };
+        eprintln!(
+            "[import_download_remote_archive_to_managed_storage] Remote archive download failed. url={url} status={} headers={} body={}",
+            status,
+            headers,
+            body_preview
+        );
         return Err(format!(
             "Download failed with status: {} {}",
-            response.status().as_u16(),
-            response
-                .status()
+            status.as_u16(),
+            status
                 .canonical_reason()
                 .unwrap_or("Unknown Status")
         ));

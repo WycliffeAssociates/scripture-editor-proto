@@ -1,10 +1,26 @@
 import { GitRemoteProjectService } from "@/app/domain/project/gitRemoteProjectService.ts";
+import {
+    PUBLISH_AFTER_SAVE_NEEDS_REVIEW,
+    PUBLISH_AFTER_SAVE_NOT_LINKED,
+    PUBLISH_AFTER_SAVE_PENDING_PUBLISH,
+    PUBLISH_AFTER_SAVE_PUBLISHED,
+    PUBLISH_AFTER_SAVE_REAUTH_REQUIRED,
+    publishLinkedProjectNow,
+} from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import { attachTranslationNotesRemoteSync } from "@/app/reference/translationNotesRemoteSync.ts";
+import { removeLeadingDirSlashes } from "@/core/data/utils/generic.ts";
 import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import {
     type ImportSource,
     ProjectImporter,
 } from "@/core/domain/project/import/ProjectImporter.ts";
+import {
+    loadMetadataEditorDocument,
+    type MetadataEditorDocument,
+    type MetadataEditorDraft,
+    saveMetadataEditorDocument,
+} from "@/core/domain/project/metadataEditor.ts";
+import { LanguageDirection } from "@/core/domain/project/project.ts";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import { createRemoteSourceMetadata } from "@/core/domain/project/referenceItemLoading.ts";
 import {
@@ -28,6 +44,7 @@ import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider
 import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
+import { GIT_REMOTE_DEFAULT_NAME } from "@/core/persistence/gitConstants.ts";
 import type { GitRemoteProjectInfo } from "@/core/persistence/gitRemoteModels.ts";
 import {
     deleteGitRemoteProjectInfo,
@@ -43,8 +60,10 @@ import type {
     RemoteRepoSummary,
 } from "@/core/persistence/RemoteRepoProvider.ts";
 import type {
+    BookRef,
     Project as FacadeProject,
     ProjectListItem,
+    ScriptureWorkspace,
 } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type {
@@ -87,7 +106,9 @@ export class DefaultProjectsService implements ProjectsService {
     protected readonly itemLoader: ItemLoader;
     protected readonly resourceContainerLoader: ResourceContainerProjectLoader;
     protected readonly scriptureBurritoLoader: ScriptureBurritoProjectLoader;
+    protected readonly md5Service: IMd5Service;
     private readonly gitRemoteProjectService: GitRemoteProjectService | null;
+    private readonly remoteAuthSessionProvider: AuthSessionProvider | null;
 
     constructor({
         fileSystem,
@@ -100,6 +121,7 @@ export class DefaultProjectsService implements ProjectsService {
         this.fileSystem = fileSystem;
         this.roots = roots;
         this.projectIndex = projectIndex;
+        this.md5Service = md5Service;
         this.projectImporter = new ProjectImporter(fileSystem, roots);
         this.gitProvider = gitProvider;
         this.itemLoader = new ItemLoader(md5Service);
@@ -107,6 +129,7 @@ export class DefaultProjectsService implements ProjectsService {
         this.scriptureBurritoLoader = new ScriptureBurritoProjectLoader(
             md5Service,
         );
+        this.remoteAuthSessionProvider = remote?.authSessionProvider ?? null;
         this.gitRemoteProjectService = remote
             ? new GitRemoteProjectService(
                   fileSystem,
@@ -133,6 +156,112 @@ export class DefaultProjectsService implements ProjectsService {
         };
     }
 
+    private buildMetadataReviewWorkspace(args: {
+        projectPath: string;
+        document: MetadataEditorDocument;
+    }): ScriptureWorkspace {
+        const folderName = basenameStoragePath(args.projectPath);
+        const books: BookRef[] =
+            args.document.draft.kind === "resource-container"
+                ? args.document.draft.projects
+                      .filter(
+                          (project) =>
+                              project.identifier.trim().length > 0 &&
+                              project.path.trim().length > 0,
+                      )
+                      .map((project) => ({
+                          bookCode: project.identifier.toUpperCase(),
+                          title: project.title,
+                          fileName:
+                              removeLeadingDirSlashes(project.path)
+                                  .split("/")
+                                  .at(-1) ?? project.path,
+                          storageKey:
+                              removeLeadingDirSlashes(project.path)
+                                  .split("/")
+                                  .at(-1) ?? project.path,
+                          path: `${args.projectPath}/${removeLeadingDirSlashes(project.path)}`,
+                      }))
+                : args.document.draft.ingredients
+                      .filter(
+                          (ingredient) =>
+                              ingredient.bookCode.trim().length > 0 &&
+                              ingredient.path.trim().length > 0,
+                      )
+                      .map((ingredient) => ({
+                          bookCode: ingredient.bookCode.toUpperCase(),
+                          title: ingredient.title || ingredient.bookCode,
+                          fileName:
+                              removeLeadingDirSlashes(ingredient.path)
+                                  .split("/")
+                                  .at(-1) ?? ingredient.path,
+                          storageKey:
+                              removeLeadingDirSlashes(ingredient.path)
+                                  .split("/")
+                                  .at(-1) ?? ingredient.path,
+                          path: `${args.projectPath}/${removeLeadingDirSlashes(ingredient.path)}`,
+                      }));
+
+        const language =
+            args.document.draft.kind === "resource-container"
+                ? {
+                      code: args.document.draft.language.identifier,
+                      name: args.document.draft.language.title,
+                      direction:
+                          args.document.draft.language.direction === "rtl"
+                              ? LanguageDirection.RTL
+                              : LanguageDirection.LTR,
+                  }
+                : {
+                      code: args.document.draft.language.tag,
+                      name: args.document.draft.language.englishName,
+                      direction:
+                          args.document.draft.language.direction === "rtl"
+                              ? LanguageDirection.RTL
+                              : LanguageDirection.LTR,
+                  };
+
+        return {
+            folderName,
+            displayName: args.document.displayName,
+            projectPath: args.projectPath,
+            projectId: folderName,
+            projectType:
+                args.document.draft.kind === "resource-container"
+                    ? "resource-container"
+                    : "scripture-burrito",
+            language,
+            books,
+            listBooks: async () => books,
+            getBook: async () => {
+                throw new Error(
+                    "Metadata review workspaces do not expose book reads before metadata is repaired.",
+                );
+            },
+            saveBook: async () => {
+                throw new Error(
+                    "Metadata review workspaces do not expose book writes before metadata is repaired.",
+                );
+            },
+            addBook: async () => {
+                throw new Error(
+                    "Metadata review workspaces do not expose book creation before metadata is repaired.",
+                );
+            },
+            listVersions: async () => [],
+            restoreVersion: async () => {
+                throw new Error(
+                    "Version operations are not available until metadata issues are resolved.",
+                );
+            },
+            stageAndCommit: async () => {
+                throw new Error(
+                    "Git operations are not available until metadata issues are resolved.",
+                );
+            },
+        };
+    }
+
     protected resolveProjectPath(projectRef: string): string {
         return this.isAbsoluteProjectPath(projectRef)
             ? projectRef
@@ -151,6 +280,21 @@ export class DefaultProjectsService implements ProjectsService {
         update: ImportProgressUpdate,
     ): Promise<void> {
         await options?.onProgress?.(update);
+    }
+
+    private async clearPersistedRemoteLinkState(
+        projectPath: string,
+    ): Promise<void> {
+        await deleteGitRemoteProjectInfo({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
+        await deleteGitRemoteProjectStatus({
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            projectPath,
+        });
     }
 
     /**
@@ -292,6 +436,16 @@ export class DefaultProjectsService implements ProjectsService {
 
             const displayName =
                 await this.resolveProjectDisplayName(projectPath);
+            const metadataDocument = await this.loadMetadataEditor(projectRef, {
+                includeIssues: true,
+            });
+            if (metadataDocument && metadataDocument.issues.length > 0) {
+                return {
+                    project: null,
+                    rejectionReason: "metadata-invalid",
+                    metadataIssues: metadataDocument.issues,
+                };
+            }
             const item = await this.itemLoader.openItem({
                 fs: this.fileSystem,
                 managedPath: projectPath,
@@ -312,6 +466,64 @@ export class DefaultProjectsService implements ProjectsService {
             );
             return { project: null, rejectionReason: "not-found" };
         }
+    }
+
+    async loadMetadataEditor(
+        projectRef: string,
+        options?: { includeIssues?: boolean },
+    ): Promise<MetadataEditorDocument | null> {
+        const projectPath = this.resolveProjectPath(projectRef);
+        if (!(await this.fileSystem.exists(projectPath))) {
+            return null;
+        }
+
+        return loadMetadataEditorDocument({
+            fs: this.fileSystem,
+            managedPath: projectPath,
+            displayName: await this.resolveProjectDisplayName(projectPath),
+            includeIssues: options?.includeIssues ?? false,
+        });
+    }
+
+    async saveMetadataEditor(
+        projectRef: string,
+        draft: MetadataEditorDraft,
+    ): Promise<MetadataEditorDocument | null> {
+        const projectPath = this.resolveProjectPath(projectRef);
+        if (!(await this.fileSystem.exists(projectPath))) {
+            return null;
+        }
+
+        await saveMetadataEditorDocument({
+            fs: this.fileSystem,
+            managedPath: projectPath,
+            draft,
+            md5Service: this.md5Service,
+            appVersion: "0.1.2",
+        });
+
+        const document = await this.loadMetadataEditor(projectRef, {
+            includeIssues: true,
+        });
+        if (!document) {
+            return null;
+        }
+
+        if (document.issues.length === 0) {
+            const displayName =
+                await this.resolveProjectDisplayName(projectPath);
+            const loadedItem = await this.itemLoader.openItem({
+                fs: this.fileSystem,
+                managedPath: projectPath,
+                displayName,
+            });
+
+            if (loadedItem) {
+                await this.projectIndex.indexItem(loadedItem);
+            }
+        }
+
+        return document;
     }
 
     async openProjectReadOnly(
@@ -350,6 +562,8 @@ export class DefaultProjectsService implements ProjectsService {
                 throw new Error("Imported project path could not be resolved");
             }
 
+            await this.clearPersistedRemoteLinkState(importedPath);
+
             await this.reportImportProgress(
                 options,
                 createImportProgressUpdate(
@@ -357,8 +571,58 @@ export class DefaultProjectsService implements ProjectsService {
                     "Inspecting imported resource...",
                 ),
             );
-            const loadedProject = await this.openProject(importedPath);
+            const editableResult = await this.openEditableProject(importedPath);
+            const loadedProject = editableResult.project;
             if (!loadedProject) {
+                if (editableResult.rejectionReason === "metadata-invalid") {
+                    const metadataDocument = await this.loadMetadataEditor(
+                        importedPath,
+                        { includeIssues: true },
+                    );
+                    if (!metadataDocument) {
+                        throw new Error(
+                            `Imported project metadata could not be loaded: ${projectId}`,
+                        );
+                    }
+
+                    const metadataReviewWorkspace =
+                        this.buildMetadataReviewWorkspace({
+                            projectPath: importedPath,
+                            document: metadataDocument,
+                        });
+
+                    await this.reportImportProgress(
+                        options,
+                        createImportProgressUpdate(
+                            ImportProgressPhase.INDEX_RESOURCE,
+                            "Indexing imported project metadata...",
+                        ),
+                    );
+                    await this.projectIndex.indexItem(metadataReviewWorkspace);
+                    const indexedProject =
+                        (await this.projectIndex.getProjectByPath(
+                            importedPath,
+                        )) ?? this.toProjectListItem(metadataReviewWorkspace);
+
+                    await this.reportImportProgress(
+                        options,
+                        createImportProgressUpdate(
+                            ImportProgressPhase.COMPLETE,
+                            "Import completed. Metadata review required before opening the project.",
+                            {
+                                itemType: "usfmScripture",
+                            },
+                        ),
+                    );
+
+                    return {
+                        project: indexedProject,
+                        gitReady: false,
+                        isEditableProject: true,
+                        requiresMetadataReview: true,
+                    };
+                }
+
                 let loadedResource = await this.openResource(importedPath);
                 if (!loadedResource) {
                     throw new Error(
@@ -445,6 +709,7 @@ export class DefaultProjectsService implements ProjectsService {
                     project: indexedResource,
                     gitReady: false,
                     isEditableProject: false,
+                    requiresMetadataReview: false,
                 };
             }
 
@@ -486,6 +751,7 @@ export class DefaultProjectsService implements ProjectsService {
                     project: indexedProject,
                     gitReady: true,
                     isEditableProject: true,
+                    requiresMetadataReview: false,
                 };
             } catch (error) {
                 const warningBase =
@@ -509,6 +775,7 @@ export class DefaultProjectsService implements ProjectsService {
                     project: indexedProject,
                     gitReady: false,
                     isEditableProject: true,
+                    requiresMetadataReview: false,
                     warning,
                 };
             }
@@ -550,16 +817,40 @@ export class DefaultProjectsService implements ProjectsService {
                     : "Project not found",
             );
         }
-        return this.requireGitRemoteProjectService().createRemoteForProject(
-            project,
-        );
+        const result =
+            await this.requireGitRemoteProjectService().createRemoteForProject(
+                project,
+            );
+        await this.gitProvider.ensureRemote({
+            projectPath: project.projectPath,
+            remoteName: GIT_REMOTE_DEFAULT_NAME,
+            remoteUrl: result.repo.cloneUrl,
+        });
+        await ensureProjectGitReady({
+            fileSystem: this.fileSystem,
+            gitProvider: this.gitProvider,
+            loadedProject: project,
+        });
+        const publishResult = await publishLinkedProjectNow({
+            projectPath: project.projectPath,
+            fileSystem: this.fileSystem,
+            storageRoots: this.roots,
+            authSessionProvider: this.requireRemoteAuthSessionProvider(),
+            gitProvider: this.gitProvider,
+        });
+        if (publishResult.kind !== PUBLISH_AFTER_SAVE_PUBLISHED) {
+            throw new Error(
+                describeInitialRemotePublishFailure(publishResult.kind),
+            );
+        }
+        return result;
     }
 
     async attachProjectToRemote(args: {
         projectRef: string;
         repo: Pick<
             RemoteRepoSummary,
-            "id" | "owner" | "name" | "htmlUrl" | "defaultBranch"
+            "id" | "owner" | "name" | "htmlUrl" | "cloneUrl" | "defaultBranch"
         >;
     }): Promise<GitRemoteProjectInfo> {
         const { project, rejectionReason } = await this.openEditableProject(
@@ -572,10 +863,17 @@ export class DefaultProjectsService implements ProjectsService {
                     : "Project not found",
             );
         }
-        return this.requireGitRemoteProjectService().attachProjectToRemote({
+        const remoteInfo =
+            await this.requireGitRemoteProjectService().attachProjectToRemote({
+                project,
+                repo: args.repo,
+            });
+        await this.gitProvider.ensureRemote({
             projectPath: project.projectPath,
-            repo: args.repo,
+            remoteName: GIT_REMOTE_DEFAULT_NAME,
+            remoteUrl: args.repo.cloneUrl,
         });
+        return remoteInfo;
     }
 
     async cloneWritableRemoteProject(
@@ -656,6 +954,7 @@ export class DefaultProjectsService implements ProjectsService {
     ): Promise<void> {
         await this.fileSystem.remove(projectPath, options);
         await this.projectIndex.deleteProject(projectPath);
+        await this.clearPersistedRemoteLinkState(projectPath);
     }
 
     async renameDisplayName(
@@ -670,6 +969,13 @@ export class DefaultProjectsService implements ProjectsService {
             throw new Error("Remote project operations are not configured");
         }
         return this.gitRemoteProjectService;
+    }
+
+    private requireRemoteAuthSessionProvider(): AuthSessionProvider {
+        if (!this.remoteAuthSessionProvider) {
+            throw new Error("Remote project operations are not configured");
+        }
+        return this.remoteAuthSessionProvider;
     }
 
     private async allocateCloneProjectPath(repoName: string): Promise<string> {
@@ -697,15 +1003,25 @@ export class DefaultProjectsService implements ProjectsService {
         if (await this.fileSystem.exists(projectPath)) {
             await this.fileSystem.remove(projectPath, { recursive: true });
         }
-        await deleteGitRemoteProjectInfo({
-            fileSystem: this.fileSystem,
-            storageRoots: this.roots,
-            projectPath,
-        });
-        await deleteGitRemoteProjectStatus({
-            fileSystem: this.fileSystem,
-            storageRoots: this.roots,
-            projectPath,
-        });
+        await this.clearPersistedRemoteLinkState(projectPath);
+    }
+}
+
+function describeInitialRemotePublishFailure(
+    kind:
+        | typeof PUBLISH_AFTER_SAVE_NOT_LINKED
+        | typeof PUBLISH_AFTER_SAVE_PENDING_PUBLISH
+        | typeof PUBLISH_AFTER_SAVE_NEEDS_REVIEW
+        | typeof PUBLISH_AFTER_SAVE_REAUTH_REQUIRED,
+): string {
+    switch (kind) {
+        case PUBLISH_AFTER_SAVE_NOT_LINKED:
+            return "Cloud project was created, but the new remote link could not be found for publishing.";
+        case PUBLISH_AFTER_SAVE_REAUTH_REQUIRED:
+            return "Cloud project was created, but publishing requires signing in again.";
+        case PUBLISH_AFTER_SAVE_NEEDS_REVIEW:
+            return "Cloud project was created, but local and cloud changes need review before the first publish can finish.";
+        case PUBLISH_AFTER_SAVE_PENDING_PUBLISH:
+            return "Cloud project was created, but the initial publish is still pending.";
     }
 }

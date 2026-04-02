@@ -16,6 +16,9 @@
   - Delete project (disk + local DB metadata)
   - Export project as ZIP (where opener/export is available)
 - Shows a session-aware `From my cloud projects` source on `/create` when this install already has a cloud session.
+- Lets an existing local editable scripture project either:
+  - `Save as new cloud project`
+  - `Attach existing cloud project` from the settings drawer when the remote metadata looks like the same scripture language
 
 ## How to access it in the app
 - Go to home route (`/`) and click `New Project` (or use `New Project` from the in-project drawer).
@@ -26,6 +29,9 @@
   - `Or select a ZIP file`
 - Existing projects are listed under `Projects`.
 - In-project drawer also exposes project list actions (`Open`, `Export`, `New Project`).
+- In the settings drawer for an unlinked editable scripture project, the `Cloud` section supports:
+  - Creating a new cloud repo from this project
+  - Attaching one owned cloud repo whose metadata passes compatibility checks
 
 ## Typical user flow
 1. Import via repository, writable cloud repo, folder, or ZIP.
@@ -39,6 +45,11 @@
 - ZIP imports with multiple top-level entries currently use the first discovered top-level entry.
 - Naming collisions are auto-resolved by suffixing (`(1)`, `(2)`, ...).
 - Cloud repo listing/clone is session-aware, but this route does not implement OAuth login itself.
+- Attaching an existing cloud repo is intentionally conservative:
+  - the remote repo must expose `metadata.json` or `manifest.yaml` on its tracked branch
+  - scripture burrito remotes must look like scripture `textTranslation` `standard`
+  - resource container remotes must classify as scripture from `dublin_core`
+  - the remote language tag must match the local editable scripture project language code
 - Export/share/import portability strips Git internals. Exported ZIPs are portable local projects, not cloud-linked bundles.
 - Cloud session and per-project cloud status are app-local and do not travel with export/share artifacts.
 

@@ -53,6 +53,7 @@ export type ImportProjectResult = {
     project: ProjectListItem;
     gitReady: boolean;
     isEditableProject: boolean;
+    requiresMetadataReview?: boolean;
     warning?: string;
 };
 

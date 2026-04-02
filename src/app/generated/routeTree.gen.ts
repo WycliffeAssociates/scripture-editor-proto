@@ -14,6 +14,8 @@ import { Route as PlaygroundRouteImport } from './../routes/playground'
 import { Route as CreateRouteImport } from './../routes/create'
 import { Route as ProjectRouteImport } from './../routes/$project'
 import { Route as IndexRouteImport } from './../routes/index'
+import { Route as ProjectIndexRouteImport } from './../routes/$project.index'
+import { Route as ProjectMetadataRouteImport } from './../routes/$project.metadata'
 
 const ScaffoldRoute = ScaffoldRouteImport.update({
   id: '/scaffold',
@@ -40,40 +42,76 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectIndexRoute = ProjectIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectRoute,
+} as any)
+const ProjectMetadataRoute = ProjectMetadataRouteImport.update({
+  id: '/metadata',
+  path: '/metadata',
+  getParentRoute: () => ProjectRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$project': typeof ProjectRoute
+  '/$project': typeof ProjectRouteWithChildren
   '/create': typeof CreateRoute
   '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
+  '/$project/metadata': typeof ProjectMetadataRoute
+  '/$project/': typeof ProjectIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$project': typeof ProjectRoute
   '/create': typeof CreateRoute
   '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
+  '/$project/metadata': typeof ProjectMetadataRoute
+  '/$project': typeof ProjectIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$project': typeof ProjectRoute
+  '/$project': typeof ProjectRouteWithChildren
   '/create': typeof CreateRoute
   '/playground': typeof PlaygroundRoute
   '/scaffold': typeof ScaffoldRoute
+  '/$project/metadata': typeof ProjectMetadataRoute
+  '/$project/': typeof ProjectIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$project' | '/create' | '/playground' | '/scaffold'
+  fullPaths:
+    | '/'
+    | '/$project'
+    | '/create'
+    | '/playground'
+    | '/scaffold'
+    | '/$project/metadata'
+    | '/$project/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$project' | '/create' | '/playground' | '/scaffold'
-  id: '__root__' | '/' | '/$project' | '/create' | '/playground' | '/scaffold'
+  to:
+    | '/'
+    | '/create'
+    | '/playground'
+    | '/scaffold'
+    | '/$project/metadata'
+    | '/$project'
+  id:
+    | '__root__'
+    | '/'
+    | '/$project'
+    | '/create'
+    | '/playground'
+    | '/scaffold'
+    | '/$project/metadata'
+    | '/$project/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ProjectRoute: typeof ProjectRoute
+  ProjectRoute: typeof ProjectRouteWithChildren
   CreateRoute: typeof CreateRoute
   PlaygroundRoute: typeof PlaygroundRoute
   ScaffoldRoute: typeof ScaffoldRoute
@@ -116,12 +154,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$project/': {
+      id: '/$project/'
+      path: '/'
+      fullPath: '/$project/'
+      preLoaderRoute: typeof ProjectIndexRouteImport
+      parentRoute: typeof ProjectRoute
+    }
+    '/$project/metadata': {
+      id: '/$project/metadata'
+      path: '/metadata'
+      fullPath: '/$project/metadata'
+      preLoaderRoute: typeof ProjectMetadataRouteImport
+      parentRoute: typeof ProjectRoute
+    }
   }
 }
 
+interface ProjectRouteChildren {
+  ProjectMetadataRoute: typeof ProjectMetadataRoute
+  ProjectIndexRoute: typeof ProjectIndexRoute
+}
+
+const ProjectRouteChildren: ProjectRouteChildren = {
+  ProjectMetadataRoute: ProjectMetadataRoute,
+  ProjectIndexRoute: ProjectIndexRoute,
+}
+
+const ProjectRouteWithChildren =
+  ProjectRoute._addFileChildren(ProjectRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ProjectRoute: ProjectRoute,
+  ProjectRoute: ProjectRouteWithChildren,
   CreateRoute: CreateRoute,
   PlaygroundRoute: PlaygroundRoute,
   ScaffoldRoute: ScaffoldRoute,

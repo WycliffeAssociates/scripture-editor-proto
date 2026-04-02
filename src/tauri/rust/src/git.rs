@@ -196,32 +196,6 @@ fn try_resolve_reference_target(repo: &Repository, reference: &str) -> Result<Op
     }
 }
 
-fn collect_local_only_commits(
-    repo: &Repository,
-    local_head: Oid,
-    merge_base: Option<Oid>,
-) -> Result<Vec<String>, String> {
-    let Some(base_oid) = merge_base else {
-        return Ok(Vec::new());
-    };
-
-    let mut revwalk = repo.revwalk().map_err(|e| e.message().to_string())?;
-    revwalk.push(local_head).map_err(|e| e.message().to_string())?;
-    revwalk
-        .set_sorting(Sort::TOPOLOGICAL | Sort::TIME)
-        .map_err(|e| e.message().to_string())?;
-
-    let mut commits = Vec::new();
-    for oid_result in revwalk {
-        let oid = oid_result.map_err(|e| e.message().to_string())?;
-        if oid == base_oid {
-            break;
-        }
-        commits.push(oid.to_string());
-    }
-    Ok(commits)
-}
-
 fn reset_branch_to_commit(repo: &Repository, branch: &str, target: Oid) -> Result<(), String> {
     let ref_name = format!("refs/heads/{branch}");
     repo.reference(&ref_name, target, true, "dovetail remote replay")
@@ -230,45 +204,6 @@ fn reset_branch_to_commit(repo: &Repository, branch: &str, target: Oid) -> Resul
         .map_err(|e| e.message().to_string())?;
     repo.checkout_head(Some(CheckoutBuilder::new().force()))
         .map_err(|e| e.message().to_string())?;
-    Ok(())
-}
-
-fn replay_commits_onto_current_head(
-    repo: &Repository,
-    commit_hashes: &[String],
-) -> Result<(), String> {
-    for commit_hash in commit_hashes.iter().rev() {
-        let oid = Oid::from_str(commit_hash).map_err(|e| e.message().to_string())?;
-        let commit = repo.find_commit(oid).map_err(|e| e.message().to_string())?;
-        repo.cherrypick(&commit, None)
-            .map_err(|e| e.message().to_string())?;
-
-        let mut index = repo.index().map_err(|e| e.message().to_string())?;
-        if index.has_conflicts() {
-            let _ = repo.cleanup_state();
-            return Err(format!(
-                "Cherry-pick produced conflicts for commit {}",
-                commit_hash
-            ));
-        }
-
-        index.write().map_err(|e| e.message().to_string())?;
-        let tree_oid = index.write_tree_to(repo).map_err(|e| e.message().to_string())?;
-        let tree = repo.find_tree(tree_oid).map_err(|e| e.message().to_string())?;
-        let parent = repo
-            .head()
-            .map_err(|e| e.message().to_string())?
-            .peel_to_commit()
-            .map_err(|e| e.message().to_string())?;
-        let author = commit.author().to_owned();
-        let committer = commit.committer().to_owned();
-        let message = commit.message().unwrap_or("");
-
-        repo.commit(Some("HEAD"), &author, &committer, message, &tree, &[&parent])
-            .map_err(|e| e.message().to_string())?;
-        repo.cleanup_state().map_err(|e| e.message().to_string())?;
-    }
-
     Ok(())
 }
 
@@ -341,6 +276,28 @@ pub fn git_clone_remote_repo(
 
     let head = repo.head().ok().and_then(|head| head.target()).map(|oid| oid.to_string());
     Ok(head)
+}
+
+#[tauri::command]
+pub fn git_ensure_remote(
+    repo_path: String,
+    remote_name: String,
+    remote_url: String,
+) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    match repo.find_remote(&remote_name) {
+        Ok(_) => repo
+            .remote_set_url(&remote_name, &remote_url)
+            .map_err(|e| e.message().to_string())?,
+        Err(error) => {
+            if error.code() != ErrorCode::NotFound {
+                return Err(error.message().to_string());
+            }
+            repo.remote(&remote_name, &remote_url)
+                .map_err(|e| e.message().to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -675,31 +632,11 @@ pub fn git_plan_replay_onto_remote(
     remote_name: String,
     branch: String,
 ) -> Result<GitRemoteReplayPlan, String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
     let inspection = git_inspect_remote_heads(repo_path, remote_name, branch)?;
-    let local_head_oid = inspection
-        .local_head
-        .as_deref()
-        .map(|value| Oid::from_str(value).map_err(|e| e.message().to_string()))
-        .transpose()?;
-    let merge_base_oid = inspection
-        .merge_base
-        .as_deref()
-        .map(|value| Oid::from_str(value).map_err(|e| e.message().to_string()))
-        .transpose()?;
-    let commit_hashes = match local_head_oid {
-        Some(local_oid) => collect_local_only_commits(&repo, local_oid, merge_base_oid)?,
-        None => Vec::new(),
-    };
-    let strategy = if inspection.relationship.kind == "diverged" && !commit_hashes.is_empty() {
-        "replayLocalCommitsOntoRemoteLatest"
-    } else {
-        "none"
-    };
 
     Ok(GitRemoteReplayPlan {
-        strategy: strategy.to_string(),
-        commit_hashes,
+        strategy: "none".to_string(),
+        commit_hashes: Vec::new(),
         relationship: inspection.relationship,
     })
 }
@@ -714,8 +651,13 @@ pub fn git_apply_replay_plan_onto_remote(
     let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
     let remote_oid = Oid::from_str(&remote_head).map_err(|e| e.message().to_string())?;
 
+    if !commit_hashes.is_empty() {
+        return Err(
+            "Desktop remote reconciliation no longer replays local commits individually; pass an empty commit list and create one final reconciliation commit from the reviewed working state.".to_string(),
+        );
+    }
+
     reset_branch_to_commit(&repo, &branch, remote_oid)?;
-    replay_commits_onto_current_head(&repo, &commit_hashes)?;
 
     let head = repo
         .head()
@@ -725,7 +667,7 @@ pub fn git_apply_replay_plan_onto_remote(
 
     Ok(GitRemoteReplayResult {
         head,
-        replayed_commit_hashes: commit_hashes,
+        replayed_commit_hashes: Vec::new(),
     })
 }
 

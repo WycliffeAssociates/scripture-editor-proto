@@ -1,4 +1,5 @@
 import type { SettingsManager } from "@/app/data/settings.ts";
+import { adoptRemoteLatestAsLocalBase } from "@/app/domain/project/adoptRemoteLatestAsLocalBase.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type {
@@ -29,6 +30,7 @@ import {
     readGitRemoteProjectStatus,
     writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
+import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 export const GIT_REMOTE_OPEN_STATUS_RESULT_VALUES = [
@@ -72,6 +74,7 @@ export type GitRemoteOpenStatusResult =
 
 export async function hydrateGitRemoteStatusOnOpen(args: {
     projectPath: string;
+    loadedProject?: Pick<Project, "books" | "getBook">;
     fileSystem: FileSystem;
     storageRoots: StorageRoots;
     settingsManager: SettingsManager;
@@ -178,10 +181,14 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         };
     }
 
-    const status = buildStatusFromInspection({
+    const status = await buildStatusFromInspection({
         existingStatus,
         inspection,
         checkedAt,
+        projectPath: args.projectPath,
+        loadedProject: args.loadedProject,
+        trackedBranch: remoteInfo.trackedBranch,
+        gitProvider: args.gitProvider,
     });
     console.debug("[gitRemoteOpenStatus] Classified remote status on open.", {
         projectPath: args.projectPath,
@@ -197,11 +204,49 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
     };
 }
 
-function buildStatusFromInspection(args: {
+async function buildStatusFromInspection(args: {
     existingStatus: GitRemoteProjectStatus;
     inspection: GitRemoteInspection;
     checkedAt: string;
-}): GitRemoteProjectStatus {
+    projectPath: string;
+    loadedProject?: Pick<Project, "books" | "getBook">;
+    trackedBranch: string;
+    gitProvider: Pick<
+        GitProvider,
+        "readProjectSnapshotAtCommit" | "applyReplayPlanOntoRemote"
+    >;
+}): Promise<GitRemoteProjectStatus> {
+    if (
+        (args.inspection.relationship.kind ===
+            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
+            args.inspection.relationship.kind ===
+                GIT_REMOTE_RELATIONSHIP_DIVERGED) &&
+        args.inspection.remoteHead &&
+        args.loadedProject
+    ) {
+        const contentMatchesRemote = await projectContentMatchesRemoteLatest({
+            loadedProject: args.loadedProject,
+            projectPath: args.projectPath,
+            remoteHead: args.inspection.remoteHead,
+            gitProvider: args.gitProvider,
+        });
+        if (contentMatchesRemote) {
+            await adoptRemoteLatestAsLocalBase({
+                projectPath: args.projectPath,
+                trackedBranch: args.trackedBranch,
+                remoteHead: args.inspection.remoteHead,
+                gitProvider: args.gitProvider as GitProvider,
+            });
+            return buildStatus({
+                existingStatus: args.existingStatus,
+                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+                checkedAt: args.checkedAt,
+                localHead: args.inspection.remoteHead,
+                remoteHead: args.inspection.remoteHead,
+            });
+        }
+    }
+
     switch (args.inspection.relationship.kind) {
         case GIT_REMOTE_RELATIONSHIP_UP_TO_DATE:
             return buildStatus({
@@ -237,6 +282,44 @@ function buildStatusFromInspection(args: {
                 remoteHead: args.inspection.remoteHead,
             });
     }
+}
+
+async function projectContentMatchesRemoteLatest(args: {
+    loadedProject: Pick<Project, "books" | "getBook">;
+    projectPath: string;
+    remoteHead: string;
+    gitProvider: Pick<GitProvider, "readProjectSnapshotAtCommit">;
+}): Promise<boolean> {
+    const remoteSnapshot = await args.gitProvider.readProjectSnapshotAtCommit(
+        args.projectPath,
+        args.remoteHead,
+    );
+    const localBookPaths = new Set(
+        args.loadedProject.books.map((b) => b.storageKey),
+    );
+    const remoteBookPaths = new Set(
+        Array.from(remoteSnapshot.keys()).filter((path) =>
+            path.endsWith(".usfm"),
+        ),
+    );
+    const allBookPaths = new Set([...localBookPaths, ...remoteBookPaths]);
+
+    for (const storageKey of allBookPaths) {
+        const remoteText = remoteSnapshot.get(storageKey);
+        const hasLocalBook = localBookPaths.has(storageKey);
+        if (!hasLocalBook) {
+            if (remoteText != null) {
+                return false;
+            }
+            continue;
+        }
+        const localBook = await args.loadedProject.getBook(storageKey);
+        if ((remoteText ?? null) !== localBook.contents) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function buildStatus(args: {

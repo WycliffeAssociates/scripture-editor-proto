@@ -83,6 +83,12 @@ const ScriptureBurritoMetadataSchema = v.object({
             flavorType: v.optional(
                 v.object({
                     name: v.optional(v.string()),
+                    flavor: v.optional(
+                        v.object({
+                            name: v.optional(v.string()),
+                            projectType: v.optional(v.string()),
+                        }),
+                    ),
                 }),
             ),
         }),

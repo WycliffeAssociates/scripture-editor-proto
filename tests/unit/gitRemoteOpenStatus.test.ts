@@ -29,6 +29,7 @@ import {
     writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
 import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
+import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 
 const storageRoots: StorageRoots = {
     appDataRoot: "/appData",
@@ -88,6 +89,7 @@ function createGitProvider(): GitProvider {
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: vi.fn(),
         cloneRemoteRepo: vi.fn(),
+        ensureRemote: vi.fn(),
         inspectRemoteHeads: vi.fn(),
         fetchRemoteHeads: vi.fn(),
         pushCurrentBranch: vi.fn(),
@@ -131,6 +133,28 @@ function makeInspection(
             remoteHead: "remote-head",
             mergeBase: "base-head",
         },
+    };
+}
+
+function makeLoadedProject(): Pick<Project, "books" | "getBook"> {
+    return {
+        books: [
+            {
+                bookCode: "GEN",
+                title: "Genesis",
+                fileName: "01-GEN.usfm",
+                storageKey: "01-GEN.usfm",
+                path: "/userData/projects/foo/01-GEN.usfm",
+            },
+        ],
+        getBook: vi.fn(async () => ({
+            bookCode: "GEN",
+            title: "Genesis",
+            fileName: "01-GEN.usfm",
+            storageKey: "01-GEN.usfm",
+            path: "/userData/projects/foo/01-GEN.usfm",
+            contents: "\\id GEN\n\\c 1\n\\v 1 In the beginning",
+        })),
     };
 }
 
@@ -297,6 +321,55 @@ describe("hydrateGitRemoteStatusOnOpen", () => {
             }),
         ).resolves.toMatchObject({
             kind: GIT_REMOTE_OPEN_STATUS_NEEDS_REVIEW,
+        });
+    });
+
+    it("auto-aligns to connected when remote ancestry diverges but latest content is identical", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const gitProvider = createGitProvider();
+        vi.mocked(gitProvider.fetchRemoteHeads).mockResolvedValue(
+            makeInspection(GIT_REMOTE_RELATIONSHIP_DIVERGED),
+        );
+        vi.mocked(gitProvider.readProjectSnapshotAtCommit).mockResolvedValue(
+            new Map([["01-GEN.usfm", "\\id GEN\n\\c 1\n\\v 1 In the beginning"]]),
+        );
+        vi.mocked(gitProvider.applyReplayPlanOntoRemote).mockResolvedValue({
+            head: "remote-head",
+            replayedCommitHashes: [],
+        });
+        await seedLinkedProject(fileSystem);
+
+        await expect(
+            hydrateGitRemoteStatusOnOpen({
+                projectPath: "/userData/projects/foo",
+                loadedProject: makeLoadedProject(),
+                fileSystem,
+                storageRoots,
+                settingsManager: createSettingsManager(true),
+                authSessionProvider: createAuthSessionProvider({
+                    hostBaseUrl: "https://gitea.example.org",
+                    username: "alice",
+                    token: "token",
+                    tokenId: "1",
+                    tokenName: "dovetail-web",
+                }),
+                gitProvider,
+                now: () => "2026-03-30T20:00:00.000Z",
+            }),
+        ).resolves.toMatchObject({
+            kind: GIT_REMOTE_OPEN_STATUS_CONNECTED,
+            status: {
+                kind: "connected",
+                lastKnownLocalHead: "remote-head",
+                lastKnownRemoteHead: "remote-head",
+            },
+        });
+
+        expect(gitProvider.applyReplayPlanOntoRemote).toHaveBeenCalledWith({
+            projectPath: "/userData/projects/foo",
+            branch: "master",
+            remoteHead: "remote-head",
+            commitHashes: [],
         });
     });
 

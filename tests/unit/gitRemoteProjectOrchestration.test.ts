@@ -32,6 +32,7 @@ function createRemoteRepoProvider(): RemoteRepoProvider {
         listWritableRepos: vi.fn(),
         listOwnedRepos: vi.fn(),
         createRepo: vi.fn(),
+        inspectProjectMetadata: vi.fn(),
     };
 }
 
@@ -176,6 +177,13 @@ describe("GitRemoteProjectService", () => {
 
     it("attaches an existing local project to a writable remote repo", async () => {
         const fileSystem = new InMemoryFileSystem();
+        const remoteRepoProvider = createRemoteRepoProvider();
+        vi.mocked(remoteRepoProvider.inspectProjectMetadata).mockResolvedValue({
+            format: "scripture-burrito",
+            metadataPath: "metadata.json",
+            languageTag: "bho",
+            isScriptureTextTranslation: true,
+        });
         const service = new GitRemoteProjectService(
             fileSystem,
             storageRoots,
@@ -186,11 +194,19 @@ describe("GitRemoteProjectService", () => {
                 tokenId: "1",
                 tokenName: "dovetail-web",
             }),
-            createRemoteRepoProvider(),
+            remoteRepoProvider,
         );
 
         const remoteInfo = await service.attachProjectToRemote({
-            projectPath: "/userData/projects/foo",
+            project: {
+                projectPath: "/userData/projects/foo",
+                displayName: "Bho Bible",
+                language: {
+                    code: "bho",
+                    name: "Bhojpuri",
+                    direction: "ltr",
+                },
+            },
             repo: {
                 id: "2",
                 owner: "alice",
@@ -210,6 +226,50 @@ describe("GitRemoteProjectService", () => {
             repoUrl: "https://gitea.example.org/alice/bho-bible",
             trackedBranch: "master",
         });
+    });
+
+    it("refuses to attach a remote repo whose metadata language does not match the local project", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const remoteRepoProvider = createRemoteRepoProvider();
+        vi.mocked(remoteRepoProvider.inspectProjectMetadata).mockResolvedValue({
+            format: "resource-container",
+            metadataPath: "manifest.yaml",
+            languageTag: "eng",
+            isScriptureTextTranslation: true,
+        });
+        const service = new GitRemoteProjectService(
+            fileSystem,
+            storageRoots,
+            createAuthSessionProvider({
+                hostBaseUrl: "https://gitea.example.org",
+                username: "alice",
+                token: "token",
+                tokenId: "1",
+                tokenName: "dovetail-web",
+            }),
+            remoteRepoProvider,
+        );
+
+        await expect(
+            service.attachProjectToRemote({
+                project: {
+                    projectPath: "/userData/projects/foo",
+                    displayName: "Bho Bible",
+                    language: {
+                        code: "bho",
+                        name: "Bhojpuri",
+                        direction: "ltr",
+                    },
+                },
+                repo: {
+                    id: "2",
+                    owner: "alice",
+                    name: "eng-bible",
+                    htmlUrl: "https://gitea.example.org/alice/eng-bible",
+                    defaultBranch: "master",
+                },
+            }),
+        ).rejects.toThrow(/eng.*bho/u);
     });
 
     it("requires an active session for remote project operations", async () => {

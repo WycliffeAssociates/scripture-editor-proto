@@ -22,6 +22,9 @@ const {
     gitCherryPickMock,
     gitReadCommitMock,
     gitCloneMock,
+    gitListRemotesMock,
+    gitDeleteRemoteMock,
+    gitAddRemoteMock,
 } = vi.hoisted(() => ({
     gitInitMock: vi.fn(),
     gitListBranchesMock: vi.fn(),
@@ -42,6 +45,9 @@ const {
     gitCherryPickMock: vi.fn(),
     gitReadCommitMock: vi.fn(),
     gitCloneMock: vi.fn(),
+    gitListRemotesMock: vi.fn(),
+    gitDeleteRemoteMock: vi.fn(),
+    gitAddRemoteMock: vi.fn(),
 }));
 
 vi.mock("isomorphic-git", () => ({
@@ -64,6 +70,9 @@ vi.mock("isomorphic-git", () => ({
     cherryPick: gitCherryPickMock,
     readCommit: gitReadCommitMock,
     clone: gitCloneMock,
+    listRemotes: gitListRemotesMock,
+    deleteRemote: gitDeleteRemoteMock,
+    addRemote: gitAddRemoteMock,
 }));
 
 vi.mock("isomorphic-git/http/web", () => ({
@@ -150,8 +159,12 @@ describe("WebGitProvider", () => {
         gitWriteRefMock.mockReset();
         gitCherryPickMock.mockReset();
         gitCloneMock.mockReset();
+        gitListRemotesMock.mockReset();
+        gitDeleteRemoteMock.mockReset();
+        gitAddRemoteMock.mockReset();
         gitListBranchesMock.mockResolvedValue(["main"]);
         gitStatusMatrixMock.mockResolvedValue([]);
+        gitListRemotesMock.mockResolvedValue([]);
     });
 
     it("clones a remote repo into the requested project path", async () => {
@@ -160,6 +173,7 @@ describe("WebGitProvider", () => {
         gitResolveRefMock.mockResolvedValue("cloned-head");
 
         const provider = new WebGitProvider(runtime as never, {
+            corsProxyUrl: "https://git-proxy.example.org",
             requestedWithHeaderValue: "dovetail-web",
         });
         await expect(
@@ -178,6 +192,7 @@ describe("WebGitProvider", () => {
             expect.objectContaining({
                 dir: "/userData/projects/p",
                 url: "https://gitea.example.org/alice/bho-bible.git",
+                corsProxy: "https://git-proxy.example.org",
                 ref: "master",
                 singleBranch: true,
                 depth: 1,
@@ -186,6 +201,36 @@ describe("WebGitProvider", () => {
                 },
             }),
         );
+    });
+
+    it("adds or updates the configured remote for an existing local repo", async () => {
+        const runtime = makeRuntime();
+        gitListRemotesMock.mockResolvedValueOnce([
+            {
+                remote: "origin",
+                url: "https://old.example.org/alice/bho-bible.git",
+            },
+        ]);
+        const provider = new WebGitProvider(runtime as never);
+
+        await provider.ensureRemote({
+            projectPath: "/userData/projects/p",
+            remoteName: "origin",
+            remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+        });
+
+        expect(gitDeleteRemoteMock).toHaveBeenCalledWith({
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            remote: "origin",
+        });
+        expect(gitAddRemoteMock).toHaveBeenCalledWith({
+            fs: runtime.fs,
+            dir: "/userData/projects/p",
+            remote: "origin",
+            url: "https://gitea.example.org/alice/bho-bible.git",
+            force: true,
+        });
     });
 
     it("serializes concurrent ensureRepo calls for the same project path", async () => {
@@ -405,6 +450,7 @@ describe("WebGitProvider", () => {
         gitFindMergeBaseMock.mockResolvedValue(["base-head"]);
 
         const provider = new WebGitProvider(runtime as never, {
+            corsProxyUrl: "https://git-proxy.example.org",
             requestedWithHeaderValue: "dovetail-web",
         });
         const result = await provider.fetchRemoteHeads({
@@ -418,6 +464,7 @@ describe("WebGitProvider", () => {
             fs: runtime.fs,
             http: { __http: true },
             dir: "/userData/projects/p",
+            corsProxy: "https://git-proxy.example.org",
             headers: {
                 "X-Requested-With": "dovetail-web",
             },
@@ -439,6 +486,7 @@ describe("WebGitProvider", () => {
         );
 
         const provider = new WebGitProvider(runtime as never, {
+            corsProxyUrl: "https://git-proxy.example.org",
             requestedWithHeaderValue: "dovetail-web",
         });
         await expect(
@@ -455,6 +503,7 @@ describe("WebGitProvider", () => {
         });
         expect(gitPushMock).toHaveBeenCalledWith(
             expect.objectContaining({
+                corsProxy: "https://git-proxy.example.org",
                 headers: {
                     "X-Requested-With": "dovetail-web",
                 },

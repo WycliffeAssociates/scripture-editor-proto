@@ -84,10 +84,29 @@ describe("TauriGitProvider", () => {
         );
     });
 
-    it("maps snake_case replay-plan payloads into the shared contract", async () => {
+    it("passes ensure-remote args through the tauri bridge", async () => {
+        mocks.invokeMock.mockResolvedValueOnce(undefined);
+
+        const provider = new TauriGitProvider();
+        await expect(
+            provider.ensureRemote({
+                projectPath: "/userData/projects/p",
+                remoteName: "origin",
+                remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+            }),
+        ).resolves.toBeUndefined();
+
+        expect(mocks.invokeMock).toHaveBeenCalledWith("git_ensure_remote", {
+            repoPath: "/userData/projects/p",
+            remoteName: "origin",
+            remoteUrl: "https://gitea.example.org/alice/bho-bible.git",
+        });
+    });
+
+    it("maps downgraded replay-plan payloads into the shared contract", async () => {
         mocks.invokeMock.mockResolvedValueOnce({
-            strategy: "replayLocalCommitsOntoRemoteLatest",
-            commit_hashes: ["c3", "c2", "c1"],
+            strategy: "none",
+            commit_hashes: [],
             relationship: {
                 kind: "diverged",
                 local_head: "local-head",
@@ -105,8 +124,8 @@ describe("TauriGitProvider", () => {
                 auth: { username: "alice", token: "secret" },
             }),
         ).resolves.toEqual({
-            strategy: "replayLocalCommitsOntoRemoteLatest",
-            commitHashes: ["c3", "c2", "c1"],
+            strategy: "none",
+            commitHashes: [],
             relationship: {
                 kind: "diverged",
                 localHead: "local-head",
@@ -197,10 +216,10 @@ describe("TauriGitProvider", () => {
         });
     });
 
-    it("maps replay-application payloads into the shared contract", async () => {
+    it("maps reset-to-remote replay application payloads into the shared contract", async () => {
         mocks.invokeMock.mockResolvedValueOnce({
-            head: "replayed-head",
-            replayed_commit_hashes: ["c3", "c2", "c1"],
+            head: "remote-head",
+            replayed_commit_hashes: [],
         });
 
         const provider = new TauriGitProvider();
@@ -209,11 +228,11 @@ describe("TauriGitProvider", () => {
                 projectPath: "/userData/projects/p",
                 branch: "master",
                 remoteHead: "remote-head",
-                commitHashes: ["c3", "c2", "c1"],
+                commitHashes: [],
             }),
         ).resolves.toEqual({
-            head: "replayed-head",
-            replayedCommitHashes: ["c3", "c2", "c1"],
+            head: "remote-head",
+            replayedCommitHashes: [],
         });
 
         expect(mocks.invokeMock).toHaveBeenCalledWith(
@@ -222,7 +241,7 @@ describe("TauriGitProvider", () => {
                 repoPath: "/userData/projects/p",
                 branch: "master",
                 remoteHead: "remote-head",
-                commitHashes: ["c3", "c2", "c1"],
+                commitHashes: [],
             },
         );
     });

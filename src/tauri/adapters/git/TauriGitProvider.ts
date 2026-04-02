@@ -184,6 +184,18 @@ export class TauriGitProvider implements GitProvider {
         return { head };
     }
 
+    async ensureRemote(args: {
+        projectPath: string;
+        remoteName: string;
+        remoteUrl: string;
+    }): Promise<void> {
+        await invoke("git_ensure_remote", {
+            repoPath: args.projectPath,
+            remoteName: args.remoteName,
+            remoteUrl: args.remoteUrl,
+        });
+    }
+
     async inspectRemoteHeads(args: {
         projectPath: string;
         remoteName: string;

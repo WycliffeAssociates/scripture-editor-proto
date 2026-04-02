@@ -8,6 +8,7 @@ import { ensureProjectGitReady } from "@/core/persistence/ensureProjectGitReady.
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
+import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 
 type OpenProjectFn = (
     projectRef: string,
@@ -24,7 +25,7 @@ type OpenProjectFn = (
  * `ScriptureBookState[]`.
  */
 export async function projectParamToParsedScripture(args: {
-    projectsService?: never;
+    projectsService?: ProjectsService;
     libraryService?: LibraryService;
     openProjectReadOnly?: OpenProjectFn;
     project: string | undefined;
@@ -37,12 +38,16 @@ export async function projectParamToParsedScripture(args: {
     if (!args.project) return;
 
     const editableResult =
-        args.openProjectReadOnly || !args.libraryService
-            ? null
-            : await openEditableScripture({
-                  libraryService: args.libraryService,
-                  itemRef: args.project,
-              });
+        args.openProjectReadOnly || args.projectsService
+            ? args.projectsService
+                ? await args.projectsService.openEditableProject(args.project)
+                : null
+            : !args.libraryService
+              ? null
+              : await openEditableScripture({
+                    libraryService: args.libraryService,
+                    itemRef: args.project,
+                });
     const loadedProject = args.openProjectReadOnly
         ? await args.openProjectReadOnly(args.project)
         : (editableResult?.project ?? null);

@@ -61,6 +61,8 @@ describe("TauriImportService", () => {
             listProjects: vi.fn(),
             listReferenceResources: vi.fn(),
             openEditableProject: vi.fn(),
+            loadMetadataEditor: vi.fn(),
+            saveMetadataEditor: vi.fn(),
             openProject: vi.fn(),
             openProjectReadOnly: vi.fn(),
             openResource: vi.fn(),
@@ -90,7 +92,12 @@ describe("TauriImportService", () => {
 
     it("maps directory selection to a native folder path", async () => {
         mocks.openMock.mockResolvedValue("/Users/test/Desktop/en_tn");
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
 
         await expect(
             service.pickDirectory({ title: "Select folder" }),
@@ -106,7 +113,12 @@ describe("TauriImportService", () => {
         mocks.openMock
             .mockResolvedValueOnce(["/Users/test/Desktop/en_tn.zip"])
             .mockResolvedValueOnce(null);
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
 
         await expect(service.pickZip({ title: "Select ZIP file" })).resolves.toBe(
             "/Users/test/Desktop/en_tn.zip",
@@ -163,7 +175,12 @@ describe("TauriImportService", () => {
             return "/userData/projects/en_tn";
         });
 
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
         const onProgress = vi.fn();
 
         await expect(
@@ -218,7 +235,12 @@ describe("TauriImportService", () => {
         vi.mocked(projectsService.importProject).mockRejectedValueOnce(
             new Error("index failed"),
         );
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
 
         await expect(
             service.importFolder({
@@ -272,7 +294,12 @@ describe("TauriImportService", () => {
             return "/userData/projects/en_tn";
         });
 
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
         const onProgress = vi.fn();
 
         await expect(
@@ -384,7 +411,12 @@ describe("TauriImportService", () => {
             return "/userData/projects/en_tn";
         });
 
-        const service = new TauriImportService(roots, projectsService, fileSystem);
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
         const onProgress = vi.fn();
 
         await expect(
@@ -402,6 +434,7 @@ describe("TauriImportService", () => {
                 url: "https://example.org/en_tn.zip",
                 projectsRoot: "/userData/projects",
                 tempRoot: "/userData/temp",
+                requestedWithHeaderValue: "WA-Tool-Desktop",
             }),
         );
         expect(mocks.invokeMock).toHaveBeenNthCalledWith(

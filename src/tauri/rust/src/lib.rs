@@ -37,6 +37,7 @@ pub fn run() {
             usfm_onion::usfm_onion_diff_tokens,
             usfm_onion::usfm_onion_revert_diff_block,
             git::git_clone_remote_repo,
+            git::git_ensure_remote,
             git::git_ensure_repo,
             git::git_get_branch_info,
             git::git_checkout_preferred_branch,

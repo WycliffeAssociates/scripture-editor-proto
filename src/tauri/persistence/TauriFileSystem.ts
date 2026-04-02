@@ -114,6 +114,7 @@ export class TauriFileSystem implements FileSystem {
     private async resolvePath(path: string): Promise<string> {
         const normalized = normalizePublicPath(path);
         const candidates = [
+            this.roots.appDataRoot,
             this.roots.projectsRoot,
             this.roots.tempRoot,
             this.roots.cacheRoot,

@@ -9,8 +9,9 @@ export function getProjectParamFromImportedPath(
 }
 
 /**
- * Build the sticky success toast shown after imports complete. Keeping this here
- * lets the route stay focused on control flow instead of notification wording.
+ * Build the sticky success toast shown after imports complete. Keeping this
+ * outside the route folder avoids the file-based router trying to parse helper
+ * modules as route definitions.
  */
 export function buildPersistentImportSuccessNotification(
     title: string,

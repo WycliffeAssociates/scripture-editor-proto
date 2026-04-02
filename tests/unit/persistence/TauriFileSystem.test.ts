@@ -125,6 +125,7 @@ describe("TauriFileSystem", () => {
         dirStore.clear();
         roots = await TauriStorageRoots.create();
         for (const path of [
+            roots.appDataRoot,
             roots.projectsRoot,
             roots.tempRoot,
             roots.cacheRoot,
@@ -176,5 +177,17 @@ describe("TauriFileSystem", () => {
         const tempPath = await fs.createTempFile("import-", ".zip");
         expect(tempPath).toMatch(/^\/mock\/app\/local\/temp\/import-\d+\.zip$/);
         await expect(fs.exists(tempPath)).resolves.toBe(true);
+    });
+
+    it("allows app-private cloud session files under appDataRoot", async () => {
+        const fs = new TauriFileSystem(roots);
+        const sessionPath =
+            "/mock/app/local/git-remote/git-remote-session.json";
+
+        await fs.writeText(sessionPath, '{"username":"alice"}');
+
+        await expect(fs.readText(sessionPath)).resolves.toBe(
+            '{"username":"alice"}',
+        );
     });
 });

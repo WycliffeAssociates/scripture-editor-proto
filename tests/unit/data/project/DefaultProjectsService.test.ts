@@ -16,7 +16,15 @@ import type { ProjectIndex } from "@/core/library/ProjectIndex.ts";
 import type { ImportProjectResult } from "@/core/persistence/WorkspaceService.ts";
 import type { Project, ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import { readGitRemoteProjectInfo } from "@/core/persistence/gitRemoteStore.ts";
+import {
+    readGitRemoteProjectInfo,
+    readGitRemoteProjectStatus,
+    writeGitRemoteProjectInfo,
+    writeGitRemoteProjectStatus,
+} from "@/core/persistence/gitRemoteStore.ts";
+import {
+    createDefaultGitRemoteProjectStatus,
+} from "@/core/persistence/gitRemoteModels.ts";
 import { DefaultProjectsService } from "@/app/persistence/DefaultProjectsService.ts";
 import { InMemoryFileSystem } from "@tests/helpers/InMemoryFileSystem.ts";
 
@@ -42,6 +50,7 @@ const mockGitProvider: GitProvider = {
     restoreTrackedFilesFromCommit: vi.fn(async () => {}),
     commitAll: vi.fn(async () => ({ hash: "abc123" })),
     cloneRemoteRepo: vi.fn(async () => ({ head: "abc123" })),
+    ensureRemote: vi.fn(async () => {}),
     inspectRemoteHeads: vi.fn(async () => {
         throw new Error("not used in test");
     }),
@@ -103,6 +112,7 @@ function createRemoteRepoProvider(): RemoteRepoProvider {
         listWritableRepos: vi.fn(),
         listOwnedRepos: vi.fn(),
         createRepo: vi.fn(),
+        inspectProjectMetadata: vi.fn(),
     };
 }
 
@@ -335,6 +345,38 @@ describe("DefaultProjectsService", () => {
         });
     });
 
+    test("openEditableProject reports metadata-invalid when manifest paths are broken", async () => {
+        await fileSystem.writeText(
+            "/userData/projects/reg/manifest.yaml",
+            [
+                "dublin_core:",
+                "  identifier: reg",
+                "  language:",
+                "    identifier: adh",
+                "    title: Adhola",
+                "    direction: ltr",
+                "projects:",
+                "  - title: Matthew",
+                "    identifier: mat",
+                "    sort: 41",
+                "    path: ./41-MAT.usfm",
+                "    categories: []",
+            ].join("\n"),
+        );
+
+        const result = await projectsService.openEditableProject("reg");
+
+        expect(result.project).toBeNull();
+        expect(result.rejectionReason).toBe("metadata-invalid");
+        expect(result.metadataIssues).toEqual([
+            expect.objectContaining({
+                code: "missing-project-file",
+                fieldPath: "projects[0].path",
+                currentValue: "./41-MAT.usfm",
+            }),
+        ]);
+    });
+
     test("listProjects should return the indexed rows", async () => {
         const listedProjects: ProjectListItem[] = [
             {
@@ -494,9 +536,9 @@ describe("DefaultProjectsService", () => {
             .spyOn(ProjectImporter.prototype, "import")
             .mockResolvedValueOnce(importedItem.projectPath);
         const gitReadySpy = vi.mocked(ensureProjectGitReady);
-        const openProjectSpy = vi
-            .spyOn(projectsService, "openProject")
-            .mockResolvedValueOnce(makeOpenedProject());
+        const openEditableProjectSpy = vi
+            .spyOn(projectsService, "openEditableProject")
+            .mockResolvedValueOnce({ project: makeOpenedProject() });
         vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(
             importedItem,
         );
@@ -510,7 +552,9 @@ describe("DefaultProjectsService", () => {
             type: "fromZipFile",
             filePath: "/appData/temp/import.zip",
         }, expect.any(Function));
-        expect(openProjectSpy).toHaveBeenCalledWith(importedItem.projectPath);
+        expect(openEditableProjectSpy).toHaveBeenCalledWith(
+            importedItem.projectPath,
+        );
         expect(projectIndex.indexItem).toHaveBeenCalledWith(
             expect.objectContaining({
                 projectPath: importedItem.projectPath,
@@ -530,6 +574,7 @@ describe("DefaultProjectsService", () => {
             project: importedItem,
             gitReady: true,
             isEditableProject: true,
+            requiresMetadataReview: false,
         });
     });
 
@@ -545,9 +590,9 @@ describe("DefaultProjectsService", () => {
         vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(
             importedItem.projectPath,
         );
-        vi.spyOn(projectsService, "openProject").mockResolvedValueOnce(
-            makeOpenedProject(),
-        );
+        vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
+            project: makeOpenedProject(),
+        });
         vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce(
             importedItem,
         );
@@ -572,6 +617,7 @@ describe("DefaultProjectsService", () => {
             project: importedItem,
             gitReady: false,
             isEditableProject: true,
+            requiresMetadataReview: false,
             warning:
                 "Project imported successfully, but version history could not be initialized. Repo init failed",
         });
@@ -616,7 +662,10 @@ projects:
             `${importedPath}/notes/luk/22/71.md`,
             "# Why do we still need a witness?\n\n\"We have no further need for witnesses!\"\n",
         );
-        vi.spyOn(projectsService, "openProject").mockResolvedValueOnce(null);
+        vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
+            project: null,
+            rejectionReason: "not-editable",
+        });
         vi.spyOn(projectsService, "openResource").mockResolvedValueOnce(
             makeOpenedResource(),
         );
@@ -647,6 +696,81 @@ projects:
             },
             gitReady: false,
             isEditableProject: false,
+            requiresMetadataReview: false,
+        });
+    });
+
+    test("importProject returns editable project metadata review result when open is blocked by metadata issues", async () => {
+        const importedPath = "/userData/projects/examples";
+        vi.spyOn(ProjectImporter.prototype, "import").mockResolvedValueOnce(
+            importedPath,
+        );
+        await fileSystem.writeText(
+            `${importedPath}/manifest.yaml`,
+            `dublin_core:
+  identifier: reg
+  title: Example Bible
+  language:
+    identifier: bem
+    title: Bemba
+    direction: ltr
+projects:
+  - identifier: gen
+    title: Genesis
+    sort: 1
+    path: ./01-GEN.usfm
+    categories: []
+`,
+        );
+        await fileSystem.writeText(
+            `${importedPath}/01GENBSB.usfm`,
+            "\\id GEN\n\\c 1\n",
+        );
+        vi.spyOn(projectsService, "openEditableProject").mockResolvedValueOnce({
+            project: null,
+            rejectionReason: "metadata-invalid",
+            metadataIssues: [
+                {
+                    code: "missing-project-file",
+                    message: "broken path",
+                    fieldPath: "projects[0].path",
+                },
+            ],
+        });
+        vi.mocked(projectIndex.getProjectByPath).mockResolvedValueOnce({
+            folderName: "examples",
+            projectPath: importedPath,
+            displayName: "examples",
+            projectId: "examples",
+            languageCode: "bem",
+            languageName: "Bemba",
+            projectType: "resource-container",
+        });
+
+        const result = await projectsService.importProject({
+            type: "fromDir",
+            directoryPath: importedPath,
+        });
+
+        expect(projectIndex.indexItem).toHaveBeenCalledWith(
+            expect.objectContaining({
+                projectPath: importedPath,
+                projectType: "resource-container",
+            }),
+        );
+        expect(result).toEqual({
+            project: {
+                folderName: "examples",
+                projectPath: importedPath,
+                displayName: "examples",
+                projectId: "examples",
+                languageCode: "bem",
+                languageName: "Bemba",
+                projectType: "resource-container",
+            },
+            gitReady: false,
+            isEditableProject: true,
+            requiresMetadataReview: true,
         });
     });
 
@@ -779,7 +903,7 @@ projects:
         );
     });
 
-    test("createRemoteForProject creates a repo and persists the link for editable scripture", async () => {
+    test("createRemoteForProject creates, links, and publishes editable scripture", async () => {
         const remoteRepoProvider = createRemoteRepoProvider();
         vi.mocked(remoteRepoProvider.createRepo).mockResolvedValueOnce({
             id: "1",
@@ -822,6 +946,27 @@ projects:
                 defaultBranch: "master",
             },
         });
+        expect(mockGitProvider.ensureRemote).toHaveBeenCalledWith({
+            projectPath: "/userData/projects/reg",
+            remoteName: "origin",
+            remoteUrl: "https://gitea.example.org/alice/adh-reg.git",
+        });
+        expect(ensureProjectGitReady).toHaveBeenCalledWith({
+            fileSystem,
+            gitProvider: mockGitProvider,
+            loadedProject: expect.objectContaining({
+                projectPath: "/userData/projects/reg",
+            }),
+        });
+        expect(mockGitProvider.pushCurrentBranch).toHaveBeenCalledWith({
+            projectPath: "/userData/projects/reg",
+            remoteName: "origin",
+            branch: "master",
+            auth: {
+                username: "alice",
+                token: "secret-token",
+            },
+        });
         await expect(
             readGitRemoteProjectInfo({
                 fileSystem,
@@ -829,6 +974,15 @@ projects:
                 projectPath: "/userData/projects/reg",
             }),
         ).resolves.toEqual(result.remoteInfo);
+        await expect(
+            readGitRemoteProjectStatus({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
+            }),
+        ).resolves.toMatchObject({
+            kind: "connected",
+        });
     });
 
     test("cloneWritableRemoteProject reuses the prepared-dir import path after cloning", async () => {
@@ -942,6 +1096,97 @@ projects:
                 fileSystem,
                 storageRoots: roots,
                 projectPath: "/userData/projects/bho-bible",
+            }),
+        ).resolves.toBeNull();
+    });
+
+    test("importProject clears stale remote link state for the imported path", async () => {
+        await writeGitRemoteProjectInfo({
+            fileSystem,
+            storageRoots: roots,
+            info: {
+                schemaVersion: 1,
+                projectPath: "/userData/projects/reg",
+                hostBaseUrl: "https://gitea.example.org",
+                repoId: "1",
+                repoOwner: "alice",
+                repoName: "reg",
+                repoUrl: "https://gitea.example.org/alice/reg",
+                trackedBranch: "master",
+            },
+        });
+        await writeGitRemoteProjectStatus({
+            fileSystem,
+            storageRoots: roots,
+            status: createDefaultGitRemoteProjectStatus(
+                "/userData/projects/reg",
+            ),
+        });
+        vi.spyOn(projectsService["projectImporter"], "import").mockResolvedValue(
+            "/userData/projects/reg",
+        );
+        vi.spyOn(projectsService, "openEditableProject").mockResolvedValue({
+            project: makeOpenedProject(),
+        });
+
+        await projectsService.importProject({
+            type: "fromPreparedDir",
+            directoryPath: "/userData/projects/reg",
+        });
+
+        await expect(
+            readGitRemoteProjectInfo({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
+            }),
+        ).resolves.toBeNull();
+        await expect(
+            readGitRemoteProjectStatus({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
+            }),
+        ).resolves.toBeNull();
+    });
+
+    test("deleteProject removes persisted remote link state", async () => {
+        await writeGitRemoteProjectInfo({
+            fileSystem,
+            storageRoots: roots,
+            info: {
+                schemaVersion: 1,
+                projectPath: "/userData/projects/reg",
+                hostBaseUrl: "https://gitea.example.org",
+                repoId: "1",
+                repoOwner: "alice",
+                repoName: "reg",
+                repoUrl: "https://gitea.example.org/alice/reg",
+                trackedBranch: "master",
+            },
+        });
+        await writeGitRemoteProjectStatus({
+            fileSystem,
+            storageRoots: roots,
+            status: createDefaultGitRemoteProjectStatus(
+                "/userData/projects/reg",
+            ),
+        });
+
+        await projectsService.deleteProject("/userData/projects/reg");
+
+        await expect(
+            readGitRemoteProjectInfo({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
+            }),
+        ).resolves.toBeNull();
+        await expect(
+            readGitRemoteProjectStatus({
+                fileSystem,
+                storageRoots: roots,
+                projectPath: "/userData/projects/reg",
             }),
         ).resolves.toBeNull();
     });

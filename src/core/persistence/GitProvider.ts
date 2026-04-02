@@ -120,6 +120,11 @@ export interface GitProvider {
         branch?: string;
         auth: GitRemoteAuth;
     }): Promise<GitRemoteCloneResult>;
+    ensureRemote(args: {
+        projectPath: string;
+        remoteName: string;
+        remoteUrl: string;
+    }): Promise<void>;
     inspectRemoteHeads(args: {
         projectPath: string;
         remoteName: string;

@@ -64,6 +64,7 @@ type WebGitRuntime = {
 
 type WebGitProviderOptions = {
     requestedWithHeaderValue?: string | null;
+    corsProxyUrl?: string | null;
 };
 
 function normalizeDir(path: string): string {
@@ -211,6 +212,11 @@ export class WebGitProvider implements GitProvider {
         return {
             "X-Requested-With": requestedWithHeaderValue,
         };
+    }
+
+    private buildGitCorsProxy(): string | undefined {
+        const corsProxyUrl = this.options.corsProxyUrl?.trim();
+        return corsProxyUrl || undefined;
     }
 
     private async fileExists(path: string): Promise<boolean> {
@@ -686,6 +692,7 @@ export class WebGitProvider implements GitProvider {
             http,
             dir,
             url: args.remoteUrl,
+            corsProxy: this.buildGitCorsProxy(),
             headers: this.buildGitTransportHeaders(),
             singleBranch: args.branch != null,
             ref: args.branch,
@@ -698,6 +705,36 @@ export class WebGitProvider implements GitProvider {
         return {
             head: await this.tryResolveRef(fs, dir, "HEAD"),
         };
+    }
+
+    async ensureRemote(args: {
+        projectPath: string;
+        remoteName: string;
+        remoteUrl: string;
+    }): Promise<void> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(args.projectPath);
+        const remotes = await git.listRemotes({ fs, dir });
+        const existing = remotes.find(
+            (remote) => remote.remote === args.remoteName,
+        );
+        if (existing?.url === args.remoteUrl) {
+            return;
+        }
+        if (existing) {
+            await git.deleteRemote({
+                fs,
+                dir,
+                remote: args.remoteName,
+            });
+        }
+        await git.addRemote({
+            fs,
+            dir,
+            remote: args.remoteName,
+            url: args.remoteUrl,
+            force: true,
+        });
     }
 
     async inspectRemoteHeads(args: {
@@ -747,6 +784,7 @@ export class WebGitProvider implements GitProvider {
             fs,
             http,
             dir,
+            corsProxy: this.buildGitCorsProxy(),
             headers: this.buildGitTransportHeaders(),
             remote: args.remoteName,
             ref: args.branch,
@@ -781,6 +819,7 @@ export class WebGitProvider implements GitProvider {
                 fs,
                 http,
                 dir,
+                corsProxy: this.buildGitCorsProxy(),
                 headers: this.buildGitTransportHeaders(),
                 remote: args.remoteName,
                 ref: args.branch,

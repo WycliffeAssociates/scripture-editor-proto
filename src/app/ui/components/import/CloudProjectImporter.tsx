@@ -267,8 +267,9 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                                             </div>
                                         ) : (
                                             <Trans>
-                                                Set `VITE_GITEA_HOST` to enable
-                                                cloud login in this build.
+                                                Set `VITE_GITEA_WEB_HOST` to
+                                                enable cloud login in this web
+                                                build.
                                             </Trans>
                                         )}
                                     </div>

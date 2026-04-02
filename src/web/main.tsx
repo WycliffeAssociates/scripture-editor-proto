@@ -40,7 +40,10 @@ if (!rootElement) throw new Error("Root element not found");
 const root = ReactDOM.createRoot(rootElement);
 const platform: PlatformAndWeb = "web";
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
-    import.meta.env.VITE_GITEA_HOST,
+    import.meta.env.VITE_GITEA_WEB_HOST,
+);
+const gitCorsProxyUrl = normalizeGiteaHostBaseUrl(
+    import.meta.env.VITE_GIT_CORS_PROXY_URL,
 );
 const gitProxyRequestedWithHeaderValue = normalizeOptionalHeaderValue(
     import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH,
@@ -52,6 +55,7 @@ const authSessionProvider = new FsBackedAuthSessionProvider(
     storageRoots,
 );
 const gitProvider = new WebGitProvider(new OpfsGitFs(), {
+    corsProxyUrl: gitCorsProxyUrl,
     requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
 });
 const remoteRepoProvider = new GiteaRemoteRepoProvider();

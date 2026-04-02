@@ -30,7 +30,7 @@ import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
  */
 const settingsManager = createTauriSettingsManager();
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
-    import.meta.env.VITE_GITEA_HOST,
+    import.meta.env.VITE_GITEA_DESKTOP_HOST,
 );
 const storageRoots = await TauriStorageRoots.create();
 const fileSystem = new TauriFileSystem(storageRoots);
@@ -60,6 +60,7 @@ const importService = new TauriImportService(
     storageRoots,
     projectsService,
     fileSystem,
+    import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH ?? null,
 );
 initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
 

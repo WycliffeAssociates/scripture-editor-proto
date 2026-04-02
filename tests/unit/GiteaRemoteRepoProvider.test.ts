@@ -94,6 +94,40 @@ describe("GiteaRemoteRepoProvider", () => {
         });
     });
 
+    it("preserves the API clone_url so web git can route through corsProxy", async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(
+            jsonResponse({
+                data: [
+                    {
+                        id: 1,
+                        name: "writable-one",
+                        full_name: "alice/writable-one",
+                        html_url:
+                            "https://content.bibletranslationtools.org/alice/writable-one",
+                        clone_url:
+                            "https://content.bibletranslationtools.org/alice/writable-one.git",
+                        default_branch: "master",
+                        owner: { username: "alice" },
+                        permissions: { push: true },
+                    },
+                ],
+            }),
+        );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        const page = await provider.listWritableRepos({
+            hostBaseUrl: "https://git-proxy.example.org",
+            username: "alice",
+            token: "secret-token",
+            page: 1,
+            pageSize: 20,
+        });
+
+        expect(page.repos[0]?.cloneUrl).toBe(
+            "https://content.bibletranslationtools.org/alice/writable-one.git",
+        );
+    });
+
     it("falls back to the created-repo default branch when the server omits default_branch", async () => {
         const fetchImpl = vi.fn().mockResolvedValue(
             jsonResponse({
@@ -269,5 +303,94 @@ describe("GiteaRemoteRepoProvider", () => {
                 pageSize: 20,
             }),
         ).rejects.toThrow("forbidden");
+    });
+
+    it("inspects scripture burrito metadata from a remote repo", async () => {
+        const fetchImpl = vi.fn().mockResolvedValue(
+            jsonResponse({
+                type: "file",
+                encoding: "base64",
+                content: btoa(
+                    JSON.stringify({
+                        meta: { version: "1.0" },
+                        languages: [
+                            {
+                                tag: "bem",
+                                name: { en: "Bemba" },
+                            },
+                        ],
+                        ingredients: {
+                            "01-GEN.usfm": {
+                                checksum: { md5: "abc" },
+                                size: 1,
+                                mimeType: "text/usfm",
+                            },
+                        },
+                        type: {
+                            flavorType: {
+                                name: "scripture",
+                                flavor: {
+                                    name: "textTranslation",
+                                    projectType: "standard",
+                                },
+                            },
+                        },
+                    }),
+                ),
+            }),
+        );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        await expect(
+            provider.inspectProjectMetadata({
+                hostBaseUrl: "https://gitea.example.org",
+                token: "secret-token",
+                repoOwner: "alice",
+                repoName: "bem-ulb",
+                ref: "master",
+            }),
+        ).resolves.toEqual({
+            format: "scripture-burrito",
+            metadataPath: "metadata.json",
+            languageTag: "bem",
+            isScriptureTextTranslation: true,
+        });
+    });
+
+    it("falls back to manifest.yaml when metadata.json is absent", async () => {
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(new Response("missing", { status: 404 }))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    type: "file",
+                    encoding: "base64",
+                    content: btoa(`dublin_core:
+  identifier: bem_ulb
+  subject: Bible
+  format: text/usfm
+  language:
+    identifier: bem
+    title: Bemba
+projects: []
+`),
+                }),
+            );
+        const provider = new GiteaRemoteRepoProvider(fetchImpl);
+
+        await expect(
+            provider.inspectProjectMetadata({
+                hostBaseUrl: "https://gitea.example.org",
+                token: "secret-token",
+                repoOwner: "alice",
+                repoName: "bem-ulb",
+                ref: "master",
+            }),
+        ).resolves.toEqual({
+            format: "resource-container",
+            metadataPath: "manifest.yaml",
+            languageTag: "bem",
+            isScriptureTextTranslation: true,
+        });
     });
 });

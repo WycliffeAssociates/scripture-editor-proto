@@ -18,7 +18,7 @@ export const GIT_REMOTE_SESSION_TOKEN_SCOPES = [
     "read:organization",
     "read:package",
     "write:repository",
-    "read:user",
+    "write:user",
 ] as const;
 export const GIT_REMOTE_SESSION_TOKEN_NAME_PREFIX = "dovetail";
 const GiteaCreatedTokenSchema = v.object({

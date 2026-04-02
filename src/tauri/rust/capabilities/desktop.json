@@ -8,6 +8,38 @@
     "fs:allow-appdata-write-recursive",
     "fs:allow-open",
     {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        {
+          "path": "$APPLOCALDATA/**"
+        },
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**"
+        },
+        {
+          "path": "$APPLOCALDATA/**/.*"
+        },
+        {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
+          "path": "$APPDATA/**/.*"
+        },
+        {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
+        }
+      ]
+    },
+    {
       "identifier": "fs:allow-read-file",
       "allow": [
         {
@@ -23,10 +55,19 @@
           "path": "$APPLOCALDATA/**/.*"
         },
         {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
           "path": "$APPDATA/**/.*"
         },
         {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
           "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
         }
       ]
     },
@@ -46,10 +87,19 @@
           "path": "$APPLOCALDATA/**/.*"
         },
         {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
           "path": "$APPDATA/**/.*"
         },
         {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
           "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
         }
       ]
     },
@@ -69,10 +119,19 @@
           "path": "$APPLOCALDATA/**/.*"
         },
         {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
           "path": "$APPDATA/**/.*"
         },
         {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
           "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
         }
       ]
     },
@@ -92,10 +151,19 @@
           "path": "$APPLOCALDATA/**/.*"
         },
         {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
           "path": "$APPDATA/**/.*"
         },
         {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
           "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
         }
       ]
     },
@@ -115,10 +183,19 @@
           "path": "$APPLOCALDATA/**/.*"
         },
         {
+          "path": "$APPLOCALDATA/**/.*/**"
+        },
+        {
           "path": "$APPDATA/**/.*"
         },
         {
+          "path": "$APPDATA/**/.*/**"
+        },
+        {
           "path": "$HOME/Library/Application Support/**/.*"
+        },
+        {
+          "path": "$HOME/Library/Application Support/**/.*/**"
         }
       ]
     },
