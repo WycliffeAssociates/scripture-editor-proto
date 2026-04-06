@@ -2,15 +2,15 @@
 
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
-import { MantineProvider, Popover } from "@mantine/core";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { Popover, PopoverTarget } from "@/app/ui/components/primitives/Popover/Popover.tsx";
 import {
     SearchPanel,
     SearchPopoverControls,
-} from "@/app/ui/components/blocks/Search.tsx";
+} from "@/app/ui/components/views/search-panel/index.ts";
 
 const useWorkspaceContextMock = vi.fn();
 
@@ -105,9 +105,12 @@ function makeSearch(overrides: Record<string, unknown> = {}) {
         hasReferenceSearchAvailable: false,
         searchReference: false,
         setSearchReference: vi.fn(),
+        setSearchReferenceImmediate: vi.fn(),
         sortBy: vi.fn(),
         currentSort: "canonical",
         escapeRegex: (value: string) => value,
+        runSearchLogic: vi.fn(),
+        replaceSearchResult: vi.fn(),
         ...overrides,
     };
 }
@@ -139,6 +142,23 @@ function makeWorkspaceValue(
         referenceResource: {
             activeReferenceResourcePath: "/userData/projects/en_ulb",
             activeReferenceResourceDisplayName: "Unlocked Literal Bible",
+            activeReferenceResourceQuery: {
+                isLoading: false,
+            },
+            referenceScriptureQuery: {
+                isLoading: false,
+            },
+            referenceResourcesQuery: {
+                data: [
+                    {
+                        projectPath: "/userData/projects/en_ulb",
+                        displayName: "Unlocked Literal Bible",
+                        type: "usfmScripture",
+                        isEditable: true,
+                    },
+                ],
+            },
+            selectActiveReferenceResourcePath: vi.fn(),
         },
         project: {
             pickedFile: { bookCode: "MAT" },
@@ -155,19 +175,15 @@ function makeWorkspaceValue(
 }
 
 function TestProviders(props: { children: React.ReactNode }) {
-    return (
-        <MantineProvider>
-            <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
-        </MantineProvider>
-    );
+    return <I18nProvider i18n={i18n}>{props.children}</I18nProvider>;
 }
 
 function WrappedSearchPopoverControls() {
     return (
-        <Popover opened width={320} position="bottom">
-            <Popover.Target>
+        <Popover opened position="bottom">
+            <PopoverTarget>
                 <button type="button">search</button>
-            </Popover.Target>
+            </PopoverTarget>
             <SearchPopoverControls />
         </Popover>
     );
@@ -226,16 +242,16 @@ function render(ui: React.ReactNode) {
 }
 
 describe("SearchPanel", () => {
-    it("hides the reference-search toggle when no reference project is available", () => {
+    it("shows the reference-search control even before a reference project is selected", () => {
         render(<WrappedSearchPopoverControls />);
         expect(
             document.querySelector(
                 `[data-testid="${TESTING_IDS.searchReferenceToggle}"]`,
             ),
-        ).toBeNull();
+        ).not.toBeNull();
     });
 
-    it("shows the reference-search toggle when a reference project is available", () => {
+    it("shows the reference-search control when a reference project is available", () => {
         useWorkspaceContextMock.mockReturnValue(
             makeWorkspaceValue({
                 search: makeSearch({ hasReferenceSearchAvailable: true }),

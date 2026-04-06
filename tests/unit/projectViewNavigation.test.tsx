@@ -2,7 +2,6 @@
 
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
-import { MantineProvider } from "@mantine/core";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +34,7 @@ vi.mock("@/app/ui/components/blocks/ReferenceEditor.tsx", () => ({
     ReferenceEditor: () => <div data-testid="reference-editor" />,
 }));
 
-vi.mock("@/app/ui/components/blocks/Search.tsx", () => ({
+vi.mock("@/app/ui/components/views/search-panel/index.ts", () => ({
     SearchPanel: () => null,
 }));
 
@@ -44,11 +43,7 @@ vi.mock("@/app/ui/components/blocks/Toolbar.tsx", () => ({
 }));
 
 function TestProviders(props: { children: React.ReactNode }) {
-    return (
-        <MantineProvider>
-            <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
-        </MantineProvider>
-    );
+    return <I18nProvider i18n={i18n}>{props.children}</I18nProvider>;
 }
 
 let container: HTMLDivElement | null = null;

@@ -1,6 +1,23 @@
 /* Auto-generated vanilla-extract styles for ProjectList component */
 import { style } from "@vanilla-extract/css";
-import { vars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
+const vars = {
+    spacing: dsVars.spacing,
+    radius: dsVars.border.radius,
+    colors: {
+        primary: {
+            filled: dsVars.color.brandBase,
+            0: dsVars.color.brandLight,
+            1: dsVars.color.brandLight,
+            5: dsVars.color.brandDark,
+        },
+        gray: {
+            1: dsVars.color.surfaceSecondary,
+        },
+        white: dsVars.color.onSurfaceInvert,
+    },
+};
 
 const project = style({
     padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
@@ -99,10 +116,6 @@ const languageLabel = style({
     letterSpacing: "0.05em",
 });
 
-/**
- * Default export to mimic CSS module default import shape used in components.
- * This allows `import classnames from "./ProjectList.module.css"` to keep working.
- */
 const classes = {
     project,
     picked,

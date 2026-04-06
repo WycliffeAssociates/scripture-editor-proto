@@ -37,6 +37,8 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
     hasReferenceSearchAvailable: boolean;
     searchReference: boolean;
     setSearchReference: (value: boolean) => void;
+    setSearchReferenceImmediate: (value: boolean) => void;
+    runSearchLogic: ReturnType<typeof useSearchExecution>["runSearchLogic"];
 };
 
 /**
@@ -121,6 +123,7 @@ export function useProjectSearch({
         pickedChapter,
         setTargetResults: execution.setTargetResults,
         setReferenceResults: execution.setReferenceResults,
+        preparePickedResult: navigation.preparePickedResult,
     });
 
     const pickedResultIdx = navigation.getPickedResultIdx(execution.results);
@@ -134,18 +137,6 @@ export function useProjectSearch({
             });
         });
     }, [history, execution]);
-
-    useEffect(() => {
-        if (execution.hasReferenceSearchAvailable || !execution.searchReference)
-            return;
-        execution.setSearchReferenceState(false);
-        if (!execution.searchTerm.trim()) return;
-        void execution.runSearchLogic(execution.searchTerm, {
-            autoPick: false,
-            scope: "project",
-            overrides: { searchReference: false },
-        });
-    }, [execution]);
 
     return {
         searchTerm: execution.searchTerm,
@@ -182,6 +173,7 @@ export function useProjectSearch({
             }),
         replaceCurrentMatch: replace.replaceCurrentMatch,
         replaceAllInChapter: replace.replaceAllInChapter,
+        replaceSearchResult: replace.replaceSearchResult,
         replaceMatch: replace.replaceMatch,
         rerunForCurrentChapter: execution.rerunForCurrentChapter,
         currentMatches: navigation.currentMatches,
@@ -202,8 +194,10 @@ export function useProjectSearch({
         hasReferenceSearchAvailable: execution.hasReferenceSearchAvailable,
         searchReference: execution.searchReference,
         setSearchReference: execution.setSearchReference,
+        setSearchReferenceImmediate: execution.setSearchReferenceState,
         sortBy: execution.sortBy,
         currentSort: execution.currentSort,
         escapeRegex,
+        runSearchLogic: execution.runSearchLogic,
     };
 }

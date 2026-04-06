@@ -1,0 +1,48 @@
+import { forwardRef, type InputHTMLAttributes, useId } from "react";
+import * as styles from "./checkbox.css.ts";
+
+function joinClassNames(...classNames: Array<string | undefined>) {
+    return classNames.filter(Boolean).join(" ");
+}
+
+export interface CheckboxProps
+    extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
+    label?: string;
+}
+
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
+    function Checkbox({ label, className, id: propId, ...props }, ref) {
+        const generatedId = useId();
+        const id = propId ?? generatedId;
+
+        return (
+            <label htmlFor={id} className={styles.checkboxWrapper}>
+                <input
+                    ref={ref}
+                    id={id}
+                    type="checkbox"
+                    className={joinClassNames(styles.checkboxInput, className)}
+                    {...props}
+                />
+                <span className={styles.checkboxControl}>
+                    <svg
+                        className={styles.checkboxCheck}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <title>Checked</title>
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                </span>
+                {label ? (
+                    <span className={styles.checkboxLabel}>{label}</span>
+                ) : null}
+            </label>
+        );
+    },
+);

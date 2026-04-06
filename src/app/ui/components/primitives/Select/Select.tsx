@@ -64,6 +64,7 @@ export interface SelectProps {
     placeholder?: string;
     icon?: ReactNode;
     className?: string;
+    disabled?: boolean;
     portalContainer?: RefObject<HTMLElement | null>;
     onValueChange?: (value: string | null) => void;
 }
@@ -75,6 +76,7 @@ export function SelectPrimitive({
     placeholder,
     icon,
     className,
+    disabled,
     portalContainer,
     onValueChange,
 }: SelectProps) {
@@ -87,6 +89,7 @@ export function SelectPrimitive({
         >
             <Select.Trigger
                 className={joinClassNames(styles.trigger, className)}
+                disabled={disabled}
             >
                 {icon ? (
                     <span className={styles.triggerIcon}>{icon}</span>

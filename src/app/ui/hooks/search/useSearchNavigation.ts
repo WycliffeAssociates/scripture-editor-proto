@@ -156,6 +156,154 @@ export function useSearchNavigation({
         [collectMatchesInEditor, editorRef],
     );
 
+    const preparePickedResult = useCallback(
+        (
+            result: SearchResult,
+            args: {
+                activeSearchTerm: string;
+                searchReference: boolean;
+                matchCase: boolean;
+                matchWholeWord: boolean;
+            },
+        ) =>
+            new Promise<{
+                matches: SearchMatch[];
+                activeMatch?: SearchMatch;
+            } | null>((resolve) => {
+                clearHighlights();
+                setPickedResult(result);
+
+                const newChapterState = switchBookOrChapter(
+                    result.bibleIdentifier,
+                    result.chapNum,
+                );
+                if (!newChapterState) {
+                    resolve(null);
+                    return;
+                }
+
+                queueMicrotask(() => {
+                    const targetEditor = editorRef.current;
+                    if (!targetEditor) {
+                        resolve(null);
+                        return;
+                    }
+
+                    if (args.searchReference || result.source === "reference") {
+                        const targetMatches = collectMatchesInEditor(
+                            targetEditor,
+                            "target",
+                            args.activeSearchTerm,
+                            {
+                                baseMatchCase: args.matchCase,
+                                baseMatchWholeWord: args.matchWholeWord,
+                            },
+                        );
+                        const referenceEditor = referenceEditorRef.current;
+                        const referenceMatches = referenceEditor
+                            ? collectMatchesInEditor(
+                                  referenceEditor,
+                                  "reference",
+                                  args.activeSearchTerm,
+                                  {
+                                      baseMatchCase: args.matchCase,
+                                      baseMatchWholeWord: args.matchWholeWord,
+                                  },
+                              )
+                            : [];
+                        const nextMatches = [
+                            ...targetMatches,
+                            ...referenceMatches,
+                        ];
+                        setCurrentMatches(nextMatches);
+
+                        const activeTargetMatch = targetMatches.find(
+                            (m) =>
+                                m.sid === result.sid &&
+                                m.sidOccurrenceIndex ===
+                                    result.sidOccurrenceIndex,
+                        );
+                        const activeReferenceMatch = referenceMatches.find(
+                            (m) =>
+                                m.sid === result.sid &&
+                                m.sidOccurrenceIndex ===
+                                    result.sidOccurrenceIndex,
+                        );
+
+                        const activeMatch =
+                            activeTargetMatch ??
+                            activeReferenceMatch ??
+                            undefined;
+                        setCurrentMatchIndex(
+                            activeMatch ? nextMatches.indexOf(activeMatch) : 0,
+                        );
+
+                        highlightMatchesAcrossEditors([
+                            {
+                                editor: targetEditor,
+                                matches: targetMatches,
+                                activeMatch: activeTargetMatch,
+                            },
+                            ...(referenceEditor
+                                ? [
+                                      {
+                                          editor: referenceEditor,
+                                          matches: referenceMatches,
+                                          activeMatch: activeReferenceMatch,
+                                      },
+                                  ]
+                                : []),
+                        ]);
+
+                        resolve({
+                            matches: nextMatches,
+                            activeMatch,
+                        });
+                        return;
+                    }
+
+                    const searchMatches = collectMatchesInCurrentEditor(
+                        args.activeSearchTerm,
+                        {
+                            baseMatchCase: args.matchCase,
+                            baseMatchWholeWord: args.matchWholeWord,
+                        },
+                    );
+                    setCurrentMatches(searchMatches);
+
+                    let activeMatch: SearchMatch | undefined;
+                    if (searchMatches.length > 0) {
+                        const matchForResult = searchMatches.find(
+                            (m) =>
+                                m.sid === result.sid &&
+                                m.sidOccurrenceIndex ===
+                                    result.sidOccurrenceIndex,
+                        );
+
+                        if (matchForResult) {
+                            activeMatch = matchForResult;
+                            setCurrentMatchIndex(
+                                searchMatches.indexOf(matchForResult),
+                            );
+                        }
+                    }
+
+                    highlightMatches(searchMatches, targetEditor, activeMatch);
+                    resolve({
+                        matches: searchMatches,
+                        activeMatch,
+                    });
+                });
+            }),
+        [
+            collectMatchesInCurrentEditor,
+            collectMatchesInEditor,
+            editorRef,
+            referenceEditorRef,
+            switchBookOrChapter,
+        ],
+    );
+
     const pick = useCallback(
         (
             result: SearchResult,
@@ -166,115 +314,9 @@ export function useSearchNavigation({
                 matchWholeWord: boolean;
             },
         ) => {
-            clearHighlights();
-            setPickedResult(result);
-
-            const newChapterState = switchBookOrChapter(
-                result.bibleIdentifier,
-                result.chapNum,
-            );
-            if (!newChapterState) return;
-
-            queueMicrotask(() => {
-                const targetEditor = editorRef.current;
-                if (!targetEditor) return;
-
-                if (args.searchReference || result.source === "reference") {
-                    const targetMatches = collectMatchesInEditor(
-                        targetEditor,
-                        "target",
-                        args.activeSearchTerm,
-                        {
-                            baseMatchCase: args.matchCase,
-                            baseMatchWholeWord: args.matchWholeWord,
-                        },
-                    );
-                    const referenceEditor = referenceEditorRef.current;
-                    const referenceMatches = referenceEditor
-                        ? collectMatchesInEditor(
-                              referenceEditor,
-                              "reference",
-                              args.activeSearchTerm,
-                              {
-                                  baseMatchCase: args.matchCase,
-                                  baseMatchWholeWord: args.matchWholeWord,
-                              },
-                          )
-                        : [];
-                    const nextMatches = [...targetMatches, ...referenceMatches];
-                    setCurrentMatches(nextMatches);
-
-                    const activeTargetMatch = targetMatches.find(
-                        (m) =>
-                            m.sid === result.sid &&
-                            m.sidOccurrenceIndex === result.sidOccurrenceIndex,
-                    );
-                    const activeReferenceMatch = referenceMatches.find(
-                        (m) =>
-                            m.sid === result.sid &&
-                            m.sidOccurrenceIndex === result.sidOccurrenceIndex,
-                    );
-
-                    const activeMatch =
-                        activeTargetMatch ?? activeReferenceMatch ?? undefined;
-                    setCurrentMatchIndex(
-                        activeMatch ? nextMatches.indexOf(activeMatch) : 0,
-                    );
-
-                    highlightMatchesAcrossEditors([
-                        {
-                            editor: targetEditor,
-                            matches: targetMatches,
-                            activeMatch: activeTargetMatch,
-                        },
-                        ...(referenceEditor
-                            ? [
-                                  {
-                                      editor: referenceEditor,
-                                      matches: referenceMatches,
-                                      activeMatch: activeReferenceMatch,
-                                  },
-                              ]
-                            : []),
-                    ]);
-                    return;
-                }
-
-                const searchMatches = collectMatchesInCurrentEditor(
-                    args.activeSearchTerm,
-                    {
-                        baseMatchCase: args.matchCase,
-                        baseMatchWholeWord: args.matchWholeWord,
-                    },
-                );
-                setCurrentMatches(searchMatches);
-
-                let activeMatch: SearchMatch | undefined;
-                if (searchMatches.length > 0) {
-                    const matchForResult = searchMatches.find(
-                        (m) =>
-                            m.sid === result.sid &&
-                            m.sidOccurrenceIndex === result.sidOccurrenceIndex,
-                    );
-
-                    if (matchForResult) {
-                        activeMatch = matchForResult;
-                        setCurrentMatchIndex(
-                            searchMatches.indexOf(matchForResult),
-                        );
-                    }
-                }
-
-                highlightMatches(searchMatches, targetEditor, activeMatch);
-            });
+            void preparePickedResult(result, args);
         },
-        [
-            collectMatchesInCurrentEditor,
-            collectMatchesInEditor,
-            editorRef,
-            referenceEditorRef,
-            switchBookOrChapter,
-        ],
+        [preparePickedResult],
     );
 
     const getPickedResultIdx = useCallback(
@@ -356,5 +398,6 @@ export function useSearchNavigation({
         prevMatch,
         getPickedResultIdx,
         findMatchIndex,
+        preparePickedResult,
     };
 }

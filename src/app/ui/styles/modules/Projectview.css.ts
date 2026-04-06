@@ -66,6 +66,12 @@ export const workspaceShellMobile = style({
     gridTemplateRows: "minmax(0, 1fr) auto",
 });
 
+export const workspaceEditorsStage = style({
+    position: "relative",
+    minHeight: 0,
+    minWidth: 0,
+});
+
 export const desktopSidebar = style({
     display: "none",
     "@media": {
@@ -181,7 +187,9 @@ export const editorWrapperDesktop = style({
     width: "100%",
     minWidth: 0,
     minHeight: 0,
-    height: "100%",
+    height: "100dvh",
+    display: "grid",
+    gridTemplateRows: "auto minmax(0, 1fr)",
     paddingInline: 0,
     paddingBlock: dsVars.spacing.lg,
     "@media": {
@@ -199,23 +207,20 @@ export const workspacePaneStack = style({
     height: "100%",
 });
 
-export const workspacePaneVisible = style({
+export const workspaceEditorPane = style({
     position: "relative",
     minWidth: 0,
     minHeight: 0,
     height: "100%",
-    visibility: "visible",
-    pointerEvents: "auto",
 });
 
-export const workspacePaneHidden = style({
+export const workspaceOverlayPane = style({
     position: "absolute",
     inset: 0,
     minWidth: 0,
     minHeight: 0,
     height: "100%",
-    visibility: "hidden",
-    pointerEvents: "none",
+    zIndex: 5000,
 });
 
 export const editor = style({
@@ -265,7 +270,6 @@ export const desktopContentGrid = style({
         [mediaQuery.up("lg")]: {
             flex: "1 1 auto",
             minHeight: 0,
-            overflow: "hidden",
             gap: dsVars.spacing.lg,
             alignItems: "stretch",
             gridTemplateColumns: "minmax(0, 1fr)",
@@ -278,7 +282,7 @@ export const desktopContentGridWithReference = style([
     {
         "@media": {
             [mediaQuery.up("lg")]: {
-                gridTemplateColumns: "minmax(20rem, 24rem) minmax(0, 1fr)",
+                gridTemplateColumns: "minmax(20rem, 28rem) minmax(0, 1fr)",
             },
         },
     },
@@ -287,6 +291,8 @@ export const desktopContentGridWithReference = style([
 export const editorMainSmall = style({
     minHeight: 0,
     height: "100%",
+    display: "flex",
+    flexDirection: "column",
     backgroundColor: dsVars.color.surfacePrimary,
 });
 
@@ -299,16 +305,14 @@ export const editorReferenceSmall = style({
 export const referenceColumn = style({
     minWidth: 0,
     width: "100%",
-    minHeight: 0,
-    height: "100%",
+    height: "100dvh",
+    display: "grid",
+    gridTemplateRows: "auto minmax(0, 1fr)",
     overflow: "hidden",
     backgroundColor: dsVars.color.surfacePrimary,
     "@media": {
         [mediaQuery.up("lg")]: {
-            height: "100%",
-            minHeight: 0,
             borderRight: `1px solid ${dsVars.color.surfaceBorder}`,
-            backgroundColor: dsVars.color.surfacePrimary,
         },
     },
 });
@@ -378,6 +382,7 @@ export const bottomPanel = style({
     borderTop: `1px solid ${dsVars.color.surfaceBorder}`,
     backgroundColor: dsVars.color.surfaceSecondary,
     overflow: "hidden",
+    zIndex: 5200,
 });
 
 export const bottomPanelResizeHandle = style({
@@ -495,10 +500,44 @@ export const bottomPanelContent = style({
     paddingBottom: dsVars.spacing.xs,
 });
 
+export const bottomPanelEmptyState = style({
+    minHeight: "6rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: dsVars.spacing.lg,
+    color: dsVars.color.onSurfaceSecondary,
+    fontSize: dsVars.typography.bodySmall.fontSize,
+});
+
 export const bottomPanelList = style({
     display: "flex",
     flexDirection: "column",
     gap: 0,
+});
+
+export const lintIssueList = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: dsVars.spacing.sm,
+});
+
+export const lintIssueGroup = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: dsVars.spacing.xs,
+});
+
+export const lintIssueGroupHeader = style({
+    minHeight: "1.75rem",
+    display: "grid",
+    gridTemplateColumns: "auto auto minmax(0, 1fr) auto",
+    alignItems: "center",
+    gap: dsVars.spacing.sm,
+    color: dsVars.color.onSurfaceSecondary,
+    fontSize: dsVars.typography.bodySmall.fontSize,
+    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    paddingBottom: dsVars.spacing.xs,
 });
 
 export const bottomPanelGroup = style({
@@ -542,6 +581,52 @@ export const bottomPanelGroupLocation = style({
 export const bottomPanelGroupCount = style({
     color: dsVars.color.onSurfaceSecondary,
     fontWeight: 600,
+});
+
+export const lintIssueCard = style({
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    alignItems: "start",
+    gap: dsVars.spacing.md,
+    padding: `${dsVars.spacing.sm} ${dsVars.spacing.xs}`,
+    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    selectors: {
+        "&:hover": {
+            backgroundColor: dsVars.color.surfacePrimary,
+        },
+    },
+});
+
+export const lintIssueCardBody = style({
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: dsVars.spacing.xs,
+});
+
+export const lintIssueCardMessage = style({
+    color: dsVars.color.onSurfacePrimary,
+    fontSize: dsVars.typography.bodySmall.fontSize,
+    lineHeight: dsVars.typography.bodySmall.lineHeight,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+});
+
+export const lintIssueCardMeta = style({
+    display: "flex",
+    alignItems: "center",
+    gap: dsVars.spacing.sm,
+    flexWrap: "wrap",
+    color: dsVars.color.onSurfaceSecondary,
+    fontSize: dsVars.typography.bodySmallest.fontSize,
+});
+
+export const lintIssueActions = style({
+    display: "flex",
+    alignItems: "center",
+    gap: dsVars.spacing.xs,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
 });
 
 export const bottomPanelRow = style({

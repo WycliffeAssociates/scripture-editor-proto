@@ -1,9 +1,9 @@
-import { useDebouncedCallback } from "@mantine/hooks";
 import { useRouter } from "@tanstack/react-router";
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_MODES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
+import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 type ShouldRunLintForEditorUpdateArgs = {

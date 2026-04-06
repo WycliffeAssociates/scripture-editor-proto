@@ -1,7 +1,7 @@
-import { useThrottledCallback } from "@mantine/hooks";
 import { useEffect, useRef } from "react";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { getPoetryStylesAsCssStyleSheet } from "@/app/ui/effects/usfmDynamicStyles/calcStyles.ts";
+import { useThrottledCallback } from "@/app/ui/hooks/general/useThrottledCallback.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**

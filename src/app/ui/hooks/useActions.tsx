@@ -1,4 +1,3 @@
-import { useMantineColorScheme } from "@mantine/core";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
@@ -84,7 +83,10 @@ export const useWorkspaceActions = ({
     targetMarkerPreservationMode,
     history,
 }: Props) => {
-    const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
+    const setColorScheme = (value: "light" | "dark") => {
+        updateAppSettings({ colorScheme: value });
+        applyColorSchemeToDocument(value);
+    };
 
     /**
      * Guard editor-dependent operations so callers do not have to repeat
@@ -212,12 +214,6 @@ export const useWorkspaceActions = ({
     function goToReference(input: string): boolean {
         return navigation.goToReference(input, editorRef);
     }
-
-    const setColorScheme = (value: "light" | "dark") => {
-        updateAppSettings({ colorScheme: value });
-        setMantineColorScheme(value);
-        applyColorSchemeToDocument(value);
-    };
 
     return {
         // Editor state management

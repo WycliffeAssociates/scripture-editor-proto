@@ -1,13 +1,9 @@
-import {
-    type MantineTheme,
-    useMantineColorScheme,
-    useMantineTheme,
-} from "@mantine/core";
-import { useMediaQuery as useMantineMediaQuery } from "@mantine/hooks";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { runtimeMediaQuery } from "@/app/ui/styles/breakpoints.ts";
 
 type Breakpoint = "xs" | "sm" | "md" | "lg" | "xl";
+type MobileTab = "main" | "ref";
+type AppColorScheme = "light" | "dark";
 
 interface MediaQueryContextType {
     breakpoint: Breakpoint;
@@ -18,46 +14,34 @@ interface MediaQueryContextType {
     isXl: boolean;
     isTouch: boolean;
     isDarkTheme: boolean;
-    theme: MantineTheme;
-    mobileTab: "main" | "ref";
-    setMobileTab: (tab: "main" | "ref") => void;
+    mobileTab: MobileTab;
+    setMobileTab: (tab: MobileTab) => void;
 }
 
 const MediaQueryContext = createContext<MediaQueryContextType | undefined>(
     undefined,
 );
 
-/**
- * UI-only responsive context.
- *
- * This context does not participate in the import/load/item architecture. Its
- * role is to keep layout decisions, theme flags, and small-screen reference-tab
- * state in one place so route and component code can stay focused on workspace
- * behavior.
- */
 export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
 }) => {
-    const [breakpoint, setBreakpoint] = useState<Breakpoint>("lg");
-    const [mobileTab, setMobileTab] = useState<"main" | "ref">("main");
+    const [mobileTab, setMobileTab] = useState<MobileTab>("main");
+    const isXs = useMediaQuery(runtimeMediaQuery.down("sm"));
+    const isSm = useMediaQuery(runtimeMediaQuery.between("xs", "md"));
+    const isMd = useMediaQuery(runtimeMediaQuery.between("md", "lg"));
+    const isLg = useMediaQuery(runtimeMediaQuery.up("lg"));
+    const isXl = useMediaQuery(runtimeMediaQuery.up("xl"));
+    const isTouch = useMediaQuery("(hover: none)");
+    const colorScheme = useDocumentColorScheme();
 
-    const isXs = useMantineMediaQuery(runtimeMediaQuery.down("sm"));
-    const isSm = useMantineMediaQuery(runtimeMediaQuery.between("xs", "md"));
-    const isMd = useMantineMediaQuery(runtimeMediaQuery.between("md", "lg"));
-    const isLg = useMantineMediaQuery(runtimeMediaQuery.up("lg"));
-    const isXl = useMantineMediaQuery(runtimeMediaQuery.up("xl"));
-    const isTouch = useMantineMediaQuery("(hover: none)");
-    const { colorScheme } = useMantineColorScheme();
-    const theme = useMantineTheme();
-    const isDarkTheme = colorScheme === "dark";
-
-    useEffect(() => {
-        if (isXs) setBreakpoint("xs");
-        else if (isSm) setBreakpoint("sm");
-        else if (isMd) setBreakpoint("md");
-        else if (isLg) setBreakpoint("lg");
-        else if (isXl) setBreakpoint("xl");
-    }, [isXs, isSm, isMd, isLg, isXl]);
+    const breakpoint = useMemo<Breakpoint>(() => {
+        if (isXs) return "xs";
+        if (isSm) return "sm";
+        if (isMd) return "md";
+        if (isXl) return "xl";
+        if (isLg) return "lg";
+        return "lg";
+    }, [isLg, isMd, isSm, isXl, isXs]);
 
     const value = {
         breakpoint,
@@ -67,8 +51,7 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
         isLg,
         isXl,
         isTouch,
-        isDarkTheme,
-        theme,
+        isDarkTheme: colorScheme === "dark",
         mobileTab,
         setMobileTab,
     };
@@ -80,9 +63,6 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 };
 
-/**
- * Read the current responsive UI context for workspace screens.
- */
 export const useWorkspaceMediaQuery = (): MediaQueryContextType => {
     const context = useContext(MediaQueryContext);
     if (context === undefined) {
@@ -92,3 +72,80 @@ export const useWorkspaceMediaQuery = (): MediaQueryContextType => {
     }
     return context;
 };
+
+function useMediaQuery(query: string) {
+    const getMatches = () => {
+        if (typeof window === "undefined" || !window.matchMedia) {
+            return false;
+        }
+        return window.matchMedia(query).matches;
+    };
+
+    const [matches, setMatches] = useState(getMatches);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) {
+            return;
+        }
+
+        const mediaQueryList = window.matchMedia(query);
+        const handleChange = (event: MediaQueryListEvent) => {
+            setMatches(event.matches);
+        };
+
+        setMatches(mediaQueryList.matches);
+        mediaQueryList.addEventListener("change", handleChange);
+
+        return () => {
+            mediaQueryList.removeEventListener("change", handleChange);
+        };
+    }, [query]);
+
+    return matches;
+}
+
+function useDocumentColorScheme() {
+    const [colorScheme, setColorScheme] = useState<AppColorScheme>(() =>
+        getDocumentColorScheme(),
+    );
+
+    useEffect(() => {
+        if (typeof document === "undefined") {
+            return;
+        }
+
+        const root = document.documentElement;
+        const observer = new MutationObserver(() => {
+            setColorScheme(getDocumentColorScheme());
+        });
+
+        observer.observe(root, {
+            attributes: true,
+            attributeFilter: ["class", "data-theme"],
+        });
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    return colorScheme;
+}
+
+function getDocumentColorScheme(): AppColorScheme {
+    if (typeof document === "undefined") {
+        return "light";
+    }
+
+    const root = document.documentElement;
+    const datasetTheme = root.dataset.theme;
+    if (datasetTheme === "dark" || datasetTheme === "light") {
+        return datasetTheme;
+    }
+
+    if (root.classList.contains("dark")) {
+        return "dark";
+    }
+
+    return "light";
+}

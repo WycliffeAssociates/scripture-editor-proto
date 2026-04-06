@@ -2,7 +2,6 @@
 
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
-import { MantineProvider } from "@mantine/core";
 import type { SerializedLexicalNode } from "lexical";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -100,19 +99,15 @@ function makeWorkspaceValue(): WorkSpaceContextType {
 
 function TestProviders(props: { children: React.ReactNode }) {
     return React.createElement(
-        MantineProvider,
-        null,
+        I18nProvider,
+        { i18n },
         React.createElement(
-            I18nProvider,
-            { i18n },
+            ThemeQueryProvider,
+            null,
             React.createElement(
-                ThemeQueryProvider,
-                null,
-                React.createElement(
-                    WorkspaceContext.Provider,
-                    { value: makeWorkspaceValue() },
-                    props.children,
-                ),
+                WorkspaceContext.Provider,
+                { value: makeWorkspaceValue() },
+                props.children,
             ),
         ),
     );
@@ -260,7 +255,6 @@ describe("diff modal external compare UI", () => {
                 takeIncomingAll: vi.fn(),
                 hasComputedCompare: true,
                 resetExternalCompare: vi.fn(),
-                isSm: false,
                 isXs: false,
             }),
         );
@@ -306,7 +300,6 @@ describe("diff modal external compare UI", () => {
                 takeIncomingAll: vi.fn(),
                 hasComputedCompare: true,
                 resetExternalCompare: vi.fn(),
-                isSm: false,
                 isXs: false,
             }),
         );

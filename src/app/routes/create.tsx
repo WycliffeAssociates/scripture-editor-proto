@@ -1,13 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Anchor, Button, Container, Group, Stack, Title } from "@mantine/core";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createProjectImportFacade } from "@/app/domain/api/import.ts";
 import { GIT_REMOTE_DEFAULT_TOPIC } from "@/app/domain/project/gitRemoteProjectService.ts";
-import ProjectCreator from "@/app/ui/components/blocks/ProjectCreator.tsx";
+import { ProjectImportHub } from "@/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
-import { CloudProjectImporter } from "@/app/ui/components/import/CloudProjectImporter.tsx";
 import {
     hideNotification,
     ShowErrorNotification,
@@ -150,8 +148,13 @@ export function CreateProject() {
                 message: (
                     <>
                         {message}{" "}
-                        <Anchor
-                            href={`/${projectParam}`}
+                        <Link
+                            to={
+                                requiresMetadataReview
+                                    ? "/$project/metadata"
+                                    : "/$project"
+                            }
+                            params={{ project: projectParam }}
                             onClick={(event) => {
                                 event.preventDefault();
                                 settingsManager?.update?.({
@@ -177,7 +180,7 @@ export function CreateProject() {
                             ) : (
                                 <Trans>Open project</Trans>
                             )}
-                        </Anchor>
+                        </Link>
                     </>
                 ),
             },
@@ -650,28 +653,22 @@ export function CreateProject() {
         : () => zipInputRef.current?.click();
 
     return (
-        <Container size="xl" className={styles.pageContainer}>
-            <Stack gap="lg">
-                <Group justify="space-between" align="flex-start" gap="xl">
-                    <Group
-                        gap="xl"
-                        align="center"
-                        className={styles.titleBlock}
-                    >
-                        <Button
-                            component={Link}
+        <main className={styles.page}>
+            <section className={styles.shell}>
+                <header className={styles.header}>
+                    <div className={styles.titleBlock}>
+                        <Link
                             to="/"
-                            variant="subtle"
-                            leftSection={<ArrowLeft size={16} />}
+                            className={styles.backLink}
                             aria-label={t`Back to projects`}
-                            className={styles.backButton}
                         >
+                            <ArrowLeft size={16} />
                             <Trans>Projects</Trans>
-                        </Button>
-                        <Title order={1} className={styles.pageTitle}>
+                        </Link>
+                        <h1 className={styles.pageTitle}>
                             <Trans>New Project</Trans>
-                        </Title>
-                    </Group>
+                        </h1>
+                    </div>
 
                     <div className={styles.localizationBlock}>
                         <LanguageSelector
@@ -686,10 +683,11 @@ export function CreateProject() {
                             value={currentLanguage}
                         />
                     </div>
-                </Group>
+                </header>
 
-                <ProjectCreator
+                <ProjectImportHub
                     onDownload={onDownload}
+                    isDownloadDisabled={isImporting}
                     onDirectoryAction={onDirectoryAction}
                     onZipAction={onZipAction}
                     onDirectorySelected={
@@ -702,15 +700,10 @@ export function CreateProject() {
                     }
                     directoryInputRef={directoryInputRef}
                     zipInputRef={zipInputRef}
-                    isDownloadDisabled={isImporting}
-                    isImporting={isImporting}
-                />
-
-                <CloudProjectImporter
                     hostBaseUrl={giteaHostBaseUrl}
                     sessionUsername={cloudSessionUsername}
                     repos={activeCloudRepos}
-                    isLoading={activeIsLoadingCloudRepos}
+                    isLoadingCloudRepos={activeIsLoadingCloudRepos}
                     isImporting={isImporting}
                     isConnecting={isConnectingCloudAccount}
                     isDisconnecting={isDisconnectingCloudAccount}
@@ -719,7 +712,7 @@ export function CreateProject() {
                     loginPassword={loginPassword}
                     loginOtp={loginOtp}
                     error={cloudError}
-                    hasLoaded={activeHasLoadedCloudRepos}
+                    hasLoadedCloudRepos={activeHasLoadedCloudRepos}
                     hasNextPage={Boolean(activeCloudNextPage)}
                     onLoginUsernameChange={setLoginUsername}
                     onLoginPasswordChange={setLoginPassword}
@@ -743,7 +736,7 @@ export function CreateProject() {
                         void cloneCloudRepo(repo);
                     }}
                 />
-            </Stack>
-        </Container>
+            </section>
+        </main>
     );
 }

@@ -1,5 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import { ActionIcon, Popover, Tooltip } from "@mantine/core";
 import { Search as IconSearch } from "lucide-react";
 import {
     type PointerEvent as ReactPointerEvent,
@@ -9,7 +8,12 @@ import {
     useState,
 } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
-import { SearchPopoverControls } from "@/app/ui/components/blocks/Search.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/ActionIcon.tsx";
+import {
+    Popover,
+    PopoverTarget,
+} from "@/app/ui/components/primitives/Popover/Popover.tsx";
+import { SearchPopoverControls } from "@/app/ui/components/views/search-panel/index.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
@@ -336,17 +340,15 @@ export function SearchInput() {
 
     if (isSm) {
         return (
-            <Tooltip label={t`Search`} withArrow position="top">
-                <ActionIcon
-                    variant={search.isSearchPaneOpen ? "filled" : "subtle"}
-                    color={search.isSearchPaneOpen ? "dark" : "gray"}
-                    data-testid={TESTING_IDS.searchTrigger}
-                    aria-label={t`Search`}
-                    onClick={toggleSearch}
-                >
-                    <IconSearch size={16} />
-                </ActionIcon>
-            </Tooltip>
+            <ActionIconSimple
+                variant={search.isSearchPaneOpen ? "filled" : "subtle"}
+                data-testid={TESTING_IDS.searchTrigger}
+                aria-label={t`Search`}
+                onClick={toggleSearch}
+                title={t`Search`}
+            >
+                <IconSearch size={16} />
+            </ActionIconSimple>
         );
     }
 
@@ -355,26 +357,19 @@ export function SearchInput() {
             opened={search.isSearchPaneOpen}
             onChange={(opened) => search.setIsSearchPaneOpen(opened)}
             position="bottom-end"
-            withArrow
-            shadow="lg"
             offset={8}
-            closeOnClickOutside={false}
-            floatingStrategy="fixed"
-            middlewares={{ flip: false, shift: false }}
         >
-            <Popover.Target>
-                <Tooltip label={t`Search`} withArrow position="top">
-                    <ActionIcon
-                        variant={search.isSearchPaneOpen ? "filled" : "subtle"}
-                        color={search.isSearchPaneOpen ? "dark" : "gray"}
-                        data-testid={TESTING_IDS.searchTrigger}
-                        aria-label={t`Search`}
-                        onClick={toggleSearch}
-                    >
-                        <IconSearch size={16} />
-                    </ActionIcon>
-                </Tooltip>
-            </Popover.Target>
+            <PopoverTarget asChild>
+                <ActionIconSimple
+                    variant={search.isSearchPaneOpen ? "filled" : "subtle"}
+                    data-testid={TESTING_IDS.searchTrigger}
+                    aria-label={t`Search`}
+                    onClick={toggleSearch}
+                    title={t`Search`}
+                >
+                    <IconSearch size={16} />
+                </ActionIconSimple>
+            </PopoverTarget>
             <SearchPopoverControls
                 dropdownRef={dropdownRef}
                 dropdownStyle={

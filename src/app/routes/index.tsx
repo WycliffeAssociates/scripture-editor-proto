@@ -1,14 +1,5 @@
 import { Trans } from "@lingui/react/macro";
 import {
-    Box,
-    Button,
-    Container,
-    Group,
-    Stack,
-    Text,
-    Title,
-} from "@mantine/core";
-import {
     createFileRoute,
     Link,
     useLoaderData,
@@ -18,6 +9,7 @@ import { useState } from "react";
 import ProjectRow from "@/app/ui/components/blocks/ProjectRow.tsx";
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import * as styles from "@/app/ui/styles/modules/indexPage.css.ts";
 
 /**
  * Home/library landing route for editable scripture items.
@@ -48,24 +40,24 @@ function IndexRoute() {
         {} as Record<string, typeof projects>,
     );
     return (
-        <Container size="md" py="xl">
-            <Stack gap="lg">
-                <Group justify="space-between" align="flex-start">
-                    <Stack gap={4}>
-                        <Title order={2}>
+        <main className={styles.page}>
+            <section className={styles.shell}>
+                <header className={styles.header}>
+                    <div className={styles.headerCopy}>
+                        <h1 className={styles.title}>
                             <Trans>Current Projects</Trans>
-                        </Title>
-                        <Text c="dimmed">
+                        </h1>
+                        <p className={styles.description}>
                             <Trans>
                                 Open an existing project, or create a new one.
                             </Trans>
-                        </Text>
-                    </Stack>
-                    <Stack gap="sm" align="stretch">
-                        <Button component={Link} to="/create">
+                        </p>
+                    </div>
+                    <div className={styles.headerActions}>
+                        <Link to="/create" className={styles.newProjectLink}>
                             <Trans>New Project</Trans>
-                        </Button>
-                        <Box miw="20rem" maw="22rem">
+                        </Link>
+                        <div className={styles.languagePicker}>
                             <LanguageSelector
                                 onChange={async (val) => {
                                     if (!val) return;
@@ -76,43 +68,55 @@ function IndexRoute() {
                                 }}
                                 value={currentLanguage}
                             />
-                        </Box>
-                    </Stack>
-                </Group>
+                        </div>
+                    </div>
+                </header>
 
                 {projects.length === 0 ? (
-                    <Stack gap="md">
-                        <Text>
+                    <section className={styles.emptyState}>
+                        <p className={styles.emptyText}>
                             <Trans>No projects yet</Trans>
-                        </Text>
-                        <Group>
-                            <Button component={Link} to="/create">
+                        </p>
+                        <div className={styles.emptyActions}>
+                            <Link
+                                to="/create"
+                                className={styles.newProjectLink}
+                            >
                                 <Trans>Create your first project</Trans>
-                            </Button>
-                        </Group>
-                    </Stack>
+                            </Link>
+                        </div>
+                    </section>
                 ) : (
-                    <Stack gap="sm">
+                    <section className={styles.groups}>
                         {Object.entries(byLanguage)
                             .sort(([a], [b]) => a.localeCompare(b))
                             .map(([languageName, projectsForLanguage]) => (
-                                <Stack key={languageName} gap="sm">
-                                    <h2>{languageName}</h2>
-                                    {projectsForLanguage.map((project) => (
-                                        <ProjectRow
-                                            key={project.projectPath}
-                                            project={project}
-                                            settingsManager={settingsManager}
-                                            invalidateRouterAndReload={() => {
-                                                void router.invalidate();
-                                            }}
-                                        />
-                                    ))}
-                                </Stack>
+                                <section
+                                    key={languageName}
+                                    className={styles.group}
+                                >
+                                    <h2 className={styles.groupTitle}>
+                                        {languageName}
+                                    </h2>
+                                    <div className={styles.groupRows}>
+                                        {projectsForLanguage.map((project) => (
+                                            <ProjectRow
+                                                key={project.projectPath}
+                                                project={project}
+                                                settingsManager={
+                                                    settingsManager
+                                                }
+                                                invalidateRouterAndReload={() => {
+                                                    void router.invalidate();
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </section>
                             ))}
-                    </Stack>
+                    </section>
                 )}
-            </Stack>
-        </Container>
+            </section>
+        </main>
     );
 }

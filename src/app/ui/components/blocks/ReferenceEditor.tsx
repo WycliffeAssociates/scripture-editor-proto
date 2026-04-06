@@ -7,7 +7,6 @@ import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { useLingui } from "@lingui/react/macro";
-import { Group, Stack, Switch, Text, Title } from "@mantine/core";
 import {
     HISTORY_MERGE_TAG,
     LineBreakNode,
@@ -15,7 +14,7 @@ import {
     TextNode,
 } from "lexical";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type ChangeEvent, useEffect } from "react";
+import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -26,12 +25,12 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
+import { Switch } from "@/app/ui/components/primitives/Switch/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import { ReferencePicker } from "./ReferencePicker.tsx";
 
 /**
  * Small loading/error placeholder used by both reference-item renderers.
@@ -58,34 +57,43 @@ function TranslationNotesReferencePane() {
     const activeNotes = translationNotesQuery.data ?? [];
 
     return (
-        <>
+        <div className={shellStyles.referenceEditorRoot}>
             <div
                 className={projectViewStyles.referenceStickyNav}
                 data-testid={TESTING_IDS.reference.stickyNav}
             >
-                <Group className={projectViewStyles.referenceStickyNavRow}>
+                <div
+                    className={projectViewStyles.referenceStickyNavRow}
+                    style={{
+                        display: "flex",
+                        gap: "1rem",
+                        alignItems: "center",
+                    }}
+                >
                     <Switch
-                        wrapperProps={{
-                            "data-testid":
-                                TESTING_IDS.reference.syncNavigationToggle,
-                        }}
+                        data-testid={TESTING_IDS.reference.syncNavigationToggle}
                         label="Sync navigation"
                         checked={referenceResource.isReferenceNavSynced}
-                        onChange={(event) =>
+                        onCheckedChange={(checked) =>
                             referenceResource.setReferenceNavigationSynced(
-                                event.currentTarget.checked,
+                                checked,
                             )
                         }
                     />
-                    <Text size="sm" c="dimmed">
+                    <span
+                        style={{
+                            fontSize: "0.875rem",
+                            color: "var(--text-muted)",
+                        }}
+                    >
                         {referenceBookCode} {referenceChapterNumber}
-                    </Text>
-                </Group>
+                    </span>
+                </div>
             </div>
 
             <div
-                data-testid={TESTING_IDS.refEditorContainer}
-                className={shellStyles.translationNotesContainer}
+                className={shellStyles.referenceEditorOuter}
+                data-js={DATA_JS.referenceEditorScrollContainer}
             >
                 {translationNotesQuery.isLoading ? (
                     <ReferenceLoadingState
@@ -100,15 +108,21 @@ function TranslationNotesReferencePane() {
                         message={t`No translation notes for ${referenceBookCode} ${referenceChapterNumber}.`}
                     />
                 ) : (
-                    <Stack gap="md">
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "1rem",
+                        }}
+                    >
                         {activeNotes.map((note) => (
                             <section
                                 key={note.documentId}
                                 className={shellStyles.translationNoteCard}
                             >
-                                <Title order={5}>
+                                <h5 style={{ margin: 0, fontWeight: 600 }}>
                                     Verse {note.verseNumber}
-                                </Title>
+                                </h5>
                                 <div
                                     className={shellStyles.translationNoteBody}
                                 >
@@ -118,10 +132,10 @@ function TranslationNotesReferencePane() {
                                 </div>
                             </section>
                         ))}
-                    </Stack>
+                    </div>
                 )}
             </div>
-        </>
+        </div>
     );
 }
 
@@ -152,52 +166,49 @@ function ScriptureReferencePane() {
     }, [referenceChapter, referenceEditorRef]);
 
     return (
-        <>
+        <div className={shellStyles.referenceEditorRoot}>
             <div
                 className={projectViewStyles.referenceStickyNav}
                 data-testid={TESTING_IDS.reference.stickyNav}
             >
-                <Group className={projectViewStyles.referenceStickyNavRow}>
+                <div
+                    className={projectViewStyles.referenceStickyNavRow}
+                    style={{
+                        display: "flex",
+                        gap: "1rem",
+                        alignItems: "center",
+                    }}
+                >
                     <Switch
-                        wrapperProps={{
-                            "data-testid":
-                                TESTING_IDS.reference.syncNavigationToggle,
-                        }}
+                        data-testid={TESTING_IDS.reference.syncNavigationToggle}
                         label="Sync navigation"
                         checked={referenceResource.isReferenceNavSynced}
-                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        onCheckedChange={(checked) =>
                             referenceResource.setReferenceNavigationSynced(
-                                event.currentTarget.checked,
+                                checked,
                             )
                         }
                     />
                     <Switch
-                        wrapperProps={{
-                            "data-testid":
-                                TESTING_IDS.reference.syncScrollingToggle,
-                        }}
+                        data-testid={TESTING_IDS.reference.syncScrollingToggle}
                         label="Sync scrolling"
                         checked={referenceResource.isReferenceScrollSynced}
                         disabled={!referenceResource.isReferenceNavSynced}
-                        onChange={(event) =>
+                        onCheckedChange={(checked) =>
                             referenceResource.setReferenceScrollingSynced(
-                                event.currentTarget.checked,
+                                checked,
                             )
                         }
                     />
-                    <ReferencePicker
-                        scope="reference"
-                        bookCode={referenceResource.referenceBookCode}
-                        chapter={referenceResource.referenceChapterNumber}
-                        workingFiles={referenceResource.parsedFiles}
-                        onSwitchBookOrChapter={
-                            referenceResource.switchReferenceBookOrChapter
-                        }
-                        onGoToReference={
-                            referenceResource.goToReferenceInReference
-                        }
-                        disabled={referenceResource.isReferenceNavSynced}
-                    />
+                    <span
+                        style={{
+                            fontSize: "0.875rem",
+                            color: "var(--text-muted)",
+                        }}
+                    >
+                        {referenceResource.referenceBookCode}{" "}
+                        {referenceResource.referenceChapterNumber}
+                    </span>
                     <ActionIconSimple
                         aria-label={t`Previous chapter`}
                         title={t`Previous chapter`}
@@ -226,35 +237,42 @@ function ScriptureReferencePane() {
                     >
                         <ChevronRight size={16} />
                     </ActionIconSimple>
-                </Group>
-            </div>
-            <LexicalComposer initialConfig={getIntialConfig()}>
-                <EditorRefPlugin editorRef={referenceEditorRef} />
-                <div
-                    data-testid={TESTING_IDS.refEditorContainer}
-                    data-testing-ref-chapter={referenceChapter?.chapterNumber}
-                    data-testing-ref-bookcode={referenceResource?.referenceFile?.bookCode.toLowerCase()}
-                    data-js={DATA_JS.referenceEditorContainer}
-                    className={`editor-container ${shellStyles.editorContainer}`}
-                >
-                    <RichTextPlugin
-                        contentEditable={
-                            <ContentEditable
-                                className={`${shellStyles.contentEditableReference} ${
-                                    search.isSearchPaneOpen
-                                        ? shellStyles.contentEditableReferenceSearchOpen
-                                        : ""
-                                }`}
-                                aria-label={t`USFM Editor`}
-                            />
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
                 </div>
-                <StructuralEmptyMarkerChipsPlugin />
-                <UsfmStylesPlugin />
-            </LexicalComposer>
-        </>
+            </div>
+            <div
+                className={shellStyles.referenceEditorOuter}
+                data-js={DATA_JS.referenceEditorScrollContainer}
+            >
+                <LexicalComposer initialConfig={getIntialConfig()}>
+                    <EditorRefPlugin editorRef={referenceEditorRef} />
+                    <div
+                        data-testid={TESTING_IDS.refEditorContainer}
+                        data-testing-ref-chapter={
+                            referenceChapter?.chapterNumber
+                        }
+                        data-testing-ref-bookcode={referenceResource?.referenceFile?.bookCode.toLowerCase()}
+                        data-js={DATA_JS.referenceEditorContainer}
+                        className={`editor-container ${shellStyles.editorContainer}`}
+                    >
+                        <RichTextPlugin
+                            contentEditable={
+                                <ContentEditable
+                                    className={`${shellStyles.contentEditableReference} ${
+                                        search.isSearchPaneOpen
+                                            ? shellStyles.contentEditableReferenceSearchOpen
+                                            : ""
+                                    }`}
+                                    aria-label={t`USFM Editor`}
+                                />
+                            }
+                            ErrorBoundary={LexicalErrorBoundary}
+                        />
+                    </div>
+                    <StructuralEmptyMarkerChipsPlugin />
+                    <UsfmStylesPlugin />
+                </LexicalComposer>
+            </div>
+        </div>
     );
 }
 

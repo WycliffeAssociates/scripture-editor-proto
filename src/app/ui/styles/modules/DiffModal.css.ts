@@ -1,5 +1,60 @@
-import { globalStyle, style } from "@vanilla-extract/css";
-import { breakpoints, darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
+import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
+const darkSelector = "[data-theme='dark']";
+const breakpoints = {
+    minWSmall: "screen and (min-width: 36em)",
+    minWMd: "screen and (min-width: 48em)",
+    minWLg: "screen and (min-width: 62em)",
+    minWXl: "screen and (min-width: 75em)",
+};
+
+const vars = {
+    spacing: dsVars.spacing,
+    radius: dsVars.border.radius,
+    fontSizes: {
+        sm: dsVars.typography.bodySmall.fontSize,
+        md: dsVars.typography.bodyNormal.fontSize,
+        lg: dsVars.typography.h5.fontSize,
+        xl: dsVars.typography.h4.fontSize,
+    },
+    colors: {
+        body: dsVars.color.surfacePrimary,
+        text: dsVars.color.onSurfacePrimary,
+        dimmed: dsVars.color.onSurfaceTertiary,
+        gray: {
+            0: dsVars.color.surfacePrimary,
+            2: dsVars.color.surfaceTertiary,
+            3: dsVars.color.surfaceBorder,
+            5: dsVars.color.onSurfaceTertiary,
+            6: dsVars.color.onSurfaceTertiary,
+            7: dsVars.color.onSurfaceSecondary,
+            8: dsVars.color.onSurfacePrimary,
+            9: dsVars.color.onSurfacePrimary,
+        },
+        dark: {
+            4: dsVars.color.surfaceTertiary,
+            5: dsVars.color.surfaceTertiary,
+            6: dsVars.color.surfaceSecondary,
+            8: dsVars.color.surfaceInvert,
+        },
+        orange: {
+            0: dsVars.color.surfaceError,
+            2: dsVars.color.surfaceError,
+            9: dsVars.color.onSurfaceError,
+        },
+        red: {
+            2: dsVars.color.onSurfaceError,
+        },
+        green: {
+            2: dsVars.color.onSurfaceSuccess,
+        },
+        blue: {
+            0: dsVars.color.brandLight,
+            7: dsVars.color.brandBase,
+        },
+    },
+};
 
 // --- Layout & Containers ---
 
@@ -45,6 +100,19 @@ export const modalScrollPaper = style({
     "@media": {
         [breakpoints.minWSmall]: {
             paddingInline: vars.spacing.md,
+        },
+    },
+});
+
+export const overlayShell = style({
+    position: "absolute",
+    inset: 0,
+    zIndex: 5000,
+    display: "none",
+    backgroundColor: vars.colors.body,
+    selectors: {
+        '&[data-open="true"]': {
+            display: "block",
         },
     },
 });
@@ -127,6 +195,13 @@ export const modalTitle = style({
             fontSize: vars.fontSizes.xl,
         },
     },
+});
+
+export const overlayHeaderRow = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.md,
 });
 
 // --- Header & Text Styles ---
@@ -310,6 +385,10 @@ export const chapterDiffPanel = style({
     },
 });
 
+export const chapterMobileToggle = style({
+    width: "100%",
+});
+
 export const chapterGrid = style({
     display: "grid",
     gridTemplateColumns: "1fr",
@@ -385,4 +464,155 @@ export const chapterHunkAction = style({
             backgroundColor: vars.colors.dark[4],
         },
     },
+});
+
+export const diffToolbarRow = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.md,
+    flexWrap: "wrap",
+});
+
+export const compareSelect = style({
+    minWidth: "16rem",
+});
+
+export const chapterSelect = style({
+    minWidth: "13.5rem",
+});
+
+export const diffToolbarGroup = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    flexWrap: "wrap",
+});
+
+export const diffToolbarStack = style({
+    display: "grid",
+    gap: vars.spacing.sm,
+});
+
+export const diffBadge = style({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "1.75rem",
+    padding: `0 ${vars.spacing.sm}`,
+    borderRadius: vars.radius.full,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    color: vars.colors.gray[7],
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 600,
+});
+
+export const diffBadgePrimary = style({
+    backgroundColor: vars.colors.blue[0],
+    color: vars.colors.blue[7],
+    borderColor: vars.colors.blue[0],
+});
+
+export const diffBadgeGray = style({
+    backgroundColor: vars.colors.gray[0],
+    color: vars.colors.gray[7],
+});
+
+export const diffTextMuted = style({
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+    lineHeight: 1.5,
+});
+
+export const diffTextDimmed = style({
+    color: vars.colors.dimmed,
+});
+
+export const diffStateMessage = style({
+    maxWidth: "28rem",
+    textAlign: "center",
+    lineHeight: 1.6,
+});
+
+export const diffPaper = style({
+    padding: vars.spacing.md,
+    borderRadius: vars.radius.md,
+    backgroundColor: vars.colors.body,
+    border: "none",
+});
+
+export const diffCenter = style({
+    minHeight: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+});
+
+const diffModalSpin = keyframes({
+    from: { transform: "rotate(0deg)" },
+    to: { transform: "rotate(360deg)" },
+});
+
+export const diffLoader = style({
+    width: "1.5rem",
+    height: "1.5rem",
+    borderRadius: "9999px",
+    border: `2px solid ${vars.colors.gray[3]}`,
+    borderTopColor: vars.colors.blue[7],
+    animation: `${diffModalSpin} 0.8s linear infinite`,
+});
+
+export const diffMenuTrigger = style({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "2.25rem",
+    minHeight: "2.25rem",
+    padding: "0.25rem",
+    borderRadius: vars.radius.md,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    color: vars.colors.gray[7],
+});
+
+export const diffMenuPopup = style({
+    minWidth: "16rem",
+    backgroundColor: vars.colors.body,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    borderRadius: vars.radius.md,
+    boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+    overflow: "hidden",
+});
+
+export const diffMenuLabel = style({
+    padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+});
+
+export const diffMenuItem = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    width: "100%",
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    border: "none",
+    background: "transparent",
+    color: vars.colors.text,
+    textAlign: "left",
+    cursor: "pointer",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.gray[2],
+        },
+    },
+});
+
+export const diffMenuDivider = style({
+    height: 1,
+    backgroundColor: vars.colors.gray[3],
 });

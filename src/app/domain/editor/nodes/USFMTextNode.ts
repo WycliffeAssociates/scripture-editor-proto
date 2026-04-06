@@ -185,7 +185,6 @@ export class USFMTextNode extends TextNode {
         const element = super.createDOM(config);
         const ds = element.dataset;
         const states = this.getAllScalarStates();
-        const lintErrors = this.getLintErrors();
         const inChars = this.getInChars();
         Object.entries(states).forEach(([k, v]) => {
             if (typeof v === "boolean") {
@@ -194,13 +193,6 @@ export class USFMTextNode extends TextNode {
                 ds[k] = v;
             }
         });
-        if (lintErrors.length) {
-            element.classList.add("lint-error");
-            ds.isLintError = "true";
-            lintErrors.forEach((c) => {
-                element.classList.add(c.code);
-            });
-        }
         inChars.forEach((c) => {
             element.classList.add(`inChar-${c}`);
         });

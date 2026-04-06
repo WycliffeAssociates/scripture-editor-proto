@@ -1,6 +1,5 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { Badge, Grid, Group, Paper, Text, Tooltip } from "@mantine/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
@@ -9,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import { toRegularModeDisplayTextPreservingWhitespace } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
@@ -220,97 +219,63 @@ function DiffItem({
     };
 
     const renderActions = () => (
-        <Group>
-            <Tooltip
-                label={
+        <div className={styles.diffToolbarGroup}>
+            <ActionIconSimple
+                data-testid={TESTING_IDS.save.toggleRowUsfmButton}
+                onClick={toggleUsfmForRow}
+                aria-label={
                     effectiveShowUsfmMarkers
                         ? t`Show regular text for this verse`
                         : t`Show USFM for this verse`
                 }
-                withArrow
-                position="top"
+                title={
+                    effectiveShowUsfmMarkers
+                        ? t`Show regular text for this verse`
+                        : t`Show USFM for this verse`
+                }
             >
-                <ActionIconSimple
-                    data-testid={TESTING_IDS.save.toggleRowUsfmButton}
-                    onClick={toggleUsfmForRow}
-                    aria-label={
-                        effectiveShowUsfmMarkers
-                            ? t`Show regular text for this verse`
-                            : t`Show USFM for this verse`
-                    }
-                    title={
-                        effectiveShowUsfmMarkers
-                            ? t`Show regular text for this verse`
-                            : t`Show USFM for this verse`
-                    }
-                >
-                    <Code2 size={16} />
-                </ActionIconSimple>
-            </Tooltip>
+                <Code2 size={16} />
+            </ActionIconSimple>
             {import.meta.env.DEV && (
-                <Tooltip
-                    label={t`Copy this diff (JSON)`}
-                    withArrow
-                    position="top"
-                >
-                    <ActionIconSimple
-                        data-testid={TESTING_IDS.save.copyDiffButton}
-                        onClick={() => {
-                            void copySingleDiffJson();
-                        }}
-                        aria-label={t`Copy this diff (JSON)`}
-                        title={t`Copy this diff (JSON)`}
-                    >
-                        <Clipboard size={16} />
-                    </ActionIconSimple>
-                </Tooltip>
-            )}
-            <Tooltip
-                label={<Trans>Switch to this chapter</Trans>}
-                withArrow
-                position="top"
-            >
                 <ActionIconSimple
-                    data-testid={TESTING_IDS.save.goToChapterButton}
-                    onClick={() => scrollToClickedRef(diff)}
-                    aria-label={t`Switch to this chapter`}
-                    title={t`Switch to this chapter`}
+                    data-testid={TESTING_IDS.save.copyDiffButton}
+                    onClick={() => {
+                        void copySingleDiffJson();
+                    }}
+                    aria-label={t`Copy this diff (JSON)`}
+                    title={t`Copy this diff (JSON)`}
                 >
-                    <BookIcon size={16} />
+                    <Clipboard size={16} />
                 </ActionIconSimple>
-            </Tooltip>
-            {actionMode === "unsaved" ? (
-                <Tooltip
-                    label={<Trans>Undo Change</Trans>}
-                    withArrow
-                    position="top"
-                >
-                    <ActionIconSimple
-                        data-testid={TESTING_IDS.save.revertButton}
-                        onClick={() => onRevertDiff(diff)}
-                        aria-label={t`Undo Change`}
-                        title={t`Undo Change`}
-                    >
-                        <RotateCw size={16} />
-                    </ActionIconSimple>
-                </Tooltip>
-            ) : (
-                <Tooltip
-                    label={<Trans>Apply to current</Trans>}
-                    withArrow
-                    position="top"
-                >
-                    <ActionIconSimple
-                        data-testid={TESTING_IDS.save.applyButton}
-                        onClick={() => onApplyDiffToCurrent(diff)}
-                        aria-label={t`Apply to current`}
-                        title={t`Apply to current`}
-                    >
-                        <RotateCw size={16} />
-                    </ActionIconSimple>
-                </Tooltip>
             )}
-        </Group>
+            <ActionIconSimple
+                data-testid={TESTING_IDS.save.goToChapterButton}
+                onClick={() => scrollToClickedRef(diff)}
+                aria-label={t`Switch to this chapter`}
+                title={t`Switch to this chapter`}
+            >
+                <BookIcon size={16} />
+            </ActionIconSimple>
+            {actionMode === "unsaved" ? (
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.save.revertButton}
+                    onClick={() => onRevertDiff(diff)}
+                    aria-label={t`Undo Change`}
+                    title={t`Undo Change`}
+                >
+                    <RotateCw size={16} />
+                </ActionIconSimple>
+            ) : (
+                <ActionIconSimple
+                    data-testid={TESTING_IDS.save.applyButton}
+                    onClick={() => onApplyDiffToCurrent(diff)}
+                    aria-label={t`Apply to current`}
+                    title={t`Apply to current`}
+                >
+                    <RotateCw size={16} />
+                </ActionIconSimple>
+            )}
+        </div>
     );
 
     return (
@@ -318,9 +283,9 @@ function DiffItem({
             data-testid={TESTING_IDS.save.diffItem}
             className={styles.diffItem}
         >
-            <Group justify="space-between" mb="md">
-                <Group gap="xs">
-                    <Text
+            <div className={styles.diffToolbarRow}>
+                <div className={styles.diffToolbarGroup}>
+                    <span
                         data-testid={TESTING_IDS.save.diffSidHeader}
                         className={styles.diffSidHeader}
                     >
@@ -328,115 +293,43 @@ function DiffItem({
                             bookCode: diff.bookCode,
                             replaceCodeInString: diff.semanticSid,
                         })}
-                    </Text>
+                    </span>
                     {diff.isWhitespaceChange && (
-                        <Badge variant="light" color="gray" size="xs">
+                        <span
+                            className={`${styles.diffBadge} ${styles.diffBadgeGray}`}
+                        >
                             <Trans>Whitespace Only</Trans>
-                        </Badge>
+                        </span>
                     )}
                     {diff.isUsfmStructureChange && (
-                        <Badge variant="light" color="blue" size="sm">
+                        <span
+                            className={`${styles.diffBadge} ${styles.diffBadgePrimary}`}
+                        >
                             <Trans>USFM Structure Only</Trans>
-                        </Badge>
+                        </span>
                     )}
-                </Group>
-            </Group>
+                </div>
+            </div>
 
             {isLg ? (
-                <Grid
-                    gutter="xl"
-                    classNames={{
-                        inner: styles.diffGrid,
-                    }}
-                >
-                    <Grid.Col>
-                        <Group justify="space-between" mb="xs">
-                            <Text className={styles.diffLabel}>
-                                {originalLabel}
-                            </Text>
-                            {actionMode === "unsaved" && renderActions()}
-                        </Group>
-                        <Paper
-                            p="md"
-                            className={getPaperClass(
-                                isDeletion,
-                                styles.paperBgDeletion,
-                            )}
-                        >
-                            {isAddition && (
-                                <Text className={styles.versePlaceholder}>
-                                    <Trans>(New verse)</Trans>
-                                </Text>
-                            )}
-                            {isDeletion && (
-                                <pre className={styles.diffPre}>
-                                    {displayText.original}
-                                </pre>
-                            )}
-                            {isModification && wordDiff && (
-                                <HighlightedDiffText
-                                    changes={wordDiff}
-                                    viewType="original"
-                                    showWhitespace={diff.isWhitespaceChange}
-                                />
-                            )}
-                        </Paper>
-                    </Grid.Col>
-
-                    <Grid.Col>
-                        <Group justify="space-between" mb="xs">
-                            <Text className={styles.diffLabel}>
-                                {currentLabel}
-                            </Text>
-                            {actionMode === "external" && renderActions()}
-                        </Group>
-                        <Paper
-                            p="md"
-                            className={getPaperClass(
-                                isAddition,
-                                styles.paperBgAddition,
-                            )}
-                        >
-                            {isDeletion && (
-                                <Text className={styles.versePlaceholder}>
-                                    <Trans>(Verse deleted)</Trans>
-                                </Text>
-                            )}
-                            {isAddition && (
-                                <pre className={styles.diffPre}>
-                                    {displayText.current}
-                                </pre>
-                            )}
-                            {isModification && wordDiff && (
-                                <HighlightedDiffText
-                                    changes={wordDiff}
-                                    viewType="current"
-                                    showWhitespace={diff.isWhitespaceChange}
-                                />
-                            )}
-                        </Paper>
-                    </Grid.Col>
-                </Grid>
-            ) : (
-                <div className={styles.diffStacked}>
+                <div className={styles.diffGrid}>
                     <div>
-                        <Group justify="space-between" mb="xs">
-                            <Text className={styles.diffLabel}>
+                        <div className={styles.diffToolbarRow}>
+                            <span className={styles.diffLabel}>
                                 {originalLabel}
-                            </Text>
+                            </span>
                             {actionMode === "unsaved" && renderActions()}
-                        </Group>
-                        <Paper
-                            p="md"
-                            className={getPaperClass(
+                        </div>
+                        <div
+                            className={`${styles.diffPaper} ${getPaperClass(
                                 isDeletion,
                                 styles.paperBgDeletion,
-                            )}
+                            )}`}
                         >
                             {isAddition && (
-                                <Text className={styles.versePlaceholder}>
+                                <span className={styles.versePlaceholder}>
                                     <Trans>(New verse)</Trans>
-                                </Text>
+                                </span>
                             )}
                             {isDeletion && (
                                 <pre className={styles.diffPre}>
@@ -450,29 +343,26 @@ function DiffItem({
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
-                        </Paper>
+                        </div>
                     </div>
 
                     <div>
-                        <Text className={styles.diffLabel} mb="xs">
-                            {currentLabel}
-                        </Text>
-                        {actionMode === "external" && (
-                            <Group justify="flex-end" mb="xs">
-                                {renderActions()}
-                            </Group>
-                        )}
-                        <Paper
-                            p="md"
-                            className={getPaperClass(
+                        <div className={styles.diffToolbarRow}>
+                            <span className={styles.diffLabel}>
+                                {currentLabel}
+                            </span>
+                            {actionMode === "external" && renderActions()}
+                        </div>
+                        <div
+                            className={`${styles.diffPaper} ${getPaperClass(
                                 isAddition,
                                 styles.paperBgAddition,
-                            )}
+                            )}`}
                         >
                             {isDeletion && (
-                                <Text className={styles.versePlaceholder}>
+                                <span className={styles.versePlaceholder}>
                                     <Trans>(Verse deleted)</Trans>
-                                </Text>
+                                </span>
                             )}
                             {isAddition && (
                                 <pre className={styles.diffPre}>
@@ -486,7 +376,78 @@ function DiffItem({
                                     showWhitespace={diff.isWhitespaceChange}
                                 />
                             )}
-                        </Paper>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className={styles.diffStacked}>
+                    <div>
+                        <div className={styles.diffToolbarRow}>
+                            <span className={styles.diffLabel}>
+                                {originalLabel}
+                            </span>
+                            {actionMode === "unsaved" && renderActions()}
+                        </div>
+                        <div
+                            className={`${styles.diffPaper} ${getPaperClass(
+                                isDeletion,
+                                styles.paperBgDeletion,
+                            )}`}
+                        >
+                            {isAddition && (
+                                <span className={styles.versePlaceholder}>
+                                    <Trans>(New verse)</Trans>
+                                </span>
+                            )}
+                            {isDeletion && (
+                                <pre className={styles.diffPre}>
+                                    {displayText.original}
+                                </pre>
+                            )}
+                            {isModification && wordDiff && (
+                                <HighlightedDiffText
+                                    changes={wordDiff}
+                                    viewType="original"
+                                    showWhitespace={diff.isWhitespaceChange}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <span className={styles.diffLabel}>{currentLabel}</span>
+                        {actionMode === "external" && (
+                            <div
+                                className={styles.diffToolbarRow}
+                                style={{ justifyContent: "flex-end" }}
+                            >
+                                {renderActions()}
+                            </div>
+                        )}
+                        <div
+                            className={`${styles.diffPaper} ${getPaperClass(
+                                isAddition,
+                                styles.paperBgAddition,
+                            )}`}
+                        >
+                            {isDeletion && (
+                                <span className={styles.versePlaceholder}>
+                                    <Trans>(Verse deleted)</Trans>
+                                </span>
+                            )}
+                            {isAddition && (
+                                <pre className={styles.diffPre}>
+                                    {displayText.current}
+                                </pre>
+                            )}
+                            {isModification && wordDiff && (
+                                <HighlightedDiffText
+                                    changes={wordDiff}
+                                    viewType="current"
+                                    showWhitespace={diff.isWhitespaceChange}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

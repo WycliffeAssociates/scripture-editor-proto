@@ -1,6 +1,4 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { Portal } from "@mantine/core";
-import { useClickOutside } from "@mantine/hooks";
 import {
     $getSelection,
     $isElementNode,
@@ -11,8 +9,10 @@ import {
     type LexicalEditor,
 } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useClickOutside } from "@/app/ui/hooks/general/useClickOutside.ts";
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
@@ -204,20 +204,19 @@ export function NodeContextMenuPlugin() {
 
     if (!opened || !context) return null;
 
-    return (
-        <Portal>
-            <div
-                ref={clickOutsideRef}
-                data-testid={TESTING_IDS.contextMenu.container}
-                style={{
-                    position: "fixed",
-                    top: pos.y,
-                    left: pos.x,
-                    zIndex: 2000,
-                }}
-            >
-                <ActionPalette context={context} onClose={closePalette} />
-            </div>
-        </Portal>
+    return createPortal(
+        <div
+            ref={clickOutsideRef}
+            data-testid={TESTING_IDS.contextMenu.container}
+            style={{
+                position: "fixed",
+                top: pos.y,
+                left: pos.x,
+                zIndex: 2000,
+            }}
+        >
+            <ActionPalette context={context} onClose={closePalette} />
+        </div>,
+        document.body,
     );
 }

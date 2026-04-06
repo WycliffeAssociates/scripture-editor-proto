@@ -1,9 +1,7 @@
 // import "./App.css";
 // import "./ui/styles/";
-import "@mantine/core/styles.css";
 import "@/app/ui/styles/global.css";
-import "@/app/ui/styles/usfm.css";
-import { MantineProvider } from "@mantine/core";
+import "@/app/ui/styles/modules/usfm.css.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -14,7 +12,6 @@ import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { NotificationViewport } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
-import { cssVariablesResolver, theme } from "@/app/ui/styles/mantineTheme.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ImportService } from "@/core/library/ImportService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
@@ -162,20 +159,12 @@ export function App({
     }, [projectsService, router]);
 
     return (
-        <I18nEntry>
+        <I18nEntry defaultLocale={settingsManager.get("appLanguage")}>
             <QueryClientProvider client={queryClient}>
-                <MantineProvider
-                    theme={theme}
-                    cssVariablesResolver={cssVariablesResolver}
-                    defaultColorScheme={
-                        settingsManager.get("colorScheme") || "light"
-                    }
-                >
-                    <ThemeQueryProvider>
-                        <NotificationViewport />
-                        <RouterProvider router={router} />
-                    </ThemeQueryProvider>
-                </MantineProvider>
+                <ThemeQueryProvider>
+                    <NotificationViewport />
+                    <RouterProvider router={router} />
+                </ThemeQueryProvider>
             </QueryClientProvider>
         </I18nEntry>
     );

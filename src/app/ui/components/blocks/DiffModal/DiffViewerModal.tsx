@@ -1,23 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import {
-    ActionIcon,
-    Badge,
-    Button,
-    Center,
-    Group,
-    Loader,
-    Menu,
-    Modal,
-    Paper,
-    rem,
-    SegmentedControl,
-    Select,
-    Stack,
-    Switch,
-    Text,
-} from "@mantine/core";
-import { MoreHorizontal } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type {
@@ -33,6 +16,7 @@ import type {
 import { buildChapterOptions } from "@/app/ui/components/blocks/DiffModal/chapterOptions.ts";
 import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx";
 import { VirtualizedDiffList } from "@/app/ui/components/blocks/DiffModal/DiffModalListView.tsx";
+import { DiffViewerToolbar } from "@/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -71,7 +55,6 @@ export type DiffViewerModalProps = {
     takeIncomingAll: () => void;
     hasComputedCompare: boolean;
     resetExternalCompare: () => void;
-    isSm?: boolean;
     isXs?: boolean;
 };
 
@@ -125,6 +108,25 @@ function getCompareSourceLabel(args: {
     }
 }
 
+function DiffViewerCenteredState({
+    children,
+    testId,
+}: {
+    children: ReactNode;
+    testId?: string;
+}) {
+    return (
+        <div className={styles.diffCenter}>
+            <p
+                className={`${styles.diffTextMuted} ${styles.diffStateMessage}`}
+                data-testid={testId}
+            >
+                {children}
+            </p>
+        </div>
+    );
+}
+
 export function DiffViewerModal({
     isOpen,
     onClose,
@@ -157,7 +159,6 @@ export function DiffViewerModal({
     takeIncomingAll,
     hasComputedCompare,
     resetExternalCompare,
-    isSm = false,
     isXs = false,
 }: DiffViewerModalProps) {
     const hasChanges = (diffs?.length ?? 0) > 0;
@@ -252,7 +253,6 @@ export function DiffViewerModal({
         );
     }, [chapterOptions, selectedChapter]);
 
-    const modalSize = isXs ? "100%" : isSm ? "98%" : "95%";
     const hasVisibleDiffs = (visibleDiffs?.length ?? 0) > 0;
     const showingChapterView = viewMode === "chapter";
     const hasVisibleChapter = selectedChapterDiffs.length > 0;
@@ -314,850 +314,80 @@ export function DiffViewerModal({
         hasVisibleDiffs;
 
     return (
-        <Modal
-            opened={isOpen}
-            onClose={onClose}
-            title={t`Review Changes Before Saving`}
-            size={modalSize}
-            centered
-            classNames={{
-                header: styles.modalHeader,
-                title: styles.modalTitle,
-                content: styles.modalContent,
-                body: styles.modalBodyRoot,
-            }}
+        <div
+            className={styles.overlayShell}
+            data-open={isOpen ? "true" : "false"}
+            aria-hidden={!isOpen}
         >
-            <Paper className={styles.modalScrollPaper}>
-                <div
-                    data-testid={TESTING_IDS.save.modal}
-                    className={styles.stickyHeader}
-                >
-                    <div className={styles.toolbarSection}>
-                        {isXs ? (
-                            <>
-                                <div className={styles.toolbarBand}>
-                                    <Group
-                                        justify="space-between"
-                                        align="center"
-                                        wrap="nowrap"
-                                    >
-                                        <Text c="dimmed" size="xs">
-                                            <Trans>
-                                                {visibleChapterCount} chapters
-                                            </Trans>{" "}
-                                            •{" "}
-                                            <Trans>
-                                                {visibleDiffCount} diffs
-                                            </Trans>
-                                        </Text>
-                                        <Badge
-                                            variant="light"
-                                            color="gray"
-                                            size="sm"
-                                        >
-                                            {compareMode === "unsaved"
-                                                ? t`My changes`
-                                                : t`Compare`}
-                                        </Badge>
-                                    </Group>
-                                </div>
+            <div className={styles.modalScrollPaper}>
+                <DiffViewerToolbar
+                    onClose={onClose}
+                    isXs={isXs}
+                    compareMode={compareMode}
+                    setCompareMode={setCompareMode}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                    visibleChapterCount={visibleChapterCount}
+                    visibleDiffCount={visibleDiffCount}
+                    compareSummaryText={compareSummaryText}
+                    saveAllChanges={saveAllChanges}
+                    revertAllChanges={revertAllChanges}
+                    takeIncomingAll={takeIncomingAll}
+                    resetExternalCompare={resetExternalCompare}
+                    canApplyIncomingAll={canApplyIncomingAll}
+                    hasChanges={hasChanges}
+                    compareSourceKind={compareSourceKind}
+                    setCompareSourceKind={setCompareSourceKind}
+                    compareProjectOptions={compareProjectOptions}
+                    compareSourceProjectId={compareSourceProjectId}
+                    setCompareSourceProjectId={setCompareSourceProjectId}
+                    loadCompareProject={loadCompareProject}
+                    compareVersionOptions={compareVersionOptions}
+                    compareSourceVersionHash={compareSourceVersionHash}
+                    setCompareSourceVersionHash={setCompareSourceVersionHash}
+                    loadCompareVersion={loadCompareVersion}
+                    loadCompareRemoteLatest={loadCompareRemoteLatest}
+                    showUsfmMarkers={showUsfmMarkers}
+                    setShowUsfmMarkers={setShowUsfmMarkers}
+                    hideWhitespaceOnly={hideWhitespaceOnly}
+                    setHideWhitespaceOnly={setHideWhitespaceOnly}
+                    chapterOptions={chapterOptions}
+                    selectedChapter={selectedChapter}
+                    setSelectedChapter={setSelectedChapter}
+                    fileInputRef={fileInputRef}
+                    dirInputRef={dirInputRef}
+                    compareWarnings={compareWarnings}
+                    copyDiffsJson={copyDiffsJson}
+                />
 
-                                <div className={styles.toolbarBand}>
-                                    <Group
-                                        justify="space-between"
-                                        wrap="nowrap"
-                                        gap="xs"
-                                    >
-                                        <Group gap={rem(4)} wrap="nowrap">
-                                            {compareMode === "unsaved" ? (
-                                                <>
-                                                    <Button
-                                                        variant="filled"
-                                                        size="xs"
-                                                        onClick={saveAllChanges}
-                                                        data-testid={
-                                                            TESTING_IDS.save
-                                                                .saveAllButton
-                                                        }
-                                                    >
-                                                        <Trans>Save</Trans>
-                                                    </Button>
-                                                    <Button
-                                                        variant="light"
-                                                        size="xs"
-                                                        color="red"
-                                                        onClick={
-                                                            revertAllChanges
-                                                        }
-                                                        data-testid={
-                                                            TESTING_IDS.save
-                                                                .revertAllButton
-                                                        }
-                                                    >
-                                                        <Trans>Revert</Trans>
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Button
-                                                        variant="filled"
-                                                        size="xs"
-                                                        onClick={
-                                                            takeIncomingAll
-                                                        }
-                                                        disabled={
-                                                            !canApplyIncomingAll
-                                                        }
-                                                    >
-                                                        <Trans>Apply all</Trans>
-                                                    </Button>
-                                                    <Button
-                                                        variant="default"
-                                                        size="xs"
-                                                        onClick={
-                                                            resetExternalCompare
-                                                        }
-                                                    >
-                                                        <Trans>Reset</Trans>
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </Group>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".zip"
+                    style={{ display: "none" }}
+                    onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        setCompareSourceKind(COMPARE_SOURCE_KIND.ZIP_FILE);
+                        void loadCompareZip(file);
+                        event.currentTarget.value = "";
+                    }}
+                />
 
-                                        <Menu
-                                            shadow="md"
-                                            width={280}
-                                            position="bottom-end"
-                                            closeOnItemClick={false}
-                                        >
-                                            <Menu.Target>
-                                                <Button
-                                                    variant="default"
-                                                    size="xs"
-                                                >
-                                                    <Trans>Controls</Trans>
-                                                </Button>
-                                            </Menu.Target>
-                                            <Menu.Dropdown>
-                                                <Menu.Label>
-                                                    <Trans>Mode</Trans>
-                                                </Menu.Label>
-                                                <Menu.Item
-                                                    onClick={() =>
-                                                        setCompareMode(
-                                                            "unsaved",
-                                                        )
-                                                    }
-                                                    closeMenuOnClick={false}
-                                                >
-                                                    <Trans>My changes</Trans>
-                                                </Menu.Item>
-                                                <Menu.Item
-                                                    onClick={() =>
-                                                        setCompareMode(
-                                                            "external",
-                                                        )
-                                                    }
-                                                    closeMenuOnClick={false}
-                                                >
-                                                    <Trans>
-                                                        Compare with source
-                                                    </Trans>
-                                                </Menu.Item>
-
-                                                <Menu.Divider />
-                                                <Menu.Label>
-                                                    <Trans>View</Trans>
-                                                </Menu.Label>
-                                                <Menu.Item
-                                                    onClick={() =>
-                                                        setViewMode("list")
-                                                    }
-                                                    closeMenuOnClick={false}
-                                                >
-                                                    <Trans>List view</Trans>
-                                                </Menu.Item>
-                                                <Menu.Item
-                                                    onClick={() =>
-                                                        setViewMode("chapter")
-                                                    }
-                                                    closeMenuOnClick={false}
-                                                >
-                                                    <Trans>Chapter view</Trans>
-                                                </Menu.Item>
-                                                {viewMode === "chapter" && (
-                                                    <Stack px="xs" pb="xs">
-                                                        <Select
-                                                            data={
-                                                                chapterOptions
-                                                            }
-                                                            value={
-                                                                selectedChapter
-                                                            }
-                                                            onChange={(value) =>
-                                                                setSelectedChapter(
-                                                                    value ??
-                                                                        null,
-                                                                )
-                                                            }
-                                                            placeholder={t`Select chapter`}
-                                                            size="xs"
-                                                            w="100%"
-                                                        />
-                                                    </Stack>
-                                                )}
-
-                                                <Menu.Divider />
-                                                <Menu.Item
-                                                    closeMenuOnClick={false}
-                                                    onClick={() =>
-                                                        setShowUsfmMarkers(
-                                                            !showUsfmMarkers,
-                                                        )
-                                                    }
-                                                >
-                                                    <Group
-                                                        justify="space-between"
-                                                        wrap="nowrap"
-                                                    >
-                                                        <Text size="sm">
-                                                            <Trans>
-                                                                USFM markers
-                                                            </Trans>
-                                                        </Text>
-                                                        <Switch
-                                                            checked={
-                                                                showUsfmMarkers
-                                                            }
-                                                            onChange={() => {}}
-                                                            size="xs"
-                                                            style={{
-                                                                pointerEvents:
-                                                                    "none",
-                                                            }}
-                                                        />
-                                                    </Group>
-                                                </Menu.Item>
-                                                <Menu.Item
-                                                    closeMenuOnClick={false}
-                                                    onClick={() =>
-                                                        setHideWhitespaceOnly(
-                                                            !hideWhitespaceOnly,
-                                                        )
-                                                    }
-                                                >
-                                                    <Group
-                                                        justify="space-between"
-                                                        wrap="nowrap"
-                                                    >
-                                                        <Text size="sm">
-                                                            <Trans>
-                                                                Hide whitespace
-                                                            </Trans>
-                                                        </Text>
-                                                        <Switch
-                                                            checked={
-                                                                hideWhitespaceOnly
-                                                            }
-                                                            onChange={() => {}}
-                                                            size="xs"
-                                                            style={{
-                                                                pointerEvents:
-                                                                    "none",
-                                                            }}
-                                                        />
-                                                    </Group>
-                                                </Menu.Item>
-
-                                                {compareMode === "external" && (
-                                                    <>
-                                                        <Menu.Divider />
-                                                        <Menu.Label>
-                                                            <Trans>
-                                                                Compare
-                                                            </Trans>
-                                                        </Menu.Label>
-                                                        <Stack
-                                                            px="xs"
-                                                            pb="xs"
-                                                            gap="xs"
-                                                        >
-                                                            <Group
-                                                                gap="xs"
-                                                                wrap="wrap"
-                                                            >
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="xs"
-                                                                    onClick={() =>
-                                                                        setCompareSourceKind(
-                                                                            COMPARE_SOURCE_KIND.EXISTING_PROJECT,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trans>
-                                                                        Project
-                                                                    </Trans>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="xs"
-                                                                    onClick={() =>
-                                                                        setCompareSourceKind(
-                                                                            COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trans>
-                                                                        Version
-                                                                    </Trans>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="xs"
-                                                                    onClick={() => {
-                                                                        setCompareSourceKind(
-                                                                            COMPARE_SOURCE_KIND.REMOTE_LATEST,
-                                                                        );
-                                                                        void loadCompareRemoteLatest();
-                                                                    }}
-                                                                >
-                                                                    <Trans>
-                                                                        Cloud
-                                                                    </Trans>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="xs"
-                                                                    onClick={() => {
-                                                                        setCompareSourceKind(
-                                                                            COMPARE_SOURCE_KIND.ZIP_FILE,
-                                                                        );
-                                                                        fileInputRef.current?.click();
-                                                                    }}
-                                                                >
-                                                                    <Trans>
-                                                                        ZIP...
-                                                                    </Trans>
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="xs"
-                                                                    onClick={() => {
-                                                                        setCompareSourceKind(
-                                                                            COMPARE_SOURCE_KIND.DIRECTORY,
-                                                                        );
-                                                                        dirInputRef.current?.click();
-                                                                    }}
-                                                                >
-                                                                    <Trans>
-                                                                        Folder...
-                                                                    </Trans>
-                                                                </Button>
-                                                            </Group>
-                                                            {compareSourceKind ===
-                                                                COMPARE_SOURCE_KIND.EXISTING_PROJECT && (
-                                                                <Select
-                                                                    data={
-                                                                        compareProjectOptions
-                                                                    }
-                                                                    value={
-                                                                        compareSourceProjectId
-                                                                    }
-                                                                    onChange={(
-                                                                        value,
-                                                                    ) => {
-                                                                        const next =
-                                                                            value ??
-                                                                            "";
-                                                                        setCompareSourceProjectId(
-                                                                            next,
-                                                                        );
-                                                                        if (
-                                                                            next
-                                                                        ) {
-                                                                            void loadCompareProject(
-                                                                                next,
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                    placeholder={t`Select source project`}
-                                                                    size="xs"
-                                                                    w="100%"
-                                                                />
-                                                            )}
-                                                            {compareSourceKind ===
-                                                                COMPARE_SOURCE_KIND.PREVIOUS_VERSION && (
-                                                                <Select
-                                                                    data={
-                                                                        compareVersionOptions
-                                                                    }
-                                                                    value={
-                                                                        compareSourceVersionHash
-                                                                    }
-                                                                    onChange={(
-                                                                        value,
-                                                                    ) => {
-                                                                        const next =
-                                                                            value ??
-                                                                            "";
-                                                                        setCompareSourceVersionHash(
-                                                                            next,
-                                                                        );
-                                                                        if (
-                                                                            next
-                                                                        ) {
-                                                                            void loadCompareVersion(
-                                                                                next,
-                                                                            );
-                                                                        }
-                                                                    }}
-                                                                    placeholder={t`Select previous version`}
-                                                                    size="xs"
-                                                                    w="100%"
-                                                                />
-                                                            )}
-                                                        </Stack>
-                                                    </>
-                                                )}
-
-                                                <Menu.Divider />
-                                                <Menu.Item
-                                                    onClick={copyDiffsJson}
-                                                    disabled={
-                                                        !import.meta.env.DEV ||
-                                                        !hasChanges
-                                                    }
-                                                >
-                                                    <Trans>
-                                                        Copy diffs (JSON)
-                                                    </Trans>
-                                                </Menu.Item>
-                                            </Menu.Dropdown>
-                                        </Menu>
-                                    </Group>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className={styles.toolbarBand}>
-                                    <Group
-                                        justify="space-between"
-                                        align="center"
-                                        gap="sm"
-                                        wrap="nowrap"
-                                    >
-                                        <SegmentedControl
-                                            value={compareMode}
-                                            onChange={(value) =>
-                                                setCompareMode(
-                                                    value as CompareMode,
-                                                )
-                                            }
-                                            data={[
-                                                {
-                                                    label: t`My changes`,
-                                                    value: "unsaved",
-                                                },
-                                                {
-                                                    label: t`Compare with source`,
-                                                    value: "external",
-                                                },
-                                            ]}
-                                            size="xs"
-                                        />
-                                        <Text c="dimmed" size="xs">
-                                            <Trans>
-                                                {visibleChapterCount} chapters
-                                            </Trans>{" "}
-                                            •{" "}
-                                            <Trans>
-                                                {visibleDiffCount} diffs
-                                            </Trans>
-                                        </Text>
-                                    </Group>
-                                </div>
-
-                                {compareMode === "external" && (
-                                    <div className={styles.toolbarBand}>
-                                        <Stack gap="xs">
-                                            <Group gap="xs" wrap="wrap">
-                                                <Menu
-                                                    shadow="md"
-                                                    width={220}
-                                                    position="bottom-start"
-                                                >
-                                                    <Menu.Target>
-                                                        <Button
-                                                            variant="default"
-                                                            size="xs"
-                                                        >
-                                                            <Trans>
-                                                                Source type
-                                                            </Trans>
-                                                        </Button>
-                                                    </Menu.Target>
-                                                    <Menu.Dropdown>
-                                                        <Menu.Item
-                                                            onClick={() =>
-                                                                setCompareSourceKind(
-                                                                    COMPARE_SOURCE_KIND.EXISTING_PROJECT,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Existing project
-                                                            </Trans>
-                                                        </Menu.Item>
-                                                        <Menu.Item
-                                                            onClick={() =>
-                                                                setCompareSourceKind(
-                                                                    COMPARE_SOURCE_KIND.PREVIOUS_VERSION,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Previous version
-                                                            </Trans>
-                                                        </Menu.Item>
-                                                        <Menu.Item
-                                                            onClick={() => {
-                                                                setCompareSourceKind(
-                                                                    COMPARE_SOURCE_KIND.REMOTE_LATEST,
-                                                                );
-                                                                void loadCompareRemoteLatest();
-                                                            }}
-                                                        >
-                                                            <Trans>
-                                                                Incoming cloud
-                                                                changes
-                                                            </Trans>
-                                                        </Menu.Item>
-                                                        <Menu.Item
-                                                            onClick={() => {
-                                                                setCompareSourceKind(
-                                                                    COMPARE_SOURCE_KIND.ZIP_FILE,
-                                                                );
-                                                                fileInputRef.current?.click();
-                                                            }}
-                                                        >
-                                                            <Trans>
-                                                                ZIP file...
-                                                            </Trans>
-                                                        </Menu.Item>
-                                                        <Menu.Item
-                                                            onClick={() => {
-                                                                setCompareSourceKind(
-                                                                    COMPARE_SOURCE_KIND.DIRECTORY,
-                                                                );
-                                                                dirInputRef.current?.click();
-                                                            }}
-                                                        >
-                                                            <Trans>
-                                                                Folder...
-                                                            </Trans>
-                                                        </Menu.Item>
-                                                    </Menu.Dropdown>
-                                                </Menu>
-                                                {compareSourceKind ===
-                                                    COMPARE_SOURCE_KIND.EXISTING_PROJECT && (
-                                                    <Select
-                                                        data={
-                                                            compareProjectOptions
-                                                        }
-                                                        value={
-                                                            compareSourceProjectId
-                                                        }
-                                                        onChange={(value) => {
-                                                            const next =
-                                                                value ?? "";
-                                                            setCompareSourceProjectId(
-                                                                next,
-                                                            );
-                                                            if (next) {
-                                                                void loadCompareProject(
-                                                                    next,
-                                                                );
-                                                            }
-                                                        }}
-                                                        placeholder={t`Select source project`}
-                                                        size="xs"
-                                                        w={rem(260)}
-                                                    />
-                                                )}
-                                                {compareSourceKind ===
-                                                    COMPARE_SOURCE_KIND.PREVIOUS_VERSION && (
-                                                    <Select
-                                                        data={
-                                                            compareVersionOptions
-                                                        }
-                                                        value={
-                                                            compareSourceVersionHash
-                                                        }
-                                                        onChange={(value) => {
-                                                            const next =
-                                                                value ?? "";
-                                                            setCompareSourceVersionHash(
-                                                                next,
-                                                            );
-                                                            if (next) {
-                                                                void loadCompareVersion(
-                                                                    next,
-                                                                );
-                                                            }
-                                                        }}
-                                                        placeholder={t`Select previous version`}
-                                                        size="xs"
-                                                        w={rem(260)}
-                                                    />
-                                                )}
-                                                <Badge
-                                                    variant="light"
-                                                    color="gray"
-                                                    size="md"
-                                                >
-                                                    {compareSummaryText}
-                                                </Badge>
-                                            </Group>
-                                        </Stack>
-                                    </div>
-                                )}
-
-                                <div className={styles.toolbarBand}>
-                                    <Group
-                                        justify="space-between"
-                                        wrap="nowrap"
-                                        gap="xs"
-                                    >
-                                        <Group
-                                            gap="xs"
-                                            wrap="nowrap"
-                                            align="center"
-                                        >
-                                            <SegmentedControl
-                                                value={viewMode}
-                                                onChange={(value) =>
-                                                    setViewMode(
-                                                        value as DiffViewMode,
-                                                    )
-                                                }
-                                                data={[
-                                                    {
-                                                        label: t`List view`,
-                                                        value: "list",
-                                                    },
-                                                    {
-                                                        label: t`Chapter view`,
-                                                        value: "chapter",
-                                                    },
-                                                ]}
-                                                size="xs"
-                                            />
-                                            {viewMode === "chapter" && (
-                                                <Select
-                                                    data={chapterOptions}
-                                                    value={selectedChapter}
-                                                    onChange={(value) =>
-                                                        setSelectedChapter(
-                                                            value ?? null,
-                                                        )
-                                                    }
-                                                    placeholder={t`Select chapter`}
-                                                    size="xs"
-                                                    w={rem(220)}
-                                                />
-                                            )}
-                                        </Group>
-
-                                        <Group gap="xs" wrap="nowrap">
-                                            <Switch
-                                                checked={showUsfmMarkers}
-                                                onChange={(event) =>
-                                                    setShowUsfmMarkers(
-                                                        event.currentTarget
-                                                            .checked,
-                                                    )
-                                                }
-                                                size="xs"
-                                                label={t`USFM markers`}
-                                            />
-                                            <Switch
-                                                checked={hideWhitespaceOnly}
-                                                onChange={(event) =>
-                                                    setHideWhitespaceOnly(
-                                                        event.currentTarget
-                                                            .checked,
-                                                    )
-                                                }
-                                                size="xs"
-                                                label={t`Hide whitespace`}
-                                            />
-
-                                            <Group gap={rem(4)} wrap="nowrap">
-                                                {compareMode === "unsaved" ? (
-                                                    <>
-                                                        <Button
-                                                            variant="filled"
-                                                            size="xs"
-                                                            onClick={
-                                                                saveAllChanges
-                                                            }
-                                                            data-testid={
-                                                                TESTING_IDS.save
-                                                                    .saveAllButton
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Save all changes
-                                                            </Trans>
-                                                        </Button>
-                                                        <Button
-                                                            variant="light"
-                                                            size="xs"
-                                                            color="red"
-                                                            onClick={
-                                                                revertAllChanges
-                                                            }
-                                                            data-testid={
-                                                                TESTING_IDS.save
-                                                                    .revertAllButton
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Revert all
-                                                                changes
-                                                            </Trans>
-                                                        </Button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Button
-                                                            variant="filled"
-                                                            size="xs"
-                                                            onClick={
-                                                                takeIncomingAll
-                                                            }
-                                                            disabled={
-                                                                !canApplyIncomingAll
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Apply all
-                                                            </Trans>
-                                                        </Button>
-                                                        <Button
-                                                            variant="default"
-                                                            size="xs"
-                                                            onClick={
-                                                                resetExternalCompare
-                                                            }
-                                                        >
-                                                            <Trans>
-                                                                Reset compare
-                                                            </Trans>
-                                                        </Button>
-                                                    </>
-                                                )}
-
-                                                <Menu
-                                                    shadow="md"
-                                                    width={220}
-                                                    position="bottom-end"
-                                                >
-                                                    <Menu.Target>
-                                                        <ActionIcon
-                                                            variant="subtle"
-                                                            size="sm"
-                                                            aria-label={t`More actions`}
-                                                        >
-                                                            <MoreHorizontal
-                                                                size={16}
-                                                            />
-                                                        </ActionIcon>
-                                                    </Menu.Target>
-                                                    <Menu.Dropdown>
-                                                        {import.meta.env.DEV &&
-                                                            hasChanges && (
-                                                                <Menu.Item
-                                                                    onClick={
-                                                                        copyDiffsJson
-                                                                    }
-                                                                >
-                                                                    <Trans>
-                                                                        Copy
-                                                                        diffs
-                                                                        (JSON)
-                                                                    </Trans>
-                                                                </Menu.Item>
-                                                            )}
-                                                    </Menu.Dropdown>
-                                                </Menu>
-                                            </Group>
-                                        </Group>
-                                    </Group>
-                                </div>
-                            </>
-                        )}
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".zip"
-                            style={{ display: "none" }}
-                            onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                if (!file) return;
-                                setCompareSourceKind(
-                                    COMPARE_SOURCE_KIND.ZIP_FILE,
-                                );
-                                void loadCompareZip(file);
-                                event.currentTarget.value = "";
-                            }}
-                        />
-
-                        <input
-                            ref={dirInputRef}
-                            type="file"
-                            webkitdirectory="true"
-                            multiple
-                            style={{ display: "none" }}
-                            onChange={(event) => {
-                                const files = event.target.files;
-                                if (!files?.length) return;
-                                setCompareSourceKind(
-                                    COMPARE_SOURCE_KIND.DIRECTORY,
-                                );
-                                void loadCompareDirectory(files);
-                                event.currentTarget.value = "";
-                            }}
-                        />
-
-                        {compareMode === "unsaved" && (
-                            <div style={{ paddingLeft: rem(8) }}>
-                                <Text c="dimmed" size="xs" fw={500}>
-                                    {compareSummaryText}
-                                </Text>
-                            </div>
-                        )}
-
-                        {compareMode === "external" &&
-                            compareWarnings.length > 0 && (
-                                <div className={styles.warningStrip}>
-                                    <Stack gap={2}>
-                                        {compareWarnings.map((warning) => (
-                                            <Text
-                                                c="orange"
-                                                size="xs"
-                                                key={warning.code}
-                                            >
-                                                {warning.message}
-                                            </Text>
-                                        ))}
-                                    </Stack>
-                                </div>
-                            )}
-                    </div>
-                </div>
+                <input
+                    ref={dirInputRef}
+                    type="file"
+                    webkitdirectory="true"
+                    multiple
+                    style={{ display: "none" }}
+                    onChange={(event) => {
+                        const files = event.target.files;
+                        if (!files?.length) return;
+                        setCompareSourceKind(COMPARE_SOURCE_KIND.DIRECTORY);
+                        void loadCompareDirectory(files);
+                        event.currentTarget.value = "";
+                    }}
+                />
 
                 <div
                     className={
@@ -1167,34 +397,30 @@ export function DiffViewerModal({
                     }
                 >
                     {isCalculating && (
-                        <Center className={styles.fullHeight}>
-                            <Loader />
-                        </Center>
+                        <div className={styles.fullHeight}>
+                            <div className={styles.diffCenter}>
+                                <div className={styles.diffLoader} />
+                            </div>
+                        </div>
                     )}
 
                     {!isCalculating && !hasChanges && (
-                        <Center className={styles.fullHeight}>
-                            <Text
-                                data-testid={TESTING_IDS.save.noChangesMessage}
-                            >
-                                <Trans>No changes detected.</Trans>
-                            </Text>
-                        </Center>
+                        <DiffViewerCenteredState
+                            testId={TESTING_IDS.save.noChangesMessage}
+                        >
+                            <Trans>No changes detected.</Trans>
+                        </DiffViewerCenteredState>
                     )}
 
                     {!isCalculating &&
                         hasChanges &&
                         !showingChapterView &&
                         !hasVisibleDiffs && (
-                            <Center className={styles.fullHeight}>
-                                <Text
-                                    data-testid={
-                                        TESTING_IDS.save.noChangesMessage
-                                    }
-                                >
-                                    <Trans>No changes detected.</Trans>
-                                </Text>
-                            </Center>
+                            <DiffViewerCenteredState
+                                testId={TESTING_IDS.save.noChangesMessage}
+                            >
+                                <Trans>No changes detected.</Trans>
+                            </DiffViewerCenteredState>
                         )}
 
                     {!isCalculating &&
@@ -1251,18 +477,14 @@ export function DiffViewerModal({
                         hasChanges &&
                         showingChapterView &&
                         !hasVisibleChapter && (
-                            <Center className={styles.fullHeight}>
-                                <Text
-                                    data-testid={
-                                        TESTING_IDS.save.noChangesMessage
-                                    }
-                                >
-                                    <Trans>No changes detected.</Trans>
-                                </Text>
-                            </Center>
+                            <DiffViewerCenteredState
+                                testId={TESTING_IDS.save.noChangesMessage}
+                            >
+                                <Trans>No changes detected.</Trans>
+                            </DiffViewerCenteredState>
                         )}
                 </div>
-            </Paper>
-        </Modal>
+            </div>
+        </div>
     );
 }

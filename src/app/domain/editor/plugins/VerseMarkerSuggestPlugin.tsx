@@ -1,6 +1,5 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $dfsIterator } from "@lexical/utils";
-import { Button } from "@mantine/core";
 import { $getNodeByKey, type LexicalNode } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +12,7 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/VerseMarkerSuggestOverlay.css.ts";
 
@@ -251,8 +251,7 @@ export function VerseMarkerSuggestPlugin() {
                 {activeKey === item.key ? (
                     <div className={styles.bubble}>
                         <Button
-                            size="xs"
-                            variant="filled"
+                            size="sm"
                             onMouseEnter={() => clearCloseTimer()}
                             onMouseLeave={() => scheduleClose(item.key)}
                             onClick={(event) => {

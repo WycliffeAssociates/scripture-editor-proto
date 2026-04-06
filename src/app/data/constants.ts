@@ -122,11 +122,11 @@ export const TESTING_IDS = {
         searchAction: "context-menu-search-action",
     },
     lintPopover: {
-        container: "lint-popover-container",
         triggerButton: "lint-popover-trigger-button",
+        container: "lint-popover-container",
         errorItem: "lint-popover-error-item",
-        errorMessage: "lint-popover-error-message",
         errorSid: "lint-popover-error-sid",
+        errorMessage: "lint-popover-error-message",
     },
     mobile: {
         mainEditorTab: "mobile-main-editor-tab",
@@ -178,11 +178,14 @@ export const TESTING_IDS = {
  */
 export const DATA_JS = {
     editorContainer: "editor-container",
+    editorScrollContainer: "editor-scroll-container",
     referenceEditorContainer: "reference-editor-container",
+    referenceEditorScrollContainer: "reference-editor-scroll-container",
     searchInput: "search-input",
     searchPopoverDropdown: "search-popover-dropdown",
     searchPopoverContent: "search-popover-content",
     searchResultsScrollContainer: "search-results-scroll-container",
+    lintDomOverlayHitpoint: "lint-dom-overlay-hitpoint",
     lintTooltipOverlay: "lint-tooltip-overlay",
     searchReplaceSuggestOverlay: "search-replace-suggest-overlay",
     verseMarkerSuggestOverlay: "verse-marker-suggest-overlay",

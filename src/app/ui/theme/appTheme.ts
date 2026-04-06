@@ -16,7 +16,6 @@ export function applyColorSchemeToDocument(
     root.classList.add(
         colorScheme === "dark" ? darkThemeClass : lightThemeClass,
     );
-    root.dataset.mantineColorScheme = colorScheme;
     root.dataset.theme = colorScheme;
     root.style.colorScheme = colorScheme;
 }

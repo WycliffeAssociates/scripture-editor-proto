@@ -1,11 +1,9 @@
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { Button, Group, Popover } from "@mantine/core";
 import {
     $getRoot,
     type LexicalEditor,
@@ -28,6 +26,12 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import {
+    Popover,
+    PopoverDropdown,
+    PopoverTarget,
+} from "@/app/ui/components/primitives/Popover/Popover.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as nestedStyles from "@/app/ui/styles/modules/NestedEditor.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -35,6 +39,7 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Props = {
     outerMarker: string;
+    mainEditor: LexicalEditor;
     initialEditorState: SerializedEditorState<SerializedLexicalNode>;
     onChange: (
         newState: SerializedEditorState<SerializedLexicalNode>,
@@ -56,6 +61,7 @@ type Props = {
  */
 export function NestedEditor({
     outerMarker,
+    mainEditor,
     initialEditorState,
     onChange,
     id,
@@ -63,12 +69,57 @@ export function NestedEditor({
     isOpen,
     setIsOpen,
 }: Props) {
+    const hasErrors = lintErrors.length > 0;
+
+    return (
+        <Popover
+            defaultOpened={isOpen}
+            onChange={(c) => {
+                setIsOpen(mainEditor, c);
+            }}
+            position="bottom"
+            offset={8}
+        >
+            <PopoverTarget
+                asChild
+                className={nestedStyles.nestedEditorButton}
+                data-opened={isOpen}
+                data-id={id}
+                data-is-lint-error={hasErrors}
+                data-is-nested-editor-button="true"
+            >
+                <Plus size={14} />
+            </PopoverTarget>
+
+            <PopoverDropdown p="xs">
+                <NestedEditorContent
+                    outerMarker={outerMarker}
+                    mainEditor={mainEditor}
+                    initialEditorState={initialEditorState}
+                    onChange={onChange}
+                    id={id}
+                    isOpen={isOpen}
+                    setIsOpen={setIsOpen}
+                />
+            </PopoverDropdown>
+        </Popover>
+    );
+}
+
+function NestedEditorContent({
+    outerMarker,
+    mainEditor,
+    initialEditorState,
+    onChange,
+    id,
+    isOpen,
+    setIsOpen,
+}: Omit<Props, "lintErrors">) {
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
     const { project, projectLanguageDirection } = useWorkspaceContext();
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
-    const [mainEditor] = useLexicalComposerContext();
     const [hasOpened, setHasOpened] = useState(false);
 
     const nestedConfig = {
@@ -88,7 +139,6 @@ export function NestedEditor({
                 },
                 withKlass: USFMTextNode,
             },
-            // only one, default container for chap
             ParagraphNode,
             LineBreakNode,
         ],
@@ -106,12 +156,8 @@ export function NestedEditor({
     const handleSave = useCallback(() => {
         const editor = nestedEditorRef.current;
         if (!editor) return;
-        const state = editor.getEditorState();
-        const json = state.toJSON();
-        // Bubble the serialized nested state back to the parent editor so the
-        // surrounding scripture workspace remains the source of truth.
-        onChange(json, mainEditor);
-    }, [onChange, mainEditor]);
+        onChange(editor.getEditorState().toJSON(), mainEditor);
+    }, [mainEditor, onChange]);
 
     const handleClose = useCallback(() => {
         handleSave();
@@ -123,39 +169,50 @@ export function NestedEditor({
         let cancelled = false;
 
         const tryInit = () => {
-            const root = document.getElementById("root") as HTMLDivElement;
+            const root = document.getElementById(
+                "root",
+            ) as HTMLDivElement | null;
             const editorWrapper = editorWrapperDomElRef.current;
             if (editorWrapper && root) {
                 Object.entries(root.dataset).forEach(([key, value]) => {
                     editorWrapper.dataset[key] = value;
                 });
             }
+
             const editor = nestedEditorRef.current;
             const domEl = document.querySelector(`[data-id="${id}"]`);
             if (editor && domEl) {
-                const parsed = editor.parseEditorState(initialEditorState);
-                editor.setEditorState(parsed, { tag: "history-merge" });
+                editor.setEditorState(
+                    editor.parseEditorState(initialEditorState),
+                    {
+                        tag: "history-merge",
+                    },
+                );
                 setHasOpened(true);
                 editor.update(() => {
-                    // when it open select the end of the first textNode:
-                    const root = $getRoot();
-                    const firstChild = root.getAllTextNodes()[0];
-                    firstChild.selectEnd();
+                    const rootNode = $getRoot();
+                    const firstChild = rootNode.getAllTextNodes()[0];
+                    firstChild?.selectEnd();
                 });
-            } else if (!cancelled) {
+                return;
+            }
+
+            if (!cancelled) {
                 requestAnimationFrame(tryInit);
             }
         };
+
         tryInit();
         return () => {
             cancelled = true;
         };
-    }, [isOpen, initialEditorState, id]);
+    }, [id, initialEditorState, isOpen]);
 
     useEffect(() => {
         if (!hasOpened) return;
         const editor = nestedEditorRef.current;
         if (!editor) return;
+
         const unregisterTransformWhileTyping = editor.registerNodeTransform(
             USFMTextNode,
             (node) => {
@@ -170,89 +227,46 @@ export function NestedEditor({
             },
         );
 
-        return () => {
-            unregisterTransformWhileTyping();
-        };
-    }, [hasOpened, projectLanguageDirection, editorModeSetting]);
-
-    const hasErrors = lintErrors.length > 0;
-    const errorTitle =
-        lintErrors.map((e) => e.message).join("; ") || "Open nested editor";
+        return unregisterTransformWhileTyping;
+    }, [editorModeSetting, hasOpened, projectLanguageDirection]);
 
     return (
-        <Popover
-            defaultOpened={isOpen}
-            onChange={(c) => {
-                setIsOpen(mainEditor, c);
-            }}
-            position="bottom"
-            shadow="md"
-            width={500}
-        >
-            <Popover.Target>
-                <Button
-                    variant={hasErrors ? "light" : "subtle"}
-                    color={hasErrors ? "red" : "gray"}
-                    size="xs"
-                    p="0"
-                    onClick={() => {
-                        setIsOpen(mainEditor, !isOpen);
-                    }}
-                    data-opened={isOpen}
-                    data-id={id}
-                    data-is-lint-error={hasErrors}
-                    data-is-nested-editor-button="true"
-                    title={errorTitle}
-                    style={{ display: "inline-flex" }}
-                >
-                    <Plus size={14} />
-                </Button>
-            </Popover.Target>
-
-            <Popover.Dropdown p="xs" className="">
-                <div
-                    className={nestedStyles.editorWrapper}
-                    ref={editorWrapperDomElRef}
-                >
-                    <LexicalComposer initialConfig={nestedConfig}>
-                        <RichTextPlugin
-                            ErrorBoundary={LexicalErrorBoundary}
-                            contentEditable={
-                                <ContentEditable
-                                    data-id={id}
-                                    data-js={DATA_JS.editorContainer}
-                                    className={nestedStyles.contentEditable}
-                                />
-                            }
-                            placeholder={
-                                <span className={nestedStyles.placeholder}>
-                                    Enter note…
-                                </span>
-                            }
+        <div className={nestedStyles.editorWrapper} ref={editorWrapperDomElRef}>
+            <LexicalComposer initialConfig={nestedConfig}>
+                <RichTextPlugin
+                    ErrorBoundary={LexicalErrorBoundary}
+                    contentEditable={
+                        <ContentEditable
+                            data-id={id}
+                            data-js={DATA_JS.editorContainer}
+                            className={nestedStyles.contentEditable}
                         />
-                        <HistoryPlugin />
-                        {/* <OnChangePlugin
-                            onChange={(editorState) => {
-                                onChange(editorState.toJSON(), mainEditor);
-                            }}
-                        /> */}
-                        <EditorRefPlugin editorRef={nestedEditorRef} />
-                    </LexicalComposer>
+                    }
+                    placeholder={
+                        <span className={nestedStyles.placeholder}>
+                            Enter note…
+                        </span>
+                    }
+                />
+                <HistoryPlugin />
+                <EditorRefPlugin editorRef={nestedEditorRef} />
+            </LexicalComposer>
 
-                    <Group justify="flex-end" gap="xs">
-                        <Button
-                            size="xs"
-                            variant="default"
-                            onClick={handleClose}
-                        >
-                            Close
-                        </Button>
-                        <Button size="xs" onClick={handleSave}>
-                            Save
-                        </Button>
-                    </Group>
-                </div>
-            </Popover.Dropdown>
-        </Popover>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "0.5rem",
+                    marginTop: "0.5rem",
+                }}
+            >
+                <Button size="xs" variant="tertiary" onClick={handleClose}>
+                    Close
+                </Button>
+                <Button size="xs" variant="primary" onClick={handleSave}>
+                    Save
+                </Button>
+            </div>
+        </div>
     );
 }

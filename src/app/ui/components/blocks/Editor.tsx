@@ -38,6 +38,7 @@ export function MainEditor() {
     return (
         <div
             className={shellStyles.editorOuter}
+            data-js={DATA_JS.editorScrollContainer}
             data-mode={project?.appSettings.editorMode}
         >
             <LexicalComposer initialConfig={getIntialConfig()}>

@@ -13,15 +13,15 @@
   background-color: rgb(157, 204, 255);
 }
 
-[data-mantine-color-scheme="dark"] ::highlight(matched-search) {
+[data-theme="dark"] ::highlight(matched-search) {
   background-color: rgb(109, 109, 6);
 }
 
-[data-mantine-color-scheme="dark"] ::highlight(matched-search-current) {
+[data-theme="dark"] ::highlight(matched-search-current) {
   background-color: rgb(190, 120, 20);
 }
 
-[data-mantine-color-scheme="dark"] ::highlight(context-menu-selection) {
+[data-theme="dark"] ::highlight(context-menu-selection) {
   background-color: rgb(54, 116, 196);
   text-shadow:
     0 1px 0 rgb(54, 116, 196),
@@ -29,7 +29,7 @@
 }
 body {
   line-height: 1.7;
-  background-color: var(--mantine-color-body);
+  background-color: var(--surface-primary, #fff);
 }
 
 .lint-error {

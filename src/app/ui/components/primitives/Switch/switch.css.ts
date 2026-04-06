@@ -3,7 +3,8 @@ import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const root = style({
     position: "relative",
-    display: "inline-flex",
+    display: "inline-grid",
+    gridTemplateColumns: "max-content minmax(8ch, max-content)",
     alignItems: "center",
     appearance: "none",
     border: "none",
@@ -23,7 +24,7 @@ export const track = style({
     height: "1.25rem",
     borderRadius: "9999px",
     backgroundColor: vars.color.surfaceTertiary,
-    transition: "background-color 0.2s ease",
+    transition: "background-color 180ms ease-in-out",
     boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.1)",
     selectors: {
         "&[data-checked]": {
@@ -55,23 +56,25 @@ export const thumb = style({
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1)",
     transform: "translateY(-50%)",
     transition:
-        "transform 0.2s cubic-bezier(0.26, 0.75, 0.38, 0.45), background-color 0.2s ease",
+        "left 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1), background-color 180ms ease-in-out",
+    willChange: "left, transform",
     outline: "none",
     selectors: {
         "&[data-checked]": {
-            transform: "translateY(-50%) translateX(1.25rem)",
+            left: "calc(100% - 2px - 1rem)",
             backgroundColor: vars.color.surfacePrimary,
         },
         "&[data-active]": {
             transform: "translateY(-50%) scale(0.95)",
         },
         "&[data-checked][data-active]": {
-            transform: "translateY(-50%) translateX(1.25rem) scale(0.95)",
+            transform: "translateY(-50%) scale(0.95)",
         },
     },
 });
 
 export const label = style({
+    minWidth: "8ch",
     fontFamily: "inherit",
     fontSize: vars.typography.bodyNormal.fontSize,
     fontWeight: 600,
@@ -79,4 +82,5 @@ export const label = style({
     color: vars.color.onSurfaceSecondary,
     whiteSpace: "nowrap",
     transition: "color 0.2s ease",
+    textAlign: "left",
 });

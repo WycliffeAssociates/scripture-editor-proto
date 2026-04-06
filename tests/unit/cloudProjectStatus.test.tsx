@@ -2,7 +2,6 @@
 
 import { I18nProvider } from "@lingui/react";
 import { i18n } from "@lingui/core";
-import { MantineProvider } from "@mantine/core";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -64,11 +63,7 @@ function render(ui: React.ReactNode) {
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
-    root?.render(
-      <MantineProvider>
-        <I18nProvider i18n={i18n}>{ui}</I18nProvider>
-      </MantineProvider>,
-    );
+    root?.render(<I18nProvider i18n={i18n}>{ui}</I18nProvider>);
   });
 }
 

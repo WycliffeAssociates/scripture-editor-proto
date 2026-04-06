@@ -2,7 +2,6 @@
 
 import { I18nProvider } from "@lingui/react";
 import { i18n } from "@lingui/core";
-import { MantineProvider } from "@mantine/core";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,11 +14,7 @@ vi.mock("@/app/ui/hooks/useWorkspaceContext.tsx", () => ({
 }));
 
 function TestProviders(props: { children: React.ReactNode }) {
-    return (
-        <MantineProvider>
-            <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
-        </MantineProvider>
-    );
+    return <I18nProvider i18n={i18n}>{props.children}</I18nProvider>;
 }
 
 function makeReferenceResource(overrides: Record<string, unknown> = {}) {

@@ -1,10 +1,12 @@
 import { Trans } from "@lingui/react/macro";
-import { ActionIcon, Button, Center, Group, Stack, Text } from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Download, Eye, Plus } from "lucide-react";
 import { useMemo } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/ActionIcon.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 import classnames from "./ProjectList.module.css.ts";
 
@@ -73,63 +75,82 @@ export function ProjectList() {
 
     return (
         <div data-testid={TESTING_IDS.appDrawer.projectsList}>
-            <Stack gap={4}>
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.25rem",
+                }}
+            >
                 {Object.entries(groupedProjects).map(
                     ([languageName, projects]) => (
                         <div key={languageName}>
-                            <Text
-                                size="xs"
-                                fw={600}
-                                c="dimmed"
+                            <span
+                                style={{
+                                    fontSize:
+                                        vars.typography.bodySmallest.fontSize,
+                                    fontWeight: 600,
+                                    color: vars.color.onSurfaceTertiary,
+                                }}
                                 className={classnames.languageLabel}
                             >
                                 {languageName}
-                            </Text>
-                            <Stack gap={4}>
+                            </span>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "0.25rem",
+                                }}
+                            >
                                 {projects.map((proj) => {
                                     const diskProjectName = proj.folderName;
                                     const picked =
                                         diskProjectName === currentProjectRoute;
                                     return (
-                                        <Group
+                                        <div
                                             key={proj.folderName}
-                                            justify="apart"
-                                            align="center"
-                                            wrap="nowrap"
                                             className={`${classnames.project} ${picked ? classnames.picked : ""}`}
                                             data-testid={
                                                 TESTING_IDS.project.rowLink
                                             }
                                         >
                                             <Button
-                                                variant="transparent"
-                                                classNames={{
-                                                    root: classnames.projectButton,
-                                                }}
+                                                variant="tertiary"
+                                                className={
+                                                    classnames.projectButton
+                                                }
                                                 onClick={() =>
                                                     navigateToProject(
                                                         proj.projectPath,
                                                     )
                                                 }
                                                 aria-label={`Open project ${proj.displayName}`}
-                                                style={{ background: "none" }}
-                                                justify="start"
                                                 data-testid={
                                                     TESTING_IDS.project
                                                         .listItemButton
                                                 }
                                             >
-                                                <Text
-                                                    size="sm"
-                                                    fw={500}
+                                                <span
+                                                    style={{
+                                                        fontSize:
+                                                            vars.typography
+                                                                .bodySmall
+                                                                .fontSize,
+                                                        fontWeight: 500,
+                                                    }}
                                                     className={classnames.name}
                                                 >
                                                     {proj.displayName}
-                                                </Text>
+                                                </span>
                                             </Button>
 
-                                            <Group
-                                                gap="xs"
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: "0.5rem",
+                                                    alignItems: "center",
+                                                }}
                                                 className={classnames.actions}
                                             >
                                                 {opener &&
@@ -137,9 +158,7 @@ export function ProjectList() {
                                                         "function" &&
                                                     platform !== "android" &&
                                                     platform !== "ios" && (
-                                                        <ActionIcon
-                                                            size="sm"
-                                                            variant="light"
+                                                        <ActionIconSimple
                                                             aria-label={`Open in file manager ${proj.displayName}`}
                                                             onClick={(
                                                                 e: React.MouseEvent,
@@ -158,16 +177,14 @@ export function ProjectList() {
                                                                     .itemOpen
                                                             }
                                                         >
-                                                            <Eye />
-                                                        </ActionIcon>
+                                                            <Eye size={16} />
+                                                        </ActionIconSimple>
                                                     )}
 
                                                 {opener &&
                                                     typeof opener.export ===
                                                         "function" && (
-                                                        <ActionIcon
-                                                            size="sm"
-                                                            variant="light"
+                                                        <ActionIconSimple
                                                             aria-label={`Export project ${proj.displayName}`}
                                                             onClick={(
                                                                 e: React.MouseEvent,
@@ -186,31 +203,42 @@ export function ProjectList() {
                                                                     .itemExport
                                                             }
                                                         >
-                                                            <Download />
-                                                        </ActionIcon>
+                                                            <Download
+                                                                size={16}
+                                                            />
+                                                        </ActionIconSimple>
                                                     )}
-                                            </Group>
-                                        </Group>
+                                            </div>
+                                        </div>
                                     );
                                 })}
-                            </Stack>
+                            </div>
                         </div>
                     ),
                 )}
-            </Stack>
+            </div>
 
-            <Center mt="xs">
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: "0.5rem",
+                }}
+            >
                 <Link to="/create" className={classnames.newProject}>
-                    <Group
-                        gap="xs"
-                        align="center"
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "0.5rem",
+                            alignItems: "center",
+                        }}
                         data-testid={TESTING_IDS.appDrawer.newProject}
                     >
                         <Trans>New Project</Trans>
-                        <Plus />
-                    </Group>
+                        <Plus size={16} />
+                    </div>
                 </Link>
-            </Center>
+            </div>
         </div>
     );
 }

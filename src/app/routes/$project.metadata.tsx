@@ -1,20 +1,20 @@
-import {
-    Alert,
-    Badge,
-    Button,
-    Checkbox,
-    Group,
-    Paper,
-    Stack,
-    Table,
-    Text,
-    Textarea,
-    TextInput,
-    Title,
-} from "@mantine/core";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertCircle } from "lucide-react";
 import { Fragment, useState } from "react";
+import { Alert } from "@/app/ui/components/primitives/Alert/Alert.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { Checkbox } from "@/app/ui/components/primitives/Checkbox/Checkbox.tsx";
+import { TextInput } from "@/app/ui/components/primitives/Input/Input.tsx";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/app/ui/components/primitives/Table/Table.tsx";
+import { Textarea } from "@/app/ui/components/primitives/Textarea/Textarea.tsx";
+import * as styles from "@/app/ui/styles/modules/MetadataPage.css.ts";
 import type {
     MetadataEditorDocument,
     MetadataIssue,
@@ -57,7 +57,11 @@ function MetadataRoute() {
     const [isSaving, setIsSaving] = useState(false);
 
     if (!editorDocument) {
-        return <Paper p="md">Project metadata not found.</Paper>;
+        return (
+            <div className={styles.metadataCard}>
+                Project metadata not found.
+            </div>
+        );
     }
 
     const showIssues =
@@ -95,22 +99,24 @@ function MetadataRoute() {
     }
 
     return (
-        <Stack p="lg" gap="lg">
-            <Group justify="space-between" align="flex-start">
-                <Stack gap={4}>
-                    <Group gap="sm">
-                        <Title order={2}>Metadata</Title>
-                        <Badge variant="light">
+        <div className={styles.metadataPage}>
+            <div className={styles.metadataHeader}>
+                <div className={styles.metadataHeaderLeft}>
+                    <div className={styles.metadataTitleRow}>
+                        <h2 className={styles.metadataSectionTitle}>
+                            Metadata
+                        </h2>
+                        <span className={styles.badge}>
                             {editorDocument.draft.kind}
-                        </Badge>
-                    </Group>
-                    <Text c="dimmed">
+                        </span>
+                    </div>
+                    <span className={styles.metadataSubtitle}>
                         Edit the supported metadata subset for this project.
-                    </Text>
-                </Stack>
-                <Group>
+                    </span>
+                </div>
+                <div className={styles.metadataHeaderRight}>
                     <Button
-                        variant="default"
+                        variant="secondary"
                         onClick={() =>
                             navigate({
                                 to: "/$project",
@@ -120,11 +126,11 @@ function MetadataRoute() {
                     >
                         Back to Project
                     </Button>
-                    <Button onClick={saveDraft} loading={isSaving}>
+                    <Button onClick={saveDraft} disabled={isSaving}>
                         Save Metadata
                     </Button>
-                </Group>
-            </Group>
+                </div>
+            </div>
 
             {showIssues ? <IssuePanel issues={editorDocument.issues} /> : null}
             {saveError ? (
@@ -133,7 +139,7 @@ function MetadataRoute() {
                 </Alert>
             ) : null}
 
-            <Paper p="md" withBorder>
+            <div className={styles.metadataCard}>
                 {editorDocument.draft.kind === "resource-container" ? (
                     <ResourceContainerEditor
                         draft={editorDocument.draft}
@@ -163,8 +169,8 @@ function MetadataRoute() {
                         }
                     />
                 )}
-            </Paper>
-        </Stack>
+            </div>
+        </div>
     );
 }
 
@@ -180,20 +186,33 @@ function IssuePanel({ issues }: { issues: MetadataIssue[] }) {
 
     return (
         <Alert color="red" icon={<AlertCircle size={16} />}>
-            <Stack gap="xs">
-                <Text fw={600}>Metadata issues</Text>
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                }}
+            >
+                <span style={{ fontWeight: 600 }}>Metadata issues</span>
                 {issues.map((issue) => (
                     <div key={`${issue.fieldPath}-${issue.message}`}>
-                        <Text size="sm">{issue.message}</Text>
-                        <Text size="xs" c="dimmed">
+                        <span style={{ fontSize: "0.875rem" }}>
+                            {issue.message}
+                        </span>
+                        <span
+                            style={{
+                                fontSize: "0.75rem",
+                                color: "var(--color-onSurfaceTertiary)",
+                            }}
+                        >
                             {issue.fieldPath}
                             {issue.suggestedValue
                                 ? ` -> Suggested: ${issue.suggestedValue}`
                                 : ""}
-                        </Text>
+                        </span>
                     </div>
                 ))}
-            </Stack>
+            </div>
         </Alert>
     );
 }
@@ -251,9 +270,9 @@ function ResourceContainerEditor(args: {
         );
 
     return (
-        <Stack gap="md">
-            <Title order={4}>Language</Title>
-            <Group grow>
+        <div className={styles.metadataSection}>
+            <h4 className={styles.metadataSectionTitle}>Language</h4>
+            <div className={styles.formRowGrow}>
                 <TextInput
                     label="Identifier"
                     value={draft.language.identifier}
@@ -293,7 +312,7 @@ function ResourceContainerEditor(args: {
                         })
                     }
                 />
-            </Group>
+            </div>
 
             <Textarea
                 label="Description"
@@ -307,8 +326,8 @@ function ResourceContainerEditor(args: {
                 }
             />
 
-            <Group justify="space-between" align="center">
-                <Title order={4}>Projects</Title>
+            <div className={styles.metadataHeader}>
+                <h4 className={styles.metadataSectionTitle}>Projects</h4>
                 {suggestedProjects.length > 0 ? (
                     <Button
                         size="xs"
@@ -318,17 +337,17 @@ function ResourceContainerEditor(args: {
                         Apply All Suggestions
                     </Button>
                 ) : null}
-            </Group>
-            <Table striped withTableBorder>
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Title</Table.Th>
-                        <Table.Th>Identifier</Table.Th>
-                        <Table.Th>Sort</Table.Th>
-                        <Table.Th>Path</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
+            </div>
+            <Table striped withBorder>
+                <TableHead>
+                    <TableRow>
+                        <TableHeader>Title</TableHeader>
+                        <TableHeader>Identifier</TableHeader>
+                        <TableHeader>Sort</TableHeader>
+                        <TableHeader>Path</TableHeader>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
                     {draft.projects.map((project, index) => {
                         const hasSuggestion =
                             project.suggestedIdentifier ||
@@ -339,8 +358,8 @@ function ResourceContainerEditor(args: {
                             <Fragment
                                 key={`${project.identifier}-${project.title}-${index}`}
                             >
-                                <Table.Tr>
-                                    <Table.Td>
+                                <TableRow>
+                                    <TableCell>
                                         <TextInput
                                             value={project.title}
                                             onChange={(event) =>
@@ -351,8 +370,8 @@ function ResourceContainerEditor(args: {
                                                 )
                                             }
                                         />
-                                    </Table.Td>
-                                    <Table.Td>
+                                    </TableCell>
+                                    <TableCell>
                                         <TextInput
                                             value={project.identifier}
                                             onChange={(event) =>
@@ -363,8 +382,8 @@ function ResourceContainerEditor(args: {
                                                 )
                                             }
                                         />
-                                    </Table.Td>
-                                    <Table.Td>
+                                    </TableCell>
+                                    <TableCell>
                                         <TextInput
                                             value={project.sort}
                                             onChange={(event) =>
@@ -375,8 +394,8 @@ function ResourceContainerEditor(args: {
                                                 )
                                             }
                                         />
-                                    </Table.Td>
-                                    <Table.Td>
+                                    </TableCell>
+                                    <TableCell>
                                         <TextInput
                                             value={project.path}
                                             onChange={(event) =>
@@ -387,42 +406,61 @@ function ResourceContainerEditor(args: {
                                                 )
                                             }
                                         />
-                                    </Table.Td>
-                                </Table.Tr>
+                                    </TableCell>
+                                </TableRow>
                                 {hasSuggestion ? (
-                                    <Table.Tr>
-                                        <Table.Td />
-                                        <Table.Td>
-                                            <Text size="xs" c="dimmed">
+                                    <TableRow>
+                                        <TableCell />
+                                        <TableCell>
+                                            <span
+                                                style={{
+                                                    fontSize: "0.75rem",
+                                                    color: "var(--color-onSurfaceTertiary)",
+                                                }}
+                                            >
                                                 Suggested:{" "}
                                                 {project.suggestedIdentifier ??
                                                     project.identifier ??
                                                     "(empty)"}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="xs" c="dimmed">
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span
+                                                style={{
+                                                    fontSize: "0.75rem",
+                                                    color: "var(--color-onSurfaceTertiary)",
+                                                }}
+                                            >
                                                 Suggested:{" "}
                                                 {project.suggestedSort ??
                                                     project.sort ??
                                                     "(empty)"}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group
-                                                justify="space-between"
-                                                align="center"
-                                                wrap="nowrap"
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent:
+                                                        "space-between",
+                                                    alignItems: "center",
+                                                    flexWrap: "nowrap",
+                                                }}
                                             >
-                                                <Text size="xs" c="dimmed">
+                                                <span
+                                                    style={{
+                                                        fontSize: "0.75rem",
+                                                        color: "var(--color-onSurfaceTertiary)",
+                                                    }}
+                                                >
                                                     Suggested:{" "}
                                                     {project.suggestedPath ??
                                                         project.path ??
                                                         "(empty)"}
-                                                </Text>
+                                                </span>
                                                 <Button
                                                     size="xs"
-                                                    variant="subtle"
+                                                    variant="tertiary"
                                                     onClick={() =>
                                                         applySuggestedProject(
                                                             index,
@@ -431,16 +469,16 @@ function ResourceContainerEditor(args: {
                                                 >
                                                     Apply
                                                 </Button>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 ) : null}
                             </Fragment>
                         );
                     })}
-                </Table.Tbody>
+                </TableBody>
             </Table>
-        </Stack>
+        </div>
     );
 }
 
@@ -464,9 +502,9 @@ function ScriptureBurritoEditor(args: {
     }
 
     return (
-        <Stack gap="md">
-            <Title order={4}>Language</Title>
-            <Group grow>
+        <div className={styles.metadataSection}>
+            <h4 className={styles.metadataSectionTitle}>Language</h4>
+            <div className={styles.formRowGrow}>
                 <TextInput
                     label="Tag"
                     value={draft.language.tag}
@@ -509,8 +547,8 @@ function ScriptureBurritoEditor(args: {
                         })
                     }
                 />
-            </Group>
-            <Group grow>
+            </div>
+            <div className={styles.formRowGrow}>
                 <TextInput
                     label="Local Name Locale"
                     value={draft.language.localNameLocale}
@@ -537,9 +575,9 @@ function ScriptureBurritoEditor(args: {
                         })
                     }
                 />
-            </Group>
+            </div>
 
-            <Group grow align="end">
+            <div className={styles.formRowGrow}>
                 <TextInput
                     label="Date Created"
                     value={draft.meta.dateCreated}
@@ -566,7 +604,7 @@ function ScriptureBurritoEditor(args: {
                         })
                     }
                 />
-            </Group>
+            </div>
 
             <Textarea
                 label="Localized Names JSON"
@@ -581,19 +619,19 @@ function ScriptureBurritoEditor(args: {
                 }
             />
 
-            <Title order={4}>Ingredients</Title>
-            <Table striped withTableBorder>
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Path</Table.Th>
-                        <Table.Th>Book Code</Table.Th>
-                        <Table.Th>Title</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
+            <h4 className={styles.metadataSectionTitle}>Ingredients</h4>
+            <Table striped withBorder>
+                <TableHead>
+                    <TableRow>
+                        <TableHeader>Path</TableHeader>
+                        <TableHeader>Book Code</TableHeader>
+                        <TableHeader>Title</TableHeader>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
                     {draft.ingredients.map((ingredient, index) => (
-                        <Table.Tr key={`${ingredient.path}-${index}`}>
-                            <Table.Td>
+                        <TableRow key={`${ingredient.path}-${index}`}>
+                            <TableCell>
                                 <TextInput
                                     value={ingredient.path}
                                     onChange={(event) =>
@@ -604,8 +642,8 @@ function ScriptureBurritoEditor(args: {
                                         )
                                     }
                                 />
-                            </Table.Td>
-                            <Table.Td>
+                            </TableCell>
+                            <TableCell>
                                 <TextInput
                                     value={ingredient.bookCode}
                                     onChange={(event) =>
@@ -616,8 +654,8 @@ function ScriptureBurritoEditor(args: {
                                         )
                                     }
                                 />
-                            </Table.Td>
-                            <Table.Td>
+                            </TableCell>
+                            <TableCell>
                                 <TextInput
                                     value={ingredient.title}
                                     onChange={(event) =>
@@ -628,11 +666,11 @@ function ScriptureBurritoEditor(args: {
                                         )
                                     }
                                 />
-                            </Table.Td>
-                        </Table.Tr>
+                            </TableCell>
+                        </TableRow>
                     ))}
-                </Table.Tbody>
+                </TableBody>
             </Table>
-        </Stack>
+        </div>
     );
 }

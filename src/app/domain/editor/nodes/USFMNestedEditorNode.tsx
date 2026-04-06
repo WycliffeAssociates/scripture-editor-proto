@@ -222,6 +222,7 @@ export class USFMNestedEditorNode extends DecoratorNode<React.ReactNode> {
             <NestedEditor
                 key={this.__key}
                 outerMarker={this.__marker}
+                mainEditor={_editor}
                 id={this.__id}
                 // lexicalKey={this.__key}
                 initialEditorState={this.__editorState}

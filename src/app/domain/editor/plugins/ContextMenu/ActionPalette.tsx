@@ -1,24 +1,11 @@
+import { Combobox } from "@base-ui/react/combobox";
+import { ScrollArea } from "@base-ui/react/scroll-area";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import {
-    Combobox,
-    Group,
-    Pill,
-    ScrollArea,
-    Text,
-    TextInput,
-    useCombobox,
-} from "@mantine/core";
 import { $getRoot, $isElementNode, type LexicalNode } from "lexical";
-import {
-    type ChangeEvent,
-    type KeyboardEvent,
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
+import { X } from "lucide-react";
+import { type KeyboardEvent, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
-
 import { getVisibleActions } from "@/app/domain/editor/actions/registry.ts";
 import type {
     ActionStep,
@@ -31,6 +18,11 @@ import * as classes from "./ActionPalette.css.ts";
 interface ActionPaletteProps {
     context: EditorContext;
     onClose: () => void;
+}
+
+interface ActionGroup {
+    category: string;
+    actions: EditorAction[];
 }
 
 /**
@@ -53,6 +45,171 @@ function getModeForAction(actionId: string): EditorModeSetting | null {
     }
 }
 
+function getActionLabel(action: EditorAction, context: EditorContext): string {
+    return typeof action.label === "function"
+        ? action.label(context)
+        : action.label;
+}
+
+function buildActionGroups(actions: EditorAction[]): ActionGroup[] {
+    const groups = new Map<string, EditorAction[]>();
+
+    for (const action of actions) {
+        const existing = groups.get(action.category);
+        if (existing) {
+            existing.push(action);
+            continue;
+        }
+
+        groups.set(action.category, [action]);
+    }
+
+    return Array.from(groups.entries(), ([category, groupedActions]) => ({
+        category,
+        actions: groupedActions,
+    }));
+}
+
+function ActionStepPill({
+    activeAction,
+    context,
+    onClear,
+}: {
+    activeAction: EditorAction | null;
+    context: EditorContext;
+    onClear: () => void;
+}) {
+    if (!activeAction) {
+        return null;
+    }
+
+    return (
+        <div className={classes.pillContainer}>
+            <div className={classes.stepPill}>
+                <span>{getActionLabel(activeAction, context)}</span>
+                <button
+                    type="button"
+                    className={classes.stepPillButton}
+                    onClick={onClear}
+                >
+                    <X size={14} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function ActionOptionRow({
+    action,
+    context,
+}: {
+    action: EditorAction;
+    context: EditorContext;
+}) {
+    return (
+        <Combobox.Item
+            value={action}
+            className={classes.item}
+            disabled={action.isDisabled?.(context)}
+            data-testid={
+                action.category === "Search"
+                    ? TESTING_IDS.contextMenu.searchAction
+                    : undefined
+            }
+        >
+            <div className={classes.itemContent}>
+                {action.icon}
+                <div className={classes.itemTextBlock}>
+                    <span className={classes.optionLabel}>
+                        {getActionLabel(action, context)}
+                    </span>
+                    <span className={classes.itemMeta}>{action.category}</span>
+                </div>
+            </div>
+        </Combobox.Item>
+    );
+}
+
+function ActionGroupSection({
+    group,
+    context,
+}: {
+    group: ActionGroup;
+    context: EditorContext;
+}) {
+    return (
+        <div>
+            <div className={classes.categoryHeader}>{group.category}</div>
+            {group.actions.map((action) => (
+                <ActionOptionRow
+                    key={action.id}
+                    action={action}
+                    context={context}
+                />
+            ))}
+        </div>
+    );
+}
+
+function ActionList({
+    groups,
+    context,
+}: {
+    groups: ActionGroup[];
+    context: EditorContext;
+}) {
+    return (
+        <>
+            {groups.map((group) => (
+                <ActionGroupSection
+                    key={group.category}
+                    group={group}
+                    context={context}
+                />
+            ))}
+        </>
+    );
+}
+
+function StepOptionRow({
+    option,
+}: {
+    option: NonNullable<ActionStep["options"]>[number];
+}) {
+    return (
+        <Combobox.Item value={option.value} className={classes.item}>
+            <span className={classes.optionLabel}>{option.label}</span>
+        </Combobox.Item>
+    );
+}
+
+function StepOptionList({
+    options,
+}: {
+    options: NonNullable<ActionStep["options"]>;
+}) {
+    return (
+        <>
+            {options.map((option) => (
+                <StepOptionRow key={option.value} option={option} />
+            ))}
+        </>
+    );
+}
+
+function PaletteScrollArea({ children }: { children: React.ReactNode }) {
+    return (
+        <ScrollArea.Root className={classes.scrollArea}>
+            <ScrollArea.Viewport className={classes.scrollViewport}>
+                {children}
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar orientation="vertical">
+                <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+        </ScrollArea.Root>
+    );
+}
+
 /**
  * Command palette for the current editor selection/caret context.
  *
@@ -65,77 +222,98 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
     const [search, setSearch] = useState("");
     const [activeStep, setActiveStep] = useState<ActionStep | null>(null);
     const [activeAction, setActiveAction] = useState<EditorAction | null>(null);
-
-    const combobox = useCombobox({
-        onDropdownClose: () => {
-            combobox.resetSelectedOption();
-            if (!activeStep) onClose();
-        },
-    });
+    const [stepSearch, setStepSearch] = useState("");
 
     const visibleActions = useMemo(() => getVisibleActions(context), [context]);
 
     const filteredActions = useMemo(() => {
-        const s = search.toLowerCase();
+        const lowerSearch = search.toLowerCase();
+
         return visibleActions.filter((action) => {
-            // @todo, was probably lingui related which need to reintroduce the localization of action pallete
-            const label =
-                typeof action.label === "function"
-                    ? action.label(context)
-                    : action.label;
+            const label = getActionLabel(action, context);
             return (
-                label.toLowerCase().includes(s) ||
-                action.marker?.toLowerCase().includes(s) ||
-                action.category.toLowerCase().includes(s)
+                label.toLowerCase().includes(lowerSearch) ||
+                action.marker?.toLowerCase().includes(lowerSearch) ||
+                action.category.toLowerCase().includes(lowerSearch)
             );
         });
-    }, [visibleActions, search, context]);
+    }, [context, search, visibleActions]);
 
-    const groups = useMemo(() => {
-        const g: Record<string, EditorAction[]> = {};
-        for (const action of filteredActions) {
-            if (!g[action.category]) g[action.category] = [];
-            g[action.category].push(action);
+    const actionGroups = useMemo(
+        () => buildActionGroups(filteredActions),
+        [filteredActions],
+    );
+
+    const filteredStepOptions = useMemo(() => {
+        if (!activeStep || !activeStep.options) {
+            return [];
         }
-        return g;
-    }, [filteredActions]);
+
+        const lowerSearch = stepSearch.toLowerCase();
+        return activeStep.options.filter((option) =>
+            option.label.toLowerCase().includes(lowerSearch),
+        );
+    }, [activeStep, stepSearch]);
+
+    const clearStep = () => {
+        setActiveStep(null);
+        setActiveAction(null);
+        setStepSearch("");
+    };
+
+    const handleStepComplete = (value: string) => {
+        if (!activeStep) {
+            return;
+        }
+
+        editor.update(() => {
+            activeStep.onComplete(value, editor, context);
+        });
+
+        onClose();
+        editor.focus();
+    };
 
     const handleSelectAction = (action: EditorAction) => {
-        if (action.isDisabled?.(context)) return;
-        let result: undefined | ActionStep;
+        if (action.isDisabled?.(context)) {
+            return;
+        }
 
-        // Capture SID for restoration after mode change
+        let result: undefined | ActionStep;
         const sid = context.currentVerse;
 
-        // Restore focus and selection after mode change
         if (action.category === "Modes") {
             const nextMode = getModeForAction(action.id);
+
             if (nextMode) {
                 context.actions.setEditorMode?.(nextMode, {
                     onComplete: () => {
                         editor.update(() => {
                             if (sid) {
-                                // Find the first USFMTextNode with the matching SID
                                 const root = $getRoot();
                                 const nodes = root.getChildren();
-                                // Recursive search for the SID
+
                                 const findNodeBySid = (
-                                    nodes: LexicalNode[],
+                                    nodeList: LexicalNode[],
                                 ): LexicalNode | null => {
-                                    for (const node of nodes) {
+                                    for (const node of nodeList) {
                                         if (
                                             $isUSFMTextNode(node) &&
                                             node.getSid() === sid
                                         ) {
                                             return node;
                                         }
+
                                         if ($isElementNode(node)) {
                                             const found = findNodeBySid(
                                                 node.getChildren(),
                                             );
-                                            if (found) return found;
+                                            if (found) {
+                                                return found;
+                                            }
                                         }
                                     }
+
                                     return null;
                                 };
 
@@ -144,6 +322,7 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                                     targetNode.select();
                                 }
                             }
+
                             editor.focus();
                         });
                     },
@@ -159,272 +338,147 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
             });
         }
 
-        const step = result as ActionStep | undefined;
-        if (step && typeof step === "object" && "onComplete" in step) {
+        const nextStep = result as ActionStep | undefined;
+        if (
+            nextStep &&
+            typeof nextStep === "object" &&
+            "onComplete" in nextStep
+        ) {
             setActiveAction(action);
-            setActiveStep(step);
+            setActiveStep(nextStep);
             setSearch("");
-        } else {
-            onClose();
-            if (action.category !== "Modes") {
-                editor.focus();
-            }
+            return;
         }
-    };
 
-    const [stepSearch, setStepSearch] = useState("");
-    const stepCombobox = useCombobox({
-        onDropdownClose: () => {
-            stepCombobox.resetSelectedOption();
-        },
-    });
-
-    const filteredStepOptions = useMemo(() => {
-        if (!activeStep || !activeStep.options) return [];
-        const s = stepSearch.toLowerCase();
-        return activeStep.options.filter((opt) =>
-            opt.label.toLowerCase().includes(s),
-        );
-    }, [activeStep, stepSearch]);
-
-    // Auto-focus step search and select first option
-    useEffect(() => {
-        if (activeStep && activeStep.type === "select") {
-            stepCombobox.focusTarget();
-            stepCombobox.openDropdown();
-            if (filteredStepOptions.length > 0) {
-                stepCombobox.selectFirstOption();
-            }
-        }
-    }, [activeStep, filteredStepOptions, stepCombobox]);
-
-    const handleStepComplete = (value: string) => {
-        if (activeStep) {
-            editor.update(() => {
-                activeStep?.onComplete(value, editor, context);
-            });
-            onClose();
+        onClose();
+        if (action.category !== "Modes") {
             editor.focus();
         }
     };
 
-    // Auto-focus search on mount and sync dropdown state
-    useEffect(() => {
-        if (!activeStep) {
-            combobox.focusTarget();
-            combobox.openDropdown();
-        }
-    }, [combobox, activeStep]);
-
-    // Select first option when filtered actions change (VS Code style)
-    useEffect(() => {
-        if (!activeStep && filteredActions.length > 0) {
-            combobox.selectFirstOption();
-        }
-    }, [filteredActions, combobox, activeStep]);
-
-    const handleKeyDown = (event: React.KeyboardEvent) => {
+    const handleMainKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Escape") {
             onClose();
             editor.focus();
         }
-        if (event.key === "Backspace" && search === "" && !activeStep) {
+
+        if (event.key === "Backspace" && search === "") {
             onClose();
             editor.focus();
         }
-        if (event.key === "Tab") {
-            event.preventDefault();
-            if (activeStep && activeStep.type === "select") {
-                stepCombobox.selectNextOption();
-            } else {
-                combobox.selectNextOption();
-            }
+    };
+
+    const handleStepKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Escape") {
+            clearStep();
+        }
+
+        if (event.key === "Backspace" && stepSearch === "") {
+            clearStep();
         }
     };
 
     if (activeStep) {
-        return (
-            <div className={classes.container}>
-                <div className={classes.pillContainer}>
-                    <Pill
-                        withRemoveButton
-                        onRemove={() => {
-                            setActiveStep(null);
-                            setActiveAction(null);
-                            setStepSearch("");
-                        }}
-                    >
-                        {activeAction
-                            ? typeof activeAction.label === "function"
-                                ? activeAction.label(context)
-                                : activeAction.label
-                            : ""}
-                    </Pill>
-                </div>
-                {activeStep.type === "input" ? (
-                    <TextInput
+        if (activeStep.type === "input") {
+            return (
+                <div className={classes.container}>
+                    <ActionStepPill
+                        activeAction={activeAction}
+                        context={context}
+                        onClear={clearStep}
+                    />
+                    <input
                         className={classes.searchInput}
-                        variant="unstyled"
                         placeholder={activeStep.placeholder || "Enter value..."}
                         autoFocus
-                        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                            if (e.key === "Enter") {
-                                handleStepComplete(e.currentTarget.value);
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                                handleStepComplete(event.currentTarget.value);
                             }
-                            if (e.key === "Escape") {
-                                setActiveStep(null);
-                                setActiveAction(null);
+
+                            if (event.key === "Escape") {
+                                clearStep();
                             }
                         }}
                     />
-                ) : (
-                    <Combobox
-                        store={stepCombobox}
-                        onOptionSubmit={(val) => {
-                            handleStepComplete(val);
-                        }}
-                    >
-                        <Combobox.Target>
-                            <TextInput
-                                className={classes.searchInput}
-                                variant="unstyled"
-                                placeholder={
-                                    activeStep.placeholder || "Search..."
-                                }
-                                value={stepSearch}
-                                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                                    setStepSearch(e.currentTarget.value)
-                                }
-                                onKeyDown={(
-                                    e: KeyboardEvent<HTMLInputElement>,
-                                ) => {
-                                    if (e.key === "Escape") {
-                                        setActiveStep(null);
-                                        setActiveAction(null);
-                                    }
-                                    if (
-                                        e.key === "Backspace" &&
-                                        stepSearch === ""
-                                    ) {
-                                        setActiveStep(null);
-                                        setActiveAction(null);
-                                    }
-                                }}
-                            />
-                        </Combobox.Target>
-                        <ScrollArea.Autosize mah={400} type="scroll">
-                            <Combobox.Options>
-                                {filteredStepOptions.map((opt) => (
-                                    <Combobox.Option
-                                        value={opt.value}
-                                        key={opt.value}
-                                        className={classes.item}
-                                    >
-                                        <Text size="sm">{opt.label}</Text>
-                                    </Combobox.Option>
-                                ))}
-                                {filteredStepOptions.length === 0 && (
-                                    <Text
-                                        size="sm"
-                                        c="dimmed"
-                                        ta="center"
-                                        py="xl"
-                                    >
-                                        No results found
-                                    </Text>
-                                )}
-                            </Combobox.Options>
-                        </ScrollArea.Autosize>
-                    </Combobox>
-                )}
+                </div>
+            );
+        }
+
+        return (
+            <div className={classes.container}>
+                <ActionStepPill
+                    activeAction={activeAction}
+                    context={context}
+                    onClear={clearStep}
+                />
+                <Combobox.Root
+                    inline
+                    open
+                    autoHighlight
+                    inputValue={stepSearch}
+                    onInputValueChange={setStepSearch}
+                    onValueChange={(value) => {
+                        if (typeof value === "string") {
+                            handleStepComplete(value);
+                        }
+                    }}
+                >
+                    <div className={classes.header}>
+                        <Combobox.Input
+                            className={classes.searchInput}
+                            placeholder={activeStep.placeholder || "Search..."}
+                            autoFocus
+                            onKeyDown={handleStepKeyDown}
+                        />
+                    </div>
+                    <PaletteScrollArea>
+                        <Combobox.List className={classes.list}>
+                            <StepOptionList options={filteredStepOptions} />
+                        </Combobox.List>
+                        <Combobox.Empty className={classes.emptyState}>
+                            No results found
+                        </Combobox.Empty>
+                    </PaletteScrollArea>
+                </Combobox.Root>
             </div>
         );
     }
 
     return (
         <div className={classes.container}>
-            <Combobox
-                store={combobox}
-                onOptionSubmit={(val) => {
-                    const action = visibleActions.find((a) => a.id === val);
-                    if (action && !action.isDisabled?.(context)) {
+            <Combobox.Root<EditorAction>
+                inline
+                open
+                autoHighlight
+                inputValue={search}
+                onInputValueChange={setSearch}
+                itemToStringLabel={(action) => getActionLabel(action, context)}
+                itemToStringValue={(action) => action.id}
+                onValueChange={(action) => {
+                    if (action) {
                         handleSelectAction(action);
                     }
                 }}
             >
                 <div className={classes.header}>
-                    <Combobox.Target>
-                        <TextInput
-                            data-testid={TESTING_IDS.contextMenu.searchInput}
-                            placeholder="Search actions..."
-                            value={search}
-                            onChange={(
-                                event: ChangeEvent<HTMLInputElement>,
-                            ) => {
-                                setSearch(event.currentTarget.value);
-                                combobox.updateSelectedOptionIndex();
-                            }}
-                            onKeyDown={handleKeyDown}
-                            className={classes.searchInput}
-                            variant="unstyled"
-                            autoFocus
-                        />
-                    </Combobox.Target>
+                    <Combobox.Input
+                        data-testid={TESTING_IDS.contextMenu.searchInput}
+                        placeholder="Search actions..."
+                        className={classes.searchInput}
+                        autoFocus
+                        onKeyDown={handleMainKeyDown}
+                    />
                 </div>
-
-                <div className={classes.scrollArea}>
-                    <ScrollArea.Autosize mah={400} type="scroll">
-                        <Combobox.Options>
-                            {Object.entries(groups).map(
-                                ([category, actions]) => (
-                                    <div key={category}>
-                                        <div className={classes.categoryHeader}>
-                                            {category}
-                                        </div>
-                                        {actions.map((action) => {
-                                            const label =
-                                                typeof action.label ===
-                                                "function"
-                                                    ? action.label(context)
-                                                    : action.label;
-                                            return (
-                                                <Combobox.Option
-                                                    value={action.id}
-                                                    key={action.id}
-                                                    className={classes.item}
-                                                    disabled={action.isDisabled?.(
-                                                        context,
-                                                    )}
-                                                    data-testid={
-                                                        action.category ===
-                                                        "Search"
-                                                            ? TESTING_IDS
-                                                                  .contextMenu
-                                                                  .searchAction
-                                                            : undefined
-                                                    }
-                                                >
-                                                    <Group gap="sm">
-                                                        {action.icon}
-                                                        <Text size="sm">
-                                                            {label}
-                                                        </Text>
-                                                    </Group>
-                                                </Combobox.Option>
-                                            );
-                                        })}
-                                    </div>
-                                ),
-                            )}
-                            {filteredActions.length === 0 && (
-                                <Text size="sm" c="dimmed" ta="center" py="xl">
-                                    No results found
-                                </Text>
-                            )}
-                        </Combobox.Options>
-                    </ScrollArea.Autosize>
-                </div>
-            </Combobox>
+                <PaletteScrollArea>
+                    <Combobox.List className={classes.list}>
+                        <ActionList groups={actionGroups} context={context} />
+                    </Combobox.List>
+                    <Combobox.Empty className={classes.emptyState}>
+                        No results found
+                    </Combobox.Empty>
+                </PaletteScrollArea>
+            </Combobox.Root>
         </div>
     );
 }

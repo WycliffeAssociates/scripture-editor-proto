@@ -1,27 +1,19 @@
-import { rem } from "@mantine/core";
 import { style } from "@vanilla-extract/css";
-import { vars } from "@/app/ui/styles/theme.css.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const container = style({
-    width: rem(480), // 30rem
+    width: "30rem",
     maxWidth: "95vw",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars.colors.body,
-    borderRadius: vars.radius.lg,
-    boxShadow: `0 10px 30px color-mix(in srgb, ${vars.colors.black} 20%, transparent)`,
+    backgroundColor: vars.color.surfacePrimary,
+    borderRadius: vars.border.radius.lg,
+    boxShadow: vars.shadow.large,
     overflow: "hidden",
-    border: `1px solid ${vars.colors.defaultBorder}`,
+    border: `1px solid ${vars.color.surfaceBorder}`,
     "@media": {
         "screen and (max-width: 480px)": {
             width: "95vw",
-        },
-    },
-    selectors: {
-        "[data-mantine-color-scheme='dark'] &": {
-            backgroundColor: vars.colors.dark[6],
-            borderColor: vars.colors.dark[4],
-            boxShadow: `0 20px 50px color-mix(in srgb, ${vars.colors.black} 50%, transparent)`,
         },
     },
 });
@@ -30,64 +22,141 @@ export const searchInput = style({
     border: "none",
     borderRadius: 0,
     backgroundColor: "transparent",
-    padding: `${rem(14)} ${rem(16)}`,
-    fontSize: rem(16),
-    color: vars.colors.text,
-    ":focus": {
-        outline: "none",
+    width: "100%",
+    padding: `${vars.spacing.md} ${vars.spacing.md}`,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    color: vars.color.onSurfacePrimary,
+    selectors: {
+        "&:focus": {
+            outline: "none",
+        },
+        "&::placeholder": {
+            color: vars.color.onSurfaceTertiary,
+        },
     },
 });
 
 export const header = style({
-    padding: `${rem(4)} ${rem(8)}`,
-    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
     backgroundColor: "transparent",
     display: "flex",
     alignItems: "center",
-    gap: rem(8),
+    gap: vars.spacing.sm,
 });
 
 export const scrollArea = style({
-    maxHeight: rem(400),
+    maxHeight: "25rem",
+});
+
+export const scrollViewport = style({
+    maxHeight: "25rem",
+});
+
+export const list = style({
+    paddingBlock: vars.spacing.xs,
 });
 
 export const item = style({
-    padding: `${rem(10)} ${rem(16)}`,
-    margin: `${rem(2)} ${rem(8)}`,
-    borderRadius: vars.radius.md,
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    margin: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    borderRadius: vars.border.radius.md,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
-    gap: rem(12),
+    gap: vars.spacing.sm,
     transition: "all 0.1s ease",
-    color: vars.colors.text,
+    color: vars.color.onSurfacePrimary,
     selectors: {
-        "&[data-combobox-selected]": {
-            backgroundColor: vars.colors.primary[6],
-            color: vars.colors.white,
+        "&[data-highlighted], &[data-selected]": {
+            backgroundColor: vars.color.brandBase,
+            color: vars.color.onSurfaceInvert,
         },
-        "&:hover:not([data-combobox-selected])": {
-            backgroundColor: vars.colors.gray[1],
+        "&:hover:not([data-highlighted]):not([data-selected])": {
+            backgroundColor: vars.color.surfaceSecondary,
         },
-        "[data-mantine-color-scheme='dark'] &[data-combobox-selected]": {
-            backgroundColor: vars.colors.primary[5],
+        "&[data-disabled]": {
+            opacity: 0.45,
+            cursor: "not-allowed",
         },
     },
 });
 
 export const categoryHeader = style({
-    padding: `${rem(8)} ${rem(16)} ${rem(4)}`,
-    fontSize: rem(11),
+    padding: `${vars.spacing.sm} ${vars.spacing.md} ${vars.spacing.xs}`,
+    fontSize: vars.typography.bodySmallest.fontSize,
     fontWeight: 700,
     textTransform: "uppercase",
-    color: vars.colors.dimmed,
-    letterSpacing: rem(0.5),
+    color: vars.color.onSurfaceTertiary,
+    letterSpacing: "0.03125rem",
 });
 
 export const pillContainer = style({
-    padding: rem(8),
+    padding: vars.spacing.sm,
     display: "flex",
     alignItems: "center",
-    gap: rem(4),
-    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
+    gap: vars.spacing.xs,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const stepPill = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    minHeight: "2rem",
+    paddingInline: vars.spacing.sm,
+    borderRadius: vars.border.radius.full,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfaceSecondary,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+});
+
+export const stepPillButton = style({
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: vars.color.onSurfaceSecondary,
+    cursor: "pointer",
+});
+
+export const optionLabel = style({
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+});
+
+export const emptyState = style({
+    padding: vars.spacing.lg,
+    color: vars.color.onSurfaceTertiary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    textAlign: "center",
+});
+
+export const itemContent = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+});
+
+export const itemTextBlock = style({
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+});
+
+export const itemMeta = style({
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceTertiary,
+    selectors: {
+        [`${item}[data-highlighted] &, ${item}[data-selected] &`]: {
+            color: vars.color.onSurfaceInvert,
+            opacity: 0.8,
+        },
+    },
 });

@@ -1,5 +1,75 @@
 import { globalStyle, style } from "@vanilla-extract/css";
-import { darkSelector, vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
+const darkSelector = "[data-theme='dark']";
+const vars: {
+    radius: {
+        xl: string;
+        lg: string;
+        md: string;
+    };
+    spacing: typeof dsVars.spacing;
+    fontSizes: {
+        sm: string;
+        md: string;
+    };
+    colors: {
+        gray: Record<number, string>;
+        primary: Record<number, string>;
+        text: string;
+        error: Record<number, string>;
+    };
+} = {
+    radius: {
+        xl: dsVars.border.radius.xl,
+        lg: dsVars.border.radius.lg,
+        md: dsVars.border.radius.md,
+    },
+    spacing: dsVars.spacing,
+    fontSizes: {
+        sm: dsVars.typography.bodySmallest.fontSize,
+        md: dsVars.typography.bodySmall.fontSize,
+    },
+    colors: {
+        gray: {
+            0: dsVars.color.surfaceSecondary,
+            1: dsVars.color.surfaceTertiary,
+            3: dsVars.color.surfaceBorder,
+            6: dsVars.color.onSurfaceTertiary,
+            7: dsVars.color.onSurfaceSecondary,
+            8: dsVars.color.onSurfacePrimary,
+            9: dsVars.color.onSurfacePrimary,
+        },
+        primary: {
+            0: dsVars.color.brandLight,
+            1: dsVars.color.brandLight,
+            2: dsVars.color.brandLight,
+            3: dsVars.color.brandBase,
+            4: dsVars.color.brandBase,
+            5: dsVars.color.brandBase,
+            6: dsVars.color.brandBase,
+            7: dsVars.color.brandDark,
+            8: dsVars.color.brandDark,
+            9: dsVars.color.brandDarkest,
+        },
+        text: dsVars.color.onSurfacePrimary,
+        error: {
+            0: dsVars.color.surfaceError,
+            1: dsVars.color.surfaceError,
+            2: dsVars.color.surfaceError,
+            3: dsVars.color.surfaceError,
+            4: dsVars.color.surfaceError,
+            5: dsVars.color.surfaceError,
+            6: dsVars.color.onSurfaceError,
+            7: dsVars.color.onSurfaceError,
+            8: dsVars.color.onSurfaceError,
+            9: dsVars.color.onSurfaceError,
+        },
+    },
+};
+const virtualVars = {
+    surface: dsVars.color.surfacePrimary,
+};
 
 export const shell = style({
     borderRadius: vars.radius.xl,

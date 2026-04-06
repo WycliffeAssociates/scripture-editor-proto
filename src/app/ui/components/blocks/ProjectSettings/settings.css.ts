@@ -1,0 +1,288 @@
+import { style } from "@vanilla-extract/css";
+import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
+
+export const panel = style({
+    width: "100%",
+    height: "100%",
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+});
+
+export const shell = style({
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    height: "100%",
+});
+
+export const headerOuter = style({
+    width: "100%",
+});
+
+export const contentInner = style({
+    width: "100%",
+    maxWidth: "60rem",
+    marginInline: "auto",
+});
+
+export const header = style({
+    padding: `${vars.spacing.lg} ${vars.spacing.lg} ${vars.spacing.xs}`,
+});
+
+export const title = style({
+    fontSize: vars.typography.h3.fontSize,
+    lineHeight: vars.typography.h3.lineHeight,
+    fontWeight: vars.typography.h3.fontWeight,
+});
+
+export const tabsRoot = style({
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    height: "100%",
+});
+
+export const tabsListOuter = style({
+    width: "100%",
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const tabsList = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    paddingInline: vars.spacing.lg,
+    paddingTop: 0,
+});
+
+export const tabsTrigger = style({
+    position: "relative",
+    border: "none",
+    background: "transparent",
+    color: vars.color.onSurfaceSecondary,
+    minHeight: "3rem",
+    paddingInline: vars.spacing.md,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    fontWeight: 600,
+    cursor: "pointer",
+    borderBottom: "3px solid transparent",
+    selectors: {
+        "&[data-active]": {
+            color: vars.color.brandBase,
+            borderBottomColor: vars.color.brandBase,
+            boxShadow: `inset 0 -1px 0 ${vars.color.brandBase}`,
+        },
+        "&:hover": {
+            color: vars.color.onSurfacePrimary,
+        },
+    },
+});
+
+export const tabsPanel = style({
+    minHeight: 0,
+    height: "100%",
+    overflow: "auto",
+    paddingBlock: vars.spacing.sm,
+});
+
+export const tabsPanelInner = style({
+    width: "100%",
+    maxWidth: "60rem",
+    marginInline: "auto",
+    paddingInline: vars.spacing.lg,
+    paddingBottom: vars.spacing.lg,
+});
+
+export const section = style({
+    display: "flex",
+    flexDirection: "column",
+});
+
+export const sectionRow = style({
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: vars.spacing.sm,
+    alignItems: "center",
+    paddingBlock: vars.spacing.md,
+    "@media": {
+        [mediaQuery.up("md")]: {
+            gridTemplateColumns: "minmax(0, 24rem) minmax(18rem, 24rem)",
+            gap: vars.spacing.lg,
+        },
+    },
+});
+
+export const rowText = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+});
+
+export const rowTitle = style({
+    fontSize: vars.typography.bodyNormal.fontSize,
+    lineHeight: vars.typography.bodyNormal.lineHeight,
+    fontWeight: 600,
+    color: vars.color.onSurfacePrimary,
+});
+
+export const rowDescription = style({
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const rowControl = style({
+    minWidth: 0,
+    width: "100%",
+    display: "flex",
+    justifyContent: "stretch",
+    alignItems: "center",
+});
+
+export const rowControlEnd = style([
+    rowControl,
+    {
+        justifyContent: "flex-end",
+    },
+]);
+
+export const fieldControl = style({
+    width: "100%",
+    maxWidth: "24rem",
+});
+
+export const footer = style({
+    width: "100%",
+    borderTop: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+});
+
+export const footerInner = style({
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: vars.spacing.md,
+    width: "100%",
+    maxWidth: "60rem",
+    marginInline: "auto",
+    padding: vars.spacing.lg,
+    "@media": {
+        [mediaQuery.up("md")]: {
+            gridTemplateColumns: "1fr 1fr",
+        },
+    },
+});
+
+export const footerButton = style({
+    width: "100%",
+});
+
+export const placeholder = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+    paddingBlock: vars.spacing.lg,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const toggleGroup = style({
+    width: "24rem",
+    maxWidth: "100%",
+});
+
+export const selectControl = style({
+    width: "100%",
+    maxWidth: "24rem",
+});
+
+export const switchLabel = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+});
+
+export const switchLabelTitle = style({
+    fontSize: vars.typography.bodyNormal.fontSize,
+    lineHeight: vars.typography.bodyNormal.lineHeight,
+    fontWeight: 600,
+    color: vars.color.onSurfacePrimary,
+});
+
+export const switchLabelText = style({
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const stepperControl = style({
+    width: "100%",
+    maxWidth: "24rem",
+    display: "grid",
+    gridTemplateColumns: "2.75rem minmax(0, 1fr) 2.75rem",
+    alignItems: "center",
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    borderRadius: vars.border.radius.lg,
+    backgroundColor: vars.color.surfaceSecondary,
+    overflow: "hidden",
+});
+
+export const stepperButton = style({
+    minHeight: "2.75rem",
+    border: "none",
+    background: "transparent",
+    color: vars.color.onSurfacePrimary,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.color.surfaceTertiary,
+        },
+        "&:disabled": {
+            opacity: 0.4,
+            cursor: "not-allowed",
+        },
+    },
+});
+
+export const stepperValue = style({
+    minHeight: "2.75rem",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingInline: vars.spacing.md,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    fontWeight: 600,
+    borderInline: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const sliderControl = style({
+    width: "100%",
+    maxWidth: "24rem",
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.sm,
+});
+
+export const sliderLabels = style({
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const sliderValue = style({
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    fontWeight: 600,
+    color: vars.color.onSurfacePrimary,
+});

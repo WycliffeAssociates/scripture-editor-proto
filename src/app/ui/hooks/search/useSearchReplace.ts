@@ -48,6 +48,18 @@ type Params = {
     pickedChapter?: ScriptureChapterState;
     setTargetResults: (value: SearchResult[]) => void;
     setReferenceResults: (value: SearchResult[]) => void;
+    preparePickedResult: (
+        result: SearchResult,
+        args: {
+            activeSearchTerm: string;
+            searchReference: boolean;
+            matchCase: boolean;
+            matchWholeWord: boolean;
+        },
+    ) => Promise<{
+        matches: SearchMatch[];
+        activeMatch?: SearchMatch;
+    } | null>;
 };
 
 /**
@@ -75,6 +87,7 @@ export function useSearchReplace({
     pickedChapter,
     setTargetResults,
     setReferenceResults,
+    preparePickedResult,
 }: Params) {
     const [replaceTerm, setReplaceTerm] = useState<string>("");
 
@@ -334,11 +347,91 @@ export function useSearchReplace({
         setTargetResults,
     ]);
 
+    const replaceSearchResult = useCallback(
+        async (result: SearchResult, replacement: string) => {
+            if (searchReference) return;
+            if (result.source === "reference") return;
+            if (!replacement.trim() || !searchTerm.trim()) return;
+            const editor = editorRef.current;
+            if (!editor) return;
+
+            const prepared = await preparePickedResult(result, {
+                activeSearchTerm: searchTerm,
+                searchReference,
+                matchCase,
+                matchWholeWord,
+            });
+            const activeMatch = prepared?.activeMatch;
+            if (!activeMatch || activeMatch.source !== "target") return;
+
+            history.setNextTypingLabel("Replace (Search Result)", {
+                forceNewEntry: true,
+            });
+            editor.update(
+                () => {
+                    const node = activeMatch.node;
+                    if (!$isUSFMTextNode(node)) return;
+
+                    const text = node.getTextContent();
+                    const newText = replaceInNodeText({
+                        text,
+                        start: activeMatch.start,
+                        end: activeMatch.end,
+                        replacement: replacement.trim(),
+                    });
+
+                    node.setTextContent(newText);
+                },
+                { discrete: true },
+            );
+
+            const rerunResult = await runSearchLogic(searchTerm, {
+                autoPick: false,
+                scope: "currentChapter",
+            });
+            if (!rerunResult) return;
+
+            const refreshedResult = rerunResult.sortedResults.find(
+                (candidate) =>
+                    candidate.source === "target" &&
+                    candidate.sid === result.sid &&
+                    candidate.sidOccurrenceIndex ===
+                        result.sidOccurrenceIndex &&
+                    candidate.bibleIdentifier === result.bibleIdentifier &&
+                    candidate.chapNum === result.chapNum,
+            );
+
+            if (!refreshedResult) {
+                setPickedResult(null);
+                return;
+            }
+
+            await preparePickedResult(refreshedResult, {
+                activeSearchTerm: searchTerm,
+                searchReference,
+                matchCase,
+                matchWholeWord,
+            });
+        },
+        [
+            editorRef,
+            history,
+            matchCase,
+            matchWholeWord,
+            preparePickedResult,
+            runSearchLogic,
+            searchReference,
+            searchTerm,
+            setPickedResult,
+        ],
+    );
+
     return {
         replaceTerm,
         setReplaceTerm,
         replaceMatch,
         replaceCurrentMatch,
         replaceAllInChapter,
+        replaceSearchResult,
     };
 }

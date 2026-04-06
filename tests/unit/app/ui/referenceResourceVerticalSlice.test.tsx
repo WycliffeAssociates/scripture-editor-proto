@@ -2,7 +2,6 @@
 
 import { i18n } from "@lingui/core";
 import { I18nProvider } from "@lingui/react";
-import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { act, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -44,9 +43,7 @@ function TestProviders(props: {
 }) {
     return (
         <QueryClientProvider client={props.queryClient}>
-            <MantineProvider>
-                <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
-            </MantineProvider>
+            <I18nProvider i18n={i18n}>{props.children}</I18nProvider>
         </QueryClientProvider>
     );
 }

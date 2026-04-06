@@ -1,4 +1,3 @@
-import { useDebouncedCallback } from "@mantine/hooks";
 import type { LexicalEditor } from "lexical";
 import {
     type MutableRefObject,
@@ -31,6 +30,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import type {
     SearchMatch,
     SearchRunOptionOverrides,
@@ -139,16 +139,8 @@ export function useSearchExecution({
     );
 
     const results = useMemo(
-        () =>
-            searchReference && hasReferenceSearchAvailable
-                ? referenceResults
-                : targetResults,
-        [
-            hasReferenceSearchAvailable,
-            referenceResults,
-            searchReference,
-            targetResults,
-        ],
+        () => (searchReference ? referenceResults : targetResults),
+        [referenceResults, searchReference, targetResults],
     );
 
     const sortBy = useCallback(
@@ -163,7 +155,7 @@ export function useSearchExecution({
             let sortedTargetResults = applySort(targetResults, option);
             let sortedReferenceResults = applySort(referenceResults, option);
 
-            if (searchReference && hasReferenceSearchAvailable) {
+            if (searchReference) {
                 sortedReferenceResults = applySort(referenceResults, option);
                 sortedTargetResults = alignTargetResultsToReferenceOrder({
                     referenceResults: sortedReferenceResults,
@@ -171,10 +163,9 @@ export function useSearchExecution({
                 });
             }
 
-            const sortedResults: SearchResult[] =
-                searchReference && hasReferenceSearchAvailable
-                    ? sortedReferenceResults
-                    : sortedTargetResults;
+            const sortedResults: SearchResult[] = searchReference
+                ? sortedReferenceResults
+                : sortedTargetResults;
 
             setTargetResults(sortedTargetResults);
             setReferenceResults(sortedReferenceResults);
@@ -194,7 +185,6 @@ export function useSearchExecution({
         },
         [
             currentMatchesControls,
-            hasReferenceSearchAvailable,
             referenceResults,
             results,
             searchReference,
@@ -222,6 +212,11 @@ export function useSearchExecution({
             const effectiveSearchUSFM = overrides.searchUSFM ?? searchUSFM;
             const effectiveSearchReference =
                 overrides.searchReference ?? searchReference;
+            const effectiveReferenceFiles =
+                overrides.referenceFiles ??
+                resolvedContentProvider.getReferenceFiles();
+            const effectiveHasReferenceSearchAvailable =
+                effectiveReferenceFiles.length > 0;
 
             if (searchAbortController.current) {
                 searchAbortController.current.abort();
@@ -267,16 +262,21 @@ export function useSearchExecution({
             let nextReferenceResults = referenceResults;
 
             if (scope === "currentChapter") {
-                if (effectiveSearchReference && hasReferenceSearchAvailable) {
-                    const sidToText = buildTargetSidTextLookup({
-                        files: targetFilesToSearch,
-                        searchUSFM: effectiveSearchUSFM,
-                    });
-                    nextReferenceResults = referenceResults;
-                    nextTargetResults = pairReferenceResultsToTarget({
-                        referenceResults: nextReferenceResults,
-                        targetSidText: sidToText,
-                    });
+                if (effectiveSearchReference) {
+                    if (!effectiveHasReferenceSearchAvailable) {
+                        nextReferenceResults = [];
+                        nextTargetResults = [];
+                    } else {
+                        const sidToText = buildTargetSidTextLookup({
+                            files: targetFilesToSearch,
+                            searchUSFM: effectiveSearchUSFM,
+                        });
+                        nextReferenceResults = referenceResults;
+                        nextTargetResults = pairReferenceResultsToTarget({
+                            referenceResults: nextReferenceResults,
+                            targetSidText: sidToText,
+                        });
+                    }
                 } else {
                     const currentBookId = pickedFile.bookCode;
                     const currentChapNum = pickedChapter?.chapterNumber ?? 1;
@@ -312,26 +312,32 @@ export function useSearchExecution({
                     nextReferenceResults = [];
                 }
             } else {
-                if (effectiveSearchReference && hasReferenceSearchAvailable) {
-                    const rawReferenceResults = runSearch({
-                        chapters: buildSearchChapters({
-                            files: resolvedContentProvider.getReferenceFiles(),
-                            searchUSFM: effectiveSearchUSFM,
-                            restrictToChapterKeys: targetChapterKeySet,
-                        }),
-                        query: queryOptions,
-                        source: "reference",
-                    });
-                    nextReferenceResults = dedupeByVerse(rawReferenceResults);
+                if (effectiveSearchReference) {
+                    if (!effectiveHasReferenceSearchAvailable) {
+                        nextReferenceResults = [];
+                        nextTargetResults = [];
+                    } else {
+                        const rawReferenceResults = runSearch({
+                            chapters: buildSearchChapters({
+                                files: effectiveReferenceFiles,
+                                searchUSFM: effectiveSearchUSFM,
+                                restrictToChapterKeys: targetChapterKeySet,
+                            }),
+                            query: queryOptions,
+                            source: "reference",
+                        });
+                        nextReferenceResults =
+                            dedupeByVerse(rawReferenceResults);
 
-                    const sidToText = buildTargetSidTextLookup({
-                        files: targetFilesToSearch,
-                        searchUSFM: effectiveSearchUSFM,
-                    });
-                    nextTargetResults = pairReferenceResultsToTarget({
-                        referenceResults: nextReferenceResults,
-                        targetSidText: sidToText,
-                    });
+                        const sidToText = buildTargetSidTextLookup({
+                            files: targetFilesToSearch,
+                            searchUSFM: effectiveSearchUSFM,
+                        });
+                        nextTargetResults = pairReferenceResultsToTarget({
+                            referenceResults: nextReferenceResults,
+                            targetSidText: sidToText,
+                        });
+                    }
                 } else {
                     nextTargetResults = runSearch({
                         chapters: buildSearchChapters({
@@ -355,7 +361,10 @@ export function useSearchExecution({
             );
             let sortedResults = sortedTargetResults;
 
-            if (effectiveSearchReference && hasReferenceSearchAvailable) {
+            if (
+                effectiveSearchReference &&
+                effectiveHasReferenceSearchAvailable
+            ) {
                 sortedReferenceResults = applySort(
                     nextReferenceResults,
                     currentSort,

@@ -1,18 +1,44 @@
 import { style } from "@vanilla-extract/css";
-import { vars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
+const vars = {
+    ...dsVars,
+    radius: dsVars.border.radius,
+    colors: {
+        ...dsVars.color,
+        gray: {
+            0: dsVars.color.surfacePrimary,
+            3: dsVars.color.surfaceBorder,
+            6: dsVars.color.onSurfaceSecondary,
+            9: dsVars.color.surfaceInvert,
+        },
+        dark: {
+            4: dsVars.color.surfaceTertiary,
+            6: dsVars.color.surfaceSecondary,
+        },
+    },
+};
 
 export const editorOuter = style({
+    flex: "1 1 auto",
+    position: "relative",
+    minHeight: 0,
+    overflowY: "auto",
     padding: vars.spacing.sm,
+    overscrollBehavior: "contain",
 });
 
 export const editorContainer = style({
     position: "relative",
+    minHeight: 0,
 });
 
 export const contentEditable = style({
     outline: "none",
     width: "100%",
-    padding: vars.spacing.sm,
+    minHeight: "100%",
+    padding: `${vars.spacing.sm} ${vars.spacing.sm} 20rem`,
+    zIndex: 5100,
 });
 
 export const contentEditableSearchOpen = style({
@@ -34,7 +60,7 @@ export const translationNoteCard = style({
     padding: vars.spacing.md,
     backgroundColor: vars.colors.gray[0],
     selectors: {
-        '[data-mantine-color-scheme="dark"] &': {
+        '[data-theme="dark"] &': {
             backgroundColor: vars.colors.dark[6],
             borderColor: vars.colors.dark[4],
         },
@@ -47,10 +73,11 @@ export const translationNoteBody = style({
 export const contentEditableReference = style({
     outline: "none",
     width: "100%",
+    minHeight: "100%",
     padding: vars.spacing.md,
     backgroundColor: vars.colors.gray[0],
     selectors: {
-        '[data-mantine-color-scheme="dark"] &': {
+        '[data-theme="dark"] &': {
             backgroundColor: vars.colors.dark[6],
         },
     },
@@ -60,8 +87,23 @@ export const contentEditableReferenceSearchOpen = style({
     paddingTop: "7rem",
     backgroundColor: vars.colors.gray[0],
     selectors: {
-        '[data-mantine-color-scheme="dark"] &': {
+        '[data-theme="dark"] &': {
             backgroundColor: vars.colors.dark[6],
         },
     },
+});
+
+export const referenceEditorRoot = style({
+    minHeight: 0,
+    height: "100%",
+    display: "grid",
+    gridTemplateRows: "auto minmax(0, 1fr)",
+});
+
+export const referenceEditorOuter = style({
+    flex: "1 1 auto",
+    position: "relative",
+    minHeight: 0,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
 });

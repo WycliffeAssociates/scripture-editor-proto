@@ -1,513 +1,446 @@
+import { Tabs as BaseTabs } from "@base-ui/react/tabs";
 import { i18n } from "@lingui/core";
-import { Trans } from "@lingui/react/macro";
-import {
-    Box,
-    Button,
-    Center,
-    rem,
-    SegmentedControl,
-    Select,
-    Stack,
-    Switch,
-    Text,
-    useMantineColorScheme,
-} from "@mantine/core";
-import { useRouter } from "@tanstack/react-router";
-import { Languages, Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { t } from "@lingui/core/macro";
+import { Languages, MoonStar, Save, SunMedium } from "lucide-react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { GET_LOCALES } from "@/app/data/settings.ts";
-import {
-    ShowErrorNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+import { GET_LOCALES, type Settings } from "@/app/data/settings.ts";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
+import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
+import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
-import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
-import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
-import styles from "./Settings.module.css";
+import * as styles from "./settings.css.ts";
 import ZoomControl from "./ZoomControl.tsx";
 
-/**
- * Settings surface for the active workspace and overall app presentation.
- *
- * These controls sit above the persistence layer: they update saved app settings
- * and immediately apply the visual/runtime side effects the current route needs.
- */
-export function SettingsPanel() {
-    const { project } = useWorkspaceContext();
+type SettingsTab = "app-appearance" | "reference-panel" | "advanced";
 
-    const handleLangChange = async (locale: string | null) => {
-        if (!locale) return;
-        project.updateAppSettings({ appLanguage: locale });
-        // Make sure Lingui messages are activated
-        await loadLocale(locale);
-    };
-
-    return (
-        <Stack gap="lg">
-            <DisplayThemeToggle />
-            <CloudSyncSettings />
-            <EditorModeToggle />
-            <ZoomControl />
-            <FontSizeControl />
-            {/*<FontPicker />*/}
-            <LanguageSelector
-                value={project.appSettings.appLanguage}
-                onChange={handleLangChange}
-            />
-        </Stack>
-    );
+interface SettingsPanelProps {
+    onClose?: () => void;
 }
 
-/**
- * Theme toggle for the current app session and persisted workspace settings.
- */
-function DisplayThemeToggle() {
-    const { project } = useWorkspaceContext();
-    const { setColorScheme } = useMantineColorScheme();
-
-    return (
-        <Stack gap="xs">
-            <Text size="md" mb="2" fw={500}>
-                <Trans>Display</Trans>
-            </Text>
-            <SegmentedControl
-                data-testid={TESTING_IDS.settings.themeToggle}
-                radius={"lg"}
-                withItemsBorders={false}
-                data-value={project.appSettings.colorScheme}
-                value={project.appSettings.colorScheme}
-                classNames={{
-                    root: styles.root,
-                    label: styles.label,
-                    indicator: styles.indicator,
-                }}
-                onChange={(value) => {
-                    if (value === "light" || value === "dark") {
-                        project.updateAppSettings({ colorScheme: value });
-                        setColorScheme(value);
-                        applyColorSchemeToDocument(value);
-                    }
-                }}
-                data={[
-                    {
-                        value: "light",
-                        label: (
-                            <Center
-                                style={{ display: "flex", gap: "0.5rem" }}
-                                className={
-                                    project.appSettings.colorScheme === "light"
-                                        ? styles.chosenToggle
-                                        : undefined
-                                }
-                            >
-                                <Sun size="1.5rem" />
-                                <Box>
-                                    <Trans>Light</Trans>
-                                </Box>
-                            </Center>
-                        ),
-                    },
-                    {
-                        value: "dark",
-                        label: (
-                            <Center
-                                style={{ display: "flex", gap: "0.5rem" }}
-                                className={
-                                    project.appSettings.colorScheme === "dark"
-                                        ? styles.chosenToggle
-                                        : undefined
-                                }
-                            >
-                                <Moon size="1.5rem" />
-                                <Box>
-                                    <Trans>Dark</Trans>
-                                </Box>
-                            </Center>
-                        ),
-                    },
-                ]}
-            />
-        </Stack>
+export function SettingsPanel({ onClose }: SettingsPanelProps) {
+    const { actions, project } = useWorkspaceContext();
+    const overlayPortalRef = useRef<HTMLDivElement | null>(null);
+    const [activeTab, setActiveTab] = useState<SettingsTab>("app-appearance");
+    const [initialSettings] = useState<Settings>(() =>
+        structuredClone(project.appSettings),
     );
-}
+    const [isReverting, setIsReverting] = useState(false);
 
-/**
- * Cloud publish/sync policy toggles.
- *
- * These are user-facing policy controls for the linked-project cloud behavior.
- * They do not perform sync themselves; they only decide whether open/save paths
- * should automatically check or publish without an explicit button press.
- */
-function CloudSyncSettings() {
-    const { currentProjectRoute, project, remote } = useWorkspaceContext();
-    const {
-        options: {
-            context: { authSessionProvider, projectsService },
-        },
-    } = useRouter();
-    const [hasSession, setHasSession] = useState(false);
-    const [isCreatingRemote, setIsCreatingRemote] = useState(false);
-    const [isLoadingOwnedRepos, setIsLoadingOwnedRepos] = useState(false);
-    const [hasLoadedOwnedRepos, setHasLoadedOwnedRepos] = useState(false);
-    const [ownedRepos, setOwnedRepos] = useState<RemoteRepoSummary[]>([]);
-    const [selectedOwnedRepoId, setSelectedOwnedRepoId] = useState<
-        string | null
-    >(null);
-    const [isAttachingRemote, setIsAttachingRemote] = useState(false);
+    async function applySettings(nextSettings: Settings) {
+        const currentSettings = project.appSettings;
 
-    useEffect(() => {
-        let cancelled = false;
-        void authSessionProvider.getCurrentSession().then((session) => {
-            if (cancelled) return;
-            setHasSession(Boolean(session));
+        try {
+            if (nextSettings.appLanguage !== currentSettings.appLanguage) {
+                await loadLocale(nextSettings.appLanguage);
+            }
+
+            if (nextSettings.colorScheme !== currentSettings.colorScheme) {
+                actions.setColorScheme?.(nextSettings.colorScheme);
+            }
+
+            if (nextSettings.editorMode !== currentSettings.editorMode) {
+                actions.setEditorMode?.(nextSettings.editorMode);
+            }
+
+            project.updateAppSettings({
+                fontSize: nextSettings.fontSize,
+                zoom: nextSettings.zoom,
+                appLanguage: nextSettings.appLanguage,
+                appDirection: nextSettings.appDirection,
+                autoSyncOnOpen: nextSettings.autoSyncOnOpen,
+                autoPushOnSave: nextSettings.autoPushOnSave,
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    title: i18n._("Failed to save settings"),
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : i18n._("Settings could not be applied."),
+                },
+            });
+        }
+    }
+
+    async function handleCloseWithoutSaving() {
+        setIsReverting(true);
+
+        try {
+            await applySettings(initialSettings);
+            onClose?.();
+        } finally {
+            setIsReverting(false);
+        }
+    }
+
+    async function handleSettingsChange(updates: Partial<Settings>) {
+        await applySettings({
+            ...project.appSettings,
+            ...updates,
         });
-        return () => {
-            cancelled = true;
-        };
-    }, [authSessionProvider]);
-
-    useEffect(() => {
-        if (!hasSession || remote.status) {
-            setOwnedRepos([]);
-            setSelectedOwnedRepoId(null);
-            setHasLoadedOwnedRepos(false);
-            setIsLoadingOwnedRepos(false);
-            return;
-        }
-
-        if (hasLoadedOwnedRepos) {
-            return;
-        }
-
-        void loadOwnedRepos();
-    }, [hasLoadedOwnedRepos, hasSession, remote.status]);
-
-    const loadOwnedRepos = async () => {
-        setIsLoadingOwnedRepos(true);
-        try {
-            const page = await projectsService.listOwnedRemoteRepos({
-                page: 1,
-                pageSize: 100,
-            });
-            setOwnedRepos(page.repos);
-            setSelectedOwnedRepoId((currentSelection) =>
-                currentSelection &&
-                page.repos.some((repo) => repo.id === currentSelection)
-                    ? currentSelection
-                    : (page.repos[0]?.id ?? null),
-            );
-            setHasLoadedOwnedRepos(true);
-        } catch (error) {
-            console.error("Failed to list owned remote repos", error);
-            ShowErrorNotification({
-                notification: {
-                    title: i18n._("Failed to load cloud projects"),
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : i18n._(
-                                  "Owned cloud repositories could not be loaded for attachment.",
-                              ),
-                },
-            });
-        } finally {
-            setIsLoadingOwnedRepos(false);
-        }
-    };
-
-    const createRemoteProject = async () => {
-        setIsCreatingRemote(true);
-        try {
-            const result =
-                await projectsService.createRemoteForProject(
-                    currentProjectRoute,
-                );
-            ShowNotificationSuccess({
-                notification: {
-                    title: i18n._("Cloud project created"),
-                    message: i18n._(
-                        `Created, linked, and published this project to ${result.repo.owner}/${result.repo.name}.`,
-                    ),
-                },
-            });
-        } catch (error) {
-            console.error("Failed to create remote project", error);
-            ShowErrorNotification({
-                notification: {
-                    title: i18n._("Failed to create cloud project"),
-                    message: resolveCreateRemoteErrorMessage({
-                        error,
-                        suggestedName: currentProjectRoute,
-                        fallback: i18n._(
-                            "This project could not be linked to a new cloud repository.",
-                        ),
-                    }),
-                },
-            });
-        } finally {
-            setIsCreatingRemote(false);
-        }
-    };
-
-    const attachExistingRemoteProject = async () => {
-        const selectedRepo =
-            ownedRepos.find((repo) => repo.id === selectedOwnedRepoId) ?? null;
-        if (!selectedRepo) {
-            return;
-        }
-
-        setIsAttachingRemote(true);
-        try {
-            await projectsService.attachProjectToRemote({
-                projectRef: currentProjectRoute,
-                repo: selectedRepo,
-            });
-            ShowNotificationSuccess({
-                notification: {
-                    title: i18n._("Cloud project attached"),
-                    message: i18n._(
-                        `Linked this project to ${selectedRepo.owner}/${selectedRepo.name}. Sync now to review or publish.`,
-                    ),
-                },
-            });
-            await remote.syncNow();
-        } catch (error) {
-            console.error("Failed to attach remote project", error);
-            ShowErrorNotification({
-                notification: {
-                    title: i18n._("Failed to attach cloud project"),
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : i18n._(
-                                  "This project could not be linked to the selected cloud repository.",
-                              ),
-                },
-            });
-        } finally {
-            setIsAttachingRemote(false);
-        }
-    };
+    }
 
     return (
-        <Stack gap="xs">
-            <Text size="md" mb="2" fw={500}>
-                <Trans>Cloud</Trans>
-            </Text>
-            {hasSession && !remote.status ? (
-                <>
-                    <Button
-                        data-testid={
-                            TESTING_IDS.settings.createRemoteProjectButton
-                        }
-                        variant="light"
-                        onClick={() => {
-                            void createRemoteProject();
-                        }}
-                        loading={isCreatingRemote}
-                        disabled={isAttachingRemote}
+        <div className={styles.panel} ref={overlayPortalRef}>
+            <div className={styles.shell}>
+                <div className={styles.headerOuter}>
+                    <div className={styles.contentInner}>
+                        <div className={styles.header}>
+                            <div className={styles.title}>{t`Settings`}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <BaseTabs.Root
+                    value={activeTab}
+                    onValueChange={(value) =>
+                        setActiveTab(value as SettingsTab)
+                    }
+                    className={styles.tabsRoot}
+                >
+                    <div className={styles.tabsListOuter}>
+                        <div className={styles.contentInner}>
+                            <BaseTabs.List className={styles.tabsList}>
+                                <BaseTabs.Tab
+                                    value="app-appearance"
+                                    className={styles.tabsTrigger}
+                                >
+                                    {t`App Appearance`}
+                                </BaseTabs.Tab>
+                                <BaseTabs.Tab
+                                    value="reference-panel"
+                                    className={styles.tabsTrigger}
+                                >
+                                    {t`Reference Panel`}
+                                </BaseTabs.Tab>
+                                <BaseTabs.Tab
+                                    value="advanced"
+                                    className={styles.tabsTrigger}
+                                >
+                                    {t`Advanced`}
+                                </BaseTabs.Tab>
+                            </BaseTabs.List>
+                        </div>
+                    </div>
+
+                    <BaseTabs.Panel
+                        value="app-appearance"
+                        className={styles.tabsPanel}
                     >
-                        <Trans>Save as new cloud project</Trans>
-                    </Button>
-                    <Stack gap="xs">
-                        <Select
-                            data-testid={
-                                TESTING_IDS.settings.attachRemoteProjectSelect
-                            }
-                            label={<Trans>Attach existing cloud project</Trans>}
-                            description={
-                                <Trans>
-                                    Choose a repository you own with matching
-                                    scripture metadata and language.
-                                </Trans>
-                            }
-                            placeholder={
-                                isLoadingOwnedRepos
-                                    ? i18n._("Loading cloud projects...")
-                                    : i18n._("Select a cloud project")
-                            }
-                            value={selectedOwnedRepoId}
-                            onChange={setSelectedOwnedRepoId}
-                            disabled={
-                                isLoadingOwnedRepos ||
-                                isAttachingRemote ||
-                                ownedRepos.length === 0
-                            }
-                            data={ownedRepos.map((repo) => ({
-                                value: repo.id,
-                                label: `${repo.owner}/${repo.name}`,
-                            }))}
-                            searchable
-                        />
-                        <Box style={{ display: "flex", gap: rem(8) }}>
-                            <Button
-                                variant="default"
-                                onClick={() => {
-                                    void loadOwnedRepos();
-                                }}
-                                loading={isLoadingOwnedRepos}
-                                disabled={isAttachingRemote}
-                            >
-                                <Trans>Refresh cloud projects</Trans>
-                            </Button>
-                            <Button
-                                data-testid={
-                                    TESTING_IDS.settings
-                                        .attachRemoteProjectButton
-                                }
-                                variant="light"
-                                onClick={() => {
-                                    void attachExistingRemoteProject();
-                                }}
-                                loading={isAttachingRemote}
-                                disabled={
-                                    !selectedOwnedRepoId ||
-                                    isLoadingOwnedRepos ||
-                                    isCreatingRemote
-                                }
-                            >
-                                <Trans>Attach existing cloud project</Trans>
-                            </Button>
-                        </Box>
-                        {hasLoadedOwnedRepos && ownedRepos.length === 0 ? (
-                            <Text size="sm" c="dimmed">
-                                <Trans>
-                                    No owned cloud repositories are available to
-                                    attach yet.
-                                </Trans>
-                            </Text>
-                        ) : null}
-                    </Stack>
-                </>
-            ) : null}
-            <Switch
-                data-testid={TESTING_IDS.settings.autoSyncOnOpenToggle}
-                checked={project.appSettings.autoSyncOnOpen}
-                onChange={(event) => {
-                    project.updateAppSettings({
-                        autoSyncOnOpen: event.currentTarget.checked,
-                    });
-                }}
-                label={<Trans>Auto-sync on open</Trans>}
-                description={
-                    <Trans>
-                        Check for cloud updates automatically when opening a
-                        linked project.
-                    </Trans>
-                }
-            />
-            <Switch
-                data-testid={TESTING_IDS.settings.autoPushOnSaveToggle}
-                checked={project.appSettings.autoPushOnSave}
-                onChange={(event) => {
-                    project.updateAppSettings({
-                        autoPushOnSave: event.currentTarget.checked,
-                    });
-                }}
-                label={<Trans>Auto-publish on save</Trans>}
-                description={
-                    <Trans>
-                        Publish local saves to the cloud automatically for
-                        linked projects.
-                    </Trans>
-                }
-            />
-        </Stack>
+                        <div className={styles.tabsPanelInner}>
+                            <AppAppearanceTab
+                                settings={project.appSettings}
+                                applyUpdates={handleSettingsChange}
+                                portalContainer={overlayPortalRef}
+                            />
+                        </div>
+                    </BaseTabs.Panel>
+
+                    <BaseTabs.Panel
+                        value="reference-panel"
+                        className={styles.tabsPanel}
+                    >
+                        <div className={styles.tabsPanelInner}>
+                            <ReferencePanelTab />
+                        </div>
+                    </BaseTabs.Panel>
+
+                    <BaseTabs.Panel
+                        value="advanced"
+                        className={styles.tabsPanel}
+                    >
+                        <div className={styles.tabsPanelInner}>
+                            <AdvancedTab
+                                settings={project.appSettings}
+                                applyUpdates={handleSettingsChange}
+                            />
+                        </div>
+                    </BaseTabs.Panel>
+                </BaseTabs.Root>
+
+                <div className={styles.footer}>
+                    <div className={styles.footerInner}>
+                        <Button
+                            type="button"
+                            variant="primary"
+                            size="md"
+                            className={styles.footerButton}
+                            leftIcon={<Save size={16} />}
+                            onClick={onClose}
+                        >
+                            {t`Save and Close`}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="md"
+                            className={styles.footerButton}
+                            onClick={() => {
+                                void handleCloseWithoutSaving();
+                            }}
+                            disabled={isReverting}
+                        >
+                            {t`Close without Saving`}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
-/**
- * Language picker used inside the settings panel.
- *
- * The parent owns the current value and persistence behavior; this component is
- * just the localized selector UI plus the async locale activation handoff.
- */
 export function LanguageSelector({
     value,
     onChange,
+    portalContainer,
 }: {
     value: string | null;
     onChange: (locale: string | null) => Promise<void> | void;
+    portalContainer?: RefObject<HTMLElement | null>;
 }) {
-    // No longer use workspace/project context here. Parent should pass `value` and `onChange`.
-    // const { i18n } = useLingui(); // Hook to access Lingui's i18n object
+    const localeItems = Object.entries(GET_LOCALES()).map(
+        ([locale, metadata]) => ({
+            value: locale,
+            label: i18n._(metadata.nativeName),
+        }),
+    );
 
-    // internal handler: if parent provided an onChange, call it; otherwise just activate the locale
-    const internalHandleLanguageChange = async (locale: string | null) => {
-        if (!locale) return;
-
-        await onChange(locale);
-    };
-
-    // always use the internal handler which knows how to call parent onChange if provided
-    const handleLanguageChange = internalHandleLanguageChange;
-
-    const data = Object.entries(GET_LOCALES()).map(([key, value]) => ({
-        value: key,
-        label: value.nativeName,
-        direction: value.direction,
-    }));
     return (
-        <Stack gap="xs">
-            <Text
-                data-testid={TESTING_IDS.settings.languageSelectorLabel}
-                size="md"
-                mb="2"
-                fw={500}
-            >
-                <Trans>Interface Localization</Trans>
-            </Text>
-            <Select
-                data-testid={TESTING_IDS.settings.languageSelector}
-                radius={"lg"}
-                styles={{
-                    root: {
-                        border: "none",
-                    },
-                    input: {
-                        paddingBlock: "var(--mantine-spacing-lg)",
-                    },
-                }}
-                leftSection={
-                    <Languages style={{ width: rem(20), height: rem(20) }} />
-                }
-                leftSectionPointerEvents="none"
-                classNames={{
-                    root: styles.root,
-                    input: styles.input,
-                    dropdown: styles.dropdown,
-                }}
-                value={value ?? null} // prefer passed value; no project-context fallback
-                onChange={handleLanguageChange}
-                data={data.map((item) => ({
-                    value: item.value,
-                    // msg defined even if default form lingui
-                    label: i18n._(item.label),
-                    direction: item.direction,
-                }))}
-            />
-        </Stack>
+        <SelectPrimitive
+            items={localeItems}
+            value={value ?? undefined}
+            onValueChange={onChange}
+            icon={<Languages size={18} />}
+            className={styles.selectControl}
+            portalContainer={portalContainer}
+            placeholder={t`Select language`}
+        />
     );
 }
 
-function resolveCreateRemoteErrorMessage(args: {
-    error: unknown;
-    suggestedName: string;
-    fallback: string;
-}): string {
-    if (isDuplicateRemoteRepoNameError(args.error)) {
-        return `A cloud project named "${args.suggestedName}" already exists in your account. Attach the existing cloud project instead.`;
-    }
+function AppAppearanceTab({
+    settings,
+    applyUpdates,
+    portalContainer,
+}: {
+    settings: Settings;
+    applyUpdates: (updates: Partial<Settings>) => Promise<void>;
+    portalContainer: RefObject<HTMLElement | null>;
+}) {
+    const localeItems = Object.entries(GET_LOCALES()).map(
+        ([value, locale]) => ({
+            value,
+            label: i18n._(locale.nativeName),
+        }),
+    );
 
-    return args.error instanceof Error ? args.error.message : args.fallback;
+    return (
+        <div className={styles.section}>
+            <SettingRow
+                title={t`Interface Language`}
+                description={t`Choose the display language for Dovetail.`}
+                control={
+                    <div data-testid={TESTING_IDS.settings.languageSelector}>
+                        <SelectPrimitive
+                            items={localeItems}
+                            value={settings.appLanguage}
+                            onValueChange={(value) => {
+                                if (!value) {
+                                    return;
+                                }
+
+                                const locale = GET_LOCALES()[value];
+                                void applyUpdates({
+                                    appLanguage:
+                                        value as Settings["appLanguage"],
+                                    appDirection: locale.direction,
+                                });
+                            }}
+                            icon={<Languages size={18} />}
+                            className={styles.selectControl}
+                            portalContainer={portalContainer}
+                            placeholder={t`Select language`}
+                        />
+                    </div>
+                }
+            />
+
+            <SettingRow
+                title={t`Display Mode`}
+                description={t`Choose the theme used throughout the application.`}
+                control={
+                    <div data-testid={TESTING_IDS.settings.themeToggle}>
+                        <ToggleGroup
+                            value={settings.colorScheme}
+                            onValueChange={(value) => {
+                                if (value === "light" || value === "dark") {
+                                    void applyUpdates({ colorScheme: value });
+                                }
+                            }}
+                            items={[
+                                {
+                                    value: "light",
+                                    label: t`Light`,
+                                    icon: <SunMedium size={16} />,
+                                },
+                                {
+                                    value: "dark",
+                                    label: t`Dark`,
+                                    icon: <MoonStar size={16} />,
+                                },
+                            ]}
+                            className={styles.toggleGroup}
+                        />
+                    </div>
+                }
+            />
+
+            <SettingRow
+                title={t`Editor Mode`}
+                description={t`Select which editing mode you want to use.`}
+                control={
+                    <EditorModeToggle
+                        value={settings.editorMode}
+                        onValueChange={(value) =>
+                            void applyUpdates({ editorMode: value })
+                        }
+                        portalContainer={portalContainer}
+                    />
+                }
+            />
+
+            <SettingRow
+                title={t`Text Size`}
+                description={t`Adjust the reading size used for editor text.`}
+                control={
+                    <FontSizeControl
+                        value={settings.fontSize}
+                        onValueChange={(value) =>
+                            void applyUpdates({ fontSize: value })
+                        }
+                    />
+                }
+            />
+
+            {settings.canSetZoom ? (
+                <SettingRow
+                    title={t`Zoom`}
+                    description={t`Adjust the overall application zoom when supported.`}
+                    control={
+                        <ZoomControl
+                            value={settings.zoom}
+                            canSetZoom={settings.canSetZoom}
+                            onValueChange={(value) =>
+                                void applyUpdates({ zoom: value })
+                            }
+                        />
+                    }
+                />
+            ) : null}
+        </div>
+    );
 }
 
-function isDuplicateRemoteRepoNameError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /repository with the same name already exists/i.test(message);
+function ReferencePanelTab() {
+    return (
+        <div className={styles.placeholder}>
+            <div className={styles.rowTitle}>{t`Reference panel settings`}</div>
+            <div className={styles.rowDescription}>
+                {t`This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it.`}
+            </div>
+        </div>
+    );
+}
+
+function AdvancedTab({
+    settings,
+    applyUpdates,
+}: {
+    settings: Settings;
+    applyUpdates: (updates: Partial<Settings>) => Promise<void>;
+}) {
+    return (
+        <div className={styles.section}>
+            <SettingRow
+                title={t`Auto Sync on Open`}
+                description={t`Check for cloud updates automatically when opening a linked project.`}
+                control={
+                    <div
+                        className={styles.rowControlEnd}
+                        data-testid={TESTING_IDS.settings.autoSyncOnOpenToggle}
+                    >
+                        <Switch
+                            checked={settings.autoSyncOnOpen}
+                            onCheckedChange={(checked) =>
+                                void applyUpdates({ autoSyncOnOpen: checked })
+                            }
+                            label={
+                                <span className={styles.switchLabel}>
+                                    <span className={styles.switchLabelTitle}>
+                                        {settings.autoSyncOnOpen
+                                            ? t`Enabled`
+                                            : t`Disabled`}
+                                    </span>
+                                </span>
+                            }
+                        />
+                    </div>
+                }
+            />
+
+            <SettingRow
+                title={t`Auto Publish on Save`}
+                description={t`Publish local saves automatically for linked cloud projects.`}
+                control={
+                    <div
+                        className={styles.rowControlEnd}
+                        data-testid={TESTING_IDS.settings.autoPushOnSaveToggle}
+                    >
+                        <Switch
+                            checked={settings.autoPushOnSave}
+                            onCheckedChange={(checked) =>
+                                void applyUpdates({ autoPushOnSave: checked })
+                            }
+                            label={
+                                <span className={styles.switchLabel}>
+                                    <span className={styles.switchLabelTitle}>
+                                        {settings.autoPushOnSave
+                                            ? t`Enabled`
+                                            : t`Disabled`}
+                                    </span>
+                                </span>
+                            }
+                        />
+                    </div>
+                }
+            />
+        </div>
+    );
+}
+
+function SettingRow({
+    title,
+    description,
+    control,
+}: {
+    title: string;
+    description: string;
+    control: ReactNode;
+}) {
+    return (
+        <div className={styles.sectionRow}>
+            <div className={styles.rowText}>
+                <div className={styles.rowTitle}>{title}</div>
+                <div className={styles.rowDescription}>{description}</div>
+            </div>
+            <div className={styles.rowControl}>{control}</div>
+        </div>
+    );
 }

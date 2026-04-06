@@ -2,6 +2,7 @@ import type {
     SearchResult,
     SearchSource,
 } from "@/app/domain/search/SearchService.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { MatchInNode } from "@/app/ui/hooks/useSearchHighlighter.ts";
 
 /**
@@ -28,4 +29,5 @@ export type SearchRunOptionOverrides = {
     matchWholeWord?: boolean;
     searchUSFM?: boolean;
     searchReference?: boolean;
+    referenceFiles?: ScriptureBookState[];
 };

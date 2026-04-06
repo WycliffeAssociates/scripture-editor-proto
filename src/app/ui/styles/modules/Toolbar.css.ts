@@ -1,5 +1,7 @@
 import { style } from "@vanilla-extract/css";
-import { darkSelector, vars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
+const darkSelector = "[data-theme='dark']";
 
 export const toolbar = style({
     width: "100%",
@@ -10,16 +12,16 @@ export const toolbarInner = style({
     justifyContent: "space-between",
     alignItems: "center",
     //   padding: "0.35rem 0",
-    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
-    gap: vars.spacing.md,
-    borderBottom: `1px solid ${vars.colors.defaultBorder}`,
+    padding: `${dsVars.spacing.sm} ${dsVars.spacing.md}`,
+    gap: dsVars.spacing.md,
+    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
     width: "100%",
 });
 
 export const toolbarSection = style({
     display: "flex",
     alignItems: "center",
-    gap: vars.spacing.xs,
+    gap: dsVars.spacing.xs,
     flexWrap: "nowrap",
     minWidth: 0,
     "@media": {
@@ -49,40 +51,40 @@ export const referenceProjectLabel = style({
 
 export const clearReferenceProject = style({
     fontWeight: 600,
-    borderBottom: `1px solid ${vars.colors.gray[2]}`,
+    borderBottom: `1px solid ${dsVars.color.surfaceTertiary}`,
     borderRadius: "0",
-    color: vars.colors.error[6],
+    color: dsVars.color.onSurfaceError,
     selectors: {
         [`${darkSelector} &`]: {
-            color: vars.colors.error[4],
+            color: dsVars.color.surfaceError,
         },
     },
 });
 
 export const projectItem = style({
-    paddingInlineStart: vars.spacing.md,
+    paddingInlineStart: dsVars.spacing.md,
 });
 
 export const languageLabel = style({
-    paddingTop: vars.spacing.xs,
+    paddingTop: dsVars.spacing.xs,
 });
 
 export const currentProjectIndicator = style({
-    fontSize: vars.fontSizes.xs,
+    fontSize: dsVars.typography.bodySmallest.fontSize,
     opacity: 0.6,
 });
 
 export const projectItemContent = style({
     display: "flex",
     alignItems: "center",
-    gap: `calc(${vars.spacing.xs} * 0.4)`,
+    gap: `calc(${dsVars.spacing.xs} * 0.4)`,
 });
 
 export const viewOnlyActive = style({
-    backgroundColor: vars.colors.orange[0],
+    backgroundColor: dsVars.color.surfaceError,
     selectors: {
         [`${darkSelector} &`]: {
-            backgroundColor: vars.colors.orange[9],
+            backgroundColor: dsVars.color.surfaceTertiary,
         },
     },
 });

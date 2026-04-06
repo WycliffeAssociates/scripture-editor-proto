@@ -29,23 +29,57 @@ type Props = {
     gitProvider: GitProvider;
 };
 
+async function loadReferenceResourceByPath(args: {
+    libraryService: LibraryService;
+    resourcePath: string;
+}) {
+    const result = await args.libraryService.openItem(args.resourcePath);
+    if (!result) {
+        throw new Error(
+            `Failed to load reference resource: ${args.resourcePath}`,
+        );
+    }
+    return result;
+}
+
+async function loadReferenceScriptureByPath(args: {
+    libraryService: LibraryService;
+    resourcePath: string;
+    fileSystem: FileSystem;
+    gitProvider: GitProvider;
+    editorMode: EditorModeSetting;
+    usfmOnionService: IUsfmOnionService;
+}) {
+    const item = await loadReferenceResourceByPath({
+        libraryService: args.libraryService,
+        resourcePath: args.resourcePath,
+    });
+    if (!isUsfmScriptureItem(item)) {
+        throw new Error(
+            `Failed to load scripture reference resource: ${args.resourcePath}`,
+        );
+    }
+    return projectParamToParsedScripture({
+        openProjectReadOnly: async () => item,
+        project: args.resourcePath,
+        fileSystem: args.fileSystem,
+        gitProvider: args.gitProvider,
+        editorMode: args.editorMode,
+        usfmOnionService: args.usfmOnionService,
+    });
+}
+
 function useActiveReferenceResourceQuery(args: {
     activeReferenceResourcePath: string | undefined;
     libraryService: LibraryService;
 }) {
     return useQuery({
         queryKey: ["referenceResource", args.activeReferenceResourcePath],
-        queryFn: async () => {
-            const result = await args.libraryService.openItem(
-                args.activeReferenceResourcePath ?? "",
-            );
-            if (!result) {
-                throw new Error(
-                    `Failed to load reference resource: ${args.activeReferenceResourcePath ?? "unknown"}`,
-                );
-            }
-            return result;
-        },
+        queryFn: async () =>
+            loadReferenceResourceByPath({
+                libraryService: args.libraryService,
+                resourcePath: args.activeReferenceResourcePath ?? "",
+            }),
         enabled: !!args.activeReferenceResourcePath,
     });
 }
@@ -65,24 +99,15 @@ function useReferenceScriptureQuery(args: {
             args.activeReferenceResourcePath,
             args.editorMode,
         ],
-        queryFn: async () => {
-            const item = await args.libraryService.openItem(
-                args.activeReferenceResourcePath ?? "",
-            );
-            if (!item || !isUsfmScriptureItem(item)) {
-                throw new Error(
-                    `Failed to load scripture reference resource: ${args.activeReferenceResourcePath ?? "unknown"}`,
-                );
-            }
-            return projectParamToParsedScripture({
-                openProjectReadOnly: async () => item,
-                project: args.activeReferenceResourcePath,
+        queryFn: async () =>
+            loadReferenceScriptureByPath({
+                libraryService: args.libraryService,
+                resourcePath: args.activeReferenceResourcePath ?? "",
                 fileSystem: args.fileSystem,
                 gitProvider: args.gitProvider,
                 editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
-            });
-        },
+            }),
         enabled: Boolean(
             args.activeReferenceResourcePath &&
                 args.supportsScriptureNavigation,
@@ -491,6 +516,42 @@ export const useReferenceItem = ({
         setReferenceChapterNumber(pickedChapterNumber);
     }
 
+    async function selectActiveReferenceResourcePath(
+        resourcePath: string | undefined,
+    ) {
+        setActiveReferenceResourcePathWithReset(resourcePath);
+
+        if (!resourcePath) {
+            return null;
+        }
+
+        const item = await queryClient.fetchQuery({
+            queryKey: ["referenceResource", resourcePath],
+            queryFn: async () =>
+                loadReferenceResourceByPath({
+                    libraryService,
+                    resourcePath,
+                }),
+        });
+
+        if (!isUsfmScriptureItem(item)) {
+            return null;
+        }
+
+        return await queryClient.fetchQuery({
+            queryKey: ["referenceScriptureFiles", resourcePath, editorMode],
+            queryFn: async () =>
+                loadReferenceScriptureByPath({
+                    libraryService,
+                    resourcePath,
+                    fileSystem,
+                    gitProvider,
+                    editorMode,
+                    usfmOnionService: usfmOnionService as IUsfmOnionService,
+                }),
+        });
+    }
+
     return {
         referenceResourcesQuery,
         activeReferenceResourceQuery,
@@ -523,6 +584,7 @@ export const useReferenceItem = ({
         setReferenceNavigationSynced,
         setReferenceScrollingSynced,
         setActiveReferenceResourcePath: setActiveReferenceResourcePathWithReset,
+        selectActiveReferenceResourcePath,
 
         // Backward-compatible aliases for existing scripture-only consumers.
         referenceQuery: referenceScriptureQuery,

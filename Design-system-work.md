@@ -23,14 +23,14 @@ This is not a merge-from-playground project. The parallel checkout at `/Users/wi
 
 ## Current State
 
-The current branch still depends heavily on Mantine.
+The runtime app shell is now on the app-owned design system and Base UI primitives.
 
-- Mantine packages are still installed in `package.json`.
-- Mantine styles and providers are wired in [`src/app/entrypoint.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/entrypoint.tsx).
-- Theme and color tokens are still modeled through [`src/app/ui/styles/mantineTheme.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/mantineTheme.ts) and [`src/app/ui/styles/theme.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/theme.css.ts).
-- Responsive/theme context still depends on Mantine hooks in [`src/app/ui/contexts/MediaQuery.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/contexts/MediaQuery.tsx).
-- Notifications are still Mantine-backed in [`src/app/ui/components/primitives/Notifications.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/Notifications.tsx).
-- Roughly 49 files currently reference Mantine packages directly.
+- Mantine styles and `MantineProvider` have been removed from [`src/app/entrypoint.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/entrypoint.tsx).
+- [`src/app/ui/styles/mantineTheme.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/mantineTheme.ts) has been deleted.
+- The old Mantine search implementation [`src/app/ui/components/blocks/Search.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/Search.tsx) and its stylesheet have been deleted, with the surviving functionality moved under [`src/app/ui/components/views/search-panel/`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/views/search-panel).
+- Responsive/theme context is app-owned in [`src/app/ui/contexts/MediaQuery.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/contexts/MediaQuery.tsx).
+- Notifications are app-owned and Base UI-backed in [`src/app/ui/components/primitives/Notifications.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/Notifications.tsx).
+- Remaining Mantine work is now mostly dependency cleanup and any straggling tests or stale generated references, not active runtime UI wiring.
 
 The playground checkout already proves out a partial migration:
 
@@ -49,7 +49,7 @@ It is still transitional, not final:
 
 ## Status Update
 
-Last updated: 2026-04-02
+Last updated: 2026-04-06
 
 ### Done
 
@@ -65,8 +65,12 @@ Last updated: 2026-04-02
   - [`src/app/ui/components/primitives/Notifications.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/Notifications.tsx)
   - [`src/app/ui/components/primitives/toastManager.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/toastManager.ts)
   - [`src/app/ui/styles/modules/Notifications.module.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/modules/Notifications.module.css.ts)
+- The old Mantine-derived CSS shim is gone:
+  - [`src/app/ui/styles/theme.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/theme.css.ts)
 - The app bootstrap now renders app-owned toasts instead of Mantine `Notifications`:
   - [`src/app/entrypoint.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/entrypoint.tsx)
+- Mantine runtime bootstrap has been removed from [`src/app/entrypoint.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/entrypoint.tsx).
+- [`src/app/ui/styles/mantineTheme.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/mantineTheme.ts) has been removed.
 - Primitive library work has started and the following are landed:
   - `Button`
   - `Kbd`
@@ -86,39 +90,44 @@ Last updated: 2026-04-02
 - The left sidebar book/chapter picker exists as a Base UI-era component and is using real workspace data:
   - [`src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx)
   - [`src/app/ui/components/blocks/BookChapterPickerSidebar/bookChapterPickerSidebar.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/BookChapterPickerSidebar/bookChapterPickerSidebar.css.ts)
+- Mantine hook replacements are landed under `src/app/ui/hooks/general/**`.
+- [`src/app/ui/contexts/MediaQuery.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/contexts/MediaQuery.tsx) is off Mantine.
+- [`src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx) is off Mantine, but still needs design tuning.
+- [`src/app/ui/components/blocks/ReferencePicker.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ReferencePicker.tsx) has been removed rather than migrated.
+- [`src/app/ui/components/blocks/Search.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/Search.tsx) has been removed rather than migrated.
+- [`src/app/ui/components/blocks/ProjectSettings/Settings.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSettings/Settings.tsx) is off Mantine and is now using the workspace overlay model instead of the old drawer path.
+- [`src/app/ui/components/blocks/AppDrawer.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/AppDrawer.tsx) has been removed rather than migrated.
+- Settings-related controls are off Mantine:
+  - [`src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx)
+  - [`src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx)
+  - [`src/app/ui/components/blocks/ProjectSettings/ZoomControl.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSettings/ZoomControl.tsx)
+- Locale bootstrapping now uses the persisted app language on load and live locale changes no longer remount the whole app tree:
+  - [`src/app/ui/i18n/i18nEntry.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/i18n/i18nEntry.tsx)
+  - [`src/app/ui/i18n/loadLocale.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/i18n/loadLocale.tsx)
 
 ### In Progress
 
-- `ProjectView` shell decomposition and layout migration are underway, but the screen is still a hybrid and still contains mock surfaces.
+- `ProjectView` shell decomposition and layout migration are underway, but the screen is still a hybrid and still contains mock/exploratory surfaces.
 - A bottom dock/panel proof of concept exists for problems/cloud status, but it is exploratory UI and not final behavior.
-- Theme handling is transitional:
-  - app-owned root theme classes are now present
-  - Mantine provider and Mantine theme plumbing still remain for legacy screens
 - The new primitive library is landed, but most production call sites have not been migrated yet.
+- Settings localization is only partially audited. The locale plumbing works, but a later small pass should still wrap remaining hardcoded UI copy in translatable macros/components.
+- Search behavior and UI are now app-owned, but still need follow-up polish on the new result-row replace UX and any remaining search tests.
 
 ### Still To Do
 
-- Replace Mantine hooks and context seams that are still runtime dependencies:
-  - `useDisclosure`
-  - `useMediaQuery`
-  - `useClickOutside`
-  - debounce/throttle helpers
-- Rewrite [`src/app/ui/contexts/MediaQuery.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/contexts/MediaQuery.tsx) to remove Mantine theme/color-scheme coupling.
 - Burn down remaining Mantine-backed screens and call sites incrementally.
 - Migrate low-risk consumers onto the new primitives, especially:
-  - [`src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx)
-  - [`src/app/ui/components/blocks/ReferencePicker.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ReferencePicker.tsx)
+  - [`src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx) visual tuning and interaction polish
 - Replace Mantine layout components in route and composite screens.
-- Remove Mantine `Notifications` package usage completely from dependencies after verification.
-- Remove Mantine CSS imports and eventually remove `MantineProvider` once the remaining consumers are gone.
-- Replace `theme.css.ts` / Mantine-derived variable shims where they are still required by old styles.
+- Remove Mantine packages from dependencies after verification.
 - Audit and replace remaining `var(--mantine-...)` usages.
+- Refresh generated/localized artifacts that still reference deleted Mantine-era files where that matters.
 
 ### Immediate Next Recommended Slices
 
-1. Finish one real low-risk consumer migration such as `ReferencePicker` or `ActionPalette`.
-2. Remove Mantine dependency from `MediaQuery.tsx` and related runtime hooks.
-3. Continue decomposing and stabilizing `ProjectView`, but only after the infrastructure seams stop moving.
+1. Tackle the next visible Mantine-heavy composite that still matters in the new shell, most likely [`src/app/ui/components/blocks/Toolbar.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/Toolbar.tsx) or [`src/app/ui/components/blocks/ReferenceEditor.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ReferenceEditor.tsx), depending on which one you still intend to keep.
+2. Remove Mantine packages from `package.json` once dependency-level verification is done.
+3. Do a small cleanup pass over newly migrated settings/shell copy for full localization coverage.
 
 ## Migration Principles
 
@@ -366,12 +375,62 @@ Break the work into a parent effort with child tasks roughly like:
 - Remove Mantine provider/theme files
 - Remove Mantine packages
 
-## Recommendation
-
-Start with the smallest high-leverage slice:
-
-`style-guide + tokens + toasts`
-
-That gives us a real design-system foothold in this branch, proves coexistence, and avoids committing to a full Mantine extraction before the replacement layer exists.
 
 
+
+## Burndown file tree
+
+Status legend:
+
+- `done`: off Mantine for current migration purposes
+- `partial`: off Mantine or structurally migrated, but still needs design or follow-up cleanup
+- `removed`: deleted as part of migration
+- `todo`: still in burndown
+
+Mantine-bearing `.tsx` burndown for this migration pass:
+
+- `partial` [`src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/ContextMenu/ActionPalette.tsx)
+- `partial` [`src/app/domain/editor/plugins/ContextMenuPlugin.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/ContextMenuPlugin.tsx)
+- `done` [`src/app/domain/editor/plugins/LintTooltipPlugin.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/LintTooltipPlugin.tsx)
+- `done` [`src/app/domain/editor/plugins/VerseMarkerSuggestPlugin.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/domain/editor/plugins/VerseMarkerSuggestPlugin.tsx)
+- `partial` [`src/app/entrypoint.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/entrypoint.tsx)
+- `done` [`src/app/routes/$project.index.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/routes/$project.index.tsx)
+- `todo` [`src/app/routes/$project.metadata.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/routes/$project.metadata.tsx)
+- `done` [`src/app/routes/create.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/routes/create.tsx)
+- `done` [`src/app/routes/index.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/routes/index.tsx)
+- `todo` [`src/app/routes/playground.lazy.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/routes/playground.lazy.tsx)
+- `done` [`src/app/ui/components/blocks/CloudProjectStatus.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/CloudProjectStatus.tsx)
+- `done` [`src/app/ui/components/blocks/DiffModal/DiffModal.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/DiffModal/DiffModal.tsx)
+- `done` [`src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx)
+- `done` [`src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx)
+- `done` [`src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx)
+- `partial` [`src/app/ui/components/blocks/LintPopover.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/LintPopover.tsx) - legacy hover surface; lint issues now live in the dock
+- `done` [`src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx) - frontend removed; logic can be revisited for a future editor-mode flow
+- `todo` [`src/app/ui/components/blocks/NestedEditor.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/NestedEditor.tsx)
+- `done` [`src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx)
+- `done` [`src/app/ui/components/blocks/ProjectRow.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectRow.tsx)
+- `done` [`src/app/ui/components/blocks/ProjectSwitcher/ProjectSwitcher.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSwitcher/ProjectSwitcher.tsx)
+- `done` [`src/app/ui/components/blocks/ProjectSwitcher/projectSwitcher.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ProjectSwitcher/projectSwitcher.css.ts)
+- `done` [`src/app/ui/components/views/sidebar/DesktopSidebar.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/views/sidebar/DesktopSidebar.tsx)
+- `done` [`src/app/ui/styles/modules/projectImportHub.css.ts`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/styles/modules/projectImportHub.css.ts)
+- `done` [`src/app/ui/components/blocks/ReferenceEditor.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/ReferenceEditor.tsx)
+- `todo` [`src/app/ui/components/blocks/Search.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/Search.tsx)
+- `todo` [`src/app/ui/components/blocks/SearchTrigger.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/SearchTrigger.tsx)
+- `removed` [`src/app/ui/components/blocks/Toolbar.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/blocks/Toolbar.tsx) — replaced by EditorToolbar primitive
+- `todo` [`src/app/ui/components/primitives/ActionIcon.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/ActionIcon.tsx)
+- `done` [`src/app/ui/components/primitives/HistoryButton.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/HistoryButton.tsx)
+- `todo` [`src/app/ui/components/primitives/ProjectList/ProjectList.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/components/primitives/ProjectList/ProjectList.tsx)
+- `done` [`src/app/ui/hooks/useActions.tsx`](/Users/willkelly/Documents/Work/Code/scripture-editor-proto-2/src/app/ui/hooks/useActions.tsx)
+
+
+
+## gonna follow the same pattern as settings for now:
+- Find / replace
+- Save Diff
+
+
+## Into the dock (i.e we'd like to see text while this shows)
+- lint
+- cloud?
+- previous versions
+## Overlay (popover) vs dock? hmm: 

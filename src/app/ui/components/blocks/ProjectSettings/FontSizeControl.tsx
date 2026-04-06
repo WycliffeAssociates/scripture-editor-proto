@@ -1,166 +1,78 @@
-import { Trans } from "@lingui/react/macro";
-import { ActionIcon, Box, rem, Stack, Text, TextInput } from "@mantine/core";
 import { Minus, Plus } from "lucide-react";
-import type React from "react";
-import { useCallback, useEffect, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import styles from "./Settings.module.css";
+import * as styles from "./settings.css.ts";
 
-/**
- * Workspace text-size control.
- *
- * This lets the user change the scripture editor's font sizing without changing
- * overall browser/page zoom. The setting is persisted through workspace app
- * settings and applied elsewhere during workspace render.
- */
-export default function FontSizeControl() {
+interface FontSizeControlProps {
+    value?: string;
+    onValueChange?: (value: string) => void;
+}
+
+const MIN_FONT_SIZE_PX = 10;
+const MAX_FONT_SIZE_PX = 40;
+const FONT_SIZE_STEP = 1;
+
+function parseFontSize(value: string | undefined): number {
+    if (!value) {
+        return 16;
+    }
+
+    const cleaned = value.trim().replace("px", "");
+    const parsed = Number.parseInt(cleaned, 10);
+    return Number.isNaN(parsed) ? 16 : parsed;
+}
+
+export default function FontSizeControl({
+    value,
+    onValueChange,
+}: FontSizeControlProps) {
     const { project } = useWorkspaceContext();
-    const { theme, isDarkTheme } = useWorkspaceMediaQuery();
+    const currentValue = value ?? project.appSettings.fontSize;
+    const currentPx = parseFontSize(currentValue);
 
-    const minPx = 10;
-    const maxPx = 40;
-    const step = 1;
+    function commit(nextPx: number) {
+        const clamped = Math.max(
+            MIN_FONT_SIZE_PX,
+            Math.min(MAX_FONT_SIZE_PX, Math.round(nextPx)),
+        );
+        const nextValue = `${clamped}px`;
 
-    const parseFontSize = useCallback((value: string | undefined): number => {
-        if (!value) return 16;
-        const cleaned = value.trim().replace("px", "");
-        const parsed = parseInt(cleaned, 10);
-        if (Number.isNaN(parsed)) return 16;
-        return parsed;
-    }, []);
-
-    const currentFromSettings = parseFontSize(project.appSettings.fontSize);
-    const [localPx, setLocalPx] = useState<number>(currentFromSettings);
-    const [display, setDisplay] = useState<string>(`${currentFromSettings}px`);
-
-    useEffect(() => {
-        const parsed = parseFontSize(project.appSettings.fontSize);
-        setLocalPx(parsed);
-        setDisplay(`${parsed}px`);
-    }, [project.appSettings.fontSize, parseFontSize]);
-
-    const commitPx = useCallback(
-        (px: number) => {
-            const clamped = Math.max(minPx, Math.min(maxPx, Math.round(px)));
-            setLocalPx(clamped);
-            setDisplay(`${clamped}px`);
-            project.updateAppSettings({ fontSize: `${clamped}px` });
-        },
-        [project],
-    );
-
-    const handleIncrement = () => commitPx(localPx + step);
-    const handleDecrement = () => commitPx(localPx - step);
-
-    const parseInputToPx = (raw: string) => {
-        if (!raw) return null;
-        const cleaned = raw.trim().replace("px", "");
-        const parsed = parseInt(cleaned, 10);
-        if (Number.isNaN(parsed)) return null;
-        return parsed;
-    };
-
-    const handleInputBlur = () => {
-        const parsed = parseInputToPx(display);
-        if (parsed === null) {
-            // reset to current valid value
-            setDisplay(`${localPx}px`);
+        if (onValueChange) {
+            onValueChange(nextValue);
             return;
         }
-        commitPx(parsed);
-    };
 
-    const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (
-        e,
-    ) => {
-        if (e.key === "Enter") {
-            (e.target as HTMLInputElement).blur();
-        }
-        if (e.key === "ArrowUp") {
-            e.preventDefault();
-            handleIncrement();
-        }
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            handleDecrement();
-        }
-    };
+        project.updateAppSettings({ fontSize: nextValue });
+    }
 
     return (
-        <Stack gap="xs">
-            <Text size="md" mb="2" fw={500}>
-                <Trans>Text size</Trans>
-            </Text>
-
-            <Box
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    border: `1px solid var(--mantine-color-default-border)`,
-                    borderRadius: rem(12),
-                    overflow: "hidden",
-                    minWidth: rem(220),
-                    background: isDarkTheme
-                        ? theme.colors.dark[8]
-                        : theme.colors.gray[1],
-                }}
+        <div className={styles.stepperControl}>
+            <button
+                type="button"
+                className={styles.stepperButton}
+                data-testid={TESTING_IDS.settings.fontSizeDecrement}
+                aria-label="Decrease font size"
+                onClick={() => commit(currentPx - FONT_SIZE_STEP)}
+                disabled={currentPx <= MIN_FONT_SIZE_PX}
             >
-                <ActionIcon
-                    data-testid={TESTING_IDS.settings.fontSizeDecrement}
-                    variant="subtle"
-                    onClick={handleDecrement}
-                    aria-label="Decrease font size"
-                    title="Decrease"
-                    style={{
-                        width: rem(56),
-                        height: rem(44),
-                        borderRight: `1px solid var(--mantine-color-default-border)`,
-                    }}
-                >
-                    <Minus size="1.1rem" />
-                </ActionIcon>
-
-                <Box
-                    style={{
-                        flex: 1,
-                        borderLeft: isDarkTheme
-                            ? `1px solid ${theme.colors.dark[5]}`
-                            : `1px solid ${theme.colors.gray[3]}`,
-                        borderRight: isDarkTheme
-                            ? `1px solid ${theme.colors.dark[5]}`
-                            : `1px solid ${theme.colors.gray[3]}`,
-                    }}
-                >
-                    <TextInput
-                        data-testid={TESTING_IDS.settings.fontSizeInput}
-                        value={display}
-                        onChange={(e) => setDisplay(e.currentTarget.value)}
-                        onBlur={handleInputBlur}
-                        onKeyDown={handleInputKeyDown}
-                        variant="unstyled"
-                        classNames={{
-                            input: styles.centeredTextInput,
-                        }}
-                        aria-label="Font size in pixels"
-                    />
-                </Box>
-
-                <ActionIcon
-                    data-testid={TESTING_IDS.settings.fontSizeIncrement}
-                    variant="subtle"
-                    onClick={handleIncrement}
-                    aria-label="Increase font size"
-                    title="Increase"
-                    style={{
-                        width: rem(56),
-                        height: rem(44),
-                    }}
-                >
-                    <Plus size="1.1rem" />
-                </ActionIcon>
-            </Box>
-        </Stack>
+                <Minus size={16} />
+            </button>
+            <div
+                className={styles.stepperValue}
+                data-testid={TESTING_IDS.settings.fontSizeInput}
+            >
+                {currentPx}px
+            </div>
+            <button
+                type="button"
+                className={styles.stepperButton}
+                data-testid={TESTING_IDS.settings.fontSizeIncrement}
+                aria-label="Increase font size"
+                onClick={() => commit(currentPx + FONT_SIZE_STEP)}
+                disabled={currentPx >= MAX_FONT_SIZE_PX}
+            >
+                <Plus size={16} />
+            </button>
+        </div>
     );
 }

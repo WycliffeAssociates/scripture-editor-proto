@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
-import { vars, virtualVars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+
 export const host = style({
     position: "fixed",
     zIndex: 2000,
@@ -9,38 +10,41 @@ export const host = style({
 
 export const card = style({
     pointerEvents: "auto",
-    backgroundColor: virtualVars.surface,
-    color: virtualVars.text,
-    borderRadius: vars.radius.md,
-    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    border: `1px solid ${dsVars.color.onSurfaceError})`,
+    color: dsVars.color.onSurfacePrimary,
+    borderRadius: dsVars.border.radius.md,
+    padding: `${dsVars.spacing.xs} ${dsVars.spacing.sm}`,
     maxWidth: 420,
-    boxShadow: `0 10px 24px color-mix(in srgb, ${vars.colors.black} 28%, transparent)`,
-    border: `1px solid ${vars.colors.error[1]}`,
 });
 
 export const row = style({
     display: "flex",
-    gap: vars.spacing.xs,
-    alignItems: "center",
+    gap: dsVars.spacing.xs,
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    padding: `calc(${vars.spacing.xs} * 0.375) 0`,
+    padding: `calc(${dsVars.spacing.xs} * 0.375) 0`,
 });
 
 export const message = style({
     margin: 0,
-    fontSize: vars.fontSizes.xs,
+    fontSize: dsVars.typography.bodySmallest.fontSize,
     lineHeight: 1.35,
     whiteSpace: "pre-wrap",
+    backgroundColor: `color-mix(in srgb, ${dsVars.color.surfaceError} 34%, transparent)`,
+    border: `1px solid color-mix(in srgb, ${dsVars.color.onSurfaceError} 55%, transparent)`,
+    borderRadius: dsVars.border.radius.sm,
+    padding: `calc(${dsVars.spacing.xs} * 0.375) ${dsVars.spacing.xs}`,
+    flex: 1,
 });
 
 export const fixButton = style({
     border: "none",
     borderRadius: 999,
-    padding: `calc(${vars.spacing.xs} * 0.375) ${vars.spacing.sm}`,
-    fontSize: vars.fontSizes.xs,
+    padding: `calc(${dsVars.spacing.xs} * 0.375) ${dsVars.spacing.sm}`,
+    fontSize: dsVars.typography.bodySmallest.fontSize,
     fontWeight: 600,
     whiteSpace: "nowrap",
     cursor: "pointer",
-    backgroundColor: vars.colors.primary[1],
-    color: vars.colors.primary[9],
+    backgroundColor: dsVars.color.brandLight,
+    color: dsVars.color.brandDarkest,
 });

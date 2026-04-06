@@ -1,4 +1,4 @@
-import { Portal, Text } from "@mantine/core";
+import { createPortal } from "react-dom";
 import { DATA_JS } from "@/app/data/constants.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -16,44 +16,49 @@ import * as styles from "@/app/ui/styles/modules/LintTooltipOverlay.css.ts";
  */
 export function LintTooltipPlugin() {
     const { actions, lint } = useWorkspaceContext();
-    const { hoveredErrors, tooltipPosition } = useEditorLintTooltip(
-        lint.messages,
-    );
+    const {
+        hoveredErrors,
+        tooltipPosition,
+        onTooltipMouseEnter,
+        onTooltipMouseLeave,
+    } = useEditorLintTooltip(lint.messages);
 
     if (!hoveredErrors || !tooltipPosition) return null;
-
-    return (
-        <Portal>
+    return createPortal(
+        <div
+            className={styles.host}
+            data-js={DATA_JS.lintTooltipOverlay}
+            style={{
+                top: tooltipPosition.y,
+                left: tooltipPosition.x,
+            }}
+        >
             <div
-                className={styles.host}
-                data-js={DATA_JS.lintTooltipOverlay}
-                style={{
-                    top: tooltipPosition.y,
-                    left: tooltipPosition.x,
-                }}
+                className={styles.card}
+                onMouseEnter={onTooltipMouseEnter}
+                onMouseLeave={onTooltipMouseLeave}
             >
-                <div className={styles.card}>
-                    {hoveredErrors.map((error) => (
-                        <div
-                            key={`${error.tokenId ?? error.relatedTokenId}:${error.code}:${error.sid}`}
-                            className={styles.row}
-                        >
-                            <Text className={styles.message} span>
-                                {formatLintIssueMessage(error)}
-                            </Text>
-                            {error.fix ? (
-                                <button
-                                    type="button"
-                                    className={styles.fixButton}
-                                    onClick={() => actions.fixLintError(error)}
-                                >
-                                    {formatTokenFixLabel(error.fix)}
-                                </button>
-                            ) : null}
-                        </div>
-                    ))}
-                </div>
+                {hoveredErrors.map((error) => (
+                    <div
+                        key={`${error.tokenId ?? error.relatedTokenId}:${error.code}:${error.sid}`}
+                        className={styles.row}
+                    >
+                        <span className={styles.message}>
+                            {formatLintIssueMessage(error)}
+                        </span>
+                        {error.fix ? (
+                            <button
+                                type="button"
+                                className={styles.fixButton}
+                                onClick={() => actions.fixLintError(error)}
+                            >
+                                {formatTokenFixLabel(error.fix)}
+                            </button>
+                        ) : null}
+                    </div>
+                ))}
             </div>
-        </Portal>
+        </div>,
+        document.body,
     );
 }

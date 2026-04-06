@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
-import { Alert, Badge, Button, Group, rem, Text } from "@mantine/core";
 import { AlertCircle, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import * as styles from "@/app/ui/styles/modules/CloudProjectStatus.css.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
@@ -12,7 +13,37 @@ import {
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 
-function getCloudStatusPresentation(status: GitRemoteProjectStatus) {
+type BadgeColor = "teal" | "blue" | "orange" | "yellow" | "gray" | "red";
+
+type CloudStatusPresentation = {
+    badgeLabel: string;
+    color: BadgeColor;
+    bannerTitle: string | null;
+    bannerMessage: string | null;
+    actionKind: "sync" | "review" | null;
+    actionLabel: string | null;
+};
+
+function Badge({
+    color,
+    children,
+    icon,
+}: {
+    color: BadgeColor;
+    children: React.ReactNode;
+    icon?: React.ReactNode;
+}) {
+    return (
+        <span className={`${styles.badgeBase} ${styles.badgeVariants[color]}`}>
+            {icon ? <span>{icon}</span> : null}
+            {children}
+        </span>
+    );
+}
+
+function getCloudStatusPresentation(
+    status: GitRemoteProjectStatus,
+): CloudStatusPresentation {
     switch (status.kind) {
         case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
             return {
@@ -89,15 +120,14 @@ export function CloudProjectStatusBadge(args: {
 
     return (
         <Badge
-            variant="light"
             color={presentation.color}
-            leftSection={
+            icon={
                 args.isRefreshing ? (
-                    <RefreshCw size={rem(12)} />
+                    <RefreshCw size={12} />
                 ) : args.status.kind === GIT_REMOTE_PROJECT_STATUS_OFFLINE ? (
-                    <CloudOff size={rem(12)} />
+                    <CloudOff size={12} />
                 ) : (
-                    <Cloud size={rem(12)} />
+                    <Cloud size={12} />
                 )
             }
         >
@@ -128,25 +158,29 @@ export function CloudProjectStatusBanner(args: {
     };
 
     return (
-        <Alert
-            color={presentation.color}
-            icon={<AlertCircle size={rem(16)} />}
-            title={presentation.bannerTitle}
-            variant="light"
+        <div
+            className={`${styles.alert} ${styles.alertVariants[presentation.color]}`}
         >
-            <Group justify="space-between" align="center" wrap="wrap">
-                <Text size="sm">{presentation.bannerMessage}</Text>
-                {presentation.actionLabel ? (
-                    <Button
-                        size="compact-sm"
-                        variant="white"
-                        onClick={handleAction}
-                        loading={args.isRefreshing}
-                    >
-                        {presentation.actionLabel}
-                    </Button>
-                ) : null}
-            </Group>
-        </Alert>
+            <span className={styles.alertIcon}>
+                <AlertCircle size={16} />
+            </span>
+            <div className={styles.alertContent}>
+                <p className={styles.alertTitle}>{presentation.bannerTitle}</p>
+                <div className={styles.alertActions}>
+                    <p className={styles.alertText}>
+                        {presentation.bannerMessage}
+                    </p>
+                    {presentation.actionLabel ? (
+                        <Button
+                            size="sm"
+                            onClick={handleAction}
+                            disabled={args.isRefreshing}
+                        >
+                            {presentation.actionLabel}
+                        </Button>
+                    ) : null}
+                </div>
+            </div>
+        </div>
     );
 }

@@ -1,14 +1,5 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Paper,
-    SegmentedControl,
-    Text,
-    Tooltip,
-} from "@mantine/core";
 import { diffWordsWithSpace } from "diff";
 import { RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
@@ -21,6 +12,9 @@ import {
     type ChapterRenderParagraph,
 } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
 import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
@@ -248,20 +242,15 @@ function ChapterStructuredToken({
     return (
         <span key={tokenWithOwner.key} className={styles.chapterPartChanged}>
             {showActionOverlay && (
-                <Tooltip label={actionLabel} withArrow position="top">
-                    <ActionIcon
-                        className={styles.chapterHunkAction}
-                        data-testid={TESTING_IDS.save.chapterHunkAction}
-                        onClick={onActionClick}
-                        size="xs"
-                        variant="subtle"
-                        color="blue"
-                        aria-label={actionLabel}
-                        title={actionLabel}
-                    >
-                        <RotateCw size={12} />
-                    </ActionIcon>
-                </Tooltip>
+                <ActionIconSimple
+                    className={styles.chapterHunkAction}
+                    data-testid={TESTING_IDS.save.chapterHunkAction}
+                    onClick={onActionClick}
+                    aria-label={actionLabel}
+                    title={actionLabel}
+                >
+                    <RotateCw size={12} />
+                </ActionIconSimple>
             )}
             <span
                 className={useWordGranularity ? "" : highlightClass}
@@ -381,15 +370,10 @@ export function ChapterDiffStructuredDocument({
             data-testid={TESTING_IDS.save.chapterPanel}
             className={styles.chapterDiffItem}
         >
-            <Group justify="space-between" align="center" mb="0">
-                <Text className={styles.diffSidHeader}>{chapterLabel}</Text>
+            <div className={styles.diffToolbarRow}>
+                <span className={styles.diffSidHeader}>{chapterLabel}</span>
                 {onChapterAction && (
-                    <Button
-                        variant="light"
-                        color={actionMode === "external" ? "blue" : "red"}
-                        size="xs"
-                        onClick={onChapterAction}
-                    >
+                    <Button variant="light" size="xs" onClick={onChapterAction}>
                         {actionMode === "external" ? (
                             <Trans>Apply chapter to current</Trans>
                         ) : (
@@ -397,29 +381,27 @@ export function ChapterDiffStructuredDocument({
                         )}
                     </Button>
                 )}
-            </Group>
+            </div>
 
             {isSm ? (
                 <div>
-                    <SegmentedControl
+                    <ToggleGroup
                         value={mobileViewType}
-                        onChange={(value) =>
+                        onValueChange={(value) =>
                             setMobileViewType(value as "original" | "current")
                         }
-                        data={[
+                        items={[
                             { label: currentLabel, value: "current" },
                             { label: originalLabel, value: "original" },
                         ]}
-                        size="xs"
-                        fullWidth
-                        mb="xs"
+                        className={styles.chapterMobileToggle}
                     />
-                    <Text className={styles.diffLabel} mb="xs">
+                    <span className={styles.diffLabel}>
                         {mobileViewType === "current"
                             ? currentLabel
                             : originalLabel}
-                    </Text>
-                    <Paper p="md" className={styles.chapterDiffPanel}>
+                    </span>
+                    <div className={styles.chapterDiffPanel}>
                         <ChapterStructuredText
                             actionMode={actionMode}
                             paragraphs={
@@ -432,15 +414,15 @@ export function ChapterDiffStructuredDocument({
                             onRevertDiff={onRevertDiff}
                             onApplyDiffToCurrent={onApplyDiffToCurrent}
                         />
-                    </Paper>
+                    </div>
                 </div>
             ) : (
                 <div className={styles.chapterGrid}>
                     <div className={styles.chapterColumn}>
-                        <Text className={styles.diffLabel} mb="xs">
+                        <span className={styles.diffLabel}>
                             {originalLabel}
-                        </Text>
-                        <Paper p="md" className={styles.chapterDiffPanel}>
+                        </span>
+                        <div className={styles.chapterDiffPanel}>
                             <ChapterStructuredText
                                 actionMode={actionMode}
                                 paragraphs={originalParagraphs}
@@ -449,13 +431,11 @@ export function ChapterDiffStructuredDocument({
                                 onRevertDiff={onRevertDiff}
                                 onApplyDiffToCurrent={onApplyDiffToCurrent}
                             />
-                        </Paper>
+                        </div>
                     </div>
                     <div className={styles.chapterColumn}>
-                        <Text className={styles.diffLabel} mb="xs">
-                            {currentLabel}
-                        </Text>
-                        <Paper p="md" className={styles.chapterDiffPanel}>
+                        <span className={styles.diffLabel}>{currentLabel}</span>
+                        <div className={styles.chapterDiffPanel}>
                             <ChapterStructuredText
                                 actionMode={actionMode}
                                 paragraphs={currentParagraphs}
@@ -464,7 +444,7 @@ export function ChapterDiffStructuredDocument({
                                 onRevertDiff={onRevertDiff}
                                 onApplyDiffToCurrent={onApplyDiffToCurrent}
                             />
-                        </Paper>
+                        </div>
                     </div>
                 </div>
             )}

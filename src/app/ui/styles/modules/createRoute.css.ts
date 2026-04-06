@@ -1,51 +1,74 @@
 import { style } from "@vanilla-extract/css";
-import { breakpoints, vars } from "@/app/ui/styles/theme.css.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
-export const pageContainer = style({
-    paddingTop: vars.spacing.xl,
-    paddingBottom: vars.spacing.xl,
+export const page = style({
+    minHeight: "100%",
+    padding: vars.spacing.lg,
+    backgroundColor: vars.color.surfaceSecondary,
+    color: vars.color.onSurfacePrimary,
+});
+
+export const shell = style({
+    maxWidth: "80rem",
+    margin: "0 auto",
+    display: "grid",
+    gap: vars.spacing.lg,
+});
+
+export const header = style({
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: vars.spacing.lg,
+    flexWrap: "wrap",
 });
 
 export const titleBlock = style({
-    flexWrap: "nowrap",
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.md,
     minWidth: 0,
-    "@media": {
-        "screen and (max-width: 768px)": {
-            flexWrap: "wrap",
-            gap: vars.spacing.sm,
-        },
-    },
+    flexWrap: "wrap",
 });
 
-export const backButton = style({
-    color: vars.colors.primary[9],
+export const backLink = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    minHeight: "2.5rem",
+    padding: `0 ${vars.spacing.md}`,
+    borderRadius: vars.border.radius.md,
+    border: `${vars.border.width.thin} solid ${vars.button.secondary.border}`,
+    backgroundColor: vars.button.secondary.surface,
+    color: vars.button.secondary.onSurface,
+    textDecoration: "none",
     fontWeight: 600,
+    whiteSpace: "nowrap",
     selectors: {
         "&:hover": {
-            backgroundColor: vars.colors.primary[0],
+            backgroundColor: vars.button.secondary.surfaceHover,
+            borderColor: vars.button.secondary.borderHover,
+        },
+        "&:active": {
+            backgroundColor: vars.button.secondary.surfaceActive,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.color.surfacePrimary}, 0 0 0 4px ${vars.color.brandBase}`,
         },
     },
 });
 
 export const pageTitle = style({
-    fontSize: "3rem",
-    lineHeight: "1.1",
+    margin: 0,
+    fontSize: vars.typography.h1.fontSize,
+    lineHeight: vars.typography.h1.lineHeight,
+    fontWeight: vars.typography.h1.fontWeight,
     letterSpacing: "-0.02em",
-    color: vars.colors.primary[9],
-    "@media": {
-        [breakpoints.minWMd]: {
-            fontSize: "3.75rem",
-        },
-    },
 });
 
 export const localizationBlock = style({
     minWidth: "20rem",
     maxWidth: "22rem",
-    "@media": {
-        "screen and (max-width: 768px)": {
-            minWidth: "100%",
-            maxWidth: "100%",
-        },
-    },
+    width: "100%",
 });

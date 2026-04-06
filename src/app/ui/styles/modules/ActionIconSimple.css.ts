@@ -1,8 +1,8 @@
 import { style } from "@vanilla-extract/css";
-import { virtualVars } from "@/app/ui/styles/theme.css.ts";
+import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const root = style({
-    color: virtualVars.text,
+    color: dsVars.color.onSurfacePrimary,
     selectors: {
         "&[data-disabled]": {
             backgroundColor: "transparent",

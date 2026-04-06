@@ -1,18 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Modal,
-    Text,
-    TextInput,
-} from "@mantine/core";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Check, Pencil, Trash, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { Route as projectRoute } from "@/app/routes/$project.tsx";
+import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/ActionIcon.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import * as styles from "@/app/ui/styles/modules/ProjectRow.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
@@ -53,6 +48,18 @@ export default function ProjectRow({
     const { t } = useLingui();
     const router = useRouter();
     const { projectsService } = router.options.context;
+    const deleteDialog = typeof document === "undefined" ? null : document.body;
+
+    useEffect(() => {
+        if (!confirmOpen) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setConfirmOpen(false);
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [confirmOpen]);
 
     async function saveName() {
         const trimmed = (name ?? "").trim();
@@ -110,39 +117,40 @@ export default function ProjectRow({
                             aria-label={`Open project ${project.displayName}`}
                             data-testid={TESTING_IDS.project.rowLink}
                         >
-                            <Text data-testid={project.displayName} fw={500}>
+                            <span
+                                className={styles.projectName}
+                                data-testid={project.displayName}
+                            >
                                 {project.displayName}
-                            </Text>
+                            </span>
                         </Link>
 
-                        <Group gap="xs">
-                            <ActionIcon
-                                size="sm"
+                        <div className={styles.actionCluster}>
+                            <ActionIconSimple
                                 data-testid={TESTING_IDS.project.editButton}
-                                variant="light"
                                 onClick={() => setIsEditing(true)}
                                 aria-label="Edit project name"
+                                className={styles.actionIcon}
                             >
                                 <Pencil size={16} />
-                            </ActionIcon>
+                            </ActionIconSimple>
 
-                            <ActionIcon
+                            <ActionIconSimple
                                 data-testid={TESTING_IDS.project.delete}
-                                size="sm"
-                                color="red"
-                                variant="light"
                                 onClick={() => setConfirmOpen(true)}
                                 aria-label="Delete project"
+                                className={styles.actionIcon}
                             >
                                 <Trash size={16} />
-                            </ActionIcon>
-                        </Group>
+                            </ActionIconSimple>
+                        </div>
                     </>
                 ) : (
                     <div className={styles.editRow}>
                         <div className={styles.editInput}>
-                            <TextInput
+                            <input
                                 data-testid={TESTING_IDS.project.nameInput}
+                                className={styles.nameInput}
                                 value={name}
                                 onChange={(e) => setName(e.currentTarget.value)}
                                 placeholder={t`Project display name`}
@@ -150,17 +158,17 @@ export default function ProjectRow({
                             />
                         </div>
                         <Button
-                            leftSection={<Check />}
-                            color="green"
+                            leftIcon={<Check size={16} />}
                             data-testid={TESTING_IDS.project.saveName}
                             onClick={saveName}
-                            loading={isSaving}
+                            disabled={isSaving}
+                            variant="primary"
                         >
                             {t`Save`}
                         </Button>
                         <Button
-                            leftSection={<X />}
-                            variant="default"
+                            leftIcon={<X size={16} />}
+                            variant="secondary"
                             onClick={() => {
                                 setIsEditing(false);
                                 setName(project.displayName ?? "");
@@ -172,32 +180,59 @@ export default function ProjectRow({
                 )}
             </div>
 
-            <Modal
-                opened={confirmOpen}
-                onClose={() => setConfirmOpen(false)}
-                title={t`Delete project`}
-                centered
-            >
-                <Text>
-                    {t`Are you sure you want to delete the project:`}{" "}
-                    <strong>{project.displayName}</strong>?
-                </Text>
-                <Text mt="sm">
-                    {t`This will remove files from disk and delete the project's metadata from the local database.`}
-                </Text>
-                <Group justify="right" mt="md">
-                    <Button
-                        variant="default"
-                        onClick={() => setConfirmOpen(false)}
-                    >{t`Cancel`}</Button>
-                    <Button
-                        color="red"
-                        data-testid={TESTING_IDS.project.deleteConfirm}
-                        onClick={doDelete}
-                        loading={isDeleting}
-                    >{t`Delete`}</Button>
-                </Group>
-            </Modal>
+            {confirmOpen && deleteDialog
+                ? createPortal(
+                      <div
+                          className={styles.dialogOverlay}
+                          onMouseDown={() => setConfirmOpen(false)}
+                      >
+                          <div
+                              className={styles.dialog}
+                              role="dialog"
+                              aria-modal="true"
+                              aria-labelledby={styles.deleteDialogTitleId}
+                              aria-describedby={styles.deleteDialogBodyId}
+                              onMouseDown={(event) => event.stopPropagation()}
+                          >
+                              <h3
+                                  id={styles.deleteDialogTitleId}
+                                  className={styles.dialogTitle}
+                              >
+                                  {t`Delete project`}
+                              </h3>
+                              <p
+                                  id={styles.deleteDialogBodyId}
+                                  className={styles.dialogBody}
+                              >
+                                  {t`Are you sure you want to delete the project:`}{" "}
+                                  <strong>{project.displayName}</strong>?
+                                  <span className={styles.dialogHint}>
+                                      {t`This will remove files from disk and delete the project's metadata from the local database.`}
+                                  </span>
+                              </p>
+                              <div className={styles.dialogActions}>
+                                  <Button
+                                      variant="secondary"
+                                      onClick={() => setConfirmOpen(false)}
+                                  >
+                                      {t`Cancel`}
+                                  </Button>
+                                  <Button
+                                      data-testid={
+                                          TESTING_IDS.project.deleteConfirm
+                                      }
+                                      onClick={doDelete}
+                                      disabled={isDeleting}
+                                      variant="primary"
+                                  >
+                                      {t`Delete`}
+                                  </Button>
+                              </div>
+                          </div>
+                      </div>,
+                      deleteDialog,
+                  )
+                : null}
         </>
     );
 }

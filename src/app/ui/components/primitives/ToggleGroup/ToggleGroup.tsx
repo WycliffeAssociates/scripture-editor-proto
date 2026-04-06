@@ -22,6 +22,17 @@ function joinClassNames(...classNames: Array<string | undefined>) {
     return classNames.filter(Boolean).join(" ");
 }
 
+function assignInlineVars(
+    inlineVars: Record<string, string | undefined>,
+): CSSProperties {
+    return Object.fromEntries(
+        Object.entries(inlineVars).map(([variable, value]) => [
+            variable.startsWith("var(") ? variable.slice(4, -1) : variable,
+            value,
+        ]),
+    ) as CSSProperties;
+}
+
 export function ToggleGroup({
     value,
     onValueChange,
@@ -37,19 +48,17 @@ export function ToggleGroup({
 
     const controlledValue = value ? [value] : undefined;
     const selectedIndex = items.findIndex((item) => item.value === value);
-    const inlineVars = {
-        [styles.selectedIndexVar]: String(
-            selectedIndex >= 0 ? selectedIndex : 0,
-        ),
-        [styles.itemCountVar]: String(items.length),
-    } as CSSProperties;
 
     return (
         <BaseToggleGroup
             value={controlledValue}
             onValueChange={handleChange}
             className={joinClassNames(styles.root, className)}
-            style={inlineVars}
+            style={assignInlineVars({
+                [styles.selectedIndexVar]:
+                    selectedIndex >= 0 ? String(selectedIndex) : "0",
+                [styles.itemCountVar]: String(items.length),
+            })}
         >
             {selectedIndex >= 0 ? (
                 <div className={styles.indicator} aria-hidden="true" />

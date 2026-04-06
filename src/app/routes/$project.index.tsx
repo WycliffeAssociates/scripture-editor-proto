@@ -1,9 +1,9 @@
 import { Trans } from "@lingui/react/macro";
-import { Center, Paper } from "@mantine/core";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
 import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
+import * as styles from "@/app/ui/styles/modules/projectIndex.css.ts";
 
 /**
  * Main scripture editing route.
@@ -15,11 +15,11 @@ import { ProjectProvider } from "@/app/ui/contexts/WorkspaceContext.tsx";
 export const Route = createFileRoute("/$project/")({
     component: RouteComponent,
     pendingComponent: () => (
-        <Center style={{ height: "100vh", width: "100vw" }}>
-            <Trans>
-                <Paper p="md">Loading...</Paper>
-            </Trans>
-        </Center>
+        <div className={styles.pendingRoot}>
+            <div className={styles.pendingPaper}>
+                <Trans>Loading...</Trans>
+            </div>
+        </div>
     ),
     pendingMs: 100,
     validateSearch: (
@@ -90,11 +90,11 @@ function RouteComponent() {
 
     if (!loadedProject) {
         return (
-            <Paper>
+            <div className={styles.pendingPaper}>
                 {rejectionReason === "not-editable"
                     ? "This resource cannot be opened in the editable workspace."
                     : "Project not found"}
-            </Paper>
+            </div>
         );
     }
     return (

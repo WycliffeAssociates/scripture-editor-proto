@@ -1,8 +1,9 @@
+import { Tooltip } from "@base-ui/react/tooltip";
 import { useLingui } from "@lingui/react/macro";
-import { Group, rem } from "@mantine/core";
 import { Redo, Undo } from "lucide-react";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon.tsx";
+import type { ReactNode } from "react";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import * as styles from "./historyButton.css.ts";
 
 /**
  * Toolbar undo/redo affordances for the current scripture workspace history.
@@ -10,74 +11,58 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 export function HistoryButtons() {
     const { history } = useWorkspaceContext();
     const { t } = useLingui();
+    const undoLabel = history.peekUndoLabel();
+    const redoLabel = history.peekRedoLabel();
+
     return (
-        <Group align="center" gap="xs">
-            <UndoButton
-                canUndo={history.canUndo}
-                handleUndo={history.undo}
-                label={history.peekUndoLabel()}
-                undoLabel={t`Undo`}
-                undoWithDetailLabel={(next) => t`Undo — ${next}`}
+        <div className={styles.cluster}>
+            <HistoryTooltipButton
+                label={undoLabel ? t`Undo — ${undoLabel}` : t`Undo`}
+                ariaLabel={t`Undo`}
+                disabled={!history.canUndo}
+                onClick={history.undo}
+                icon={<Undo size={14} />}
             />
-            <RedoButton
-                canRedo={history.canRedo}
-                handleRedo={history.redo}
-                label={history.peekRedoLabel()}
-                redoLabel={t`Redo`}
-                redoWithDetailLabel={(next) => t`Redo — ${next}`}
+            <HistoryTooltipButton
+                label={redoLabel ? t`Redo — ${redoLabel}` : t`Redo`}
+                ariaLabel={t`Redo`}
+                disabled={!history.canRedo}
+                onClick={history.redo}
+                icon={<Redo size={14} />}
             />
-        </Group>
+        </div>
     );
 }
 
-type HistoryButtonPropsUndo = {
-    canUndo: boolean;
-    handleUndo: () => void;
-    label: string | null;
-    undoLabel: string;
-    undoWithDetailLabel: (label: string) => string;
-};
-function UndoButton({
-    canUndo,
-    handleUndo,
-    label,
-    undoLabel,
-    undoWithDetailLabel,
-}: HistoryButtonPropsUndo) {
+function HistoryTooltipButton(props: {
+    label: string;
+    ariaLabel: string;
+    onClick: () => void;
+    disabled?: boolean;
+    icon: ReactNode;
+}) {
     return (
-        <ActionIconSimple
-            aria-label={undoLabel}
-            title={label ? undoWithDetailLabel(label) : undoLabel}
-            onClick={handleUndo}
-            disabled={!canUndo}
-        >
-            <Undo size={rem(14)} />
-        </ActionIconSimple>
-    );
-}
-type HistoryButtonPropsRedo = {
-    canRedo: boolean;
-    handleRedo: () => void;
-    label: string | null;
-    redoLabel: string;
-    redoWithDetailLabel: (label: string) => string;
-};
-function RedoButton({
-    canRedo,
-    handleRedo,
-    label,
-    redoLabel,
-    redoWithDetailLabel,
-}: HistoryButtonPropsRedo) {
-    return (
-        <ActionIconSimple
-            aria-label={redoLabel}
-            title={label ? redoWithDetailLabel(label) : redoLabel}
-            onClick={handleRedo}
-            disabled={!canRedo}
-            style={{ fontSize: rem(14) }}
-        >
-            <Redo size={rem(14)} />
-        </ActionIconSimple>
+        <Tooltip.Root>
+            <Tooltip.Trigger
+                render={
+                    <button
+                        type="button"
+                        className={styles.iconButton}
+                        aria-label={props.ariaLabel}
+                        disabled={props.disabled}
+                        onClick={props.onClick}
+                    >
+                        {props.icon}
+                    </button>
+                }
+            />
+            <Tooltip.Portal>
+                <Tooltip.Positioner side="top" align="center">
+                    <Tooltip.Popup className={styles.tooltipPopup}>
+                        {props.label}
+                    </Tooltip.Popup>
+                </Tooltip.Positioner>
+            </Tooltip.Portal>
+        </Tooltip.Root>
     );
 }
