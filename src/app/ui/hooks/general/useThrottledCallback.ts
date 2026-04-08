@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useCallbackRef } from "@/app/ui/hooks/general/utils/useCallbackRef.ts";
 
-// biome-ignore lint/suspicious/noExplicitAny: <Fine for generic we dont care on args>
 function useThrottledCallbackWithClearTimeout<
+    // biome-ignore lint/suspicious/noExplicitAny: <expected>
     T extends (...args: any[]) => any,
 >(callback: T, wait: number) {
     const handleCallback = useCallbackRef(callback);
