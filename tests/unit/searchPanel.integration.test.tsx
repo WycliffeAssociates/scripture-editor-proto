@@ -298,7 +298,9 @@ describe("SearchPanel", () => {
         const resultRow = document.querySelector(
             `[data-testid="${TESTING_IDS.searchResultItem}"]`,
         );
-        expect(resultRow?.getAttribute("data-search-row-type")).toBe("grouped");
+        expect(
+            resultRow?.querySelector('[data-search-row-type="grouped"]'),
+        ).not.toBeNull();
         expect(
             resultRow?.querySelector('[data-project-label="source"]')
                 ?.textContent,

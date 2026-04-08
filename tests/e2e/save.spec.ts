@@ -91,7 +91,7 @@ test.describe("Save and Diff Functionality", () => {
     }) => {
         await appendToEditor(editorPage, " chapter overlay change ");
         await openSaveReview(editorPage);
-        const chapterViewLabel = editorPage.getByText("Chapter view").first();
+        const chapterViewLabel = editorPage.getByText("By chapter").first();
         if (await chapterViewLabel.isVisible()) {
             await chapterViewLabel.click();
         } else if (
@@ -101,7 +101,7 @@ test.describe("Save and Diff Functionality", () => {
         ) {
             await editorPage.getByRole("button", { name: "Controls" }).click();
             await editorPage
-                .getByRole("menuitem", { name: "Chapter view" })
+                .getByRole("menuitem", { name: "By chapter" })
                 .click();
         }
 

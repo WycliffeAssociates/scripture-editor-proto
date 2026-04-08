@@ -8,8 +8,9 @@ import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import {
-    buildChapterRenderParagraphs,
+    buildEntryRenderParagraphs,
     type ChapterRenderParagraph,
+    type ChapterTokenWithOwner,
 } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
 import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
@@ -19,157 +20,121 @@ import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
-/**
- * Structured chapter diff renderer.
- *
- * This view takes chapter-scoped diff data that has already been normalized into
- * paragraph/token ownership and renders it in a way that still resembles the
- * scripture document rather than a flat diff list.
- */
-function getTokenHighlightClass(
-    status: "unchanged" | "added" | "deleted" | "modified" | "paired",
-    viewType: "original" | "current",
-) {
-    if (status === "unchanged") return "";
-    if (status === "paired") return "";
-    if (viewType === "current") {
-        if (status === "added" || status === "modified") {
-            return styles.diffHighlightAdded;
+function getVisibleChapterTokenText(args: {
+    showUsfmMarkers: boolean;
+    token: Extract<
+        ChapterRenderParagraph["tokens"][number]["token"]["node"],
+        { type: string }
+    >;
+}): string {
+    if (!isSerializedUSFMTextNode(args.token)) return "";
+
+    if (!args.showUsfmMarkers) {
+        if (
+            args.token.tokenType === "marker" ||
+            args.token.tokenType === "endMarker"
+        ) {
+            return "";
         }
-        return "";
+        return args.token.text;
     }
-    if (status === "deleted" || status === "modified") {
-        return styles.diffHighlightRemoved;
+
+    const explicitText = args.token.text ?? "";
+    if (explicitText.trim().length > 0) {
+        return explicitText;
     }
-    return "";
+
+    if (!args.token.marker) {
+        return explicitText;
+    }
+
+    if (args.token.tokenType === "endMarker") {
+        return `\\${args.token.marker}*`;
+    }
+
+    if (args.token.tokenType === "marker") {
+        return `\\${args.token.marker}`;
+    }
+
+    return explicitText;
 }
 
-function renderWordGranularityToken(args: {
+function renderTokenDiff(args: {
     originalText: string;
     currentText: string;
     viewType: "original" | "current";
 }) {
     const wordDiff = diffWordsWithSpace(args.originalText, args.currentText);
-    const spans: ReactNode[] = [];
-    let tokenPart = 0;
+    const nodes: ReactNode[] = [];
+    let partIndex = 0;
 
     for (const change of wordDiff) {
-        const key = `${tokenPart}-${change.value.length}-${change.added ? "a" : change.removed ? "r" : "n"}`;
-        tokenPart += 1;
+        if (args.viewType === "original" && change.added) continue;
+        if (args.viewType === "current" && change.removed) continue;
 
-        if (args.viewType === "original") {
-            if (change.added) continue;
-            spans.push(
-                <span
-                    key={key}
-                    className={
-                        change.removed ? styles.diffHighlightRemoved : ""
-                    }
-                >
-                    {change.value}
-                </span>,
-            );
-            continue;
-        }
-
-        if (change.removed) continue;
-        spans.push(
+        const className =
+            args.viewType === "current"
+                ? change.added
+                    ? styles.diffHighlightAdded
+                    : ""
+                : change.removed
+                  ? styles.diffHighlightRemoved
+                  : "";
+        nodes.push(
             <span
-                key={key}
-                className={change.added ? styles.diffHighlightAdded : ""}
+                key={`part-${partIndex++}`}
+                className={className}
+                style={{ whiteSpace: "pre-wrap" }}
             >
                 {change.value}
             </span>,
         );
     }
 
-    return spans;
+    return nodes;
 }
 
-function normalizeTokenChange(args: {
-    tokenChange: "unchanged" | "added" | "deleted" | "modified" | "paired";
-    token: ChapterRenderParagraph["tokens"][number]["token"];
-    counterpartToken?: ChapterRenderParagraph["tokens"][number]["token"];
-}) {
-    if (args.tokenChange !== "modified") return args.tokenChange;
-    const counterpart = args.counterpartToken;
-    if (!counterpart) return args.tokenChange;
-
-    if (
-        args.token.node.type === "linebreak" &&
-        counterpart.node.type === "linebreak"
-    ) {
-        return "unchanged";
-    }
-
-    if (
-        isSerializedUSFMTextNode(args.token.node) &&
-        isSerializedUSFMTextNode(counterpart.node) &&
-        args.token.node.text === counterpart.node.text &&
-        args.token.node.tokenType === counterpart.node.tokenType &&
-        (args.token.node.marker ?? "") === (counterpart.node.marker ?? "")
-    ) {
-        return "unchanged";
-    }
-
-    return args.tokenChange;
-}
-
-/**
- * Render one token in the chapter-structured diff view, including apply/revert
- * overlays when that token begins an actionable diff entry.
- */
 function ChapterStructuredToken({
-    actionMode,
+    tokenWithOwner,
     paragraph,
     tokenIndex,
-    viewType,
     showUsfmMarkers,
-    onRevertDiff,
-    onApplyDiffToCurrent,
+    viewType,
 }: {
-    actionMode: "unsaved" | "external";
+    tokenWithOwner: ChapterTokenWithOwner;
     paragraph: ChapterRenderParagraph;
     tokenIndex: number;
-    viewType: "original" | "current";
     showUsfmMarkers: boolean;
-    onRevertDiff: (diffToRevert: ProjectDiff) => void;
-    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
+    viewType: "original" | "current";
 }) {
-    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
-    const tokenWithOwner = paragraph.tokens[tokenIndex];
-    if (!tokenWithOwner) return null;
-    const { entry, isFirstTokenOfEntry, token, tokenChange, counterpartToken } =
-        tokenWithOwner;
-    const effectiveTokenChange = normalizeTokenChange({
-        tokenChange,
-        token,
-        counterpartToken,
-    });
-
-    const highlightClass = getTokenHighlightClass(
-        effectiveTokenChange,
-        viewType,
-    );
-
-    if (token.node.type === "linebreak") {
-        const prevToken = paragraph.tokens[tokenIndex - 1]?.token;
+    if (tokenWithOwner.token.node.type === "linebreak") {
+        const previousToken = paragraph.tokens[tokenIndex - 1]?.token;
         if (
             shouldHideStructuralLineBreak({
                 showUsfmMarkers,
-                tokenChange: effectiveTokenChange,
-                previousToken: prevToken,
+                tokenChange: tokenWithOwner.tokenChange,
+                previousToken,
             })
         ) {
             return null;
         }
 
-        const showMarker = effectiveTokenChange !== "unchanged";
+        const linebreakClass =
+            viewType === "current"
+                ? tokenWithOwner.tokenChange === "added" ||
+                  tokenWithOwner.tokenChange === "modified"
+                    ? styles.diffHighlightAdded
+                    : ""
+                : tokenWithOwner.tokenChange === "deleted" ||
+                    tokenWithOwner.tokenChange === "modified"
+                  ? styles.diffHighlightRemoved
+                  : "";
+
         return (
             <span key={tokenWithOwner.key}>
-                {showMarker && (
+                {tokenWithOwner.tokenChange !== "unchanged" && (
                     <span
-                        className={highlightClass}
+                        className={linebreakClass}
                         style={{ whiteSpace: "pre" }}
                     >
                         {"↵"}
@@ -179,68 +144,136 @@ function ChapterStructuredToken({
             </span>
         );
     }
-    if (!isSerializedUSFMTextNode(token.node)) {
-        return null;
-    }
 
-    const actionSide =
-        actionMode === "external"
-            ? "current"
-            : (entry.diffToRevert?.undoSide ??
-              (entry.status === "deleted" ? "original" : "current"));
-    const isActionSide = viewType === actionSide;
-    const showActionOverlay =
-        isActionSide &&
-        isFirstTokenOfEntry &&
-        entry.canRevert &&
-        entry.diffToRevert;
-    const localizedSid = entry.diffToRevert
+    const node = tokenWithOwner.token.node;
+    if (!isSerializedUSFMTextNode(node)) return null;
+
+    const displayText = getVisibleChapterTokenText({
+        showUsfmMarkers,
+        token: node,
+    });
+    if (!displayText) return null;
+
+    const counterpartNode = tokenWithOwner.counterpartToken?.node;
+    const counterpartDisplayText =
+        counterpartNode && isSerializedUSFMTextNode(counterpartNode)
+            ? getVisibleChapterTokenText({
+                  showUsfmMarkers,
+                  token: counterpartNode,
+              })
+            : "";
+
+    const isModifiedWithPair =
+        !!counterpartNode &&
+        isSerializedUSFMTextNode(counterpartNode) &&
+        displayText !== counterpartDisplayText &&
+        (tokenWithOwner.tokenChange === "modified" ||
+            tokenWithOwner.tokenChange === "unchanged");
+    const wholeTokenClass =
+        viewType === "current"
+            ? tokenWithOwner.tokenChange === "added"
+                ? styles.diffHighlightAdded
+                : ""
+            : tokenWithOwner.tokenChange === "deleted"
+              ? styles.diffHighlightRemoved
+              : "";
+
+    return (
+        <span
+            key={tokenWithOwner.key}
+            data-id={node.id}
+            data-token-type={node.tokenType}
+            data-sid={node.sid}
+            data-in-para={node.inPara}
+            data-marker={node.marker}
+            data-lexical-text="true"
+            className={wholeTokenClass}
+            style={{ whiteSpace: "pre-wrap" }}
+        >
+            {isModifiedWithPair
+                ? renderTokenDiff({
+                      originalText:
+                          viewType === "original"
+                              ? displayText
+                              : counterpartDisplayText,
+                      currentText:
+                          viewType === "current"
+                              ? displayText
+                              : counterpartDisplayText,
+                      viewType,
+                  })
+                : displayText}
+        </span>
+    );
+}
+
+function EntrySide({
+    actionMode,
+    diff,
+    viewType,
+    showUsfmMarkers,
+    onRevertDiff,
+    onApplyDiffToCurrent,
+}: {
+    actionMode: "unsaved" | "external";
+    diff: ProjectDiff;
+    viewType: "original" | "current";
+    showUsfmMarkers: boolean;
+    onRevertDiff: (diffToRevert: ProjectDiff) => void;
+    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
+}) {
+    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
+    const entry = buildEntryRenderParagraphs({
+        diff,
+        viewType,
+        showUsfmMarkers,
+    });
+    const firstTokenWithOwner = entry.flatMap(
+        (paragraph) => paragraph.tokens,
+    )[0];
+    if (!firstTokenWithOwner) return null;
+
+    const entryMeta = {
+        uniqueKey: diff.uniqueKey,
+        semanticSid: diff.semanticSid,
+        status: diff.status,
+        canRevert: diff.status !== "unchanged",
+        diffToRevert: diff.status !== "unchanged" ? diff : undefined,
+    };
+
+    const localizedSid = entryMeta.diffToRevert
         ? bookCodeToProjectLocalizedTitle({
-              bookCode: entry.diffToRevert.bookCode,
-              replaceCodeInString: entry.semanticSid,
+              bookCode: entryMeta.diffToRevert.bookCode,
+              replaceCodeInString: diff.semanticSid,
           })
-        : entry.semanticSid;
+        : diff.semanticSid;
     const actionLabel =
         actionMode === "external"
-            ? t`Apply to current`
+            ? t`Accept change in ${localizedSid} to current`
             : localizedSid
               ? t`Undo ${localizedSid}`
               : t`Undo Change`;
     const onActionClick = () => {
-        if (!entry.diffToRevert) return;
+        if (!entryMeta.diffToRevert) return;
         if (actionMode === "external") {
-            onApplyDiffToCurrent(entry.diffToRevert);
+            onApplyDiffToCurrent(entryMeta.diffToRevert);
             return;
         }
-        onRevertDiff(entry.diffToRevert);
+        onRevertDiff(entryMeta.diffToRevert);
     };
 
-    const sideToken = token.node;
-    const pairedCounterpartNode = counterpartToken?.node;
-    const useWordGranularity =
-        effectiveTokenChange === "modified" &&
-        sideToken &&
-        pairedCounterpartNode &&
-        isSerializedUSFMTextNode(sideToken) &&
-        isSerializedUSFMTextNode(pairedCounterpartNode);
-
-    const tokenWordContent =
-        useWordGranularity && isSerializedUSFMTextNode(sideToken)
-            ? renderWordGranularityToken({
-                  originalText:
-                      viewType === "original"
-                          ? sideToken.text
-                          : (pairedCounterpartNode as typeof sideToken).text,
-                  currentText:
-                      viewType === "current"
-                          ? sideToken.text
-                          : (pairedCounterpartNode as typeof sideToken).text,
-                  viewType,
-              })
-            : null;
+    const actionSide =
+        actionMode === "external"
+            ? "current"
+            : (diff.undoSide ??
+              (diff.status === "deleted" ? "original" : "current"));
+    const showActionOverlay =
+        viewType === actionSide &&
+        entryMeta.canRevert &&
+        !!entryMeta.diffToRevert;
 
     return (
-        <span key={tokenWithOwner.key} className={styles.chapterPartChanged}>
+        <div className={styles.chapterPartChanged}>
             {showActionOverlay && (
                 <ActionIconSimple
                     className={styles.chapterHunkAction}
@@ -252,63 +285,23 @@ function ChapterStructuredToken({
                     <RotateCw size={12} />
                 </ActionIconSimple>
             )}
-            <span
-                className={useWordGranularity ? "" : highlightClass}
-                data-id={token.node.id}
-                data-token-type={token.node.tokenType}
-                data-sid={token.node.sid}
-                data-in-para={token.node.inPara}
-                data-marker={token.node.marker}
-                data-lexical-text="true"
-            >
-                {tokenWordContent ?? sideToken.text}
-            </span>
-        </span>
-    );
-}
-
-function ChapterStructuredText({
-    actionMode,
-    paragraphs,
-    showUsfmMarkers,
-    viewType,
-    onRevertDiff,
-    onApplyDiffToCurrent,
-}: {
-    actionMode: "unsaved" | "external";
-    paragraphs: ChapterRenderParagraph[];
-    showUsfmMarkers: boolean;
-    viewType: "original" | "current";
-    onRevertDiff: (diffToRevert: ProjectDiff) => void;
-    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
-}) {
-    return (
-        <div
-            className={styles.chapterDiffBody}
-            data-testid={TEST_ID_GENERATORS.diffCurrentPre(viewType)}
-            data-editor-mode={showUsfmMarkers ? "usfm" : "regular"}
-            data-editor-read-only="true"
-        >
-            {paragraphs.map((paragraph) => (
+            {entry.map((paragraph) => (
                 <div
                     key={paragraph.key}
                     className="usfm-para-container"
                     data-id={paragraph.key}
-                    data-token-type="marker"
                     data-sid={paragraph.sid}
                     data-in-para={paragraph.marker}
                     data-marker={paragraph.marker}
                 >
-                    {paragraph.tokens.map((_, tokenIndex) => (
+                    {paragraph.tokens.map((tokenWithOwner, tokenIndex) => (
                         <ChapterStructuredToken
-                            key={`${paragraph.key}-${tokenIndex}`}
-                            actionMode={actionMode}
+                            key={tokenWithOwner.key}
+                            tokenWithOwner={tokenWithOwner}
                             paragraph={paragraph}
                             tokenIndex={tokenIndex}
-                            viewType={viewType}
                             showUsfmMarkers={showUsfmMarkers}
-                            onRevertDiff={onRevertDiff}
-                            onApplyDiffToCurrent={onApplyDiffToCurrent}
+                            viewType={viewType}
                         />
                     ))}
                 </div>
@@ -344,25 +337,12 @@ export function ChapterDiffStructuredDocument({
     const [mobileViewType, setMobileViewType] = useState<
         "original" | "current"
     >("current");
-    const originalParagraphs = useMemo(
+    const visibleDiffs = useMemo(
         () =>
-            buildChapterRenderParagraphs({
-                diffs,
-                viewType: "original",
-                hideWhitespaceOnly,
-                showUsfmMarkers,
-            }),
-        [diffs, hideWhitespaceOnly, showUsfmMarkers],
-    );
-    const currentParagraphs = useMemo(
-        () =>
-            buildChapterRenderParagraphs({
-                diffs,
-                viewType: "current",
-                hideWhitespaceOnly,
-                showUsfmMarkers,
-            }),
-        [diffs, hideWhitespaceOnly, showUsfmMarkers],
+            hideWhitespaceOnly
+                ? diffs.filter((diff) => !diff.isWhitespaceChange)
+                : diffs,
+        [diffs, hideWhitespaceOnly],
     );
 
     return (
@@ -373,11 +353,15 @@ export function ChapterDiffStructuredDocument({
             <div className={styles.diffToolbarRow}>
                 <span className={styles.diffSidHeader}>{chapterLabel}</span>
                 {onChapterAction && (
-                    <Button variant="light" size="xs" onClick={onChapterAction}>
+                    <Button
+                        variant="primary"
+                        size="xs"
+                        onClick={onChapterAction}
+                    >
                         {actionMode === "external" ? (
-                            <Trans>Apply chapter to current</Trans>
+                            <Trans>Take all changes in this chapter</Trans>
                         ) : (
-                            <Trans>Revert chapter changes</Trans>
+                            <Trans>Revert changes in this chapter</Trans>
                         )}
                     </Button>
                 )}
@@ -396,24 +380,29 @@ export function ChapterDiffStructuredDocument({
                         ]}
                         className={styles.chapterMobileToggle}
                     />
-                    <span className={styles.diffLabel}>
-                        {mobileViewType === "current"
-                            ? currentLabel
-                            : originalLabel}
-                    </span>
                     <div className={styles.chapterDiffPanel}>
-                        <ChapterStructuredText
-                            actionMode={actionMode}
-                            paragraphs={
-                                mobileViewType === "current"
-                                    ? currentParagraphs
-                                    : originalParagraphs
+                        <div
+                            className={styles.chapterDiffBody}
+                            data-testid={TEST_ID_GENERATORS.diffCurrentPre(
+                                mobileViewType,
+                            )}
+                            data-editor-mode={
+                                showUsfmMarkers ? "usfm" : "regular"
                             }
-                            showUsfmMarkers={showUsfmMarkers}
-                            viewType={mobileViewType}
-                            onRevertDiff={onRevertDiff}
-                            onApplyDiffToCurrent={onApplyDiffToCurrent}
-                        />
+                            data-editor-read-only="true"
+                        >
+                            {visibleDiffs.map((diff) => (
+                                <EntrySide
+                                    key={`${diff.uniqueKey}-${mobileViewType}`}
+                                    actionMode={actionMode}
+                                    diff={diff}
+                                    viewType={mobileViewType}
+                                    showUsfmMarkers={showUsfmMarkers}
+                                    onRevertDiff={onRevertDiff}
+                                    onApplyDiffToCurrent={onApplyDiffToCurrent}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -423,27 +412,59 @@ export function ChapterDiffStructuredDocument({
                             {originalLabel}
                         </span>
                         <div className={styles.chapterDiffPanel}>
-                            <ChapterStructuredText
-                                actionMode={actionMode}
-                                paragraphs={originalParagraphs}
-                                showUsfmMarkers={showUsfmMarkers}
-                                viewType="original"
-                                onRevertDiff={onRevertDiff}
-                                onApplyDiffToCurrent={onApplyDiffToCurrent}
-                            />
+                            <div
+                                className={styles.chapterDiffBody}
+                                data-testid={TEST_ID_GENERATORS.diffCurrentPre(
+                                    "original",
+                                )}
+                                data-editor-mode={
+                                    showUsfmMarkers ? "usfm" : "regular"
+                                }
+                                data-editor-read-only="true"
+                            >
+                                {visibleDiffs.map((diff) => (
+                                    <EntrySide
+                                        key={`${diff.uniqueKey}-original`}
+                                        actionMode={actionMode}
+                                        diff={diff}
+                                        viewType="original"
+                                        showUsfmMarkers={showUsfmMarkers}
+                                        onRevertDiff={onRevertDiff}
+                                        onApplyDiffToCurrent={
+                                            onApplyDiffToCurrent
+                                        }
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                     <div className={styles.chapterColumn}>
                         <span className={styles.diffLabel}>{currentLabel}</span>
                         <div className={styles.chapterDiffPanel}>
-                            <ChapterStructuredText
-                                actionMode={actionMode}
-                                paragraphs={currentParagraphs}
-                                showUsfmMarkers={showUsfmMarkers}
-                                viewType="current"
-                                onRevertDiff={onRevertDiff}
-                                onApplyDiffToCurrent={onApplyDiffToCurrent}
-                            />
+                            <div
+                                className={styles.chapterDiffBody}
+                                data-testid={TEST_ID_GENERATORS.diffCurrentPre(
+                                    "current",
+                                )}
+                                data-editor-mode={
+                                    showUsfmMarkers ? "usfm" : "regular"
+                                }
+                                data-editor-read-only="true"
+                            >
+                                {visibleDiffs.map((diff) => (
+                                    <EntrySide
+                                        key={`${diff.uniqueKey}-current`}
+                                        actionMode={actionMode}
+                                        diff={diff}
+                                        viewType="current"
+                                        showUsfmMarkers={showUsfmMarkers}
+                                        onRevertDiff={onRevertDiff}
+                                        onApplyDiffToCurrent={
+                                            onApplyDiffToCurrent
+                                        }
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

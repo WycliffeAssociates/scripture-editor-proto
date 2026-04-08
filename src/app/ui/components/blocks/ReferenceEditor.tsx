@@ -17,6 +17,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -363,6 +364,7 @@ function getIntialConfig(): InitialConfigType {
             },
             ParagraphNode,
             LineBreakNode,
+            BookFrontmatterFormNode,
             USFMNestedEditorNode,
         ],
         onError: console.error,

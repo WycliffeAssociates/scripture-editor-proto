@@ -1,5 +1,6 @@
 // import "./App.css";
 // import "./ui/styles/";
+import "@/app/ui/styles/reset.css.ts";
 import "@/app/ui/styles/global.css";
 import "@/app/ui/styles/modules/usfm.css.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

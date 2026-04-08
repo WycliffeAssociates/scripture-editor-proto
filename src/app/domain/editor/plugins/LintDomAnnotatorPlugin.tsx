@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -15,17 +15,29 @@ type OverlayEntry = {
     width: number;
 };
 
-function escapeCssValue(value: string): string {
-    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
-        return CSS.escape(value);
-    }
-    return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
+type DomLookup = {
+    byDataId: Map<string, HTMLElement[]>;
+    bySid: Map<string, HTMLElement[]>;
+    renderedState: WeakMap<HTMLElement, boolean>;
+};
+
+const LINT_HITPOINT_ATTR = "data-lint-hitpoint";
 
 function isRenderedElement(el: HTMLElement): boolean {
     return Boolean(
         el.offsetWidth || el.offsetHeight || el.getClientRects().length,
     );
+}
+
+function isRenderedElementCached(
+    cache: WeakMap<HTMLElement, boolean>,
+    el: HTMLElement,
+): boolean {
+    const cached = cache.get(el);
+    if (cached !== undefined) return cached;
+    const next = isRenderedElement(el);
+    cache.set(el, next);
+    return next;
 }
 
 function findScrollContainer(start: HTMLElement): HTMLElement {
@@ -46,7 +58,15 @@ function findScrollContainer(start: HTMLElement): HTMLElement {
     return start;
 }
 
-function findVisibleSiblingTarget(direct: HTMLElement): HTMLElement | null {
+function getDocumentScrollElement(element: HTMLElement): HTMLElement {
+    return (element.ownerDocument.scrollingElement ??
+        element.ownerDocument.documentElement) as HTMLElement;
+}
+
+function findVisibleSiblingTarget(
+    direct: HTMLElement,
+    renderedState: WeakMap<HTMLElement, boolean>,
+): HTMLElement | null {
     const tokenType = direct.getAttribute("data-token-type");
     const isHiddenMarkerTarget =
         tokenType === "marker" || tokenType === "endMarker";
@@ -64,7 +84,7 @@ function findVisibleSiblingTarget(direct: HTMLElement): HTMLElement | null {
         if (
             probeTokenType &&
             acceptableTokenTypes.has(probeTokenType) &&
-            isRenderedElement(probe)
+            isRenderedElementCached(renderedState, probe)
         ) {
             return probe;
         }
@@ -81,7 +101,7 @@ function findVisibleSiblingTarget(direct: HTMLElement): HTMLElement | null {
         if (
             probeTokenType &&
             acceptableTokenTypes.has(probeTokenType) &&
-            isRenderedElement(probe)
+            isRenderedElementCached(renderedState, probe)
         ) {
             return probe;
         }
@@ -89,6 +109,39 @@ function findVisibleSiblingTarget(direct: HTMLElement): HTMLElement | null {
     }
 
     return direct;
+}
+
+function buildDomLookup(root: HTMLElement): DomLookup {
+    const byDataId = new Map<string, HTMLElement[]>();
+    const bySid = new Map<string, HTMLElement[]>();
+    const renderedState = new WeakMap<HTMLElement, boolean>();
+    const candidates = root.querySelectorAll<HTMLElement>(
+        "[data-id], [data-sid]",
+    );
+
+    for (const element of candidates) {
+        const dataId = element.getAttribute("data-id");
+        if (dataId) {
+            const previous = byDataId.get(dataId);
+            if (previous) {
+                previous.push(element);
+            } else {
+                byDataId.set(dataId, [element]);
+            }
+        }
+
+        const sid = element.getAttribute("data-sid");
+        if (sid) {
+            const previous = bySid.get(sid);
+            if (previous) {
+                previous.push(element);
+            } else {
+                bySid.set(sid, [element]);
+            }
+        }
+    }
+
+    return { byDataId, bySid, renderedState };
 }
 
 function measureTextContentRect(element: HTMLElement): DOMRect | null {
@@ -104,30 +157,29 @@ function measureTextContentRect(element: HTMLElement): DOMRect | null {
 }
 
 function findBestVisibleTarget(
-    root: HTMLElement,
+    lookup: DomLookup,
     candidate: string,
 ): HTMLElement | null {
-    const selector = `[data-id="${escapeCssValue(candidate)}"]`;
-    const directMatches = Array.from(
-        root.querySelectorAll(selector),
-    ) as HTMLElement[];
+    const directMatches = lookup.byDataId.get(candidate) ?? [];
     if (directMatches.length > 0) {
         for (const match of directMatches) {
-            const visible = isRenderedElement(match)
+            const visible = isRenderedElementCached(lookup.renderedState, match)
                 ? match
-                : findVisibleSiblingTarget(match);
-            if (visible && isRenderedElement(visible)) return visible;
+                : findVisibleSiblingTarget(match, lookup.renderedState);
+            if (
+                visible &&
+                isRenderedElementCached(lookup.renderedState, visible)
+            ) {
+                return visible;
+            }
         }
     }
 
-    const sidSelector = `[data-sid="${escapeCssValue(candidate)}"]`;
-    const sidMatches = Array.from(
-        root.querySelectorAll(sidSelector),
-    ) as HTMLElement[];
+    const sidMatches = lookup.bySid.get(candidate) ?? [];
     if (sidMatches.length > 0) {
         const preferred = sidMatches.find(
             (el) =>
-                isRenderedElement(el) &&
+                isRenderedElementCached(lookup.renderedState, el) &&
                 el.getAttribute("data-token-type") === "numberRange",
         );
         if (preferred) return preferred;
@@ -148,15 +200,18 @@ function issueCandidates(issue: LintIssue): string[] {
 }
 
 function resolveOverlayEntries(root: HTMLElement, issues: LintIssue[]) {
+    const lookup = buildDomLookup(root);
     const grouped = new Map<HTMLElement, LintIssue[]>();
+    const hitpoints = new Set<HTMLElement>();
 
     for (const issue of issues) {
         let target: HTMLElement | null = null;
         for (const candidate of issueCandidates(issue)) {
-            target = findBestVisibleTarget(root, candidate);
+            target = findBestVisibleTarget(lookup, candidate);
             if (target) break;
         }
         if (!target) continue;
+        hitpoints.add(target);
         const previous = grouped.get(target);
         if (previous) {
             previous.push(issue);
@@ -165,10 +220,9 @@ function resolveOverlayEntries(root: HTMLElement, issues: LintIssue[]) {
         }
     }
 
-    const scrollParent = findScrollContainer(root.parentElement ?? root);
-    const scrollRect = scrollParent.getBoundingClientRect();
-    const scrollOffsetLeft = scrollParent.clientLeft;
-    const scrollOffsetTop = scrollParent.clientTop;
+    const rootRect = root.getBoundingClientRect();
+    const rootOffsetLeft = root.clientLeft;
+    const rootOffsetTop = root.clientTop;
     const entries: OverlayEntry[] = [];
     for (const [element, elementIssues] of grouped.entries()) {
         const rect =
@@ -181,21 +235,38 @@ function resolveOverlayEntries(root: HTMLElement, issues: LintIssue[]) {
             dataId: element.getAttribute("data-id"),
             dataSid: element.getAttribute("data-sid"),
             height: rect.height,
-            left:
-                rect.left -
-                scrollRect.left +
-                scrollParent.scrollLeft -
-                scrollOffsetLeft,
-            top:
-                rect.top -
-                scrollRect.top +
-                scrollParent.scrollTop -
-                scrollOffsetTop,
+            left: rect.left - rootRect.left + root.scrollLeft - rootOffsetLeft,
+            top: rect.top - rootRect.top + root.scrollTop - rootOffsetTop,
             width: rect.width,
         });
     }
 
-    return entries;
+    return { entries, hitpoints };
+}
+
+function syncHitpointAttributes(
+    previous: Set<HTMLElement>,
+    next: Set<HTMLElement>,
+) {
+    for (const element of previous) {
+        if (!next.has(element)) {
+            element.removeAttribute(LINT_HITPOINT_ATTR);
+        }
+    }
+    for (const element of next) {
+        if (!previous.has(element)) {
+            element.setAttribute(LINT_HITPOINT_ATTR, "true");
+        }
+    }
+}
+
+function clearLintOverlayState(
+    hitpointsRef: { current: Set<HTMLElement> },
+    setEntries: (entries: OverlayEntry[]) => void,
+) {
+    syncHitpointAttributes(hitpointsRef.current, new Set());
+    hitpointsRef.current = new Set();
+    setEntries([]);
 }
 
 /**
@@ -208,37 +279,58 @@ function resolveOverlayEntries(root: HTMLElement, issues: LintIssue[]) {
 export function LintDomAnnotatorPlugin() {
     const { lint } = useWorkspaceContext();
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
-    const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null);
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
+    const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
 
     useEffect(() => {
         const nextRoot = document.querySelector(
             `[data-js="${DATA_JS.editorContainer}"]`,
         ) as HTMLElement | null;
         setRootEl(nextRoot);
-        setScrollParent(
-            nextRoot
-                ? findScrollContainer(nextRoot.parentElement ?? nextRoot)
-                : null,
-        );
     }, []);
 
     useEffect(() => {
-        if (!rootEl || !scrollParent) return;
+        if (!rootEl) return;
 
         let rafId = 0;
+        clearLintOverlayState(hitpointsRef, setEntries);
         const schedule = () => {
             window.cancelAnimationFrame(rafId);
             rafId = window.requestAnimationFrame(() => {
-                setEntries(resolveOverlayEntries(rootEl, lint.messages));
+                if (lint.messages.length === 0) {
+                    clearLintOverlayState(hitpointsRef, setEntries);
+                    return;
+                }
+
+                const next = resolveOverlayEntries(rootEl, lint.messages);
+                syncHitpointAttributes(hitpointsRef.current, next.hitpoints);
+                hitpointsRef.current = next.hitpoints;
+                setEntries(next.entries);
             });
         };
 
         schedule();
 
-        const mutationObserver = new MutationObserver(schedule);
+        const mutationObserver = new MutationObserver((mutations) => {
+            const shouldClearImmediately = mutations.some(
+                (mutation) =>
+                    mutation.type === "childList" ||
+                    mutation.type === "characterData",
+            );
+            if (shouldClearImmediately) {
+                clearLintOverlayState(hitpointsRef, setEntries);
+            }
+            schedule();
+        });
         mutationObserver.observe(rootEl, {
             attributes: true,
+            attributeFilter: [
+                "class",
+                "style",
+                "data-id",
+                "data-sid",
+                "data-token-type",
+            ],
             childList: true,
             characterData: true,
             subtree: true,
@@ -246,19 +338,38 @@ export function LintDomAnnotatorPlugin() {
 
         const resizeObserver = new ResizeObserver(schedule);
         resizeObserver.observe(rootEl);
-        resizeObserver.observe(scrollParent);
+        const scrollParent = findScrollContainer(
+            rootEl.parentElement ?? rootEl,
+        );
+        if (scrollParent !== rootEl) {
+            resizeObserver.observe(scrollParent);
+        }
 
+        rootEl.addEventListener("scroll", schedule, { passive: true });
         scrollParent?.addEventListener("scroll", schedule, { passive: true });
+        const documentScroll = getDocumentScrollElement(rootEl);
+        if (documentScroll !== rootEl && documentScroll !== scrollParent) {
+            documentScroll.addEventListener("scroll", schedule, {
+                passive: true,
+            });
+        }
         window.addEventListener("resize", schedule);
+        window.addEventListener("scroll", schedule, { passive: true });
 
         return () => {
             window.cancelAnimationFrame(rafId);
             mutationObserver.disconnect();
             resizeObserver.disconnect();
+            rootEl.removeEventListener("scroll", schedule);
             scrollParent?.removeEventListener("scroll", schedule);
+            if (documentScroll !== rootEl && documentScroll !== scrollParent) {
+                documentScroll.removeEventListener("scroll", schedule);
+            }
             window.removeEventListener("resize", schedule);
+            window.removeEventListener("scroll", schedule);
+            clearLintOverlayState(hitpointsRef, setEntries);
         };
-    }, [lint.messages, rootEl, scrollParent]);
+    }, [lint.messages, rootEl]);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;
@@ -272,10 +383,8 @@ export function LintDomAnnotatorPlugin() {
                         data-id={entry.dataId ?? undefined}
                         data-sid={entry.dataSid ?? undefined}
                         style={{
-                            height: `${Math.max(entry.height, 12)}px`,
-                            left: `${entry.left}px`,
-                            top: `${entry.top}px`,
-                            width: `${Math.max(entry.width, 12)}px`,
+                            left: `${Math.max(entry.left - 18, 0)}px`,
+                            top: `${Math.max(entry.top + Math.min(entry.height / 2 - 8, 4), 0)}px`,
                         }}
                     />
                 ))}
@@ -284,5 +393,5 @@ export function LintDomAnnotatorPlugin() {
     }, [entries, rootEl]);
 
     if (!rootEl || !rendered) return null;
-    return createPortal(rendered, scrollParent ?? rootEl);
+    return createPortal(rendered, rootEl);
 }

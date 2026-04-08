@@ -157,6 +157,13 @@ function $ensureLineBreakBefore(node: USFMTextNode): void {
         node.insertBefore(lineBreakNode);
     }
 }
+
+function selectPreferredTypingOffset(node: USFMTextNode): void {
+    const text = node.getTextContent();
+    const leadingWhitespaceLength = text.match(/^\s*/u)?.[0].length ?? 0;
+    const offset = Math.min(leadingWhitespaceLength, text.length);
+    node.select(offset, offset);
+}
 // ============================================================================
 // Insertion Type Mapping
 // ============================================================================
@@ -565,7 +572,7 @@ function $insertParaRegularMode(args: BaseInsertArgs): void {
     // Select the start of the new paragraph
     const firstChild = newParagraph.getFirstChild();
     if (firstChild && $isUSFMTextNode(firstChild)) {
-        firstChild.selectStart();
+        selectPreferredTypingOffset(firstChild);
     }
 }
 
@@ -600,11 +607,11 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
 
         if ($isUSFMTextNode(right)) {
             right.setInPara(marker);
-            right.selectStart();
+            selectPreferredTypingOffset(right);
         }
         const nextSibling = anchorNode.getNextSibling();
         if (nextSibling && $isUSFMTextNode(nextSibling)) {
-            nextSibling.selectStart();
+            selectPreferredTypingOffset(nextSibling);
         } else {
             const blankTextNode = $createContextTextNode({
                 text: " ",
@@ -613,7 +620,7 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
                 extraProps: { inPara: marker },
             });
             markerNode.insertAfter(blankTextNode);
-            blankTextNode.selectStart();
+            selectPreferredTypingOffset(blankTextNode);
         }
     } else {
         $ensureLineBreakBefore(anchorNode);
@@ -634,7 +641,7 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
             ) {
                 nextSibling.setTextContent(` ${nextSibling.getTextContent()}`);
             }
-            nextSibling.selectStart();
+            selectPreferredTypingOffset(nextSibling);
         } else {
             // No suitable sibling - create empty text node
             const blankTextNode = $createContextTextNode({
@@ -644,7 +651,7 @@ function $insertParaSourceMode(args: BaseInsertArgs): void {
                 extraProps: { inPara: marker },
             });
             markerNode.insertAfter(blankTextNode);
-            blankTextNode.select();
+            selectPreferredTypingOffset(blankTextNode);
         }
     }
 }

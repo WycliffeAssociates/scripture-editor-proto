@@ -11,6 +11,7 @@ import {
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type {
     LintIssue,
     ProjectedUsfmDocument,
@@ -155,9 +156,11 @@ export async function scriptureProjectToParsedFiles(args: {
         const needsParagraphs =
             args.editorMode === EDITOR_MODES.regular ||
             args.editorMode === EDITOR_MODES.view;
-        const sourceTokensByChapter = groupFlatTokensByChapter(mergedTokens);
-        allInitialLintErrors.push(...lintIssues);
         const bookCode = getBookSlug(book.code);
+        const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
+        const sourceTokensByChapter =
+            groupFlatTokensByChapter(normalizedTokens);
+        allInitialLintErrors.push(...lintIssues);
         const nextBookCode =
             i === sorted.length - 1
                 ? null

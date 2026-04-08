@@ -96,7 +96,22 @@ export const buttonVariants = styleVariants({
             },
         },
     },
-    // Default maps to secondary for Mantine compatibility
+    destructive: {
+        backgroundColor: "transparent",
+        color: vars.color.onSurfaceError,
+        borderColor: vars.color.surfaceError,
+        selectors: {
+            "&:hover": {
+                backgroundColor:
+                    "color-mix(in srgb, currentColor 10%, transparent)",
+                borderColor: vars.color.onSurfaceError,
+            },
+            "&:active": {
+                backgroundColor:
+                    "color-mix(in srgb, currentColor 15%, transparent)",
+            },
+        },
+    },
     default: {
         backgroundColor: vars.button.secondary.surface,
         color: vars.button.secondary.onSurface,

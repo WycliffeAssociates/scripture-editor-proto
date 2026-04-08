@@ -62,10 +62,18 @@ function makeChapter(text: string, chapterNumber = 1): ScriptureChapterState {
 }
 
 function makeBook(text: string, chapterNumber = 1): ScriptureBookState {
+    return makeBookForCode("GEN", text, chapterNumber);
+}
+
+function makeBookForCode(
+    bookCode: string,
+    text: string,
+    chapterNumber = 1,
+): ScriptureBookState {
     return {
-        path: `/userData/projects/demo/01-GEN-${chapterNumber}.usfm`,
-        title: "Genesis",
-        bookCode: "GEN",
+        path: `/userData/projects/demo/${String(chapterNumber).padStart(2, "0")}-${bookCode}.usfm`,
+        title: bookCode,
+        bookCode,
         nextBookId: null,
         prevBookId: null,
         chapters: [makeChapter(text, chapterNumber)],
@@ -179,6 +187,18 @@ function flush() {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function hasDiffs(
+    diffsByChapter:
+        | ReturnType<typeof useExternalCompare>["state"]["diffsByChapter"]
+        | null
+        | undefined,
+) {
+    if (!diffsByChapter) return false;
+    return Object.values(diffsByChapter).some((book) =>
+        Object.values(book).some((chapterDiffs) => chapterDiffs.length > 0),
+    );
+}
+
 function HookHarness(props: {
     workingFiles: ScriptureBookState[];
     editorRef: React.RefObject<{
@@ -187,7 +207,9 @@ function HookHarness(props: {
     } | null>;
     refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
+    autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
+    gitProvider?: GitProvider;
     onState: (state: ReturnType<typeof useExternalCompare>) => void;
 }) {
     const state = useExternalCompare({
@@ -209,6 +231,18 @@ function HookHarness(props: {
         editorMode: "regular",
         usfmOnionService: {
             diffTokens: vi.fn(),
+            diffScope: vi.fn(async (scope) =>
+                scope.map((entry: { baselineTokens: { text: string }[]; currentTokens: { text: string }[] }) =>
+                    entry.baselineTokens[0]?.text === entry.currentTokens[0]?.text
+                        ? []
+                        : [
+                              {
+                                  semanticSid: "GEN 1:1",
+                                  status: "modified",
+                              },
+                          ],
+                ),
+            ),
             revertDiffBlock: vi.fn(async (sourceTokens) => sourceTokens),
         } as never,
         allProjects: [],
@@ -217,9 +251,10 @@ function HookHarness(props: {
         pickedChapter: props.workingFiles[0]?.chapters[0] ?? null,
         editorRef: props.editorRef as never,
         history: createHistory(),
-        gitProvider: createGitProvider(),
+        gitProvider: props.gitProvider ?? createGitProvider(),
         versions: [],
         authSessionProvider: createAuthProvider(),
+        autoAcceptIncomingWork: props.autoAcceptIncomingWork ?? false,
         bumpDirtyVersion: props.bumpDirtyVersion,
         refreshUnsavedChapters: props.refreshUnsavedChapters,
         onGitRemoteStatusChanged: props.onGitRemoteStatusChanged,
@@ -253,6 +288,8 @@ beforeEach(() => {
         },
         remoteSync: {
             remoteHead: "remote-head",
+            localHead: "local-head",
+            mergeBase: "merge-base",
             trackedBranch: "master",
             relationship: "behindOnly",
         },
@@ -287,7 +324,9 @@ function renderHarness(args: {
     } | null>;
     refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
+    autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
+    gitProvider?: GitProvider;
 }) {
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -299,7 +338,9 @@ function renderHarness(args: {
                 editorRef={args.editorRef}
                 refreshUnsavedChapters={args.refreshUnsavedChapters}
                 bumpDirtyVersion={args.bumpDirtyVersion}
+                autoAcceptIncomingWork={args.autoAcceptIncomingWork}
                 onGitRemoteStatusChanged={args.onGitRemoteStatusChanged}
+                gitProvider={args.gitProvider}
                 onState={(state) => {
                     latestState = state;
                 }}
@@ -347,7 +388,7 @@ describe("useExternalCompare", () => {
         expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
             "incoming",
         );
-        expect(latestState?.state.diffsByChapter?.GEN?.[1]).toEqual([]);
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
         expect(editorRef.current?.setEditorState).toHaveBeenCalledTimes(1);
     });
 
@@ -390,7 +431,7 @@ describe("useExternalCompare", () => {
         expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
             "incoming",
         );
-        expect(latestState?.state.diffsByChapter?.GEN?.[1]).toEqual([]);
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
     });
 
     it("invalidates all touched chapters before refreshing after take-all", async () => {
@@ -404,6 +445,8 @@ describe("useExternalCompare", () => {
             },
             remoteSync: {
                 remoteHead: "remote-head",
+                localHead: "local-head",
+                mergeBase: "merge-base",
                 trackedBranch: "master",
                 relationship: "behindOnly",
             },
@@ -453,10 +496,287 @@ describe("useExternalCompare", () => {
                 kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
             }),
         );
-        expect(latestState?.state.diffsByChapter).toEqual({});
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
         expect(compareServiceMock.buildCompareResultAsync).toHaveBeenCalledTimes(
             1,
         );
         expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
+    });
+
+    it("auto-accepts safe incoming cloud changes when configured", async () => {
+        const workingFiles = [makeBook("source")];
+        const refreshUnsavedChapters = vi.fn(async () => {});
+        const onGitRemoteStatusChanged = vi.fn();
+        const editorRef = {
+            current: {
+                parseEditorState: vi.fn((state) => state),
+                setEditorState: vi.fn(),
+            },
+        };
+
+        renderHarness({
+            workingFiles,
+            editorRef,
+            refreshUnsavedChapters,
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            onGitRemoteStatusChanged,
+        });
+
+        await act(async () => {
+            await latestState?.actions.openRemoteLatestReview(
+                vi.fn(),
+                vi.fn(async () => {}),
+                false,
+            );
+            await flush();
+            await flush();
+        });
+
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+            "incoming",
+        );
+        expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
+        expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalled();
+        expect(onGitRemoteStatusChanged).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            }),
+        );
+        expect(refreshUnsavedChapters).toHaveBeenCalledWith(
+            expect.arrayContaining([{ bookCode: "GEN", chapterNum: 1 }]),
+        );
+        expect(editorRef.current?.setEditorState).toHaveBeenCalled();
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
+    });
+
+    it("keeps incoming review open when the same verse already has dirty local work", async () => {
+        const workingFiles = [makeBook("local")];
+        const onGitRemoteStatusChanged = vi.fn();
+
+        renderHarness({
+            workingFiles,
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            onGitRemoteStatusChanged,
+        });
+
+        const openDiffModal = vi.fn(async () => {});
+
+        await act(async () => {
+            await latestState?.actions.openRemoteLatestReview(
+                vi.fn(),
+                openDiffModal,
+                false,
+            );
+            await flush();
+        });
+
+        expect(openDiffModal).toHaveBeenCalled();
+        expect(
+            latestState?.state.diffsByChapter?.GEN?.[1]?.[0]?.semanticSid,
+        ).toBe("GEN 1:1");
+        expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalled();
+        expect(onGitRemoteStatusChanged).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            }),
+        );
+    });
+
+    it("does not auto-open diff modal when configured to suppress review modal", async () => {
+        const workingFiles = [makeBook("local")];
+
+        renderHarness({
+            workingFiles,
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+        });
+
+        const openDiffModal = vi.fn(async () => {});
+
+        await act(async () => {
+            await latestState?.actions.openRemoteLatestReview(
+                vi.fn(),
+                openDiffModal,
+                false,
+                { openModalOnRequiresReview: false },
+            );
+            await flush();
+        });
+
+        expect(openDiffModal).not.toHaveBeenCalled();
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(true);
+    });
+
+    it("auto-accepts diverged incoming when 3-way changed books are disjoint", async () => {
+        const workingFiles = [
+            makeBookForCode("GEN", "source"),
+            makeBookForCode("EXO", "local-exo"),
+        ];
+        const gitProvider = createGitProvider();
+        (gitProvider.readProjectSnapshotAtCommit as ReturnType<typeof vi.fn>)
+            .mockImplementation(async (_projectPath: string, commitHash: string) => {
+                if (commitHash === "merge-base") {
+                    return new Map([
+                        ["01-GEN.usfm", "source"],
+                        ["01-EXO.usfm", "source"],
+                    ]);
+                }
+                if (commitHash === "local-head") {
+                    return new Map([
+                        ["01-GEN.usfm", "source"],
+                        ["01-EXO.usfm", "local-exo"],
+                    ]);
+                }
+                if (commitHash === "remote-head") {
+                    return new Map([
+                        ["01-GEN.usfm", "incoming-gen"],
+                        ["01-EXO.usfm", "source"],
+                    ]);
+                }
+                return new Map();
+            });
+        compareSourceLoaderMock.loadRemoteLatest.mockResolvedValue({
+            parsedFiles: [
+                makeBookForCode("GEN", "incoming-gen"),
+                makeBookForCode("EXO", "source"),
+            ],
+            metadataSummary: {
+                projectId: "demo",
+                languageId: "en",
+                languageDirection: "ltr",
+            },
+            remoteSync: {
+                remoteHead: "remote-head",
+                localHead: "local-head",
+                mergeBase: "merge-base",
+                trackedBranch: "master",
+                relationship: "diverged",
+            },
+        });
+        const openDiffModal = vi.fn(async () => {});
+
+        renderHarness({
+            workingFiles,
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            gitProvider,
+        });
+
+        let result:
+            | Awaited<
+                  ReturnType<ReturnType<typeof useExternalCompare>["actions"]["openRemoteLatestReview"]>
+              >
+            | undefined;
+        await act(async () => {
+            result = await latestState?.actions.openRemoteLatestReview(
+                vi.fn(),
+                openDiffModal,
+                false,
+            );
+            await flush();
+        });
+
+        expect(openDiffModal).not.toHaveBeenCalled();
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe("incoming-gen");
+        expect(workingFiles[1]?.chapters[0]?.currentTokens[0]?.text).toBe("local-exo");
+        expect(workingFiles[1]?.chapters[0]?.dirty).toBe(true);
+        expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).not.toHaveBeenCalled();
+        expect(result?.requiresReconciliationSave).toEqual(
+            expect.objectContaining({
+                trackedBranch: "master",
+                remoteHead: "remote-head",
+                relationship: "diverged",
+            }),
+        );
+    });
+
+    it("keeps diverged incoming review open when 3-way changed books overlap", async () => {
+        const workingFiles = [makeBookForCode("GEN", "local-gen")];
+        const gitProvider = createGitProvider();
+        (gitProvider.readProjectSnapshotAtCommit as ReturnType<typeof vi.fn>)
+            .mockImplementation(async (_projectPath: string, commitHash: string) => {
+                if (commitHash === "merge-base") {
+                    return new Map([["01-GEN.usfm", "source"]]);
+                }
+                if (commitHash === "local-head") {
+                    return new Map([["01-GEN.usfm", "local-gen"]]);
+                }
+                if (commitHash === "remote-head") {
+                    return new Map([["01-GEN.usfm", "incoming-gen"]]);
+                }
+                return new Map();
+            });
+        compareSourceLoaderMock.loadRemoteLatest.mockResolvedValue({
+            parsedFiles: [makeBookForCode("GEN", "incoming-gen")],
+            metadataSummary: {
+                projectId: "demo",
+                languageId: "en",
+                languageDirection: "ltr",
+            },
+            remoteSync: {
+                remoteHead: "remote-head",
+                localHead: "local-head",
+                mergeBase: "merge-base",
+                trackedBranch: "master",
+                relationship: "diverged",
+            },
+        });
+
+        const openDiffModal = vi.fn(async () => {});
+
+        renderHarness({
+            workingFiles,
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            gitProvider,
+        });
+
+        await act(async () => {
+            await latestState?.actions.openRemoteLatestReview(
+                vi.fn(),
+                openDiffModal,
+                false,
+            );
+            await flush();
+        });
+
+        expect(openDiffModal).toHaveBeenCalled();
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+            "local-gen",
+        );
+        expect(
+            acceptRemoteLatestReviewMock.acceptRemoteLatestReview,
+        ).not.toHaveBeenCalled();
+        expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(true);
     });
 });

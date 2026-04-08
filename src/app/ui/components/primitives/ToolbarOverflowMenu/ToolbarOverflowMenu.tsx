@@ -4,7 +4,7 @@ import * as styles from "./toolbarOverflowMenu.css.ts";
 
 export interface ToolbarOverflowMenuProps {
     onCopyEditorJson?: () => void;
-    onOpenPreviousVersions?: () => void;
+    onOpenVersions?: () => void;
     onOpenDeveloperTools?: () => void;
 }
 
@@ -25,7 +25,7 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                     <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
                 </svg>
             </Menu.Trigger>
-            <Menu.Portal>
+            <Menu.Portal style={{ zIndex: 10000 }}>
                 <Menu.Positioner sideOffset={4} className={styles.positioner}>
                     <Menu.Popup className={styles.popup}>
                         <Menu.Item
@@ -37,19 +37,21 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                         </Menu.Item>
                         <Menu.Item
                             className={styles.item}
-                            onClick={() => props.onOpenPreviousVersions?.()}
+                            onClick={() => props.onOpenVersions?.()}
                         >
                             <History size={14} className={styles.itemIcon} />
-                            Previous versions
+                            Versions
                         </Menu.Item>
+                        {props.onOpenDeveloperTools ? (
+                            <Menu.Item
+                                className={styles.item}
+                                onClick={() => props.onOpenDeveloperTools?.()}
+                            >
+                                <Code size={14} className={styles.itemIcon} />
+                                Developer tools
+                            </Menu.Item>
+                        ) : null}
                         <Menu.Separator className={styles.separator} />
-                        <Menu.Item
-                            className={styles.item}
-                            onClick={() => props.onOpenDeveloperTools?.()}
-                        >
-                            <Code size={14} className={styles.itemIcon} />
-                            Developer tools
-                        </Menu.Item>
                     </Menu.Popup>
                 </Menu.Positioner>
             </Menu.Portal>

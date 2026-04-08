@@ -14,6 +14,7 @@ export interface ToggleGroupProps {
     value?: string;
     onValueChange?: (value: string) => void;
     items: ToggleGroupItem[];
+    variant?: "default" | "outlinePill";
     className?: string;
     itemClassName?: string;
 }
@@ -37,6 +38,7 @@ export function ToggleGroup({
     value,
     onValueChange,
     items,
+    variant = "default",
     className,
     itemClassName,
 }: ToggleGroupProps) {
@@ -53,7 +55,11 @@ export function ToggleGroup({
         <BaseToggleGroup
             value={controlledValue}
             onValueChange={handleChange}
-            className={joinClassNames(styles.root, className)}
+            className={joinClassNames(
+                styles.root,
+                styles.rootVariants[variant],
+                className,
+            )}
             style={assignInlineVars({
                 [styles.selectedIndexVar]:
                     selectedIndex >= 0 ? String(selectedIndex) : "0",
@@ -61,14 +67,24 @@ export function ToggleGroup({
             })}
         >
             {selectedIndex >= 0 ? (
-                <div className={styles.indicator} aria-hidden="true" />
+                <div
+                    className={joinClassNames(
+                        styles.indicator,
+                        styles.indicatorVariants[variant],
+                    )}
+                    aria-hidden="true"
+                />
             ) : null}
             {items.map((item) => (
                 <Toggle
                     key={item.value}
                     value={item.value}
                     disabled={item.disabled}
-                    className={joinClassNames(styles.item, itemClassName)}
+                    className={joinClassNames(
+                        styles.item,
+                        styles.itemVariants[variant],
+                        itemClassName,
+                    )}
                 >
                     {item.icon ? (
                         <span className={styles.itemIcon}>{item.icon}</span>

@@ -11,6 +11,7 @@ import {
     PUBLISH_AFTER_SAVE_PUBLISHED,
     publishLinkedProjectNow,
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
+import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -42,7 +43,9 @@ import {
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
+    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
+    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import { readGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
@@ -65,6 +68,7 @@ export interface WorkSpaceContextType {
     settingsManager: SettingsManager;
     allProjects: ProjectListItem[];
     currentProjectRoute: string;
+    loadedProject: Project;
     project: WorkspaceState;
     actions: UseActionsHook;
     referenceResource: ReferenceItemHook;
@@ -269,6 +273,7 @@ export const ProjectProvider = ({
             loadedProject.projectPath,
             settingsManager,
             storageRoots,
+            loadedProject,
         ],
     );
 
@@ -351,6 +356,7 @@ export const ProjectProvider = ({
                 settingsManager,
                 allProjects: projects,
                 currentProjectRoute,
+                loadedProject,
                 project,
                 actions,
                 referenceResource,
@@ -396,6 +402,50 @@ export const ProjectProvider = ({
                             } finally {
                                 setIsRefreshingRemoteStatus(false);
                             }
+                        }
+                        if (
+                            (remoteStatus?.kind ===
+                                GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE ||
+                                remoteStatus?.kind ===
+                                    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW) &&
+                            settingsManager.get("autoAcceptIncomingWork")
+                        ) {
+                            const suppressReviewModal =
+                                remoteStatus?.kind ===
+                                GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE;
+                            const reviewResult = suppressReviewModal
+                                ? await save.compare.openRemoteLatestReview(
+                                      actions.saveCurrentDirtyLexical,
+                                      {
+                                          openModalOnRequiresReview: false,
+                                      },
+                                  )
+                                : await save.compare.openRemoteLatestReview(
+                                      actions.saveCurrentDirtyLexical,
+                                  );
+                            const reconciliation =
+                                reviewResult?.requiresReconciliationSave;
+                            if (reconciliation) {
+                                await save.save.saveProjectToDisk({
+                                    prepareRemoteBaseForSave: async () => {
+                                        await prepareRemoteBaseForReconciliation(
+                                            {
+                                                projectPath:
+                                                    loadedProject.projectPath,
+                                                trackedBranch:
+                                                    reconciliation.trackedBranch,
+                                                remoteHead:
+                                                    reconciliation.remoteHead,
+                                                relationship:
+                                                    reconciliation.relationship,
+                                                gitProvider,
+                                            },
+                                        );
+                                    },
+                                });
+                            }
+                            await syncRemoteStatus(true);
+                            return;
                         }
                         await syncRemoteStatus(true);
                     },

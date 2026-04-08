@@ -9,63 +9,74 @@
  */
 
 import { globalStyle } from "@vanilla-extract/css";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 // ============================================
 // Base Styles (all modes)
 // ============================================
 
-globalStyle("body:not(.source-mode)", {
-    lineHeight: 1.6,
-});
-
+const anyModeButPlain = `[data-mode]:not([data-mode="plain"])`;
+const marker = `span[data-token-type="marker"]`;
+const verseMarker = `${marker}[data-marker="v"]`;
+const chapterMarker = `${marker}[data-marker="c"]`;
+const chapterLabelMarker = `${marker}[data-marker="cl"]`;
+const endMarker = `span[data-token-type="endMarker"]`;
+const numberRange = `[data-token-type="numberRange"]`;
+const textToken = `[data-token-type="text"]`;
+const dataIsStructuralEmpty = `[data-is-structural-empty="true"]`;
 // Verse & Chapter Numbers
-globalStyle('.verse-number, span[data-token-type="marker"][data-marker="v"]', {
-    fontSize: "0.8em",
-    fontWeight: "bold",
-    padding: "0 2px",
-});
+globalStyle(
+    `${anyModeButPlain} .verse-number, ${anyModeButPlain} ${verseMarker}`,
+    {
+        fontSize: "0.85em",
+        fontWeight: "bold",
+        padding: "0 2px",
+    },
+);
 
 globalStyle(
-    '.chapter-number, span[data-token-type="marker"][data-marker="c"], span[data-token-type="marker"][data-marker="c"] + [data-token-type="numberRange"]',
+    `${anyModeButPlain} .chapter-number, ${anyModeButPlain} ${chapterMarker}, ${anyModeButPlain} ${chapterMarker} + ${numberRange}, [data-marker="c"] > ${numberRange}`,
     {
         fontSize: "2em",
         fontWeight: "bold",
         textAlign: "center",
-        margin: "0.5em 0",
-        fontFamily: "var(--font-serif)",
+        display: "block",
+        margin: `${vars.spacing.sm} 0`,
+        fontFamily: vars.typography.fontFamilySerif,
     },
 );
 
 globalStyle(
-    '.chapter-label, span[data-token-type="marker"][data-marker="cl"], span[data-token-type="marker"][data-marker="cl"] + [data-token-type="text"]',
+    `${anyModeButPlain} .chapter-label, ${anyModeButPlain} ${chapterLabelMarker}, ${anyModeButPlain} ${chapterLabelMarker} + ${textToken}`,
     {
-        fontSize: "1.2em",
+        fontSize: vars.typography.h4.fontSize,
         textAlign: "center",
-        margin: "0.5em 0",
-        fontFamily: "var(--font-serif)",
+        margin: `${vars.spacing.sm} 0`,
+        fontFamily: vars.typography.fontFamilySerif,
     },
 );
 
 // Number ranges (verses/chapters)
-globalStyle('[data-token-type="numberRange"]', {
-    color: "var(--color-brand-base)",
+globalStyle(`${anyModeButPlain} ${numberRange}`, {
+    color: vars.color.brandBase,
     fontWeight: 600,
 });
 
 // Text content
-globalStyle('[data-token-type="text"]', {
-    color: "var(--color-on-surface-primary)",
+globalStyle(`${anyModeButPlain} ${textToken}`, {
+    color: vars.color.onSurfacePrimary,
 });
 
+// Peek mode: hide structural empty markers
 globalStyle(
-    '.usfm-peek-active .usfm-para-container[data-is-structural-empty="true"][data-marker]',
+    `${anyModeButPlain} .usfm-peek-active .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
     {
         opacity: 0,
     },
 );
 
 globalStyle(
-    '.usfm-peek-active .usfm-para-container[data-is-structural-empty="true"][data-marker]::before',
+    `${anyModeButPlain} .usfm-peek-active .usfm-para-container${dataIsStructuralEmpty}[data-marker]::before`,
     {
         opacity: 0,
     },
@@ -74,57 +85,54 @@ globalStyle(
 // ============================================
 // Regular Mode: Clean WYSIWYG
 // ============================================
+const regularMode = `[data-editor-mode="regular"]`;
 
 // Hide markers and their following br elements
-globalStyle(
-    '[data-editor-mode="regular"] :where(span[data-token-type="marker"][data-marker], span[data-token-type="endMarker"][data-marker])',
-    {
-        display: "none !important",
-    },
-);
+const regularModeMarker = `${regularMode} :where(${marker}[data-marker], ${endMarker})`;
 
-globalStyle(
-    '[data-editor-mode="regular"] :where(span[data-token-type="marker"][data-marker], span[data-token-type="endMarker"][data-marker]) + br',
-    {
-        display: "none !important",
-    },
-);
+globalStyle(regularModeMarker, {
+    display: "none !important",
+});
+
+globalStyle(`${regularModeMarker} + br`, {
+    display: "none !important",
+});
 
 // Marker/endMarker lint errors can be hidden in Regular mode.
 // Mirror the underline onto the next visible text/number token.
-globalStyle(
-    `
-  [data-editor-mode="regular"] :where(span[data-token-type="marker"], span[data-token-type="endMarker"]).lint-error + span[data-token-type="numberRange"],
-  [data-editor-mode="regular"] :where(span[data-token-type="marker"], span[data-token-type="endMarker"]).lint-error + span[data-token-type="text"],
-  [data-editor-mode="regular"] :where(span[data-token-type="marker"], span[data-token-type="endMarker"]).lint-error + br + span[data-token-type="numberRange"],
-  [data-editor-mode="regular"] :where(span[data-token-type="marker"], span[data-token-type="endMarker"]).lint-error + br + span[data-token-type="text"]
-`,
-    {
-        textDecorationLine: "underline",
-        textDecorationStyle: "dotted",
-        textDecorationColor: "var(--color-on-surface-error)",
-        textDecorationThickness: "2px",
-        textUnderlineOffset: "3px",
-    },
-);
+const lintErrorAdjacentTokens = [
+    `${regularModeMarker}.lint-error + ${numberRange}`,
+    `${regularModeMarker}.lint-error + ${textToken}`,
+    `${regularModeMarker}.lint-error + br + ${numberRange}`,
+    `${regularModeMarker}.lint-error + br + ${textToken}`,
+];
+
+globalStyle(lintErrorAdjacentTokens.join(", "), {
+    textDecorationLine: "underline",
+    textDecorationStyle: "dotted",
+    textDecorationColor: vars.color.onSurfaceError,
+    textDecorationThickness: "2px",
+    textUnderlineOffset: "3px",
+});
 
 // If the hidden marker has no adjacent text token, show a subtle paragraph-level cue.
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container:has(> :where(span[data-token-type="marker"], span[data-token-type="endMarker"]).lint-error)',
+    `${regularMode} .usfm-para-container:has(> :where(${marker}, ${endMarker}).lint-error)`,
     {
-        boxShadow:
-            "inset 2px 0 0 0 color-mix(in srgb, var(--color-on-surface-error) 70%, transparent)",
+        boxShadow: `inset 2px 0 0 0 color-mix(in srgb, ${vars.color.onSurfaceError} 70%, transparent)`,
     },
 );
 
 // Poetry: Apply to paragraph containers
-globalStyle('[data-editor-mode="regular"] .usfm-para-container', {
-    margin: "0.25em 0",
+globalStyle(`${regularMode} .usfm-para-container`, {
+    margin: `${vars.spacing.xs} 0`,
 });
 
 // Hide boundary linebreaks
+const paraContainerBR = `${regularMode} .usfm-para-container > br`;
+
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container > br:first-child, [data-editor-mode="regular"] .usfm-para-container > br:last-child',
+    `:where(${paraContainerBR}:first-child, ${paraContainerBR}:last-child)`,
     {
         display: "none !important",
     },
@@ -132,123 +140,85 @@ globalStyle(
 
 // When the browser/Lexical adds a trailing filler <br>, hide the preceding <br> too
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container > br:nth-last-child(2):has(+ br)',
+    `${regularMode} .usfm-para-container > br:nth-last-child(2):has(+ br)`,
     {
         display: "none !important",
     },
 );
 
 // Poetry: hang verse numbers so the first letter aligns with indented lines
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker^="q"]',
-    {
-        vars: {
-            "--poetry-indent": "0px",
-        },
+const poetryContainer = `${regularMode} .usfm-para-container[data-marker^="q"]`;
+
+globalStyle(poetryContainer, {
+    vars: {
+        "--poetry-indent": "0px",
     },
-);
+});
 
 // Only hang verse numbers when the verse marker starts a new visual line.
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker^="q"] br + span[data-token-type="marker"][data-marker="v"] + span[data-token-type="numberRange"]',
-    {
-        display: "inline-block",
-        textAlign: "end",
-        marginInlineStart: "calc(-0.25 * var(--poetry-indent))",
-    },
-);
+globalStyle(`${poetryContainer} br + ${verseMarker} + ${numberRange}`, {
+    display: "inline-block",
+    textAlign: "end",
+    marginInlineStart: "calc(-0.25 * var(--poetry-indent))",
+});
 
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker^="q"]',
-    {
-        fontStyle: "italic",
-    },
-);
+globalStyle(poetryContainer, {
+    fontStyle: "italic",
+});
 
 // Paragraph indent defaults
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="p"]',
-    {
-        textIndent: "1.5em",
-    },
-);
+globalStyle(`${regularMode} .usfm-para-container[data-marker="p"]`, {
+    textIndent: "1.5em",
+});
 
 // Select data-ids that match "default-para-*"
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-id^="default-para-"]',
-    {
-        textIndent: "0 !important",
-    },
-);
+globalStyle(`${regularMode} .usfm-para-container[data-id^="default-para-"]`, {
+    textIndent: "0 !important",
+});
 
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="m"]',
-    {
-        textIndent: 0,
-    },
-);
+globalStyle(`${regularMode} .usfm-para-container[data-marker="m"]`, {
+    textIndent: 0,
+});
 
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="q"], [data-editor-mode="regular"] .usfm-para-container[data-marker="q1"]',
-    {
-        vars: {
-            "--poetry-indent": "16px",
+// Poetry indents
+const poetryIndents: Record<string, string> = {
+    q: "16px",
+    q1: "16px",
+    q2: "32px",
+    q3: "64px",
+    q4: "96px",
+};
+
+for (const [poetryMarker, indent] of Object.entries(poetryIndents)) {
+    globalStyle(
+        `${regularMode} .usfm-para-container[data-marker="${poetryMarker}"]`,
+        {
+            vars: {
+                "--poetry-indent": indent,
+            },
+            paddingInlineStart: "var(--poetry-indent)",
         },
-        paddingInlineStart: "var(--poetry-indent)",
-    },
-);
-
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="q2"]',
-    {
-        vars: {
-            "--poetry-indent": "32px",
-        },
-        paddingInlineStart: "var(--poetry-indent)",
-    },
-);
-
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="q3"]',
-    {
-        vars: {
-            "--poetry-indent": "64px",
-        },
-        paddingInlineStart: "var(--poetry-indent)",
-    },
-);
-
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="q4"]',
-    {
-        vars: {
-            "--poetry-indent": "96px",
-        },
-        paddingInlineStart: "var(--poetry-indent)",
-    },
-);
+    );
+}
 
 // Blank line marker: force a full empty line
-globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-marker="b"]',
-    {
-        minHeight: "1.2em",
-        margin: "0.6em 0",
-    },
-);
+globalStyle(`${regularMode} .usfm-para-container[data-marker="b"]`, {
+    minHeight: "1.2em",
+    margin: `${vars.spacing.xs} 0`,
+});
 
 // Show subtle chips for structural-empty paragraph marker lines
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-is-structural-empty="true"][data-marker]',
+    `${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
     {
         position: "relative",
         minHeight: "1.25em",
-        color: "var(--color-brand-base)",
+        color: vars.color.brandBase,
     },
 );
 
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-is-structural-empty="true"][data-marker]::before',
+    `${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]::before`,
     {
         content: "attr(data-marker-label)",
         position: "absolute",
@@ -261,14 +231,14 @@ globalStyle(
         color: "color-mix(in srgb, currentColor 55%, transparent)",
         background: "color-mix(in srgb, currentColor 10%, transparent)",
         border: "2px solid color-mix(in srgb, currentColor 14%, transparent)",
-        padding: "1px 6px",
-        borderRadius: "999px",
+        padding: `1px ${vars.spacing.sm}`,
+        borderRadius: vars.border.radius.full,
         pointerEvents: "none",
     },
 );
 
 globalStyle(
-    '[data-editor-mode="regular"] .usfm-para-container[data-is-structural-empty="true"][data-marker]:hover::before, [data-editor-mode="regular"] .usfm-para-container[data-is-structural-empty="true"][data-marker]:focus-within::before',
+    `:where(${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]:hover, ${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]:focus-within)::before`,
     {
         color: "color-mix(in srgb, currentColor 75%, transparent)",
         background: "color-mix(in srgb, currentColor 12%, transparent)",
@@ -283,7 +253,7 @@ globalStyle('[data-editor-mode="regular"] br:has(+ .isParaMarker)', {
 
 // View-only: keep the structural spacing but hide the "empty marker" chips
 globalStyle(
-    '#root[data-editor-read-only="true"] .usfm-para-container[data-is-structural-empty="true"][data-marker]',
+    `#root[data-editor-read-only="true"] .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
     {
         display: "none",
     },
@@ -293,56 +263,62 @@ globalStyle(
 // USFM Mode: Full USFM with Visual Focus
 // ============================================
 
+const usfmMode = '[data-editor-mode="usfm"]';
+const usfmMarker = `${usfmMode} :where([data-token-type="marker"], [data-token-type="endMarker"])`;
+
 // Markers: visible, smaller, primary color for visual hierarchy
-globalStyle(
-    '[data-editor-mode="usfm"] [data-token-type="marker"], [data-editor-mode="usfm"] [data-token-type="endMarker"]',
-    {
-        fontSize: "0.75em",
-        color: "var(--color-brand-base)",
-        opacity: 0.9,
-    },
-);
+globalStyle(usfmMarker, {
+    display: "inline !important",
+    fontSize: "0.75em",
+    color: vars.color.brandBase,
+    opacity: 0.9,
+});
+
+// Nested USFM surfaces can live inside a regular-mode editor shell.
+// Force marker-adjacent linebreaks back on inside the nearest USFM container.
+globalStyle(`${usfmMarker} + br`, {
+    display: "initial !important",
+});
 
 // Number ranges: use primary palette
-globalStyle('[data-editor-mode="usfm"] [data-token-type="numberRange"]', {
-    color: "var(--color-brand-dark)",
+globalStyle(`${usfmMode} [data-token-type="numberRange"]`, {
+    color: vars.color.brandDark,
     fontWeight: 600,
 });
 
 // Verse numbers: chip treatment to distinguish from plain leading numerals
 globalStyle(
-    '[data-editor-mode="usfm"] [data-token-type="marker"][data-marker="v"] + [data-token-type="numberRange"]',
+    `${usfmMode} [data-token-type="marker"][data-marker="v"] + [data-token-type="numberRange"]`,
     {
         display: "inline-block",
-        borderRadius: "999px",
+        borderRadius: vars.border.radius.full,
         fontSize: "0.74em",
         fontWeight: 700,
         letterSpacing: "0.01em",
         position: "relative",
-        color: "var(--color-brand-base)",
+        color: vars.color.brandBase,
     },
 );
 
 // Chapter numbers stay stronger than verse chips
 globalStyle(
-    '[data-editor-mode="usfm"] [data-token-type="marker"][data-marker="c"] + [data-token-type="numberRange"]',
+    `${usfmMode} [data-token-type="marker"][data-marker="c"] + [data-token-type="numberRange"]`,
     {
-        color: "var(--color-brand-base)",
+        color: vars.color.brandBase,
         fontWeight: 700,
     },
 );
 
 // When multiple paragraph markers occur consecutively, stack them vertically
-globalStyle('[data-editor-mode="usfm"] .isParaMarker + .isParaMarker', {
+globalStyle(`${usfmMode} .isParaMarker + .isParaMarker`, {
     display: "block",
 });
 
 // Dark mode USFM verse number background
 globalStyle(
-    '[data-theme="dark"][data-editor-mode="usfm"] [data-token-type="marker"][data-marker="v"] + [data-token-type="numberRange"]',
+    `[data-theme="dark"] ${usfmMode} [data-token-type="marker"][data-marker="v"] + [data-token-type="numberRange"]`,
     {
-        background:
-            "color-mix(in srgb, var(--color-brand-base) 24%, transparent)",
+        background: `color-mix(in srgb, ${vars.color.brandBase} 24%, transparent)`,
     },
 );
 
@@ -351,23 +327,23 @@ globalStyle(
 // ============================================
 
 // Lint Error States
-globalStyle(':where(.lint-error, [data-is-lint-error="true"])', {
+const lintError = ':where(.lint-error, [data-is-lint-error="true"])';
+
+globalStyle(lintError, {
     position: "relative",
     display: "inline-block",
     paddingInlineEnd: "0.95em",
     textDecorationLine: "underline",
     textDecorationStyle: "dotted",
-    textDecorationColor: "var(--color-on-surface-error)",
+    textDecorationColor: vars.color.onSurfaceError,
     textDecorationThickness: "2px",
     textUnderlineOffset: "3px",
-    borderRadius: "3px",
-    background:
-        "color-mix(in srgb, var(--color-surface-error) 60%, transparent)",
-    boxShadow:
-        "inset 0 0 0 1px color-mix(in srgb, var(--color-on-surface-error) 30%, transparent)",
+    borderRadius: vars.border.radius.xs,
+    background: `color-mix(in srgb, ${vars.color.surfaceError} 60%, transparent)`,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 30%, transparent)`,
 });
 
-globalStyle(':where(.lint-error, [data-is-lint-error="true"])::after', {
+globalStyle(`${lintError}::after`, {
     content: '"!"',
     position: "absolute",
     insetInlineEnd: 0,
@@ -377,80 +353,58 @@ globalStyle(':where(.lint-error, [data-is-lint-error="true"])::after', {
     justifyContent: "center",
     width: "0.82em",
     height: "0.82em",
-    borderRadius: "999px",
-    background: "var(--color-on-surface-error)",
-    color: "var(--color-surface-primary)",
+    borderRadius: vars.border.radius.full,
+    background: vars.color.onSurfaceError,
+    color: vars.color.surfacePrimary,
     fontSize: "0.62em",
     fontWeight: 800,
     lineHeight: 1,
     pointerEvents: "none",
     transform: "translateX(55%)",
-    boxShadow:
-        "0 0 0 1px color-mix(in srgb, var(--color-on-surface-error) 50%, transparent)",
+    boxShadow: `0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 50%, transparent)`,
 });
 
-globalStyle(':where(.lint-error, [data-is-lint-error="true"]):hover', {
-    background:
-        "color-mix(in srgb, var(--color-surface-error) 80%, transparent)",
+globalStyle(`${lintError}:hover`, {
+    background: `color-mix(in srgb, ${vars.color.surfaceError} 80%, transparent)`,
 });
 
-globalStyle(':where(.lint-error, [data-is-lint-error="true"]).selected', {
-    background:
-        "color-mix(in srgb, var(--color-brand-base) 20%, var(--color-surface-secondary)) !important",
-    color: "var(--color-on-surface-primary) !important",
+globalStyle(`${lintError}.selected`, {
+    background: `color-mix(in srgb, ${vars.color.brandBase} 20%, ${vars.color.surfaceSecondary}) !important`,
+    color: `${vars.color.onSurfacePrimary} !important`,
     textDecorationStyle: "solid",
-    textDecorationColor: "var(--color-brand-dark)",
-    boxShadow:
-        "inset 0 0 0 1px color-mix(in srgb, var(--color-brand-base) 40%, transparent)",
+    textDecorationColor: vars.color.brandDark,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.brandBase} 40%, transparent)`,
 });
 
-globalStyle(
-    ':where(.lint-error, [data-is-lint-error="true"]).selected::after',
-    {
-        background: "var(--color-brand-base)",
-        color: "var(--color-surface-primary)",
-        boxShadow:
-            "0 0 0 1px color-mix(in srgb, var(--color-brand-dark) 50%, transparent)",
-    },
-);
+globalStyle(`${lintError}.selected::after`, {
+    background: vars.color.brandBase,
+    color: vars.color.surfacePrimary,
+    boxShadow: `0 0 0 1px color-mix(in srgb, ${vars.color.brandDark} 50%, transparent)`,
+});
 
 // Dark mode lint adjustments
-globalStyle(
-    '[data-theme="dark"] :where(.lint-error, [data-is-lint-error="true"])',
-    {
-        textDecorationColor: "var(--color-on-surface-error)",
-        background:
-            "color-mix(in srgb, var(--color-surface-error) 40%, transparent)",
-        boxShadow:
-            "inset 0 0 0 1px color-mix(in srgb, var(--color-on-surface-error) 50%, transparent)",
-    },
-);
+globalStyle(`[data-theme="dark"] ${lintError}`, {
+    textDecorationColor: vars.color.onSurfaceError,
+    background: `color-mix(in srgb, ${vars.color.surfaceError} 40%, transparent)`,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 50%, transparent)`,
+});
 
-globalStyle(
-    '[data-theme="dark"] :where(.lint-error, [data-is-lint-error="true"]):hover',
-    {
-        background:
-            "color-mix(in srgb, var(--color-surface-error) 60%, transparent)",
-    },
-);
+globalStyle(`[data-theme="dark"] ${lintError}:hover`, {
+    background: `color-mix(in srgb, ${vars.color.surfaceError} 60%, transparent)`,
+});
 
-// Dark mode search highlighting
-globalStyle(
-    '[data-theme="dark"] .search-highlight, [data-theme="dark"] [data-search-match="true"]',
-    {
-        background: "rgba(255, 214, 102, 0.25)",
-        outline: "1px solid rgba(255, 196, 0, 0.5)",
-    },
-);
+// Search highlighting
+const searchHighlight = ':where(.search-highlight, [data-search-match="true"])';
 
-// Light mode search highlighting
-globalStyle(
-    '[data-theme="light"] .search-highlight, [data-theme="light"] [data-search-match="true"]',
-    {
-        background: "rgba(255, 214, 102, 0.45)",
-        outline: "1px solid rgba(255, 196, 0, 0.85)",
-    },
-);
+globalStyle(`[data-theme="dark"] ${searchHighlight}`, {
+    background: "rgba(255, 214, 102, 0.25)",
+    outline: "1px solid rgba(255, 196, 0, 0.5)",
+});
+
+globalStyle(`[data-theme="light"] ${searchHighlight}`, {
+    background: "rgba(255, 214, 102, 0.45)",
+    outline: "1px solid rgba(255, 196, 0, 0.85)",
+});
 
 // ============================================
 // Nested Editor Support
@@ -468,22 +422,29 @@ globalStyle(".nested-editor:has(+ .isParaMarker)::after", {
 // Empty Paragraph Handling
 // ============================================
 
-globalStyle(
-    '.editor-container div[data-token-type="marker"]:not([data-is-structural-empty="true"]) :not([data-is-nested-editor-button="true"]):not(:has([data-is-nested-editor-button="true"])):not(:has([data-token-type="text"])) :not(:has([data-token-type="numberRange"])):not(:has([data-token-type="error"]))',
-    {
-        display: "none",
-    },
-);
+const complexEmptySelector = [
+    '.editor-container div[data-token-type="marker"]',
+    `:not(${dataIsStructuralEmpty})`,
+    ':not([data-is-nested-editor-button="true"])',
+    ':not(:has([data-is-nested-editor-button="true"]))',
+    ':not(:has([data-token-type="text"]))',
+    ':not(:has([data-token-type="numberRange"]))',
+    ':not(:has([data-token-type="error"]))',
+].join(" ");
+
+globalStyle(complexEmptySelector, {
+    display: "none",
+});
 
 globalStyle(
-    '[data-is-nested-editor-button="true"], [data-is-nested-editor-button="true"] *',
+    ':where([data-is-nested-editor-button="true"], [data-is-nested-editor-button="true"] *)',
     {
         display: "inline-flex !important",
     },
 );
 
 globalStyle(
-    '.editor-container div[data-token-type="marker"]:has([data-token-type="text"]), .editor-container div[data-token-type="marker"]:has([data-token-type="numberRange"])',
+    `:where(.editor-container div[data-token-type="marker"]:has(${textToken}), .editor-container div[data-token-type="marker"]:has(${numberRange}))`,
     {
         display: "block",
     },

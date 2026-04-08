@@ -43,7 +43,7 @@ export function Kbd({ keys, children, className }: KbdProps) {
             {keysArray.map((key, index) => {
                 const displayKey = keyMap[key.toLowerCase()] || key;
                 return (
-                    <kbd key={`${displayKey}-${index}`} className={styles.key}>
+                    <kbd key={`${index}-${displayKey}`} className={styles.key}>
                         {displayKey}
                     </kbd>
                 );

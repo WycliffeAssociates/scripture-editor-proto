@@ -153,12 +153,12 @@ describe("CreateProject cloud import", () => {
             pageSize: 20,
             topic: "consolidated",
         });
-        expect(document.body.textContent).toContain("From my cloud projects");
+        expect(document.body.textContent).toContain("Choose a source");
         expect(document.body.textContent).toContain("bho-bible");
 
         const addButtons = [
             ...document.querySelectorAll("button"),
-        ].filter((button) => button.textContent?.includes("Add"));
+        ].filter((button) => button.textContent?.includes("Get copy"));
         await act(async () => {
             addButtons[0]?.dispatchEvent(
                 new MouseEvent("click", { bubbles: true }),
@@ -362,7 +362,7 @@ describe("CreateProject cloud import", () => {
 
         expect(logoutCurrentSession).toHaveBeenCalledTimes(1);
         expect(document.body.textContent).toContain(
-            "Connect to https://gitea.example.org",
+            "Search a language, title, owner, or repo name to see projects.",
         );
         expect(document.body.textContent).not.toContain("bho-bible");
     });
@@ -410,11 +410,23 @@ describe("CreateProject cloud import", () => {
 
         render(<CreateProject />);
 
+        const remoteToggle = [...document.querySelectorAll("button")].find(
+            (button) => button.textContent?.includes("Remote"),
+        );
+        expect(remoteToggle).toBeTruthy();
+
+        await act(async () => {
+            remoteToggle?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+            await Promise.resolve();
+        });
+
         const usernameInput = document.querySelector(
-            'input[aria-label="Cloud username"]',
+            'input[aria-label="Remote username"]',
         ) as HTMLInputElement | null;
         const passwordInput = document.querySelector(
-            'input[aria-label="Cloud password"]',
+            'input[aria-label="Remote password"]',
         ) as HTMLInputElement | null;
         expect(usernameInput).toBeTruthy();
         expect(passwordInput).toBeTruthy();
@@ -437,8 +449,8 @@ describe("CreateProject cloud import", () => {
             await Promise.resolve();
         });
 
-        const connectButton = document.querySelector(
-            'button[aria-label="Connect cloud account"]',
+        const connectButton = [...document.querySelectorAll("button")].find(
+            (button) => button.textContent?.includes("Connect account"),
         );
         expect(connectButton).toBeTruthy();
 

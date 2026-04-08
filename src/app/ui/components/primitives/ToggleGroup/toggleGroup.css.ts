@@ -1,4 +1,4 @@
-import { createVar, style } from "@vanilla-extract/css";
+import { createVar, style, styleVariants } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const selectedIndexVar = createVar();
@@ -16,6 +16,18 @@ export const root = style({
     containerType: "inline-size",
 });
 
+export const rootVariants = styleVariants({
+    default: {},
+    outlinePill: {
+        border: `${vars.border.width.thin} solid ${vars.color.brandBase}`,
+        borderRadius: vars.border.radius.full,
+        backgroundColor: "transparent",
+        padding: 0,
+        gap: 0,
+        overflow: "hidden",
+    },
+});
+
 export const indicator = style({
     position: "absolute",
     top: "0.25rem",
@@ -29,6 +41,21 @@ export const indicator = style({
     transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
     transform: `translateX(calc(${selectedIndexVar} * (100% + 4px)))`,
     zIndex: 0,
+});
+
+export const indicatorVariants = styleVariants({
+    default: {},
+    outlinePill: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        width: `calc(100% / ${itemCountVar})`,
+        backgroundColor: vars.color.brandBase,
+        border: "none",
+        borderRadius: vars.border.radius.full,
+        boxShadow: "none",
+        transform: `translateX(calc(${selectedIndexVar} * 100%))`,
+    },
 });
 
 export const item = style({
@@ -64,6 +91,26 @@ export const item = style({
         "&:disabled": {
             opacity: 0.4,
             cursor: "not-allowed",
+        },
+    },
+});
+
+export const itemVariants = styleVariants({
+    default: {},
+    outlinePill: {
+        borderRadius: vars.border.radius.full,
+        border: "none",
+        minHeight: "3rem",
+        color: vars.color.onSurfaceSecondary,
+        fontSize: vars.typography.bodyNormal.fontSize,
+        fontWeight: 700,
+        selectors: {
+            "&[data-pressed]": {
+                color: vars.color.onSurfaceInvert,
+            },
+            "&:hover:not([data-pressed])": {
+                backgroundColor: "transparent",
+            },
         },
     },
 });

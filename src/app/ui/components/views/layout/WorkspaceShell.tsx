@@ -1,23 +1,27 @@
+import { DATA_JS } from "@/app/data/constants.ts";
 import { SaveAndReviewChangesOverlay } from "@/app/ui/components/blocks/DiffModal/DiffModal.tsx";
 import { MainEditor } from "@/app/ui/components/blocks/Editor.tsx";
 import { SettingsPanel } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
+import { ProjectBrowserPane } from "@/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { BottomPanel } from "../bottom-panel/BottomPanel.tsx";
+import type { BottomPanelTab } from "../bottom-panel/index.ts";
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
 interface EditorPaneProps {
     isSmall: boolean;
-    activeBottomPanelTab: "problems" | "cloud";
+    activeBottomPanelTab: BottomPanelTab;
     isLintDockOpen: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
     openBottomPanel: () => void;
-    setActiveBottomPanelTab: (tab: "problems" | "cloud") => void;
+    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
     onToggleLintDock: () => void;
     onOpenCloudDock: () => void;
+    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -25,6 +29,7 @@ interface EditorPaneProps {
 export function EditorPane(props: EditorPaneProps) {
     return (
         <div
+            data-js={DATA_JS.editorScrollContainer}
             className={
                 props.isSmall
                     ? styles.editorMainSmall
@@ -37,6 +42,7 @@ export function EditorPane(props: EditorPaneProps) {
                     isLintDockOpen={props.isLintDockOpen}
                     onToggleLintDock={props.onToggleLintDock}
                     onOpenCloudDock={props.onOpenCloudDock}
+                    onOpenVersionsDock={props.onOpenVersionsDock}
                     onToggleReferencePane={props.toggleReferencePane}
                     isSearchPaneOpen={props.hasSearchPaneOpen}
                     onToggleSearchPane={props.toggleSearchPane}
@@ -74,17 +80,26 @@ export function SettingsPane(props: SettingsPaneProps) {
     return <SettingsPanel onClose={props.onClose} />;
 }
 
+interface ProjectsPaneProps {
+    onClose: () => void;
+}
+
+export function ProjectsPane(props: ProjectsPaneProps) {
+    return <ProjectBrowserPane onClose={props.onClose} />;
+}
+
 interface WorkspacePaneStackProps {
     isSmall: boolean;
-    activeWorkspacePane: "editor" | "settings";
-    activeBottomPanelTab: "problems" | "cloud";
+    activeWorkspacePane: "editor" | "settings" | "projects";
+    activeBottomPanelTab: BottomPanelTab;
     isLintDockOpen: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
     openBottomPanel: () => void;
-    setActiveBottomPanelTab: (tab: "problems" | "cloud") => void;
+    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
     onToggleLintDock: () => void;
     onOpenCloudDock: () => void;
+    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -103,6 +118,7 @@ export function WorkspacePaneStack(props: WorkspacePaneStackProps) {
                     setActiveBottomPanelTab={props.setActiveBottomPanelTab}
                     onToggleLintDock={props.onToggleLintDock}
                     onOpenCloudDock={props.onOpenCloudDock}
+                    onOpenVersionsDock={props.onOpenVersionsDock}
                     toggleReferencePane={props.toggleReferencePane}
                     toggleSearchPane={props.toggleSearchPane}
                 />
@@ -115,18 +131,20 @@ interface EditorsShellProps {
     isSmall: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
-    activeWorkspacePane: "editor" | "settings";
+    activeWorkspacePane: "editor" | "settings" | "projects";
     isBottomPanelOpen: boolean;
-    activeBottomPanelTab: "problems" | "cloud";
+    activeBottomPanelTab: BottomPanelTab;
     isLintDockOpen: boolean;
     bottomPanelHeight: number;
+    closeProjectsPane: () => void;
     closeSettingsPane: () => void;
     openBottomPanel: () => void;
     closeBottomPanel: () => void;
     setBottomPanelHeight: (height: number) => void;
-    setActiveBottomPanelTab: (tab: "problems" | "cloud") => void;
+    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
     onToggleLintDock: () => void;
     onOpenCloudDock: () => void;
+    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -168,6 +186,7 @@ export function EditorsShell(props: EditorsShellProps) {
                         setActiveBottomPanelTab={props.setActiveBottomPanelTab}
                         onToggleLintDock={props.onToggleLintDock}
                         onOpenCloudDock={props.onOpenCloudDock}
+                        onOpenVersionsDock={props.onOpenVersionsDock}
                         toggleReferencePane={props.toggleReferencePane}
                         toggleSearchPane={props.toggleSearchPane}
                     />
@@ -175,7 +194,11 @@ export function EditorsShell(props: EditorsShellProps) {
                 </div>
                 {props.activeWorkspacePane !== "editor" ? (
                     <div className={styles.workspaceOverlayPane}>
-                        <SettingsPane onClose={props.closeSettingsPane} />
+                        {props.activeWorkspacePane === "settings" ? (
+                            <SettingsPane onClose={props.closeSettingsPane} />
+                        ) : (
+                            <ProjectsPane onClose={props.closeProjectsPane} />
+                        )}
                     </div>
                 ) : null}
             </div>

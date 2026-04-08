@@ -2,7 +2,7 @@
 
 import { style } from "@vanilla-extract/css";
 import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
-import { dsVars } from "@/app/ui/styles/designSystem.css.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 // Layout
 export const appLayout = style({
@@ -16,7 +16,7 @@ export const appLayout = style({
             minHeight: "100dvh",
             height: "100dvh",
             overflow: "hidden",
-            backgroundColor: dsVars.color.surfacePrimary,
+            backgroundColor: vars.color.surfacePrimary,
         },
     },
 });
@@ -32,7 +32,7 @@ export const appLayoutWithReference = style({
             minHeight: "100dvh",
             height: "100dvh",
             overflow: "hidden",
-            backgroundColor: dsVars.color.surfacePrimary,
+            backgroundColor: vars.color.surfacePrimary,
         },
     },
 });
@@ -42,7 +42,7 @@ export const workspaceMain = style({
     display: "flex",
     flexDirection: "column",
     minHeight: 0,
-    backgroundColor: dsVars.color.surfacePrimary,
+    backgroundColor: vars.color.surfacePrimary,
     "@media": {
         [mediaQuery.up("lg")]: {
             minHeight: "100dvh",
@@ -80,11 +80,11 @@ export const desktopSidebar = style({
             flexDirection: "column",
             minHeight: "100dvh",
             height: "100dvh",
-            backgroundColor: dsVars.color.appSidebarSurface,
-            color: dsVars.color.appSidebarOnSurface,
-            padding: dsVars.spacing.md,
-            gap: dsVars.spacing.md,
-            borderRight: `1px solid ${dsVars.color.appSidebarBorder}`,
+            backgroundColor: vars.color.appSidebarSurface,
+            color: vars.color.appSidebarOnSurface,
+            padding: vars.spacing.md,
+            gap: vars.spacing.md,
+            borderRight: `1px solid ${vars.color.appSidebarBorder}`,
         },
     },
 });
@@ -96,15 +96,15 @@ export const sidebarTop = style({
 export const projectPickerCard = style({
     width: "100%",
     textAlign: "left",
-    border: `1px solid ${dsVars.color.appSidebarBorder}`,
-    backgroundColor: dsVars.color.appSidebarSurfaceHover,
-    color: dsVars.color.appSidebarOnSurface,
-    borderRadius: dsVars.border.radius.lg,
-    padding: `${dsVars.spacing.md} ${dsVars.spacing.md}`,
+    border: `1px solid ${vars.color.appSidebarBorder}`,
+    backgroundColor: vars.color.appSidebarSurfaceHover,
+    color: vars.color.appSidebarOnSurface,
+    borderRadius: vars.border.radius.lg,
+    padding: `${vars.spacing.md} ${vars.spacing.md}`,
     cursor: "pointer",
     selectors: {
         "&:hover": {
-            backgroundColor: dsVars.color.appSidebarSurfaceActive,
+            backgroundColor: vars.color.appSidebarSurfaceActive,
         },
     },
 });
@@ -117,15 +117,15 @@ export const sidebarSlotCard = style([
 ]);
 
 export const projectPickerName = style({
-    fontSize: dsVars.typography.bodyNormal.fontSize,
+    fontSize: vars.typography.bodyNormal.fontSize,
     fontWeight: 700,
     lineHeight: 1.2,
 });
 
 export const projectPickerMeta = style({
-    marginTop: dsVars.spacing.xs,
-    fontSize: dsVars.typography.bodySmallest.fontSize,
-    color: dsVars.color.appSidebarOnSurfaceMuted,
+    marginTop: vars.spacing.xs,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    color: vars.color.appSidebarOnSurfaceMuted,
 });
 
 export const sidebarBooks = style({
@@ -134,44 +134,44 @@ export const sidebarBooks = style({
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: dsVars.spacing.xs,
+    gap: vars.spacing.xs,
     paddingRight: "0.125rem",
 });
 
 export const sidebarSlotFill = style({
     flex: 1,
     minHeight: "100%",
-    borderRadius: dsVars.border.radius.lg,
-    backgroundColor: dsVars.color.appSidebarSurfaceHover,
-    border: `1px solid ${dsVars.color.appSidebarBorder}`,
+    borderRadius: vars.border.radius.lg,
+    backgroundColor: vars.color.appSidebarSurfaceHover,
+    border: `1px solid ${vars.color.appSidebarBorder}`,
 });
 
 export const sidebarBottom = style({
     flex: "0 0 auto",
     display: "flex",
     flexDirection: "column",
-    gap: dsVars.spacing.xs,
-    paddingTop: dsVars.spacing.sm,
-    borderTop: `1px solid ${dsVars.color.appSidebarBorder}`,
+    gap: vars.spacing.xs,
+    paddingTop: vars.spacing.sm,
+    borderTop: `1px solid ${vars.color.appSidebarBorder}`,
 });
 
 export const sidebarAction = style({
     width: "100%",
     minHeight: "2.75rem",
-    padding: `${dsVars.spacing.sm} ${dsVars.spacing.md}`,
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
     backgroundColor: "transparent",
-    color: dsVars.color.appSidebarOnSurfaceMuted,
+    color: vars.color.appSidebarOnSurfaceMuted,
     border: "1px solid transparent",
-    borderRadius: dsVars.border.radius.md,
+    borderRadius: vars.border.radius.md,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.sm,
+    gap: vars.spacing.sm,
     textAlign: "left",
     selectors: {
         "&:hover": {
-            backgroundColor: dsVars.color.appSidebarSurfaceHover,
-            color: dsVars.color.appSidebarOnSurface,
+            backgroundColor: vars.color.appSidebarSurfaceHover,
+            color: vars.color.appSidebarOnSurface,
         },
     },
 });
@@ -188,16 +188,9 @@ export const editorWrapperDesktop = style({
     minWidth: 0,
     minHeight: 0,
     height: "100dvh",
+    overflowY: "auto",
     display: "grid",
     gridTemplateRows: "auto minmax(0, 1fr)",
-    paddingInline: 0,
-    paddingBlock: dsVars.spacing.lg,
-    "@media": {
-        [mediaQuery.up("lg")]: {
-            paddingInline: 0,
-            paddingBlock: dsVars.spacing.lg,
-        },
-    },
 });
 
 export const workspacePaneStack = style({
@@ -223,31 +216,28 @@ export const workspaceOverlayPane = style({
     zIndex: 5000,
 });
 
-export const editor = style({
-    width: "100%",
-    height: "100%",
-    minHeight: 0,
-    position: "relative",
-});
-
 export const editorPaneHeader = style({
     display: "flex",
     justifyContent: "flex-end",
     width: "100%",
-    paddingInline: dsVars.spacing.lg,
-    paddingBlockEnd: dsVars.spacing.sm,
+    paddingInline: vars.spacing.lg,
+    paddingBlockEnd: vars.spacing.sm,
+    position: "sticky",
+    top: "0",
+    backgroundColor: vars.color.surfacePrimary,
+    zIndex: 1000,
 });
 
 export const referenceToggleButton = style({
-    border: `1px solid ${dsVars.color.surfaceBorder}`,
-    backgroundColor: dsVars.color.surfacePrimary,
-    color: dsVars.color.onSurfacePrimary,
-    borderRadius: dsVars.border.radius.md,
-    padding: `${dsVars.spacing.sm} ${dsVars.spacing.md}`,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
+    borderRadius: vars.border.radius.md,
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
     cursor: "pointer",
     selectors: {
         "&:hover": {
-            borderColor: dsVars.color.brandBase,
+            borderColor: vars.color.brandBase,
         },
     },
 });
@@ -255,22 +245,22 @@ export const referenceToggleButton = style({
 // Mobile Editors (Tab Switching)
 export const mobileEditorsContainer = style({
     display: "grid",
-    gap: dsVars.spacing.md,
-    padding: dsVars.spacing.md,
+    gap: vars.spacing.md,
+    padding: vars.spacing.md,
     minHeight: 0,
 });
 export const desktopContentGrid = style({
     display: "grid",
     gridTemplateColumns: "1fr",
     alignItems: "stretch",
-    gap: dsVars.spacing.md,
+    gap: vars.spacing.md,
     padding: 0,
     minHeight: 0,
     "@media": {
         [mediaQuery.up("lg")]: {
             flex: "1 1 auto",
             minHeight: 0,
-            gap: dsVars.spacing.lg,
+            gap: vars.spacing.lg,
             alignItems: "stretch",
             gridTemplateColumns: "minmax(0, 1fr)",
         },
@@ -293,13 +283,13 @@ export const editorMainSmall = style({
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: dsVars.color.surfacePrimary,
+    backgroundColor: vars.color.surfacePrimary,
 });
 
 export const editorReferenceSmall = style({
     minHeight: "16rem",
-    backgroundColor: dsVars.color.surfacePrimary,
-    borderTop: `1px solid ${dsVars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+    borderTop: `1px solid ${vars.color.surfaceBorder}`,
 });
 
 export const referenceColumn = style({
@@ -309,21 +299,21 @@ export const referenceColumn = style({
     display: "grid",
     gridTemplateRows: "auto minmax(0, 1fr)",
     overflow: "hidden",
-    backgroundColor: dsVars.color.surfacePrimary,
+    backgroundColor: vars.color.surfacePrimary,
     "@media": {
         [mediaQuery.up("lg")]: {
-            borderRight: `1px solid ${dsVars.color.surfaceBorder}`,
+            borderRight: `1px solid ${vars.color.surfaceBorder}`,
         },
     },
 });
 
 export const referencePanePlaceholder = style({
     minHeight: "100%",
-    padding: dsVars.spacing.lg,
+    padding: vars.spacing.lg,
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "flex-start",
-    color: dsVars.color.onSurfaceSecondary,
+    color: vars.color.onSurfaceSecondary,
 });
 
 export const editorPanePlaceholder = style({
@@ -332,12 +322,12 @@ export const editorPanePlaceholder = style({
     width: "100%",
     maxWidth: "80ch",
     marginInline: "auto",
-    paddingInline: dsVars.spacing.lg,
-    paddingBlock: dsVars.spacing.lg,
+    paddingInline: vars.spacing.lg,
+    paddingBlock: vars.spacing.lg,
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "flex-start",
-    color: dsVars.color.onSurfacePrimary,
+    color: vars.color.onSurfacePrimary,
 });
 
 export const settingsPane = style({
@@ -345,26 +335,26 @@ export const settingsPane = style({
     minWidth: 0,
     minHeight: 0,
     height: "100%",
-    paddingInline: dsVars.spacing.lg,
-    paddingBlock: dsVars.spacing.lg,
+    paddingInline: vars.spacing.lg,
+    paddingBlock: vars.spacing.lg,
     display: "flex",
     flexDirection: "column",
-    backgroundColor: dsVars.color.surfacePrimary,
-    color: dsVars.color.onSurfacePrimary,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
 });
 
 export const settingsPaneHeader = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: dsVars.spacing.md,
-    paddingBlockEnd: dsVars.spacing.md,
+    gap: vars.spacing.md,
+    paddingBlockEnd: vars.spacing.md,
 });
 
 export const settingsPaneTitle = style({
-    fontSize: dsVars.typography.h4.fontSize,
-    fontWeight: dsVars.typography.h4.fontWeight,
-    lineHeight: dsVars.typography.h4.lineHeight,
+    fontSize: vars.typography.h4.fontSize,
+    fontWeight: vars.typography.h4.fontWeight,
+    lineHeight: vars.typography.h4.lineHeight,
 });
 
 export const settingsPaneBody = style({
@@ -373,14 +363,14 @@ export const settingsPaneBody = style({
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "flex-start",
-    color: dsVars.color.onSurfaceSecondary,
+    color: vars.color.onSurfaceSecondary,
 });
 
 export const bottomPanel = style({
     position: "relative",
     minHeight: 0,
-    borderTop: `1px solid ${dsVars.color.surfaceBorder}`,
-    backgroundColor: dsVars.color.surfaceSecondary,
+    borderTop: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfaceSecondary,
     overflow: "hidden",
     zIndex: 5200,
 });
@@ -405,62 +395,65 @@ export const bottomPanelResizeHandle = style({
             transform: "translateX(-50%)",
             width: "3rem",
             height: "2px",
-            borderRadius: dsVars.border.radius.full,
-            backgroundColor: dsVars.color.surfaceBorder,
+            borderRadius: vars.border.radius.full,
+            backgroundColor: vars.color.surfaceBorder,
         },
     },
 });
 
 export const bottomPanelHeader = style({
+    height: "100%",
     minHeight: 0,
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) auto",
     alignItems: "start",
-    gap: dsVars.spacing.md,
-    paddingInline: dsVars.spacing.sm,
-    paddingBlock: `${dsVars.spacing.md} ${dsVars.spacing.xs}`,
+    gap: vars.spacing.md,
+    paddingInline: vars.spacing.sm,
+    paddingBlock: `${vars.spacing.md} ${vars.spacing.xs}`,
 });
 
 export const bottomPanelTabsRoot = style({
+    flex: 1,
     minWidth: 0,
-    display: "flex",
-    flexDirection: "column",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    height: "100%",
     minHeight: 0,
 });
 
 export const bottomPanelTabsList = style({
     display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.xs,
+    gap: vars.spacing.xs,
     paddingTop: "0.125rem",
 });
 
 export const bottomPanelTabTrigger = style({
     border: "1px solid transparent",
     background: "transparent",
-    color: dsVars.color.onSurfaceSecondary,
-    borderRadius: dsVars.border.radius.sm,
+    color: vars.color.onSurfaceSecondary,
+    borderRadius: vars.border.radius.sm,
     height: "2rem",
-    paddingInline: dsVars.spacing.sm,
+    paddingInline: vars.spacing.sm,
     display: "inline-flex",
     alignItems: "center",
-    gap: dsVars.spacing.xs,
-    fontSize: dsVars.typography.bodySmall.fontSize,
+    gap: vars.spacing.xs,
+    fontSize: vars.typography.bodySmall.fontSize,
     lineHeight: 1,
     fontWeight: 600,
     cursor: "pointer",
     selectors: {
         "&[data-selected]": {
-            backgroundColor: dsVars.color.surfacePrimary,
-            color: dsVars.color.onSurfacePrimary,
-            borderColor: dsVars.color.surfaceBorder,
+            backgroundColor: vars.color.surfacePrimary,
+            color: vars.color.onSurfacePrimary,
+            borderColor: vars.color.surfaceBorder,
         },
         "&:hover": {
-            backgroundColor: dsVars.color.surfacePrimary,
-            color: dsVars.color.onSurfacePrimary,
+            backgroundColor: vars.color.surfacePrimary,
+            color: vars.color.onSurfacePrimary,
         },
         "&:focus-visible": {
-            outline: `2px solid ${dsVars.color.brandBase}`,
+            outline: `2px solid ${vars.color.brandBase}`,
             outlineOffset: 0,
         },
     },
@@ -470,19 +463,23 @@ export const bottomPanelTabCount = style({
     minWidth: "1.25rem",
     height: "1.25rem",
     paddingInline: "0.25rem",
-    borderRadius: dsVars.border.radius.full,
-    backgroundColor: dsVars.color.brandBase,
-    color: dsVars.color.onSurfaceInvert,
+    borderRadius: vars.border.radius.full,
+    backgroundColor: vars.color.brandBase,
+    color: vars.color.onSurfaceInvert,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: dsVars.typography.bodySmallest.fontSize,
+    fontSize: vars.typography.bodySmallest.fontSize,
     lineHeight: 1,
     fontWeight: 700,
 });
 
 export const bottomPanelTabPanel = style({
+    flex: 1,
     minHeight: 0,
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
     outline: "none",
     selectors: {
         "&[hidden]": {
@@ -492,12 +489,16 @@ export const bottomPanelTabPanel = style({
 });
 
 export const bottomPanelContent = style({
+    flex: 1,
+    height: "100%",
     minHeight: 0,
-    maxHeight: "16rem",
-    overflowY: "auto",
-    paddingTop: dsVars.spacing.xs,
-    paddingInline: dsVars.spacing.xs,
-    paddingBottom: dsVars.spacing.xs,
+    overflow: "hidden",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    gap: vars.spacing.xs,
+    paddingTop: vars.spacing.xs,
+    paddingInline: vars.spacing.xs,
+    paddingBottom: vars.spacing.xs,
 });
 
 export const bottomPanelEmptyState = style({
@@ -505,9 +506,9 @@ export const bottomPanelEmptyState = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: dsVars.spacing.lg,
-    color: dsVars.color.onSurfaceSecondary,
-    fontSize: dsVars.typography.bodySmall.fontSize,
+    padding: vars.spacing.lg,
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmall.fontSize,
 });
 
 export const bottomPanelList = style({
@@ -519,113 +520,222 @@ export const bottomPanelList = style({
 export const lintIssueList = style({
     display: "flex",
     flexDirection: "column",
-    gap: dsVars.spacing.sm,
+    gap: vars.spacing.sm,
 });
 
-export const lintIssueGroup = style({
+export const lintAccordionRoot = style({
     display: "flex",
     flexDirection: "column",
-    gap: dsVars.spacing.xs,
+    minWidth: 0,
+    gap: vars.spacing.sm,
 });
 
-export const lintIssueGroupHeader = style({
-    minHeight: "1.75rem",
-    display: "grid",
-    gridTemplateColumns: "auto auto minmax(0, 1fr) auto",
+export const lintFilterRibbon = style({
+    display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.sm,
-    color: dsVars.color.onSurfaceSecondary,
-    fontSize: dsVars.typography.bodySmall.fontSize,
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
-    paddingBottom: dsVars.spacing.xs,
+    gap: vars.spacing.xs,
+    minWidth: 0,
+    paddingInline: vars.spacing.xs,
+    paddingBottom: "0.125rem",
+    flex: "0 0 auto",
 });
 
-export const bottomPanelGroup = style({
+export const lintFilterTriggerLabel = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+});
+
+export const lintFilterTrigger = style({
+    minWidth: "6.75rem",
+    minHeight: "1.75rem",
+    paddingInline: vars.spacing.xs,
+    gap: "0.25rem",
+    justifyContent: "space-between",
+    fontSize: vars.typography.bodySmallest.fontSize,
+});
+
+export const lintFilterTriggerValue = style({
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    fontWeight: 700,
+    minWidth: "2ch",
+    textAlign: "right",
+});
+
+export const lintFilterMenuPopup = style({
+    backgroundColor: vars.color.surfacePrimary,
+    borderRadius: vars.border.radius.sm,
+    border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+    boxShadow: vars.shadow.large,
+    padding: "0.125rem",
+    minWidth: "9.5rem",
+    maxHeight: "12.5rem",
+    overflowY: "auto",
+    overflowX: "hidden",
+    scrollbarWidth: "none",
+    pointerEvents: "auto",
+    selectors: {
+        "&::-webkit-scrollbar": {
+            display: "none",
+        },
+    },
+});
+
+export const lintFilterMenuPositioner = style({
+    zIndex: 5305,
+});
+
+export const lintFilterMenuList = style({
     display: "flex",
     flexDirection: "column",
+    gap: "1px",
 });
 
-export const bottomPanelGroupHeader = style({
-    minHeight: "1.75rem",
+export const lintFilterMenuItem = style({
+    appearance: "none",
+    border: "none",
+    backgroundColor: "transparent",
+    borderRadius: vars.border.radius.sm,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    fontWeight: 500,
+    textAlign: "left",
+    lineHeight: 1.2,
+    padding: `0.1875rem ${vars.spacing.xs}`,
+    minHeight: "1.375rem",
+    cursor: "pointer",
     display: "grid",
-    gridTemplateColumns: "auto auto minmax(0, auto) auto",
+    gridTemplateColumns: "0.875rem minmax(0, 1fr)",
     alignItems: "center",
-    gap: dsVars.spacing.sm,
-    paddingInline: 0,
-    color: dsVars.color.onSurfaceSecondary,
-    fontSize: dsVars.typography.bodySmall.fontSize,
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    gap: "0.25rem",
+    width: "100%",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+        "&[data-highlighted]": {
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.color.surfacePrimary}, 0 0 0 4px ${vars.color.brandBase}`,
+        },
+    },
 });
 
-export const bottomPanelGroupChevron = style({
+export const lintFilterMenuIndicator = style({
+    width: "0.875rem",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    color: dsVars.color.onSurfaceTertiary,
+    color: vars.color.brandBase,
 });
 
-export const bottomPanelGroupTitle = style({
-    color: dsVars.color.onSurfacePrimary,
-    fontWeight: 600,
-});
-
-export const bottomPanelGroupLocation = style({
-    fontSize: dsVars.typography.bodySmall.fontSize,
-    color: dsVars.color.onSurfaceSecondary,
+export const lintIssuesScrollArea = style({
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    flex: "1 1 auto",
+    height: "100%",
+    maxHeight: "140px",
 });
 
-export const bottomPanelGroupCount = style({
-    color: dsVars.color.onSurfaceSecondary,
-    fontWeight: 600,
+export const lintIssuesViewport = style({
+    minWidth: 0,
+    height: "100%",
+    paddingInline: "4px",
+});
+export const lintListScrollbar = style({
+    display: "flex",
+    justifyContent: "center",
+    backgroundColor: vars.color.surfaceTertiary,
+    width: "0.25rem",
+    borderRadius: vars.border.radius.sm,
+    transition: "opacity 150ms",
+    pointerEvents: "none",
+    selectors: {
+        "&[data-hovering]": {
+            opacity: 1,
+            pointerEvents: "auto",
+        },
+
+        "&[data-scrolling]": {
+            opacity: 1,
+            pointerEvents: "auto",
+            transitionDuration: "0ms",
+        },
+
+        "&::before": {
+            content: "",
+            position: "absolute",
+            width: "1.25rem",
+            height: "100%",
+        },
+    },
+});
+
+export const lintScrollbarThumb = style({
+    backgroundColor: vars.color.brandDark,
+    width: "100%",
+    borderRadius: "inherit",
+});
+
+export const lintIssueVirtualInner = style({
+    width: "100%",
+    position: "relative",
+});
+
+export const lintIssueVirtualRow = style({
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
 });
 
 export const lintIssueCard = style({
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) auto",
-    alignItems: "start",
-    gap: dsVars.spacing.md,
-    padding: `${dsVars.spacing.sm} ${dsVars.spacing.xs}`,
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    minHeight: "2rem",
+    padding: `0.125rem ${vars.spacing.xs}`,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
     selectors: {
         "&:hover": {
-            backgroundColor: dsVars.color.surfacePrimary,
+            backgroundColor: vars.color.surfacePrimary,
         },
     },
 });
 
-export const lintIssueCardBody = style({
+export const lintIssueInline = style({
     minWidth: 0,
     display: "flex",
-    flexDirection: "column",
-    gap: dsVars.spacing.xs,
-});
-
-export const lintIssueCardMessage = style({
-    color: dsVars.color.onSurfacePrimary,
-    fontSize: dsVars.typography.bodySmall.fontSize,
-    lineHeight: dsVars.typography.bodySmall.lineHeight,
-    whiteSpace: "normal",
-    overflowWrap: "anywhere",
-});
-
-export const lintIssueCardMeta = style({
-    display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.sm,
-    flexWrap: "wrap",
-    color: dsVars.color.onSurfaceSecondary,
-    fontSize: dsVars.typography.bodySmallest.fontSize,
+    gap: "0.375rem",
+    overflow: "hidden",
+});
+
+export const lintIssueLocation = style({
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+});
+
+export const lintIssueMessage = style({
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: 1.2,
 });
 
 export const lintIssueActions = style({
     display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.xs,
-    flexWrap: "wrap",
+    gap: "0.25rem",
+    flexShrink: 0,
     justifyContent: "flex-end",
 });
 
@@ -634,12 +744,12 @@ export const bottomPanelRow = style({
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr) auto",
     alignItems: "center",
-    gap: dsVars.spacing.sm,
+    gap: vars.spacing.sm,
     paddingInline: 0,
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
     selectors: {
         "&:hover": {
-            backgroundColor: dsVars.color.surfacePrimary,
+            backgroundColor: vars.color.surfacePrimary,
         },
     },
 });
@@ -648,7 +758,7 @@ export const bottomPanelRowIcon = style({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    color: dsVars.color.onSurfaceSecondary,
+    color: vars.color.onSurfaceSecondary,
 });
 
 const bottomPanelRowMessageBase = style({
@@ -656,42 +766,271 @@ const bottomPanelRowMessageBase = style({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: dsVars.typography.bodySmall.fontSize,
-    lineHeight: dsVars.typography.bodySmall.lineHeight,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
 });
 
 export const bottomPanelRowMessage = style([
     bottomPanelRowMessageBase,
     {
-        color: dsVars.color.onSurfacePrimary,
+        color: vars.color.onSurfacePrimary,
     },
 ]);
 
 export const bottomPanelRowMessageAccent = style([
     bottomPanelRowMessageBase,
     {
-        color: dsVars.color.brandBase,
+        color: vars.color.brandBase,
     },
 ]);
 
 export const bottomPanelRowMeta = style({
-    fontSize: dsVars.typography.bodySmallest.fontSize,
-    lineHeight: dsVars.typography.bodySmallest.lineHeight,
-    color: dsVars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
     whiteSpace: "nowrap",
-    paddingLeft: dsVars.spacing.sm,
+    paddingLeft: vars.spacing.sm,
+});
+
+export const cloudPanelHeader = style({
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: vars.spacing.md,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm} ${vars.spacing.sm}`,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const cloudPanelHeaderText = style({
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+});
+
+export const cloudPanelTitle = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 700,
+});
+
+export const cloudPanelStatusChip = style({
+    borderRadius: vars.border.radius.full,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: 1,
+    fontWeight: 700,
+    padding: `0.2rem 0.45rem`,
+});
+
+export const cloudPanelSubtitle = style({
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    maxWidth: "48ch",
+});
+
+export const cloudPanelActions = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+});
+
+export const cloudPanelMetaGrid = style({
+    display: "grid",
+    gap: vars.spacing.xs,
+    height: "100%",
+    overflowY: "auto",
+    padding: `${vars.spacing.sm} 0 8rem`,
+});
+
+export const cloudPanelMetaRow = style({
+    minHeight: "2rem",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    alignItems: "center",
+    gap: vars.spacing.md,
+    paddingInline: vars.spacing.xs,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const cloudPanelMetaLabel = style({
+    minWidth: 0,
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+});
+
+export const cloudPanelMetaValue = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: vars.typography.bodySmall.lineHeight,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+});
+
+export const cloudPanelMetaValueIcon = style({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const versionsPanelHeader = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.md,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm} ${vars.spacing.sm}`,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+});
+
+export const versionsPanelHeaderText = style({
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+});
+
+export const versionsPanelTitle = style({
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 700,
+});
+
+export const versionsPanelSubtitle = style({
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+});
+
+export const versionsPanelActions = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+});
+
+export const versionsList = style({
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    overflowY: "auto",
+});
+
+const versionRowBase = style({
+    width: "100%",
+    border: "none",
+    background: "transparent",
+    textAlign: "left",
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+    padding: vars.spacing.sm,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+    cursor: "pointer",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.color.surfacePrimary,
+        },
+        "&:focus-visible": {
+            outline: `2px solid ${vars.color.brandBase}`,
+            outlineOffset: -2,
+        },
+    },
+});
+
+export const versionRow = style([versionRowBase]);
+
+export const versionRowSelected = style([
+    versionRowBase,
+    {
+        backgroundColor: vars.color.surfacePrimary,
+        boxShadow: `inset 2px 0 0 ${vars.color.brandBase}`,
+    },
+]);
+
+export const versionRowHeader = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.sm,
+});
+
+export const versionRowSubject = style({
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+});
+
+export const versionRowBadges = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    flexShrink: 0,
+});
+
+export const versionBadge = style({
+    borderRadius: vars.border.radius.full,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    padding: `0 ${vars.spacing.xs}`,
+    minHeight: "1.25rem",
+    display: "inline-flex",
+    alignItems: "center",
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    fontWeight: 600,
+    backgroundColor: vars.color.surfaceSecondary,
+});
+
+export const versionRowMetaLine = style({
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.sm,
+    flexWrap: "wrap",
+});
+
+export const versionMetaItem = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.25rem",
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+});
+
+export const versionRowChapterSummary = style({
+    display: "inline-flex",
+    alignItems: "flex-start",
+    gap: "0.25rem",
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    overflowWrap: "anywhere",
 });
 
 export const referenceStickyNav = style({
-    padding: dsVars.spacing.md,
+    padding: vars.spacing.md,
     display: "flex",
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
-    backgroundColor: dsVars.color.surfacePrimary,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
 });
 
 export const referenceStickyNavRow = style({
     display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.md,
+    gap: vars.spacing.md,
     flexWrap: "wrap",
 });

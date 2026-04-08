@@ -288,7 +288,7 @@ function getMinimalEditorState(
 ): SerializedEditorState {
     const serializedPara: SerializedElementNode = {
         children: [
-            // the caller and the endmarker
+            // Initialize note payload as: "+ \f*"
             createSerializedUSFMTextNode({
                 text: "+ ",
                 id: guidGenerator(),
@@ -303,6 +303,7 @@ function getMinimalEditorState(
                 id: guidGenerator(),
                 sid: opts.sid,
                 tokenType: UsfmTokenTypes.endMarker,
+                marker: opts.marker,
                 inPara: opts.inPara,
                 show: true,
                 isMutable: true,

@@ -200,6 +200,110 @@ export const selectControl = style({
     maxWidth: "24rem",
 });
 
+export const cloudProjectComboboxValue = style({
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+});
+
+export const cloudProjectComboboxChevron = style({
+    flex: "0 0 auto",
+    color: vars.color.onSurfaceSecondary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    lineHeight: 1,
+});
+
+export const cloudProjectComboboxPopup = style({
+    backgroundColor: vars.color.surfacePrimary,
+    borderRadius: vars.border.radius.sm,
+    border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+    boxShadow: vars.shadow.large,
+    padding: "0.125rem",
+    minWidth: "24rem",
+    maxWidth: "24rem",
+    pointerEvents: "auto",
+});
+
+export const cloudProjectComboboxHeader = style({
+    padding: "0.125rem",
+    borderBottom: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+});
+
+export const cloudProjectComboboxInput = style({
+    width: "100%",
+    minHeight: "1.875rem",
+    border: "none",
+    outline: "none",
+    backgroundColor: "transparent",
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    padding: `0 ${vars.spacing.xs}`,
+});
+
+export const cloudProjectComboboxScrollArea = style({
+    maxHeight: "12.5rem",
+});
+
+export const cloudProjectComboboxScrollViewport = style({
+    maxHeight: "12.5rem",
+});
+
+export const cloudProjectComboboxList = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+    padding: "0.125rem",
+});
+
+export const cloudProjectComboboxItem = style({
+    appearance: "none",
+    border: "none",
+    backgroundColor: "transparent",
+    borderRadius: vars.border.radius.sm,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    fontWeight: 500,
+    textAlign: "left",
+    lineHeight: 1.2,
+    padding: `0.1875rem ${vars.spacing.xs}`,
+    minHeight: "1.375rem",
+    cursor: "pointer",
+    display: "grid",
+    gridTemplateColumns: "0.875rem minmax(0, 1fr)",
+    alignItems: "center",
+    gap: "0.25rem",
+    width: "100%",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+        "&[data-highlighted]": {
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.color.surfacePrimary}, 0 0 0 4px ${vars.color.brandBase}`,
+        },
+    },
+});
+
+export const cloudProjectComboboxItemIndicator = style({
+    width: "0.875rem",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: vars.color.brandBase,
+});
+
+export const cloudProjectComboboxEmpty = style({
+    padding: `${vars.spacing.sm} ${vars.spacing.xs}`,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
 export const switchLabel = style({
     display: "flex",
     flexDirection: "column",
@@ -211,12 +315,6 @@ export const switchLabelTitle = style({
     lineHeight: vars.typography.bodyNormal.lineHeight,
     fontWeight: 600,
     color: vars.color.onSurfacePrimary,
-});
-
-export const switchLabelText = style({
-    fontSize: vars.typography.bodySmall.fontSize,
-    lineHeight: vars.typography.bodySmall.lineHeight,
-    color: vars.color.onSurfaceSecondary,
 });
 
 export const stepperControl = style({
@@ -263,26 +361,16 @@ export const stepperValue = style({
     borderInline: `1px solid ${vars.color.surfaceBorder}`,
 });
 
-export const sliderControl = style({
-    width: "100%",
-    maxWidth: "24rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: vars.spacing.sm,
-});
-
-export const sliderLabels = style({
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    fontSize: vars.typography.bodySmallest.fontSize,
-    lineHeight: vars.typography.bodySmallest.lineHeight,
-    color: vars.color.onSurfaceSecondary,
-});
-
 export const sliderValue = style({
     fontSize: vars.typography.bodySmall.fontSize,
     lineHeight: vars.typography.bodySmall.lineHeight,
     fontWeight: 600,
     color: vars.color.onSurfacePrimary,
+});
+
+export const cloudAttachActions = style({
+    marginTop: vars.spacing.sm,
+    display: "flex",
+    gap: vars.spacing.xs,
+    justifyContent: "flex-end",
 });

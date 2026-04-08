@@ -117,6 +117,7 @@ export function useSave({
         gitProvider,
         versions: versions.state.entries,
         authSessionProvider,
+        autoAcceptIncomingWork: settingsManager.get("autoAcceptIncomingWork"),
         bumpDirtyVersion,
         refreshUnsavedChapters: (chapters) =>
             refreshUnsavedChaptersRef.current(chapters),
@@ -218,6 +219,11 @@ export function useSave({
      */
     const saveReview = {
         open: async (saveCurrentDirtyLexical: () => void) => {
+            if (settingsManager.get("autoAcceptOwnWorkOnSave")) {
+                saveCurrentDirtyLexical();
+                await saveAndRevert.actions.saveProjectToDisk();
+                return;
+            }
             await diff.actions.open(saveCurrentDirtyLexical);
         },
     };
@@ -226,6 +232,7 @@ export function useSave({
         isOpen: versions.state.isOpen,
         entries: versions.state.entries,
         isLoading: versions.state.isLoading,
+        isSwitching: versions.state.isSwitchingVersion,
         selectedHash: versions.state.selectedHash,
         latestHash: versions.state.latestHash,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
@@ -237,6 +244,7 @@ export function useSave({
             });
         },
         close: versions.actions.close,
+        ensureLoaded: versions.actions.ensureLoaded,
         loadMore: versions.actions.loadMore,
         select: async (hash: string, saveCurrentDirtyLexical: () => void) => {
             saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
@@ -273,11 +281,15 @@ export function useSave({
 
     const openRemoteLatestReview = async (
         saveCurrentDirtyLexical: () => void,
+        options?: {
+            openModalOnRequiresReview?: boolean;
+        },
     ) =>
         compare.actions.openRemoteLatestReview(
             saveCurrentDirtyLexical,
             diff.actions.open,
             diff.state.isOpen,
+            options,
         );
 
     return {
@@ -321,7 +333,9 @@ export function useSave({
             loadFromZip: compare.actions.loadFromZip,
             loadFromDirectory: compare.actions.loadFromDirectory,
             loadFromVersion: compare.actions.loadFromVersion,
-            loadFromRemoteLatest: compare.actions.loadFromRemoteLatest,
+            loadFromRemoteLatest: async () => {
+                await compare.actions.loadFromRemoteLatest();
+            },
             openRemoteLatestReview,
             applyIncomingHunk: compare.actions.applyIncomingHunk,
             applyIncomingChapter: compare.actions.applyIncomingChapter,

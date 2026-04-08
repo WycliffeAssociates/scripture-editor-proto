@@ -16,6 +16,7 @@ import {
     Undo2,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { insertUsfmMarkerAtCursor } from "@/app/domain/editor/utils/insertUsfmMarkerAtCursor.ts";
 import {
     isUsfmLikePaste,
     parseClipboardUsfmToTokens,
@@ -27,6 +28,7 @@ import {
 } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
+import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
@@ -49,6 +51,7 @@ type EditorToolbarProps = {
     isLintDockOpen: boolean;
     onToggleLintDock: () => void;
     onOpenCloudDock: () => void;
+    onOpenVersionsDock: () => void;
     isSearchPaneOpen?: boolean;
     onToggleSearchPane?: () => void;
 };
@@ -62,14 +65,16 @@ export function EditorToolbar(props: EditorToolbarProps) {
         remote,
         project,
         projectLanguageDirection,
-        save,
+        bookCodeToProjectLocalizedTitle,
     } = useWorkspaceContext();
     const { usfmOnionService } = useRouter().options.context;
     const undoLabel = history.peekUndoLabel();
     const redoLabel = history.peekRedoLabel();
-    const referenceLabel = props.isReferencePaneOpen
-        ? t`Hide reference panel`
-        : t`Open reference panel`;
+    const currentBookLabel = bookCodeToProjectLocalizedTitle({
+        bookCode: project.pickedFile.bookCode,
+    });
+    const currentChapterLabel =
+        project.pickedChapter?.chapterNumber ?? project.currentChapter;
     const cloudStatus = getCloudStatusPresentation(
         remote.status,
         remote.isRefreshing,
@@ -157,112 +162,225 @@ export function EditorToolbar(props: EditorToolbarProps) {
     };
 
     const handleOpenPreviousVersions = () => {
-        void save.versions.open(actions.saveCurrentDirtyLexical);
+        props.onOpenVersionsDock();
     };
 
     const handleOpenSaveReview = () => {
         actions.toggleDiffModal();
     };
 
+    const handleInsertUsfm = (marker: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        insertUsfmMarkerAtCursor({
+            editor,
+            marker,
+            languageDirection: projectLanguageDirection,
+            editorMode: project.appSettings.editorMode,
+        });
+    };
+
+    const markerButtonLabel = (marker: string) =>
+        getLocalizedUsfmMarkerLabel(marker);
+
     return (
         <div className={styles.root}>
-            <div className={joinClassNames(styles.cluster, styles.leftCluster)}>
-                <ToolbarTooltipButton
-                    label={t`Previous chapter`}
-                    onClick={actions.prevChapter.go}
-                    disabled={!actions.prevChapter.hasPrev}
-                    icon={<ChevronLeft size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={t`Next chapter`}
-                    onClick={actions.nextChapter.go}
-                    disabled={!actions.nextChapter.hasNext}
-                    icon={<ChevronRight size={16} />}
-                />
-                <div className={styles.toolbarDivider} />
-                <ToolbarTooltipButton
-                    label={t`Cut`}
-                    onClick={handleCut}
-                    icon={<Scissors size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={t`Copy`}
-                    onClick={handleCopy}
-                    icon={<Copy size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={t`Paste`}
-                    onClick={() => {
-                        void handlePaste();
-                    }}
-                    icon={<ClipboardPaste size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={t`Save`}
-                    onClick={handleOpenSaveReview}
-                    icon={<Save size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={undoLabel ? t`Undo — ${undoLabel}` : t`Undo`}
-                    onClick={history.undo}
-                    disabled={!history.canUndo}
-                    icon={<Undo2 size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={redoLabel ? t`Redo — ${redoLabel}` : t`Redo`}
-                    onClick={history.redo}
-                    disabled={!history.canRedo}
-                    icon={<Redo2 size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={referenceLabel}
-                    onClick={props.onToggleReferencePane}
-                    active={props.isReferencePaneOpen}
-                    icon={<BookCopy size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={
-                        props.isLintDockOpen
-                            ? t`Close lint dock`
-                            : t`Open lint dock`
-                    }
-                    onClick={props.onToggleLintDock}
-                    active={props.isLintDockOpen}
-                    icon={<AlertCircle size={16} />}
-                />
-                <ToolbarTooltipButton
-                    label={
-                        props.isSearchPaneOpen
-                            ? t`Close search`
-                            : t`Open search`
-                    }
-                    onClick={props.onToggleSearchPane ?? (() => {})}
-                    active={props.isSearchPaneOpen}
-                    icon={<Search size={16} />}
-                />
-                <ToolbarOverflowMenu
-                    onCopyEditorJson={() => void handleCopyEditorJson()}
-                    onOpenPreviousVersions={handleOpenPreviousVersions}
-                    onOpenDeveloperTools={
-                        import.meta.env.DEV
-                            ? () => {
-                                  console.debug(
-                                      "Editor toolbar developer tools",
-                                  );
-                              }
-                            : undefined
-                    }
-                />
+            <div className={styles.toolbarRow}>
+                <div className={styles.clusterRow}>
+                    <div
+                        className={joinClassNames(
+                            styles.cluster,
+                            styles.leftCluster,
+                        )}
+                    >
+                        <ToolbarTooltipButton
+                            label={t`Previous chapter`}
+                            onClick={actions.prevChapter.go}
+                            disabled={!actions.prevChapter.hasPrev}
+                            icon={<ChevronLeft size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={t`Next chapter`}
+                            onClick={actions.nextChapter.go}
+                            disabled={!actions.nextChapter.hasNext}
+                            icon={<ChevronRight size={16} />}
+                        />
+                    </div>
+
+                    <div
+                        className={styles.locationSeparator}
+                        aria-hidden="true"
+                    />
+
+                    <div className={styles.currentLocation}>
+                        <span className={styles.currentLocationBook}>
+                            {currentBookLabel}
+                        </span>
+                        <span className={styles.currentLocationChapter}>
+                            {currentChapterLabel === 0
+                                ? t`Introduction`
+                                : t`Chapter ${currentChapterLabel}`}
+                        </span>
+                    </div>
+
+                    <div
+                        className={styles.locationSeparator}
+                        aria-hidden="true"
+                    />
+
+                    <div
+                        className={joinClassNames(
+                            styles.cluster,
+                            styles.rightControls,
+                        )}
+                    >
+                        <ToolbarTooltipButton
+                            label={t`Cut`}
+                            onClick={handleCut}
+                            icon={<Scissors size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={t`Copy`}
+                            onClick={handleCopy}
+                            icon={<Copy size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={t`Paste`}
+                            onClick={() => {
+                                void handlePaste();
+                            }}
+                            icon={<ClipboardPaste size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={t`Save`}
+                            onClick={handleOpenSaveReview}
+                            icon={<Save size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={undoLabel ? t`Undo — ${undoLabel}` : t`Undo`}
+                            onClick={history.undo}
+                            disabled={!history.canUndo}
+                            icon={<Undo2 size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={redoLabel ? t`Redo — ${redoLabel}` : t`Redo`}
+                            onClick={history.redo}
+                            disabled={!history.canRedo}
+                            icon={<Redo2 size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={
+                                props.isReferencePaneOpen
+                                    ? t`Hide reference panel`
+                                    : t`Open reference panel`
+                            }
+                            onClick={props.onToggleReferencePane}
+                            active={props.isReferencePaneOpen}
+                            icon={<BookCopy size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={
+                                props.isLintDockOpen
+                                    ? t`Close lint dock`
+                                    : t`Open lint dock`
+                            }
+                            onClick={props.onToggleLintDock}
+                            active={props.isLintDockOpen}
+                            icon={<AlertCircle size={16} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={
+                                props.isSearchPaneOpen
+                                    ? t`Close search`
+                                    : t`Open search`
+                            }
+                            onClick={props.onToggleSearchPane ?? (() => {})}
+                            active={props.isSearchPaneOpen}
+                            icon={<Search size={16} />}
+                        />
+                        <ToolbarOverflowMenu
+                            onCopyEditorJson={() => void handleCopyEditorJson()}
+                            onOpenVersions={handleOpenPreviousVersions}
+                            onOpenDeveloperTools={
+                                import.meta.env.DEV
+                                    ? () => {
+                                          console.debug(
+                                              "Editor toolbar developer tools",
+                                          );
+                                      }
+                                    : undefined
+                            }
+                        />
+                    </div>
+                </div>
+
+                <div className={styles.rightCluster}>
+                    <CloudStatusButton
+                        state={cloudStatus.state}
+                        tooltipLabel={cloudStatus.label}
+                        tooltipDescription={cloudStatus.description}
+                        ariaLabel={cloudStatus.ariaLabel}
+                        onClick={props.onOpenCloudDock}
+                    />
+                </div>
             </div>
 
-            <div className={styles.rightCluster}>
-                <CloudStatusButton
-                    state={cloudStatus.state}
-                    tooltipLabel={cloudStatus.label}
-                    tooltipDescription={cloudStatus.description}
-                    ariaLabel={cloudStatus.ariaLabel}
-                    onClick={props.onOpenCloudDock}
-                />
+            <div className={styles.toolbarRow}>
+                <div className={styles.markerSection}>
+                    <span
+                        className={styles.sectionLabel}
+                    >{t`Insert USFM`}</span>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("v")}
+                    >
+                        {markerButtonLabel("v")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("p")}
+                    >
+                        {markerButtonLabel("p")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("cl")}
+                    >
+                        {markerButtonLabel("cl")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("f")}
+                    >
+                        {markerButtonLabel("f")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("m")}
+                    >
+                        {markerButtonLabel("m")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("q1")}
+                    >
+                        {markerButtonLabel("q1")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.markerButton}
+                        onClick={() => handleInsertUsfm("q2")}
+                    >
+                        {markerButtonLabel("q2")}
+                    </button>
+                </div>
             </div>
         </div>
     );

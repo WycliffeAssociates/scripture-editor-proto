@@ -72,3 +72,25 @@ export const localizationBlock = style({
     maxWidth: "22rem",
     width: "100%",
 });
+
+export const notificationLink = style({
+    border: "none",
+    padding: 0,
+    background: "transparent",
+    color: vars.color.brandBase,
+    font: "inherit",
+    fontWeight: 700,
+    cursor: "pointer",
+    textDecoration: "underline",
+    textUnderlineOffset: "0.15em",
+    selectors: {
+        "&:hover": {
+            color: vars.color.brandDark,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.color.surfacePrimary}, 0 0 0 4px ${vars.color.brandBase}`,
+            borderRadius: vars.border.radius.sm,
+        },
+    },
+});

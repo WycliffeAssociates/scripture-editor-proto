@@ -30,6 +30,8 @@ export async function buildRemoteLatestCompareSource(args: {
     metadataSummary: CompareMetadataSummary;
     remoteSync: {
         remoteHead: string;
+        localHead: string | null;
+        mergeBase: string | null;
         trackedBranch: string;
         relationship: GitRemoteRelationshipKind;
     };
@@ -65,6 +67,8 @@ export async function buildRemoteLatestCompareSource(args: {
         },
         remoteSync: {
             remoteHead: inspection.remoteHead,
+            localHead: inspection.localHead,
+            mergeBase: inspection.mergeBase,
             trackedBranch: args.remoteInfo.trackedBranch,
             relationship: inspection.relationship.kind,
         },

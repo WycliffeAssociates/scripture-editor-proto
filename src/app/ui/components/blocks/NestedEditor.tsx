@@ -91,7 +91,7 @@ export function NestedEditor({
                 <Plus size={14} />
             </PopoverTarget>
 
-            <PopoverDropdown p="xs">
+            <PopoverDropdown>
                 <NestedEditorContent
                     outerMarker={outerMarker}
                     mainEditor={mainEditor}

@@ -4,7 +4,7 @@ type EventType = MouseEvent | TouchEvent;
 
 const DEFAULT_EVENTS = ["mousedown", "touchstart"];
 
-export function useClickOutside<T extends HTMLElement = any>(
+export function useClickOutside<T extends HTMLElement = HTMLElement>(
     callback: (event: EventType) => void,
     events?: string[] | null,
     nodes?: (HTMLElement | null)[],
@@ -30,12 +30,14 @@ export function useClickOutside<T extends HTMLElement = any>(
     });
 
     useEffect(() => {
-        eventsList.forEach((fn) => document.addEventListener(fn, listener));
+        eventsList.forEach((fn) => {
+            document.addEventListener(fn, listener);
+        });
 
         return () => {
-            eventsList.forEach((fn) =>
-                document.removeEventListener(fn, listener),
-            );
+            eventsList.forEach((fn) => {
+                document.removeEventListener(fn, listener);
+            });
         };
     }, [eventsList, listener]);
 

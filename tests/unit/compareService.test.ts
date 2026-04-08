@@ -7,6 +7,7 @@ import {
     buildCompareResult,
     type CompareMetadataSummary,
 } from "@/app/domain/project/compare/compareService.ts";
+import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import {
     applyIncomingChapter,
     applyIncomingChapterAll,
@@ -178,6 +179,32 @@ function createStubUsfmOnionService(): IUsfmOnionService {
 const usfmOnionService = createStubUsfmOnionService();
 
 describe("compareService.buildCompareResult", () => {
+    it("normalizes chapter-0 document markers onto the intro sid", () => {
+        const normalized = normalizeTokenSids(
+            [
+                {
+                    id: "GEN-0",
+                    kind: "marker",
+                    sid: "",
+                    marker: "id",
+                    text: "\\id",
+                    span: { start: 0, end: 3 },
+                },
+                {
+                    id: "GEN-1",
+                    kind: "bookCode",
+                    sid: "GEN 0:0",
+                    text: " GEN",
+                    span: { start: 3, end: 7 },
+                },
+            ],
+            "GEN",
+        );
+
+        expect(normalized[0]?.sid).toBe("GEN 0:0");
+        expect(normalized[1]?.sid).toBe("GEN 0:0");
+    });
+
     it("uses the current dirty workspace as the compare baseline", async () => {
         const current = makeFiles({
             loadedText: "alpha",

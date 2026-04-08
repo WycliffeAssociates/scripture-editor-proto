@@ -68,7 +68,16 @@ export function SearchResultItem(props: SearchResultItemProps) {
                 </button>
             </div>
 
-            <div className={styles.searchResultPreview} onClick={onPick}>
+            {/** biome-ignore lint/a11y/noStaticElementInteractions: <todo fix> */}
+            <div
+                className={styles.searchResultPreview}
+                onClick={onPick}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                        onPick();
+                    }
+                }}
+            >
                 {isGrouped ? (
                     <div
                         className={styles.searchResultPair}
@@ -211,7 +220,7 @@ function renderSearchPreview(
             if (replacement.trim()) {
                 return (
                     <span
-                        key={`${part}-${index}`}
+                        key={`${index}-${part}`}
                         className={styles.searchReplacementPreview}
                     >
                         <span className={styles.searchReplacementOld}>
@@ -225,7 +234,7 @@ function renderSearchPreview(
             }
             return (
                 <mark
-                    key={`${part}-${index}`}
+                    key={`${index}-${part}`}
                     className={styles.searchHighlight}
                 >
                     {part}

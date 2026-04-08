@@ -182,6 +182,7 @@ export default function ProjectRow({
 
             {confirmOpen && deleteDialog
                 ? createPortal(
+                      // biome-ignore lint/a11y/noStaticElementInteractions: <todo fix>
                       <div
                           className={styles.dialogOverlay}
                           onMouseDown={() => setConfirmOpen(false)}

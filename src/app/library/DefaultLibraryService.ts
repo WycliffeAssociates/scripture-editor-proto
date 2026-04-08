@@ -1,9 +1,6 @@
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { toIndexedLibraryItem } from "@/app/library/LibraryService.ts";
-import {
-    DefaultProjectsService,
-    type DefaultProjectsServiceDeps,
-} from "@/app/persistence/DefaultProjectsService.ts";
+import { DefaultProjectsService } from "@/app/persistence/DefaultProjectsService.ts";
 import type { ImportSource } from "@/core/domain/project/import/ProjectImporter.ts";
 import type {
     ImportFolderSource,
@@ -29,10 +26,6 @@ export class DefaultLibraryService
     extends DefaultProjectsService
     implements LibraryService
 {
-    constructor(deps: DefaultProjectsServiceDeps) {
-        super(deps);
-    }
-
     /**
      * List every known managed item through the generic library-row shape used
      * by catalog and picker UIs.

@@ -1,13 +1,11 @@
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import {
-    type ContentEditorModeSetting,
-    EDITOR_MODES,
-} from "@/app/data/editor.ts";
+import type { ContentEditorModeSetting } from "@/app/data/editor.ts";
 import {
     materializeFlatTokensArray,
     transformToMode,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { inferContentEditorModeFromRootChildren } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 
 /**
@@ -29,11 +27,9 @@ export type ChapterMode = ContentEditorModeSetting;
 export function inferChapterModeFromState(
     state: SerializedEditorState,
 ): ChapterMode {
-    const rootChildren = state.root.children as SerializedLexicalNode[];
-    const isRegular = rootChildren.some(
-        (child) => (child as { type?: string }).type === "usfm-paragraph-node",
+    return inferContentEditorModeFromRootChildren(
+        state.root.children as SerializedLexicalNode[],
     );
-    return isRegular ? EDITOR_MODES.regular : EDITOR_MODES.usfm;
 }
 
 export function chapterStateToCanonicalSnapshot(

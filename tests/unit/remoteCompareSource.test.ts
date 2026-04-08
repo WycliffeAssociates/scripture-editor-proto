@@ -106,6 +106,8 @@ describe("buildRemoteLatestCompareSource", () => {
                 languageDirection: "ltr",
             },
             remoteSync: {
+                localHead: "local-head",
+                mergeBase: "base-head",
                 remoteHead: "remote-head",
                 trackedBranch: "master",
                 relationship: GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,

@@ -219,12 +219,17 @@ export function useCustomHistory({
         [readSelectionFromChapter],
     );
 
-    const markChapterDirty = useCallback((chapter: ScriptureChapterState) => {
-        chapter.currentTokens = lexicalToTokens(chapter.lexicalState);
-        chapter.dirty =
-            chapter.currentTokens.map((token) => token.text).join("") !==
-            chapter.sourceTokens.map((token) => token.text).join("");
-    }, []);
+    const markChapterDirty = useCallback(
+        (chapter: ScriptureChapterState) => {
+            chapter.currentTokens = lexicalToTokens(chapter.lexicalState, {
+                bookCode: currentFileBibleIdentifier,
+            });
+            chapter.dirty =
+                chapter.currentTokens.map((token) => token.text).join("") !==
+                chapter.sourceTokens.map((token) => token.text).join("");
+        },
+        [currentFileBibleIdentifier],
+    );
 
     const refreshVisibleEditorIfTouched = useCallback(
         (

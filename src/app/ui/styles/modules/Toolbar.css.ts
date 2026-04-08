@@ -1,5 +1,5 @@
 import { style } from "@vanilla-extract/css";
-import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 const darkSelector = "[data-theme='dark']";
 
@@ -12,16 +12,16 @@ export const toolbarInner = style({
     justifyContent: "space-between",
     alignItems: "center",
     //   padding: "0.35rem 0",
-    padding: `${dsVars.spacing.sm} ${dsVars.spacing.md}`,
-    gap: dsVars.spacing.md,
-    borderBottom: `1px solid ${dsVars.color.surfaceBorder}`,
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    gap: vars.spacing.md,
+    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
     width: "100%",
 });
 
 export const toolbarSection = style({
     display: "flex",
     alignItems: "center",
-    gap: dsVars.spacing.xs,
+    gap: vars.spacing.xs,
     flexWrap: "nowrap",
     minWidth: 0,
     "@media": {
@@ -51,40 +51,40 @@ export const referenceProjectLabel = style({
 
 export const clearReferenceProject = style({
     fontWeight: 600,
-    borderBottom: `1px solid ${dsVars.color.surfaceTertiary}`,
+    borderBottom: `1px solid ${vars.color.surfaceTertiary}`,
     borderRadius: "0",
-    color: dsVars.color.onSurfaceError,
+    color: vars.color.onSurfaceError,
     selectors: {
         [`${darkSelector} &`]: {
-            color: dsVars.color.surfaceError,
+            color: vars.color.surfaceError,
         },
     },
 });
 
 export const projectItem = style({
-    paddingInlineStart: dsVars.spacing.md,
+    paddingInlineStart: vars.spacing.md,
 });
 
 export const languageLabel = style({
-    paddingTop: dsVars.spacing.xs,
+    paddingTop: vars.spacing.xs,
 });
 
 export const currentProjectIndicator = style({
-    fontSize: dsVars.typography.bodySmallest.fontSize,
+    fontSize: vars.typography.bodySmallest.fontSize,
     opacity: 0.6,
 });
 
 export const projectItemContent = style({
     display: "flex",
     alignItems: "center",
-    gap: `calc(${dsVars.spacing.xs} * 0.4)`,
+    gap: `calc(${vars.spacing.xs} * 0.4)`,
 });
 
 export const viewOnlyActive = style({
-    backgroundColor: dsVars.color.surfaceError,
+    backgroundColor: vars.color.surfaceError,
     selectors: {
         [`${darkSelector} &`]: {
-            backgroundColor: dsVars.color.surfaceTertiary,
+            backgroundColor: vars.color.surfaceTertiary,
         },
     },
 });

@@ -2,10 +2,18 @@ import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import type { USFMNodeJSON } from "@/app/data/editor.ts";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    BOOK_FRONTMATTER_FORM_NODE_TYPE,
+    isSerializedBookFrontmatterFormNode,
+} from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import {
+    lexicalToTokens,
+    tokensToLexical,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 const usfmWithFootnote =
@@ -43,6 +51,161 @@ describe("tokensToLexical nested editor invariants", () => {
             { nested: "preserve" },
         );
         expect(flat.some(isSerializedUSFMNestedEditorNode)).toBe(false);
+    });
+});
+
+describe("tokensToLexical chapter 0 frontmatter form", () => {
+    it("projects chapter 0 to a frontmatter decorator in regular mode", async () => {
+        const projected = await webUsfmOnionService.parseUsfm(
+            [
+                "\\id GEN Unlocked Literal Bible",
+                "\\ide UTF-8",
+                "\\h Genesis",
+                "\\toc1 The Book of Genesis",
+                "\\toc2 Genesis",
+                "\\toc3 Gen",
+                "\\mt Genesis",
+                "\\c 1",
+                "\\v 1 In the beginning",
+            ].join("\n"),
+        );
+
+        const lexicalState = tokensToLexical({
+            tokens: groupFlatTokensByChapter(projected.tokens)[0] ?? [],
+            direction: "ltr",
+            mode: "regular",
+        });
+
+        const chapterZeroChildren =
+            lexicalState.root.children as SerializedLexicalNode[];
+        expect(chapterZeroChildren[0]?.type).toBe(BOOK_FRONTMATTER_FORM_NODE_TYPE);
+        expect(
+            isSerializedBookFrontmatterFormNode(chapterZeroChildren[0]),
+        ).toBe(true);
+    });
+
+    it("round-trips chapter 0 frontmatter back to the original token stream", async () => {
+        const projected = await webUsfmOnionService.parseUsfm(
+            [
+                "\\id GEN Unlocked Literal Bible",
+                "\\ide CP-1252",
+                "\\h Genesis",
+                "\\toc1 The Book of Genesis",
+                "\\toc2 Genesis",
+                "\\toc3 Gen",
+                "\\mt Genesis",
+                "\\m stray intro paragraph",
+                "\\abc Unsupported marker value",
+                "\\c 1",
+                "\\v 1 In the beginning",
+            ].join("\n"),
+        );
+
+        const lexicalState = tokensToLexical({
+            tokens: groupFlatTokensByChapter(projected.tokens)[0] ?? [],
+            direction: "ltr",
+            mode: "regular",
+        });
+        const roundTripped = lexicalToTokens(lexicalState);
+        const originalChapterZero = groupFlatTokensByChapter(projected.tokens)[0] ?? [];
+
+        expect(
+            roundTripped.map((token) => ({
+                text: token.text,
+                kind: token.kind,
+                sid: token.sid ?? "",
+                marker: token.marker ?? "",
+            })),
+        ).toEqual(
+            originalChapterZero.map((token) => ({
+                text: token.text,
+                kind: token.kind,
+                sid: token.sid ?? "",
+                marker: token.marker ?? "",
+            })),
+        );
+    });
+
+    it("preserves the special \\id token boundaries and sid layout", async () => {
+        const projected = await webUsfmOnionService.parseUsfm(
+            [
+                "\\id GEN Unlocked Literal Bible",
+                "\\ide UTF-8",
+                "\\h Genesis",
+                "\\c 1",
+                "\\v 1 In the beginning",
+            ].join("\n"),
+        );
+
+        const lexicalState = tokensToLexical({
+            tokens: groupFlatTokensByChapter(projected.tokens)[0] ?? [],
+            direction: "ltr",
+            mode: "regular",
+        });
+        const roundTripped = lexicalToTokens(lexicalState);
+        const idSlice = roundTripped.slice(0, 4).map((token) => ({
+            text: token.text,
+            kind: token.kind,
+            sid: token.sid ?? "",
+            marker: token.marker ?? "",
+        }));
+        expect(idSlice).toEqual([
+            {
+                text: "\\id",
+                kind: "marker",
+                sid: "",
+                marker: "id",
+            },
+            {
+                text: " GEN",
+                kind: "bookCode",
+                sid: "GEN 0:0",
+                marker: "",
+            },
+            {
+                text: " Unlocked Literal Bible",
+                kind: "text",
+                sid: "GEN 0:0",
+                marker: "",
+            },
+            {
+                text: "\n",
+                kind: "newline",
+                sid: "GEN 0:0",
+                marker: "",
+            },
+        ]);
+    });
+
+    it("preserves hidden extra linebreak tokens between frontmatter entries", async () => {
+        const projected = await webUsfmOnionService.parseUsfm(
+            [
+                "\\id GEN Unlocked Literal Bible",
+                "\\ide UTF-8",
+                "\\h Genesis",
+                "\\toc1 The Book of Genesis",
+                "\\toc2 Genesis",
+                "\\toc3 Gen",
+                "\\mt Genesis",
+                "",
+                "\\s5",
+                "\\c 1",
+                "\\v 1 In the beginning",
+            ].join("\n"),
+        );
+
+        const lexicalState = tokensToLexical({
+            tokens: groupFlatTokensByChapter(projected.tokens)[0] ?? [],
+            direction: "ltr",
+            mode: "regular",
+        });
+
+        const roundTripped = lexicalToTokens(lexicalState);
+        const originalChapterZero = groupFlatTokensByChapter(projected.tokens)[0] ?? [];
+
+        expect(roundTripped.map((token) => token.text)).toEqual(
+            originalChapterZero.map((token) => token.text),
+        );
     });
 });
 

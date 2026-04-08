@@ -52,6 +52,14 @@
 ## Linked cloud project behavior
 - `Review & Save` still means local save first.
 - If the project is cloud-linked and auto-publish is enabled, publish happens after the local save completes.
+- Advanced save policy settings can relax how much review is shown:
+  - `Auto Accept My Work on Save`
+    - plain `Save` skips the unsaved diff modal and commits local edits directly
+    - this changes local save behavior only; remote publish can still be blocked by cloud state
+  - `Auto Accept Incoming Work`
+    - incoming cloud changes are applied automatically when they do not overlap a verse that already has local dirty edits in the current workspace
+    - remote review only remains open for verse-level overlaps that still need human resolution
+    - safe incoming changes can therefore be accepted without interrupting the user, while true overlap still uses the same reconciliation modal
 - If publish cannot complete:
   - offline or transient failure -> project status becomes `Changes not yet published`
   - remote advanced or diverged -> project status becomes `Needs review`

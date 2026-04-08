@@ -3,11 +3,7 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import {
-    EDITOR_MODES,
-    USFM_PARAGRAPH_NODE_TYPE,
-    UsfmTokenTypes,
-} from "@/app/data/editor.ts";
+import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     createSerializedUSFMTextNode,
@@ -16,7 +12,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
-    groupFlatNodesIntoParagraphContainers,
+    isRegularModeRootChildren,
     transformToMode,
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
@@ -24,6 +20,7 @@ import {
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
+import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -45,7 +42,7 @@ function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
 export type RootShape = "regularTree" | "wrappedFlat" | "unknown";
 
 function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
-    if (nodes.some((n) => n.type === USFM_PARAGRAPH_NODE_TYPE)) {
+    if (isRegularModeRootChildren(nodes)) {
         return "regularTree";
     }
     const unwrapped = unwrapFlatTokensFromRootChildren(nodes);
@@ -82,7 +79,7 @@ function lexicalTokenTypeToOnionKind(
         case UsfmTokenTypes.verticalWhitespace:
             return "newline";
         default:
-            return "text";
+            return (tokenType ?? "text") as Token["kind"];
     }
 }
 
@@ -99,6 +96,7 @@ function flatTokenKindToLexicalTokenType(kind: string): string {
         case "number":
             return UsfmTokenTypes.numberRange;
         case "bookCode":
+            return "bookCode";
         case "optBreak":
         case "attributeList":
             return UsfmTokenTypes.text;
@@ -141,7 +139,24 @@ export function usfmTokenStreamToLexicalRootChildren(
         .filter(Boolean) as SerializedLexicalNode[];
 
     if (shape === "regularTree") {
-        return groupFlatNodesIntoParagraphContainers(serializedFlat, direction);
+        return transformToMode(
+            {
+                root: {
+                    children: [
+                        wrapFlatTokensInLexicalParagraph(
+                            serializedFlat,
+                            direction,
+                        ),
+                    ],
+                    type: "root",
+                    version: 1,
+                    direction,
+                    format: "start",
+                    indent: 0,
+                },
+            },
+            "regular",
+        ).root.children as SerializedLexicalNode[];
     }
 
     if (shape === "wrappedFlat") {
@@ -161,13 +176,12 @@ export function usfmTokenStreamToLexicalRootChildren(
 export function inferContentEditorModeFromRootChildren(
     rootChildren: SerializedLexicalNode[],
 ): "regular" | "usfm" {
-    return rootChildren.some((child) => child.type === USFM_PARAGRAPH_NODE_TYPE)
-        ? "regular"
-        : "usfm";
+    return isRegularModeRootChildren(rootChildren) ? "regular" : "usfm";
 }
 
 export type LexicalToTokensOptions = {
     structuralParagraphBreaks?: boolean;
+    bookCode?: string;
 };
 
 function shouldInsertStructuralLinebreakAfterSyntheticParaMarker(
@@ -285,7 +299,9 @@ export function lexicalToTokens(
         if (sid) lastSid = sid;
     }
 
-    return tokens;
+    return options.bookCode
+        ? normalizeTokenSids(tokens, options.bookCode)
+        : tokens;
 }
 
 export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {

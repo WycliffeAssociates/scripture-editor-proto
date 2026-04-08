@@ -13,6 +13,8 @@ export interface SelectTriggerProps {
     placeholder?: string;
     icon?: ReactNode;
     className?: string;
+    popupClassName?: string;
+    listClassName?: string;
     onValueChange?: (value: string | null) => void;
     children?: ReactNode;
 }
@@ -64,6 +66,8 @@ export interface SelectProps {
     placeholder?: string;
     icon?: ReactNode;
     className?: string;
+    popupClassName?: string;
+    listClassName?: string;
     disabled?: boolean;
     portalContainer?: RefObject<HTMLElement | null>;
     onValueChange?: (value: string | null) => void;
@@ -76,6 +80,8 @@ export function SelectPrimitive({
     placeholder,
     icon,
     className,
+    popupClassName,
+    listClassName,
     disabled,
     portalContainer,
     onValueChange,
@@ -105,8 +111,15 @@ export function SelectPrimitive({
 
             <Select.Portal container={portalContainer}>
                 <Select.Positioner sideOffset={8} alignItemWithTrigger={false}>
-                    <Select.Popup className={styles.popup}>
-                        <Select.List className={styles.list}>
+                    <Select.Popup
+                        className={joinClassNames(styles.popup, popupClassName)}
+                    >
+                        <Select.List
+                            className={joinClassNames(
+                                styles.list,
+                                listClassName,
+                            )}
+                        >
                             {items.map((item) => (
                                 <Select.Item
                                     key={item.value}

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useCallbackRef } from "@/app/ui/hooks/general/utils/useCallbackRef.ts";
 
-export function useThrottledCallbackWithClearTimeout<
+// biome-ignore lint/suspicious/noExplicitAny: <Fine for generic we dont care on args>
+function useThrottledCallbackWithClearTimeout<
     T extends (...args: any[]) => any,
 >(callback: T, wait: number) {
     const handleCallback = useCallbackRef(callback);
+    // biome-ignore lint/suspicious/noExplicitAny: <generic>
     const latestInArgsRef = useRef<Parameters<T>>(null as any);
+    // biome-ignore lint/suspicious/noExplicitAny: <generic>
     const latestOutArgsRef = useRef<Parameters<T>>(null as any);
     const active = useRef(true);
     const waitRef = useRef(wait);
@@ -61,7 +64,7 @@ export function useThrottledCallbackWithClearTimeout<
     return [throttled, clearTimeout] as const;
 }
 
-export function useThrottledCallback<T extends (...args: any[]) => any>(
+export function useThrottledCallback<T extends (...args: unknown[]) => unknown>(
     callback: T,
     wait: number,
 ) {

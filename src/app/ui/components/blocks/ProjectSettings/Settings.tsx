@@ -1,17 +1,30 @@
+import { Combobox } from "@base-ui/react/combobox";
+import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
 import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
-import { Languages, MoonStar, Save, SunMedium } from "lucide-react";
-import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { Check, Languages, MoonStar, Save, SunMedium } from "lucide-react";
+import {
+    type ReactNode,
+    type RefObject,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES, type Settings } from "@/app/data/settings.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import {
+    ShowErrorNotification,
+    ShowNotificationSuccess,
+} from "@/app/ui/components/primitives/Notifications.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
 import * as styles from "./settings.css.ts";
@@ -24,7 +37,9 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
-    const { actions, project } = useWorkspaceContext();
+    const { actions, loadedProject, project, remote } = useWorkspaceContext();
+    const { authSessionProvider, projectsService } =
+        useRouter().options.context;
     const overlayPortalRef = useRef<HTMLDivElement | null>(null);
     const [activeTab, setActiveTab] = useState<SettingsTab>("app-appearance");
     const [initialSettings] = useState<Settings>(() =>
@@ -55,6 +70,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 appDirection: nextSettings.appDirection,
                 autoSyncOnOpen: nextSettings.autoSyncOnOpen,
                 autoPushOnSave: nextSettings.autoPushOnSave,
+                autoAcceptOwnWorkOnSave: nextSettings.autoAcceptOwnWorkOnSave,
+                autoAcceptIncomingWork: nextSettings.autoAcceptIncomingWork,
+                diffViewModeDefault: nextSettings.diffViewModeDefault,
             });
         } catch (error) {
             ShowErrorNotification({
@@ -158,8 +176,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     >
                         <div className={styles.tabsPanelInner}>
                             <AdvancedTab
+                                loadedProjectPath={loadedProject.projectPath}
+                                isCloudLinked={remote.status !== null}
+                                syncRemoteStatus={remote.syncNow}
+                                authSessionProvider={authSessionProvider}
+                                projectsService={projectsService}
                                 settings={project.appSettings}
                                 applyUpdates={handleSettingsChange}
+                                portalContainer={overlayPortalRef}
                             />
                         </div>
                     </BaseTabs.Panel>
@@ -360,14 +384,207 @@ function ReferencePanelTab() {
 }
 
 function AdvancedTab({
+    loadedProjectPath,
+    isCloudLinked,
+    syncRemoteStatus,
+    authSessionProvider,
+    projectsService,
     settings,
     applyUpdates,
+    portalContainer,
 }: {
+    loadedProjectPath: string;
+    isCloudLinked: boolean;
+    syncRemoteStatus: () => Promise<void>;
+    authSessionProvider: {
+        getCurrentSession: () => Promise<unknown | null>;
+    };
+    projectsService: {
+        createRemoteForProject: (projectRef: string) => Promise<unknown>;
+        listOwnedRemoteRepos: (args: {
+            page: number;
+            pageSize: number;
+            topic?: string;
+        }) => Promise<{ repos: RemoteRepoSummary[]; nextPage: number | null }>;
+        attachProjectToRemote: (args: {
+            projectRef: string;
+            repo: Pick<
+                RemoteRepoSummary,
+                | "id"
+                | "owner"
+                | "name"
+                | "htmlUrl"
+                | "cloneUrl"
+                | "defaultBranch"
+            >;
+        }) => Promise<unknown>;
+    };
     settings: Settings;
     applyUpdates: (updates: Partial<Settings>) => Promise<void>;
+    portalContainer: RefObject<HTMLElement | null>;
 }) {
+    const [isCloudSessionReady, setIsCloudSessionReady] = useState(false);
+    const [isLoadingOwnedRepos, setIsLoadingOwnedRepos] = useState(false);
+    const [ownedRepos, setOwnedRepos] = useState<RemoteRepoSummary[]>([]);
+    const [selectedOwnedRepoName, setSelectedOwnedRepoName] = useState<
+        string | null
+    >(null);
+    const [ownedRepoQuery, setOwnedRepoQuery] = useState("");
+    const [isCreatingRemoteProject, setIsCreatingRemoteProject] =
+        useState(false);
+    const [isAttachingRemoteProject, setIsAttachingRemoteProject] =
+        useState(false);
+
+    const selectedOwnedRepo =
+        ownedRepos.find((repo) => repo.fullName === selectedOwnedRepoName) ??
+        null;
+    const filteredOwnedRepos = ownedRepos.filter((repo) =>
+        repo.fullName
+            .toLowerCase()
+            .includes(ownedRepoQuery.trim().toLowerCase()),
+    );
+
+    const reloadOwnedRepos = async () => {
+        setIsLoadingOwnedRepos(true);
+        try {
+            const session = await authSessionProvider.getCurrentSession();
+            if (!session) {
+                setIsCloudSessionReady(false);
+                setOwnedRepos([]);
+                setSelectedOwnedRepoName(null);
+                return;
+            }
+            setIsCloudSessionReady(true);
+            const firstPage = await projectsService.listOwnedRemoteRepos({
+                page: 1,
+                pageSize: 50,
+            });
+            setOwnedRepos(firstPage.repos);
+            setSelectedOwnedRepoName((current) => {
+                if (
+                    current &&
+                    firstPage.repos.some((r) => r.fullName === current)
+                ) {
+                    return current;
+                }
+                return firstPage.repos[0]?.fullName ?? null;
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    title: t`Failed to load cloud projects`,
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Please try again.`,
+                },
+            });
+        } finally {
+            setIsLoadingOwnedRepos(false);
+        }
+    };
+
+    // todo fix
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <fix later>
+    useEffect(() => {
+        if (isCloudLinked) return;
+        void reloadOwnedRepos();
+    }, [isCloudLinked]);
+
+    const handleCreateRemote = async () => {
+        setIsCreatingRemoteProject(true);
+        try {
+            await projectsService.createRemoteForProject(loadedProjectPath);
+            await syncRemoteStatus();
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Cloud project created`,
+                    message: t`This project is now linked and published to cloud.`,
+                },
+            });
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : t`Please try again.`;
+            const duplicateNameMatch =
+                /same name already exists/i.test(message) ||
+                /already exists/i.test(message);
+            ShowErrorNotification({
+                notification: {
+                    title: t`Failed to create remote project`,
+                    message: duplicateNameMatch
+                        ? t`A cloud project with this name already exists in your account. Attach the existing cloud project instead.`
+                        : message,
+                },
+            });
+        } finally {
+            setIsCreatingRemoteProject(false);
+        }
+    };
+
+    const handleAttachRemote = async () => {
+        if (!selectedOwnedRepo) return;
+        setIsAttachingRemoteProject(true);
+        try {
+            await projectsService.attachProjectToRemote({
+                projectRef: loadedProjectPath,
+                repo: {
+                    id: selectedOwnedRepo.id,
+                    owner: selectedOwnedRepo.owner,
+                    name: selectedOwnedRepo.name,
+                    htmlUrl: selectedOwnedRepo.htmlUrl,
+                    cloneUrl: selectedOwnedRepo.cloneUrl,
+                    defaultBranch: selectedOwnedRepo.defaultBranch,
+                },
+            });
+            await syncRemoteStatus();
+            ShowNotificationSuccess({
+                notification: {
+                    title: t`Cloud project attached`,
+                    message: t`This project is now linked to the selected cloud repository.`,
+                },
+            });
+        } catch (error) {
+            ShowErrorNotification({
+                notification: {
+                    title: t`Failed to attach cloud project`,
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : t`Please try again.`,
+                },
+            });
+        } finally {
+            setIsAttachingRemoteProject(false);
+        }
+    };
+
     return (
         <div className={styles.section}>
+            <SettingRow
+                title={t`Default review view`}
+                description={t`Choose how change review opens by default.`}
+                control={
+                    <div className={styles.fieldControl}>
+                        <ToggleGroup
+                            value={settings.diffViewModeDefault}
+                            onValueChange={(value) => {
+                                if (value === "list" || value === "chapter") {
+                                    void applyUpdates({
+                                        diffViewModeDefault:
+                                            value as Settings["diffViewModeDefault"],
+                                    });
+                                }
+                            }}
+                            items={[
+                                { value: "list", label: t`By verse` },
+                                { value: "chapter", label: t`By chapter` },
+                            ]}
+                            className={styles.toggleGroup}
+                        />
+                    </div>
+                }
+            />
+
             <SettingRow
                 title={t`Auto Sync on Open`}
                 description={t`Check for cloud updates automatically when opening a linked project.`}
@@ -421,6 +638,282 @@ function AdvancedTab({
                     </div>
                 }
             />
+
+            <SettingRow
+                title={t`Auto Accept My Work on Save`}
+                description={t`Skip review for your own local edits and commit them directly when you save.`}
+                control={
+                    <div
+                        className={styles.rowControlEnd}
+                        data-testid={
+                            TESTING_IDS.settings.autoAcceptOwnWorkOnSaveToggle
+                        }
+                    >
+                        <Switch
+                            checked={settings.autoAcceptOwnWorkOnSave}
+                            onCheckedChange={(checked) =>
+                                void applyUpdates({
+                                    autoAcceptOwnWorkOnSave: checked,
+                                })
+                            }
+                            label={
+                                <span className={styles.switchLabel}>
+                                    <span className={styles.switchLabelTitle}>
+                                        {settings.autoAcceptOwnWorkOnSave
+                                            ? t`Enabled`
+                                            : t`Disabled`}
+                                    </span>
+                                </span>
+                            }
+                        />
+                    </div>
+                }
+            />
+
+            <SettingRow
+                title={t`Auto Accept Incoming Work`}
+                description={t`Accept incoming cloud changes automatically unless the same verse already has unresolved local edits.`}
+                control={
+                    <div
+                        className={styles.rowControlEnd}
+                        data-testid={
+                            TESTING_IDS.settings.autoAcceptIncomingWorkToggle
+                        }
+                    >
+                        <Switch
+                            checked={settings.autoAcceptIncomingWork}
+                            onCheckedChange={(checked) =>
+                                void applyUpdates({
+                                    autoAcceptIncomingWork: checked,
+                                })
+                            }
+                            label={
+                                <span className={styles.switchLabel}>
+                                    <span className={styles.switchLabelTitle}>
+                                        {settings.autoAcceptIncomingWork
+                                            ? t`Enabled`
+                                            : t`Disabled`}
+                                    </span>
+                                </span>
+                            }
+                        />
+                    </div>
+                }
+            />
+
+            {!isCloudLinked ? (
+                <>
+                    <SettingRow
+                        title={t`Create cloud project`}
+                        description={t`Create and link a new cloud repository from this local project.`}
+                        control={
+                            <div className={styles.rowControlEnd}>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    data-testid={
+                                        TESTING_IDS.settings
+                                            .createRemoteProjectButton
+                                    }
+                                    disabled={
+                                        !isCloudSessionReady ||
+                                        isCreatingRemoteProject
+                                    }
+                                    onClick={() => void handleCreateRemote()}
+                                >
+                                    {isCreatingRemoteProject
+                                        ? t`Creating...`
+                                        : t`Save as new cloud project`}
+                                </Button>
+                            </div>
+                        }
+                    />
+
+                    <SettingRow
+                        title={t`Attach existing cloud project`}
+                        description={t`Link this local project to a repository you already own in cloud.`}
+                        control={
+                            <div className={styles.fieldControl}>
+                                <div
+                                    data-testid={
+                                        TESTING_IDS.settings
+                                            .attachRemoteProjectSelect
+                                    }
+                                >
+                                    <Combobox.Root<RemoteRepoSummary>
+                                        items={ownedRepos}
+                                        value={selectedOwnedRepo}
+                                        inputValue={ownedRepoQuery}
+                                        onInputValueChange={setOwnedRepoQuery}
+                                        onValueChange={(value) =>
+                                            setSelectedOwnedRepoName(
+                                                value?.fullName ?? null,
+                                            )
+                                        }
+                                        itemToStringLabel={(item) =>
+                                            item.fullName
+                                        }
+                                        itemToStringValue={(item) =>
+                                            item.fullName
+                                        }
+                                    >
+                                        <Combobox.Trigger
+                                            className={styles.selectControl}
+                                            aria-label={t`Select cloud project`}
+                                        >
+                                            <span
+                                                className={
+                                                    styles.cloudProjectComboboxValue
+                                                }
+                                            >
+                                                {selectedOwnedRepo?.fullName ??
+                                                    t`Select cloud project`}
+                                            </span>
+                                            <span
+                                                className={
+                                                    styles.cloudProjectComboboxChevron
+                                                }
+                                                aria-hidden="true"
+                                            >
+                                                ⌄
+                                            </span>
+                                        </Combobox.Trigger>
+
+                                        <Combobox.Portal
+                                            container={portalContainer}
+                                        >
+                                            <Combobox.Positioner
+                                                sideOffset={8}
+                                                align="start"
+                                            >
+                                                <Combobox.Popup
+                                                    className={
+                                                        styles.cloudProjectComboboxPopup
+                                                    }
+                                                >
+                                                    <div
+                                                        className={
+                                                            styles.cloudProjectComboboxHeader
+                                                        }
+                                                    >
+                                                        <Combobox.Input
+                                                            className={
+                                                                styles.cloudProjectComboboxInput
+                                                            }
+                                                            aria-label={t`Search cloud projects`}
+                                                            placeholder={t`Search cloud projects`}
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                    <ScrollArea.Root
+                                                        className={
+                                                            styles.cloudProjectComboboxScrollArea
+                                                        }
+                                                    >
+                                                        <ScrollArea.Viewport
+                                                            className={
+                                                                styles.cloudProjectComboboxScrollViewport
+                                                            }
+                                                        >
+                                                            <Combobox.List
+                                                                className={
+                                                                    styles.cloudProjectComboboxList
+                                                                }
+                                                            >
+                                                                {filteredOwnedRepos.map(
+                                                                    (repo) => (
+                                                                        <Combobox.Item
+                                                                            key={
+                                                                                repo.id
+                                                                            }
+                                                                            value={
+                                                                                repo
+                                                                            }
+                                                                            className={
+                                                                                styles.cloudProjectComboboxItem
+                                                                            }
+                                                                        >
+                                                                            <span
+                                                                                className={
+                                                                                    styles.cloudProjectComboboxItemIndicator
+                                                                                }
+                                                                                aria-hidden="true"
+                                                                            >
+                                                                                {selectedOwnedRepoName ===
+                                                                                repo.fullName ? (
+                                                                                    <Check
+                                                                                        size={
+                                                                                            14
+                                                                                        }
+                                                                                    />
+                                                                                ) : null}
+                                                                            </span>
+                                                                            <span>
+                                                                                {
+                                                                                    repo.fullName
+                                                                                }
+                                                                            </span>
+                                                                        </Combobox.Item>
+                                                                    ),
+                                                                )}
+                                                            </Combobox.List>
+                                                            <Combobox.Empty
+                                                                className={
+                                                                    styles.cloudProjectComboboxEmpty
+                                                                }
+                                                            >
+                                                                {t`No cloud projects found.`}
+                                                            </Combobox.Empty>
+                                                        </ScrollArea.Viewport>
+                                                        <ScrollArea.Scrollbar orientation="vertical">
+                                                            <ScrollArea.Thumb />
+                                                        </ScrollArea.Scrollbar>
+                                                    </ScrollArea.Root>
+                                                </Combobox.Popup>
+                                            </Combobox.Positioner>
+                                        </Combobox.Portal>
+                                    </Combobox.Root>
+                                </div>
+                                <div className={styles.cloudAttachActions}>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={isLoadingOwnedRepos}
+                                        onClick={() => void reloadOwnedRepos()}
+                                    >
+                                        {isLoadingOwnedRepos
+                                            ? t`Refreshing...`
+                                            : t`Refresh`}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="primary"
+                                        data-testid={
+                                            TESTING_IDS.settings
+                                                .attachRemoteProjectButton
+                                        }
+                                        disabled={
+                                            !isCloudSessionReady ||
+                                            !selectedOwnedRepo ||
+                                            isAttachingRemoteProject
+                                        }
+                                        onClick={() =>
+                                            void handleAttachRemote()
+                                        }
+                                    >
+                                        {isAttachingRemoteProject
+                                            ? t`Attaching...`
+                                            : t`Attach`}
+                                    </Button>
+                                </div>
+                            </div>
+                        }
+                    />
+                </>
+            ) : null}
         </div>
     );
 }

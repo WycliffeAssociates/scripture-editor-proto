@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type {
     DiffsByChapter,
     ProjectDiff,
@@ -53,10 +54,12 @@ export function buildChapterOptions(args: {
             ) {
                 continue;
             }
+            const chapterLabel =
+                chapterNum === 0 ? t`Introduction` : String(chapterNum);
 
             options.push({
                 value: chapterKey(bookCode, chapterNum),
-                label: `${args.formatBookLabel(bookCode)} ${chapterNum}`,
+                label: `${args.formatBookLabel(bookCode)} ${chapterLabel}`,
                 bookCode,
                 chapterNum,
                 sid: `${bookCode} ${chapterNum}:1`,

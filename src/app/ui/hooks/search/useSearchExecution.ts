@@ -429,7 +429,6 @@ export function useSearchExecution({
             currentMatchesControls,
             currentSort,
             editorRef,
-            hasReferenceSearchAvailable,
             matchCase,
             matchWholeWord,
             pick,

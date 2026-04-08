@@ -36,6 +36,8 @@ export type ChapterTokenWithOwner = {
     entry: ChapterViewEntry;
     isFirstTokenOfEntry: boolean;
     entryTokenIndex: number;
+    entryTokenCount: number;
+    counterpartEntryTokenIndex: number;
     tokenChange: "unchanged" | "added" | "deleted" | "modified" | "paired";
     counterpartToken?: ChapterRenderToken;
 };
@@ -236,11 +238,64 @@ export function buildChapterRenderParagraphs(args: {
     hideWhitespaceOnly?: boolean;
     showUsfmMarkers?: boolean;
 }): ChapterRenderParagraph[] {
-    const entries = toChapterViewEntries(args.diffs, {
+    const paragraphs: ChapterRenderParagraph[] = [];
+    let paragraphIndex = 0;
+    args.diffs.forEach((diff) => {
+        const entryParagraphs = buildEntryRenderParagraphs({
+            diff,
+            viewType: args.viewType,
+            hideWhitespaceOnly: args.hideWhitespaceOnly,
+            showUsfmMarkers: args.showUsfmMarkers,
+        });
+        entryParagraphs.forEach((paragraph) => {
+            paragraphs.push({
+                ...paragraph,
+                key: `${paragraph.key}-${paragraphIndex++}`,
+            });
+        });
+    });
+    return paragraphs;
+}
+
+export function buildEntryRenderParagraphs(args: {
+    diff: ProjectDiff;
+    viewType: "original" | "current";
+    hideWhitespaceOnly?: boolean;
+    showUsfmMarkers?: boolean;
+}): ChapterRenderParagraph[] {
+    const entry = toChapterViewEntries([args.diff], {
         hideWhitespaceOnly: args.hideWhitespaceOnly,
         showUsfmMarkers: args.showUsfmMarkers,
+    })[0];
+    if (!entry) return [];
+
+    const originalTokens = args.diff.originalRenderTokens ?? [];
+    const currentTokens = args.diff.currentRenderTokens ?? [];
+    const alignedFromDiffOriginal = toAlignedTokenInfoFromDiff({
+        tokens: originalTokens,
+        alignment: args.diff.originalAlignment,
+        counterpartTokens: currentTokens,
+        side: "original",
     });
-    const diffByKey = new Map(args.diffs.map((diff) => [diff.uniqueKey, diff]));
+    const alignedFromDiffCurrent = toAlignedTokenInfoFromDiff({
+        tokens: currentTokens,
+        alignment: args.diff.currentAlignment,
+        counterpartTokens: originalTokens,
+        side: "current",
+    });
+    const aligned =
+        alignedFromDiffOriginal && alignedFromDiffCurrent
+            ? {
+                  original: alignedFromDiffOriginal,
+                  current: alignedFromDiffCurrent,
+              }
+            : passthroughAlignedTokens({
+                  originalTokens,
+                  currentTokens,
+              });
+    normalizeEquivalentBoundaryWhitespace(aligned);
+    const entryTokens =
+        args.viewType === "original" ? aligned.original : aligned.current;
 
     const paragraphs: ChapterRenderParagraph[] = [];
     let currentParagraph: ChapterRenderParagraph | null = null;
@@ -249,9 +304,9 @@ export function buildChapterRenderParagraphs(args: {
     const ensureParagraph = () => {
         if (currentParagraph) return currentParagraph;
         const fallback: ChapterRenderParagraph = {
-            key: `default-para-${paragraphIndex++}`,
+            key: `${entry.uniqueKey}-default-${paragraphIndex++}`,
             marker: "p",
-            sid: "",
+            sid: entry.semanticSid,
             tokens: [],
         };
         paragraphs.push(fallback);
@@ -259,67 +314,43 @@ export function buildChapterRenderParagraphs(args: {
         return fallback;
     };
 
-    entries.forEach((entry) => {
-        const backingDiff = diffByKey.get(entry.uniqueKey);
-        const originalTokens = backingDiff?.originalRenderTokens ?? [];
-        const currentTokens = backingDiff?.currentRenderTokens ?? [];
-        const alignedFromDiffOriginal = toAlignedTokenInfoFromDiff({
-            tokens: originalTokens,
-            alignment: backingDiff?.originalAlignment,
-            counterpartTokens: currentTokens,
-            side: "original",
-        });
-        const alignedFromDiffCurrent = toAlignedTokenInfoFromDiff({
-            tokens: currentTokens,
-            alignment: backingDiff?.currentAlignment,
-            counterpartTokens: originalTokens,
-            side: "current",
-        });
-        const aligned =
-            alignedFromDiffOriginal && alignedFromDiffCurrent
-                ? {
-                      original: alignedFromDiffOriginal,
-                      current: alignedFromDiffCurrent,
-                  }
-                : passthroughAlignedTokens({
-                      originalTokens,
-                      currentTokens,
-                  });
-        normalizeEquivalentBoundaryWhitespace(aligned);
-        const entryTokens =
-            args.viewType === "original" ? aligned.original : aligned.current;
+    entryTokens.forEach((tokenInfo) => {
+        const token = tokenInfo.token;
+        const tokenIndex =
+            args.viewType === "original"
+                ? tokenInfo.originalIndex
+                : tokenInfo.currentIndex;
+        let paragraph: ChapterRenderParagraph;
+        if (
+            token.tokenType === UsfmTokenTypes.marker &&
+            token.marker &&
+            isValidParaMarker(token.marker)
+        ) {
+            paragraph = {
+                key: `${entry.uniqueKey}-para-${paragraphIndex++}`,
+                marker: token.marker,
+                sid: token.sid,
+                tokens: [],
+            };
+            paragraphs.push(paragraph);
+            currentParagraph = paragraph;
+        } else {
+            paragraph = ensureParagraph();
+        }
 
-        entryTokens.forEach((tokenInfo) => {
-            const token = tokenInfo.token;
-            const tokenIndex =
+        paragraph.tokens.push({
+            key: tokenKey(token, `${entry.uniqueKey}-${tokenIndex}`),
+            token,
+            entry,
+            isFirstTokenOfEntry: tokenIndex === 0,
+            entryTokenIndex: tokenIndex,
+            entryTokenCount: entryTokens.length,
+            counterpartEntryTokenIndex:
                 args.viewType === "original"
-                    ? tokenInfo.originalIndex
-                    : tokenInfo.currentIndex;
-            let paragraph = ensureParagraph();
-            if (
-                token.tokenType === UsfmTokenTypes.marker &&
-                token.marker &&
-                isValidParaMarker(token.marker)
-            ) {
-                paragraph = {
-                    key: `para-${paragraphIndex++}`,
-                    marker: token.marker,
-                    sid: token.sid,
-                    tokens: [],
-                };
-                paragraphs.push(paragraph);
-                currentParagraph = paragraph;
-            }
-
-            paragraph.tokens.push({
-                key: tokenKey(token, `${entry.uniqueKey}-${tokenIndex}`),
-                token,
-                entry,
-                isFirstTokenOfEntry: tokenIndex === 0,
-                entryTokenIndex: tokenIndex,
-                tokenChange: tokenInfo.tokenChange,
-                counterpartToken: tokenInfo.counterpartToken,
-            });
+                    ? tokenInfo.currentIndex
+                    : tokenInfo.originalIndex,
+            tokenChange: tokenInfo.tokenChange,
+            counterpartToken: tokenInfo.counterpartToken,
         });
     });
 

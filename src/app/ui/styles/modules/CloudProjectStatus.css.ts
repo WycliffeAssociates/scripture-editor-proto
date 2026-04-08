@@ -19,8 +19,7 @@ export const badgeVariants = styleVariants({
         color: vars.color.onSurfaceSuccess,
     },
     blue: {
-        backgroundColor:
-            "color-mix(in srgb, " + vars.color.brandBase + " 15%, transparent)",
+        backgroundColor: `color-mix(in srgb, ${vars.color.brandBase} 15%, transparent)`,
         color: vars.color.brandDark,
     },
     orange: {
@@ -56,8 +55,7 @@ export const alertVariants = styleVariants({
         color: vars.color.onSurfaceSuccess,
     },
     blue: {
-        backgroundColor:
-            "color-mix(in srgb, " + vars.color.brandBase + " 10%, transparent)",
+        backgroundColor: `color-mix(in srgb, ${vars.color.brandBase} 10%, transparent)`,
         borderColor: vars.color.brandBase,
         color: vars.color.brandDark,
     },

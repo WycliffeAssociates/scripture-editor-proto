@@ -1,4 +1,5 @@
 import type { SerializedLexicalNode } from "lexical";
+import { isSerializedBookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type {
     ScriptureBookState,
@@ -32,7 +33,12 @@ export function* walkNodes(
 ): Generator<SerializedLexicalNode> {
     for (const node of nodes) {
         yield node;
-        if (isSerializedUSFMNestedEditorNode(node)) {
+        if (isSerializedBookFrontmatterFormNode(node)) {
+            const children = node.tokens;
+            if (children) {
+                yield* walkNodes(children);
+            }
+        } else if (isSerializedUSFMNestedEditorNode(node)) {
             const children = node.editorState?.root?.children;
             if (children) {
                 yield* walkNodes(children);

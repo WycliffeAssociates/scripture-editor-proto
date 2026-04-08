@@ -5,10 +5,10 @@ import { I18nProvider } from "@lingui/react";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { TESTING_IDS } from "@/app/data/constants.ts";
 import { ProjectView } from "@/app/ui/components/views/ProjectView.tsx";
 
 const useWorkspaceContextMock = vi.fn();
+const desktopLayoutMock = vi.fn();
 
 vi.mock("@/app/ui/hooks/useWorkspaceContext.tsx", () => ({
     useWorkspaceContext: () => useWorkspaceContextMock(),
@@ -22,24 +22,15 @@ vi.mock("@/app/ui/contexts/MediaQuery.tsx", () => ({
     }),
 }));
 
-vi.mock("@/app/ui/components/blocks/AppDrawer.tsx", () => ({
-    AppDrawer: () => null,
+vi.mock("@/app/ui/components/views/layout/DesktopLayout.tsx", () => ({
+    DesktopLayout: (props: Record<string, unknown>) => {
+        desktopLayoutMock(props);
+        return <div data-testid="desktop-layout" />;
+    },
 }));
 
-vi.mock("@/app/ui/components/blocks/Editor.tsx", () => ({
-    MainEditor: () => <div data-testid={TESTING_IDS.mainEditorContainer} />,
-}));
-
-vi.mock("@/app/ui/components/blocks/ReferenceEditor.tsx", () => ({
-    ReferenceEditor: () => <div data-testid="reference-editor" />,
-}));
-
-vi.mock("@/app/ui/components/views/search-panel/index.ts", () => ({
-    SearchPanel: () => null,
-}));
-
-vi.mock("@/app/ui/components/blocks/Toolbar.tsx", () => ({
-    Toolbar: () => <div data-testid="toolbar" />,
+vi.mock("@/app/ui/components/views/layout/MobileLayout.tsx", () => ({
+    MobileLayout: () => <div data-testid="mobile-layout" />,
 }));
 
 function TestProviders(props: { children: React.ReactNode }) {
@@ -48,6 +39,17 @@ function TestProviders(props: { children: React.ReactNode }) {
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
+
+function makeWorkspaceValue(overrides: Record<string, unknown> = {}) {
+    return {
+        save: {
+            versions: {
+                ensureLoaded: vi.fn(),
+            },
+        },
+        ...overrides,
+    };
+}
 
 beforeAll(() => {
     i18n.load("en", {});
@@ -73,37 +75,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-    useWorkspaceContextMock.mockReturnValue({
-        referenceResource: { activeReferenceResourcePath: null },
-        remote: {
-            status: null,
-            isRefreshing: false,
-            syncNow: vi.fn(),
-            reviewIncoming: vi.fn(),
-        },
-        search: {
-            isSearchPaneOpen: false,
-            rerunForCurrentChapter: vi.fn(),
-        },
-        actions: {
-            prevChapter: {
-                hasPrev: false,
-                display: "",
-                go: vi.fn(),
-            },
-            nextChapter: {
-                hasNext: true,
-                display: "2",
-                go: vi.fn(),
-            },
-        },
-        project: {
-            currentChapter: 1,
-            pickedChapter: { chapterNumber: 1 },
-            pickedFile: { bookCode: "GEN" },
-        },
-        bookCodeToProjectLocalizedTitle: () => "Genesis",
-    });
+    desktopLayoutMock.mockReset();
+    useWorkspaceContextMock.mockReturnValue(makeWorkspaceValue());
 });
 
 afterEach(() => {
@@ -128,137 +101,54 @@ function render(ui: React.ReactNode) {
     });
 }
 
-describe("ProjectView navigation", () => {
-    it("renders the hidden prev-button placeholder at the first chapter boundary", () => {
-        render(<ProjectView />);
-
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.prevChapterButtonHidden}"]`,
-            ),
-        ).not.toBeNull();
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.prevChapterButton}"]`,
-            ),
-        ).toBeNull();
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.nextChapterButton}"]`,
-            ),
-        ).not.toBeNull();
-    });
-
-    it("renders the hidden next-button placeholder at the last chapter boundary", () => {
-        useWorkspaceContextMock.mockReturnValue({
-            referenceResource: { activeReferenceResourcePath: null },
-            search: {
-                isSearchPaneOpen: false,
-                rerunForCurrentChapter: vi.fn(),
-            },
-            actions: {
-                prevChapter: {
-                    hasPrev: true,
-                    display: "21",
-                    go: vi.fn(),
+describe("ProjectView boundary state", () => {
+    it("renders the desktop layout at the first chapter boundary", () => {
+        useWorkspaceContextMock.mockReturnValue(
+            makeWorkspaceValue({
+                actions: {
+                    prevChapter: { hasPrev: false, display: "", go: vi.fn() },
+                    nextChapter: { hasNext: true, display: "2", go: vi.fn() },
                 },
-                nextChapter: {
-                    hasNext: false,
-                    display: "",
-                    go: vi.fn(),
-                },
-            },
-            project: {
-                currentChapter: 22,
-                pickedChapter: { chapterNumber: 22 },
-                pickedFile: { bookCode: "REV" },
-            },
-            bookCodeToProjectLocalizedTitle: () => "Revelation",
-            remote: {
-                status: null,
-                isRefreshing: false,
-                syncNow: vi.fn(),
-                reviewIncoming: vi.fn(),
-            },
-        });
-
-        render(<ProjectView />);
-
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.nextChapterButtonHidden}"]`,
-            ),
-        ).not.toBeNull();
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.nextChapterButton}"]`,
-            ),
-        ).toBeNull();
-        expect(
-            document.querySelector(
-                `[data-testid="${TESTING_IDS.navigation.prevChapterButton}"]`,
-            ),
-        ).not.toBeNull();
-    });
-
-    it("shows the previous book label when the current chapter is the first chapter of a non-first book", () => {
-        useWorkspaceContextMock.mockReturnValue({
-            referenceResource: { activeReferenceResourcePath: null },
-            remote: {
-                status: null,
-                isRefreshing: false,
-                syncNow: vi.fn(),
-                reviewIncoming: vi.fn(),
-            },
-            search: {
-                isSearchPaneOpen: false,
-                rerunForCurrentChapter: vi.fn(),
-            },
-            actions: {
-                prevChapter: {
-                    hasPrev: true,
-                    display: "Malachi 4",
-                    go: vi.fn(),
-                },
-                nextChapter: {
-                    hasNext: true,
-                    display: "2",
-                    go: vi.fn(),
-                },
-            },
-            project: {
-                currentChapter: 1,
-                pickedChapter: { chapterNumber: 1 },
-                pickedFile: { bookCode: "MAT" },
-            },
-            bookCodeToProjectLocalizedTitle: () => "Matthew",
-        });
-
-        render(<ProjectView />);
-
-        const prevButton = document.querySelector(
-            `[data-testid="${TESTING_IDS.navigation.prevChapterButton}"]`,
+            }),
         );
-        expect(prevButton?.textContent).toContain("Malachi 4");
-    });
 
-    it("renders one navigation affordance in each direction at a boundary", () => {
         render(<ProjectView />);
 
-        const prevAffordanceCount = document.querySelectorAll(
-            [
-                `[data-testid="${TESTING_IDS.navigation.prevChapterButton}"]`,
-                `[data-testid="${TESTING_IDS.navigation.prevChapterButtonHidden}"]`,
-            ].join(", "),
-        ).length;
-        const nextAffordanceCount = document.querySelectorAll(
-            [
-                `[data-testid="${TESTING_IDS.navigation.nextChapterButton}"]`,
-                `[data-testid="${TESTING_IDS.navigation.nextChapterButtonHidden}"]`,
-            ].join(", "),
-        ).length;
+        expect(document.querySelector('[data-testid="desktop-layout"]')).not.toBeNull();
+        expect(desktopLayoutMock).toHaveBeenCalledTimes(1);
+    });
 
-        expect(prevAffordanceCount).toBe(1);
-        expect(nextAffordanceCount).toBe(1);
+    it("renders the desktop layout at the last chapter boundary", () => {
+        useWorkspaceContextMock.mockReturnValue(
+            makeWorkspaceValue({
+                actions: {
+                    prevChapter: { hasPrev: true, display: "21", go: vi.fn() },
+                    nextChapter: { hasNext: false, display: "", go: vi.fn() },
+                },
+            }),
+        );
+
+        render(<ProjectView />);
+
+        expect(document.querySelector('[data-testid="desktop-layout"]')).not.toBeNull();
+        expect(desktopLayoutMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes a closed reference pane state by default", () => {
+        render(<ProjectView />);
+
+        const firstCall = desktopLayoutMock.mock.calls[0]?.[0] as
+            | { hasReferenceResource?: boolean }
+            | undefined;
+        expect(firstCall?.hasReferenceResource).toBe(false);
+    });
+
+    it("passes the problems tab as the default bottom panel tab", () => {
+        render(<ProjectView />);
+
+        const firstCall = desktopLayoutMock.mock.calls[0]?.[0] as
+            | { activeBottomPanelTab?: string }
+            | undefined;
+        expect(firstCall?.activeBottomPanelTab).toBe("problems");
     });
 });

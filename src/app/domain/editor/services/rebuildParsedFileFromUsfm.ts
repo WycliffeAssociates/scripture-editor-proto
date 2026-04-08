@@ -7,6 +7,7 @@ import {
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
 
 /**
  * Rebuild one in-memory scripture book state from fresh USFM text.
@@ -40,7 +41,11 @@ export async function rebuildParsedFileFromUsfm(args: {
           ) === EDITOR_MODES.regular
         : true;
 
-    const sourceTokensByChapter = groupFlatTokensByChapter(projection.tokens);
+    const normalizedTokens = normalizeTokenSids(
+        projection.tokens,
+        args.targetFile.bookCode,
+    );
+    const sourceTokensByChapter = groupFlatTokensByChapter(normalizedTokens);
 
     args.targetFile.chapters = Object.entries(sourceTokensByChapter)
         .map(([chapterNum, nextCurrentTokens]) => {

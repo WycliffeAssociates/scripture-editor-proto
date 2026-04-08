@@ -120,18 +120,14 @@ export function calculateIsStartOfLine(
 
     let prev = actualAnchorNode.getPreviousSibling();
     while (prev) {
-        // A visible linebreak is a hard start-of-line boundary.
+        // A structural linebreak is a hard start-of-line boundary, even when
+        // regular mode hides boundary <br> elements in the DOM.
         if (prev.getType() === "linebreak") {
-            if (!isDomHidden(prev)) {
-                return {
-                    isStartOfLine: true,
-                    actualAnchorNode,
-                    actualAnchorOffset,
-                };
-            }
-            // If the linebreak is hidden (regular mode hides marker+br), ignore it.
-            prev = prev.getPreviousSibling();
-            continue;
+            return {
+                isStartOfLine: true,
+                actualAnchorNode,
+                actualAnchorOffset,
+            };
         }
 
         // If we have DOM access, trust computed visibility.

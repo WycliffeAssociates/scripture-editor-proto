@@ -3,6 +3,7 @@ import {
     HISTORY_MERGE_TAG,
     type SerializedLineBreakNode,
 } from "lexical";
+import type { BookFrontmatterFormNodeJSON } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -57,6 +58,7 @@ export const USFM_PARAGRAPH_NODE_TYPE = "usfm-paragraph-node" as const;
  * its USFM-aware Lexical state.
  */
 export type USFMNodeJSON =
+    | BookFrontmatterFormNodeJSON
     | USFMParagraphNodeJSON
     | SerializedUSFMTextNode
     | SerializedLineBreakNode

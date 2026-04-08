@@ -4,42 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useEffect } from "react";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-
-/**
- * Structural empty paragraphs are meaningful USFM structure but visually subtle in
- * regular mode because their marker tokens are hidden. Map them to human-readable
- * labels so users understand what kind of blank line they are looking at.
- */
-function getMarkerChipLabel(marker: string): string {
-    switch (marker) {
-        case "b":
-            return t`Intentional Line Break`;
-        case "m":
-            return t`Margin`;
-        case "p":
-            return t`Paragraph`;
-        case "q":
-            return t`Poetry 1`;
-        case "q1":
-            return t`Poetry 1`;
-        case "q2":
-            return t`Poetry 2`;
-        case "q3":
-            return t`Poetry 3`;
-        case "q4":
-            return t`Poetry 4`;
-        case "s":
-        case "s1":
-        case "s2":
-        case "s3":
-        case "s4":
-            return t`Section Title`;
-        case "s5":
-            return t`S5 chunk marker`;
-        default:
-            return t`Marker`;
-    }
-}
+import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
 
 /**
  * Annotates structurally empty paragraph containers with a visible label/tooltip in
@@ -96,7 +61,8 @@ export function StructuralEmptyMarkerChipsPlugin() {
                 const marker = el.dataset.marker;
                 if (!marker) continue;
 
-                const label = getMarkerChipLabel(marker) || `\\${marker}`;
+                const label =
+                    getLocalizedUsfmMarkerLabel(marker) || `\\${marker}`;
                 el.dataset.markerLabel = label;
                 const title = t`Empty ${label}. Type to add text, or press Enter to insert below.`;
                 el.title = title;

@@ -1,7 +1,6 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import {
     type ComponentProps,
-    type CSSProperties,
     createContext,
     type ReactNode,
     useContext,
@@ -102,23 +101,8 @@ export interface PopoverDropdownProps {
     p?: string;
 }
 
-export function PopoverDropdown({
-    children,
-    className,
-    p,
-}: PopoverDropdownProps) {
+export function PopoverDropdown({ children, className }: PopoverDropdownProps) {
     const { side, align, offset } = usePopoverContext();
-    const style = p ? ({ padding: p } satisfies CSSProperties) : undefined;
-
-    // Inline fallback styles to ensure proper rendering
-    const inlineStyles: CSSProperties = {
-        backgroundColor: "var(--color-surfacePrimary, white)",
-        border: "1px solid var(--color-surfaceBorder, #e0e0e0)",
-        borderRadius: "var(--border-radius-md, 8px)",
-        boxShadow: "var(--shadow-large, 0 4px 8px rgba(0,0,0,0.2))",
-        opacity: 1,
-        ...style,
-    };
 
     return (
         <BasePopover.Portal>
@@ -130,7 +114,6 @@ export function PopoverDropdown({
             >
                 <BasePopover.Popup
                     className={`${styles.popup} ${className || ""}`}
-                    style={inlineStyles}
                 >
                     {children}
                 </BasePopover.Popup>

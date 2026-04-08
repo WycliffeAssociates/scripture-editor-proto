@@ -169,8 +169,8 @@ describe("buildChapterRenderParagraphs", () => {
 
         expect(paragraphs).toHaveLength(2);
         expect(paragraphs[1]?.marker).toBe("p");
-        expect(paragraphs[1]?.tokens).toHaveLength(4);
-        expect(paragraphs[1]?.tokens[1]?.token.marker).toBe("v");
+        expect(paragraphs[1]?.tokens).toHaveLength(3);
+        expect(paragraphs[1]?.tokens[0]?.token.marker).toBe("v");
     });
 
     it("re-aligns after removed linebreak so shared markers remain unchanged", () => {

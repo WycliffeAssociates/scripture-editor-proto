@@ -77,7 +77,9 @@ export function useSaveAndRevert(args: {
         file.chapters.some((chapter) => chapter.dirty),
     );
 
-    async function saveProjectToDisk() {
+    async function saveProjectToDisk(options?: {
+        prepareRemoteBaseForSave?: () => Promise<void>;
+    }) {
         const dirtyChapterRefs = listDirtyChapterRefs(
             args.mutWorkingFilesRef,
         ).map(({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`);
@@ -96,8 +98,10 @@ export function useSaveAndRevert(args: {
             );
         }
 
-        if (args.prepareRemoteBaseForSave) {
-            await args.prepareRemoteBaseForSave();
+        const prepareRemoteBaseForSave =
+            options?.prepareRemoteBaseForSave ?? args.prepareRemoteBaseForSave;
+        if (prepareRemoteBaseForSave) {
+            await prepareRemoteBaseForSave();
         }
 
         let saveError: unknown = null;

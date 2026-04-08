@@ -57,6 +57,9 @@ function createSettingsManager(autoSyncOnOpen: boolean): SettingsManager {
         colorScheme: "light" as const,
         autoSyncOnOpen,
         autoPushOnSave: true,
+        autoAcceptOwnWorkOnSave: false,
+        autoAcceptIncomingWork: false,
+        diffViewModeDefault: "list" as const,
     };
     return {
         getSettings: () => settings,

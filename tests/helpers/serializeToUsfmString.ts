@@ -24,6 +24,15 @@ function serializeNode(node: SerializedLexicalNode): string {
     }
 
     if (
+        "tokens" in node &&
+        Array.isArray((node as { tokens?: unknown }).tokens)
+    ) {
+        return (node as { tokens: SerializedLexicalNode[] }).tokens
+            .map(serializeNode)
+            .join("");
+    }
+
+    if (
         "editorState" in node &&
         node.editorState &&
         typeof node.editorState === "object" &&

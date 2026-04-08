@@ -4,6 +4,7 @@ import { ProjectSwitcher } from "@/app/ui/components/blocks/ProjectSwitcher/inde
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
 interface DesktopSidebarProps {
+    openProjectsPane: () => void;
     openSettingsPane: () => void;
 }
 
@@ -11,7 +12,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
     return (
         <aside className={styles.desktopSidebar}>
             <div className={styles.sidebarTop}>
-                <ProjectSwitcher />
+                <ProjectSwitcher openProjectsPane={props.openProjectsPane} />
             </div>
 
             <div className={styles.sidebarBooks}>

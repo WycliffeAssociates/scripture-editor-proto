@@ -313,7 +313,7 @@ function DiffItem({
 
             {isLg ? (
                 <div className={styles.diffGrid}>
-                    <div>
+                    <div className={styles.diffColumn}>
                         <div className={styles.diffToolbarRow}>
                             <span className={styles.diffLabel}>
                                 {originalLabel}
@@ -321,10 +321,7 @@ function DiffItem({
                             {actionMode === "unsaved" && renderActions()}
                         </div>
                         <div
-                            className={`${styles.diffPaper} ${getPaperClass(
-                                isDeletion,
-                                styles.paperBgDeletion,
-                            )}`}
+                            className={`${styles.diffPaper} ${getPaperClass(isDeletion, styles.paperBgDeletion)}`}
                         >
                             {isAddition && (
                                 <span className={styles.versePlaceholder}>
@@ -346,7 +343,7 @@ function DiffItem({
                         </div>
                     </div>
 
-                    <div>
+                    <div className={styles.diffColumn}>
                         <div className={styles.diffToolbarRow}>
                             <span className={styles.diffLabel}>
                                 {currentLabel}
@@ -354,10 +351,7 @@ function DiffItem({
                             {actionMode === "external" && renderActions()}
                         </div>
                         <div
-                            className={`${styles.diffPaper} ${getPaperClass(
-                                isAddition,
-                                styles.paperBgAddition,
-                            )}`}
+                            className={`${styles.diffPaper} ${getPaperClass(isAddition, styles.paperBgAddition)}`}
                         >
                             {isDeletion && (
                                 <span className={styles.versePlaceholder}>
@@ -389,10 +383,7 @@ function DiffItem({
                             {actionMode === "unsaved" && renderActions()}
                         </div>
                         <div
-                            className={`${styles.diffPaper} ${getPaperClass(
-                                isDeletion,
-                                styles.paperBgDeletion,
-                            )}`}
+                            className={`${styles.diffPaper} ${getPaperClass(isDeletion, styles.paperBgDeletion)}`}
                         >
                             {isAddition && (
                                 <span className={styles.versePlaceholder}>
@@ -425,10 +416,7 @@ function DiffItem({
                             </div>
                         )}
                         <div
-                            className={`${styles.diffPaper} ${getPaperClass(
-                                isAddition,
-                                styles.paperBgAddition,
-                            )}`}
+                            className={`${styles.diffPaper} ${getPaperClass(isAddition, styles.paperBgAddition)}`}
                         >
                             {isDeletion && (
                                 <span className={styles.versePlaceholder}>

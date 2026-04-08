@@ -3,11 +3,8 @@ import { useEffect, useRef } from "react";
 import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import {
-    groupFlatNodesIntoParagraphContainers,
-    materializeFlatTokensArray,
-    rewrapNestedEditorNodesFromFlatTokens,
-    unwrapFlatTokensFromRootChildren,
-    wrapFlatTokensInLexicalParagraph,
+    isRegularModeRootChildren,
+    transformToMode,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type {
@@ -126,16 +123,11 @@ export function useModeSwitching({
         let thisChapterUpdated: ScriptureChapterState | undefined;
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
-            const direction = (chapter.lexicalState.root.direction ?? "ltr") as
-                | "ltr"
-                | "rtl";
             const rootChildren = chapter.lexicalState.root
                 .children as SerializedLexicalNode[];
 
-            const isCurrentlyParagraphMode = rootChildren.some(
-                (child) =>
-                    (child as { type?: string }).type === "usfm-paragraph-node",
-            );
+            const isCurrentlyParagraphMode =
+                isRegularModeRootChildren(rootChildren);
             const wantsParagraphMode =
                 next === EDITOR_MODES.regular || next === EDITOR_MODES.view;
 
@@ -150,35 +142,10 @@ export function useModeSwitching({
                 continue;
             }
 
-            // Transform to desired format
-            const unwrappedFlatTokens =
-                unwrapFlatTokensFromRootChildren(rootChildren);
-
-            if (wantsParagraphMode) {
-                const flatTokens =
-                    unwrappedFlatTokens ??
-                    materializeFlatTokensArray(rootChildren, {
-                        nested: "flatten",
-                    });
-                const withNested = rewrapNestedEditorNodesFromFlatTokens(
-                    flatTokens,
-                    direction,
-                );
-                chapter.lexicalState.root.children =
-                    groupFlatNodesIntoParagraphContainers(
-                        withNested,
-                        direction,
-                    );
-            } else {
-                const flatTokens =
-                    unwrappedFlatTokens ??
-                    materializeFlatTokensArray(rootChildren, {
-                        nested: "flatten",
-                    });
-                chapter.lexicalState.root.children = [
-                    wrapFlatTokensInLexicalParagraph(flatTokens, direction),
-                ];
-            }
+            chapter.lexicalState = transformToMode(
+                chapter.lexicalState,
+                wantsParagraphMode ? EDITOR_MODES.regular : EDITOR_MODES.usfm,
+            );
 
             if (
                 chapter.chapterNumber === currentChapter &&

@@ -9,6 +9,10 @@ import {
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
+    createSerializedBookFrontmatterFormNode,
+    isSerializedBookFrontmatterFormNode,
+} from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
+import {
     nestedEditorMarkers,
     USFM_NESTED_DECORATOR_TYPE,
     type USFMNestedEditorNodeJSON,
@@ -20,6 +24,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
+import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
@@ -28,7 +33,6 @@ import {
 } from "@/core/domain/usfm/onionMarkers.ts";
 
 // Re-export shared utilities from their canonical locations
-export { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
 export { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 
 /**
@@ -243,9 +247,7 @@ export function transformToMode(
     const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
-    const isCurrentlyParagraphMode = rootChildren.some(
-        (child) => (child as { type?: string }).type === "usfm-paragraph-node",
-    );
+    const isCurrentlyParagraphMode = isRegularModeRootChildren(rootChildren);
     const wantsParagraphMode = targetMode === EDITOR_MODES.regular;
 
     if (isCurrentlyParagraphMode === wantsParagraphMode) {
@@ -261,6 +263,20 @@ export function transformToMode(
         const flatTokens =
             unwrapped ??
             materializeFlatTokensArray(rootChildren, { nested: "flatten" });
+        if (shouldRenderAsBookFrontmatterForm(flatTokens)) {
+            return {
+                ...state,
+                root: {
+                    ...state.root,
+                    children: [
+                        createSerializedBookFrontmatterFormNode({
+                            direction,
+                            tokens: flatTokens,
+                        }),
+                    ],
+                },
+            };
+        }
         const withNested = rewrapNestedEditorNodesFromFlatTokens(
             flatTokens,
             direction,
@@ -290,4 +306,35 @@ export function transformToMode(
             },
         };
     }
+}
+
+export function isRegularModeRootChildren(
+    rootChildren: SerializedLexicalNode[],
+): boolean {
+    return rootChildren.some(
+        (child) =>
+            child.type === "usfm-paragraph-node" ||
+            isSerializedBookFrontmatterFormNode(child),
+    );
+}
+
+function shouldRenderAsBookFrontmatterForm(
+    flatTokens: SerializedLexicalNode[],
+): boolean {
+    const visibleTokens = flatTokens.filter(
+        (node) => node.type !== "linebreak",
+    );
+    if (visibleTokens.length === 0) return false;
+
+    let sawChapterZeroSid = false;
+
+    for (const node of visibleTokens) {
+        if (!isSerializedUSFMTextNode(node)) return false;
+        const parsed = parseSid(node.sid ?? "");
+        if (!parsed) continue;
+        if (parsed.chapter !== 0) return false;
+        sawChapterZeroSid = true;
+    }
+
+    return sawChapterZeroSid;
 }

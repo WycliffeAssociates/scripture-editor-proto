@@ -8,7 +8,7 @@ export const popup = style({
     boxShadow: vars.shadow.large,
     padding: vars.spacing.md,
     zIndex: 100,
-    minWidth: "200px",
+    minWidth: "300px",
     outline: "none",
     isolation: "isolate",
     opacity: 1,

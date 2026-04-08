@@ -48,7 +48,9 @@ export function useEditorState({
         );
         if (!chapToUpdate) return;
         chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.currentTokens = lexicalToTokens(newLexical);
+        chapToUpdate.currentTokens = lexicalToTokens(newLexical, {
+            bookCode: file.bookCode,
+        });
         chapToUpdate.dirty =
             isDirty ??
             chapToUpdate.currentTokens.map((token) => token.text).join("") !==

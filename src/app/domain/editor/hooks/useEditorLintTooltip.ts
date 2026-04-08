@@ -16,6 +16,8 @@ export type UseEditorLintTooltipReturn = {
     onTooltipMouseLeave: () => void;
 };
 
+const LINT_HITPOINT_SELECTOR = `[data-js="${DATA_JS.lintDomOverlayHitpoint}"]`;
+
 function asHtmlElement(target: EventTarget | null): HTMLElement | null {
     if (target instanceof HTMLElement) return target;
     if (target instanceof Node) {
@@ -40,6 +42,11 @@ function findScrollContainer(start: HTMLElement): HTMLElement {
         current = current.parentElement;
     }
     return start;
+}
+
+function getDocumentScrollElement(element: HTMLElement): HTMLElement {
+    return (element.ownerDocument.scrollingElement ??
+        element.ownerDocument.documentElement) as HTMLElement;
 }
 
 /**
@@ -69,9 +76,7 @@ export function useEditorLintTooltip(
     useEffect(() => {
         const isWithinOverlay = (target: EventTarget | null) => {
             if (!(target instanceof HTMLElement)) return false;
-            return Boolean(
-                target.closest(`[data-js="${DATA_JS.lintDomOverlayHitpoint}"]`),
-            );
+            return Boolean(target.closest(LINT_HITPOINT_SELECTOR));
         };
         const isWithinLintTooltip = (target: EventTarget | null) => {
             if (!(target instanceof HTMLElement)) return null;
@@ -132,7 +137,7 @@ export function useEditorLintTooltip(
             }
 
             const targetForErrors = target?.closest(
-                `[data-js="${DATA_JS.lintDomOverlayHitpoint}"]`,
+                LINT_HITPOINT_SELECTOR,
             ) as HTMLElement | null;
             if (!targetForErrors) return;
             clearHideTimeout();
@@ -161,7 +166,7 @@ export function useEditorLintTooltip(
                     left: scrollContainer.scrollLeft,
                     top: scrollContainer.scrollTop,
                 };
-            }, 100);
+            }, 200);
         };
 
         const handleMouseOut = (e: MouseEvent) => {
@@ -171,9 +176,7 @@ export function useEditorLintTooltip(
             }
             const target = asHtmlElement(e.target);
             if (
-                !target?.closest(
-                    `[data-js="${DATA_JS.lintDomOverlayHitpoint}"]`,
-                ) &&
+                !target?.closest(LINT_HITPOINT_SELECTOR) &&
                 !target?.closest(`[data-js="${DATA_JS.lintTooltipOverlay}"]`)
             ) {
                 return;
@@ -200,14 +203,28 @@ export function useEditorLintTooltip(
                 `[data-js="${DATA_JS.editorScrollContainer}"], [data-js="${DATA_JS.referenceEditorScrollContainer}"]`,
             ),
         );
+        const extraScrollContainers = new Set<HTMLElement>();
+        const activeHitpoints = Array.from(
+            document.querySelectorAll<HTMLElement>(LINT_HITPOINT_SELECTOR),
+        );
+        for (const hitpoint of activeHitpoints) {
+            extraScrollContainers.add(
+                findScrollContainer(hitpoint.parentElement ?? hitpoint),
+            );
+            extraScrollContainers.add(getDocumentScrollElement(hitpoint));
+        }
+        const mergedScrollContainers = Array.from(
+            new Set([...scrollContainers, ...extraScrollContainers]),
+        );
 
         document.addEventListener("mouseover", handleMouseOver);
         document.addEventListener("mouseout", handleMouseOut);
-        scrollContainers.forEach((container) => {
+        mergedScrollContainers.forEach((container) => {
             container.addEventListener("scroll", handleScroll, {
                 passive: true,
             });
         });
+        window.addEventListener("scroll", handleScroll, { passive: true });
 
         onTooltipMouseEnterRef.current = () => {
             clearHideTimeout();
@@ -227,9 +244,10 @@ export function useEditorLintTooltip(
             }
             document.removeEventListener("mouseover", handleMouseOver);
             document.removeEventListener("mouseout", handleMouseOut);
-            scrollContainers.forEach((container) => {
+            mergedScrollContainers.forEach((container) => {
                 container.removeEventListener("scroll", handleScroll);
             });
+            window.removeEventListener("scroll", handleScroll);
         };
     }, [allLintMessages]);
 

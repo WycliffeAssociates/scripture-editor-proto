@@ -108,7 +108,7 @@ describe("ensureProjectGitReady", () => {
 
         expect(gitProvider.ensureRepo).toHaveBeenCalledWith(
             "/userData/projects/p1",
-            { defaultBranch: "main" },
+            { defaultBranch: "master" },
         );
         expect(gitProvider.commitAll).toHaveBeenCalledTimes(1);
         expect(fileSystem.writeText).toHaveBeenCalledWith(
@@ -137,7 +137,7 @@ describe("ensureProjectGitReady", () => {
         });
         expect(gitProvider.checkoutPreferredBranch).toHaveBeenCalledWith(
             "/userData/projects/p1",
-            { prefer: "main" },
+            { prefer: "master" },
         );
     });
 

@@ -7,13 +7,16 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { CloudPanelContent } from "./CloudPanel.tsx";
 import { ProblemsPanelContent } from "./ProblemsPanel.tsx";
+import { VersionsPanelContent } from "./VersionsPanel.tsx";
+
+export type BottomPanelTab = "problems" | "cloud" | "versions";
 
 export function BottomPanel(props: {
-    activeTab: "problems" | "cloud";
+    activeTab: BottomPanelTab;
     height: number;
     onClose: () => void;
     onHeightChange: (height: number) => void;
-    onTabChange: (tab: "problems" | "cloud") => void;
+    onTabChange: (tab: BottomPanelTab) => void;
 }) {
     const resizeStateRef = useRef<{
         startY: number;
@@ -88,12 +91,12 @@ export function BottomPanel(props: {
 }
 
 function clampBottomPanelHeight(height: number) {
-    return Math.min(Math.max(height, 120), 320);
+    return Math.min(Math.max(height, 120), 420);
 }
 
 function BottomPanelTabs(props: {
-    activeTab: "problems" | "cloud";
-    onTabChange: (tab: "problems" | "cloud") => void;
+    activeTab: BottomPanelTab;
+    onTabChange: (tab: BottomPanelTab) => void;
 }) {
     const { lint } = useWorkspaceContext();
 
@@ -101,7 +104,11 @@ function BottomPanelTabs(props: {
         <BaseTabs.Root
             value={props.activeTab}
             onValueChange={(value) => {
-                if (value === "problems" || value === "cloud") {
+                if (
+                    value === "problems" ||
+                    value === "cloud" ||
+                    value === "versions"
+                ) {
                     props.onTabChange(value);
                 }
             }}
@@ -123,6 +130,12 @@ function BottomPanelTabs(props: {
                 >
                     <span>Cloud</span>
                 </BaseTabs.Tab>
+                <BaseTabs.Tab
+                    value="versions"
+                    className={styles.bottomPanelTabTrigger}
+                >
+                    <span>Versions</span>
+                </BaseTabs.Tab>
             </BaseTabs.List>
             <BaseTabs.Panel
                 value="problems"
@@ -135,6 +148,12 @@ function BottomPanelTabs(props: {
                 className={styles.bottomPanelTabPanel}
             >
                 <CloudPanelContent />
+            </BaseTabs.Panel>
+            <BaseTabs.Panel
+                value="versions"
+                className={styles.bottomPanelTabPanel}
+            >
+                <VersionsPanelContent />
             </BaseTabs.Panel>
         </BaseTabs.Root>
     );

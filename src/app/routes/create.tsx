@@ -148,15 +148,10 @@ export function CreateProject() {
                 message: (
                     <>
                         {message}{" "}
-                        <Link
-                            to={
-                                requiresMetadataReview
-                                    ? "/$project/metadata"
-                                    : "/$project"
-                            }
-                            params={{ project: projectParam }}
-                            onClick={(event) => {
-                                event.preventDefault();
+                        <button
+                            type="button"
+                            className={styles.notificationLink}
+                            onClick={() => {
                                 settingsManager?.update?.({
                                     lastProjectPath: importedPath ?? "",
                                 });
@@ -180,7 +175,7 @@ export function CreateProject() {
                             ) : (
                                 <Trans>Open project</Trans>
                             )}
-                        </Link>
+                        </button>
                     </>
                 ),
             },

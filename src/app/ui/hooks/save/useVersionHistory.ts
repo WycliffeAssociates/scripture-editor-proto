@@ -1,8 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type { LexicalEditor } from "lexical";
 import { useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { applyVersionSnapshotToWorkingFiles } from "@/app/domain/project/versionNavigationService.ts";
-import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -15,6 +15,7 @@ import type {
 } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import { syncEditorToPickedChapter } from "./shared.ts";
+import { fetchVersionPreview } from "./versionQueries.ts";
 
 const VERSIONS_PAGE_SIZE = 50;
 
@@ -42,9 +43,11 @@ export function useVersionHistory(args: {
     usfmOnionService: IUsfmOnionService;
     bumpDirtyVersion: () => void;
 }) {
+    const queryClient = useQueryClient();
     const [isOpen, setIsOpen] = useState(false);
     const [entries, setEntries] = useState<VersionEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSwitchingVersion, setIsSwitchingVersion] = useState(false);
     const [offset, setOffset] = useState(0);
     const [latestHash, setLatestHash] = useState<string | null>(null);
     const [selectedHash, setSelectedHash] = useState<string | null>(null);
@@ -57,40 +60,45 @@ export function useVersionHistory(args: {
     );
 
     async function applyHash(hash: string) {
-        const snapshot = await args.gitProvider.readProjectSnapshotAtCommit(
-            args.loadedProject.projectPath,
-            hash,
-        );
-        const sourceFiles = await snapshotToScriptureBookStates({
-            loadedProject: args.loadedProject,
-            snapshot,
-            editorMode: args.editorMode,
-            usfmOnionService: args.usfmOnionService,
-        });
-        await args.history.runTransaction({
-            label: "Load Previous Version",
-            candidates: args.mutWorkingFilesRef.flatMap((file) =>
-                file.chapters.map((chapter) => ({
-                    bookCode: file.bookCode,
-                    chapterNum: chapter.chapterNumber,
-                })),
-            ),
-            run: async () => {
-                applyVersionSnapshotToWorkingFiles({
-                    workingFiles: args.mutWorkingFilesRef,
-                    sourceFiles,
-                });
-                syncEditorToPickedChapter({
-                    editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                });
-                args.bumpDirtyVersion();
-            },
-        });
-        args.history.clearHistory();
-        setSelectedHash(hash);
+        if (isSwitchingVersion) return;
+        setIsSwitchingVersion(true);
+        try {
+            const preview = await fetchVersionPreview({
+                queryClient,
+                projectPath: args.loadedProject.projectPath,
+                commitHash: hash,
+                loadedProject: args.loadedProject,
+                gitProvider: args.gitProvider,
+                editorMode: args.editorMode,
+                usfmOnionService: args.usfmOnionService,
+            });
+            await args.history.runTransaction({
+                label: "Load Previous Version",
+                candidates: args.mutWorkingFilesRef.flatMap((file) =>
+                    file.chapters.map((chapter) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    })),
+                ),
+                run: async () => {
+                    applyVersionSnapshotToWorkingFiles({
+                        workingFiles: args.mutWorkingFilesRef,
+                        sourceFiles: preview.parsedFiles,
+                    });
+                    syncEditorToPickedChapter({
+                        editorRef: args.editorRef,
+                        workingFiles: args.mutWorkingFilesRef,
+                        pickedFile: args.pickedFile,
+                        pickedChapter: args.pickedChapter,
+                    });
+                    args.bumpDirtyVersion();
+                },
+            });
+            args.history.clearHistory();
+            setSelectedHash(hash);
+        } finally {
+            setIsSwitchingVersion(false);
+        }
     }
 
     async function refresh() {
@@ -226,6 +234,7 @@ export function useVersionHistory(args: {
             isOpen,
             entries,
             isLoading,
+            isSwitchingVersion,
             latestHash,
             selectedHash,
             isViewingOlderVersion,

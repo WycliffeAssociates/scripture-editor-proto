@@ -12,6 +12,8 @@ const readGitRemoteProjectStatusMock = vi.fn();
 const useLoaderDataMock = vi.fn();
 const useRouterMock = vi.fn();
 const openRemoteLatestReviewMock = vi.fn();
+const settingsGetMock = vi.fn();
+const saveProjectToDiskMock = vi.fn();
 
 vi.mock("@tanstack/react-router", async () => {
     const actual =
@@ -114,7 +116,11 @@ vi.mock("@/app/ui/hooks/useCustomHistory.ts", () => ({
 vi.mock("@/app/ui/hooks/useSave.tsx", () => ({
     useSave: () => ({
         diff: { open: vi.fn(), refreshChapter: vi.fn() },
-        save: { saveProjectToDisk: vi.fn(), hasUnsavedChanges: false },
+        save: {
+            saveProjectToDisk: (...args: unknown[]) =>
+                saveProjectToDiskMock(...args),
+            hasUnsavedChanges: false,
+        },
         revert: {},
         versions: {},
         compare: {
@@ -161,6 +167,8 @@ beforeEach(() => {
     publishLinkedProjectNowMock.mockReset();
     readGitRemoteProjectStatusMock.mockReset();
     openRemoteLatestReviewMock.mockReset();
+    settingsGetMock.mockReset();
+    saveProjectToDiskMock.mockReset();
     hydrateGitRemoteStatusOnOpenMock.mockResolvedValue({
         kind: "connected",
         status: {
@@ -181,12 +189,16 @@ beforeEach(() => {
         lastKnownLocalHead: "local-head",
         lastKnownRemoteHead: "local-head",
     });
+    settingsGetMock.mockImplementation((key: string) => {
+        if (key === "autoAcceptIncomingWork") return false;
+        return "regular";
+    });
     useLoaderDataMock.mockReturnValue({ projects: [] });
     useRouterMock.mockReturnValue({
         options: {
             context: {
                 settingsManager: {
-                    get: vi.fn().mockReturnValue("regular"),
+                    get: settingsGetMock,
                     getSettings: vi.fn().mockReturnValue({}),
                     update: vi.fn(),
                     set: vi.fn(),
@@ -544,5 +556,103 @@ describe("ProjectProvider remote open hydration", () => {
         });
 
         expect(openRemoteLatestReviewMock).toHaveBeenCalled();
+    });
+
+    it("runs auto-accept review flow for needs-review status when configured", async () => {
+        hydrateGitRemoteStatusOnOpenMock.mockResolvedValue({
+            kind: "needsReview",
+            status: {
+                projectPath: "/userData/projects/foo",
+                kind: "needsReview",
+                lastCheckedAt: null,
+                lastPublishedAt: null,
+                lastKnownLocalHead: "local-head",
+                lastKnownRemoteHead: "remote-head",
+            },
+        });
+        settingsGetMock.mockImplementation((key: string) => {
+            if (key === "autoAcceptIncomingWork") return true;
+            return "regular";
+        });
+        openRemoteLatestReviewMock.mockResolvedValue({
+            requiresReview: false,
+            requiresReconciliationSave: {
+                trackedBranch: "master",
+                remoteHead: "remote-head",
+                relationship: "diverged",
+            },
+        });
+
+        render(
+            <ProjectProvider
+                currentProjectRoute="foo"
+                projectFiles={[
+                    {
+                        path: "/userData/projects/foo/41-MAT.usfm",
+                        title: "Matthew",
+                        bookCode: "MAT",
+                        nextBookId: null,
+                        prevBookId: null,
+                        chapters: [
+                            {
+                                chapterNumber: 1,
+                                lexicalState: { root: { children: [] } } as never,
+                                loadedLexicalState: {
+                                    root: { children: [] },
+                                } as never,
+                                sourceTokens: [],
+                                currentTokens: [],
+                                dirty: false,
+                            },
+                        ],
+                    },
+                ]}
+                initialLintErrorsByBook={{}}
+                loadedProject={{
+                    folderName: "foo",
+                    displayName: "Foo",
+                    projectPath: "/userData/projects/foo",
+                    projectId: "foo",
+                    projectType: "scripture-burrito",
+                    language: {
+                        code: "en",
+                        name: "English",
+                        direction: "ltr",
+                    },
+                    books: [{ bookCode: "MAT", title: "Matthew" }] as never,
+                    listBooks: async () => [],
+                    getBook: async () => {
+                        throw new Error("not needed");
+                    },
+                    saveBook: async () => {},
+                    addBook: async () => {
+                        throw new Error("not needed");
+                    },
+                    listVersions: async () => [],
+                    restoreVersion: async () => {},
+                    stageAndCommit: async () => ({ hash: "abc" }),
+                }}
+            >
+                <RemoteStatusConsumer />
+            </ProjectProvider>,
+        );
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        const syncButton = document.querySelector("button");
+        expect(syncButton).not.toBeNull();
+        await act(async () => {
+            syncButton?.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+            await Promise.resolve();
+        });
+
+        expect(openRemoteLatestReviewMock).toHaveBeenCalledWith(
+            expect.any(Function),
+        );
+        expect(saveProjectToDiskMock).toHaveBeenCalledTimes(1);
     });
 });

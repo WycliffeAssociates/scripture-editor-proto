@@ -6,6 +6,7 @@ import {
     ParagraphNode,
     TextNode,
 } from "lexical";
+import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -37,6 +38,7 @@ export async function createTestEditor(
             },
             ParagraphNode,
             LineBreakNode,
+            BookFrontmatterFormNode,
             USFMNestedEditorNode,
         ],
     });

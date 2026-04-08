@@ -34,7 +34,7 @@ export type PublishAfterSaveResult =
     | { kind: typeof PUBLISH_AFTER_SAVE_REAUTH_REQUIRED }
     | { kind: typeof PUBLISH_AFTER_SAVE_PUBLISHED };
 
-export const PUBLISH_AFTER_SAVE_RESULT_VALUES = [
+const PUBLISH_AFTER_SAVE_RESULT_VALUES = [
     "notLinked",
     "pendingPublish",
     "needsReview",

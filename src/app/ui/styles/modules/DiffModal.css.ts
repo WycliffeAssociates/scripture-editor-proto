@@ -60,13 +60,13 @@ const vars = {
 
 // Diff Item Container
 export const diffItem = style({
-    marginBottom: vars.spacing.xl,
+    marginBottom: vars.spacing.md,
     padding: vars.spacing.xs,
     borderRadius: vars.radius.md,
     backgroundColor: vars.colors.body,
     "@media": {
         [breakpoints.minWSmall]: {
-            padding: vars.spacing.md,
+            // padding: vars.spacing.md,
         },
     },
 });
@@ -77,7 +77,12 @@ export const diffGrid = style({
     justifyContent: "space-between",
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
+    alignItems: "start",
     gridGap: vars.spacing.xl,
+});
+export const diffColumn = style({
+    display: "grid",
+    gridTemplateRows: "3rem 1fr",
 });
 
 // Stacked layout for small screens
@@ -93,15 +98,36 @@ export const modalScrollPaper = style({
     height: "100%",
     overflow: "hidden",
     display: "grid",
-    gridTemplateRows: "auto 1fr",
+    gridTemplateRows: "auto 1fr auto",
     backgroundColor: "transparent",
-    paddingBlock: 0,
-    paddingInline: 0,
+    paddingTop: `max(${vars.spacing.md}, env(safe-area-inset-top))`,
+    paddingBlock: vars.spacing.sm,
+    paddingInline: vars.spacing.sm,
     "@media": {
         [breakpoints.minWSmall]: {
+            paddingTop: `max(${vars.spacing.md}, env(safe-area-inset-top))`,
             paddingInline: vars.spacing.md,
         },
     },
+});
+
+export const diffModalFooter = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: `${vars.spacing.md} 0`,
+    borderTop: `1px solid ${vars.colors.gray[3]}`,
+    selectors: {
+        [`${darkSelector} &`]: {
+            borderColor: vars.colors.dark[4],
+        },
+    },
+});
+
+export const diffModalFooterActions = style({
+    display: "flex",
+    gap: vars.spacing.md,
+    alignItems: "center",
 });
 
 export const overlayShell = style({
@@ -110,6 +136,8 @@ export const overlayShell = style({
     zIndex: 5000,
     display: "none",
     backgroundColor: vars.colors.body,
+    isolation: "isolate",
+    overflow: "visible",
     selectors: {
         '&[data-open="true"]': {
             display: "block",
@@ -152,7 +180,7 @@ export const modalBodyScrollable = style({
     minHeight: 0,
     overflow: "auto",
     paddingTop: 0,
-    paddingBottom: vars.spacing.xl,
+    paddingBottom: vars.spacing.md,
 });
 
 export const modalContent = style({
@@ -187,7 +215,6 @@ export const modalTitle = style({
     fontSize: vars.fontSizes.lg,
     fontWeight: 600,
     letterSpacing: "-0.02em",
-    paddingInline: vars.spacing.xs,
     margin: 0,
     lineHeight: 1.05,
     "@media": {
@@ -199,9 +226,55 @@ export const modalTitle = style({
 
 export const overlayHeaderRow = style({
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: vars.spacing.md,
+});
+
+export const headerCopy = style({
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+    maxWidth: "48rem",
+});
+
+export const reviewOptionsDisclosure = style({
+    display: "block",
+});
+
+export const reviewOptionsSummary = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    listStyle: "none",
+    cursor: "pointer",
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 600,
+    selectors: {
+        "&::-webkit-details-marker": {
+            display: "none",
+        },
+        "&:hover": {
+            color: vars.colors.text,
+        },
+        "&[aria-expanded='true']": {
+            color: vars.colors.text,
+        },
+    },
+});
+
+export const reviewOptionsChevron = style({
+    transition: "transform 150ms ease",
+    selectors: {
+        [`${reviewOptionsDisclosure}[open] &`]: {
+            transform: "rotate(180deg)",
+        },
+    },
+});
+
+export const reviewOptionsBody = style({
+    paddingTop: vars.spacing.xs,
 });
 
 // --- Header & Text Styles ---
@@ -223,11 +296,18 @@ export const toolbarSection = style({
 });
 
 export const toolbarBand = style({
-    padding: `${vars.spacing.xs} ${vars.spacing.xs}`,
+    display: "flex",
+    alignItems: "center",
+    gap: vars.spacing.md,
+    flexWrap: "nowrap",
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
     borderRadius: vars.radius.md,
+    border: `1px solid ${dsVars.color.surfaceBorder}`,
     backgroundColor: vars.colors.body,
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+    minHeight: "3rem",
     overflowX: "auto",
+    overflowY: "visible",
     msOverflowStyle: "none",
     scrollbarWidth: "none",
     selectors: {
@@ -239,6 +319,129 @@ export const toolbarBand = style({
             boxShadow: "none",
         },
     },
+});
+
+export const ribbonGroup = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    flexWrap: "nowrap",
+    minWidth: 0,
+    flex: "0 0 auto",
+});
+
+export const ribbonLabel = style({
+    color: vars.colors.dimmed,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+});
+
+export const ribbonSeparator = style({
+    width: 1,
+    height: "1.25rem",
+    flex: "0 0 auto",
+    backgroundColor: vars.colors.gray[3],
+});
+
+export const ribbonSpacer = style({
+    flex: "1 1 auto",
+});
+
+export const ribbonSelect = style({
+    minWidth: "12rem",
+    selectors: {
+        "&": {
+            border: "none",
+            backgroundColor: "transparent",
+            minHeight: "2.5rem",
+            padding: `0 ${vars.spacing.sm}`,
+            borderRadius: vars.radius.md,
+            boxShadow: "none",
+        },
+        "&:hover": {
+            borderColor: "transparent",
+            backgroundColor: vars.colors.gray[2],
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+    },
+});
+export const ribbonPopup = style({
+    maxHeight: "max(20rem, 50vh)",
+    overflowY: "auto",
+});
+
+export const ribbonScopeToggle = style({
+    flex: "0 0 auto",
+    alignItems: "center",
+    width: "12rem",
+    height: "2.5rem",
+});
+
+export const ribbonMeta = style({
+    color: vars.colors.dimmed,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    minHeight: "2.5rem",
+    display: "inline-flex",
+    alignItems: "center",
+});
+
+export const toolbarIconToggle = style({
+    width: "2.5rem",
+    minWidth: "2.5rem",
+    height: "2.5rem",
+    padding: 0,
+    borderRadius: vars.radius.md,
+    border: "1px solid transparent",
+    backgroundColor: "transparent",
+    color: vars.colors.gray[7],
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    transition:
+        "background-color 120ms ease, color 120ms ease, border-color 120ms ease",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.gray[2],
+            color: vars.colors.text,
+        },
+        "&[data-pressed]": {
+            backgroundColor: vars.colors.gray[2],
+            color: vars.colors.blue[7],
+            borderColor: "transparent",
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+        "&:disabled": {
+            cursor: "not-allowed",
+            opacity: 0.45,
+        },
+        [`${darkSelector} &`]: {
+            backgroundColor: "transparent",
+            borderColor: "transparent",
+        },
+        [`${darkSelector} &[data-pressed]`]: {
+            backgroundColor: vars.colors.dark[4],
+            color: vars.colors.text,
+            borderColor: "transparent",
+        },
+    },
+});
+
+export const toolbarTooltipPopup = style({
+    backgroundColor: vars.colors.dark[8],
+    color: vars.colors.body,
+    borderRadius: vars.radius.sm,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    fontWeight: 600,
+    boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+    maxWidth: "18rem",
 });
 
 export const warningStrip = style({
@@ -366,6 +569,7 @@ export const chapterDiffItem = style({
     display: "grid",
     gridTemplateRows: "auto 1fr",
     gap: vars.spacing.md,
+    paddingBlockStart: vars.spacing.sm,
 });
 
 export const chapterDiffPanel = style({
@@ -375,7 +579,7 @@ export const chapterDiffPanel = style({
     overflowX: "hidden",
     backgroundColor: vars.colors.body,
     borderRadius: vars.radius.lg,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+    boxShadow: dsVars.shadow.large,
     border: "none",
     selectors: {
         [`${darkSelector} &`]: {
@@ -392,7 +596,8 @@ export const chapterMobileToggle = style({
 export const chapterGrid = style({
     display: "grid",
     gridTemplateColumns: "1fr",
-    gap: vars.spacing.xl,
+    gap: vars.spacing.lg,
+    paddingInline: vars.spacing.xs,
     minHeight: 0,
     height: "100%",
     "@media": {
@@ -418,7 +623,7 @@ export const chapterDiffBody = style({
     lineHeight: 1.8,
     fontSize: vars.fontSizes.sm,
     fontFamily: "inherit",
-    padding: vars.spacing.sm,
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
     "@media": {
         [breakpoints.minWSmall]: {
             fontSize: vars.fontSizes.md,
@@ -470,7 +675,15 @@ export const diffToolbarRow = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: vars.spacing.md,
+    gap: vars.spacing.sm,
+    flexWrap: "wrap",
+});
+
+export const diffFooterActions = style({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: vars.spacing.sm,
     flexWrap: "wrap",
 });
 
@@ -482,16 +695,194 @@ export const chapterSelect = style({
     minWidth: "13.5rem",
 });
 
+export const chapterComboboxTrigger = style({
+    minWidth: 0,
+    flex: "1 1 auto",
+    alignItems: "center",
+    minHeight: "2.5rem",
+    padding: `0 ${vars.spacing.sm}`,
+    border: "none",
+    backgroundColor: "transparent",
+    color: vars.colors.text,
+    display: "inline-flex",
+    gap: vars.spacing.xs,
+    cursor: "pointer",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.gray[2],
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+        "&[data-popup-open]": {
+            backgroundColor: vars.colors.gray[2],
+        },
+    },
+});
+
+export const chapterComboboxControl = style({
+    minWidth: "14rem",
+    maxWidth: "18rem",
+    minHeight: "2.5rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    paddingInline: vars.spacing.xs,
+    borderRadius: vars.radius.md,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    selectors: {
+        "&:focus-within": {
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+            borderColor: vars.colors.blue[7],
+        },
+    },
+});
+
+export const chapterComboboxStepper = style({
+    width: "1.75rem",
+    height: "1.75rem",
+    minWidth: "1.75rem",
+    border: "none",
+    borderRadius: vars.radius.sm,
+    backgroundColor: "transparent",
+    color: vars.colors.dimmed,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+    selectors: {
+        "&:hover:not(:disabled)": {
+            backgroundColor: vars.colors.body,
+            color: vars.colors.text,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+        "&:disabled": {
+            opacity: 0.35,
+            cursor: "not-allowed",
+        },
+    },
+});
+
+export const chapterComboboxHint = style({
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+});
+
+export const chapterComboboxValue = style({
+    minWidth: 0,
+    flex: "1 1 auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 700,
+});
+
+export const chapterComboboxChevron = style({
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+    lineHeight: 1,
+    flexShrink: 0,
+});
+
+export const chapterComboboxPopup = style({
+    width: "18rem",
+    maxHeight: "20rem",
+    overflow: "hidden",
+    backgroundColor: vars.colors.body,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    borderRadius: vars.radius.md,
+    boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+    zIndex: 2,
+});
+
+export const chapterComboboxHeader = style({
+    padding: vars.spacing.sm,
+    borderBottom: `1px solid ${vars.colors.gray[3]}`,
+});
+
+export const chapterComboboxInput = style({
+    width: "100%",
+    minHeight: "2.25rem",
+    padding: `0 ${vars.spacing.sm}`,
+    borderRadius: vars.radius.md,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    color: vars.colors.text,
+    fontSize: vars.fontSizes.sm,
+    selectors: {
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+    },
+});
+
+export const chapterComboboxList = style({
+    display: "grid",
+    gap: "2px",
+    padding: vars.spacing.xs,
+});
+
+export const chapterComboboxScrollArea = style({
+    maxHeight: "18rem",
+});
+
+export const chapterComboboxScrollViewport = style({
+    maxHeight: "18rem",
+});
+
+export const chapterComboboxItem = style({
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    minHeight: "2rem",
+    padding: `0 ${vars.spacing.sm}`,
+    borderRadius: vars.radius.sm,
+    color: vars.colors.text,
+    cursor: "pointer",
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.gray[2],
+        },
+        "&[data-selected]": {
+            backgroundColor: vars.colors.blue[0],
+            color: vars.colors.blue[7],
+        },
+    },
+});
+
+export const chapterComboboxEmpty = style({
+    padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+    color: vars.colors.dimmed,
+    fontSize: vars.fontSizes.sm,
+});
+
+export const usfmGlyph = style({
+    fontFamily: dsVars.typography.fontFamilyMono,
+    fontSize: vars.fontSizes.sm,
+    fontWeight: 700,
+    lineHeight: 1,
+});
+
 export const diffToolbarGroup = style({
     display: "flex",
     alignItems: "center",
-    gap: vars.spacing.sm,
+    gap: vars.spacing.xs,
     flexWrap: "wrap",
 });
 
 export const diffToolbarStack = style({
     display: "grid",
-    gap: vars.spacing.sm,
+    gap: vars.spacing.xs,
 });
 
 export const diffBadge = style({
@@ -504,7 +895,7 @@ export const diffBadge = style({
     border: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: vars.colors.gray[0],
     color: vars.colors.gray[7],
-    fontSize: vars.fontSizes.sm,
+    fontSize: ".8em",
     fontWeight: 600,
 });
 
@@ -539,7 +930,8 @@ export const diffPaper = style({
     padding: vars.spacing.md,
     borderRadius: vars.radius.md,
     backgroundColor: vars.colors.body,
-    border: "none",
+    border: `1px solid ${vars.colors.gray[3]}`,
+    boxShadow: dsVars.shadow.small,
 });
 
 export const diffCenter = style({
@@ -571,9 +963,19 @@ export const diffMenuTrigger = style({
     minHeight: "2.25rem",
     padding: "0.25rem",
     borderRadius: vars.radius.md,
-    border: `1px solid ${vars.colors.gray[3]}`,
-    backgroundColor: vars.colors.gray[0],
+    border: "1px solid transparent",
+    backgroundColor: "transparent",
     color: vars.colors.gray[7],
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.colors.gray[2],
+            color: vars.colors.text,
+        },
+        "&:focus-visible": {
+            outline: "none",
+            boxShadow: `0 0 0 2px ${vars.colors.body}, 0 0 0 4px ${vars.colors.blue[7]}`,
+        },
+    },
 });
 
 export const diffMenuPopup = style({

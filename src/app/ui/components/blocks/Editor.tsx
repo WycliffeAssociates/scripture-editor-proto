@@ -8,6 +8,7 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -33,19 +34,20 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * that keep it aligned with USFM semantics.
  */
 export function MainEditor() {
-    const { editorRef, project, search } = useWorkspaceContext();
+    const { editorRef, project, save, search } = useWorkspaceContext();
+    const isSwitchingVersion = save.versions.isSwitching;
 
     return (
-        <div
-            className={shellStyles.editorOuter}
-            data-js={DATA_JS.editorScrollContainer}
-            data-mode={project?.appSettings.editorMode}
-        >
+        <div className={shellStyles.editorOuter}>
             <LexicalComposer initialConfig={getIntialConfig()}>
                 <div
                     data-js={DATA_JS.editorContainer}
                     data-testid={TESTING_IDS.mainEditorContainer}
-                    className={`editor-container ${shellStyles.editorContainer}`}
+                    className={`editor-container ${shellStyles.editorContainer} ${
+                        isSwitchingVersion
+                            ? shellStyles.editorContainerSwitching
+                            : ""
+                    }`}
                 >
                     <RichTextPlugin
                         contentEditable={
@@ -56,12 +58,19 @@ export function MainEditor() {
                                         : ""
                                 }`}
                                 aria-label="USFM Editor"
+                                data-mode={project?.appSettings.editorMode}
                                 spellCheck={false}
                             />
                         }
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
+                {isSwitchingVersion ? (
+                    <div className={shellStyles.switchingOverlay}>
+                        <span className={shellStyles.switchingOverlaySpinner} />
+                        <span>Switching version...</span>
+                    </div>
+                ) : null}
                 <EditorRefPlugin editorRef={editorRef} />
                 {/* <DecoratorFocusPlugin /> */}
                 {/* <UseLineBreaks /> */}
@@ -131,8 +140,8 @@ function getIntialConfig(): InitialConfigType {
             },
             // only one, default container for chap
             ParagraphNode,
-            // USFMDecoratorNode,
             LineBreakNode,
+            BookFrontmatterFormNode,
             // footnoes and x-notes
             USFMNestedEditorNode,
         ],

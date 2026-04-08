@@ -107,6 +107,9 @@ export const TESTING_IDS = {
         themeToggle: "display-theme-toggle",
         autoSyncOnOpenToggle: "cloud-auto-sync-on-open-toggle",
         autoPushOnSaveToggle: "cloud-auto-push-on-save-toggle",
+        autoAcceptOwnWorkOnSaveToggle:
+            "save-auto-accept-own-work-on-save-toggle",
+        autoAcceptIncomingWorkToggle: "cloud-auto-accept-incoming-work-toggle",
         createRemoteProjectButton: "cloud-create-remote-project-button",
         attachRemoteProjectSelect: "cloud-attach-remote-project-select",
         attachRemoteProjectButton: "cloud-attach-remote-project-button",

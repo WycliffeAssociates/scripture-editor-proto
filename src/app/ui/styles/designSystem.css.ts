@@ -3,6 +3,7 @@ import {
     createTheme,
     createThemeContract,
 } from "@vanilla-extract/css";
+import { atkinsonMono, charisSIL, inter } from "@/app/ui/styles/fonts.css.ts";
 
 /**
  * Primitive token values from the design system source.
@@ -141,6 +142,9 @@ export const vars = createThemeContract({
         bodySmall: { fontSize: "", fontWeight: "", lineHeight: "" },
         bodySmallest: { fontSize: "", fontWeight: "", lineHeight: "" },
         label: { fontSize: "", fontWeight: "", lineHeight: "" },
+        fontFamilySerif: "",
+        fontFamilySansSerif: "",
+        fontFamilyMono: "",
     },
     spacing: {
         none: "",
@@ -180,7 +184,7 @@ export const vars = createThemeContract({
 
 const commonTokens = {
     typography: {
-        fontFamily: "'Atkinson Hyperlegible', system-ui, sans-serif",
+        fontFamily: `${inter}, system-ui, sans-serif`,
         h1: { fontSize: "3rem", fontWeight: "700", lineHeight: "1" },
         h2: { fontSize: "2.25rem", fontWeight: "400", lineHeight: "1.1" },
         h3: { fontSize: "1.5rem", fontWeight: "700", lineHeight: "1.2" },
@@ -199,6 +203,9 @@ const commonTokens = {
             lineHeight: "1.5",
         },
         label: { fontSize: "1.25rem", fontWeight: "400", lineHeight: "1.2" },
+        fontFamilySerif: `${charisSIL}, serif`,
+        fontFamilySansSerif: `${inter}, sans-serif`,
+        fontFamilyMono: `${atkinsonMono}, monospace`,
     },
     spacing: {
         none: "0",
@@ -230,8 +237,6 @@ const commonTokens = {
         },
     },
 };
-
-export const dsVars = vars;
 
 const lightValues = {
     ...commonTokens,

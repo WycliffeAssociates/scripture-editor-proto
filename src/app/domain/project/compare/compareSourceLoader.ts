@@ -21,6 +21,8 @@ export type CompareSourceLoadResult = {
     cleanup?: () => Promise<void>;
     remoteSync?: {
         remoteHead: string;
+        localHead: string | null;
+        mergeBase: string | null;
         trackedBranch: string;
         relationship: GitRemoteRelationshipKind;
     };

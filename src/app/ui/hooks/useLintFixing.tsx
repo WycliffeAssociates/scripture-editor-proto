@@ -95,7 +95,9 @@ export async function applyLintFixToFile(args: {
     notifySuccess: (code: string) => void;
 }): Promise<boolean> {
     const baselineTokens = args.file.chapters.flatMap((c) =>
-        lexicalToTokens(c.lexicalState),
+        lexicalToTokens(c.lexicalState, {
+            bookCode: args.file.bookCode,
+        }),
     );
     let activeFix = args.issueFix;
     let result = await args.usfmOnionService.applyTokenFixes(baselineTokens, [

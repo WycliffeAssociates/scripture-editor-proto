@@ -7,13 +7,14 @@ export interface UseDebouncedCallbackOptions {
     leading?: boolean;
 }
 
-export type UseDebouncedCallbackReturnValue<T extends (...args: any[]) => any> =
-    ((...args: Parameters<T>) => void) & {
-        flush: () => void;
-        cancel: () => void;
-    };
+export type UseDebouncedCallbackReturnValue<
+    T extends (...args: unknown[]) => unknown,
+> = ((...args: Parameters<T>) => void) & {
+    flush: () => void;
+    cancel: () => void;
+};
 
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
     callback: T,
     options: number | UseDebouncedCallbackOptions,
 ) {
@@ -131,6 +132,6 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
 
 export namespace useDebouncedCallback {
     export type Options = UseDebouncedCallbackOptions;
-    export type ReturnValue<T extends (...args: any[]) => any> =
+    export type ReturnValue<T extends (...args: unknown[]) => unknown> =
         UseDebouncedCallbackReturnValue<T>;
 }

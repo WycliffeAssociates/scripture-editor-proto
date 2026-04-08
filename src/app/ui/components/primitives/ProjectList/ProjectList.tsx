@@ -18,7 +18,8 @@ import classnames from "./ProjectList.module.css.ts";
  * open it, reveal it on disk, or export its managed-storage tree.
  */
 export function ProjectList() {
-    const { allProjects, project, currentProjectRoute } = useWorkspaceContext();
+    const { allProjects, project, currentProjectRoute, settingsManager } =
+        useWorkspaceContext();
     const router = useRouter();
     const context = router.options.context;
     const { opener, platform } = context;
@@ -43,6 +44,9 @@ export function ProjectList() {
             throw new Error("Invalid project path");
         }
         project.updateAppSettings({
+            lastProjectPath: projectPath,
+        });
+        settingsManager?.update?.({
             lastProjectPath: projectPath,
         });
         router.navigate({

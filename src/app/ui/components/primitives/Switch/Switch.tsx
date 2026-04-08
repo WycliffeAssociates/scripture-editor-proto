@@ -26,7 +26,7 @@ export function Switch({
     className,
 }: SwitchProps) {
     return (
-        <label className={joinClassNames(styles.root, className)}>
+        <span className={joinClassNames(styles.root, className)}>
             <BaseSwitch.Root
                 checked={checked}
                 defaultChecked={defaultChecked}
@@ -38,6 +38,6 @@ export function Switch({
                 <BaseSwitch.Thumb className={styles.thumb} />
             </BaseSwitch.Root>
             {label ? <span className={styles.label}>{label}</span> : null}
-        </label>
+        </span>
     );
 }

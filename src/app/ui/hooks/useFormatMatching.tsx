@@ -170,7 +170,9 @@ export function useFormatMatching({
             nextRootChildren as typeof nextLexical.root.children;
 
         chapter.lexicalState = nextLexical;
-        chapter.currentTokens = lexicalToTokens(nextLexical);
+        chapter.currentTokens = lexicalToTokens(nextLexical, {
+            bookCode,
+        });
         chapter.dirty =
             chapter.currentTokens.map((token) => token.text).join("") !==
             chapter.sourceTokens.map((token) => token.text).join("");

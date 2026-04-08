@@ -9,7 +9,7 @@ export const trigger = style({
 });
 
 export const positioner = style({
-    zIndex: 30,
+    zIndex: 10000,
 });
 
 export const popup = style({

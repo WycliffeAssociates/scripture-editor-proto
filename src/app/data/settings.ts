@@ -54,6 +54,9 @@ export type Settings = {
     colorScheme: "light" | "dark";
     autoSyncOnOpen: boolean;
     autoPushOnSave: boolean;
+    autoAcceptOwnWorkOnSave: boolean;
+    autoAcceptIncomingWork: boolean;
+    diffViewModeDefault: "list" | "chapter";
 };
 
 /**
@@ -75,6 +78,9 @@ export const settingsDefaults: Settings = {
     colorScheme: "light",
     autoSyncOnOpen: true,
     autoPushOnSave: true,
+    autoAcceptOwnWorkOnSave: false,
+    autoAcceptIncomingWork: false,
+    diffViewModeDefault: "list",
 };
 
 /**

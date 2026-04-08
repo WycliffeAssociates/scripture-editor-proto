@@ -33,6 +33,7 @@ export function LintTooltipPlugin() {
                 left: tooltipPosition.x,
             }}
         >
+            {/** biome-ignore lint/a11y/noStaticElementInteractions: <todo fix> */}
             <div
                 className={styles.card}
                 onMouseEnter={onTooltipMouseEnter}

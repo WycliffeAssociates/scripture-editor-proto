@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { keyframes, style } from "@vanilla-extract/css";
 import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
 
 const vars = {
@@ -23,14 +23,17 @@ export const editorOuter = style({
     flex: "1 1 auto",
     position: "relative",
     minHeight: 0,
-    overflowY: "auto",
     padding: vars.spacing.sm,
-    overscrollBehavior: "contain",
 });
 
 export const editorContainer = style({
     position: "relative",
     minHeight: 0,
+    transition: "opacity 120ms ease",
+});
+
+export const editorContainerSwitching = style({
+    opacity: 0.56,
 });
 
 export const contentEditable = style({
@@ -39,10 +42,63 @@ export const contentEditable = style({
     minHeight: "100%",
     padding: `${vars.spacing.sm} ${vars.spacing.sm} 20rem`,
     zIndex: 5100,
+    fontFamily: vars.typography.fontFamilySerif,
+    maxWidth: "75ch",
+    margin: "0 auto",
+    selectors: {
+        '&[data-mode="plain"]': {
+            fontFamily: vars.typography.fontFamilyMono,
+        },
+    },
 });
 
 export const contentEditableSearchOpen = style({
     paddingTop: "7rem",
+});
+
+const spinnerRotate = keyframes({
+    from: { transform: "rotate(0deg)" },
+    to: { transform: "rotate(360deg)" },
+});
+
+export const switchingOverlay = style({
+    position: "absolute",
+    top: vars.spacing.md,
+    right: vars.spacing.md,
+    zIndex: 5202,
+    borderRadius: vars.radius.full,
+    border: `1px solid ${vars.colors.gray[3]}`,
+    backgroundColor: vars.colors.gray[0],
+    color: vars.colors.gray[6],
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    fontSize: dsVars.typography.bodySmall.fontSize,
+    lineHeight: 1,
+    fontWeight: 600,
+    padding: `0.4rem ${vars.spacing.sm}`,
+    pointerEvents: "none",
+    selectors: {
+        '[data-theme="dark"] &': {
+            backgroundColor: vars.colors.dark[6],
+            borderColor: vars.colors.dark[4],
+        },
+    },
+});
+
+export const switchingOverlaySpinner = style({
+    width: "0.875rem",
+    height: "0.875rem",
+    borderRadius: vars.radius.full,
+    border: `2px solid ${vars.colors.gray[3]}`,
+    borderTopColor: vars.colors.gray[9],
+    animation: `${spinnerRotate} 0.65s linear infinite`,
+    selectors: {
+        '[data-theme="dark"] &': {
+            borderColor: vars.colors.gray[6],
+            borderTopColor: vars.colors.gray[0],
+        },
+    },
 });
 export const loadingReference = style({
     padding: vars.spacing.md,

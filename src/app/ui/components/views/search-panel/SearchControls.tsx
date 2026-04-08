@@ -237,10 +237,7 @@ export function SearchControls() {
                     />
                 </div>
                 {isReferenceSearchLoading ? (
-                    <span
-                        className={styles.searchModeLoading}
-                        aria-label={t`Loading reference search source`}
-                    >
+                    <span className={styles.searchModeLoading}>
                         <LoaderCircle
                             size={12}
                             className={styles.searchModeLoadingIcon}

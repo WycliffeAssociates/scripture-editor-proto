@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const table = style({
@@ -9,21 +9,12 @@ export const table = style({
 });
 
 export const tableStriped = style({
-    selectors: {
-        "& tbody tr:nth-child(even)": {
-            backgroundColor: vars.color.surfaceSecondary,
-        },
-    },
+    // Placeholder for global styles applied below
 });
 
 export const tableBordered = style({
     border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.md,
-    selectors: {
-        "& th, & td": {
-            border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
-        },
-    },
 });
 
 export const tableHead = style({
@@ -54,4 +45,13 @@ export const tableCell = style({
     padding: vars.spacing.sm,
     borderBottom: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
     verticalAlign: "top",
+});
+
+// Cross-element selectors must use globalStyle in vanilla-extract
+globalStyle(`${tableStriped} tbody tr:nth-child(even)`, {
+    backgroundColor: vars.color.surfaceSecondary,
+});
+
+globalStyle(`${tableBordered} th, ${tableBordered} td`, {
+    border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
 });

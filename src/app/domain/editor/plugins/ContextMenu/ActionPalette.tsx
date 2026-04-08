@@ -390,7 +390,6 @@ export function ActionPalette({ context, onClose }: ActionPaletteProps) {
                     <input
                         className={classes.searchInput}
                         placeholder={activeStep.placeholder || "Enter value..."}
-                        autoFocus
                         onKeyDown={(event) => {
                             if (event.key === "Enter") {
                                 handleStepComplete(event.currentTarget.value);

@@ -1,5 +1,6 @@
 import type { SerializedLexicalNode } from "lexical";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import { isSerializedBookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -61,6 +62,12 @@ export type MaterializeOptions = {
      * - "preserve": keep nested editor node as an atomic token (do not descend)
      */
     nested?: "flatten" | "preserve";
+    /**
+     * How to handle chapter-0 frontmatter decorator nodes.
+     * - "flatten" (default): yield their stored token stream
+     * - "preserve": keep the decorator node as an atomic entry
+     */
+    frontmatter?: "flatten" | "preserve";
 };
 
 /**
@@ -81,7 +88,7 @@ function* materializeFlatTokensFromSerialized(
     rootChildren: SerializedLexicalNode[],
     options: MaterializeOptions = { nested: "flatten" },
 ): Generator<SerializedLexicalNode> {
-    const { nested = "flatten" } = options;
+    const { nested = "flatten", frontmatter = "flatten" } = options;
     for (const node of rootChildren) {
         if (isSerializedUSFMParagraphContainer(node)) {
             // Emit synthetic paragraph marker token
@@ -94,6 +101,16 @@ function* materializeFlatTokensFromSerialized(
 
             // Then recursively yield children
             yield* materializeFlatTokensFromSerialized(children, options);
+        } else if (isSerializedBookFrontmatterFormNode(node)) {
+            if (frontmatter === "preserve") {
+                yield node;
+                continue;
+            }
+
+            yield* materializeFlatTokensFromSerialized(
+                node.tokens ?? [],
+                options,
+            );
         } else if (isSerializedUSFMNestedEditorNode(node)) {
             if (nested === "preserve") {
                 yield node;

@@ -33,7 +33,7 @@ import {
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
-export const GIT_REMOTE_OPEN_STATUS_RESULT_VALUES = [
+const GIT_REMOTE_OPEN_STATUS_RESULT_VALUES = [
     "notLinked",
     "skippedAutoSync",
     "connected",

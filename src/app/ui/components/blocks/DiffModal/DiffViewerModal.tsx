@@ -17,6 +17,7 @@ import { buildChapterOptions } from "@/app/ui/components/blocks/DiffModal/chapte
 import { ChapterDiffStructuredDocument } from "@/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx";
 import { VirtualizedDiffList } from "@/app/ui/components/blocks/DiffModal/DiffModalListView.tsx";
 import { DiffViewerToolbar } from "@/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -55,11 +56,9 @@ export type DiffViewerModalProps = {
     takeIncomingAll: () => void;
     hasComputedCompare: boolean;
     resetExternalCompare: () => void;
-    isXs?: boolean;
 };
 
 type DiffViewMode = "list" | "chapter";
-const DIFF_VIEW_STORAGE_KEY = "diff-modal:last-view-mode";
 
 /**
  * Shared save/compare review modal.
@@ -159,10 +158,9 @@ export function DiffViewerModal({
     takeIncomingAll,
     hasComputedCompare,
     resetExternalCompare,
-    isXs = false,
 }: DiffViewerModalProps) {
     const hasChanges = (diffs?.length ?? 0) > 0;
-    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
+    const { bookCodeToProjectLocalizedTitle, project } = useWorkspaceContext();
     const isExternalActionMode = actionMode === "external";
     const [hideWhitespaceOnly, setHideWhitespaceOnly] = useState(false);
     const [showUsfmMarkers, setShowUsfmMarkers] = useState(false);
@@ -170,19 +168,12 @@ export function DiffViewerModal({
     const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const dirInputRef = useRef<HTMLInputElement | null>(null);
+    const popupPortalContainerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        if (!isOpen || typeof window === "undefined") return;
-        const saved = window.localStorage.getItem(DIFF_VIEW_STORAGE_KEY);
-        if (saved === "list" || saved === "chapter") {
-            setViewMode(saved);
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        window.localStorage.setItem(DIFF_VIEW_STORAGE_KEY, viewMode);
-    }, [viewMode]);
+        if (!isOpen) return;
+        setViewMode(project.appSettings.diffViewModeDefault ?? "list");
+    }, [isOpen, project.appSettings.diffViewModeDefault]);
 
     const visibleDiffs = useMemo(() => {
         if (!diffs) return diffs;
@@ -318,11 +309,11 @@ export function DiffViewerModal({
             className={styles.overlayShell}
             data-open={isOpen ? "true" : "false"}
             aria-hidden={!isOpen}
+            ref={popupPortalContainerRef}
         >
             <div className={styles.modalScrollPaper}>
                 <DiffViewerToolbar
                     onClose={onClose}
-                    isXs={isXs}
                     compareMode={compareMode}
                     setCompareMode={setCompareMode}
                     viewMode={viewMode}
@@ -330,11 +321,6 @@ export function DiffViewerModal({
                     visibleChapterCount={visibleChapterCount}
                     visibleDiffCount={visibleDiffCount}
                     compareSummaryText={compareSummaryText}
-                    saveAllChanges={saveAllChanges}
-                    revertAllChanges={revertAllChanges}
-                    takeIncomingAll={takeIncomingAll}
-                    resetExternalCompare={resetExternalCompare}
-                    canApplyIncomingAll={canApplyIncomingAll}
                     hasChanges={hasChanges}
                     compareSourceKind={compareSourceKind}
                     setCompareSourceKind={setCompareSourceKind}
@@ -356,6 +342,7 @@ export function DiffViewerModal({
                     setSelectedChapter={setSelectedChapter}
                     fileInputRef={fileInputRef}
                     dirInputRef={dirInputRef}
+                    popupPortalContainer={popupPortalContainerRef}
                     compareWarnings={compareWarnings}
                     copyDiffsJson={copyDiffsJson}
                 />
@@ -483,6 +470,55 @@ export function DiffViewerModal({
                                 <Trans>No changes detected.</Trans>
                             </DiffViewerCenteredState>
                         )}
+                </div>
+
+                <div className={styles.diffModalFooter}>
+                    {compareMode === "unsaved" ? (
+                        <>
+                            <Button
+                                variant="destructive"
+                                onClick={revertAllChanges}
+                                data-testid={TESTING_IDS.save.revertAllButton}
+                            >
+                                <Trans>Revert all local changes</Trans>
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={saveAllChanges}
+                                data-testid={TESTING_IDS.save.saveAllButton}
+                            >
+                                <Trans>Save all changes</Trans>
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={resetExternalCompare}
+                            >
+                                <Trans>Clear source</Trans>
+                            </Button>
+                            <div className={styles.diffFooterActions}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={takeIncomingAll}
+                                    disabled={!canApplyIncomingAll}
+                                >
+                                    <Trans>
+                                        Accept all incoming changes in all
+                                        chapters
+                                    </Trans>
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={saveAllChanges}
+                                    data-testid={TESTING_IDS.save.saveAllButton}
+                                >
+                                    <Trans>Save all changes</Trans>
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

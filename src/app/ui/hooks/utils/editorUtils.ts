@@ -12,10 +12,14 @@ import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * scripture workspace noun held in React state.
  */
 function collectChapterTokens(
+    bookCode: string,
     serializedEditorState: SerializedEditorState,
     options?: { structuralParagraphBreaks?: boolean },
 ): Token[] {
-    return lexicalToTokens(serializedEditorState, options);
+    return lexicalToTokens(serializedEditorState, {
+        ...options,
+        bookCode,
+    });
 }
 
 export function collectFileTokens(
@@ -26,7 +30,11 @@ export function collectFileTokens(
 
     const tokens: Token[] = [];
     for (const chapter of file.chapters) {
-        const flattened = collectChapterTokens(chapter.lexicalState, options);
+        const flattened = collectChapterTokens(
+            file.bookCode,
+            chapter.lexicalState,
+            options,
+        );
         if (flattened?.length) {
             tokens.push(...flattened);
         }

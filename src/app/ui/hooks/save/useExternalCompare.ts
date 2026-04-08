@@ -63,6 +63,7 @@ import {
 } from "./shared.ts";
 
 const DIFF_CHUNK_SIZE = 8;
+type DirtySemanticSidMap = Map<string, Set<string>>;
 
 function buildExternalCompareSource(args: {
     sourceProjectId: string;
@@ -99,6 +100,164 @@ function hasDiffsByChapter(diffsByChapter: DiffsByChapter | null | undefined) {
     );
 }
 
+function listChangedChapterRefs(diffsByChapter: DiffsByChapter): ChapterRef[] {
+    const refs: ChapterRef[] = [];
+    for (const [bookCode, chapters] of Object.entries(diffsByChapter)) {
+        for (const [chapterKey, chapterDiffs] of Object.entries(chapters)) {
+            const chapterNum = Number(chapterKey);
+            if (Number.isNaN(chapterNum) || chapterDiffs.length === 0) continue;
+            refs.push({ bookCode, chapterNum });
+        }
+    }
+    return refs;
+}
+
+function buildChapterKey(bookCode: string, chapterNum: number) {
+    return `${bookCode}:${chapterNum}`;
+}
+
+function splitRemoteDiffsByDirtySemanticSid(args: {
+    diffsByChapter: DiffsByChapter;
+    dirtySemanticSidsByChapter: DirtySemanticSidMap;
+}) {
+    const blockedDiffsByChapter: DiffsByChapter = {};
+    const autoAcceptedDiffs: ProjectDiff[] = [];
+
+    for (const [bookCode, chapters] of Object.entries(args.diffsByChapter)) {
+        const blockedBook: Record<number, ProjectDiff[]> = {};
+        for (const [chapterKey, chapterDiffs] of Object.entries(chapters)) {
+            const chapterNum = Number(chapterKey);
+            if (Number.isNaN(chapterNum)) continue;
+            const dirtySemanticSids =
+                args.dirtySemanticSidsByChapter.get(
+                    buildChapterKey(bookCode, chapterNum),
+                ) ?? new Set<string>();
+            const blockedDiffs = chapterDiffs.filter((diff) =>
+                dirtySemanticSids.has(diff.semanticSid),
+            );
+            const safeDiffs = chapterDiffs.filter(
+                (diff) => !dirtySemanticSids.has(diff.semanticSid),
+            );
+            if (blockedDiffs.length) {
+                blockedBook[chapterNum] = blockedDiffs;
+            }
+            autoAcceptedDiffs.push(...safeDiffs);
+        }
+
+        if (Object.keys(blockedBook).length) {
+            blockedDiffsByChapter[bookCode] = blockedBook;
+        }
+    }
+
+    return {
+        blockedDiffsByChapter,
+        autoAcceptedDiffs,
+    };
+}
+
+function buildAutoAcceptIncomingPlan(args: {
+    initialDiffsByChapter: DiffsByChapter;
+    blockedDiffsByChapter: DiffsByChapter;
+}) {
+    const blockedByChapter = new Map<string, Set<string>>();
+    for (const [bookCode, chapters] of Object.entries(
+        args.blockedDiffsByChapter,
+    )) {
+        for (const [chapterKey, chapterDiffs] of Object.entries(chapters)) {
+            const chapterNum = Number(chapterKey);
+            if (Number.isNaN(chapterNum)) continue;
+            blockedByChapter.set(
+                buildChapterKey(bookCode, chapterNum),
+                new Set(chapterDiffs.map((diff) => diff.uniqueKey)),
+            );
+        }
+    }
+
+    const fullChapterApplies: ChapterRef[] = [];
+    const hunkApplies: ProjectDiff[] = [];
+
+    for (const [bookCode, chapters] of Object.entries(
+        args.initialDiffsByChapter,
+    )) {
+        for (const [chapterKey, chapterDiffs] of Object.entries(chapters)) {
+            const chapterNum = Number(chapterKey);
+            if (Number.isNaN(chapterNum) || chapterDiffs.length === 0) continue;
+            const blockedUniqueKeys = blockedByChapter.get(
+                buildChapterKey(bookCode, chapterNum),
+            );
+            if (!blockedUniqueKeys || blockedUniqueKeys.size === 0) {
+                fullChapterApplies.push({ bookCode, chapterNum });
+                continue;
+            }
+            for (const diff of chapterDiffs) {
+                if (!blockedUniqueKeys.has(diff.uniqueKey)) {
+                    hunkApplies.push(diff);
+                }
+            }
+        }
+    }
+
+    return {
+        fullChapterApplies,
+        hunkApplies,
+    };
+}
+
+function extractBookCodeFromStorageKey(storageKey: string): string | null {
+    if (!storageKey.endsWith(".usfm")) return null;
+    const fileName = storageKey.split("/").pop() ?? storageKey;
+    const withDashMatch = fileName.match(/-([A-Za-z0-9]{3})\.usfm$/);
+    if (withDashMatch?.[1]) {
+        return withDashMatch[1].toUpperCase();
+    }
+    const plainMatch = fileName.match(/^([A-Za-z0-9]{3})\.usfm$/);
+    if (plainMatch?.[1]) {
+        return plainMatch[1].toUpperCase();
+    }
+    return null;
+}
+
+function buildBookTextByCodeFromSnapshot(snapshot: Map<string, string>) {
+    const byBook = new Map<string, string>();
+    for (const [storageKey, text] of snapshot.entries()) {
+        const bookCode = extractBookCodeFromStorageKey(storageKey);
+        if (!bookCode) continue;
+        byBook.set(bookCode, text);
+    }
+    return byBook;
+}
+
+function buildBookTextByCodeFromScriptureFiles(files: ScriptureBookState[]) {
+    const byBook = new Map<string, string>();
+    for (const file of files) {
+        const usfmText = file.chapters
+            .flatMap((chapter) => chapter.currentTokens)
+            .map((token) => ("text" in token ? String(token.text ?? "") : ""))
+            .join("");
+        byBook.set(file.bookCode.toUpperCase(), usfmText);
+    }
+    return byBook;
+}
+
+function collectChangedBookCodes(args: {
+    baseByBook: Map<string, string>;
+    targetByBook: Map<string, string>;
+}) {
+    const keys = new Set([
+        ...Array.from(args.baseByBook.keys()),
+        ...Array.from(args.targetByBook.keys()),
+    ]);
+    const changed = new Set<string>();
+    for (const bookCode of keys) {
+        const baseText = args.baseByBook.get(bookCode) ?? null;
+        const targetText = args.targetByBook.get(bookCode) ?? null;
+        if (baseText !== targetText) {
+            changed.add(bookCode);
+        }
+    }
+    return changed;
+}
+
 /**
  * External-compare hook for the scripture workspace.
  *
@@ -123,6 +282,7 @@ export function useExternalCompare(args: {
     gitProvider: GitProvider;
     versions: VersionEntry[];
     authSessionProvider: AuthSessionProvider;
+    autoAcceptIncomingWork: boolean;
     bumpDirtyVersion: () => void;
     refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
@@ -141,6 +301,8 @@ export function useExternalCompare(args: {
         sourceFiles?: ScriptureBookState[];
         remoteSync?: {
             remoteHead: string;
+            localHead: string | null;
+            mergeBase: string | null;
             trackedBranch: string;
             relationship: GitRemoteRelationshipKind;
         };
@@ -198,6 +360,474 @@ export function useExternalCompare(args: {
             sourceFiles,
             remoteSync: undefined,
         });
+    }
+
+    async function buildDirtySemanticSidsByChapter(
+        chapterRefs: ChapterRef[],
+    ): Promise<DirtySemanticSidMap> {
+        const dirtyScope = chapterRefs
+            .map(({ bookCode, chapterNum }) => {
+                const currentChapter = args.mutWorkingFilesRef
+                    .find((file) => file.bookCode === bookCode)
+                    ?.chapters.find(
+                        (chapter) => chapter.chapterNumber === chapterNum,
+                    );
+                if (!currentChapter?.dirty) return null;
+                return {
+                    bookCode,
+                    chapterNum,
+                    baselineTokens: currentChapter.sourceTokens,
+                    currentTokens: currentChapter.currentTokens,
+                };
+            })
+            .filter(
+                (
+                    entry,
+                ): entry is {
+                    bookCode: string;
+                    chapterNum: number;
+                    baselineTokens: ScriptureChapterState["sourceTokens"];
+                    currentTokens: ScriptureChapterState["currentTokens"];
+                } => Boolean(entry),
+            );
+
+        if (!dirtyScope.length) {
+            return new Map();
+        }
+
+        const diffsByScope = await args.usfmOnionService.diffScope(
+            dirtyScope.map((entry) => ({
+                baselineTokens: entry.baselineTokens,
+                currentTokens: entry.currentTokens,
+            })),
+        );
+
+        const dirtySemanticSidsByChapter = new Map<string, Set<string>>();
+        for (const [index, scopeEntry] of dirtyScope.entries()) {
+            const dirtySemanticSids = new Set(
+                (diffsByScope[index] ?? [])
+                    .filter((diff) => diff.status !== "unchanged")
+                    .map((diff) => diff.semanticSid),
+            );
+            if (!dirtySemanticSids.size) continue;
+            dirtySemanticSidsByChapter.set(
+                buildChapterKey(scopeEntry.bookCode, scopeEntry.chapterNum),
+                dirtySemanticSids,
+            );
+        }
+
+        return dirtySemanticSidsByChapter;
+    }
+
+    async function maybeAutoAcceptRemoteLatest(argsForAuto: {
+        sourceFiles: ScriptureBookState[];
+        metadata: CompareMetadataSummary;
+        cleanup?: () => Promise<void>;
+        initialWarnings: CompareWarning[];
+        remoteSync: {
+            remoteHead: string;
+            localHead: string | null;
+            mergeBase: string | null;
+            trackedBranch: string;
+            relationship: GitRemoteRelationshipKind;
+        };
+        initialDiffsByChapter: DiffsByChapter;
+    }): Promise<
+        | {
+              requiresReview: boolean;
+              requiresReconciliationSave?: {
+                  trackedBranch: string;
+                  remoteHead: string;
+                  relationship: GitRemoteRelationshipKind;
+              };
+          }
+        | undefined
+    > {
+        async function maybeAutoAcceptDivergedDisjoint() {
+            if (
+                argsForAuto.remoteSync.relationship !==
+                GIT_REMOTE_RELATIONSHIP_DIVERGED
+            ) {
+                return null;
+            }
+            if (
+                !argsForAuto.remoteSync.localHead ||
+                !argsForAuto.remoteSync.mergeBase
+            ) {
+                return null;
+            }
+
+            let baseSnapshot: Map<string, string>;
+            let localSnapshot: Map<string, string>;
+            let remoteSnapshot: Map<string, string>;
+            try {
+                [baseSnapshot, localSnapshot, remoteSnapshot] =
+                    await Promise.all([
+                        args.gitProvider.readProjectSnapshotAtCommit(
+                            args.loadedProject.projectPath,
+                            argsForAuto.remoteSync.mergeBase,
+                        ),
+                        args.gitProvider.readProjectSnapshotAtCommit(
+                            args.loadedProject.projectPath,
+                            argsForAuto.remoteSync.localHead,
+                        ),
+                        args.gitProvider.readProjectSnapshotAtCommit(
+                            args.loadedProject.projectPath,
+                            argsForAuto.remoteSync.remoteHead,
+                        ),
+                    ]);
+            } catch {
+                return null;
+            }
+
+            const baseByBook = buildBookTextByCodeFromSnapshot(baseSnapshot);
+            const localByBook = buildBookTextByCodeFromSnapshot(localSnapshot);
+            const remoteByBook =
+                buildBookTextByCodeFromSnapshot(remoteSnapshot);
+            const workingByBook = buildBookTextByCodeFromScriptureFiles(
+                args.mutWorkingFilesRef,
+            );
+
+            const localChangedBooks = collectChangedBookCodes({
+                baseByBook,
+                targetByBook: localByBook,
+            });
+            const remoteChangedBooks = collectChangedBookCodes({
+                baseByBook,
+                targetByBook: remoteByBook,
+            });
+            const dirtyWorkspaceBooks = collectChangedBookCodes({
+                baseByBook: localByBook,
+                targetByBook: workingByBook,
+            });
+            const locallyProtectedBooks = new Set([
+                ...Array.from(localChangedBooks),
+                ...Array.from(dirtyWorkspaceBooks),
+            ]);
+
+            if (remoteChangedBooks.size === 0) {
+                return null;
+            }
+
+            const hasOverlap = Array.from(locallyProtectedBooks).some(
+                (bookCode) => remoteChangedBooks.has(bookCode),
+            );
+            if (hasOverlap) {
+                return null;
+            }
+
+            const preservedByBook = new Map(
+                args.mutWorkingFilesRef.map((file) => [
+                    file.bookCode,
+                    structuredClone(file),
+                ]),
+            );
+            applyVersionSnapshotToWorkingFiles({
+                workingFiles: args.mutWorkingFilesRef,
+                sourceFiles: argsForAuto.sourceFiles,
+            });
+            for (const bookCode of locallyProtectedBooks) {
+                const preserved = preservedByBook.get(bookCode);
+                if (!preserved) continue;
+                const existingIndex = args.mutWorkingFilesRef.findIndex(
+                    (file) => file.bookCode === bookCode,
+                );
+                if (existingIndex >= 0) {
+                    args.mutWorkingFilesRef[existingIndex] = preserved;
+                } else {
+                    args.mutWorkingFilesRef.push(preserved);
+                }
+            }
+
+            const refreshed = await buildCompareResultAsync({
+                currentFiles: args.mutWorkingFilesRef,
+                usfmOnionService: args.usfmOnionService,
+                config: buildExternalCompareConfig(),
+                sourceFiles: argsForAuto.sourceFiles,
+                currentMetadata: buildCurrentProjectCompareMetadata(
+                    args.loadedProject,
+                ),
+                sourceMetadata: argsForAuto.metadata,
+                batchSize: DIFF_CHUNK_SIZE,
+                onBatchComplete: yieldToMainThread,
+            });
+            const changedChapters = listChangedChapterRefs(
+                refreshed.diffsByChapter,
+            );
+            const locallyProtectedChapters = args.mutWorkingFilesRef.flatMap(
+                (file) =>
+                    locallyProtectedBooks.has(file.bookCode)
+                        ? file.chapters.map((chapter) => ({
+                              bookCode: file.bookCode,
+                              chapterNum: chapter.chapterNumber,
+                          }))
+                        : [],
+            );
+            for (const chapterRef of locallyProtectedChapters) {
+                const chapter = args.mutWorkingFilesRef
+                    .find((file) => file.bookCode === chapterRef.bookCode)
+                    ?.chapters.find(
+                        (entry) =>
+                            entry.chapterNumber === chapterRef.chapterNum,
+                    );
+                if (!chapter) continue;
+                chapter.dirty = true;
+            }
+
+            const touchedChapterMap = new Map<string, ChapterRef>();
+            for (const chapterRef of [
+                ...changedChapters,
+                ...locallyProtectedChapters,
+            ]) {
+                touchedChapterMap.set(
+                    buildChapterKey(chapterRef.bookCode, chapterRef.chapterNum),
+                    chapterRef,
+                );
+            }
+            await invalidateWorkingScriptureChanges({
+                chapters: Array.from(touchedChapterMap.values()),
+                bumpDirtyVersion: args.bumpDirtyVersion,
+                refreshUnsavedChapters: args.refreshUnsavedChapters,
+                editorRef: args.editorRef,
+                workingFiles: args.mutWorkingFilesRef,
+                pickedFile: args.pickedFile,
+                pickedChapter: args.pickedChapter,
+            });
+
+            setCompareResult({
+                diffsByChapter: refreshed.diffsByChapter,
+                warnings: refreshed.warnings,
+                metadata: argsForAuto.metadata,
+                cleanup: argsForAuto.cleanup,
+                sourceFiles: argsForAuto.sourceFiles,
+                remoteSync: argsForAuto.remoteSync,
+            });
+            return {
+                requiresReview: false,
+                requiresReconciliationSave: {
+                    trackedBranch: argsForAuto.remoteSync.trackedBranch,
+                    remoteHead: argsForAuto.remoteSync.remoteHead,
+                    relationship: argsForAuto.remoteSync.relationship,
+                },
+            };
+        }
+
+        const divergedDisjointAutoAccept =
+            await maybeAutoAcceptDivergedDisjoint();
+        if (divergedDisjointAutoAccept) {
+            return divergedDisjointAutoAccept;
+        }
+
+        if (
+            argsForAuto.remoteSync.relationship ===
+            GIT_REMOTE_RELATIONSHIP_DIVERGED
+        ) {
+            setCompareResult({
+                diffsByChapter: argsForAuto.initialDiffsByChapter,
+                warnings: argsForAuto.initialWarnings,
+                metadata: argsForAuto.metadata,
+                cleanup: argsForAuto.cleanup,
+                sourceFiles: argsForAuto.sourceFiles,
+                remoteSync: argsForAuto.remoteSync,
+            });
+            return {
+                requiresReview: hasDiffsByChapter(
+                    argsForAuto.initialDiffsByChapter,
+                ),
+            };
+        }
+
+        const dirtySemanticSidsByChapter =
+            await buildDirtySemanticSidsByChapter(listCompareChapterRefs());
+        const { blockedDiffsByChapter, autoAcceptedDiffs } =
+            splitRemoteDiffsByDirtySemanticSid({
+                diffsByChapter: argsForAuto.initialDiffsByChapter,
+                dirtySemanticSidsByChapter,
+            });
+        const { fullChapterApplies, hunkApplies } = buildAutoAcceptIncomingPlan(
+            {
+                initialDiffsByChapter: argsForAuto.initialDiffsByChapter,
+                blockedDiffsByChapter,
+            },
+        );
+
+        if (
+            argsForAuto.remoteSync.relationship ===
+                GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
+            !hasDiffsByChapter(blockedDiffsByChapter)
+        ) {
+            const touchedChapters = listCompareChapterRefs();
+            applyVersionSnapshotToWorkingFiles({
+                workingFiles: args.mutWorkingFilesRef,
+                sourceFiles: argsForAuto.sourceFiles,
+            });
+            await invalidateWorkingScriptureChanges({
+                chapters: touchedChapters,
+                bumpDirtyVersion: args.bumpDirtyVersion,
+                refreshUnsavedChapters: args.refreshUnsavedChapters,
+                editorRef: args.editorRef,
+                workingFiles: args.mutWorkingFilesRef,
+                pickedFile: args.pickedFile,
+                pickedChapter: args.pickedChapter,
+            });
+            const nextStatus = await acceptRemoteLatestReview({
+                projectPath: args.loadedProject.projectPath,
+                trackedBranch: argsForAuto.remoteSync.trackedBranch,
+                remoteHead: argsForAuto.remoteSync.remoteHead,
+                fileSystem: args.fileSystem,
+                storageRoots: args.storageRoots,
+                gitProvider: args.gitProvider,
+            });
+            args.onGitRemoteStatusChanged?.(nextStatus);
+            setCompareResult({
+                diffsByChapter: {},
+                warnings: [],
+                metadata: argsForAuto.metadata,
+                cleanup: argsForAuto.cleanup,
+                sourceFiles: argsForAuto.sourceFiles,
+                remoteSync: argsForAuto.remoteSync,
+            });
+            return {
+                requiresReview: false,
+            };
+        }
+
+        if (!autoAcceptedDiffs.length) {
+            if (
+                argsForAuto.remoteSync.relationship ===
+                GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+            ) {
+                const nextStatus = await acceptRemoteLatestReview({
+                    projectPath: args.loadedProject.projectPath,
+                    trackedBranch: argsForAuto.remoteSync.trackedBranch,
+                    remoteHead: argsForAuto.remoteSync.remoteHead,
+                    fileSystem: args.fileSystem,
+                    storageRoots: args.storageRoots,
+                    gitProvider: args.gitProvider,
+                });
+                args.onGitRemoteStatusChanged?.(nextStatus);
+            }
+            setCompareResult({
+                diffsByChapter: blockedDiffsByChapter,
+                warnings: argsForAuto.initialWarnings,
+                metadata: argsForAuto.metadata,
+                cleanup: argsForAuto.cleanup,
+                sourceFiles: argsForAuto.sourceFiles,
+                remoteSync:
+                    argsForAuto.remoteSync.relationship ===
+                    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+                        ? undefined
+                        : argsForAuto.remoteSync,
+            });
+            return {
+                requiresReview: hasDiffsByChapter(blockedDiffsByChapter),
+            };
+        }
+
+        const touchedChapters = Array.from(
+            new Set([
+                ...fullChapterApplies.map((chapter) =>
+                    buildChapterKey(chapter.bookCode, chapter.chapterNum),
+                ),
+                ...hunkApplies.map((diff) =>
+                    buildChapterKey(diff.bookCode, diff.chapterNum),
+                ),
+            ]),
+            (key) => {
+                const [bookCode, chapterPart] = key.split(":");
+                return {
+                    bookCode: bookCode ?? "",
+                    chapterNum: Number(chapterPart),
+                };
+            },
+        ).filter(
+            (chapter): chapter is ChapterRef =>
+                Boolean(chapter.bookCode) && !Number.isNaN(chapter.chapterNum),
+        );
+
+        await args.history.runTransaction({
+            label: "Auto Accept Incoming Changes",
+            candidates: touchedChapters,
+            run: async () => {
+                for (const chapter of fullChapterApplies) {
+                    applyIncomingChapter({
+                        workingFiles: args.mutWorkingFilesRef,
+                        sourceFiles: argsForAuto.sourceFiles,
+                        bookCode: chapter.bookCode,
+                        chapterNum: chapter.chapterNum,
+                    });
+                }
+                for (const diff of hunkApplies) {
+                    await applyIncomingHunk({
+                        workingFiles: args.mutWorkingFilesRef,
+                        sourceFiles: argsForAuto.sourceFiles,
+                        diff,
+                        usfmOnionService: args.usfmOnionService,
+                    });
+                }
+            },
+        });
+
+        await invalidateWorkingScriptureChanges({
+            chapters: touchedChapters,
+            bumpDirtyVersion: args.bumpDirtyVersion,
+            refreshUnsavedChapters: args.refreshUnsavedChapters,
+            editorRef: args.editorRef,
+            workingFiles: args.mutWorkingFilesRef,
+            pickedFile: args.pickedFile,
+            pickedChapter: args.pickedChapter,
+        });
+
+        const refreshed = await buildCompareResultAsync({
+            currentFiles: args.mutWorkingFilesRef,
+            usfmOnionService: args.usfmOnionService,
+            config: buildExternalCompareConfig(),
+            sourceFiles: argsForAuto.sourceFiles,
+            currentMetadata: buildCurrentProjectCompareMetadata(
+                args.loadedProject,
+            ),
+            sourceMetadata: argsForAuto.metadata,
+            batchSize: DIFF_CHUNK_SIZE,
+            onBatchComplete: yieldToMainThread,
+        });
+
+        if (
+            argsForAuto.remoteSync.relationship ===
+            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+        ) {
+            if (!hasDiffsByChapter(refreshed.diffsByChapter)) {
+                applyVersionSnapshotToWorkingFiles({
+                    workingFiles: args.mutWorkingFilesRef,
+                    sourceFiles: argsForAuto.sourceFiles,
+                });
+            }
+            const nextStatus = await acceptRemoteLatestReview({
+                projectPath: args.loadedProject.projectPath,
+                trackedBranch: argsForAuto.remoteSync.trackedBranch,
+                remoteHead: argsForAuto.remoteSync.remoteHead,
+                fileSystem: args.fileSystem,
+                storageRoots: args.storageRoots,
+                gitProvider: args.gitProvider,
+            });
+            args.onGitRemoteStatusChanged?.(nextStatus);
+        }
+
+        setCompareResult({
+            diffsByChapter: refreshed.diffsByChapter,
+            warnings: refreshed.warnings,
+            metadata: argsForAuto.metadata,
+            cleanup: argsForAuto.cleanup,
+            sourceFiles: argsForAuto.sourceFiles,
+            remoteSync:
+                argsForAuto.remoteSync.relationship ===
+                GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+                    ? undefined
+                    : argsForAuto.remoteSync,
+        });
+
+        return {
+            requiresReview: hasDiffsByChapter(refreshed.diffsByChapter),
+        };
     }
 
     async function rerunForChapters(chapters: ChapterRef[]) {
@@ -361,7 +991,7 @@ export function useExternalCompare(args: {
     }
 
     async function loadFromRemoteLatest() {
-        await calculationRunnerRef.current.run(async () => {
+        return await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
                 await compareResult.cleanup();
             }
@@ -370,19 +1000,54 @@ export function useExternalCompare(args: {
             );
             setSourceProjectId("");
             setSourceVersionHash("");
-            await computeExternalDiffs(
-                loaded.parsedFiles,
-                loaded.metadataSummary,
-                loaded.cleanup,
-            );
-            setCompareResult((prev) =>
-                prev
-                    ? {
-                          ...prev,
-                          remoteSync: loaded.remoteSync,
-                      }
-                    : prev,
-            );
+            const result = await buildCompareResultAsync({
+                currentFiles: args.mutWorkingFilesRef,
+                usfmOnionService: args.usfmOnionService,
+                config: buildExternalCompareConfig(),
+                sourceFiles: loaded.parsedFiles,
+                currentMetadata: buildCurrentProjectCompareMetadata(
+                    args.loadedProject,
+                ),
+                sourceMetadata: loaded.metadataSummary,
+                batchSize: DIFF_CHUNK_SIZE,
+                onBatchComplete: yieldToMainThread,
+            });
+            if (args.autoAcceptIncomingWork) {
+                if (!loaded.remoteSync) {
+                    setCompareResult({
+                        diffsByChapter: result.diffsByChapter,
+                        warnings: result.warnings,
+                        metadata: loaded.metadataSummary,
+                        cleanup: loaded.cleanup,
+                        sourceFiles: loaded.parsedFiles,
+                        remoteSync: undefined,
+                    });
+                    return {
+                        requiresReview: hasDiffsByChapter(
+                            result.diffsByChapter,
+                        ),
+                    };
+                }
+                return await maybeAutoAcceptRemoteLatest({
+                    sourceFiles: loaded.parsedFiles,
+                    metadata: loaded.metadataSummary,
+                    cleanup: loaded.cleanup,
+                    initialWarnings: result.warnings,
+                    remoteSync: loaded.remoteSync,
+                    initialDiffsByChapter: result.diffsByChapter,
+                });
+            }
+            setCompareResult({
+                diffsByChapter: result.diffsByChapter,
+                warnings: result.warnings,
+                metadata: loaded.metadataSummary,
+                cleanup: loaded.cleanup,
+                sourceFiles: loaded.parsedFiles,
+                remoteSync: loaded.remoteSync,
+            });
+            return {
+                requiresReview: hasDiffsByChapter(result.diffsByChapter),
+            };
         });
     }
 
@@ -390,14 +1055,22 @@ export function useExternalCompare(args: {
         saveCurrentDirtyLexical: () => void,
         openDiffModal: (saveCurrentDirtyLexical: () => void) => Promise<void>,
         isDiffModalOpen: boolean,
+        options?: {
+            openModalOnRequiresReview?: boolean;
+        },
     ) {
         saveCurrentDirtyLexical();
         setMode("external");
         setSourceKind(COMPARE_SOURCE_KIND.REMOTE_LATEST);
-        if (!isDiffModalOpen) {
-            await openDiffModal(saveCurrentDirtyLexical);
+        const result = await loadFromRemoteLatest();
+        if (
+            result?.requiresReview &&
+            (options?.openModalOnRequiresReview ?? true) &&
+            !isDiffModalOpen
+        ) {
+            await openDiffModal(() => undefined);
         }
-        await loadFromRemoteLatest();
+        return result;
     }
 
     function applyIncomingHunkToCurrent(diff: ProjectDiff) {

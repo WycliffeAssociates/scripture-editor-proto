@@ -1,5 +1,5 @@
 import { style } from "@vanilla-extract/css";
-import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const overlayHost = style({
     position: "absolute",
@@ -17,7 +17,7 @@ export const underline = style({
     left: 0,
     top: 0,
     border: "none",
-    borderBottom: `2px solid ${dsVars.color.brandBase}`,
+    borderBottom: `2px solid ${vars.color.brandBase}`,
     background: "transparent",
     padding: 0,
     margin: 0,
@@ -27,5 +27,5 @@ export const underline = style({
 export const bubble = style({
     position: "absolute",
     left: 0,
-    top: `calc(${dsVars.spacing.xl} * -1)`,
+    top: `calc(${vars.spacing.xl} * -1)`,
 });

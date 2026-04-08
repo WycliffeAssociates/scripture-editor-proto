@@ -1,6 +1,10 @@
 import type { SerializedLexicalNode } from "lexical";
 import { describe, expect, it } from "vitest";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    BOOK_FRONTMATTER_FORM_NODE_TYPE,
+    type BookFrontmatterFormNodeJSON,
+} from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { USFM_NESTED_DECORATOR_TYPE } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -72,6 +76,18 @@ function makeNestedEditorNode(
                 indent: 0,
             },
         },
+    };
+}
+
+function makeFrontmatterNode(
+    tokens: SerializedUSFMTextNode[],
+): BookFrontmatterFormNodeJSON {
+    return {
+        type: BOOK_FRONTMATTER_FORM_NODE_TYPE,
+        version: 1,
+        id: "frontmatter-1",
+        direction: "ltr",
+        tokens,
     };
 }
 
@@ -339,6 +355,49 @@ describe("materializeFlatTokensFromSerialized", () => {
             );
             expect((windows[1].curr as SerializedUSFMTextNode).text).toBe(
                 "Content",
+            );
+        });
+    });
+
+    describe("book frontmatter form nodes", () => {
+        it("preserves the node atomically when requested", () => {
+            const frontmatter = makeFrontmatterNode([
+                makeTextNode("\\id ", {
+                    tokenType: UsfmTokenTypes.marker,
+                    marker: "id",
+                    id: "id-marker",
+                }),
+                makeTextNode("GEN Unlocked Literal Bible", {
+                    id: "id-text",
+                }),
+            ]);
+
+            const result = materializeFlatTokensArray([frontmatter], {
+                frontmatter: "preserve",
+            });
+
+            expect(result).toHaveLength(1);
+            expect(result[0]?.type).toBe(BOOK_FRONTMATTER_FORM_NODE_TYPE);
+        });
+
+        it("flattens the stored token stream by default", () => {
+            const frontmatter = makeFrontmatterNode([
+                makeTextNode("\\id ", {
+                    tokenType: UsfmTokenTypes.marker,
+                    marker: "id",
+                    id: "id-marker",
+                }),
+                makeTextNode("GEN Unlocked Literal Bible", {
+                    id: "id-text",
+                }),
+            ]);
+
+            const result = materializeFlatTokensArray([frontmatter]);
+
+            expect(result).toHaveLength(2);
+            expect((result[0] as SerializedUSFMTextNode).marker).toBe("id");
+            expect((result[1] as SerializedUSFMTextNode).text).toBe(
+                "GEN Unlocked Literal Bible",
             );
         });
     });
