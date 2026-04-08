@@ -107,9 +107,6 @@ export function buildBooksSavePayload(
 
 const BOOK_PERSISTENCE_ACTION_VALUES = ["saveExisting", "addNew"] as const;
 
-type BookPersistenceActionKind =
-    (typeof BOOK_PERSISTENCE_ACTION_VALUES)[number];
-
 export const [
     BOOK_PERSISTENCE_ACTION_SAVE_EXISTING,
     BOOK_PERSISTENCE_ACTION_ADD_NEW,

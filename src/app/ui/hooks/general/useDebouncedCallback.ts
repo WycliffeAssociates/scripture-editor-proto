@@ -8,13 +8,15 @@ export interface UseDebouncedCallbackOptions {
 }
 
 export type UseDebouncedCallbackReturnValue<
-    T extends (...args: unknown[]) => unknown,
+    // biome-ignore lint/suspicious/noExplicitAny: <generic helper>
+    T extends (...args: any[]) => any,
 > = ((...args: Parameters<T>) => void) & {
     flush: () => void;
     cancel: () => void;
 };
 
-export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
+// biome-ignore lint/suspicious/noExplicitAny: <generic helper>
+export function useDebouncedCallback<T extends (...args: any[]) => any>(
     callback: T,
     options: number | UseDebouncedCallbackOptions,
 ) {

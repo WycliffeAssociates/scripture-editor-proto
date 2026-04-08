@@ -206,7 +206,7 @@ export function NodeContextMenuPlugin() {
 
     return createPortal(
         <div
-            ref={clickOutsideRef}
+            ref={clickOutsideRef as React.RefObject<HTMLDivElement>}
             data-testid={TESTING_IDS.contextMenu.container}
             style={{
                 position: "fixed",

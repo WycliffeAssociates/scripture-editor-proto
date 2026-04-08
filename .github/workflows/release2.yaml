@@ -61,12 +61,24 @@ jobs:
 
       - name: Unit tests
         run: pnpm run test:unit
+        env:
+          # todo: migrate to OP secrets at some poitn
+          VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_LANGUAGE_API_URL }}
 
       - name: Cargo check
         run: cargo check --manifest-path src/tauri/rust/Cargo.toml
 
       - name: Build tauri frontend
         run: pnpm run build.tauri
+        env:
+          # todo: migrate to OP secrets at some poitn
+          VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_LANGUAGE_API_URL }}
 
       - name: Upload tauri frontend
         uses: actions/upload-artifact@v4
