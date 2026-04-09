@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu";
-import { Code, Copy, History } from "lucide-react";
+import { Copy, History } from "lucide-react";
 import * as styles from "./toolbarOverflowMenu.css.ts";
 
 export interface ToolbarOverflowMenuProps {

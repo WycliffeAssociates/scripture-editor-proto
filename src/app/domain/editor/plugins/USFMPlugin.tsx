@@ -37,7 +37,7 @@ export function USFMPlugin() {
 
     return (
         <>
-            <LintDomAnnotatorPlugin />
+            <LintDomAnnotatorPlugin editor={editor} />
             <LintTooltipPlugin />
             <VerseMarkerSuggestPlugin />
             <SearchReplaceSuggestPlugin />

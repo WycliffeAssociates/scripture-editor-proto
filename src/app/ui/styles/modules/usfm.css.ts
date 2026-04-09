@@ -346,7 +346,7 @@ globalStyle(lintError, {
 globalStyle(`${lintError}::after`, {
     content: '"!"',
     position: "absolute",
-    insetInlineEnd: 0,
+    insetInlineEnd: "-0.45em",
     top: "-0.1em",
     display: "inline-flex",
     alignItems: "center",
@@ -360,7 +360,6 @@ globalStyle(`${lintError}::after`, {
     fontWeight: 800,
     lineHeight: 1,
     pointerEvents: "none",
-    transform: "translateX(55%)",
     boxShadow: `0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 50%, transparent)`,
 });
 

@@ -1,6 +1,7 @@
+import type { LexicalEditor } from "lexical";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DATA_JS } from "@/app/data/constants.ts";
+import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/LintDomOverlay.css.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -299,27 +300,46 @@ function clearLintOverlayState(
  * traverses the rendered DOM, finds the most sensible visible target for each
  * lint issue, and paints an absolutely positioned overlay on top of that node.
  */
-export function LintDomAnnotatorPlugin() {
-    const { lint } = useWorkspaceContext();
+type LintDomAnnotatorPluginProps = {
+    editor: LexicalEditor;
+};
+
+export function LintDomAnnotatorPlugin({
+    editor,
+}: LintDomAnnotatorPluginProps) {
+    const { lint, project } = useWorkspaceContext();
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
     const lintMessagesRef = useRef(lint.messages);
     const entriesRef = useRef<OverlayEntry[]>([]);
-    const scheduleRef = useRef<(() => void) | null>(null);
+    const scheduleRef = useRef<((settleAttempts?: number) => void) | null>(
+        null,
+    );
+    const settleAttemptsRef = useRef(0);
 
     useEffect(() => {
-        const nextRoot = document.querySelector(
-            `[data-js="${DATA_JS.editorContainer}"]`,
-        ) as HTMLElement | null;
+        const editorRoot = editor.getRootElement();
+        const nextRoot =
+            (editorRoot?.closest(
+                `[data-testid="${TESTING_IDS.mainEditorContainer}"]`,
+            ) as HTMLElement | null) ??
+            (editorRoot?.closest(
+                `[data-js="${DATA_JS.editorContainer}"]`,
+            ) as HTMLElement | null) ??
+            null;
         setRootEl(nextRoot);
-    }, []);
+    }, [editor]);
 
     useEffect(() => {
         if (!rootEl) return;
 
         let rafId = 0;
-        const schedule = () => {
+        const schedule = (settleAttempts = 0) => {
+            settleAttemptsRef.current = Math.max(
+                settleAttemptsRef.current,
+                settleAttempts,
+            );
             window.cancelAnimationFrame(rafId);
             rafId = window.requestAnimationFrame(() => {
                 const messages = lintMessagesRef.current;
@@ -331,26 +351,58 @@ export function LintDomAnnotatorPlugin() {
                         clearLintOverlayState(hitpointsRef, setEntries);
                         entriesRef.current = [];
                     }
+                    settleAttemptsRef.current = 0;
                     return;
                 }
 
                 const next = resolveOverlayEntries(rootEl, messages);
+                const needsSettledRetry =
+                    next.entries.length === 0 &&
+                    messages.length > 0 &&
+                    settleAttemptsRef.current > 0;
+                if (needsSettledRetry) {
+                    settleAttemptsRef.current -= 1;
+                    schedule(settleAttemptsRef.current);
+                    return;
+                }
+
                 syncHitpointAttributes(hitpointsRef.current, next.hitpoints);
                 hitpointsRef.current = next.hitpoints;
                 if (!overlayEntriesEqual(entriesRef.current, next.entries)) {
                     entriesRef.current = next.entries;
                     setEntries(next.entries);
                 }
+                settleAttemptsRef.current = 0;
             });
         };
+        const scheduleWithoutSettling = () => schedule();
         scheduleRef.current = schedule;
 
-        schedule();
+        schedule(2);
 
-        const mutationObserver = new MutationObserver(() => {
-            schedule();
+        const mutationObserver = new MutationObserver((mutations) => {
+            const shouldRetryAfterStructuralChange = mutations.some(
+                (mutation) => mutation.type === "childList",
+            );
+            if (
+                shouldRetryAfterStructuralChange &&
+                lintMessagesRef.current.length > 0
+            ) {
+                clearLintOverlayState(hitpointsRef, setEntries);
+                entriesRef.current = [];
+                schedule(2);
+                return;
+            }
+            const shouldReanchor = mutations.some(
+                (mutation) => mutation.type === "attributes",
+            );
+            if (!shouldReanchor) {
+                return;
+            }
+            scheduleWithoutSettling();
         });
         mutationObserver.observe(rootEl, {
+            childList: true,
             attributes: true,
             attributeFilter: [
                 "class",
@@ -359,12 +411,10 @@ export function LintDomAnnotatorPlugin() {
                 "data-sid",
                 "data-token-type",
             ],
-            childList: true,
-            characterData: true,
             subtree: true,
         });
 
-        const resizeObserver = new ResizeObserver(schedule);
+        const resizeObserver = new ResizeObserver(scheduleWithoutSettling);
         resizeObserver.observe(rootEl);
         const scrollParent = findScrollContainer(
             rootEl.parentElement ?? rootEl,
@@ -373,29 +423,41 @@ export function LintDomAnnotatorPlugin() {
             resizeObserver.observe(scrollParent);
         }
 
-        rootEl.addEventListener("scroll", schedule, { passive: true });
-        scrollParent?.addEventListener("scroll", schedule, { passive: true });
+        rootEl.addEventListener("scroll", scheduleWithoutSettling, {
+            passive: true,
+        });
+        scrollParent?.addEventListener("scroll", scheduleWithoutSettling, {
+            passive: true,
+        });
         const documentScroll = getDocumentScrollElement(rootEl);
         if (documentScroll !== rootEl && documentScroll !== scrollParent) {
-            documentScroll.addEventListener("scroll", schedule, {
+            documentScroll.addEventListener("scroll", scheduleWithoutSettling, {
                 passive: true,
             });
         }
-        window.addEventListener("resize", schedule);
-        window.addEventListener("scroll", schedule, { passive: true });
+        window.addEventListener("resize", scheduleWithoutSettling);
+        window.addEventListener("scroll", scheduleWithoutSettling, {
+            passive: true,
+        });
 
         return () => {
             window.cancelAnimationFrame(rafId);
             mutationObserver.disconnect();
             resizeObserver.disconnect();
             scheduleRef.current = null;
-            rootEl.removeEventListener("scroll", schedule);
-            scrollParent?.removeEventListener("scroll", schedule);
+            rootEl.removeEventListener("scroll", scheduleWithoutSettling);
+            scrollParent?.removeEventListener(
+                "scroll",
+                scheduleWithoutSettling,
+            );
             if (documentScroll !== rootEl && documentScroll !== scrollParent) {
-                documentScroll.removeEventListener("scroll", schedule);
+                documentScroll.removeEventListener(
+                    "scroll",
+                    scheduleWithoutSettling,
+                );
             }
-            window.removeEventListener("resize", schedule);
-            window.removeEventListener("scroll", schedule);
+            window.removeEventListener("resize", scheduleWithoutSettling);
+            window.removeEventListener("scroll", scheduleWithoutSettling);
             clearLintOverlayState(hitpointsRef, setEntries);
             entriesRef.current = [];
         };
@@ -403,8 +465,16 @@ export function LintDomAnnotatorPlugin() {
 
     useEffect(() => {
         lintMessagesRef.current = lint.messages;
-        scheduleRef.current?.();
+        clearLintOverlayState(hitpointsRef, setEntries);
+        entriesRef.current = [];
+        scheduleRef.current?.(2);
     }, [lint.messages]);
+
+    useEffect(() => {
+        clearLintOverlayState(hitpointsRef, setEntries);
+        entriesRef.current = [];
+        scheduleRef.current?.(2);
+    }, []);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;
