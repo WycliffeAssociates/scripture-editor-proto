@@ -2,6 +2,7 @@ mod git;
 mod import;
 mod md5;
 mod usfm_onion;
+use tauri::Manager;
 #[tauri::command]
 fn hello_world() -> String {
     "Hello, world!".to_string()
