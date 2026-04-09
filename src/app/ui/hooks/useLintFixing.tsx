@@ -85,7 +85,7 @@ export async function applyLintFixToFile(args: {
     editor?: LexicalEditor;
     usfmOnionService: IUsfmOnionService;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
+    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -109,7 +109,7 @@ export async function applyLintFixToFile(args: {
             args.file,
             args.usfmOnionService,
         );
-        args.replaceLintErrorsForBook(args.file.bookCode, relintedIssues);
+        args.commitBookLintResults({ [args.file.bookCode]: relintedIssues });
 
         const normalizedIssue = findEquivalentIssue(
             relintedIssues,
@@ -145,7 +145,7 @@ export async function applyLintFixToFile(args: {
         args.file,
         args.usfmOnionService,
     );
-    args.replaceLintErrorsForBook(args.file.bookCode, relintedIssues);
+    args.commitBookLintResults({ [args.file.bookCode]: relintedIssues });
 
     if (
         args.currentFileBibleIdentifier === args.targetBookCode &&
@@ -179,7 +179,7 @@ export function useLintFixing({
     currentChapter,
     editorRef,
     updateDiffMapForChapter,
-    replaceLintErrorsForBook,
+    commitBookLintResults,
     setEditorContent,
     saveCurrentDirtyLexical,
     history,
@@ -189,7 +189,7 @@ export function useLintFixing({
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
+    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -248,7 +248,7 @@ export function useLintFixing({
                     editor: editorRef.current || undefined,
                     usfmOnionService,
                     updateDiffMapForChapter,
-                    replaceLintErrorsForBook,
+                    commitBookLintResults,
                     setEditorContent,
                     notifySuccess: () => {
                         ShowNotificationSuccess({

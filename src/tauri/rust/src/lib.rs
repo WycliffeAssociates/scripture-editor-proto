@@ -2,7 +2,6 @@ mod git;
 mod import;
 mod md5;
 mod usfm_onion;
-use tauri::Manager;
 #[tauri::command]
 fn hello_world() -> String {
     "Hello, world!".to_string()
@@ -42,6 +41,7 @@ pub fn run() {
             git::git_get_branch_info,
             git::git_checkout_preferred_branch,
             git::git_list_history,
+            git::git_read_commit_details,
             git::git_read_project_snapshot_at_commit,
             git::git_restore_tracked_files_from_commit,
             git::git_commit_all,
@@ -57,7 +57,7 @@ pub fn run() {
             import::finalize_imported_resource,
             hello_world
         ])
-        .setup(move |app| {
+        .setup(move |#[allow(unused_variables)] app| {
             #[cfg(debug_assertions)]
             {
                 let window = app

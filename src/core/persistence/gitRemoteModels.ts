@@ -33,14 +33,11 @@ export const [
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
 ] = GIT_REMOTE_PROJECT_STATUS_VALUES;
 
-export const GIT_REMOTE_REVOCATION_STATE_VALUES = [
+const GIT_REMOTE_REVOCATION_STATE_VALUES = [
     "pending",
     "terminalFailure",
     "retryLimitReached",
 ] as const;
-
-export type GitRemoteRevocationState =
-    (typeof GIT_REMOTE_REVOCATION_STATE_VALUES)[number];
 
 const NonEmptyStringSchema = v.pipe(v.string(), v.nonEmpty());
 
@@ -62,6 +59,7 @@ const GitRemoteProjectStatusSchema = v.object({
     lastPublishedAt: v.nullish(v.string()),
     lastKnownLocalHead: v.nullish(v.string()),
     lastKnownRemoteHead: v.nullish(v.string()),
+    latestIncomingAuthorName: v.nullish(v.string()),
 });
 
 const GitRemoteSessionSchema = v.object({
@@ -110,10 +108,11 @@ export function createDefaultGitRemoteProjectStatus(
         lastPublishedAt: null,
         lastKnownLocalHead: null,
         lastKnownRemoteHead: null,
+        latestIncomingAuthorName: null,
     };
 }
 
-export function isGitRemoteProjectStatusKind(
+function isGitRemoteProjectStatusKind(
     value: unknown,
 ): value is GitRemoteProjectStatusKind {
     return v.is(v.picklist(GIT_REMOTE_PROJECT_STATUS_VALUES), value);
@@ -175,6 +174,8 @@ export function parseGitRemoteProjectStatus(
         lastPublishedAt: parsed.output.lastPublishedAt ?? null,
         lastKnownLocalHead: parsed.output.lastKnownLocalHead ?? null,
         lastKnownRemoteHead: parsed.output.lastKnownRemoteHead ?? null,
+        latestIncomingAuthorName:
+            parsed.output.latestIncomingAuthorName ?? null,
     };
 }
 

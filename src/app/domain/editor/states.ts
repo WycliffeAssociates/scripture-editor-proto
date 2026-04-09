@@ -2,7 +2,6 @@
 
 import { createState } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Shared Lexical NodeState definitions for USFM nodes.
@@ -55,13 +54,6 @@ const markerState = createState("marker", {
     parse: (value) => (typeof value === "string" ? value : undefined),
 });
 
-const lintErrorsState = createState("lintErrors", {
-    parse: (value) =>
-        typeof value === "object" && Array.isArray(value)
-            ? (value as Array<LintIssue>)
-            : ([] as Array<LintIssue>),
-});
-
 /**
  * Defines the NodeState for 'markerText'. Stores the original text of a paragraph marker
  * (e.g., "\\p " or "\\p\n") to preserve whitespace for accurate diffing.
@@ -81,7 +73,6 @@ export {
     inCharsState,
     tokenTypeState,
     markerState,
-    lintErrorsState,
     markerTextState,
     isStructuralEmptyState,
 };

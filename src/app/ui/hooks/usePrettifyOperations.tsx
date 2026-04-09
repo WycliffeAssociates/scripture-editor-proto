@@ -35,7 +35,7 @@ export function useFormatOperations({
     currentChapter,
     setIsProcessing,
     updateDiffMapForChapter,
-    replaceLintErrorsForBook,
+    commitBookLintResults,
     setEditorContent,
     saveCurrentDirtyLexical,
     history,
@@ -45,7 +45,7 @@ export function useFormatOperations({
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
+    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     setEditorContent: (
         fileBibleIdentifier: string,
         chapter: number,
@@ -73,12 +73,7 @@ export function useFormatOperations({
             files,
             usfmOnionService,
         );
-        for (const file of files) {
-            replaceLintErrorsForBook(
-                file.bookCode,
-                lintResultsByBook[file.bookCode] ?? [],
-            );
-        }
+        commitBookLintResults(lintResultsByBook);
     };
 
     const chapterTokensForFormatting = (chapter: ScriptureChapterState) =>

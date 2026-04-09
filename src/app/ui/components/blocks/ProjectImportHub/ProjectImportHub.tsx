@@ -421,7 +421,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                             <th className={styles.th} aria-hidden />
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className={styles.tbody}>
                         {showCloudLogin ? (
                             <tr>
                                 <td className={styles.td} colSpan={4}>

@@ -39,7 +39,7 @@ type Props = {
     pickedFile: ScriptureBookState | null;
     toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    replaceLintErrorsForBook: (book: string, newErrors: LintIssue[]) => void;
+    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     referenceResource: ReferenceItemHook;
     setIsProcessing: (isProcessing: boolean) => void;
     setFormatMatchReport: Dispatch<
@@ -73,7 +73,7 @@ export const useWorkspaceActions = ({
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
     updateDiffMapForChapter,
-    replaceLintErrorsForBook,
+    commitBookLintResults,
     referenceResource,
     setIsProcessing,
     setFormatMatchReport,
@@ -151,7 +151,7 @@ export const useWorkspaceActions = ({
         currentChapter,
         setIsProcessing,
         updateDiffMapForChapter,
-        replaceLintErrorsForBook,
+        commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
@@ -181,7 +181,7 @@ export const useWorkspaceActions = ({
         currentChapter,
         editorRef,
         updateDiffMapForChapter,
-        replaceLintErrorsForBook,
+        commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,

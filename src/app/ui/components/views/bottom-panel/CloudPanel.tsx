@@ -1,5 +1,5 @@
 import { t } from "@lingui/core/macro";
-import { Cloud, GitBranch, RefreshCw, UploadCloud } from "lucide-react";
+import { Cloud, RefreshCw, UploadCloud } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
@@ -142,22 +142,16 @@ export function CloudPanelContent() {
 
             <div className={styles.cloudPanelMetaGrid}>
                 <CloudMetaRow
+                    label={t`Remote project connected`}
+                    value={formatRemoteProject(remote.projectInfo)}
+                />
+                <CloudMetaRow
                     label={t`Last checked`}
                     value={formatTimestamp(remote.status?.lastCheckedAt)}
                 />
                 <CloudMetaRow
                     label={t`Last published`}
                     value={formatTimestamp(remote.status?.lastPublishedAt)}
-                />
-                <CloudMetaRow
-                    label={t`Local head`}
-                    value={shortHash(remote.status?.lastKnownLocalHead)}
-                    icon={<GitBranch size={12} />}
-                />
-                <CloudMetaRow
-                    label={t`Cloud head`}
-                    value={shortHash(remote.status?.lastKnownRemoteHead)}
-                    icon={<GitBranch size={12} />}
                 />
                 <CloudMetaRow
                     label={t`Auto sync on open`}
@@ -240,8 +234,14 @@ function getCloudPanelView(
                     : t`Incoming cloud updates are available`,
                 statusBadge: t`Behind`,
                 description: autoAcceptIncomingWork
-                    ? t`Sync now will auto-accept non-conflicting incoming changes.`
-                    : t`Review incoming changes before bringing them into this project.`,
+                    ? formatLatestIncomingDescription(
+                          status.latestIncomingAuthorName,
+                          t`Sync now will auto-accept non-conflicting incoming changes.`,
+                      )
+                    : formatLatestIncomingDescription(
+                          status.latestIncomingAuthorName,
+                          t`Review incoming changes before bringing them into this project.`,
+                      ),
                 primaryAction: autoAcceptIncomingWork ? "sync" : "review",
                 primaryActionLabel: autoAcceptIncomingWork
                     ? t`Sync now`
@@ -255,8 +255,14 @@ function getCloudPanelView(
                     : t`Cloud and local work need reconciliation`,
                 statusBadge: t`Needs review`,
                 description: autoAcceptIncomingWork
-                    ? t`Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open.`
-                    : t`Both local and cloud changed. Review to choose the final result.`,
+                    ? formatLatestIncomingDescription(
+                          status.latestIncomingAuthorName,
+                          t`Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open.`,
+                      )
+                    : formatLatestIncomingDescription(
+                          status.latestIncomingAuthorName,
+                          t`Both local and cloud changed. Review to choose the final result.`,
+                      ),
                 primaryAction: autoAcceptIncomingWork ? "sync" : "review",
                 primaryActionLabel: autoAcceptIncomingWork
                     ? t`Sync now`
@@ -313,9 +319,25 @@ function CloudMetaRow(props: {
     );
 }
 
-function shortHash(value?: string | null): string {
-    if (!value) return "n/a";
-    return value.slice(0, 8);
+function formatLatestIncomingDescription(
+    latestIncomingAuthorName: string | null | undefined,
+    fallback: string,
+): string {
+    if (!latestIncomingAuthorName) return fallback;
+    return t`Latest changes are from ${latestIncomingAuthorName}. ${fallback}`;
+}
+
+function formatRemoteProject(
+    remoteInfo:
+        | {
+              repoOwner: string;
+              repoName: string;
+          }
+        | null
+        | undefined,
+): string {
+    if (!remoteInfo) return t`Not connected`;
+    return `${remoteInfo.repoOwner}/${remoteInfo.repoName}`;
 }
 
 function formatTimestamp(value?: string | null): string {

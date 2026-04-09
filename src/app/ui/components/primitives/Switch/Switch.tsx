@@ -1,13 +1,9 @@
 import { Switch as BaseSwitch } from "@base-ui/react/switch";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import * as styles from "./switch.css.ts";
 
-export interface SwitchProps {
-    checked?: boolean;
-    defaultChecked?: boolean;
-    onCheckedChange?: (checked: boolean) => void;
-    disabled?: boolean;
-    readOnly?: boolean;
+export interface SwitchProps
+    extends Omit<ComponentPropsWithoutRef<typeof BaseSwitch.Root>, "children"> {
     label?: ReactNode;
     className?: string;
 }
@@ -24,6 +20,7 @@ export function Switch({
     readOnly,
     label,
     className,
+    ...rootProps
 }: SwitchProps) {
     return (
         <span className={joinClassNames(styles.root, className)}>
@@ -34,6 +31,7 @@ export function Switch({
                 disabled={disabled}
                 readOnly={readOnly}
                 className={styles.track}
+                {...rootProps}
             >
                 <BaseSwitch.Thumb className={styles.thumb} />
             </BaseSwitch.Root>

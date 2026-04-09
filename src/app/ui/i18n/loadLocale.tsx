@@ -1,6 +1,6 @@
 import { i18n } from "@lingui/core";
 
-export const APP_LOCALE_CHANGE_EVENT = "app:locale-change";
+const APP_LOCALE_CHANGE_EVENT = "app:locale-change";
 
 /**
  * Load and activate one locale bundle on demand.

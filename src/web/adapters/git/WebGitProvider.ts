@@ -3,6 +3,7 @@ import http from "isomorphic-git/http/web";
 import type {
     BranchInfo,
     CommitRequest,
+    GitCommitDetails,
     GitProvider,
     GitRemoteAuth,
     GitRemoteInspection,
@@ -431,6 +432,26 @@ export class WebGitProvider implements GitProvider {
                     isExternal: parsed.isExternal,
                 };
             });
+    }
+
+    async readCommitDetails(
+        projectPath: string,
+        commitHash: string,
+    ): Promise<GitCommitDetails> {
+        const fs = await this.getFs();
+        const dir = normalizeDir(projectPath);
+        const commit = await git.readCommit({
+            fs,
+            dir,
+            oid: commitHash,
+        });
+        const authorTimestamp = commit.commit.author.timestamp ?? 0;
+        return {
+            hash: commit.oid,
+            authorName: commit.commit.author.name,
+            authoredAtIso: new Date(authorTimestamp * 1000).toISOString(),
+            subject: (commit.commit.message ?? "").split(/\r?\n/u)[0] ?? "",
+        };
     }
 
     async readProjectSnapshotAtCommit(

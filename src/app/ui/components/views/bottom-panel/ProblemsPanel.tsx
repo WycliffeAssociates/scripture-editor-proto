@@ -11,6 +11,7 @@ import { parseSid, sortListByBookCanonical } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type FilterOption = { value: string; label: string };
+const lintIssueBookCodeCache = new Map<string, string>();
 
 export function ProblemsPanelContent() {
     const { actions, bookCodeToProjectLocalizedTitle, lint } =
@@ -20,16 +21,16 @@ export function ProblemsPanelContent() {
     const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
 
     const codeOptions = useMemo(
-        () => buildLintCodeOptions(lint.messages),
-        [lint.messages],
+        () => buildLintCodeOptions(lint.allIssues),
+        [lint.allIssues],
     );
     const bookOptions = useMemo(
         () =>
             buildLintBookOptions(
-                lint.messages,
+                lint.allIssues,
                 bookCodeToProjectLocalizedTitle,
             ),
-        [bookCodeToProjectLocalizedTitle, lint.messages],
+        [bookCodeToProjectLocalizedTitle, lint.allIssues],
     );
 
     useEffect(() => {
@@ -56,7 +57,7 @@ export function ProblemsPanelContent() {
 
     const filteredIssues = useMemo(
         () =>
-            lint.messages.filter((issue) => {
+            lint.allIssues.filter((issue) => {
                 const matchesCode =
                     selectedCodes.length === codeOptions.length - 1 ||
                     selectedCodes.includes(issue.code);
@@ -68,7 +69,7 @@ export function ProblemsPanelContent() {
         [
             bookOptions.length,
             codeOptions.length,
-            lint.messages,
+            lint.allIssues,
             selectedBooks,
             selectedCodes,
         ],
@@ -102,7 +103,7 @@ export function ProblemsPanelContent() {
         );
     };
 
-    if (!lint.messages.length) {
+    if (!lint.allIssues.length) {
         return (
             <div className={styles.bottomPanelContent}>
                 <div className={styles.bottomPanelEmptyState}>
@@ -473,6 +474,12 @@ function formatLintCodeLabel(code: string) {
 }
 
 function getLintIssueBookCode(issue: LintIssue) {
-    const parsed = issue.sid ? parseSid(issue.sid) : null;
-    return parsed?.book ?? "UNKNOWN";
+    const sid = issue.sid ?? "";
+    if (lintIssueBookCodeCache.has(sid)) {
+        return lintIssueBookCodeCache.get(sid) ?? "UNKNOWN";
+    }
+
+    const bookCode = (sid ? parseSid(sid)?.book : null) ?? "UNKNOWN";
+    lintIssueBookCodeCache.set(sid, bookCode);
+    return bookCode;
 }

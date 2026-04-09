@@ -75,7 +75,6 @@ function serializeTokenToNodes(
                 inPara: token.inPara,
                 inChars: token.inChars,
                 attributes: token.attributes,
-                lintErrors: [],
             }),
             ...serializeTokens(
                 token.content ?? [],
@@ -313,7 +312,6 @@ function serializeToken(
         marker: token.marker,
         inPara: token.inPara,
         inChars: token.inChars,
-        lintErrors: [],
         // maybe set isMutable and show from parse if remembering settings? Right now we just adjust once we've rendered the stuff. NOt sure
     });
 }

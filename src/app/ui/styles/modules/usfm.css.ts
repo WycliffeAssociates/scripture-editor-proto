@@ -16,6 +16,7 @@ import { vars } from "@/app/ui/styles/designSystem.css.ts";
 // ============================================
 
 const anyModeButPlain = `[data-mode]:not([data-mode="plain"])`;
+const regularMode = `[data-mode="regular"]`;
 const marker = `span[data-token-type="marker"]`;
 const verseMarker = `${marker}[data-marker="v"]`;
 const chapterMarker = `${marker}[data-marker="c"]`;
@@ -40,11 +41,13 @@ globalStyle(
         fontSize: "2em",
         fontWeight: "bold",
         textAlign: "center",
-        display: "block",
         margin: `${vars.spacing.sm} 0`,
         fontFamily: vars.typography.fontFamilySerif,
     },
 );
+globalStyle(`${regularMode}  [data-marker="c"] > ${numberRange}`, {
+    display: "block",
+});
 
 globalStyle(
     `${anyModeButPlain} .chapter-label, ${anyModeButPlain} ${chapterLabelMarker}, ${anyModeButPlain} ${chapterLabelMarker} + ${textToken}`,
@@ -85,7 +88,6 @@ globalStyle(
 // ============================================
 // Regular Mode: Clean WYSIWYG
 // ============================================
-const regularMode = `[data-editor-mode="regular"]`;
 
 // Hide markers and their following br elements
 const regularModeMarker = `${regularMode} :where(${marker}[data-marker], ${endMarker})`;
@@ -97,31 +99,6 @@ globalStyle(regularModeMarker, {
 globalStyle(`${regularModeMarker} + br`, {
     display: "none !important",
 });
-
-// Marker/endMarker lint errors can be hidden in Regular mode.
-// Mirror the underline onto the next visible text/number token.
-const lintErrorAdjacentTokens = [
-    `${regularModeMarker}.lint-error + ${numberRange}`,
-    `${regularModeMarker}.lint-error + ${textToken}`,
-    `${regularModeMarker}.lint-error + br + ${numberRange}`,
-    `${regularModeMarker}.lint-error + br + ${textToken}`,
-];
-
-globalStyle(lintErrorAdjacentTokens.join(", "), {
-    textDecorationLine: "underline",
-    textDecorationStyle: "dotted",
-    textDecorationColor: vars.color.onSurfaceError,
-    textDecorationThickness: "2px",
-    textUnderlineOffset: "3px",
-});
-
-// If the hidden marker has no adjacent text token, show a subtle paragraph-level cue.
-globalStyle(
-    `${regularMode} .usfm-para-container:has(> :where(${marker}, ${endMarker}).lint-error)`,
-    {
-        boxShadow: `inset 2px 0 0 0 color-mix(in srgb, ${vars.color.onSurfaceError} 70%, transparent)`,
-    },
-);
 
 // Poetry: Apply to paragraph containers
 globalStyle(`${regularMode} .usfm-para-container`, {
@@ -323,76 +300,9 @@ globalStyle(
 );
 
 // ============================================
-// Lint Errors & Search Highlighting
+// Search Highlighting
 // ============================================
 
-// Lint Error States
-const lintError = ':where(.lint-error, [data-is-lint-error="true"])';
-
-globalStyle(lintError, {
-    position: "relative",
-    display: "inline-block",
-    paddingInlineEnd: "0.95em",
-    textDecorationLine: "underline",
-    textDecorationStyle: "dotted",
-    textDecorationColor: vars.color.onSurfaceError,
-    textDecorationThickness: "2px",
-    textUnderlineOffset: "3px",
-    borderRadius: vars.border.radius.xs,
-    background: `color-mix(in srgb, ${vars.color.surfaceError} 60%, transparent)`,
-    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 30%, transparent)`,
-});
-
-globalStyle(`${lintError}::after`, {
-    content: '"!"',
-    position: "absolute",
-    insetInlineEnd: "-0.45em",
-    top: "-0.1em",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "0.82em",
-    height: "0.82em",
-    borderRadius: vars.border.radius.full,
-    background: vars.color.onSurfaceError,
-    color: vars.color.surfacePrimary,
-    fontSize: "0.62em",
-    fontWeight: 800,
-    lineHeight: 1,
-    pointerEvents: "none",
-    boxShadow: `0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 50%, transparent)`,
-});
-
-globalStyle(`${lintError}:hover`, {
-    background: `color-mix(in srgb, ${vars.color.surfaceError} 80%, transparent)`,
-});
-
-globalStyle(`${lintError}.selected`, {
-    background: `color-mix(in srgb, ${vars.color.brandBase} 20%, ${vars.color.surfaceSecondary}) !important`,
-    color: `${vars.color.onSurfacePrimary} !important`,
-    textDecorationStyle: "solid",
-    textDecorationColor: vars.color.brandDark,
-    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.brandBase} 40%, transparent)`,
-});
-
-globalStyle(`${lintError}.selected::after`, {
-    background: vars.color.brandBase,
-    color: vars.color.surfacePrimary,
-    boxShadow: `0 0 0 1px color-mix(in srgb, ${vars.color.brandDark} 50%, transparent)`,
-});
-
-// Dark mode lint adjustments
-globalStyle(`[data-theme="dark"] ${lintError}`, {
-    textDecorationColor: vars.color.onSurfaceError,
-    background: `color-mix(in srgb, ${vars.color.surfaceError} 40%, transparent)`,
-    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${vars.color.onSurfaceError} 50%, transparent)`,
-});
-
-globalStyle(`[data-theme="dark"] ${lintError}:hover`, {
-    background: `color-mix(in srgb, ${vars.color.surfaceError} 60%, transparent)`,
-});
-
-// Search highlighting
 const searchHighlight = ':where(.search-highlight, [data-search-match="true"])';
 
 globalStyle(`[data-theme="dark"] ${searchHighlight}`, {

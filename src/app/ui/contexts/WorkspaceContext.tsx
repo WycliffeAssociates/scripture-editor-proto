@@ -46,6 +46,7 @@ import {
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
+    type GitRemoteProjectInfo,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import { readGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
@@ -79,6 +80,7 @@ export interface WorkSpaceContextType {
     history: CustomHistoryHook;
     remote: {
         status: GitRemoteProjectStatus | null;
+        projectInfo: GitRemoteProjectInfo | null;
         isRefreshing: boolean;
         syncNow(): Promise<void>;
         reviewIncoming(): Promise<void>;
@@ -160,6 +162,8 @@ export const ProjectProvider = ({
     });
     const [remoteStatus, setRemoteStatus] =
         useState<GitRemoteProjectStatus | null>(null);
+    const [remoteProjectInfo, setRemoteProjectInfo] =
+        useState<GitRemoteProjectInfo | null>(null);
     const [isRefreshingRemoteStatus, setIsRefreshingRemoteStatus] =
         useState(false);
     const save = useSave({
@@ -183,6 +187,9 @@ export const ProjectProvider = ({
 
     const lint = useLint({
         initialLintErrorsByBook,
+        visibleBookCode: project.pickedFile.bookCode,
+        visibleChapter:
+            project.pickedChapter?.chapterNumber || project.currentChapter,
     });
 
     const referenceResource = useReferenceItem({
@@ -210,7 +217,7 @@ export const ProjectProvider = ({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: save.diff.open,
         updateDiffMapForChapter: save.diff.refreshChapter,
-        replaceLintErrorsForBook: lint.replaceErrorsForBook,
+        commitBookLintResults: lint.commitBookLintResults,
         referenceResource,
         setIsProcessing: project.setIsProcessing,
         setFormatMatchReport: project.setFormatMatchReport,
@@ -238,9 +245,13 @@ export const ProjectProvider = ({
         (result: GitRemoteOpenStatusResult) => {
             if (result.kind === GIT_REMOTE_OPEN_STATUS_NOT_LINKED) {
                 setRemoteStatus(null);
+                setRemoteProjectInfo(null);
                 return;
             }
             setRemoteStatus(result.status);
+            setRemoteProjectInfo(
+                "remoteInfo" in result ? result.remoteInfo : null,
+            );
         },
         [],
     );
@@ -312,10 +323,9 @@ export const ProjectProvider = ({
                 );
 
                 for (const file of touchedFiles) {
-                    lint.replaceErrorsForBook(
-                        file.bookCode,
-                        lintResultsByBook[file.bookCode] ?? [],
-                    );
+                    lint.commitBookLintResults({
+                        [file.bookCode]: lintResultsByBook[file.bookCode] ?? [],
+                    });
                 }
             })();
         });
@@ -367,6 +377,7 @@ export const ProjectProvider = ({
                 history,
                 remote: {
                     status: remoteStatus,
+                    projectInfo: remoteProjectInfo,
                     isRefreshing: isRefreshingRemoteStatus,
                     syncNow: async () => {
                         if (

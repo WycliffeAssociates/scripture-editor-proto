@@ -2,7 +2,7 @@ import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
 export const page = style({
-    minHeight: "100%",
+    minHeight: "100dvh",
     padding: vars.spacing.lg,
     backgroundColor: vars.color.surfaceSecondary,
     color: vars.color.onSurfacePrimary,

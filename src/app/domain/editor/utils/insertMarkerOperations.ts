@@ -870,7 +870,6 @@ export function $insertNote(args: BaseInsertArgs): void {
         usfmType: marker,
         languageDirection: args.languageDirection,
         sid: context.currentSidAsString,
-        lintErrors: [],
         isOpen: true,
     });
     const offset = $isRangeSelection(selection)

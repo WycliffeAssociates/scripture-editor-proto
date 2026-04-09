@@ -21,7 +21,7 @@ export function versionPreviewQueryKey(
     return ["versionPreview", projectPath, commitHash] as const;
 }
 
-export function versionPreviewQueryOptions(args: {
+function versionPreviewQueryOptions(args: {
     projectPath: string;
     commitHash: string;
     loadedProject: Project;

@@ -1,25 +1,15 @@
-import { vars } from "@/app/ui/styles/designSystem.css.ts";
-
 export type BreakpointName = "xs" | "sm" | "md" | "lg" | "xl";
 
 function pxToEm(px: number) {
     return `${px / 16}em`;
 }
 
-export const breakpointValuesPx: Record<BreakpointName, number> = {
+const breakpointValuesPx: Record<BreakpointName, number> = {
     xs: 0,
     sm: 576,
     md: 768,
     lg: 992,
     xl: 1200,
-};
-
-export const breakpointVars = {
-    xs: vars.breakpoints.xs,
-    sm: vars.breakpoints.sm,
-    md: vars.breakpoints.md,
-    lg: vars.breakpoints.lg,
-    xl: vars.breakpoints.xl,
 };
 
 export const mediaQuery = {
@@ -34,19 +24,7 @@ export const mediaQuery = {
     },
 };
 
-export const containerQuery = {
-    up(name: BreakpointName) {
-        return `(min-width: ${runtimeBreakpointValuesEm[name]})`;
-    },
-    down(name: Exclude<BreakpointName, "xs">) {
-        return `(max-width: ${runtimeBreakpointValuesEm[name]})`;
-    },
-    between(min: BreakpointName, max: Exclude<BreakpointName, "xs">) {
-        return `(min-width: ${runtimeBreakpointValuesEm[min]}) and (max-width: ${runtimeBreakpointValuesEm[max]})`;
-    },
-};
-
-export const runtimeBreakpointValuesEm: Record<BreakpointName, string> = {
+const runtimeBreakpointValuesEm: Record<BreakpointName, string> = {
     xs: pxToEm(breakpointValuesPx.xs),
     sm: pxToEm(breakpointValuesPx.sm),
     md: pxToEm(breakpointValuesPx.md),
@@ -64,13 +42,4 @@ export const runtimeMediaQuery = {
     between(min: BreakpointName, max: Exclude<BreakpointName, "xs">) {
         return `(min-width: ${runtimeBreakpointValuesEm[min]}) and (max-width: ${runtimeBreakpointValuesEm[max]})`;
     },
-};
-
-export const responsiveBreakpoints = {
-    valuesPx: breakpointValuesPx,
-    valuesEm: breakpointVars,
-    mediaQuery,
-    containerQuery,
-    runtimeValuesEm: runtimeBreakpointValuesEm,
-    runtimeMediaQuery,
 };

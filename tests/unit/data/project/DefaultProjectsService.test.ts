@@ -46,6 +46,12 @@ const mockGitProvider: GitProvider = {
     })),
     checkoutPreferredBranch: vi.fn(async () => {}),
     listHistory: vi.fn(async () => []),
+    readCommitDetails: vi.fn(async () => ({
+        hash: "abc123",
+        authorName: "alice",
+        authoredAtIso: "2026-03-31T10:00:00.000Z",
+        subject: "save:2026-03-31T10:00:00.000Z",
+    })),
     readProjectSnapshotAtCommit: vi.fn(async () => new Map()),
     restoreTrackedFilesFromCommit: vi.fn(async () => {}),
     commitAll: vi.fn(async () => ({ hash: "abc123" })),

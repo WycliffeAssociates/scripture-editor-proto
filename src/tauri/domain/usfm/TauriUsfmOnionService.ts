@@ -79,6 +79,7 @@ function fromTauriLintIssue(issue: {
     severity?: string;
     marker?: string | null;
     message: string;
+    messageParams?: Record<string, string>;
     span?: { start: number; end: number } | null;
     relatedSpan?: { start: number; end: number } | null;
     tokenId?: string | null;
@@ -91,7 +92,7 @@ function fromTauriLintIssue(issue: {
         severity: issue.severity ?? "warning",
         marker: issue.marker ?? null,
         message: issue.message,
-        messageParams: {},
+        messageParams: issue.messageParams ?? {},
         span: issue.span ?? null,
         relatedSpan: issue.relatedSpan ?? null,
         tokenId: issue.tokenId ?? null,

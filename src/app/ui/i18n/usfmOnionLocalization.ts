@@ -71,14 +71,15 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     const chapter = getParam(issue.messageParams, "chapter");
     const verse = getParam(issue.messageParams, "verse");
     const context = getParam(issue.messageParams, "context");
+    const fallbackMessage = issue.message.trim();
 
     switch (issue.code) {
         case "missing-id-marker":
             return t`The file is missing a \\id marker.`;
         case "missing-separator-after-marker":
-            return t`Marker ${marker} is immediately followed by text.`;
+            return t`Marker ${marker} is immediately followed by text and is missing a space or new line`;
         case "empty-paragraph":
-            return t`Paragraph marker ${marker} creates an empty block before the next block marker.`;
+            return t`Paragraph marker ${marker} creates an empty paragraph since the next marker opens its own paragraph.`;
         case "number-range-after-chapter-marker":
             return t`Chapter marker ${marker} must be followed by a chapter number.`;
         case "verse-range-expected-after-verse-marker":
@@ -124,12 +125,15 @@ export function formatLintIssueMessage(issue: LintIssue): string {
         case "duplicate-chapter-number":
             return t`Chapter number ${chapter} is duplicated.`;
         case "chapter-expected-increase-by-one":
+            if (!expected || !found) return fallbackMessage;
             return t`Chapter numbering is out of sequence. Expected ${expected} but found ${found}.`;
         case "duplicate-verse-number":
             return t`Verse number ${verse} is duplicated.`;
         case "verse-expected-increase-by-one":
+            if (!expected || !found) return fallbackMessage;
             return t`Verse numbering is out of sequence. Expected ${expected} but found ${found}.`;
         case "invalid-number-range":
+            if (!found) return fallbackMessage;
             return t`Number range ${found} is invalid.`;
         case "number-range-not-preceded-by-marker-expecting-number":
             return t`A number appears without a preceding marker that expects a number.`;
@@ -140,13 +144,14 @@ export function formatLintIssueMessage(issue: LintIssue): string {
         case "unknown-close-marker":
             return t`Close marker ${marker} is not recognized.`;
         case "inconsistent-chapter-label":
+            if (!expected || !found) return fallbackMessage;
             return t`Chapter label ${found} does not match the expected chapter number ${expected}.`;
         case "marker-not-valid-in-context":
             return t`Marker ${marker} is not valid in this context${context ? ` (${context})` : ""}.`;
         case "verse-outside-explicit-paragraph":
             return t`Verse marker ${marker} appears outside an explicit paragraph.`;
         default:
-            return issue.message;
+            return fallbackMessage;
     }
 }
 

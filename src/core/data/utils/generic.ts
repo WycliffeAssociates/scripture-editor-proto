@@ -35,34 +35,3 @@ export const removeLeadingDirSlashes = (relPath: string): string => {
     }
     return relPath;
 };
-
-/**
- * Retry a DOM-dependent lookup across animation frames until it appears or a
- * timeout expires.
- *
- * This is mainly useful in editor/UI code that needs to wait for the DOM to
- * catch up with state changes without blocking the main thread.
- */
-export function rafUntilSuccessOrTimeout<T>(
-    fn: () => T | false | null | undefined,
-    maxTimeout = 5000,
-): Promise<T | null> {
-    return new Promise((resolve) => {
-        const start = performance.now();
-
-        function tick() {
-            const result = fn();
-            if (result) {
-                resolve(result);
-                return;
-            }
-            if (performance.now() - start >= maxTimeout) {
-                resolve(null);
-                return;
-            }
-            requestAnimationFrame(tick);
-        }
-
-        requestAnimationFrame(tick);
-    });
-}

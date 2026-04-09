@@ -235,7 +235,8 @@ export const errorState = style({
 
 export const tableWrap = style({
     width: "100%",
-    overflowX: "auto",
+    maxHeight: "min(34rem, calc(100vh - 18rem))",
+    overflow: "auto",
     borderRadius: vars.border.radius.lg,
     border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
 });
@@ -252,12 +253,18 @@ export const thead = style({
     backgroundColor: vars.color.surfaceSecondary,
 });
 
+export const tbody = style({});
+
 export const th = style({
+    position: "sticky",
+    top: 0,
+    zIndex: 1,
     padding: `${vars.spacing.sm} ${vars.spacing.md}`,
     textAlign: "left",
     fontSize: vars.typography.bodySmall.fontSize,
     fontWeight: 700,
     color: vars.color.onSurfaceSecondary,
+    backgroundColor: vars.color.surfaceSecondary,
     borderBottom: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
 });
 

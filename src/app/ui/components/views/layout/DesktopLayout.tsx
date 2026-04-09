@@ -59,6 +59,4 @@ export function DesktopLayout(props: DesktopLayoutProps) {
     );
 }
 
-// Re-export from sidebar
 import { DesktopSidebar } from "../sidebar/DesktopSidebar.tsx";
-export { DesktopSidebar };

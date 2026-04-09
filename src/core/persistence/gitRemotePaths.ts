@@ -15,9 +15,8 @@ const GIT_REMOTE_STATE_DIRECTORY = "git-remote";
 const PROJECT_INFO_DIRECTORY = "project-info";
 const PROJECT_STATUS_DIRECTORY = "project-status";
 
-export const GIT_REMOTE_INFO_FILENAME = "git-remote-info.json";
 export const GIT_REMOTE_SESSION_FILENAME = "git-remote-session.json";
-export const GIT_REMOTE_PENDING_REVOCATION_FILENAME =
+const GIT_REMOTE_PENDING_REVOCATION_FILENAME =
     "git-remote-pending-revocation.json";
 
 export function getGitRemoteStateRoot(storageRoots: StorageRoots): string {

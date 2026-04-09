@@ -21,7 +21,7 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
  * re-implement repo discovery or naming rules.
  */
 export const GIT_REMOTE_DEFAULT_TOPIC = "consolidated" as const;
-export const GIT_REMOTE_DEFAULT_VISIBILITY = "public" as const;
+const GIT_REMOTE_DEFAULT_VISIBILITY = "public" as const;
 
 export class GitRemoteProjectService {
     constructor(

@@ -16,17 +16,14 @@ import {
     idState,
     inCharsState,
     inParaState,
-    lintErrorsState,
     markerState,
     sidState,
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
-import { areLintIssueListsEqual } from "@/app/ui/hooks/lintState.ts";
 import {
     ALL_CHAR_MARKERS,
     isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
@@ -46,7 +43,6 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
     inPara?: string;
     inChars?: string[];
     id: string;
-    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 
@@ -78,7 +74,6 @@ export class USFMTextNode extends TextNode {
                 { flat: true, stateConfig: inParaState },
                 { flat: true, stateConfig: tokenTypeState },
                 { flat: true, stateConfig: markerState },
-                { flat: true, stateConfig: lintErrorsState },
                 { flat: true, stateConfig: inCharsState },
             ],
         });
@@ -92,7 +87,6 @@ export class USFMTextNode extends TextNode {
             lexicalType: USFM_TEXT_NODE_TYPE,
             tokenType: this.getTokenType(),
             id: this.getId(),
-            lintErrors: [],
             sid: this.getSid(),
             inPara: this.getInPara(),
             inChars: this.getInChars(),
@@ -103,10 +97,6 @@ export class USFMTextNode extends TextNode {
     // --- Getters ---
     getId(): string {
         return $getState(this.getLatest(), idState);
-    }
-
-    getLintErrors(): LintIssue[] {
-        return $getState(this.getLatest(), lintErrorsState);
     }
 
     getSid(): string {
@@ -149,11 +139,6 @@ export class USFMTextNode extends TextNode {
 
     setId(id: string): this {
         $setState(this.getWritable(), idState, id);
-        return this;
-    }
-
-    setLintErrors(lintErrors: LintIssue[]) {
-        $setState(this.getWritable(), lintErrorsState, lintErrors);
         return this;
     }
 
@@ -226,7 +211,6 @@ export class USFMTextNode extends TextNode {
         [
             inCharsState,
             inParaState,
-            lintErrorsState,
             markerState,
             sidState,
             tokenTypeState,
@@ -243,19 +227,7 @@ export class USFMTextNode extends TextNode {
         // if (!everyArrayItemInEach(prevInChars, currentInChars)) {
         //   needsUpdate = true;
         // }
-        // const stateChange = $getStateChange(this, prevNode, lintErrorsState);
-        // if (stateChange) {
-        //   needsUpdate = true;
-        // }
-        // const prevLintErrors = prevNode.getLintErrors();
-
-        // since object references are different, have to manual check the arrays:
-
         return needsUpdate;
-    }
-    // misc functionality:
-    lintErrorsDoNeedUpdate(newLintErrors: LintIssue[]) {
-        return !areLintIssueListsEqual(this.getLintErrors(), newLintErrors);
     }
 }
 
@@ -294,7 +266,6 @@ export type USFMTextNodeMetadata = {
     inChars?: string[];
     tokenType?: string;
     marker?: string;
-    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 export function $createUSFMTextNode(
@@ -314,9 +285,6 @@ export function $createUSFMTextNode(
     if (metadata.marker) {
         $setState(writable, markerState, metadata.marker);
     }
-    if (metadata.lintErrors) {
-        $setState(writable, lintErrorsState, metadata.lintErrors);
-    }
     if (metadata.inChars) {
         $setState(writable, inCharsState, metadata.inChars);
     }
@@ -330,7 +298,6 @@ type CreateSerializedUSFMTextNodeParams = {
     inPara?: string;
     inChars?: string[];
     marker?: string;
-    lintErrors?: LintIssue[];
     [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(
@@ -346,7 +313,6 @@ export function createSerializedUSFMTextNode(
         tokenType: params.tokenType,
         inChars: params.inChars,
         marker: params.marker,
-        lintErrors: params.lintErrors,
         version: 1,
         text: params.text,
         detail: 0,

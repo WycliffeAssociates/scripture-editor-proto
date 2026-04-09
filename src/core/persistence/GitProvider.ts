@@ -83,6 +83,13 @@ export type GitRemoteCloneResult = {
     head: string | null;
 };
 
+export type GitCommitDetails = {
+    hash: string;
+    authorName: string;
+    authoredAtIso: string;
+    subject: string;
+};
+
 /**
  * Platform-neutral git contract used by save/history/version flows for editable
  * scripture workspaces.
@@ -101,6 +108,10 @@ export interface GitProvider {
         projectPath: string,
         args: { limit: number; offset: number },
     ): Promise<VersionEntry[]>;
+    readCommitDetails(
+        projectPath: string,
+        commitHash: string,
+    ): Promise<GitCommitDetails>;
     readProjectSnapshotAtCommit(
         projectPath: string,
         commitHash: string,

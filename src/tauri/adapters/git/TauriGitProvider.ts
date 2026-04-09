@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
     BranchInfo,
     CommitRequest,
+    GitCommitDetails,
     GitProvider,
     GitRemoteAuth,
     GitRemoteInspection,
@@ -128,6 +129,27 @@ export class TauriGitProvider implements GitProvider {
                 isExternal: parsed.isExternal,
             };
         });
+    }
+
+    async readCommitDetails(
+        projectPath: string,
+        commitHash: string,
+    ): Promise<GitCommitDetails> {
+        const entry = await invoke<TauriHistoryEntry>(
+            "git_read_commit_details",
+            {
+                repoPath: projectPath,
+                commitHash,
+            },
+        );
+        return {
+            hash: entry.hash,
+            authorName: entry.author_name,
+            authoredAtIso: new Date(
+                entry.authored_at_unix * 1000,
+            ).toISOString(),
+            subject: entry.subject,
+        };
     }
 
     async readProjectSnapshotAtCommit(

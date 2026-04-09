@@ -289,7 +289,13 @@ export interface ParsedReference {
     toSidString(): string;
     getNewParsedReference(args: Partial<ParsedReference>): ParsedReference;
 }
+const parsedSidCache = new Map<string, ParsedReference | null>();
+
 export function parseSid(sid: string): ParsedReference | null {
+    if (parsedSidCache.has(sid)) {
+        return parsedSidCache.get(sid) ?? null;
+    }
+
     const cleanedSid = sid
         .toUpperCase()
         // Allow locally-unique SIDs like "GEN 1:1_dup_1".
@@ -298,10 +304,16 @@ export function parseSid(sid: string): ParsedReference | null {
     const fullVerseSid = SID_REGEX.exec(cleanedSid);
     if (!fullVerseSid) {
         const bookChapOnly = SID_REGEX_BOOK_CHAP_ONLY.exec(cleanedSid);
-        if (!bookChapOnly) return null;
+        if (!bookChapOnly) {
+            parsedSidCache.set(sid, null);
+            return null;
+        }
         const [, book, chap] = bookChapOnly;
-        if (!BIBLE_ORDER_MAP.has(book)) return null;
-        return {
+        if (!BIBLE_ORDER_MAP.has(book)) {
+            parsedSidCache.set(sid, null);
+            return null;
+        }
+        const parsed = {
             book,
             chapter: Number(chap),
             verseStart: 1,
@@ -317,10 +329,15 @@ export function parseSid(sid: string): ParsedReference | null {
                 };
             },
         };
+        parsedSidCache.set(sid, parsed);
+        return parsed;
     }
     const [, book, chap, start, end] = fullVerseSid;
-    if (!BIBLE_ORDER_MAP.has(book)) return null;
-    return {
+    if (!BIBLE_ORDER_MAP.has(book)) {
+        parsedSidCache.set(sid, null);
+        return null;
+    }
+    const parsed = {
         book,
         chapter: Number(chap),
         verseStart: Number(start),
@@ -339,6 +356,8 @@ export function parseSid(sid: string): ParsedReference | null {
             };
         },
     };
+    parsedSidCache.set(sid, parsed);
+    return parsed;
 }
 
 type MakeSidPart = {

@@ -113,7 +113,7 @@ const isContainerStartMarker = (marker: string) =>
  * When switching back to Regular mode we want those notes to be nested again,
  * otherwise the footnote content appears inlined in the main text.
  */
-export function rewrapNestedEditorNodesFromFlatTokens(
+function rewrapNestedEditorNodesFromFlatTokens(
     flatTokens: SerializedLexicalNode[],
     direction: LanguageDirection,
 ): SerializedLexicalNode[] {
@@ -208,7 +208,6 @@ export function rewrapNestedEditorNodesFromFlatTokens(
             attributes:
                 (node as unknown as { attributes?: Record<string, string> })
                     .attributes ?? {},
-            lintErrors: [],
             editorState: {
                 root: {
                     children: [paragraph],

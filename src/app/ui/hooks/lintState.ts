@@ -9,8 +9,25 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * save/revert, and editor updates replace the narrow slice they touched.
  */
 export type LintMessagesByBook = Record<string, LintIssue[]>;
+export type LintSnapshotStatus = "pending" | "ready";
 
-function lintIssueIdentity(issue: LintIssue): string {
+export type LintSnapshot = {
+    requestId: number;
+    bookCode: string;
+    chapter: number;
+    issues: LintIssue[];
+    status: LintSnapshotStatus;
+    createdAt: number;
+    basedOnDocumentVersion: number;
+};
+
+export type LintSnapshotsByChapter = Record<string, LintSnapshot>;
+
+const issueKeyCache = new WeakMap<LintIssue, string>();
+export function getLintIssueKey(issue: LintIssue): string {
+    const cached = issueKeyCache.get(issue);
+    if (cached) return cached;
+
     const fixIdentity = issue.fix ? JSON.stringify(issue.fix) : "";
     const spanIdentity = issue.span
         ? `${issue.span.start}:${issue.span.end}`
@@ -18,7 +35,7 @@ function lintIssueIdentity(issue: LintIssue): string {
     const relatedSpanIdentity = issue.relatedSpan
         ? `${issue.relatedSpan.start}:${issue.relatedSpan.end}`
         : "";
-    return [
+    const key = [
         issue.sid ?? "",
         issue.code,
         issue.tokenId ?? "",
@@ -28,26 +45,57 @@ function lintIssueIdentity(issue: LintIssue): string {
         issue.message,
         fixIdentity,
     ].join(":");
+    issueKeyCache.set(issue, key);
+    return key;
+}
+
+export function getLintSnapshotChapterKey(bookCode: string, chapter: number) {
+    return `${normalizeBookKey(bookCode)}:${chapter}`;
+}
+
+export function createLintSnapshot(input: {
+    requestId: number;
+    bookCode: string;
+    chapter: number;
+    issues: LintIssue[];
+    status: LintSnapshotStatus;
+    basedOnDocumentVersion?: number;
+    createdAt?: number;
+}): LintSnapshot {
+    const normalizedIssues = sortLintIssues(dedupeLintIssueList(input.issues));
+    return {
+        requestId: input.requestId,
+        bookCode: normalizeBookKey(input.bookCode),
+        chapter: input.chapter,
+        issues: normalizedIssues,
+        status: input.status,
+        createdAt: input.createdAt ?? Date.now(),
+        basedOnDocumentVersion: input.basedOnDocumentVersion ?? 0,
+    };
 }
 
 function dedupeLintIssueList(issues: LintIssue[]): LintIssue[] {
-    return Array.from(
-        new Map(
-            issues.map((issue) => [lintIssueIdentity(issue), issue]),
-        ).values(),
-    );
+    const deduped = new Map<string, LintIssue>();
+    for (const issue of issues) {
+        deduped.set(getLintIssueKey(issue), issue);
+    }
+    return Array.from(deduped.values());
 }
 
 function sortLintIssues(issues: LintIssue[]): LintIssue[] {
-    const withSid: Array<LintIssue & { sid: string }> = [];
+    const withSid: Array<
+        LintIssue & {
+            sid: string;
+        }
+    > = [];
     const withoutSid: LintIssue[] = [];
 
     for (const issue of issues) {
         if (issue.sid) {
             withSid.push(issue as LintIssue & { sid: string });
-        } else {
-            withoutSid.push(issue);
+            continue;
         }
+        withoutSid.push(issue);
     }
 
     return [...sortListBySidCanonical(withSid), ...withoutSid];
@@ -70,8 +118,8 @@ export function areLintIssueListsEqual(
     if (left.length !== right.length) return false;
     if (left.length === 0) return true;
 
-    const leftKeys = left.map(lintIssueIdentity).sort();
-    const rightKeys = right.map(lintIssueIdentity).sort();
+    const leftKeys = left.map(getLintIssueKey).sort();
+    const rightKeys = right.map(getLintIssueKey).sort();
 
     for (let i = 0; i < leftKeys.length; i++) {
         if (leftKeys[i] !== rightKeys[i]) return false;
@@ -107,53 +155,29 @@ export function flattenLintMessagesByBook(
     );
 }
 
-/**
- * Replace one book's lint slice while preserving the rest of the workspace map.
- */
-export function replaceLintErrorsForBook(
-    prevMessagesByBook: LintMessagesByBook,
-    book: string,
-    newErrors: LintIssue[],
-): LintMessagesByBook {
-    const targetBook = normalizeBookKey(book);
-    const prevErrors = prevMessagesByBook[targetBook] ?? [];
-    const nextErrors = sortLintIssues(dedupeLintIssueList(newErrors));
-    if (areLintIssueListsEqual(prevErrors, nextErrors)) {
-        return prevMessagesByBook;
-    }
-
-    return {
-        ...prevMessagesByBook,
-        [targetBook]: nextErrors,
-    };
+export function flattenLintSnapshotsByChapter(
+    snapshotsByChapter: LintSnapshotsByChapter,
+): LintIssue[] {
+    return sortLintIssues(
+        Object.values(snapshotsByChapter).flatMap(
+            (snapshot) => snapshot.issues,
+        ),
+    );
 }
 
-/**
- * Replace only one chapter's lint results inside a book-scoped lint map.
- */
-export function replaceLintErrorsForChapter(
-    prevMessagesByBook: LintMessagesByBook,
-    book: string,
-    chapter: number,
-    newErrors: LintIssue[],
+export function buildLintMessagesByBookFromSnapshots(
+    snapshotsByChapter: LintSnapshotsByChapter,
 ): LintMessagesByBook {
-    const targetBook = book.toUpperCase();
-    const prevMessages = prevMessagesByBook[targetBook] ?? [];
-    const filtered = prevMessages.filter((m) => {
-        if (!m.sid || m.sid === "unknown location") return false;
-        const sid = parseSid(m.sid);
-        if (!sid) return true;
-        return sid.book !== targetBook || sid.chapter !== chapter;
-    });
-    const nextErrors = sortLintIssues(
-        dedupeLintIssueList([...filtered, ...newErrors]),
-    );
-    if (areLintIssueListsEqual(prevMessages, nextErrors)) {
-        return prevMessagesByBook;
+    const grouped: LintMessagesByBook = {};
+    for (const snapshot of Object.values(snapshotsByChapter)) {
+        const bookCode = normalizeBookKey(snapshot.bookCode);
+        grouped[bookCode] ??= [];
+        grouped[bookCode].push(...snapshot.issues);
     }
 
-    return {
-        ...prevMessagesByBook,
-        [targetBook]: nextErrors,
-    };
+    for (const [book, bookIssues] of Object.entries(grouped)) {
+        grouped[book] = sortLintIssues(bookIssues);
+    }
+
+    return grouped;
 }

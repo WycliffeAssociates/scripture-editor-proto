@@ -26,7 +26,7 @@ interface EditorPaneProps {
     toggleSearchPane: () => void;
 }
 
-export function EditorPane(props: EditorPaneProps) {
+function EditorPane(props: EditorPaneProps) {
     return (
         <div
             data-js={DATA_JS.editorScrollContainer}
@@ -57,7 +57,7 @@ interface ReferencePaneProps {
     isSmall: boolean;
 }
 
-export function ReferencePane(props: ReferencePaneProps) {
+function ReferencePane(props: ReferencePaneProps) {
     return (
         <div
             className={
@@ -76,7 +76,7 @@ interface SettingsPaneProps {
     onClose: () => void;
 }
 
-export function SettingsPane(props: SettingsPaneProps) {
+function SettingsPane(props: SettingsPaneProps) {
     return <SettingsPanel onClose={props.onClose} />;
 }
 
@@ -84,7 +84,7 @@ interface ProjectsPaneProps {
     onClose: () => void;
 }
 
-export function ProjectsPane(props: ProjectsPaneProps) {
+function ProjectsPane(props: ProjectsPaneProps) {
     return <ProjectBrowserPane onClose={props.onClose} />;
 }
 
@@ -104,7 +104,7 @@ interface WorkspacePaneStackProps {
     toggleSearchPane: () => void;
 }
 
-export function WorkspacePaneStack(props: WorkspacePaneStackProps) {
+function WorkspacePaneStack(props: WorkspacePaneStackProps) {
     return (
         <div className={styles.workspacePaneStack}>
             <div className={styles.workspaceEditorPane}>
@@ -149,7 +149,7 @@ interface EditorsShellProps {
     toggleSearchPane: () => void;
 }
 
-export function EditorsShell(props: EditorsShellProps) {
+function EditorsShell(props: EditorsShellProps) {
     const showRightPanel =
         props.hasReferenceResource || props.hasSearchPaneOpen;
 

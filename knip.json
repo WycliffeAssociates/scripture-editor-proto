@@ -17,5 +17,8 @@
     "interface": true,
     "type": true
   },
+  "ignoreIssues": {
+    "**/*.css.ts": ["exports"]
+  },
   "tags": ["-knipignore"]
 }

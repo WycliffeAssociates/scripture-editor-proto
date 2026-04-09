@@ -88,6 +88,12 @@ function createGitProvider(): GitProvider {
         getBranchInfo: vi.fn(),
         checkoutPreferredBranch: vi.fn(),
         listHistory: vi.fn(),
+        readCommitDetails: vi.fn().mockResolvedValue({
+            hash: "remote-head",
+            authorName: "alice",
+            authoredAtIso: "2026-03-30T20:00:00.000Z",
+            subject: "save:2026-03-30T20:00:00.000Z",
+        }),
         readProjectSnapshotAtCommit: vi.fn(),
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: vi.fn(),
@@ -295,6 +301,9 @@ describe("hydrateGitRemoteStatusOnOpen", () => {
             }),
         ).resolves.toMatchObject({
             kind: GIT_REMOTE_OPEN_STATUS_REMOTE_UPDATES_AVAILABLE,
+            status: {
+                latestIncomingAuthorName: "alice",
+            },
         });
     });
 
@@ -324,6 +333,9 @@ describe("hydrateGitRemoteStatusOnOpen", () => {
             }),
         ).resolves.toMatchObject({
             kind: GIT_REMOTE_OPEN_STATUS_NEEDS_REVIEW,
+            status: {
+                latestIncomingAuthorName: "alice",
+            },
         });
     });
 

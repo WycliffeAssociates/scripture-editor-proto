@@ -35,7 +35,6 @@ import {
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as nestedStyles from "@/app/ui/styles/modules/NestedEditor.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Props = {
     outerMarker: string;
@@ -46,7 +45,6 @@ type Props = {
         mainEditor: LexicalEditor,
     ) => void;
     id: string;
-    lintErrors?: LintIssue[];
     isOpen: boolean;
     setIsOpen: (mainEditor: LexicalEditor, isOpen: boolean) => void;
 };
@@ -65,12 +63,9 @@ export function NestedEditor({
     initialEditorState,
     onChange,
     id,
-    lintErrors = [],
     isOpen,
     setIsOpen,
 }: Props) {
-    const hasErrors = lintErrors.length > 0;
-
     return (
         <Popover
             defaultOpened={isOpen}
@@ -85,7 +80,6 @@ export function NestedEditor({
                 className={nestedStyles.nestedEditorButton}
                 data-opened={isOpen}
                 data-id={id}
-                data-is-lint-error={hasErrors}
                 data-is-nested-editor-button="true"
             >
                 <Plus size={14} />
@@ -114,7 +108,7 @@ function NestedEditorContent({
     id,
     isOpen,
     setIsOpen,
-}: Omit<Props, "lintErrors">) {
+}: Props) {
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
     const { project, projectLanguageDirection } = useWorkspaceContext();

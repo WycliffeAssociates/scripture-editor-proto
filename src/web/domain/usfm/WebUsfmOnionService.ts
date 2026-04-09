@@ -75,12 +75,15 @@ function toWebProjectLintOptions(
 }
 
 function fromWebLintIssue(issue: onion.LintIssue): LintIssue {
+    const issueWithParams = issue as onion.LintIssue & {
+        messageParams?: Record<string, string>;
+    };
     return {
         code: issue.code,
         severity: issue.severity,
         marker: issue.marker ?? null,
         message: issue.message,
-        messageParams: {},
+        messageParams: issueWithParams.messageParams ?? {},
         span: issue.span ?? null,
         relatedSpan: issue.relatedSpan ?? null,
         tokenId: issue.tokenId ?? null,

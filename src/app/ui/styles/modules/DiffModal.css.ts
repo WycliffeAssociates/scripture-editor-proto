@@ -616,6 +616,7 @@ export const chapterColumn = style({
 });
 
 export const chapterDiffBody = style({
+    position: "relative",
     margin: 0,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
@@ -643,26 +644,28 @@ export const chapterPartChanged = style({
     display: "inline",
 });
 
-export const chapterParagraphWithAction = style({
-    position: "relative",
-    paddingRight: `calc(${vars.spacing.xl} + 2rem)`,
+export const chapterActionOverlayHost = style({
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    zIndex: 3,
 });
 
 export const chapterHunkAction = style({
     position: "absolute",
-    top: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: vars.colors.blue[0],
+    zIndex: 4,
+    pointerEvents: "auto",
+    width: "1rem",
+    height: "1rem",
+    padding: 0,
     border: "none",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-    transition: "transform 0.1s ease",
+    transition: "opacity 0.1s ease",
+    opacity: 0.75,
+    color: dsVars.color.onSurfaceError,
     selectors: {
         "&:hover": {
-            transform: "scale(1.1)",
-        },
-        [`${darkSelector} &`]: {
-            backgroundColor: vars.colors.dark[4],
+            opacity: 1,
+            backgroundColor: "transparent",
         },
     },
 });

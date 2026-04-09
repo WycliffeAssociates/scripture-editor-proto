@@ -7,53 +7,6 @@ function joinClassNames(...classNames: Array<string | undefined>) {
     return classNames.filter(Boolean).join(" ");
 }
 
-export interface SelectTriggerProps {
-    value?: string;
-    defaultValue?: string;
-    placeholder?: string;
-    icon?: ReactNode;
-    className?: string;
-    popupClassName?: string;
-    listClassName?: string;
-    onValueChange?: (value: string | null) => void;
-    children?: ReactNode;
-}
-
-export function SelectTrigger({
-    value,
-    defaultValue,
-    placeholder,
-    icon,
-    className,
-    onValueChange,
-    children,
-}: SelectTriggerProps) {
-    return (
-        <Select.Root
-            value={value}
-            defaultValue={defaultValue}
-            onValueChange={onValueChange}
-        >
-            <Select.Trigger
-                className={joinClassNames(styles.trigger, className)}
-            >
-                {icon ? (
-                    <span className={styles.triggerIcon}>{icon}</span>
-                ) : null}
-                <Select.Value
-                    className={styles.triggerValue}
-                    placeholder={placeholder}
-                >
-                    {children}
-                </Select.Value>
-                <Select.Icon className={styles.triggerIconEnd}>
-                    <ChevronIcon />
-                </Select.Icon>
-            </Select.Trigger>
-        </Select.Root>
-    );
-}
-
 export interface SelectItem {
     value: string;
     label: string;

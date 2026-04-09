@@ -28,6 +28,8 @@ function Harness(props: {
 }) {
     const lint = useLint({
         initialLintErrorsByBook: props.initialLintErrorsByBook,
+        visibleBookCode: "GEN",
+        visibleChapter: 1,
     });
     props.onRender(lint);
     return null;
@@ -48,7 +50,7 @@ afterEach(() => {
 });
 
 describe("useLint", () => {
-    it("derives a flat list from book-keyed state and updates one book atomically", () => {
+    it("stores versioned chapter snapshots and commits only the latest request", () => {
         let latest: UseLintReturn | null = null;
         container = document.createElement("div");
         document.body.appendChild(container);
@@ -73,24 +75,53 @@ describe("useLint", () => {
             return latest;
         };
 
-        expect(current().messages.map((issue) => issue.tokenId)).toEqual([
+        expect(current().allIssues.map((issue) => issue.tokenId)).toEqual([
             "gen-1",
             "exo-1",
         ]);
 
+        let firstRequestId = 0;
+        let secondRequestId = 0;
         act(() => {
-            current().replaceErrorsForBook("GEN", [
-                makeError({ sid: "GEN 2:1", tokenId: "gen-2" }),
-            ]);
+            firstRequestId = current().beginLintRequest({
+                reason: "typing",
+                bookCode: "GEN",
+                chapter: 1,
+            });
+            secondRequestId = current().beginLintRequest({
+                reason: "typing",
+                bookCode: "GEN",
+                chapter: 1,
+            });
         });
 
-        expect(
-            current().messagesByBook.GEN?.map((issue) => issue.tokenId),
-        ).toEqual(["gen-2"]);
-        expect(
-            current().messagesByBook.EXO?.map((issue) => issue.tokenId),
-        ).toEqual(["exo-1"]);
-        expect(current().messages.map((issue) => issue.tokenId)).toEqual([
+        act(() => {
+            const didCommitStale = current().commitLintResult({
+                bookCode: "GEN",
+                chapter: 1,
+                requestId: firstRequestId,
+                issues: [makeError({ sid: "GEN 2:1", tokenId: "gen-stale" })],
+            });
+            expect(didCommitStale).toBe(false);
+        });
+
+        act(() => {
+            const didCommit = current().commitLintResult({
+                bookCode: "GEN",
+                chapter: 1,
+                requestId: secondRequestId,
+                issues: [makeError({ sid: "GEN 2:1", tokenId: "gen-2" })],
+            });
+            expect(didCommit).toBe(true);
+        });
+
+        expect(current().issuesByBook.GEN?.map((issue) => issue.tokenId)).toEqual([
+            "gen-2",
+        ]);
+        expect(current().issuesByBook.EXO?.map((issue) => issue.tokenId)).toEqual([
+            "exo-1",
+        ]);
+        expect(current().allIssues.map((issue) => issue.tokenId)).toEqual([
             "gen-2",
             "exo-1",
         ]);

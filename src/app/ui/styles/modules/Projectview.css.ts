@@ -636,7 +636,7 @@ export const lintIssuesScrollArea = style({
     minWidth: 0,
     flex: "1 1 auto",
     height: "100%",
-    maxHeight: "140px",
+    maxHeight: "240px",
 });
 
 export const lintIssuesViewport = style({

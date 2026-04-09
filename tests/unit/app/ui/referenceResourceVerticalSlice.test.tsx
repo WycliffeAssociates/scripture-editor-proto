@@ -158,8 +158,7 @@ function render(ui: React.ReactNode) {
 }
 
 describe("reference-resource vertical slice", () => {
-  // todo, need to unskip later, but need to get a build out
-  it.skip("renders TN content end to end through the reference-resource seam and keeps remote sync model-only", async () => {
+  it("renders TN content end to end through the reference-resource seam and keeps remote sync model-only", async () => {
     const fileSystem = new InMemoryFileSystem();
     await seedEnTnCondensedFixture(fileSystem, PROJECT_ROOT_PATH);
 

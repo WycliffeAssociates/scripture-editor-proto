@@ -420,7 +420,6 @@ function lexicalNodeToPrettifyToken(
             sid: node.sid,
             inPara: node.inPara,
             inChars: node.inChars,
-            lintErrors: node.lintErrors,
             __serialized: node,
         };
     }
@@ -542,7 +541,6 @@ function prettifyTokenToLexicalNode(
         sid: token.sid ?? "",
         inPara: token.inPara,
         inChars: token.inChars,
-        lintErrors: [],
         id:
             token.id ??
             (typeof crypto !== "undefined"

@@ -160,7 +160,7 @@ describe("applyLintFixToFile", () => {
             lintScope: vi.fn(async () => [[]]),
         });
         const updateDiffMapForChapter = vi.fn();
-        const replaceLintErrorsForBook = vi.fn();
+        const commitBookLintResults = vi.fn();
         const setEditorContent = vi.fn();
         const notifySuccess = vi.fn();
         const fix = makeIssue().fix;
@@ -178,7 +178,7 @@ describe("applyLintFixToFile", () => {
             currentChapter: 1,
             usfmOnionService: service,
             updateDiffMapForChapter,
-            replaceLintErrorsForBook,
+            commitBookLintResults,
             setEditorContent,
             notifySuccess,
         });
@@ -188,7 +188,7 @@ describe("applyLintFixToFile", () => {
         expect(updateDiffMapForChapter).toHaveBeenCalledWith("GEN", 1);
         expect(updateDiffMapForChapter).toHaveBeenCalledWith("GEN", 2);
         expect(setEditorContent).not.toHaveBeenCalled();
-        expect(replaceLintErrorsForBook).toHaveBeenCalledWith("GEN", []);
+        expect(commitBookLintResults).toHaveBeenCalledWith({ GEN: [] });
         expect(notifySuccess).toHaveBeenCalledWith("missing-space");
     });
 
@@ -253,7 +253,7 @@ describe("applyLintFixToFile", () => {
             .mockResolvedValueOnce([[normalizedIssue]])
             .mockResolvedValueOnce([[normalizedIssue]]);
         const service = makeService({ applyTokenFixes, lintScope });
-        const replaceLintErrorsForBook = vi.fn();
+        const commitBookLintResults = vi.fn();
 
         const fix = makeIssue().fix;
         if (!fix) {
@@ -270,16 +270,16 @@ describe("applyLintFixToFile", () => {
             currentChapter: 1,
             usfmOnionService: service,
             updateDiffMapForChapter: vi.fn(),
-            replaceLintErrorsForBook,
+            commitBookLintResults,
             setEditorContent: vi.fn(),
             notifySuccess: vi.fn(),
         });
 
         expect(didApply).toBe(true);
         expect(applyTokenFixes).toHaveBeenCalledTimes(2);
-        expect(replaceLintErrorsForBook).toHaveBeenCalledWith("GEN", [
-            normalizedIssue,
-        ]);
+        expect(commitBookLintResults).toHaveBeenCalledWith({
+            GEN: [normalizedIssue],
+        });
     });
 
     it("returns false and does not notify when retry still cannot apply", async () => {
@@ -309,7 +309,7 @@ describe("applyLintFixToFile", () => {
             currentChapter: 1,
             usfmOnionService: service,
             updateDiffMapForChapter: vi.fn(),
-            replaceLintErrorsForBook: vi.fn(),
+            commitBookLintResults: vi.fn(),
             setEditorContent: vi.fn(),
             notifySuccess,
         });
@@ -367,7 +367,7 @@ describe("applyLintFixToFile", () => {
             return [texts.includes("rebuilt") ? [] : [makeIssue()]];
         });
         const service = makeService({ lintScope });
-        const replaceLintErrorsForBook = vi.fn();
+        const commitBookLintResults = vi.fn();
         const fix = makeIssue().fix;
         if (!fix) {
             throw new Error("Fix is required");
@@ -383,12 +383,12 @@ describe("applyLintFixToFile", () => {
             currentChapter: 1,
             usfmOnionService: service,
             updateDiffMapForChapter: vi.fn(),
-            replaceLintErrorsForBook,
+            commitBookLintResults,
             setEditorContent: vi.fn(),
             notifySuccess: vi.fn(),
         });
 
         expect(didApply).toBe(true);
-        expect(replaceLintErrorsForBook).toHaveBeenCalledWith("GEN", []);
+        expect(commitBookLintResults).toHaveBeenCalledWith({ GEN: [] });
     });
 });

@@ -121,7 +121,7 @@ function BottomPanelTabs(props: {
                 >
                     <span>Problems</span>
                     <span className={styles.bottomPanelTabCount}>
-                        {lint.messages.length}
+                        {lint.allIssues.length}
                     </span>
                 </BaseTabs.Tab>
                 <BaseTabs.Tab

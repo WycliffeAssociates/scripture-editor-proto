@@ -172,6 +172,7 @@ function createGitProvider(spies: {
         getBranchInfo: vi.fn(),
         checkoutPreferredBranch: vi.fn(),
         listHistory: vi.fn(),
+        readCommitDetails: vi.fn(),
         readProjectSnapshotAtCommit: vi.fn(),
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: spies.commitAll,

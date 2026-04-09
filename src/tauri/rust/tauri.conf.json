@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Dovetail",
-        "maximized": true,
-        "decorations": false
+        "maximized": false,
+        "decorations": true
       }
     ],
     "security": {

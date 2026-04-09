@@ -16,6 +16,7 @@ import {
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
     GIT_REMOTE_PROJECT_STATUS_SYNCING,
+    type GitRemoteProjectInfo,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import {
@@ -60,6 +61,7 @@ export type GitRemoteOpenStatusResult =
     | {
           kind: typeof GIT_REMOTE_OPEN_STATUS_SKIPPED_AUTO_SYNC;
           status: GitRemoteProjectStatus;
+          remoteInfo: GitRemoteProjectInfo;
       }
     | {
           kind:
@@ -70,6 +72,7 @@ export type GitRemoteOpenStatusResult =
               | typeof GIT_REMOTE_OPEN_STATUS_OFFLINE
               | typeof GIT_REMOTE_OPEN_STATUS_REAUTH_REQUIRED;
           status: GitRemoteProjectStatus;
+          remoteInfo: GitRemoteProjectInfo;
       };
 
 export async function hydrateGitRemoteStatusOnOpen(args: {
@@ -116,6 +119,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         return {
             kind: GIT_REMOTE_OPEN_STATUS_REAUTH_REQUIRED,
             status,
+            remoteInfo,
         };
     }
 
@@ -140,6 +144,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         return {
             kind: GIT_REMOTE_OPEN_STATUS_SKIPPED_AUTO_SYNC,
             status,
+            remoteInfo,
         };
     }
 
@@ -178,6 +183,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
                     ? GIT_REMOTE_OPEN_STATUS_REAUTH_REQUIRED
                     : GIT_REMOTE_OPEN_STATUS_OFFLINE,
             status,
+            remoteInfo,
         };
     }
 
@@ -201,6 +207,7 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
     return {
         kind: mapProjectStatusToOpenResult(status.kind),
         status,
+        remoteInfo,
     };
 }
 
@@ -213,9 +220,17 @@ async function buildStatusFromInspection(args: {
     trackedBranch: string;
     gitProvider: Pick<
         GitProvider,
-        "readProjectSnapshotAtCommit" | "applyReplayPlanOntoRemote"
+        | "readCommitDetails"
+        | "readProjectSnapshotAtCommit"
+        | "applyReplayPlanOntoRemote"
     >;
 }): Promise<GitRemoteProjectStatus> {
+    const latestIncomingAuthorName = await readLatestIncomingAuthorName({
+        inspection: args.inspection,
+        projectPath: args.projectPath,
+        gitProvider: args.gitProvider,
+    });
+
     if (
         (args.inspection.relationship.kind ===
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
@@ -243,6 +258,7 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.remoteHead,
                 remoteHead: args.inspection.remoteHead,
+                latestIncomingAuthorName: null,
             });
         }
     }
@@ -255,6 +271,7 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                latestIncomingAuthorName: null,
             });
         case GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY:
             return buildStatus({
@@ -263,6 +280,7 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                latestIncomingAuthorName,
             });
         case GIT_REMOTE_RELATIONSHIP_DIVERGED:
             return buildStatus({
@@ -271,6 +289,7 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                latestIncomingAuthorName,
             });
         case GIT_REMOTE_RELATIONSHIP_AHEAD_ONLY:
         case GIT_REMOTE_RELATIONSHIP_UNTRACKED:
@@ -280,7 +299,42 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                latestIncomingAuthorName: null,
             });
+    }
+}
+
+async function readLatestIncomingAuthorName(args: {
+    inspection: GitRemoteInspection;
+    projectPath: string;
+    gitProvider: Pick<GitProvider, "readCommitDetails">;
+}): Promise<string | null> {
+    const relationshipKind = args.inspection.relationship.kind;
+    const remoteHead = args.inspection.remoteHead;
+    if (
+        !remoteHead ||
+        (relationshipKind !== GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
+            relationshipKind !== GIT_REMOTE_RELATIONSHIP_DIVERGED)
+    ) {
+        return null;
+    }
+
+    try {
+        const commit = await args.gitProvider.readCommitDetails(
+            args.projectPath,
+            remoteHead,
+        );
+        return commit.authorName || null;
+    } catch (error) {
+        console.debug(
+            "[gitRemoteOpenStatus] Failed to read incoming commit author.",
+            {
+                projectPath: args.projectPath,
+                remoteHead,
+                error: error instanceof Error ? error.message : String(error),
+            },
+        );
+        return null;
     }
 }
 
@@ -328,6 +382,7 @@ function buildStatus(args: {
     checkedAt: string;
     localHead?: string | null;
     remoteHead?: string | null;
+    latestIncomingAuthorName?: string | null;
 }): GitRemoteProjectStatus {
     return {
         ...args.existingStatus,
@@ -337,6 +392,7 @@ function buildStatus(args: {
             args.localHead ?? args.existingStatus.lastKnownLocalHead,
         lastKnownRemoteHead:
             args.remoteHead ?? args.existingStatus.lastKnownRemoteHead,
+        latestIncomingAuthorName: args.latestIncomingAuthorName ?? null,
     };
 }
 

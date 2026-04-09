@@ -105,6 +105,7 @@ describe("git remote model parsing", () => {
             lastPublishedAt: null,
             lastKnownLocalHead: null,
             lastKnownRemoteHead: null,
+            latestIncomingAuthorName: null,
         });
     });
 });
@@ -186,6 +187,7 @@ describe("git remote json persistence", () => {
             lastPublishedAt: null,
             lastKnownLocalHead: "abc123",
             lastKnownRemoteHead: "def456",
+            latestIncomingAuthorName: null,
         });
         await expect(
             readGitRemoteSession({

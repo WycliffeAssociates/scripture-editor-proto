@@ -1,48 +1,6 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import { Save } from "lucide-react";
-import { TESTING_IDS } from "@/app/data/constants.ts";
 import { DiffViewerModal } from "@/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx";
-import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
-import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { sortListBySidCanonical } from "@/core/data/bible/bible.ts";
-
-export function SaveAndReviewChanges() {
-    const { t } = useLingui();
-    const { save, actions } = useWorkspaceContext();
-    const { isXs, isSm } = useWorkspaceMediaQuery();
-    const saveLabel = save.versions.isViewingOlderVersion
-        ? t`Save as New Version`
-        : t`Review and save changes`;
-
-    return (
-        <>
-            {isXs || isSm ? (
-                <ActionIconSimple
-                    data-testid={TESTING_IDS.save.trigger}
-                    onClick={actions.toggleDiffModal}
-                    aria-label={saveLabel}
-                    title={saveLabel}
-                >
-                    <Save size={16} />
-                </ActionIconSimple>
-            ) : (
-                <Button
-                    data-testid={TESTING_IDS.save.trigger}
-                    onClick={actions.toggleDiffModal}
-                    size="sm"
-                >
-                    {save.versions.isViewingOlderVersion ? (
-                        <Trans>Save as New Version</Trans>
-                    ) : (
-                        <Trans>Review &amp; Save</Trans>
-                    )}
-                </Button>
-            )}
-        </>
-    );
-}
 
 export function SaveAndReviewChangesOverlay() {
     const { save } = useWorkspaceContext();

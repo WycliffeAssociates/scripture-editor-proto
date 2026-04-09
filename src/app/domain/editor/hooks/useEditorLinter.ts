@@ -1,9 +1,16 @@
+/**
+ * Editor-side lint coordinator.
+ *
+ * The editor decides when lint work should start, but the workspace lint store
+ * decides which result is current. That split keeps editor churn and async lint
+ * timing from becoming the source of truth for diagnostics.
+ */
 import { useRouter } from "@tanstack/react-router";
 import type { EditorState, LexicalEditor } from "lexical";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { EDITOR_MODES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import { lintAll } from "@/app/domain/editor/listeners/lintChecks.ts";
-import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
+import { collectLintIssues } from "@/app/domain/editor/listeners/lintChecks.ts";
+import type { LintRequestReason } from "@/app/ui/hooks/useLint.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 type ShouldRunLintForEditorUpdateArgs = {
@@ -53,20 +60,99 @@ export function useEditorLinter(editor: LexicalEditor) {
         project.appSettings.editorMode ?? EDITOR_MODES.regular;
     const currentBookCode = project.pickedFile.bookCode;
     const currentChapter = project.currentChapter;
-    const lintDebounceMs = 300;
+    const lintDebounceMs = 100;
+    const beginLintRequest = lint.beginLintRequest;
+    const commitLintResult = lint.commitLintResult;
+    const visibleSnapshot = lint.visibleSnapshot;
+    const getFlatFileTokensRef = useRef(actions.getFlatFileTokens);
+    const beginLintRequestRef = useRef(beginLintRequest);
+    const commitLintResultRef = useRef(commitLintResult);
+    const usfmOnionServiceRef = useRef(usfmOnionService);
+    const pendingTimerRef = useRef<number | null>(null);
+    const pendingAbortRef = useRef<AbortController | null>(null);
 
-    const debouncedLint = useDebouncedCallback(
-        (editorState: EditorState, bookCode: string, chapter: number) => {
-            void lintAll(
-                { editorState, editor },
-                usfmOnionService,
-                actions.getFlatFileTokens,
-                { bookCode, chapter },
-            ).then((issues) => {
-                lint.replaceErrorsForBook(bookCode, issues);
+    useEffect(() => {
+        getFlatFileTokensRef.current = actions.getFlatFileTokens;
+        beginLintRequestRef.current = beginLintRequest;
+        commitLintResultRef.current = commitLintResult;
+        usfmOnionServiceRef.current = usfmOnionService;
+    }, [
+        actions.getFlatFileTokens,
+        beginLintRequest,
+        commitLintResult,
+        usfmOnionService,
+    ]);
+
+    const clearPendingLint = useCallback(() => {
+        if (pendingTimerRef.current !== null) {
+            window.clearTimeout(pendingTimerRef.current);
+            pendingTimerRef.current = null;
+        }
+        pendingAbortRef.current?.abort();
+        pendingAbortRef.current = null;
+    }, []);
+
+    /**
+     * Route every editor-side lint trigger through one scheduler so the timing
+     * policy stays in one place. The snapshot store owns which request wins;
+     * this hook only decides when to dispatch work.
+     */
+    const scheduleLint = useCallback(
+        ({
+            editorState,
+            bookCode,
+            chapter,
+            reason,
+        }: {
+            editorState: EditorState;
+            bookCode: string;
+            chapter: number;
+            reason: LintRequestReason;
+        }) => {
+            clearPendingLint();
+
+            const requestId = beginLintRequestRef.current({
+                reason,
+                bookCode,
+                chapter,
             });
+            const abortController = new AbortController();
+            pendingAbortRef.current = abortController;
+            const delay = reason === "typing" ? lintDebounceMs : 0;
+
+            const dispatchLint = () => {
+                pendingTimerRef.current = null;
+                void collectLintIssues(
+                    editorState,
+                    usfmOnionServiceRef.current,
+                    getFlatFileTokensRef.current,
+                    {
+                        bookCode,
+                        chapter,
+                    },
+                ).then((issues) => {
+                    if (abortController.signal.aborted) return;
+                    const didCommit = commitLintResultRef.current({
+                        bookCode,
+                        chapter,
+                        requestId,
+                        issues,
+                    });
+                    if (!didCommit) return;
+                });
+            };
+
+            if (delay > 0) {
+                pendingTimerRef.current = window.setTimeout(
+                    dispatchLint,
+                    delay,
+                );
+                return;
+            }
+
+            dispatchLint();
         },
-        lintDebounceMs,
+        [clearPendingLint],
     );
 
     useEffect(() => {
@@ -95,20 +181,58 @@ export function useEditorLinter(editor: LexicalEditor) {
                     return;
                 }
 
-                debouncedLint(editorState, currentBookCode, currentChapter);
+                scheduleLint({
+                    editorState,
+                    bookCode: currentBookCode,
+                    chapter: currentChapter,
+                    reason: tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges)
+                        ? "programmatic"
+                        : "typing",
+                });
             },
         );
 
         return () => {
-            debouncedLint.cancel();
+            clearPendingLint();
             unregister();
         };
     }, [
         editor,
         editorModeSetting,
-        debouncedLint,
         currentBookCode,
         currentChapter,
+        scheduleLint,
+        clearPendingLint,
+    ]);
+
+    useEffect(() => {
+        if (
+            editorModeSetting === EDITOR_MODES.plain ||
+            editorModeSetting === EDITOR_MODES.view
+        ) {
+            return;
+        }
+
+        if (
+            visibleSnapshot?.bookCode === currentBookCode &&
+            visibleSnapshot.chapter === currentChapter
+        ) {
+            return;
+        }
+
+        scheduleLint({
+            editorState: editor.getEditorState(),
+            bookCode: currentBookCode,
+            chapter: currentChapter,
+            reason: "chapter-load",
+        });
+    }, [
+        currentBookCode,
+        currentChapter,
+        editor,
+        editorModeSetting,
+        scheduleLint,
+        visibleSnapshot,
     ]);
 
     useEffect(() => {
@@ -120,32 +244,26 @@ export function useEditorLinter(editor: LexicalEditor) {
         }
 
         return history.registerPostUndoRedoAction((event) => {
-            void (async () => {
-                const touchedCurrentChapter = event.touchedChapters.some(
-                    (chapter) =>
-                        chapter.bookCode === currentBookCode &&
-                        chapter.chapterNum === currentChapter,
-                );
-                if (!touchedCurrentChapter) return;
+            const touchedCurrentChapter = event.touchedChapters.some(
+                (chapter) =>
+                    chapter.bookCode === currentBookCode &&
+                    chapter.chapterNum === currentChapter,
+            );
+            if (!touchedCurrentChapter) return;
 
-                const editorState = editor.getEditorState();
-                const errMessages = await lintAll(
-                    { editorState, editor },
-                    usfmOnionService,
-                    actions.getFlatFileTokens,
-                    { bookCode: currentBookCode, chapter: currentChapter },
-                );
-                lint.replaceErrorsForBook(currentBookCode, errMessages);
-            })();
+            scheduleLint({
+                editorState: editor.getEditorState(),
+                bookCode: currentBookCode,
+                chapter: currentChapter,
+                reason: event.action,
+            });
         });
     }, [
-        actions.getFlatFileTokens,
         currentBookCode,
         currentChapter,
         editor,
         editorModeSetting,
         history,
-        lint,
-        usfmOnionService,
+        scheduleLint,
     ]);
 }

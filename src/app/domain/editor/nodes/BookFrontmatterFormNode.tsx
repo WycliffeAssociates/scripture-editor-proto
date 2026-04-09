@@ -1,7 +1,6 @@
 import type {
     EditorConfig,
     LexicalEditor,
-    LexicalNode,
     NodeKey,
     SerializedLexicalNode,
     Spread,
@@ -145,12 +144,6 @@ export function createSerializedBookFrontmatterFormNode(args: {
         direction: args.direction,
         tokens: args.tokens,
     };
-}
-
-export function $isBookFrontmatterFormNode(
-    node: LexicalNode | null | undefined,
-): node is BookFrontmatterFormNode {
-    return node instanceof BookFrontmatterFormNode;
 }
 
 export function isSerializedBookFrontmatterFormNode(

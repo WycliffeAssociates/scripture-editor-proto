@@ -175,15 +175,6 @@ export async function writeGitRemotePendingRevocation(args: {
     );
 }
 
-export async function deleteGitRemotePendingRevocation(args: {
-    fileSystem: FileSystem;
-    storageRoots: StorageRoots;
-}): Promise<void> {
-    const path = getGitRemotePendingRevocationPath(args.storageRoots);
-    if (!(await args.fileSystem.exists(path))) return;
-    await args.fileSystem.remove(path);
-}
-
 async function readJsonRecord<T>(args: {
     fileSystem: FileSystem;
     path: string;

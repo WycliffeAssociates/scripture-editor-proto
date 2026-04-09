@@ -143,7 +143,6 @@ export function parsedUsfmTokensToInsertableNodes(
                 tokenType,
                 marker: token.marker,
                 inPara: "",
-                lintErrors: [],
             }),
         );
     }

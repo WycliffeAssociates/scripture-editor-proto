@@ -411,6 +411,32 @@ pub fn git_list_history(
 }
 
 #[tauri::command]
+pub fn git_read_commit_details(
+    repo_path: String,
+    commit_hash: String,
+) -> Result<GitHistoryEntry, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let commit_oid = resolve_commit_oid(&repo, &commit_hash)?;
+    let commit = repo
+        .find_commit(commit_oid)
+        .map_err(|e| e.message().to_string())?;
+
+    let hash = commit.id().to_string();
+    let author_name = commit.author().name().unwrap_or("Unknown").to_string();
+    let authored_at_unix = commit.time().seconds();
+    let subject = commit.summary().unwrap_or("").to_string();
+    let body = commit.body().unwrap_or("").to_string();
+
+    Ok(GitHistoryEntry {
+        hash,
+        author_name,
+        authored_at_unix,
+        subject,
+        body,
+    })
+}
+
+#[tauri::command]
 pub fn git_read_project_snapshot_at_commit(
     repo_path: String,
     commit_hash: String,

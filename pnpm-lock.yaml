@@ -80,9 +80,6 @@ importers:
       react-dom:
         specifier: 19.2.0
         version: 19.2.0(react@19.2.0)
-      react-highlight-words:
-        specifier: ^0.21.0
-        version: 0.21.0(react@19.2.0)
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.2)(react@19.2.0)
@@ -132,9 +129,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.2
         version: 19.2.2(@types/react@19.2.2)
-      '@types/react-highlight-words':
-        specifier: ^0.20.1
-        version: 0.20.1
       '@vanilla-extract/vite-plugin':
         specifier: ^5.2.0
         version: 5.2.0(@types/node@24.10.0)(esbuild@0.27.4)(jiti@2.6.1)(lightningcss@1.32.0)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.21.0)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.32.0)(sugarss@5.0.1(postcss@8.5.6))(tsx@4.21.0)(yaml@2.8.1))(yaml@2.8.1)
@@ -1863,9 +1857,6 @@ packages:
     peerDependencies:
       '@types/react': ^19.2.0
 
-  '@types/react-highlight-words@0.20.1':
-    resolution: {integrity: sha512-EgF6RaoibBurIhxk3X3d5xL0uMqjD7KtShvZ8S+d7/o6xZ+mQ4rct1a2E49vWA9r63OzrHCIyghqvQHASb/ERw==}
-
   '@types/react@19.2.2':
     resolution: {integrity: sha512-6mDvHUFSjyT2B2yeNx2nUgMxh9LtOWvkhIU3uePn2I2oyNymUAX1NIsdgviM4CH+JSrp2D2hsMvJOkxY+0wNRA==}
 
@@ -2501,9 +2492,6 @@ packages:
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
 
-  highlight-words-core@1.2.3:
-    resolution: {integrity: sha512-m1O9HW3/GNHxzSIXWw1wCNXXsgLlxrP0OI6+ycGUhiUHkikqW3OrwVHz+lxeNBe5yqLESdIcj8PowHQ2zLvUvQ==}
-
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
@@ -2883,9 +2871,6 @@ packages:
   media-query-parser@2.0.2:
     resolution: {integrity: sha512-1N4qp+jE0pL5Xv4uEcwVUhIkwdUO3S/9gML90nqKA7v7FcOS5vUtatfzok9S9U1EJU8dHWlcv95WLnKmmxZI9w==}
 
-  memoize-one@4.0.3:
-    resolution: {integrity: sha512-QmpUu4KqDmX0plH4u+tf0riMc1KHE1+lw95cMrLlXQAFOx/xnBtwhZ52XJxd9X2O6kwKBqX32kmhbhlobD0cuw==}
-
   merge2@1.4.1:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
@@ -3204,11 +3189,6 @@ packages:
     engines: {node: '>=10', npm: '>=6'}
     peerDependencies:
       react: '>=16.13.1'
-
-  react-highlight-words@0.21.0:
-    resolution: {integrity: sha512-SdWEeU9fIINArEPO1rO5OxPyuhdEKZQhHzZZP1ie6UeXQf+CjycT1kWaB+9bwGcVbR0NowuHK3RqgqNg6bgBDQ==}
-    peerDependencies:
-      react: ^0.14.0 || ^15.0.0 || ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
@@ -5305,10 +5285,6 @@ snapshots:
     dependencies:
       '@types/react': 19.2.2
 
-  '@types/react-highlight-words@0.20.1':
-    dependencies:
-      '@types/react': 19.2.2
-
   '@types/react@19.2.2':
     dependencies:
       csstype: 3.2.3
@@ -6059,8 +6035,6 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.4
 
-  highlight-words-core@1.2.3: {}
-
   html-encoding-sniffer@6.0.0:
     dependencies:
       '@exodus/bytes': 1.15.0
@@ -6470,8 +6444,6 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.2
 
-  memoize-one@4.0.3: {}
-
   merge2@1.4.1: {}
 
   micromark-core-commonmark@2.0.3:
@@ -6871,12 +6843,6 @@ snapshots:
   react-error-boundary@3.1.4(react@19.2.0):
     dependencies:
       '@babel/runtime': 7.29.2
-      react: 19.2.0
-
-  react-highlight-words@0.21.0(react@19.2.0):
-    dependencies:
-      highlight-words-core: 1.2.3
-      memoize-one: 4.0.3
       react: 19.2.0
 
   react-is@18.3.1: {}

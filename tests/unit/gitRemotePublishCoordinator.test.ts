@@ -96,6 +96,7 @@ function createGitProvider(
         getBranchInfo: vi.fn(),
         checkoutPreferredBranch: vi.fn(),
         listHistory: vi.fn(),
+        readCommitDetails: vi.fn(),
         readProjectSnapshotAtCommit: vi.fn(),
         restoreTrackedFilesFromCommit: vi.fn(),
         commitAll: vi.fn(),
