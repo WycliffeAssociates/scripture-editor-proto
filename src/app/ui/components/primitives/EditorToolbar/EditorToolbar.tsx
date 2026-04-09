@@ -302,15 +302,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         <ToolbarOverflowMenu
                             onCopyEditorJson={() => void handleCopyEditorJson()}
                             onOpenVersions={handleOpenPreviousVersions}
-                            onOpenDeveloperTools={
-                                import.meta.env.DEV
-                                    ? () => {
-                                          console.debug(
-                                              "Editor toolbar developer tools",
-                                          );
-                                      }
-                                    : undefined
-                            }
                         />
                     </div>
                 </div>

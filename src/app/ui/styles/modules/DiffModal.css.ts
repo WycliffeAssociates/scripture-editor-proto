@@ -620,18 +620,10 @@ export const chapterDiffBody = style({
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     overflowWrap: "anywhere",
-    lineHeight: 1.8,
+    lineHeight: 1.7,
     fontSize: vars.fontSizes.sm,
     fontFamily: "inherit",
     padding: `${vars.spacing.sm} ${vars.spacing.md}`,
-    "@media": {
-        [breakpoints.minWSmall]: {
-            fontSize: vars.fontSizes.md,
-        },
-        [breakpoints.minWMd]: {
-            fontSize: vars.fontSizes.lg,
-        },
-    },
 });
 
 globalStyle(`${chapterDiffBody} > .usfm-para-container`, {
@@ -651,12 +643,16 @@ export const chapterPartChanged = style({
     display: "inline",
 });
 
+export const chapterParagraphWithAction = style({
+    position: "relative",
+    paddingRight: `calc(${vars.spacing.xl} + 2rem)`,
+});
+
 export const chapterHunkAction = style({
-    float: "right",
-    marginLeft: vars.spacing.xs,
-    marginTop: "0.2em",
-    marginRight: 0,
-    zIndex: 1,
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 2,
     backgroundColor: vars.colors.blue[0],
     border: "none",
     boxShadow: "0 1px 2px rgba(0,0,0,0.1)",

@@ -5,7 +5,6 @@ import * as styles from "./toolbarOverflowMenu.css.ts";
 export interface ToolbarOverflowMenuProps {
     onCopyEditorJson?: () => void;
     onOpenVersions?: () => void;
-    onOpenDeveloperTools?: () => void;
 }
 
 export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
@@ -42,15 +41,6 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                             <History size={14} className={styles.itemIcon} />
                             Versions
                         </Menu.Item>
-                        {props.onOpenDeveloperTools ? (
-                            <Menu.Item
-                                className={styles.item}
-                                onClick={() => props.onOpenDeveloperTools?.()}
-                            >
-                                <Code size={14} className={styles.itemIcon} />
-                                Developer tools
-                            </Menu.Item>
-                        ) : null}
                         <Menu.Separator className={styles.separator} />
                     </Menu.Popup>
                 </Menu.Positioner>

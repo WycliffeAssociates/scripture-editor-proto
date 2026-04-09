@@ -6,6 +6,15 @@ export const trigger = style({
     minWidth: "2rem",
     height: "2rem",
     padding: 0,
+    backgroundColor: "transparent",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: vars.border.radius.sm,
+    selectors: {
+        "&:hover": {
+            backgroundColor: vars.button.tertiary.surfaceHover,
+        },
+    },
 });
 
 export const positioner = style({

@@ -116,8 +116,9 @@ export function replaceLintErrorsForBook(
     newErrors: LintIssue[],
 ): LintMessagesByBook {
     const targetBook = normalizeBookKey(book);
+    const prevErrors = prevMessagesByBook[targetBook] ?? [];
     const nextErrors = sortLintIssues(dedupeLintIssueList(newErrors));
-    if (prevMessagesByBook[targetBook] === newErrors) {
+    if (areLintIssueListsEqual(prevErrors, nextErrors)) {
         return prevMessagesByBook;
     }
 
@@ -147,7 +148,7 @@ export function replaceLintErrorsForChapter(
     const nextErrors = sortLintIssues(
         dedupeLintIssueList([...filtered, ...newErrors]),
     );
-    if (prevMessages === nextErrors) {
+    if (areLintIssueListsEqual(prevMessages, nextErrors)) {
         return prevMessagesByBook;
     }
 

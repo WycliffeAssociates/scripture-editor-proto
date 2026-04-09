@@ -260,6 +260,29 @@ function syncHitpointAttributes(
     }
 }
 
+function overlayEntriesEqual(
+    left: OverlayEntry[],
+    right: OverlayEntry[],
+): boolean {
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i++) {
+        const a = left[i];
+        const b = right[i];
+        if (
+            a.key !== b.key ||
+            a.dataId !== b.dataId ||
+            a.dataSid !== b.dataSid ||
+            a.height !== b.height ||
+            a.left !== b.left ||
+            a.top !== b.top ||
+            a.width !== b.width
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function clearLintOverlayState(
     hitpointsRef: { current: Set<HTMLElement> },
     setEntries: (entries: OverlayEntry[]) => void,
@@ -281,6 +304,9 @@ export function LintDomAnnotatorPlugin() {
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
+    const lintMessagesRef = useRef(lint.messages);
+    const entriesRef = useRef<OverlayEntry[]>([]);
+    const scheduleRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
         const nextRoot = document.querySelector(
@@ -293,33 +319,35 @@ export function LintDomAnnotatorPlugin() {
         if (!rootEl) return;
 
         let rafId = 0;
-        clearLintOverlayState(hitpointsRef, setEntries);
         const schedule = () => {
             window.cancelAnimationFrame(rafId);
             rafId = window.requestAnimationFrame(() => {
-                if (lint.messages.length === 0) {
-                    clearLintOverlayState(hitpointsRef, setEntries);
+                const messages = lintMessagesRef.current;
+                if (messages.length === 0) {
+                    if (
+                        hitpointsRef.current.size > 0 ||
+                        entriesRef.current.length > 0
+                    ) {
+                        clearLintOverlayState(hitpointsRef, setEntries);
+                        entriesRef.current = [];
+                    }
                     return;
                 }
 
-                const next = resolveOverlayEntries(rootEl, lint.messages);
+                const next = resolveOverlayEntries(rootEl, messages);
                 syncHitpointAttributes(hitpointsRef.current, next.hitpoints);
                 hitpointsRef.current = next.hitpoints;
-                setEntries(next.entries);
+                if (!overlayEntriesEqual(entriesRef.current, next.entries)) {
+                    entriesRef.current = next.entries;
+                    setEntries(next.entries);
+                }
             });
         };
+        scheduleRef.current = schedule;
 
         schedule();
 
-        const mutationObserver = new MutationObserver((mutations) => {
-            const shouldClearImmediately = mutations.some(
-                (mutation) =>
-                    mutation.type === "childList" ||
-                    mutation.type === "characterData",
-            );
-            if (shouldClearImmediately) {
-                clearLintOverlayState(hitpointsRef, setEntries);
-            }
+        const mutationObserver = new MutationObserver(() => {
             schedule();
         });
         mutationObserver.observe(rootEl, {
@@ -360,6 +388,7 @@ export function LintDomAnnotatorPlugin() {
             window.cancelAnimationFrame(rafId);
             mutationObserver.disconnect();
             resizeObserver.disconnect();
+            scheduleRef.current = null;
             rootEl.removeEventListener("scroll", schedule);
             scrollParent?.removeEventListener("scroll", schedule);
             if (documentScroll !== rootEl && documentScroll !== scrollParent) {
@@ -368,8 +397,14 @@ export function LintDomAnnotatorPlugin() {
             window.removeEventListener("resize", schedule);
             window.removeEventListener("scroll", schedule);
             clearLintOverlayState(hitpointsRef, setEntries);
+            entriesRef.current = [];
         };
-    }, [lint.messages, rootEl]);
+    }, [rootEl]);
+
+    useEffect(() => {
+        lintMessagesRef.current = lint.messages;
+        scheduleRef.current?.();
+    }, [lint.messages]);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;

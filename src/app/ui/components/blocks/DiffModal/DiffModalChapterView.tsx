@@ -8,7 +8,7 @@ import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import {
-    buildEntryRenderParagraphs,
+    buildChapterRenderParagraphs,
     type ChapterRenderParagraph,
     type ChapterTokenWithOwner,
 } from "@/app/ui/components/blocks/DiffModal/chapterDiffViewModel.ts";
@@ -94,18 +94,46 @@ function renderTokenDiff(args: {
     return nodes;
 }
 
+function tokenRendersVisible(args: {
+    tokenWithOwner: ChapterTokenWithOwner;
+    paragraph: ChapterRenderParagraph;
+    tokenIndex: number;
+    showUsfmMarkers: boolean;
+}): boolean {
+    if (args.tokenWithOwner.token.node.type === "linebreak") {
+        const previousToken = args.paragraph.tokens[args.tokenIndex - 1]?.token;
+        return !shouldHideStructuralLineBreak({
+            showUsfmMarkers: args.showUsfmMarkers,
+            tokenChange: args.tokenWithOwner.tokenChange,
+            previousToken,
+        });
+    }
+
+    const node = args.tokenWithOwner.token.node;
+    if (!isSerializedUSFMTextNode(node)) return false;
+
+    return Boolean(
+        getVisibleChapterTokenText({
+            showUsfmMarkers: args.showUsfmMarkers,
+            token: node,
+        }),
+    );
+}
+
 function ChapterStructuredToken({
     tokenWithOwner,
     paragraph,
     tokenIndex,
     showUsfmMarkers,
     viewType,
+    actionNode,
 }: {
     tokenWithOwner: ChapterTokenWithOwner;
     paragraph: ChapterRenderParagraph;
     tokenIndex: number;
     showUsfmMarkers: boolean;
     viewType: "original" | "current";
+    actionNode?: ReactNode;
 }) {
     if (tokenWithOwner.token.node.type === "linebreak") {
         const previousToken = paragraph.tokens[tokenIndex - 1]?.token;
@@ -132,6 +160,7 @@ function ChapterStructuredToken({
 
         return (
             <span key={tokenWithOwner.key}>
+                {actionNode}
                 {tokenWithOwner.tokenChange !== "unchanged" && (
                     <span
                         className={linebreakClass}
@@ -179,134 +208,34 @@ function ChapterStructuredToken({
               : "";
 
     return (
-        <span
-            key={tokenWithOwner.key}
-            data-id={node.id}
-            data-token-type={node.tokenType}
-            data-sid={node.sid}
-            data-in-para={node.inPara}
-            data-marker={node.marker}
-            data-lexical-text="true"
-            className={wholeTokenClass}
-            style={{ whiteSpace: "pre-wrap" }}
-        >
-            {isModifiedWithPair
-                ? renderTokenDiff({
-                      originalText:
-                          viewType === "original"
-                              ? displayText
-                              : counterpartDisplayText,
-                      currentText:
-                          viewType === "current"
-                              ? displayText
-                              : counterpartDisplayText,
-                      viewType,
-                  })
-                : displayText}
-        </span>
-    );
-}
-
-function EntrySide({
-    actionMode,
-    diff,
-    viewType,
-    showUsfmMarkers,
-    onRevertDiff,
-    onApplyDiffToCurrent,
-}: {
-    actionMode: "unsaved" | "external";
-    diff: ProjectDiff;
-    viewType: "original" | "current";
-    showUsfmMarkers: boolean;
-    onRevertDiff: (diffToRevert: ProjectDiff) => void;
-    onApplyDiffToCurrent: (diffToApply: ProjectDiff) => void;
-}) {
-    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
-    const entry = buildEntryRenderParagraphs({
-        diff,
-        viewType,
-        showUsfmMarkers,
-    });
-    const firstTokenWithOwner = entry.flatMap(
-        (paragraph) => paragraph.tokens,
-    )[0];
-    if (!firstTokenWithOwner) return null;
-
-    const entryMeta = {
-        uniqueKey: diff.uniqueKey,
-        semanticSid: diff.semanticSid,
-        status: diff.status,
-        canRevert: diff.status !== "unchanged",
-        diffToRevert: diff.status !== "unchanged" ? diff : undefined,
-    };
-
-    const localizedSid = entryMeta.diffToRevert
-        ? bookCodeToProjectLocalizedTitle({
-              bookCode: entryMeta.diffToRevert.bookCode,
-              replaceCodeInString: diff.semanticSid,
-          })
-        : diff.semanticSid;
-    const actionLabel =
-        actionMode === "external"
-            ? t`Accept change in ${localizedSid} to current`
-            : localizedSid
-              ? t`Undo ${localizedSid}`
-              : t`Undo Change`;
-    const onActionClick = () => {
-        if (!entryMeta.diffToRevert) return;
-        if (actionMode === "external") {
-            onApplyDiffToCurrent(entryMeta.diffToRevert);
-            return;
-        }
-        onRevertDiff(entryMeta.diffToRevert);
-    };
-
-    const actionSide =
-        actionMode === "external"
-            ? "current"
-            : (diff.undoSide ??
-              (diff.status === "deleted" ? "original" : "current"));
-    const showActionOverlay =
-        viewType === actionSide &&
-        entryMeta.canRevert &&
-        !!entryMeta.diffToRevert;
-
-    return (
-        <div className={styles.chapterPartChanged}>
-            {showActionOverlay && (
-                <ActionIconSimple
-                    className={styles.chapterHunkAction}
-                    data-testid={TESTING_IDS.save.chapterHunkAction}
-                    onClick={onActionClick}
-                    aria-label={actionLabel}
-                    title={actionLabel}
-                >
-                    <RotateCw size={12} />
-                </ActionIconSimple>
-            )}
-            {entry.map((paragraph) => (
-                <div
-                    key={paragraph.key}
-                    className="usfm-para-container"
-                    data-id={paragraph.key}
-                    data-sid={paragraph.sid}
-                    data-in-para={paragraph.marker}
-                    data-marker={paragraph.marker}
-                >
-                    {paragraph.tokens.map((tokenWithOwner, tokenIndex) => (
-                        <ChapterStructuredToken
-                            key={tokenWithOwner.key}
-                            tokenWithOwner={tokenWithOwner}
-                            paragraph={paragraph}
-                            tokenIndex={tokenIndex}
-                            showUsfmMarkers={showUsfmMarkers}
-                            viewType={viewType}
-                        />
-                    ))}
-                </div>
-            ))}
-        </div>
+        <>
+            {actionNode}
+            <span
+                key={tokenWithOwner.key}
+                data-id={node.id}
+                data-token-type={node.tokenType}
+                data-sid={node.sid}
+                data-in-para={node.inPara}
+                data-marker={node.marker}
+                data-lexical-text="true"
+                className={wholeTokenClass}
+                style={{ whiteSpace: "pre-wrap" }}
+            >
+                {isModifiedWithPair
+                    ? renderTokenDiff({
+                          originalText:
+                              viewType === "original"
+                                  ? displayText
+                                  : counterpartDisplayText,
+                          currentText:
+                              viewType === "current"
+                                  ? displayText
+                                  : counterpartDisplayText,
+                          viewType,
+                      })
+                    : displayText}
+            </span>
+        </>
     );
 }
 
@@ -333,6 +262,7 @@ export function ChapterDiffStructuredDocument({
     originalLabel: string;
     currentLabel: string;
 }) {
+    const { bookCodeToProjectLocalizedTitle } = useWorkspaceContext();
     const { isSm } = useWorkspaceMediaQuery();
     const [mobileViewType, setMobileViewType] = useState<
         "original" | "current"
@@ -344,6 +274,126 @@ export function ChapterDiffStructuredDocument({
                 : diffs,
         [diffs, hideWhitespaceOnly],
     );
+    const originalParagraphs = useMemo(
+        () =>
+            buildChapterRenderParagraphs({
+                diffs: visibleDiffs,
+                viewType: "original",
+                hideWhitespaceOnly,
+                showUsfmMarkers,
+            }),
+        [visibleDiffs, hideWhitespaceOnly, showUsfmMarkers],
+    );
+    const currentParagraphs = useMemo(
+        () =>
+            buildChapterRenderParagraphs({
+                diffs: visibleDiffs,
+                viewType: "current",
+                hideWhitespaceOnly,
+                showUsfmMarkers,
+            }),
+        [visibleDiffs, hideWhitespaceOnly, showUsfmMarkers],
+    );
+
+    function renderChapterSide(viewType: "original" | "current") {
+        const paragraphs =
+            viewType === "original" ? originalParagraphs : currentParagraphs;
+        const renderedActions = new Set<string>();
+        const diffByKey = new Map(
+            visibleDiffs.map((diff) => [diff.uniqueKey, diff] as const),
+        );
+
+        const buildActionNode = (tokenWithOwner: ChapterTokenWithOwner) => {
+            const diff = diffByKey.get(tokenWithOwner.entry.uniqueKey);
+            if (!diff) return null;
+            const actionSide =
+                actionMode === "external"
+                    ? "current"
+                    : (diff.undoSide ??
+                      (diff.status === "deleted" ? "original" : "current"));
+            if (viewType !== actionSide || diff.status === "unchanged") {
+                return null;
+            }
+            if (renderedActions.has(diff.uniqueKey)) return null;
+            renderedActions.add(diff.uniqueKey);
+
+            const localizedSid = bookCodeToProjectLocalizedTitle({
+                bookCode: diff.bookCode,
+                replaceCodeInString: diff.semanticSid,
+            });
+            const actionLabel =
+                actionMode === "external"
+                    ? t`Accept change in ${localizedSid} to current`
+                    : localizedSid
+                      ? t`Undo ${localizedSid}`
+                      : t`Undo Change`;
+            const onActionClick = () => {
+                if (actionMode === "external") {
+                    onApplyDiffToCurrent(diff);
+                    return;
+                }
+                onRevertDiff(diff);
+            };
+            return (
+                <ActionIconSimple
+                    className={styles.chapterHunkAction}
+                    data-testid={TESTING_IDS.save.chapterHunkAction}
+                    onClick={onActionClick}
+                    aria-label={actionLabel}
+                    title={actionLabel}
+                >
+                    <RotateCw size={12} />
+                </ActionIconSimple>
+            );
+        };
+
+        return paragraphs.map((paragraph) => {
+            let hasAction = false;
+            const tokenNodes = paragraph.tokens.map(
+                (tokenWithOwner, tokenIndex) => {
+                    const actionNode = tokenRendersVisible({
+                        tokenWithOwner,
+                        paragraph,
+                        tokenIndex,
+                        showUsfmMarkers,
+                    })
+                        ? buildActionNode(tokenWithOwner)
+                        : null;
+                    if (actionNode) {
+                        hasAction = true;
+                    }
+                    return (
+                        <ChapterStructuredToken
+                            key={tokenWithOwner.key}
+                            tokenWithOwner={tokenWithOwner}
+                            paragraph={paragraph}
+                            tokenIndex={tokenIndex}
+                            showUsfmMarkers={showUsfmMarkers}
+                            viewType={viewType}
+                            actionNode={actionNode}
+                        />
+                    );
+                },
+            );
+
+            return (
+                <div
+                    key={paragraph.key}
+                    className={
+                        hasAction
+                            ? `usfm-para-container ${styles.chapterParagraphWithAction}`
+                            : "usfm-para-container"
+                    }
+                    data-id={paragraph.key}
+                    data-sid={paragraph.sid}
+                    data-in-para={paragraph.marker}
+                    data-marker={paragraph.marker}
+                >
+                    {tokenNodes}
+                </div>
+            );
+        });
+    }
 
     return (
         <div
@@ -391,17 +441,7 @@ export function ChapterDiffStructuredDocument({
                             }
                             data-editor-read-only="true"
                         >
-                            {visibleDiffs.map((diff) => (
-                                <EntrySide
-                                    key={`${diff.uniqueKey}-${mobileViewType}`}
-                                    actionMode={actionMode}
-                                    diff={diff}
-                                    viewType={mobileViewType}
-                                    showUsfmMarkers={showUsfmMarkers}
-                                    onRevertDiff={onRevertDiff}
-                                    onApplyDiffToCurrent={onApplyDiffToCurrent}
-                                />
-                            ))}
+                            {renderChapterSide(mobileViewType)}
                         </div>
                     </div>
                 </div>
@@ -422,19 +462,7 @@ export function ChapterDiffStructuredDocument({
                                 }
                                 data-editor-read-only="true"
                             >
-                                {visibleDiffs.map((diff) => (
-                                    <EntrySide
-                                        key={`${diff.uniqueKey}-original`}
-                                        actionMode={actionMode}
-                                        diff={diff}
-                                        viewType="original"
-                                        showUsfmMarkers={showUsfmMarkers}
-                                        onRevertDiff={onRevertDiff}
-                                        onApplyDiffToCurrent={
-                                            onApplyDiffToCurrent
-                                        }
-                                    />
-                                ))}
+                                {renderChapterSide("original")}
                             </div>
                         </div>
                     </div>
@@ -451,19 +479,7 @@ export function ChapterDiffStructuredDocument({
                                 }
                                 data-editor-read-only="true"
                             >
-                                {visibleDiffs.map((diff) => (
-                                    <EntrySide
-                                        key={`${diff.uniqueKey}-current`}
-                                        actionMode={actionMode}
-                                        diff={diff}
-                                        viewType="current"
-                                        showUsfmMarkers={showUsfmMarkers}
-                                        onRevertDiff={onRevertDiff}
-                                        onApplyDiffToCurrent={
-                                            onApplyDiffToCurrent
-                                        }
-                                    />
-                                ))}
+                                {renderChapterSide("current")}
                             </div>
                         </div>
                     </div>
