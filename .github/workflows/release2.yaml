@@ -64,9 +64,10 @@ jobs:
         env:
           # todo: migrate to OP secrets at some poitn
           VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
 
       - name: Cargo check
         run: cargo check --manifest-path src/tauri/rust/Cargo.toml
@@ -76,9 +77,10 @@ jobs:
         env:
           # todo: migrate to OP secrets at some poitn
           VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_LANGUAGE_API_URL }}
-          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_LANGUAGE_API_URL }}
+          VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+          VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+          VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+          VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
 
       - name: Upload tauri frontend
         uses: actions/upload-artifact@v4
