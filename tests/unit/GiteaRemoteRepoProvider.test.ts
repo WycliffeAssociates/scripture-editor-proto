@@ -91,6 +91,7 @@ describe("GiteaRemoteRepoProvider", () => {
                 },
             ],
             nextPage: 2,
+            rawResultCount: 2,
         });
     });
 
@@ -229,6 +230,7 @@ describe("GiteaRemoteRepoProvider", () => {
                 },
             ],
             nextPage: 2,
+            rawResultCount: 1,
         });
     });
 

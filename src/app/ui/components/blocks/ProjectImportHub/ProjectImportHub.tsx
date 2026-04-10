@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
+import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import * as styles from "@/app/ui/styles/modules/projectImportHub.css.ts";
 import type { ConsolidatedRepo } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import {
@@ -21,7 +22,7 @@ import {
 } from "@/core/domain/project/import/LanguageApiImporter.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
-type SourceFilter = "all" | "catalog" | "cloud";
+type SourceFilter = "catalog" | "cloud";
 
 type ProjectImportHubProps = {
     onDownload: (zipUrl: string) => void;
@@ -33,27 +34,42 @@ type ProjectImportHubProps = {
     directoryInputRef?: React.RefObject<HTMLInputElement | null>;
     zipInputRef?: React.RefObject<HTMLInputElement | null>;
     hostBaseUrl: string | null;
+    remoteRepoTopic?: string;
     sessionUsername: string | null;
-    repos: RemoteRepoSummary[];
-    isLoadingCloudRepos: boolean;
     isImporting: boolean;
     isConnecting: boolean;
     isDisconnecting: boolean;
-    isOwnedOnly: boolean;
     loginUsername: string;
     loginPassword: string;
     loginOtp: string;
     error: string | null;
-    hasLoadedCloudRepos: boolean;
-    hasNextPage: boolean;
+    projectsService: {
+        listWritableRemoteRepos: (args: {
+            page: number;
+            pageSize: number;
+            topic?: string;
+            searchQuery?: string;
+        }) => Promise<{
+            repos: RemoteRepoSummary[];
+            nextPage: number | null;
+            rawResultCount: number;
+        }>;
+        listOwnedRemoteRepos: (args: {
+            page: number;
+            pageSize: number;
+            topic?: string;
+            searchQuery?: string;
+        }) => Promise<{
+            repos: RemoteRepoSummary[];
+            nextPage: number | null;
+            rawResultCount: number;
+        }>;
+    };
     onLoginUsernameChange: (value: string) => void;
     onLoginPasswordChange: (value: string) => void;
     onLoginOtpChange: (value: string) => void;
     onConnect: () => void;
-    onRefresh: () => void;
     onDisconnect: () => void;
-    onLoadMore: () => void;
-    onOwnedOnlyChange: (value: boolean) => void;
     onCloneRepo: (repo: RemoteRepoSummary) => void;
 };
 
@@ -63,7 +79,6 @@ type CatalogRow = {
     title: string;
     subtitle: string;
     meta: string;
-    sourceLabel: string;
     repo: ConsolidatedRepo;
 };
 
@@ -73,7 +88,6 @@ type CloudRow = {
     title: string;
     subtitle: string;
     meta: string;
-    sourceLabel: string;
     repo: RemoteRepoSummary;
 };
 
@@ -86,10 +100,23 @@ function matchesTerm(value: string | undefined, term: string) {
     return normalize(value).includes(term);
 }
 
+function matchesVisibleRowText(args: {
+    title: string;
+    subtitle: string;
+    meta: string;
+    term: string;
+}) {
+    if (args.term.length === 0) return true;
+    return (
+        matchesTerm(args.title, args.term) ||
+        matchesTerm(args.subtitle, args.term) ||
+        matchesTerm(args.meta, args.term)
+    );
+}
+
 export function ProjectImportHub(props: ProjectImportHubProps) {
     const { t } = useLingui();
-    const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-    const [searchTerm, setSearchTerm] = useState("");
+    const [sourceFilter, setSourceFilter] = useState<SourceFilter>("catalog");
     const [catalogRepos, setCatalogRepos] = useState<ConsolidatedRepo[] | null>(
         null,
     );
@@ -98,9 +125,14 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
     const [downloadingRepoId, setDownloadingRepoId] = useState<string | null>(
         null,
     );
+    const gitea = useGiteaApi({
+        sessionUsername: props.sessionUsername,
+        projectsService: props.projectsService,
+        topic: props.remoteRepoTopic,
+    });
 
     const hasFetchedCatalog = catalogRepos !== null;
-    const normalizedSearch = normalize(searchTerm);
+    const normalizedSearch = normalize(gitea.query);
 
     const loadCatalogRepos = useCallback(async () => {
         if (hasFetchedCatalog || catalogLoading) return;
@@ -131,14 +163,17 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
         const rows = catalogRepos
             .filter((repo) => {
                 if (normalizedSearch.length === 0) return false;
-                return (
-                    matchesTerm(repo.language_ietf, normalizedSearch) ||
-                    matchesTerm(repo.language_name, normalizedSearch) ||
-                    matchesTerm(repo.language_english_name, normalizedSearch) ||
-                    matchesTerm(repo.username, normalizedSearch) ||
-                    matchesTerm(repo.repo_name, normalizedSearch) ||
-                    matchesTerm(repo.title ?? undefined, normalizedSearch)
-                );
+                if (gitea.scope === "owned") return false;
+
+                const title = repo.language_english_name || repo.language_name;
+                const subtitle = repo.title || repo.repo_name;
+                const meta = repo.username;
+                return matchesVisibleRowText({
+                    title,
+                    subtitle,
+                    meta,
+                    term: normalizedSearch,
+                });
             })
             .slice(0, 80)
             .map((repo) => ({
@@ -147,22 +182,21 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                 title: repo.language_english_name || repo.language_name,
                 subtitle: repo.title || repo.repo_name,
                 meta: repo.username,
-                sourceLabel: t`Downloadable`,
                 repo,
             }));
         return rows;
-    }, [catalogRepos, normalizedSearch, t]);
+    }, [catalogRepos, gitea.scope, normalizedSearch]);
 
     const cloudRows = useMemo<CloudRow[]>(() => {
-        return props.repos
+        return gitea.repos
             .filter((repo) => {
                 if (sourceFilter === "catalog") return false;
-                if (normalizedSearch.length === 0) return true;
-                return (
-                    matchesTerm(repo.name, normalizedSearch) ||
-                    matchesTerm(repo.owner, normalizedSearch) ||
-                    matchesTerm(repo.defaultBranch, normalizedSearch)
-                );
+                return matchesVisibleRowText({
+                    title: repo.name,
+                    subtitle: repo.owner,
+                    meta: repo.defaultBranch,
+                    term: normalizedSearch,
+                });
             })
             .map((repo) => ({
                 kind: "cloud" as const,
@@ -170,19 +204,12 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                 title: repo.name,
                 subtitle: repo.owner,
                 meta: repo.defaultBranch,
-                sourceLabel: props.isOwnedOnly ? t`Mine` : t`Remote`,
                 repo,
             }));
-    }, [normalizedSearch, props.isOwnedOnly, props.repos, sourceFilter, t]);
+    }, [gitea.repos, normalizedSearch, sourceFilter]);
 
     const rows = useMemo(() => {
-        if (sourceFilter === "catalog") {
-            return catalogRows;
-        }
-        if (sourceFilter === "cloud") {
-            return cloudRows;
-        }
-        return [...catalogRows, ...cloudRows];
+        return sourceFilter === "cloud" ? cloudRows : catalogRows;
     }, [catalogRows, cloudRows, sourceFilter]);
 
     const downloadCatalogRepo = useCallback(
@@ -206,9 +233,8 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
     );
 
     const sourceItems = [
-        { value: "all", label: t`All projects` },
-        { value: "catalog", label: t`Downloadable` },
-        { value: "cloud", label: t`Remote` },
+        { value: "catalog", label: t`Download only` },
+        { value: "cloud", label: t`Linked cloud` },
     ];
 
     const showCloudLogin = sourceFilter === "cloud" && !props.sessionUsername;
@@ -222,16 +248,23 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                     </h2>
                     <p className={styles.description}>
                         <Trans>
-                            Download a copy, connect to a remote project you can
-                            push and pull, or import a local folder or ZIP.
+                            Import a linked cloud project, download an unlinked
+                            copy, or import a local folder or ZIP.
                         </Trans>
                     </p>
                     <p className={styles.sourceHint}>
                         <Trans>
-                            Downloadable projects get copied onto your disk.
-                            Remote projects stay linked to Gitea so changes can
-                            sync back when you have access. Only mine shows the
-                            repos owned by your Gitea account.
+                            Linked cloud projects import with their Gitea
+                            connection so changes can sync back. Download-only
+                            projects copy files onto this device and start
+                            unlinked.
+                        </Trans>
+                    </p>
+                    <p className={styles.sourceHint}>
+                        <Trans>
+                            Some projects may appear in both lists. Linked cloud
+                            keeps the Gitea connection. Download only imports a
+                            separate local copy.
                         </Trans>
                     </p>
                     <div className={styles.steps}>
@@ -310,7 +343,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                     <Search size={18} className={styles.searchIcon} />
                     <input
                         type="text"
-                        value={searchTerm}
+                        value={gitea.query}
                         onFocus={() => {
                             if (sourceFilter !== "cloud") {
                                 void loadCatalogRepos();
@@ -318,8 +351,11 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                         }}
                         onChange={(event) => {
                             const next = event.currentTarget.value;
-                            setSearchTerm(next);
-                            if (next.trim().length > 0) {
+                            gitea.setQuery(next);
+                            if (
+                                sourceFilter !== "cloud" &&
+                                next.trim().length > 0
+                            ) {
                                 void loadCatalogRepos();
                             }
                         }}
@@ -328,11 +364,11 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                         disabled={props.isDownloadDisabled || props.isImporting}
                         aria-label={t`Search projects`}
                     />
-                    {searchTerm.trim().length > 0 ? (
+                    {gitea.query.trim().length > 0 ? (
                         <button
                             type="button"
                             className={styles.clearButton}
-                            onClick={() => setSearchTerm("")}
+                            onClick={() => gitea.setQuery("")}
                             aria-label={t`Clear search`}
                         >
                             <X size={18} />
@@ -346,10 +382,12 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                             <label className={styles.checkboxPill}>
                                 <input
                                     type="checkbox"
-                                    checked={props.isOwnedOnly}
+                                    checked={gitea.scope === "owned"}
                                     onChange={(event) =>
-                                        props.onOwnedOnlyChange(
-                                            event.currentTarget.checked,
+                                        gitea.setScope(
+                                            event.currentTarget.checked
+                                                ? "owned"
+                                                : "all",
                                         )
                                     }
                                     className={styles.checkbox}
@@ -361,9 +399,11 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                             <Button
                                 variant="secondary"
                                 leftIcon={<RefreshCw size={16} />}
-                                onClick={props.onRefresh}
+                                onClick={() => {
+                                    void gitea.refresh();
+                                }}
                                 disabled={
-                                    props.isLoadingCloudRepos ||
+                                    gitea.isLoading ||
                                     props.isImporting ||
                                     props.isDisconnecting
                                 }
@@ -374,7 +414,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                 variant="secondary"
                                 onClick={props.onDisconnect}
                                 disabled={
-                                    props.isLoadingCloudRepos ||
+                                    gitea.isLoading ||
                                     props.isImporting ||
                                     props.isDisconnecting
                                 }
@@ -393,6 +433,9 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
             {props.error ? (
                 <div className={styles.errorState}>{props.error}</div>
             ) : null}
+            {gitea.error ? (
+                <div className={styles.errorState}>{gitea.error}</div>
+            ) : null}
             {catalogError ? (
                 <div className={styles.errorState}>{catalogError}</div>
             ) : null}
@@ -409,12 +452,6 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                             </th>
                             <th className={`${styles.th} ${styles.thDivider}`}>
                                 <span className={styles.thInner}>
-                                    <UserRound size={18} />
-                                    <Trans>Where it lives</Trans>
-                                </span>
-                            </th>
-                            <th className={`${styles.th} ${styles.thDivider}`}>
-                                <span className={styles.thInner}>
                                     <Trans>Details</Trans>
                                 </span>
                             </th>
@@ -424,7 +461,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                     <tbody className={styles.tbody}>
                         {showCloudLogin ? (
                             <tr>
-                                <td className={styles.td} colSpan={4}>
+                                <td className={styles.td} colSpan={3}>
                                     <div className={styles.loginPanel}>
                                         <p className={styles.loginCopy}>
                                             {props.hostBaseUrl ? (
@@ -569,7 +606,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                           sourceFilter !== "cloud" &&
                           !hasFetchedCatalog ? (
                             <tr>
-                                <td className={styles.td} colSpan={4}>
+                                <td className={styles.td} colSpan={3}>
                                     <div className={styles.emptyState}>
                                         <Trans>
                                             Loading downloadable projects...
@@ -578,24 +615,134 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                 </td>
                             </tr>
                         ) : sourceFilter === "cloud" &&
-                          props.isLoadingCloudRepos &&
-                          !props.hasLoadedCloudRepos ? (
+                          gitea.isLowSignalSearch &&
+                          rows.length === 0 ? (
                             <tr>
-                                <td className={styles.td} colSpan={4}>
+                                <td className={styles.td} colSpan={3}>
                                     <div className={styles.emptyState}>
                                         <Trans>
-                                            Loading remote projects...
+                                            Please enter a more specific search
+                                            term.
                                         </Trans>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : sourceFilter === "cloud" &&
+                          gitea.hasOnlyIncompatibleResults &&
+                          rows.length === 0 ? (
+                            <tr>
+                                <td className={styles.td} colSpan={3}>
+                                    <div className={styles.emptyState}>
+                                        <div>
+                                            <Trans>
+                                                No linked cloud projects matched
+                                                this search.
+                                            </Trans>
+                                        </div>
+                                        <div>
+                                            <Trans>
+                                                Your search returned results,
+                                                but none were cloud projects for
+                                                this app. Try a more specific
+                                                search term.
+                                            </Trans>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : sourceFilter === "cloud" &&
+                          rows.length === 0 &&
+                          gitea.query.trim().length < gitea.minSearchLength ? (
+                            <tr>
+                                <td className={styles.td} colSpan={3}>
+                                    <div className={styles.emptyState}>
+                                        {gitea.query.trim().length > 0 ? (
+                                            <Trans>
+                                                Type at least{" "}
+                                                {gitea.minSearchLength}{" "}
+                                                characters to search linked
+                                                cloud projects.
+                                            </Trans>
+                                        ) : (
+                                            <Trans>
+                                                Type at least{" "}
+                                                {gitea.minSearchLength}{" "}
+                                                characters to search linked
+                                                cloud projects.
+                                            </Trans>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : sourceFilter === "cloud" &&
+                          (gitea.isInitialLoading ||
+                              (gitea.isSearchMode &&
+                                  gitea.isLoading &&
+                                  rows.length === 0)) ? (
+                            <tr>
+                                <td className={styles.td} colSpan={3}>
+                                    <div className={styles.emptyState}>
+                                        {gitea.isSearchMode ? (
+                                            <Trans>
+                                                Searching linked cloud
+                                                projects...
+                                            </Trans>
+                                        ) : (
+                                            <Trans>
+                                                Loading remote projects...
+                                            </Trans>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
                         ) : rows.length === 0 ? (
                             <tr>
-                                <td className={styles.td} colSpan={4}>
+                                <td className={styles.td} colSpan={3}>
                                     <div className={styles.emptyState}>
                                         {sourceFilter === "cloud" ? (
                                             props.sessionUsername ? (
-                                                props.isOwnedOnly ? (
+                                                gitea.isLowSignalSearch ? (
+                                                    <Trans>
+                                                        Please enter a more
+                                                        specific search term.
+                                                    </Trans>
+                                                ) : gitea.hasOnlyIncompatibleResults ? (
+                                                    <>
+                                                        <div>
+                                                            <Trans>
+                                                                No linked cloud
+                                                                projects matched
+                                                                this search.
+                                                            </Trans>
+                                                        </div>
+                                                        <div>
+                                                            <Trans>
+                                                                Your search
+                                                                returned
+                                                                results, but
+                                                                none were cloud
+                                                                projects for
+                                                                this app. Try a
+                                                                more specific
+                                                                search term.
+                                                            </Trans>
+                                                        </div>
+                                                    </>
+                                                ) : gitea.query.trim().length >=
+                                                  gitea.minSearchLength ? (
+                                                    <Trans>
+                                                        No linked cloud projects
+                                                        matched this search.
+                                                    </Trans>
+                                                ) : gitea.query.trim().length <
+                                                  gitea.minSearchLength ? (
+                                                    <Trans>
+                                                        Type at least{" "}
+                                                        {gitea.minSearchLength}{" "}
+                                                        characters to search
+                                                        linked cloud projects.
+                                                    </Trans>
+                                                ) : gitea.scope === "owned" ? (
                                                     <Trans>
                                                         No repos you own are
                                                         visible in this list
@@ -633,11 +780,6 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                         </span>
                                     </td>
                                     <td className={styles.td}>
-                                        <span className={styles.sourceBadge}>
-                                            {row.sourceLabel}
-                                        </span>
-                                    </td>
-                                    <td className={styles.td}>
                                         <span className={styles.mutedCell}>
                                             {row.subtitle}
                                             {" · "}
@@ -658,7 +800,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                             }}
                                             disabled={
                                                 props.isImporting ||
-                                                props.isLoadingCloudRepos ||
+                                                gitea.isLoading ||
                                                 downloadingRepoId === row.id ||
                                                 (row.kind === "catalog"
                                                     ? props.isDownloadDisabled
@@ -669,10 +811,14 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                                 downloadingRepoId === row.id ? (
                                                     <Trans>Preparing...</Trans>
                                                 ) : (
-                                                    <Trans>Copy to disk</Trans>
+                                                    <Trans>
+                                                        Download local copy
+                                                    </Trans>
                                                 )
                                             ) : (
-                                                <Trans>Get copy</Trans>
+                                                <Trans>
+                                                    Import linked copy
+                                                </Trans>
                                             )}
                                         </Button>
                                     </td>
@@ -683,13 +829,31 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                 </table>
             </div>
 
-            {props.sessionUsername && props.hasNextPage ? (
+            {sourceFilter === "cloud" && gitea.isBackgroundFetching ? (
+                <div className={styles.footerActions}>
+                    <span className={styles.sourceHint}>
+                        {gitea.isFetchingMore ? (
+                            <Trans>Loading more linked cloud projects...</Trans>
+                        ) : gitea.isSearchMode ? (
+                            <Trans>Searching linked cloud projects...</Trans>
+                        ) : (
+                            <Trans>Refreshing linked cloud projects...</Trans>
+                        )}
+                    </span>
+                </div>
+            ) : null}
+
+            {props.sessionUsername &&
+            sourceFilter !== "catalog" &&
+            gitea.hasNextPage ? (
                 <div className={styles.footerActions}>
                     <Button
                         variant="secondary"
-                        onClick={props.onLoadMore}
+                        onClick={() => {
+                            void gitea.loadMore();
+                        }}
                         disabled={
-                            props.isLoadingCloudRepos ||
+                            gitea.isLoading ||
                             props.isImporting ||
                             props.isDisconnecting
                         }

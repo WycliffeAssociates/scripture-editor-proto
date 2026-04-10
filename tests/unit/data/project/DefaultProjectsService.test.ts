@@ -1106,7 +1106,7 @@ projects:
         ).resolves.toBeNull();
     });
 
-    test("importProject clears stale remote link state for the imported path", async () => {
+    test("importProject clears stale remote link state for portable imports", async () => {
         await writeGitRemoteProjectInfo({
             fileSystem,
             storageRoots: roots,
@@ -1136,8 +1136,8 @@ projects:
         });
 
         await projectsService.importProject({
-            type: "fromPreparedDir",
-            directoryPath: "/userData/projects/reg",
+            type: "fromZipFile",
+            zipPath: "/tmp/reg.zip",
         });
 
         await expect(

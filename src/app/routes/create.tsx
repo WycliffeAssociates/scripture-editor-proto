@@ -25,8 +25,6 @@ import type { ImportProgressUpdate } from "@/core/library/ImportService.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 
-type CloudRepoScope = "all" | "owned";
-
 /**
  * Create/import route.
  *
@@ -69,24 +67,9 @@ export function CreateProject() {
     const [cloudSessionUsername, setCloudSessionUsername] = useState<
         string | null
     >(null);
-    const [cloudRepoScope, setCloudRepoScope] = useState<CloudRepoScope>("all");
     const [loginUsername, setLoginUsername] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
     const [loginOtp, setLoginOtp] = useState("");
-    const [cloudRepos, setCloudRepos] = useState<RemoteRepoSummary[]>([]);
-    const [cloudNextPage, setCloudNextPage] = useState<number | null>(null);
-    const [hasLoadedCloudRepos, setHasLoadedCloudRepos] = useState(false);
-    const [isLoadingCloudRepos, setIsLoadingCloudRepos] = useState(false);
-    const [cloudOwnedRepos, setCloudOwnedRepos] = useState<RemoteRepoSummary[]>(
-        [],
-    );
-    const [cloudOwnedNextPage, setCloudOwnedNextPage] = useState<number | null>(
-        null,
-    );
-    const [hasLoadedCloudOwnedRepos, setHasLoadedCloudOwnedRepos] =
-        useState(false);
-    const [isLoadingCloudOwnedRepos, setIsLoadingCloudOwnedRepos] =
-        useState(false);
     const [isDisconnectingCloudAccount, setIsDisconnectingCloudAccount] =
         useState(false);
     const [cloudError, setCloudError] = useState<string | null>(null);
@@ -211,114 +194,8 @@ export function CreateProject() {
         }
     };
 
-    const loadCloudRepoPage = useCallback(
-        async (
-            scope: CloudRepoScope,
-            page: number,
-            append: boolean,
-        ): Promise<void> => {
-            if (!cloudSessionUsername) return;
-
-            const isOwnedScope = scope === "owned";
-            if (isOwnedScope) {
-                setIsLoadingCloudOwnedRepos(true);
-            } else {
-                setIsLoadingCloudRepos(true);
-            }
-            setCloudError(null);
-            try {
-                const result =
-                    scope === "owned"
-                        ? await projectsService.listOwnedRemoteRepos({
-                              page,
-                              pageSize: 20,
-                              topic: GIT_REMOTE_DEFAULT_TOPIC,
-                          })
-                        : await projectsService.listWritableRemoteRepos({
-                              page,
-                              pageSize: 20,
-                              topic: GIT_REMOTE_DEFAULT_TOPIC,
-                          });
-
-                if (isOwnedScope) {
-                    setCloudOwnedRepos((previous) =>
-                        append ? [...previous, ...result.repos] : result.repos,
-                    );
-                    setCloudOwnedNextPage(result.nextPage);
-                    setHasLoadedCloudOwnedRepos(true);
-                } else {
-                    setCloudRepos((previous) =>
-                        append ? [...previous, ...result.repos] : result.repos,
-                    );
-                    setCloudNextPage(result.nextPage);
-                    setHasLoadedCloudRepos(true);
-                }
-            } catch (error) {
-                setCloudError(
-                    error instanceof Error
-                        ? error.message
-                        : t`Failed to load cloud projects`,
-                );
-            } finally {
-                if (isOwnedScope) {
-                    setIsLoadingCloudOwnedRepos(false);
-                } else {
-                    setIsLoadingCloudRepos(false);
-                }
-            }
-        },
-        [cloudSessionUsername, projectsService, t],
-    );
-
-    const activeCloudRepos =
-        cloudRepoScope === "owned" ? cloudOwnedRepos : cloudRepos;
-    const activeCloudNextPage =
-        cloudRepoScope === "owned" ? cloudOwnedNextPage : cloudNextPage;
-    const activeHasLoadedCloudRepos =
-        cloudRepoScope === "owned"
-            ? hasLoadedCloudOwnedRepos
-            : hasLoadedCloudRepos;
-    const activeIsLoadingCloudRepos =
-        cloudRepoScope === "owned"
-            ? isLoadingCloudOwnedRepos
-            : isLoadingCloudRepos;
-
-    useEffect(() => {
-        if (
-            !cloudSessionUsername ||
-            activeHasLoadedCloudRepos ||
-            activeIsLoadingCloudRepos
-        ) {
-            return;
-        }
-        void loadCloudRepoPage(cloudRepoScope, 1, false);
-    }, [
-        activeHasLoadedCloudRepos,
-        activeIsLoadingCloudRepos,
-        cloudRepoScope,
-        cloudSessionUsername,
-        loadCloudRepoPage,
-    ]);
-
-    const refreshCloudRepos = useCallback(async () => {
-        await loadCloudRepoPage(cloudRepoScope, 1, false);
-    }, [cloudRepoScope, loadCloudRepoPage]);
-
-    const loadMoreCloudRepos = useCallback(async () => {
-        if (!activeCloudNextPage) return;
-        await loadCloudRepoPage(cloudRepoScope, activeCloudNextPage, true);
-    }, [activeCloudNextPage, cloudRepoScope, loadCloudRepoPage]);
-
     const resetCloudRepoState = useCallback(() => {
-        setCloudRepoScope("all");
-        setCloudRepos([]);
-        setCloudNextPage(null);
-        setHasLoadedCloudRepos(false);
-        setIsLoadingCloudRepos(false);
-        setCloudOwnedRepos([]);
-        setCloudOwnedNextPage(null);
-        setHasLoadedCloudOwnedRepos(false);
-        setIsLoadingCloudOwnedRepos(false);
+        setCloudError(null);
     }, []);
 
     const disconnectCloudAccount = useCallback(async () => {
@@ -696,36 +573,24 @@ export function CreateProject() {
                     directoryInputRef={directoryInputRef}
                     zipInputRef={zipInputRef}
                     hostBaseUrl={giteaHostBaseUrl}
+                    remoteRepoTopic={GIT_REMOTE_DEFAULT_TOPIC}
                     sessionUsername={cloudSessionUsername}
-                    repos={activeCloudRepos}
-                    isLoadingCloudRepos={activeIsLoadingCloudRepos}
                     isImporting={isImporting}
                     isConnecting={isConnectingCloudAccount}
                     isDisconnecting={isDisconnectingCloudAccount}
-                    isOwnedOnly={cloudRepoScope === "owned"}
                     loginUsername={loginUsername}
                     loginPassword={loginPassword}
                     loginOtp={loginOtp}
                     error={cloudError}
-                    hasLoadedCloudRepos={activeHasLoadedCloudRepos}
-                    hasNextPage={Boolean(activeCloudNextPage)}
+                    projectsService={projectsService}
                     onLoginUsernameChange={setLoginUsername}
                     onLoginPasswordChange={setLoginPassword}
                     onLoginOtpChange={setLoginOtp}
                     onConnect={() => {
                         void connectCloudAccount();
                     }}
-                    onRefresh={() => {
-                        void refreshCloudRepos();
-                    }}
                     onDisconnect={() => {
                         void disconnectCloudAccount();
-                    }}
-                    onLoadMore={() => {
-                        void loadMoreCloudRepos();
-                    }}
-                    onOwnedOnlyChange={(value) => {
-                        setCloudRepoScope(value ? "owned" : "all");
                     }}
                     onCloneRepo={(repo) => {
                         void cloneCloudRepo(repo);

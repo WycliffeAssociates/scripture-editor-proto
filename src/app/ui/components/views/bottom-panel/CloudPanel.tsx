@@ -201,7 +201,7 @@ function getCloudPanelView(
         return {
             title: t`Cloud is not linked`,
             statusBadge: t`Local only`,
-            description: t`Link this project in Settings > Advanced to publish and sync with cloud.`,
+            description: t`This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection.`,
             primaryAction: "none",
             primaryActionLabel: "",
             secondaryActionLabel: null,

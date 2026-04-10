@@ -14,12 +14,12 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:80
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:83
 msgid "Failed to save settings"
 msgstr "Error al guardar ajustes"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:84
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:87
 msgid "Settings could not be applied."
 msgstr "No se pudieron aplicar los ajustes."
 
@@ -40,10 +40,10 @@ msgstr "(Verso eliminado)"
 #. placeholder {0}: isDownloading ? "Adding..." : "Add"
 #. placeholder {0}: props.isConnecting ? "Connecting..." : "Connect account"
 #. placeholder {0}: props.isConnecting ? "Connecting..." : "Connect account"
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:382
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:556
-#: src/app/ui/components/import/CloudProjectImporter.tsx:113
-#: src/app/ui/components/import/CloudProjectImporter.tsx:261
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:417
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:588
+#: src/app/ui/components/import/CloudProjectImporter.tsx:112
+#: src/app/ui/components/import/CloudProjectImporter.tsx:229
 #: src/app/ui/components/import/LanguageApiImporter.tsx:277
 msgid "{0}"
 msgstr "{0}"
@@ -75,7 +75,7 @@ msgstr "{visibleDiffCount} diferencias"
 #~ msgid "<0>Loading...</0>"
 #~ msgstr "<0>Cargando...</0>"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:515
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:505
 msgid "A cloud project with this name already exists in your account. Attach the existing cloud project instead."
 msgstr "Ya existe un proyecto en la nube con este nombre en tu cuenta. En su lugar, adjunta el proyecto en la nube existente."
 
@@ -95,7 +95,7 @@ msgstr "Aceptar todos los cambios entrantes en todos los capítulos"
 msgid "Accept change in {localizedSid} to current"
 msgstr "Aceptar el cambio en {localizedSid} al actual"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:675
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:665
 msgid "Accept incoming cloud changes automatically unless the same verse already has unresolved local edits."
 msgstr "Aceptar automáticamente los cambios entrantes de la nube, a menos que el mismo versículo ya tenga ediciones locales sin resolver."
 
@@ -103,11 +103,11 @@ msgstr "Aceptar automáticamente los cambios entrantes de la nube, a menos que e
 #~ msgid "Actions"
 #~ msgstr "Acciones"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:339
+#: src/app/ui/components/import/CloudProjectImporter.tsx:307
 msgid "Add"
 msgstr "Agregar"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:248
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:279
 msgid "Add it"
 msgstr "Añadirlo"
 
@@ -115,15 +115,15 @@ msgstr "Añadirlo"
 msgid "Add project"
 msgstr "Agregar proyecto"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:359
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:362
 msgid "Adjust the overall application zoom when supported."
 msgstr "Ajustar el zoom general de la aplicación cuando sea compatible."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:345
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:348
 msgid "Adjust the reading size used for editor text."
 msgstr "Ajustar el tamaño de lectura usado para el texto del editor."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:145
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:148
 msgid "Advanced"
 msgstr "Avanzado"
 
@@ -137,8 +137,8 @@ msgid "Ahead"
 msgstr "Adelante"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:209
-msgid "All projects"
-msgstr "Todos los proyectos"
+#~ msgid "All projects"
+#~ msgstr "Todos los proyectos"
 
 #: src/app/ui/components/blocks/Search.tsx:88
 #~ msgid "All search results"
@@ -149,7 +149,7 @@ msgstr "Todos los proyectos"
 #~ msgid "An unknown error occurred"
 #~ msgstr "Ocurrió un error desconocido"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:133
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:136
 msgid "App Appearance"
 msgstr "Apariencia de la aplicación"
 
@@ -179,15 +179,15 @@ msgstr "Aplicar al actual"
 msgid "Are you sure you want to delete the project:"
 msgstr "¿Estás seguro de que deseas eliminar el proyecto:"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:909
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:899
 msgid "Attach"
 msgstr "Adjuntar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:734
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:724
 msgid "Attach existing cloud project"
 msgstr "Adjuntar proyecto en la nube existente"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:908
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:898
 msgid "Attaching..."
 msgstr "Adjuntando..."
 
@@ -195,11 +195,11 @@ msgstr "Adjuntando..."
 msgid "Author"
 msgstr "Autor"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:674
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:664
 msgid "Auto Accept Incoming Work"
 msgstr "Aceptar automáticamente el trabajo entrante"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:643
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:633
 msgid "Auto Accept My Work on Save"
 msgstr "Aceptar automáticamente mi trabajo al guardar"
 
@@ -207,7 +207,7 @@ msgstr "Aceptar automáticamente mi trabajo al guardar"
 msgid "Auto publish on save"
 msgstr "Publicar automáticamente al guardar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:616
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:606
 msgid "Auto Publish on Save"
 msgstr "Publicar automáticamente al guardar"
 
@@ -215,7 +215,7 @@ msgstr "Publicar automáticamente al guardar"
 msgid "Auto sync on open"
 msgstr "Sincronizar automáticamente al abrir"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:589
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:579
 msgid "Auto Sync on Open"
 msgstr "Sincronizar automáticamente al abrir"
 
@@ -240,7 +240,7 @@ msgstr "Volver a libros"
 #~ msgid "Back to latest"
 #~ msgstr "Volver al más reciente"
 
-#: src/app/routes/create.tsx:658
+#: src/app/routes/create.tsx:641
 msgid "Back to projects"
 msgstr "Regresar a proyectos"
 
@@ -272,17 +272,17 @@ msgstr "Identificadores del libro"
 msgid "Both local and cloud changed. Review to choose the final result."
 msgstr "Tanto lo local como la nube han cambiado. Revisa para elegir el resultado final."
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:145
+#: src/app/ui/components/import/CloudProjectImporter.tsx:144
 msgid "Branch"
 msgstr "Rama"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:259
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:580
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:570
 msgid "By chapter"
 msgstr "Por capítulo"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:258
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:579
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:569
 msgid "By verse"
 msgstr "Por versículo"
 
@@ -365,7 +365,7 @@ msgstr "Esquema de codificación de caracteres usado para el contenido del archi
 msgid "Character marker {marker} was not closed."
 msgstr "El marcador de carácter {marker} no fue cerrado."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:590
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:580
 msgid "Check for cloud updates automatically when opening a linked project."
 msgstr "Buscar actualizaciones de la nube automáticamente al abrir un proyecto vinculado."
 
@@ -386,7 +386,7 @@ msgstr "Verificando actualizaciones en la nube para este proyecto."
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:221
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:245
 msgid "Choose a source"
 msgstr "Elegir una fuente"
 
@@ -395,15 +395,15 @@ msgstr "Elegir una fuente"
 msgid "Choose chapter"
 msgstr "Elegir capítulo"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:565
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:555
 msgid "Choose how change review opens by default."
 msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:272
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:275
 msgid "Choose the display language for Dovetail."
 msgstr "Elegir el idioma de visualización de Dovetail."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:301
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:304
 msgid "Choose the theme used throughout the application."
 msgstr "Elegir el tema usado en toda la aplicación."
 
@@ -425,7 +425,7 @@ msgstr "Elegir el tema usado en toda la aplicación."
 #~ msgid "Clear Reference Resource"
 #~ msgstr "Limpiar recurso de referencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:336
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:367
 #: src/app/ui/components/import/LanguageApiImporter.tsx:150
 msgid "Clear search"
 msgstr "Limpiar búsqueda"
@@ -461,7 +461,7 @@ msgstr "El marcador de cierre {marker} no es reconocido."
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:214
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:217
 msgid "Close without Saving"
 msgstr "Cerrar sin guardar"
 
@@ -469,11 +469,11 @@ msgstr "Cerrar sin guardar"
 #~ msgid "Cloud"
 #~ msgstr "Nube"
 
-#: src/app/routes/create.tsx:388
+#: src/app/routes/create.tsx:371
 msgid "Cloud account connected"
 msgstr "Cuenta de nube conectada"
 
-#: src/app/routes/create.tsx:333
+#: src/app/routes/create.tsx:316
 msgid "Cloud account logged out"
 msgstr "Sesión de cuenta de nube cerrada"
 
@@ -519,27 +519,27 @@ msgstr "La nube no está vinculada"
 msgid "Cloud is unavailable"
 msgstr "La nube no está disponible"
 
-#: src/app/routes/create.tsx:402
+#: src/app/routes/create.tsx:385
 msgid "Cloud login failed"
 msgstr "Error en inicio de sesión en la nube"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:61
+#: src/app/ui/components/import/CloudProjectImporter.tsx:60
 msgid "Cloud login is not configured for this build yet."
 msgstr "El inicio de sesión en la nube aún no está configurado para esta compilación."
 
-#: src/app/routes/create.tsx:357
+#: src/app/routes/create.tsx:340
 msgid "Cloud login unavailable"
 msgstr "Inicio de sesión en la nube no disponible"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:542
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:532
 msgid "Cloud project attached"
 msgstr "Proyecto en la nube adjuntado"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:501
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:491
 msgid "Cloud project created"
 msgstr "Proyecto en la nube creado"
 
-#: src/app/routes/create.tsx:433
+#: src/app/routes/create.tsx:416
 msgid "Cloud project imported successfully!"
 msgstr "¡Proyecto de nube importado con éxito!"
 
@@ -586,12 +586,12 @@ msgid "Comparison target"
 msgstr "Destino de comparación"
 
 #. placeholder {0}: props.hostBaseUrl
-#: src/app/ui/components/import/CloudProjectImporter.tsx:59
+#: src/app/ui/components/import/CloudProjectImporter.tsx:58
 msgid "Connect to {0}"
 msgstr "Conectar a {0}"
 
 #. placeholder {0}: props.hostBaseUrl
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:431
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:463
 msgid "Connect to {0}to browse remote projects you can push and pull."
 msgstr "Conéctate a {0}para navegar por proyectos remotos que puedes enviar y recibir."
 
@@ -601,7 +601,7 @@ msgid "Connected"
 msgstr "Conectado"
 
 #. placeholder {0}: props.sessionUsername
-#: src/app/ui/components/import/CloudProjectImporter.tsx:54
+#: src/app/ui/components/import/CloudProjectImporter.tsx:53
 msgid "Connected as {0}"
 msgstr "Conectado como {0}"
 
@@ -623,19 +623,19 @@ msgid "Copy this diff (JSON)"
 msgstr "Copiar esta diferencia (JSON)"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:672
-msgid "Copy to disk"
-msgstr "Copiar al disco"
+#~ msgid "Copy to disk"
+#~ msgstr "Copiar al disco"
 
 #. placeholder {0}: uploadedEntries.length
 #: src/core/domain/project/import/browserImportPipeline.ts:360
 msgid "Copying uploaded folder into app storage (0/{0})..."
 msgstr "Copiando carpeta subida al almacenamiento de la aplicación (0/{0})..."
 
-#: src/app/routes/create.tsx:398
+#: src/app/routes/create.tsx:381
 msgid "Could not connect your cloud account."
 msgstr "No se pudo conectar tu cuenta de nube."
 
-#: src/app/routes/create.tsx:341
+#: src/app/routes/create.tsx:324
 msgid "Could not disconnect cloud account"
 msgstr "No se pudo desconectar la cuenta de nube"
 
@@ -647,11 +647,11 @@ msgstr "No se pudo desconectar la cuenta de nube"
 #~ msgid "Create a project by searching for a repository, uploading a folder, or selecting a ZIP file."
 #~ msgstr "Crea un proyecto buscando un repositorio, subiendo una carpeta o seleccionando un archivo ZIP."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:708
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:698
 msgid "Create and link a new cloud repository from this local project."
 msgstr "Crear y vincular un nuevo repositorio en la nube desde este proyecto local."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:707
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:697
 msgid "Create cloud project"
 msgstr "Crear proyecto en la nube"
 
@@ -659,7 +659,7 @@ msgstr "Crear proyecto en la nube"
 msgid "Create your first project"
 msgstr "Crea tu primer proyecto"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:726
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:716
 msgid "Creating..."
 msgstr "Creando..."
 
@@ -708,7 +708,7 @@ msgstr "Texto actual"
 msgid "Cut"
 msgstr "Cortar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:319
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:322
 msgid "Dark"
 msgstr "Oscuro"
 
@@ -716,7 +716,7 @@ msgstr "Oscuro"
 msgid "Default replace term"
 msgstr "Término de reemplazo predeterminado"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:564
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:554
 msgid "Default review view"
 msgstr "Vista de revisión predeterminada"
 
@@ -737,7 +737,7 @@ msgstr "Eliminar proyecto"
 msgid "Description"
 msgstr "Descripción"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:418
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:450
 msgid "Details"
 msgstr "Detalles"
 
@@ -745,8 +745,8 @@ msgstr "Detalles"
 msgid "Diff summary"
 msgstr "Resumen de diferencias"
 
-#: src/app/routes/create.tsx:507
-#: src/app/routes/create.tsx:585
+#: src/app/routes/create.tsx:490
+#: src/app/routes/create.tsx:568
 msgid "Directory imported successfully!"
 msgstr "¡Directorio importado con éxito!"
 
@@ -771,10 +771,10 @@ msgstr "Desactivar marcadores USFM"
 msgid "Disable whole word"
 msgstr "Desactivar palabra completa"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:606
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:633
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:664
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:695
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:596
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:623
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:654
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:685
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:161
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:169
 msgid "Disabled"
@@ -788,7 +788,7 @@ msgstr "Deshabilitado"
 #~ msgid "Display"
 #~ msgstr "Pantalla"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:300
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:303
 msgid "Display Mode"
 msgstr "Modo de visualización"
 
@@ -797,12 +797,20 @@ msgid "Display options"
 msgstr "Opciones de visualización"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:224
-msgid "Download a copy, connect to a remote project you can push and pull, or import a local folder or ZIP."
-msgstr "Descargar una copia, conectarte a un proyecto remoto al que puedas enviar y recibir, o importar una carpeta local o un ZIP."
+#~ msgid "Download a copy, connect to a remote project you can push and pull, or import a local folder or ZIP."
+#~ msgstr "Descargar una copia, conectarte a un proyecto remoto al que puedas enviar y recibir, o importar una carpeta local o un ZIP."
 
-#: src/app/routes/create.tsx:481
+#: src/app/routes/create.tsx:464
 msgid "Download Error"
 msgstr "Error de descarga"
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:809
+msgid "Download local copy"
+msgstr "Descargar copia local"
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:234
+msgid "Download only"
+msgstr "Solo descargar"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:160
 #~ msgid "Download repository"
@@ -814,14 +822,14 @@ msgstr "Error de descarga"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:150
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:210
-msgid "Downloadable"
-msgstr "Descargable"
+#~ msgid "Downloadable"
+#~ msgstr "Descargable"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:230
-msgid "Downloadable projects get copied onto your disk. Remote projects stay linked to Gitea so changes can sync back when you have access. Only mine shows the repos owned by your Gitea account."
-msgstr "Los proyectos descargables se copian en tu disco. Los proyectos remotos permanecen vinculados a Gitea, de modo que los cambios pueden sincronizarse cuando tengas acceso. Only mine muestra los repos de tu cuenta de Gitea."
+#~ msgid "Downloadable projects get copied onto your disk. Remote projects stay linked to Gitea so changes can sync back when you have access. Only mine shows the repos owned by your Gitea account."
+#~ msgstr "Los proyectos descargables se copian en tu disco. Los proyectos remotos permanecen vinculados a Gitea, de modo que los cambios pueden sincronizarse cuando tengas acceso. Only mine muestra los repos de tu cuenta de Gitea."
 
-#: src/app/routes/create.tsx:457
+#: src/app/routes/create.tsx:440
 msgid "Downloading repository..."
 msgstr "Descargando repositorio..."
 
@@ -846,7 +854,7 @@ msgstr "Editar"
 #~ msgid "Edit mode (click for view-only)"
 #~ msgstr "Modo de edición (haz clic para ver solo)"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:330
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:333
 msgid "Editor Mode"
 msgstr "Modo del editor"
 
@@ -854,10 +862,10 @@ msgstr "Modo del editor"
 msgid "Empty {label}. Type to add text, or press Enter to insert below."
 msgstr "{label} vacío. Escribe para añadir texto o presiona Enter para insertar debajo."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:605
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:632
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:663
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:694
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:595
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:622
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:653
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:684
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:160
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:168
 msgid "Enabled"
@@ -867,7 +875,7 @@ msgstr "Habilitado"
 msgid "English"
 msgstr "Inglés"
 
-#: src/app/routes/create.tsx:366
+#: src/app/routes/create.tsx:349
 msgid "Enter your credentials"
 msgstr "Ingresa tus credenciales"
 
@@ -887,19 +895,19 @@ msgstr "Español"
 #~ msgid "Existing project"
 #~ msgstr "Proyecto existente"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:549
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:539
 msgid "Failed to attach cloud project"
 msgstr "No se pudo adjuntar el proyecto en la nube"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:513
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:503
 msgid "Failed to create remote project"
 msgstr "No se pudo crear el proyecto remoto"
 
-#: src/app/routes/create.tsx:479
+#: src/app/routes/create.tsx:462
 msgid "Failed to download project"
 msgstr "No se pudo descargar el proyecto"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:116
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:146
 msgid "Failed to fetch projects"
 msgstr "No se pudieron obtener los proyectos"
 
@@ -907,22 +915,22 @@ msgstr "No se pudieron obtener los proyectos"
 #~ msgid "Failed to fetch suggestions."
 #~ msgstr "No se pudieron obtener sugerencias."
 
-#: src/app/routes/create.tsx:443
+#: src/app/routes/create.tsx:426
 msgid "Failed to import cloud project"
 msgstr "Error al importar proyecto de nube"
 
-#: src/app/routes/create.tsx:517
-#: src/app/routes/create.tsx:596
+#: src/app/routes/create.tsx:500
+#: src/app/routes/create.tsx:579
 msgid "Failed to import directory"
 msgstr "No se pudo importar el directorio"
 
-#: src/app/routes/create.tsx:553
-#: src/app/routes/create.tsx:639
+#: src/app/routes/create.tsx:536
+#: src/app/routes/create.tsx:622
 msgid "Failed to import file"
 msgstr "No se pudo importar el archivo"
 
-#: src/app/routes/create.tsx:260
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:475
+#: src/app/routes/create.tsx:256
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:466
 msgid "Failed to load cloud projects"
 msgstr "Error al cargar proyectos de nube"
 
@@ -930,12 +938,12 @@ msgstr "Error al cargar proyectos de nube"
 msgid "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 msgstr "Error al cargar notas de traducción para {referenceBookCode} {referenceChapterNumber}"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:199
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:224
 msgid "Failed to prepare download"
 msgstr "No se pudo preparar la descarga"
 
-#: src/app/routes/create.tsx:543
-#: src/app/routes/create.tsx:628
+#: src/app/routes/create.tsx:526
+#: src/app/routes/create.tsx:611
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
@@ -946,7 +954,7 @@ msgstr "Corrección aplicada"
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:106
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:131
 #: src/app/ui/components/blocks/ProjectCreator.tsx:54
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:269
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:300
 msgid "Folder"
 msgstr "Carpeta"
 
@@ -1000,13 +1008,13 @@ msgstr "Formateando proyecto"
 #~ msgid "Formatting Suggestion"
 #~ msgstr "Sugerencia de formato"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:48
+#: src/app/ui/components/import/CloudProjectImporter.tsx:47
 msgid "From my cloud projects"
 msgstr "De mis proyectos de nube"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:675
-msgid "Get copy"
-msgstr "Obtener copia"
+#~ msgid "Get copy"
+#~ msgstr "Obtener copia"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:141
 msgid "Group case mismatches"
@@ -1029,30 +1037,38 @@ msgstr "Ocultar panel de referencia"
 msgid "Hide whitespace-only diffs"
 msgstr "Ocultar diferencias solo de espacios en blanco"
 
-#: src/app/routes/create.tsx:445
-#: src/app/routes/create.tsx:519
-#: src/app/routes/create.tsx:555
-#: src/app/routes/create.tsx:598
-#: src/app/routes/create.tsx:641
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:248
+msgid "Import a linked cloud project, download an unlinked copy, or import a local folder or ZIP."
+msgstr "Importa un proyecto en la nube vinculado, descarga una copia desvinculada o importa una carpeta local o un ZIP."
+
+#: src/app/routes/create.tsx:428
+#: src/app/routes/create.tsx:502
+#: src/app/routes/create.tsx:538
+#: src/app/routes/create.tsx:581
+#: src/app/routes/create.tsx:624
 msgid "Import Error"
 msgstr "Error de importación"
 
-#: src/app/routes/create.tsx:196
-#: src/app/routes/create.tsx:204
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:814
+msgid "Import linked copy"
+msgstr "Importar copia vinculada"
+
+#: src/app/routes/create.tsx:192
+#: src/app/routes/create.tsx:200
 msgid "Import Started"
 msgstr "Importación iniciada"
 
-#: src/app/routes/create.tsx:423
+#: src/app/routes/create.tsx:406
 msgid "Importing cloud project..."
 msgstr "Importando proyecto de nube..."
 
-#: src/app/routes/create.tsx:495
-#: src/app/routes/create.tsx:572
+#: src/app/routes/create.tsx:478
+#: src/app/routes/create.tsx:555
 msgid "Importing directory..."
 msgstr "Importando directorio..."
 
-#: src/app/routes/create.tsx:531
-#: src/app/routes/create.tsx:616
+#: src/app/routes/create.tsx:514
+#: src/app/routes/create.tsx:599
 msgid "Importing file..."
 msgstr "Importando archivo..."
 
@@ -1105,7 +1121,7 @@ msgstr "Salto de línea intencional"
 #~ msgid "Intentional Line Break"
 #~ msgstr "Salto de línea intencional"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:271
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:274
 msgid "Interface Language"
 msgstr "Idioma de la interfaz"
 
@@ -1139,27 +1155,39 @@ msgstr "Última publicación"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:327
 msgid "Latest changes are from {latestIncomingAuthorName}. {fallback}"
-msgstr ""
+msgstr "Los cambios más recientes son de {latestIncomingAuthorName}. {fallback}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:314
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:317
 msgid "Light"
 msgstr "Claro"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:735
-msgid "Link this local project to a repository you already own in cloud."
-msgstr "Vincula este proyecto local a un repositorio que ya posees en la nube."
+#~ msgid "Link this local project to a repository you already own in cloud."
+#~ msgstr "Vincula este proyecto local a un repositorio que ya posees en la nube."
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:725
+msgid "Link this local project to any cloud repository you can edit."
+msgstr "Vincula este proyecto local a cualquier repositorio en la nube que puedas editar."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:204
-msgid "Link this project in Settings > Advanced to publish and sync with cloud."
-msgstr "Vincula este proyecto en Ajustes > Avanzado para publicarlo y sincronizarlo con la nube."
+#~ msgid "Link this project in Settings > Advanced to publish and sync with cloud."
+#~ msgstr "Vincula este proyecto en Ajustes > Avanzado para publicarlo y sincronizarlo con la nube."
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:235
+msgid "Linked cloud"
+msgstr "Nube vinculada"
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:254
+msgid "Linked cloud projects import with their Gitea connection so changes can sync back. Download-only projects copy files onto this device and start unlinked."
+msgstr "Los proyectos en la nube vinculados se importan con su conexión de Gitea para que los cambios puedan sincronizarse de vuelta. Los proyectos de solo descarga copian los archivos en este dispositivo y comienzan desvinculados."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:478
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:946
 #~ msgid "List view"
 #~ msgstr "Vista de lista"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:697
-#: src/app/ui/components/import/CloudProjectImporter.tsx:361
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:856
+#: src/app/ui/components/import/CloudProjectImporter.tsx:329
 msgid "Load more"
 msgstr "Cargar más"
 
@@ -1167,19 +1195,23 @@ msgstr "Cargar más"
 msgid "Loading"
 msgstr "Cargando"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:282
+#: src/app/ui/components/import/CloudProjectImporter.tsx:250
 msgid "Loading cloud projects..."
 msgstr "Cargando proyectos de nube..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:574
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:606
 msgid "Loading downloadable projects..."
 msgstr "Cargando proyectos descargables..."
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:831
+msgid "Loading more linked cloud projects..."
+msgstr "Cargando más proyectos en la nube vinculados..."
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:242
 #~ msgid "Loading reference search source"
 #~ msgstr "Cargando fuente de búsqueda de referencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:586
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:686
 msgid "Loading remote projects..."
 msgstr "Cargando proyectos remotos..."
 
@@ -1246,7 +1278,7 @@ msgstr "Título principal que se muestra antes de que comience el texto de las E
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:80
 msgid "Marker {marker} is immediately followed by text and is missing a space or new line"
-msgstr ""
+msgstr "El marcador {marker} está seguido inmediatamente por texto y le falta un espacio o una nueva línea"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:79
 #~ msgid "Marker {marker} is immediately followed by text."
@@ -1325,8 +1357,8 @@ msgid "Milestone marker {marker} must be self-closing."
 msgstr "El marcador de hito {marker} debe ser autocerrante."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:173
-msgid "Mine"
-msgstr "Míos"
+#~ msgid "Mine"
+#~ msgstr "Míos"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:268
 #~ msgid "Minimize suggestions"
@@ -1366,9 +1398,9 @@ msgstr "Necesita revisión"
 msgid "New cloud changes are ready for review before you bring them into this project."
 msgstr "Los nuevos cambios de la nube están listos para revisión antes de traerlos a este proyecto."
 
-#: src/app/routes/create.tsx:664
+#: src/app/routes/create.tsx:647
 #: src/app/routes/index.tsx:58
-#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:241
+#: src/app/ui/components/primitives/ProjectList/ProjectList.tsx:242
 msgid "New Project"
 msgstr "Nuevo proyecto"
 
@@ -1399,15 +1431,21 @@ msgstr "No se detectaron cambios."
 msgid "No chapters available."
 msgstr "No hay capítulos disponibles."
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:301
+#: src/app/ui/components/import/CloudProjectImporter.tsx:269
 msgid "No cloud projects are available for this account yet."
 msgstr "Aún no hay proyectos de nube disponibles para esta cuenta."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:866
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:856
 msgid "No cloud projects found."
-msgstr ""
+msgstr "No se encontraron proyectos en la nube."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:617
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:632
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:707
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:728
+msgid "No linked cloud projects matched this search."
+msgstr "Ningún proyecto en la nube vinculado coincidió con esta búsqueda."
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:759
 #: src/app/ui/components/import/LanguageApiImporter.tsx:219
 msgid "No matching projects"
 msgstr "No se encontraron proyectos coincidentes"
@@ -1416,15 +1454,15 @@ msgstr "No se encontraron proyectos coincidentes"
 msgid "No projects yet"
 msgstr "No hay proyectos aún"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:605
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:747
 msgid "No remote projects are available for this account yet."
 msgstr "Todavía no hay proyectos remotos disponibles para esta cuenta."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:599
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:741
 msgid "No repos you own are visible in this list yet."
 msgstr "Todavía no hay repositorios que poseas visibles en esta lista."
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:290
+#: src/app/ui/components/import/CloudProjectImporter.tsx:258
 msgid "No repositories you own are visible in this list yet."
 msgstr "Aún no hay repositorios que poseas visibles en esta lista."
 
@@ -1455,7 +1493,7 @@ msgstr "Párrafo sin sangría"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:339
 msgid "Not connected"
-msgstr ""
+msgstr "No conectado"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:94
 msgid "Note marker {marker} was not closed before the next block boundary."
@@ -1484,19 +1522,19 @@ msgstr "El rango de números {found} es inválido."
 msgid "Offline"
 msgstr "Sin conexión"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:517
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:549
 msgid "One-time code"
 msgstr "Código de un solo uso"
 
 #: src/app/ui/components/import/CloudProjectImporter.tsx:229
-msgid "One-time code (optional)"
-msgstr "Código de un solo uso (opcional)"
+#~ msgid "One-time code (optional)"
+#~ msgstr "Código de un solo uso (opcional)"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:358
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:391
 msgid "Only mine"
 msgstr "Solo míos"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:87
+#: src/app/ui/components/import/CloudProjectImporter.tsx:86
 msgid "Only repos I own"
 msgstr "Solo repositorios que poseo"
 
@@ -1508,7 +1546,7 @@ msgstr "Abre un proyecto existente o crea uno nuevo."
 msgid "Open lint dock"
 msgstr "Abrir panel de lint"
 
-#: src/app/routes/create.tsx:176
+#: src/app/routes/create.tsx:172
 msgid "Open project"
 msgstr "Abrir proyecto"
 
@@ -1545,7 +1583,7 @@ msgstr "Original"
 #~ msgid "Other Resources"
 #~ msgstr "Otros recursos"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:140
+#: src/app/ui/components/import/CloudProjectImporter.tsx:139
 msgid "Owner"
 msgstr "Propietario"
 
@@ -1567,10 +1605,10 @@ msgstr "El marcador de párrafo {marker} aparece antes del primer marcador de ca
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:82
 msgid "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
-msgstr ""
+msgstr "El marcador de párrafo {marker} crea un párrafo vacío porque el siguiente marcador abre su propio párrafo."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:487
-#: src/app/ui/components/import/CloudProjectImporter.tsx:199
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:519
+#: src/app/ui/components/import/CloudProjectImporter.tsx:198
 msgid "Password"
 msgstr "Contraseña"
 
@@ -1578,7 +1616,7 @@ msgstr "Contraseña"
 msgid "Paste"
 msgstr "Pegar"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:240
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:271
 msgid "Pick a source"
 msgstr "Elegir una fuente"
 
@@ -1590,10 +1628,14 @@ msgstr "Elegir una fuente"
 #~ msgid "Plain — shows the underlying markup; fewer editor helpers."
 #~ msgstr "Plano — muestra el marcado subyacente; menos ayudas del editor."
 
-#: src/app/routes/create.tsx:345
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:479
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:507
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:553
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:618
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:700
+msgid "Please enter a more specific search term."
+msgstr "Introduce un término de búsqueda más específico."
+
+#: src/app/routes/create.tsx:328
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:497
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:543
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:58
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:83
 msgid "Please try again."
@@ -1615,7 +1657,7 @@ msgstr "Poesía 3"
 msgid "Poetry 4"
 msgstr "Poesía 4"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:670
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:807
 msgid "Preparing..."
 msgstr "Preparando..."
 
@@ -1659,8 +1701,8 @@ msgstr "Procesando libro 1 de {totalBooks}..."
 #~ msgstr "Procesando ZIP de andamiaje..."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:128
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:407
-#: src/app/ui/components/import/CloudProjectImporter.tsx:134
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:445
+#: src/app/ui/components/import/CloudProjectImporter.tsx:133
 #: src/app/ui/components/import/LanguageApiImporter.tsx:171
 msgid "Project"
 msgstr "Proyecto"
@@ -1669,11 +1711,11 @@ msgstr "Proyecto"
 msgid "Project display name"
 msgstr "Nombre visible del proyecto"
 
-#: src/app/routes/create.tsx:468
+#: src/app/routes/create.tsx:451
 msgid "Project downloaded successfully!"
 msgstr "¡Proyecto descargado con éxito!"
 
-#: src/app/routes/create.tsx:467
+#: src/app/routes/create.tsx:450
 msgid "Project downloaded successfully. Metadata needs review before opening it."
 msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes de abrirlo."
 
@@ -1681,11 +1723,11 @@ msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes 
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
-#: src/app/routes/create.tsx:430
-#: src/app/routes/create.tsx:504
-#: src/app/routes/create.tsx:540
-#: src/app/routes/create.tsx:582
-#: src/app/routes/create.tsx:625
+#: src/app/routes/create.tsx:413
+#: src/app/routes/create.tsx:487
+#: src/app/routes/create.tsx:523
+#: src/app/routes/create.tsx:565
+#: src/app/routes/create.tsx:608
 msgid "Project imported successfully. Metadata needs review before opening it."
 msgstr "Proyecto importado con éxito. Los metadatos necesitan revisión antes de abrirlo."
 
@@ -1693,12 +1735,12 @@ msgstr "Proyecto importado con éxito. Los metadatos necesitan revisión antes d
 msgid "Project is in sync"
 msgstr "El proyecto está sincronizado"
 
-#: src/app/routes/create.tsx:661
+#: src/app/routes/create.tsx:644
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:24
 msgid "Projects"
 msgstr "Proyectos"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:617
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:607
 msgid "Publish local saves automatically for linked cloud projects."
 msgstr "Publicar automáticamente los guardados locales para los proyectos en la nube vinculados."
 
@@ -1751,11 +1793,11 @@ msgstr "Rehacer"
 msgid "Redo — {redoLabel}"
 msgstr "Rehacer — {redoLabel}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:139
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:142
 msgid "Reference Panel"
 msgstr "Panel de referencia"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:378
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:381
 msgid "Reference panel settings"
 msgstr "Ajustes del panel de referencia"
 
@@ -1763,9 +1805,9 @@ msgstr "Ajustes del panel de referencia"
 msgid "Reference project"
 msgstr "Proyecto de referencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:371
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:888
-#: src/app/ui/components/import/CloudProjectImporter.tsx:101
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:406
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:878
+#: src/app/ui/components/import/CloudProjectImporter.tsx:100
 msgid "Refresh"
 msgstr "Actualizar"
 
@@ -1776,7 +1818,11 @@ msgstr "Actualizar"
 msgid "Refresh status"
 msgstr "Actualizar estado"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:887
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:835
+msgid "Refreshing linked cloud projects..."
+msgstr "Actualizando proyectos en la nube vinculados..."
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:877
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:136
 msgid "Refreshing..."
 msgstr "Actualizando..."
@@ -1787,16 +1833,16 @@ msgstr "Actualizando..."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:173
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:211
-msgid "Remote"
-msgstr "Remoto"
+#~ msgid "Remote"
+#~ msgstr "Remoto"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:438
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:470
 msgid "Remote login is not configured for this build yet."
 msgstr "El inicio de sesión remoto todavía no está configurado para esta compilación."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:145
 msgid "Remote project connected"
-msgstr ""
+msgstr "Proyecto remoto conectado"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:166
 msgid "Remove empty {marker} paragraph"
@@ -1846,15 +1892,15 @@ msgstr "Redimensionar panel de búsqueda"
 msgid "Resource"
 msgstr "Recurso"
 
-#: src/app/routes/create.tsx:469
+#: src/app/routes/create.tsx:452
 msgid "Resource downloaded successfully! It is available in the reference picker."
 msgstr "¡Recurso descargado con éxito! Está disponible en el selector de referencia."
 
-#: src/app/routes/create.tsx:432
-#: src/app/routes/create.tsx:506
-#: src/app/routes/create.tsx:542
-#: src/app/routes/create.tsx:584
-#: src/app/routes/create.tsx:627
+#: src/app/routes/create.tsx:415
+#: src/app/routes/create.tsx:489
+#: src/app/routes/create.tsx:525
+#: src/app/routes/create.tsx:567
+#: src/app/routes/create.tsx:610
 msgid "Resource imported successfully! It is available in the reference picker."
 msgstr "¡Recurso importado con éxito! Está disponible en el selector de referencia."
 
@@ -1906,7 +1952,7 @@ msgstr "Revisar cambios"
 msgid "Review incoming changes before bringing them into this project."
 msgstr "Revisa los cambios entrantes antes de incorporarlos a este proyecto."
 
-#: src/app/routes/create.tsx:174
+#: src/app/routes/create.tsx:170
 msgid "Review metadata"
 msgstr "Revisar metadatos"
 
@@ -1941,11 +1987,11 @@ msgstr "Guardar"
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:202
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:205
 msgid "Save and Close"
 msgstr "Guardar y cerrar"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:727
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:717
 msgid "Save as new cloud project"
 msgstr "Guardar como nuevo proyecto en la nube"
 
@@ -2008,7 +2054,7 @@ msgstr "Buscar"
 msgid "Search a language to see projects."
 msgstr "Buscar un idioma para ver proyectos."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:619
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:761
 msgid "Search a language, title, owner, or repo name to see projects."
 msgstr "Busca un idioma, título, propietario o nombre de repositorio para ver proyectos."
 
@@ -2021,10 +2067,10 @@ msgstr "Busca un idioma, título, propietario o nombre de repositorio para ver p
 msgid "Search chapters"
 msgstr "Buscar capítulos"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:804
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:805
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:794
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:795
 msgid "Search cloud projects"
-msgstr ""
+msgstr "Buscar proyectos en la nube"
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:49
 #~ msgid "Search for a scripture repository"
@@ -2034,15 +2080,15 @@ msgstr ""
 msgid "Search for projects or authors..."
 msgstr "Buscar proyectos o autores..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:326
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:357
 msgid "Search language, title, owner, or repo name..."
 msgstr "Buscar idioma, título, propietario o nombre de repositorio..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:244
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:275
 msgid "Search or log in"
 msgstr "Buscar o iniciar sesión"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:329
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:360
 #: src/app/ui/components/import/LanguageApiImporter.tsx:139
 msgid "Search projects"
 msgstr "Buscar proyectos"
@@ -2064,6 +2110,11 @@ msgstr "Buscar texto de referencia"
 #: src/app/ui/components/views/search-panel/SearchResults.tsx:84
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:681
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:833
+msgid "Searching linked cloud projects..."
+msgstr "Buscando proyectos en la nube vinculados..."
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:54
 msgid "Section title"
@@ -2089,7 +2140,7 @@ msgstr "Título de sección 4"
 #~ msgid "Select"
 #~ msgstr "Seleccionar"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:612
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:754
 msgid "Select a source to continue."
 msgstr "Selecciona una fuente para continuar."
 
@@ -2098,8 +2149,8 @@ msgstr "Selecciona una fuente para continuar."
 #~ msgid "Select chapter"
 #~ msgstr "Seleccionar capítulo"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:763
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:771
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:753
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:761
 msgid "Select cloud project"
 msgstr "Seleccionar proyecto en la nube"
 
@@ -2107,12 +2158,12 @@ msgstr "Seleccionar proyecto en la nube"
 msgid "Select encoding"
 msgstr "Seleccionar codificación"
 
-#: src/app/routes/create.tsx:568
+#: src/app/routes/create.tsx:551
 msgid "Select folder"
 msgstr "Seleccionar carpeta"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:247
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:293
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:250
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:296
 msgid "Select language"
 msgstr "Seleccionar idioma"
 
@@ -2150,15 +2201,15 @@ msgstr "Seleccionar proyecto"
 msgid "Select version"
 msgstr "Seleccionar versión"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:331
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:334
 msgid "Select which editing mode you want to use."
 msgstr "Selecciona qué modo de edición quieres usar."
 
-#: src/app/routes/create.tsx:612
+#: src/app/routes/create.tsx:595
 msgid "Select ZIP file"
 msgstr "Seleccionar archivo ZIP"
 
-#: src/app/ui/components/import/CloudProjectImporter.tsx:269
+#: src/app/ui/components/import/CloudProjectImporter.tsx:237
 msgid "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 msgstr "Configura `VITE_GITEA_WEB_HOST` para habilitar el inicio de sesión en la nube en esta compilación web."
 
@@ -2166,9 +2217,13 @@ msgstr "Configura `VITE_GITEA_WEB_HOST` para habilitar el inicio de sesión en l
 msgid "Set number to {number}"
 msgstr "Establecer número en {number}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:114
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:117
 msgid "Settings"
 msgstr "Ajustes"
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:919
+msgid "SHA"
+msgstr "SHA"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:85
 msgid "Short book name for the table of contents."
@@ -2200,13 +2255,17 @@ msgstr "Mostrar marcadores USFM"
 #~ msgid "Skip removes this suggestion from this session. Next keeps it and moves forward."
 #~ msgstr "Omitir elimina esta sugerencia de esta sesión. Siguiente la mantiene y avanza."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:644
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:634
 msgid "Skip review for your own local edits and commit them directly when you save."
 msgstr "Omitir la revisión de tus propias ediciones locales y confirmarlas directamente al guardar."
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:334
 #~ msgid "Skip Suggestion"
 #~ msgstr "Omitir sugerencia"
+
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:262
+msgid "Some projects may appear in both lists. Linked cloud keeps the Gitea connection. Download only imports a separate local copy."
+msgstr "Algunos proyectos pueden aparecer en ambas listas. La nube vinculada conserva la conexión con Gitea. Solo descargar importa una copia local separada."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:795
 #~ msgid "Source type"
@@ -2233,8 +2292,8 @@ msgstr "Identificador estándar de 3 caracteres del libro bíblico más una desc
 #~ msgid "Strip all target paragraph markers"
 #~ msgstr "Eliminar todos los marcadores de párrafo de destino"
 
-#: src/app/routes/create.tsx:131
-#: src/app/routes/create.tsx:145
+#: src/app/routes/create.tsx:127
+#: src/app/routes/create.tsx:141
 msgid "Success"
 msgstr "Éxito"
 
@@ -2299,7 +2358,7 @@ msgstr "Tomar todos los cambios en este capítulo"
 #~ msgid "Text size"
 #~ msgstr "Tamaño del texto"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:344
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:347
 msgid "Text Size"
 msgstr "Tamaño del texto"
 
@@ -2323,7 +2382,7 @@ msgstr "Al archivo le falta un marcador \\id."
 msgid "This book is already formatted"
 msgstr "Este libro ya está formateado"
 
-#: src/app/routes/create.tsx:358
+#: src/app/routes/create.tsx:341
 msgid "This build is missing the configured Gitea host."
 msgstr "A esta compilación le falta el host de Gitea configurado."
 
@@ -2331,7 +2390,7 @@ msgstr "A esta compilación le falta el host de Gitea configurado."
 msgid "This chapter is already formatted"
 msgstr "Este capítulo ya está formateado"
 
-#: src/app/routes/create.tsx:334
+#: src/app/routes/create.tsx:317
 msgid "This device no longer has access to your cloud session."
 msgstr "Este dispositivo ya no tiene acceso a tu sesión de nube."
 
@@ -2353,15 +2412,19 @@ msgstr "Este proyecto tiene cambios locales y en la nube que necesitan revisión
 msgid "This project is already formatted"
 msgstr "Este proyecto ya está formateado"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:502
+#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:204
+msgid "This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection."
+msgstr "Este proyecto es solo local. Los proyectos importados con Solo descargar comienzan desvinculados. Usa Ajustes > Avanzado para adjuntarlo, o importa desde Nube vinculada para conservar la conexión con Gitea."
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:492
 msgid "This project is now linked and published to cloud."
 msgstr "Este proyecto ahora está vinculado y publicado en la nube."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:543
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:533
 msgid "This project is now linked to the selected cloud repository."
 msgstr "Este proyecto ahora está vinculado al repositorio en la nube seleccionado."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:380
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:383
 msgid "This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it."
 msgstr "Esta estructura de pestaña ya está colocada. Los ajustes persistentes específicos de referencia que faltan todavía deben definirse antes de conectar controles reales."
 
@@ -2388,6 +2451,13 @@ msgstr "Esto eliminará archivos del disco y borrará los metadatos del proyecto
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:100
 msgid "Try again"
 msgstr "Intentar de nuevo"
+
+#. placeholder {0}: gitea.minSearchLength
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:655
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:662
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:734
+msgid "Type at least {0} characters to search linked cloud projects."
+msgstr "Escribe al menos {0} caracteres para buscar proyectos en la nube vinculados."
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:139
 #~ msgid "Type to search for a language..."
@@ -2440,12 +2510,12 @@ msgstr "Cambios sin guardar en {unsavedBooksCount} libro(s)"
 #~ msgid "Upload a folder"
 #~ msgstr "Subir una carpeta"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:457
-#: src/app/ui/components/import/CloudProjectImporter.tsx:169
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:489
+#: src/app/ui/components/import/CloudProjectImporter.tsx:168
 msgid "Username"
 msgstr "Nombre de usuario"
 
-#: src/app/routes/create.tsx:367
+#: src/app/routes/create.tsx:350
 msgid "Username and password are required to connect your cloud account."
 msgstr "Se requiere nombre de usuario y contraseña para conectar tu cuenta de nube."
 
@@ -2514,11 +2584,11 @@ msgstr "La numeración de versículos está fuera de secuencia. Se esperaba {exp
 msgid "Verse text appears in an invalid position after the verse number."
 msgstr "El texto del versículo aparece en una posición inválida después del número de versículo."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:611
-#~ msgid "Version"
-#~ msgstr "Versión"
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:910
+msgid "Version"
+msgstr "Versión"
 
-#: src/app/routes/create.tsx:110
+#: src/app/routes/create.tsx:106
 msgid "Version history unavailable"
 msgstr "Historial de versiones no disponible"
 
@@ -2552,8 +2622,8 @@ msgstr "Historial de versiones no disponible"
 #~ msgstr "URL del ZIP de WACS"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:413
-msgid "Where it lives"
-msgstr "Dónde vive"
+#~ msgid "Where it lives"
+#~ msgstr "Dónde vive"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:301
 msgid "Whitespace Only"
@@ -2579,7 +2649,7 @@ msgstr "Puedes seguir trabajando localmente y volver a intentar la sincronizaci�
 msgid "You can keep working locally. Try syncing again when you are back online."
 msgstr "Puedes seguir trabajando localmente. Intenta sincronizar de nuevo cuando vuelvas a estar en línea."
 
-#: src/app/routes/create.tsx:389
+#: src/app/routes/create.tsx:372
 msgid "You can now browse your writable cloud projects."
 msgstr "Ahora puedes explorar tus proyectos de nube editables."
 
@@ -2600,8 +2670,13 @@ msgstr "Tu último guardado local aún no ha sido publicado en la nube."
 msgid "Your latest local save is not yet in cloud."
 msgstr "Tu último guardado local todavía no está en la nube."
 
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:638
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:714
+msgid "Your search returned results, but none were cloud projects for this app. Try a more specific search term."
+msgstr "Tu búsqueda devolvió resultados, pero ninguno era un proyecto en la nube para esta app. Prueba con un término de búsqueda más específico."
+
 #: src/app/ui/components/blocks/ProjectCreator.tsx:64
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:277
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:308
 msgid "ZIP"
 msgstr "ZIP"
 
@@ -2618,6 +2693,6 @@ msgstr "Archivo ZIP"
 #~ msgid "ZIP..."
 #~ msgstr "ZIP..."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:358
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:361
 msgid "Zoom"
 msgstr "Zoom"

@@ -16,6 +16,7 @@ export type RemoteRepoSummary = {
 export type RemoteRepoPage = {
     repos: RemoteRepoSummary[];
     nextPage: number | null;
+    rawResultCount: number;
 };
 
 export type CreateRemoteRepoRequest = {
@@ -47,6 +48,8 @@ export interface RemoteRepoProvider {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }): Promise<RemoteRepoPage>;
     listOwnedRepos(args: {
         hostBaseUrl: string;
@@ -55,6 +58,8 @@ export interface RemoteRepoProvider {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }): Promise<RemoteRepoPage>;
     createRepo(args: {
         hostBaseUrl: string;

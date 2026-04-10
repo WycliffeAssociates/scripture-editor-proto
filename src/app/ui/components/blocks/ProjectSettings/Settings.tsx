@@ -3,6 +3,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
 import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, Languages, MoonStar, Save, SunMedium } from "lucide-react";
 import {
@@ -22,8 +23,10 @@ import {
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
+import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
@@ -396,16 +399,29 @@ function AdvancedTab({
     loadedProjectPath: string;
     isCloudLinked: boolean;
     syncRemoteStatus: () => Promise<void>;
-    authSessionProvider: {
-        getCurrentSession: () => Promise<unknown | null>;
-    };
+    authSessionProvider: Pick<AuthSessionProvider, "getCurrentSession">;
     projectsService: {
         createRemoteForProject: (projectRef: string) => Promise<unknown>;
+        listWritableRemoteRepos: (args: {
+            page: number;
+            pageSize: number;
+            topic?: string;
+            searchQuery?: string;
+        }) => Promise<{
+            repos: RemoteRepoSummary[];
+            nextPage: number | null;
+            rawResultCount: number;
+        }>;
         listOwnedRemoteRepos: (args: {
             page: number;
             pageSize: number;
             topic?: string;
-        }) => Promise<{ repos: RemoteRepoSummary[]; nextPage: number | null }>;
+            searchQuery?: string;
+        }) => Promise<{
+            repos: RemoteRepoSummary[];
+            nextPage: number | null;
+            rawResultCount: number;
+        }>;
         attachProjectToRemote: (args: {
             projectRef: string;
             repo: Pick<
@@ -423,73 +439,47 @@ function AdvancedTab({
     applyUpdates: (updates: Partial<Settings>) => Promise<void>;
     portalContainer: RefObject<HTMLElement | null>;
 }) {
-    const [isCloudSessionReady, setIsCloudSessionReady] = useState(false);
-    const [isLoadingOwnedRepos, setIsLoadingOwnedRepos] = useState(false);
-    const [ownedRepos, setOwnedRepos] = useState<RemoteRepoSummary[]>([]);
-    const [selectedOwnedRepoName, setSelectedOwnedRepoName] = useState<
-        string | null
-    >(null);
-    const [ownedRepoQuery, setOwnedRepoQuery] = useState("");
+    const sessionQuery = useQuery({
+        queryKey: ["giteaSession", "settings"],
+        queryFn: async () => await authSessionProvider.getCurrentSession(),
+    });
+    const cloudSessionUsername = sessionQuery.data?.username ?? null;
+    const gitea = useGiteaApi({
+        sessionUsername: cloudSessionUsername,
+        projectsService,
+    });
+    const [selectedRepoName, setSelectedRepoName] = useState<string | null>(
+        null,
+    );
     const [isCreatingRemoteProject, setIsCreatingRemoteProject] =
         useState(false);
     const [isAttachingRemoteProject, setIsAttachingRemoteProject] =
         useState(false);
 
-    const selectedOwnedRepo =
-        ownedRepos.find((repo) => repo.fullName === selectedOwnedRepoName) ??
-        null;
-    const filteredOwnedRepos = ownedRepos.filter((repo) =>
-        repo.fullName
-            .toLowerCase()
-            .includes(ownedRepoQuery.trim().toLowerCase()),
-    );
+    const selectedRepo =
+        gitea.repos.find((repo) => repo.fullName === selectedRepoName) ?? null;
 
-    const reloadOwnedRepos = async () => {
-        setIsLoadingOwnedRepos(true);
-        try {
-            const session = await authSessionProvider.getCurrentSession();
-            if (!session) {
-                setIsCloudSessionReady(false);
-                setOwnedRepos([]);
-                setSelectedOwnedRepoName(null);
-                return;
-            }
-            setIsCloudSessionReady(true);
-            const firstPage = await projectsService.listOwnedRemoteRepos({
-                page: 1,
-                pageSize: 50,
-            });
-            setOwnedRepos(firstPage.repos);
-            setSelectedOwnedRepoName((current) => {
-                if (
-                    current &&
-                    firstPage.repos.some((r) => r.fullName === current)
-                ) {
-                    return current;
-                }
-                return firstPage.repos[0]?.fullName ?? null;
-            });
-        } catch (error) {
-            ShowErrorNotification({
-                notification: {
-                    title: t`Failed to load cloud projects`,
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Please try again.`,
-                },
-            });
-        } finally {
-            setIsLoadingOwnedRepos(false);
-        }
-    };
-
-    // todo fix
-    // biome-ignore lint/correctness/useExhaustiveDependencies: <fix later>
     useEffect(() => {
-        if (isCloudLinked) return;
-        void reloadOwnedRepos();
-    }, [isCloudLinked]);
+        if (!gitea.error) return;
+        ShowErrorNotification({
+            notification: {
+                title: t`Failed to load cloud projects`,
+                message: gitea.error,
+            },
+        });
+    }, [gitea.error]);
+
+    useEffect(() => {
+        setSelectedRepoName((current) => {
+            if (
+                current &&
+                gitea.repos.some((repo) => repo.fullName === current)
+            ) {
+                return current;
+            }
+            return gitea.repos[0]?.fullName ?? null;
+        });
+    }, [gitea.repos]);
 
     const handleCreateRemote = async () => {
         setIsCreatingRemoteProject(true);
@@ -522,18 +512,18 @@ function AdvancedTab({
     };
 
     const handleAttachRemote = async () => {
-        if (!selectedOwnedRepo) return;
+        if (!selectedRepo) return;
         setIsAttachingRemoteProject(true);
         try {
             await projectsService.attachProjectToRemote({
                 projectRef: loadedProjectPath,
                 repo: {
-                    id: selectedOwnedRepo.id,
-                    owner: selectedOwnedRepo.owner,
-                    name: selectedOwnedRepo.name,
-                    htmlUrl: selectedOwnedRepo.htmlUrl,
-                    cloneUrl: selectedOwnedRepo.cloneUrl,
-                    defaultBranch: selectedOwnedRepo.defaultBranch,
+                    id: selectedRepo.id,
+                    owner: selectedRepo.owner,
+                    name: selectedRepo.name,
+                    htmlUrl: selectedRepo.htmlUrl,
+                    cloneUrl: selectedRepo.cloneUrl,
+                    defaultBranch: selectedRepo.defaultBranch,
                 },
             });
             await syncRemoteStatus();
@@ -717,7 +707,7 @@ function AdvancedTab({
                                             .createRemoteProjectButton
                                     }
                                     disabled={
-                                        !isCloudSessionReady ||
+                                        !cloudSessionUsername ||
                                         isCreatingRemoteProject
                                     }
                                     onClick={() => void handleCreateRemote()}
@@ -732,7 +722,7 @@ function AdvancedTab({
 
                     <SettingRow
                         title={t`Attach existing cloud project`}
-                        description={t`Link this local project to a repository you already own in cloud.`}
+                        description={t`Link this local project to any cloud repository you can edit.`}
                         control={
                             <div className={styles.fieldControl}>
                                 <div
@@ -742,12 +732,12 @@ function AdvancedTab({
                                     }
                                 >
                                     <Combobox.Root<RemoteRepoSummary>
-                                        items={ownedRepos}
-                                        value={selectedOwnedRepo}
-                                        inputValue={ownedRepoQuery}
-                                        onInputValueChange={setOwnedRepoQuery}
+                                        items={gitea.repos}
+                                        value={selectedRepo}
+                                        inputValue={gitea.query}
+                                        onInputValueChange={gitea.setQuery}
                                         onValueChange={(value) =>
-                                            setSelectedOwnedRepoName(
+                                            setSelectedRepoName(
                                                 value?.fullName ?? null,
                                             )
                                         }
@@ -767,7 +757,7 @@ function AdvancedTab({
                                                     styles.cloudProjectComboboxValue
                                                 }
                                             >
-                                                {selectedOwnedRepo?.fullName ??
+                                                {selectedRepo?.fullName ??
                                                     t`Select cloud project`}
                                             </span>
                                             <span
@@ -821,7 +811,7 @@ function AdvancedTab({
                                                                     styles.cloudProjectComboboxList
                                                                 }
                                                             >
-                                                                {filteredOwnedRepos.map(
+                                                                {gitea.repos.map(
                                                                     (repo) => (
                                                                         <Combobox.Item
                                                                             key={
@@ -840,7 +830,7 @@ function AdvancedTab({
                                                                                 }
                                                                                 aria-hidden="true"
                                                                             >
-                                                                                {selectedOwnedRepoName ===
+                                                                                {selectedRepoName ===
                                                                                 repo.fullName ? (
                                                                                     <Check
                                                                                         size={
@@ -880,10 +870,10 @@ function AdvancedTab({
                                         type="button"
                                         size="sm"
                                         variant="secondary"
-                                        disabled={isLoadingOwnedRepos}
-                                        onClick={() => void reloadOwnedRepos()}
+                                        disabled={gitea.isLoading}
+                                        onClick={() => void gitea.refresh()}
                                     >
-                                        {isLoadingOwnedRepos
+                                        {gitea.isLoading
                                             ? t`Refreshing...`
                                             : t`Refresh`}
                                     </Button>
@@ -896,8 +886,8 @@ function AdvancedTab({
                                                 .attachRemoteProjectButton
                                         }
                                         disabled={
-                                            !isCloudSessionReady ||
-                                            !selectedOwnedRepo ||
+                                            !cloudSessionUsername ||
+                                            !selectedRepo ||
                                             isAttachingRemoteProject
                                         }
                                         onClick={() =>

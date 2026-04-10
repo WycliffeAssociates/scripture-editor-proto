@@ -562,7 +562,9 @@ export class DefaultProjectsService implements ProjectsService {
                 throw new Error("Imported project path could not be resolved");
             }
 
-            await this.clearPersistedRemoteLinkState(importedPath);
+            if (shouldClearPersistedRemoteLinkState(source)) {
+                await this.clearPersistedRemoteLinkState(importedPath);
+            }
 
             await this.reportImportProgress(
                 options,
@@ -883,16 +885,19 @@ export class DefaultProjectsService implements ProjectsService {
         const projectPath = await this.allocateCloneProjectPath(args.repo.name);
 
         try {
-            await remoteService.cloneRemoteRepoToManagedPath({
-                projectPath,
-                repo: args.repo,
-                gitProvider: this.gitProvider,
-            });
+            const cloneResult =
+                await remoteService.cloneRemoteRepoToManagedPath({
+                    projectPath,
+                    repo: args.repo,
+                    gitProvider: this.gitProvider,
+                });
 
-            return await this.importProject({
+            const importedProject = await this.importProject({
                 type: "fromPreparedDir",
                 directoryPath: projectPath,
             });
+            await remoteService.persistRemoteInfo(cloneResult.remoteInfo);
+            return importedProject;
         } catch (error) {
             await this.cleanupFailedClonedProject(projectPath);
             throw error;
@@ -1023,5 +1028,16 @@ function describeInitialRemotePublishFailure(
             return "Cloud project was created, but local and cloud changes need review before the first publish can finish.";
         case PUBLISH_AFTER_SAVE_PENDING_PUBLISH:
             return "Cloud project was created, but the initial publish is still pending.";
+    }
+}
+
+function shouldClearPersistedRemoteLinkState(source: ImportSource): boolean {
+    switch (source.type) {
+        case "fromZipFile":
+        case "fromDir":
+        case "fromGitRepo":
+            return true;
+        case "fromPreparedDir":
+            return false;
     }
 }

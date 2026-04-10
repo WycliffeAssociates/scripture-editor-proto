@@ -64,12 +64,16 @@ export type ListWritableRemoteReposArgs = {
     page: number;
     pageSize: number;
     topic?: string;
+    searchQuery?: string;
+    signal?: AbortSignal;
 };
 
 export type ListOwnedRemoteReposArgs = {
     page: number;
     pageSize: number;
     topic?: string;
+    searchQuery?: string;
+    signal?: AbortSignal;
 };
 
 export type CloneWritableRemoteProjectArgs = {

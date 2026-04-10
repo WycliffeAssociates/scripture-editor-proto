@@ -35,6 +35,8 @@ export class GitRemoteProjectService {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }) {
         const session = await this.requireSession();
         return this.remoteRepoProvider.listWritableRepos({
@@ -44,6 +46,8 @@ export class GitRemoteProjectService {
             page: args.page,
             pageSize: args.pageSize,
             topic: args.topic ?? GIT_REMOTE_DEFAULT_TOPIC,
+            searchQuery: args.searchQuery,
+            signal: args.signal,
         });
     }
 
@@ -51,6 +55,8 @@ export class GitRemoteProjectService {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }) {
         const session = await this.requireSession();
         return this.remoteRepoProvider.listOwnedRepos({
@@ -60,6 +66,8 @@ export class GitRemoteProjectService {
             page: args.page,
             pageSize: args.pageSize,
             topic: args.topic ?? GIT_REMOTE_DEFAULT_TOPIC,
+            searchQuery: args.searchQuery,
+            signal: args.signal,
         });
     }
 
@@ -145,12 +153,15 @@ export class GitRemoteProjectService {
             hostBaseUrl: session.hostBaseUrl,
             repo: args.repo,
         });
-        await this.persistRemoteInfo(remoteInfo);
         return {
             projectPath: args.projectPath,
             remoteInfo,
             head: cloneResult.head,
         };
+    }
+
+    async persistRemoteInfo(info: GitRemoteProjectInfo) {
+        await this.writeRemoteInfo(info);
     }
 
     private async requireSession() {
@@ -163,7 +174,7 @@ export class GitRemoteProjectService {
         return session;
     }
 
-    private async persistRemoteInfo(info: GitRemoteProjectInfo) {
+    private async writeRemoteInfo(info: GitRemoteProjectInfo) {
         await writeGitRemoteProjectInfo({
             fileSystem: this.fileSystem,
             storageRoots: this.storageRoots,

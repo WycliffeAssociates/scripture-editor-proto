@@ -77,6 +77,8 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }): Promise<RemoteRepoPage> {
         return await this.listRepoPage({
             hostBaseUrl: args.hostBaseUrl,
@@ -84,6 +86,8 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
             page: args.page,
             pageSize: args.pageSize,
             topic: args.topic,
+            searchQuery: args.searchQuery,
+            signal: args.signal,
             username: args.username,
             fallbackMessage: "Failed to list writable repositories",
             query: {},
@@ -101,6 +105,8 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
     }): Promise<RemoteRepoPage> {
         const userId = await this.resolveCurrentUserId(args);
         return await this.listRepoPage({
@@ -109,6 +115,8 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
             page: args.page,
             pageSize: args.pageSize,
             topic: args.topic,
+            searchQuery: args.searchQuery,
+            signal: args.signal,
             username: args.username,
             fallbackMessage: "Failed to list owned repositories",
             query: {
@@ -181,42 +189,71 @@ export class GiteaRemoteRepoProvider implements RemoteRepoProvider {
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
+        signal?: AbortSignal;
         query?: Record<string, string>;
         fallbackMessage: string;
         map: (repo: GiteaRepoRecord) => RemoteRepoSummary;
         filter?: (repo: GiteaRepoRecord) => boolean;
     }): Promise<RemoteRepoPage> {
-        const response = await this.fetchImpl(
-            buildRepoSearchUrl(args.hostBaseUrl, {
-                page: args.page,
-                pageSize: args.pageSize,
-                topic: args.topic,
-                query: args.query,
-            }),
-            {
-                method: "GET",
-                headers: buildAuthHeaders(args.token),
-            },
-        );
-        await throwIfNotOk(response, args.fallbackMessage);
+        const collectedRepos: GiteaRepoRecord[] = [];
+        let rawResultCount = 0;
+        let currentPage = args.page;
+        let hasMorePages = false;
 
-        const payload = parseGiteaSearchPayload(await response.json());
-        const repoRecords = extractRepoRecords(payload);
-        const filteredRecords = repoRecords.filter(
-            args.filter ?? ((repo) => isWritableRepo(repo, args.username)),
-        );
-        const repos = filteredRecords.map(args.map);
+        while (true) {
+            const response = await this.fetchImpl(
+                buildRepoSearchUrl(args.hostBaseUrl, {
+                    page: currentPage,
+                    pageSize: args.pageSize,
+                    topic: args.topic,
+                    query: args.query,
+                    searchQuery: args.searchQuery,
+                }),
+                {
+                    method: "GET",
+                    headers: buildAuthHeaders(args.token),
+                    signal: args.signal,
+                },
+            );
+            await throwIfNotOk(response, args.fallbackMessage);
+
+            const payload = parseGiteaSearchPayload(await response.json());
+            const repoRecords = extractRepoRecords(payload);
+            rawResultCount += repoRecords.length;
+            const filteredRecords = repoRecords.filter(
+                (repo) =>
+                    repoMatchesTopic(repo, args.topic) &&
+                    (
+                        args.filter ??
+                        ((candidate) =>
+                            isWritableRepo(candidate, args.username))
+                    )(repo),
+            );
+            collectedRepos.push(...filteredRecords);
+
+            hasMorePages = hasNextPage(
+                response,
+                currentPage,
+                args.pageSize,
+                repoRecords.length,
+            );
+            const shouldContinueSearch =
+                Boolean(args.searchQuery?.trim()) &&
+                collectedRepos.length < args.pageSize &&
+                hasMorePages;
+            if (!shouldContinueSearch) {
+                break;
+            }
+            currentPage += 1;
+        }
+
+        const repos = collectedRepos.slice(0, args.pageSize).map(args.map);
 
         return {
             repos,
-            nextPage: hasNextPage(
-                response,
-                args.page,
-                args.pageSize,
-                repoRecords.length,
-            )
-                ? args.page + 1
-                : null,
+            nextPage: hasMorePages ? currentPage + 1 : null,
+            rawResultCount,
         };
     }
 
@@ -319,6 +356,7 @@ function buildRepoSearchUrl(
         page: number;
         pageSize: number;
         topic?: string;
+        searchQuery?: string;
         query?: Record<string, string>;
     },
 ): URL {
@@ -326,7 +364,10 @@ function buildRepoSearchUrl(
     url.searchParams.set("page", String(args.page));
     url.searchParams.set("limit", String(args.pageSize));
     url.searchParams.set("private", "true");
-    if (args.topic) {
+    const normalizedSearch = args.searchQuery?.trim();
+    if (normalizedSearch) {
+        url.searchParams.set("q", normalizedSearch);
+    } else if (args.topic) {
         url.searchParams.set("q", args.topic);
         url.searchParams.set("topic", "true");
     }
@@ -399,6 +440,23 @@ function isWritableRepo(repo: GiteaRepoRecord, username: string): boolean {
     );
 }
 
+function repoMatchesTopic(repo: GiteaRepoRecord, topic?: string): boolean {
+    const normalizedTopic = topic?.trim().toLowerCase();
+    if (!normalizedTopic) {
+        return true;
+    }
+    return (repo.topics ?? []).some(
+        (repoTopic) => repoTopic.trim().toLowerCase() === normalizedTopic,
+    );
+}
+
+function buildAuthHeaders(token: string): HeadersInit {
+    return {
+        Authorization: `token ${token}`,
+        Accept: "application/json",
+    };
+}
+
 function buildCloneUrlFromHost(
     hostBaseUrl: string,
     owner: string,
@@ -416,13 +474,6 @@ function buildCloneUrlFromHtmlUrl(htmlUrl: string): string | null {
         return null;
     }
     return `${trimmed.replace(/\/+$/u, "")}.git`;
-}
-
-function buildAuthHeaders(token: string): HeadersInit {
-    return {
-        Authorization: `token ${token}`,
-        Accept: "application/json",
-    };
 }
 
 function decodeBase64Content(content: string): string {

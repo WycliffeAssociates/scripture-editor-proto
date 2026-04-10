@@ -43,6 +43,7 @@ describe("GitRemoteProjectService", () => {
         vi.mocked(remoteRepoProvider.listWritableRepos).mockResolvedValue({
             repos: [],
             nextPage: null,
+            rawResultCount: 0,
         });
         const service = new GitRemoteProjectService(
             fileSystem,
@@ -78,6 +79,7 @@ describe("GitRemoteProjectService", () => {
         vi.mocked(remoteRepoProvider.listOwnedRepos).mockResolvedValue({
             repos: [],
             nextPage: null,
+            rawResultCount: 0,
         });
         const service = new GitRemoteProjectService(
             fileSystem,
