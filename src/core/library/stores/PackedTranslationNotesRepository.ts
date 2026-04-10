@@ -3,6 +3,8 @@ import { canonicalBookMap } from "@/core/domain/project/bookMapping.ts";
 import type { RemoteSourceMetadata } from "@/core/library/ReferenceItemSupport.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import {
+    basenameStoragePath,
+    dirnameStoragePath,
     joinStoragePath,
     stripFileExtension,
 } from "@/core/persistence/pathUtils.ts";
@@ -306,17 +308,12 @@ export async function packTranslationNotesDirectory(args: {
         total?: number;
     }) => void | Promise<void>;
 }): Promise<void> {
-    const resourceDirName = args.resourcePath.split("/").filter(Boolean).at(-1);
+    const resourceDirName = basenameStoragePath(args.resourcePath);
     if (!resourceDirName) {
         throw new Error("Unable to resolve translation notes resource name.");
     }
 
-    const parentPath = args.resourcePath
-        .split("/")
-        .filter(Boolean)
-        .slice(0, -1)
-        .join("/");
-    const parentDirPath = parentPath ? `/${parentPath}` : "/";
+    const parentDirPath = dirnameStoragePath(args.resourcePath);
     const packedTempPath = joinStoragePath(
         parentDirPath,
         `${resourceDirName}.packed-${Date.now()}`,

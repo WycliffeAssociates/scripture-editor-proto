@@ -7,6 +7,7 @@ import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/Acti
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 import type { ProjectListItem } from "@/core/persistence/ScriptureWorkspace.ts";
 import classnames from "./ProjectList.module.css.ts";
 
@@ -39,7 +40,7 @@ export function ProjectList() {
     }, [allProjects]);
 
     const navigateToProject = (projectPath: string) => {
-        const diskProjectName = projectPath.split("/").pop();
+        const diskProjectName = basenameStoragePath(projectPath);
         if (!diskProjectName) {
             throw new Error("Invalid project path");
         }

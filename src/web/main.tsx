@@ -55,6 +55,8 @@ const fileSystem = new OpfsFileSystem(storageRoots);
 const authSessionProvider = new FsBackedAuthSessionProvider(
     fileSystem,
     storageRoots,
+    undefined,
+    platform,
 );
 const gitProvider = new WebGitProvider(new OpfsGitFs(), {
     corsProxyUrl: gitCorsProxyUrl,

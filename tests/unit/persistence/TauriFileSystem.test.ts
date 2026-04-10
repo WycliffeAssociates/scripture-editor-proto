@@ -1,7 +1,9 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: test mocks */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { TauriFileSystem } from "@/tauri/persistence/TauriFileSystem.ts";
 import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
+import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 const fileStore = new Map<string, Uint8Array>();
 const dirStore = new Set<string>();
@@ -188,6 +190,33 @@ describe("TauriFileSystem", () => {
 
         await expect(fs.readText(sessionPath)).resolves.toBe(
             '{"username":"alice"}',
+        );
+    });
+
+    it("preserves windows drive-letter roots when resolving managed paths", async () => {
+        const windowsRoots: StorageRoots = {
+            appDataRoot:
+                "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto",
+            projectsRoot:
+                "C:/Users/person/AppData/Roaming/org.bibletranslationtools.bttrefinerproto/projects",
+            tempRoot:
+                "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto/temp",
+            cacheRoot:
+                "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto/cache",
+            logsRoot:
+                "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto/logs",
+            databaseRoot:
+                "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto/database",
+        };
+        const fs = new TauriFileSystem(windowsRoots);
+        const projectInfoPath =
+            "C:/Users/person/AppData/Local/org.bibletranslationtools.bttrefinerproto/git-remote/project-info/C%3A%2FUsers%2Fperson%2FAppData%2FRoaming%2Forg.bibletranslationtools.bttrefinerproto%2Fprojects%2Fmerged-ida-xisukha%20(1).json";
+
+        await fs.writeText(projectInfoPath, '{"ok":true}');
+
+        expect(writeTextFile).toHaveBeenCalledWith(
+            projectInfoPath,
+            '{"ok":true}',
         );
     });
 });

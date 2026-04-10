@@ -16,8 +16,10 @@ import {
     ImportProgressPhase,
 } from "@/core/library/ImportService.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
+import { normalizeDesktopPath } from "@/tauri/io/PathUtils.ts";
 
 const NATIVE_DIRECTORY_IMPORT_PROGRESS_EVENT =
     "native-directory-import-progress";
@@ -30,7 +32,10 @@ function normalizeSelection(
     selection: string | string[] | null,
 ): string | null {
     if (selection == null) return null;
-    return Array.isArray(selection) ? (selection[0] ?? null) : selection;
+    const selected = Array.isArray(selection)
+        ? (selection[0] ?? null)
+        : selection;
+    return selected ? normalizeDesktopPath(selected) : null;
 }
 
 /**
@@ -136,6 +141,7 @@ export class TauriImportService implements ImportService {
                     progressEvent,
                 },
             );
+            importedPath = normalizeDesktopPath(importedPath);
             await this.finalizeImportedResource(
                 importedPath,
                 progressEvent,
@@ -194,7 +200,7 @@ export class TauriImportService implements ImportService {
             await options?.onProgress?.(
                 createImportProgressUpdate(
                     ImportProgressPhase.READ_SOURCE,
-                    `Reading staged archive ${source.path.split(/[\\/]/u).at(-1) ?? source.path}...`,
+                    `Reading staged archive ${basenameStoragePath(source.path) || source.path}...`,
                 ),
             );
             importedPath = await invoke<string>(
@@ -206,6 +212,7 @@ export class TauriImportService implements ImportService {
                     progressEvent,
                 },
             );
+            importedPath = normalizeDesktopPath(importedPath);
             await this.finalizeImportedResource(
                 importedPath,
                 progressEvent,
@@ -273,6 +280,7 @@ export class TauriImportService implements ImportService {
                         this.requestedWithHeaderValue ?? null,
                 },
             );
+            importedPath = normalizeDesktopPath(importedPath);
             await this.finalizeImportedResource(
                 importedPath,
                 progressEvent,

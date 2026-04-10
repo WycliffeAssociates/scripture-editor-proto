@@ -1,6 +1,7 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
+import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import { App } from "@/app/entrypoint.tsx";
 import { DefaultLibraryService } from "@/app/library/DefaultLibraryService.ts";
 import {
@@ -36,9 +37,12 @@ const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
 );
 const storageRoots = await TauriStorageRoots.create();
 const fileSystem = new TauriFileSystem(storageRoots);
+const currentPlatform: PlatformAndWeb = platform();
 const authSessionProvider = new FsBackedAuthSessionProvider(
     fileSystem,
     storageRoots,
+    undefined,
+    currentPlatform,
 );
 const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
@@ -84,7 +88,7 @@ root.render(
             usfmOnionService={usfmOnionService}
             gitProvider={gitProvider}
             opener={opener}
-            platform={platform()}
+            platform={currentPlatform}
         />
     </StrictMode>,
 );

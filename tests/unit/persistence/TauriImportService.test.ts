@@ -138,6 +138,57 @@ describe("TauriImportService", () => {
         });
     });
 
+    it("normalizes windows-native desktop selections and imported paths before shared code sees them", async () => {
+        mocks.openMock.mockResolvedValueOnce("C:\\Users\\test\\Desktop\\en_tn");
+        mocks.invokeMock
+            .mockResolvedValueOnce(
+                "C:\\Users\\test\\AppData\\Roaming\\org.bibletranslationtools.bttrefinerproto\\projects\\en_tn",
+            )
+            .mockResolvedValueOnce(undefined);
+
+        const service = new TauriImportService(
+            roots,
+            projectsService,
+            fileSystem,
+            "WA-Tool-Desktop",
+        );
+
+        await expect(service.pickDirectory()).resolves.toBe(
+            "C:/Users/test/Desktop/en_tn",
+        );
+
+        await expect(
+            service.importFolder({
+                kind: "path",
+                path: "C:/Users/test/Desktop/en_tn",
+            }),
+        ).resolves.toEqual(importedResult);
+
+        expect(mocks.invokeMock).toHaveBeenNthCalledWith(
+            1,
+            "import_copy_directory_to_managed_storage",
+            expect.objectContaining({
+                sourcePath: "C:/Users/test/Desktop/en_tn",
+            }),
+        );
+        expect(mocks.invokeMock).toHaveBeenNthCalledWith(
+            2,
+            "finalize_imported_resource",
+            expect.objectContaining({
+                resourcePath:
+                    "C:/Users/test/AppData/Roaming/org.bibletranslationtools.bttrefinerproto/projects/en_tn",
+            }),
+        );
+        expect(projectsService.importProject).toHaveBeenCalledWith(
+            {
+                type: "fromPreparedDir",
+                directoryPath:
+                    "C:/Users/test/AppData/Roaming/org.bibletranslationtools.bttrefinerproto/projects/en_tn",
+            },
+            undefined,
+        );
+    });
+
     it("copies a native directory through Rust progress events and then imports from prepared storage", async () => {
         let progressListener:
             | ((event: { payload: { phase: string; message: string; current?: number; total?: number } }) => Promise<void>)

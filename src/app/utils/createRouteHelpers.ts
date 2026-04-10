@@ -1,10 +1,11 @@
 import type { NotificationData } from "@/app/ui/components/primitives/Notifications.tsx";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 export function getProjectParamFromImportedPath(
     importedPath: string | null | undefined,
 ): string | null {
     if (!importedPath) return null;
-    const projectParam = importedPath.split("/").filter(Boolean).at(-1);
+    const projectParam = basenameStoragePath(importedPath);
     return projectParam || null;
 }
 

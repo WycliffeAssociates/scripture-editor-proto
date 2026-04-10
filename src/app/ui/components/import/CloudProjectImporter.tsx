@@ -21,7 +21,6 @@ type CloudProjectImporterProps = {
     hasNextPage: boolean;
     onLoginUsernameChange: (value: string) => void;
     onLoginPasswordChange: (value: string) => void;
-    onLoginOtpChange: (value: string) => void;
     onConnect: () => void;
     onRefresh: () => void;
     onDisconnect: () => void;
@@ -206,37 +205,6 @@ export function CloudProjectImporter(props: CloudProjectImporterProps) {
                                                         }
                                                         onInput={(event) =>
                                                             props.onLoginPasswordChange(
-                                                                (
-                                                                    event.target as HTMLInputElement
-                                                                ).value,
-                                                            )
-                                                        }
-                                                        className={
-                                                            styles.loginInput
-                                                        }
-                                                    />
-                                                </label>
-                                                <label
-                                                    className={
-                                                        styles.loginField
-                                                    }
-                                                >
-                                                    <span
-                                                        className={
-                                                            styles.loginLabel
-                                                        }
-                                                    >
-                                                        <Trans>
-                                                            One-time code
-                                                            (optional)
-                                                        </Trans>
-                                                    </span>
-                                                    <input
-                                                        type="text"
-                                                        aria-label="Cloud one-time code"
-                                                        value={props.loginOtp}
-                                                        onInput={(event) =>
-                                                            props.onLoginOtpChange(
                                                                 (
                                                                     event.target as HTMLInputElement
                                                                 ).value,

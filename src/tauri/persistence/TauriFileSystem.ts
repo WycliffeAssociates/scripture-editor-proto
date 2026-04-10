@@ -16,7 +16,7 @@ import type {
     FileSystemEntry,
 } from "@/core/persistence/FileSystem.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import { normalize } from "@/tauri/io/PathUtils.ts";
+import { normalizeManagedDesktopPath } from "@/tauri/io/PathUtils.ts";
 
 /**
  * Normalize external path input into the app's managed-storage path format.
@@ -26,8 +26,9 @@ import { normalize } from "@/tauri/io/PathUtils.ts";
  * separators and trailing-slash quirks.
  */
 function normalizePublicPath(path: string): string {
-    const normalized = normalize(path || "/");
+    const normalized = normalizeManagedDesktopPath(path || "/");
     if (normalized === "") return "/";
+    if (/^[A-Za-z]:\/?/u.test(normalized)) return normalized;
     return normalized.startsWith("/") ? normalized : `/${normalized}`;
 }
 

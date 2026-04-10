@@ -42,6 +42,7 @@ export class FsBackedAuthSessionProvider implements AuthSessionProvider {
         private readonly fileSystem: FileSystem,
         private readonly storageRoots: StorageRoots,
         private readonly fetchImpl: FetchLike = getDefaultFetch(),
+        private readonly platformLabel: string | null = null,
     ) {}
 
     async getCurrentSession(): Promise<GitRemoteSession | null> {
@@ -57,7 +58,7 @@ export class FsBackedAuthSessionProvider implements AuthSessionProvider {
         password: string;
         otp?: string | null;
     }): Promise<GitRemoteSession> {
-        const tokenName = buildSessionTokenName();
+        const tokenName = buildSessionTokenName(this.platformLabel);
         const response = await this.fetchImpl(
             new URL(
                 `/api/v1/users/${encodeURIComponent(args.username)}/tokens`,
@@ -130,8 +131,17 @@ function getDefaultFetch(): FetchLike {
     return globalThis.fetch.bind(globalThis);
 }
 
-function buildSessionTokenName(): string {
-    return `${GIT_REMOTE_SESSION_TOKEN_NAME_PREFIX}-${Date.now()}`;
+function buildSessionTokenName(platformLabel?: string | null): string {
+    const normalizedPlatform = platformLabel
+        ?.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/gu, "-")
+        .replace(/-+/gu, "-")
+        .replace(/^-|-$/gu, "");
+
+    return normalizedPlatform
+        ? `${GIT_REMOTE_SESSION_TOKEN_NAME_PREFIX}-${normalizedPlatform}-${Date.now()}`
+        : `${GIT_REMOTE_SESSION_TOKEN_NAME_PREFIX}-${Date.now()}`;
 }
 
 function toBasicAuth(username: string, password: string): string {

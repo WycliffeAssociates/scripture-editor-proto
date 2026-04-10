@@ -17,7 +17,10 @@ import {
     getGitRemoteSessionPath,
     getGitRemoteStateRoot,
 } from "@/core/persistence/gitRemotePaths.ts";
-import { joinStoragePath } from "@/core/persistence/pathUtils.ts";
+import {
+    dirnameStoragePath,
+    joinStoragePath,
+} from "@/core/persistence/pathUtils.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 /**
@@ -190,8 +193,7 @@ async function ensureParentDirectory(
     fileSystem: FileSystem,
     path: string,
 ): Promise<void> {
-    const parent = path.split("/").slice(0, -1).join("/") || "/";
-    const gitRemoteRoot = joinStoragePath(parent);
+    const gitRemoteRoot = joinStoragePath(dirnameStoragePath(path));
     await fileSystem.mkdir(gitRemoteRoot, { recursive: true });
 }
 

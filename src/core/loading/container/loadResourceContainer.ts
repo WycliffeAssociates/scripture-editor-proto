@@ -1,6 +1,7 @@
 import type { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import type { LoadedReferenceItem } from "@/core/library/LoadedReferenceItem.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 export type ManagedPathLoadArgs = {
     fs: FileSystem;
@@ -22,7 +23,7 @@ export async function loadResourceContainer(
     return loader.openResource({
         fs: args.fs,
         projectRootPath: args.managedPath,
-        folderName: args.managedPath.split("/").pop() ?? args.managedPath,
+        folderName: basenameStoragePath(args.managedPath) || args.managedPath,
         displayName: args.displayName,
     });
 }

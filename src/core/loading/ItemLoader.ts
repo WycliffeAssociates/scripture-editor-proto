@@ -16,6 +16,7 @@ import type {
     IItemLoader,
     IItemLoaderArgs,
 } from "@/core/loading/IItemLoader.ts";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 /**
  * Canonical load orchestrator.
@@ -58,14 +59,16 @@ export class ItemLoader implements IItemLoader {
                       fs: args.fs,
                       projectRootPath: args.managedPath,
                       folderName:
-                          args.managedPath.split("/").pop() ?? args.managedPath,
+                          basenameStoragePath(args.managedPath) ??
+                          args.managedPath,
                       displayName: args.displayName,
                   })
                 : await this.rcLoader.openProject({
                       fs: args.fs,
                       projectRootPath: args.managedPath,
                       folderName:
-                          args.managedPath.split("/").pop() ?? args.managedPath,
+                          basenameStoragePath(args.managedPath) ??
+                          args.managedPath,
                       displayName: args.displayName,
                   });
         if (project) {

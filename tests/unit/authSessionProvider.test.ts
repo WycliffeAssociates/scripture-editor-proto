@@ -65,6 +65,7 @@ describe("FsBackedAuthSessionProvider", () => {
             fileSystem,
             storageRoots,
             fetchImpl as typeof fetch,
+            "windows",
         );
 
         const session = await provider.loginWithPassword({
@@ -90,7 +91,7 @@ describe("FsBackedAuthSessionProvider", () => {
         );
         const requestInit = fetchImpl.mock.calls[0]?.[1];
         expect(JSON.parse(String(requestInit?.body))).toEqual({
-            name: expect.stringMatching(/^dovetail-/u),
+            name: expect.stringMatching(/^dovetail-windows-/u),
             scopes: [...GIT_REMOTE_SESSION_TOKEN_SCOPES],
         });
         expect(session).toEqual({

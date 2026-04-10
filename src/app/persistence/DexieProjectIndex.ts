@@ -15,6 +15,7 @@ import type {
     ResourceLibraryItem,
 } from "@/core/library/ProjectIndex.ts";
 import { isEditableScriptureProjectLibraryItem } from "@/core/library/ProjectIndex.ts";
+import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 import {
     type Project,
     type ProjectListItem,
@@ -143,8 +144,7 @@ function dbProjectToProjectListItem(args: {
     language: DbLanguage | undefined;
 }): ProjectListItem {
     const folderName =
-        args.project.projectDir.split("/").filter(Boolean).at(-1) ??
-        args.project.projectDir;
+        basenameStoragePath(args.project.projectDir) || args.project.projectDir;
     const displayName =
         args.project.title || folderName || args.project.projectDir;
 

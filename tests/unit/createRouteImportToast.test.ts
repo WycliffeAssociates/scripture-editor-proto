@@ -10,6 +10,11 @@ describe("create route import toast helpers", () => {
         expect(
             getProjectParamFromImportedPath("/userData/projects/en_ulb (1)"),
         ).toBe("en_ulb (1)");
+        expect(
+            getProjectParamFromImportedPath(
+                "C:\\Users\\test\\AppData\\Roaming\\org.bibletranslationtools.bttrefinerproto\\projects\\en_ulb (1)",
+            ),
+        ).toBe("en_ulb (1)");
         expect(getProjectParamFromImportedPath("en_ulb")).toBe("en_ulb");
     });
 

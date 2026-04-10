@@ -557,7 +557,7 @@ export class DefaultProjectsService implements ProjectsService {
                     await this.reportImportProgress(options, update);
                 },
             );
-            const projectId = importedPath.split("/").filter(Boolean).at(-1);
+            const projectId = basenameStoragePath(importedPath);
             if (!projectId) {
                 throw new Error("Imported project path could not be resolved");
             }

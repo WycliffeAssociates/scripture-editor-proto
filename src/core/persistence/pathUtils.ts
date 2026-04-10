@@ -35,6 +35,24 @@ export function basenameStoragePath(path: string): string {
     return parts.at(-1) ?? "";
 }
 
+export function dirnameStoragePath(path: string): string {
+    const normalized = normalizeStoragePath(path).replace(/\/+$/u, "");
+    if (normalized === "") return "/";
+    if (/^[A-Za-z]:$/u.test(normalized)) {
+        return `${normalized}/`;
+    }
+
+    const cutIndex = normalized.lastIndexOf("/");
+    if (cutIndex < 0) return "/";
+
+    const parent = normalized.slice(0, cutIndex);
+    if (parent === "") return "/";
+    if (/^[A-Za-z]:$/u.test(parent)) {
+        return `${parent}/`;
+    }
+    return parent;
+}
+
 export function stripFileExtension(name: string): string {
     const lastDot = name.lastIndexOf(".");
     if (lastDot <= 0) return name;
