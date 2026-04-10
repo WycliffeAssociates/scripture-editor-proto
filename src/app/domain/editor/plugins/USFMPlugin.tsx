@@ -31,7 +31,7 @@ export function USFMPlugin() {
     }, [editor, project.appSettings.editorMode]);
 
     useEffect(() => {
-        actions.initializeEditor(editor);
+        actions.syncEditorToVisibleChapter(editor);
     }, [actions, editor]);
 
     return (

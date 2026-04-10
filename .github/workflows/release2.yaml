@@ -68,6 +68,8 @@ jobs:
           VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
           VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
           VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+          VITE_VERSION_TAG: ${{ github.ref_name }}
+          VITE_GITHUB_SHA: ${{ github.sha }}
 
       - name: Cargo check
         run: cargo check --manifest-path src/tauri/rust/Cargo.toml
@@ -81,6 +83,8 @@ jobs:
           VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
           VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
           VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+          VITE_VERSION_TAG: ${{ github.ref_name }}
+          VITE_GITHUB_SHA: ${{ github.sha }}
 
       - name: Upload tauri frontend
         uses: actions/upload-artifact@v4

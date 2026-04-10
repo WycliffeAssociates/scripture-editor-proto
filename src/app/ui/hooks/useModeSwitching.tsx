@@ -17,6 +17,13 @@ export type SetEditorModeOptions = {
     onComplete?: () => void;
 };
 
+type VisibleEditorTarget = {
+    bookCode: string;
+    chapterNumber: number;
+    editorMode: EditorModeSetting;
+    lexicalState: ScriptureChapterState["lexicalState"];
+};
+
 /**
  * Coordinate editor-mode transitions for the scripture workspace.
  *
@@ -46,7 +53,7 @@ export function useModeSwitching({
     ) => void;
     saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
 }) {
-    const initializationRef = useRef(false);
+    const appliedVisibleTargetRef = useRef<VisibleEditorTarget | null>(null);
     const pendingModeCompleteRef = useRef<{
         mode: EditorModeSetting;
         onComplete: () => void;
@@ -68,27 +75,75 @@ export function useModeSwitching({
     }, [resolvedEditorMode]);
 
     /**
-     * Mount the current chapter into the Lexical editor the first time the
-     * editor instance becomes available.
+     * Resolve the exact chapter state the main editor should be showing.
      */
-    function initializeEditor(editor: LexicalEditor) {
-        if (initializationRef.current) return;
-        initializationRef.current = true;
-
-        const currentChapterData = mutWorkingFilesRef
+    function getVisibleChapterState() {
+        return mutWorkingFilesRef
             .find((f) => f.bookCode === currentFileBibleIdentifier)
             ?.chapters.find((c) => c.chapterNumber === currentChapter);
+    }
 
-        if (currentChapterData) {
+    function getVisibleEditorTarget(): VisibleEditorTarget | null {
+        const currentChapterData = getVisibleChapterState();
+        if (!currentChapterData) return null;
+
+        return {
+            bookCode: currentFileBibleIdentifier,
+            chapterNumber: currentChapter,
+            editorMode: resolvedEditorMode,
+            lexicalState: currentChapterData.lexicalState,
+        };
+    }
+
+    /**
+     * Keep the mounted Lexical editor synchronized to the resolved visible
+     * chapter target. This is intentionally idempotent so repeated React effect
+     * runs cannot cause incorrect double-initialization behavior.
+     */
+    function syncEditorToVisibleChapter(editor: LexicalEditor) {
+        const currentChapterData = getVisibleChapterState();
+        const nextTarget = getVisibleEditorTarget();
+
+        const appliedTarget = appliedVisibleTargetRef.current;
+        const alreadyApplied =
+            appliedTarget &&
+            nextTarget &&
+            appliedTarget.bookCode === nextTarget.bookCode &&
+            appliedTarget.chapterNumber === nextTarget.chapterNumber &&
+            appliedTarget.editorMode === nextTarget.editorMode &&
+            appliedTarget.lexicalState === nextTarget.lexicalState;
+
+        if (!nextTarget) return;
+
+        if (!alreadyApplied && currentChapterData) {
             setEditorContent(
-                currentFileBibleIdentifier,
-                currentChapter,
+                nextTarget.bookCode,
+                nextTarget.chapterNumber,
                 currentChapterData,
                 editor,
             );
+            appliedVisibleTargetRef.current = nextTarget;
         }
 
         updateDomForEditorMode({ editorMode: resolvedEditorMode });
+    }
+
+    /**
+     * A live editor instance exists before its chapter content is guaranteed to
+     * be applied. Only allow "save current editor back into workspace state"
+     * after the exact visible book/chapter/mode target has been synchronized.
+     */
+    function canPersistVisibleEditorState(): boolean {
+        const appliedTarget = appliedVisibleTargetRef.current;
+        const visibleTarget = getVisibleEditorTarget();
+        if (!appliedTarget || !visibleTarget) return false;
+
+        return (
+            appliedTarget.bookCode === visibleTarget.bookCode &&
+            appliedTarget.chapterNumber === visibleTarget.chapterNumber &&
+            appliedTarget.editorMode === visibleTarget.editorMode &&
+            appliedTarget.lexicalState === visibleTarget.lexicalState
+        );
     }
 
     /**
@@ -167,11 +222,13 @@ export function useModeSwitching({
         updateAppSettings({
             editorMode: next,
         });
+        appliedVisibleTargetRef.current = null;
         updateDomForEditorMode({ editorMode: next });
     }
 
     return {
         setEditorMode,
-        initializeEditor,
+        syncEditorToVisibleChapter,
+        canPersistVisibleEditorState,
     };
 }

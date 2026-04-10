@@ -914,6 +914,25 @@ function AdvancedTab({
                     />
                 </>
             ) : null}
+
+            <div className={styles.buildInfo}>
+                <div className={styles.buildInfoRow}>
+                    <span className={styles.buildInfoLabel}>{t`Version`}:</span>
+                    <span className={styles.buildInfoValue}>
+                        {import.meta.env.DEV
+                            ? "local"
+                            : import.meta.env.VITE_VERSION_TAG || ""}
+                    </span>
+                </div>
+                {!import.meta.env.DEV && import.meta.env.VITE_GITHUB_SHA && (
+                    <div className={styles.buildInfoRow}>
+                        <span className={styles.buildInfoLabel}>{t`SHA`}:</span>
+                        <span className={styles.buildInfoValue}>
+                            {import.meta.env.VITE_GITHUB_SHA}
+                        </span>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

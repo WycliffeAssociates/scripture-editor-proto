@@ -7,14 +7,6 @@ const useLocalParallelBrowsers =
   !process.env.CI && requestedWorkers !== null && requestedWorkers > 1;
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-/**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -29,7 +21,7 @@ export default defineConfig({
    * Parallelism can still be requested explicitly via PLAYWRIGHT_WORKERS.
    */
   workers: process.env.PLAYWRIGHT_WORKERS
-    ? requestedWorkers ?? undefined
+    ? (requestedWorkers ?? undefined)
     : process.env.CI
       ? 2
       : 1,

@@ -94,6 +94,9 @@ export const useWorkspaceActions = ({
      */
     const saveCurrentDirtyLexicalWrapper = () => {
         if (editorRef.current) {
+            if (!modeSwitching.canPersistVisibleEditorState()) {
+                return mutWorkingFilesRef;
+            }
             return editorState.saveCurrentDirtyLexical(editorRef.current);
         }
         return undefined;
@@ -237,7 +240,7 @@ export const useWorkspaceActions = ({
                 editorRef.current ?? undefined,
                 options,
             ),
-        initializeEditor: modeSwitching.initializeEditor,
+        syncEditorToVisibleChapter: modeSwitching.syncEditorToVisibleChapter,
 
         // Prettify operations
         prettifyChapter: prettifyOperations.prettifyChapter,

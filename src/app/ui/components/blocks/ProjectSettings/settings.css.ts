@@ -374,3 +374,28 @@ export const cloudAttachActions = style({
     gap: vars.spacing.xs,
     justifyContent: "flex-end",
 });
+
+export const buildInfo = style({
+    marginTop: vars.spacing.xl,
+    paddingTop: vars.spacing.lg,
+    borderTop: `1px solid ${vars.color.surfaceBorder}`,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.spacing.xs,
+});
+
+export const buildInfoRow = style({
+    display: "flex",
+    gap: vars.spacing.xs,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const buildInfoLabel = style({
+    fontWeight: 600,
+});
+
+export const buildInfoValue = style({
+    fontFamily: "monospace",
+});
