@@ -21,7 +21,6 @@ type VisibleEditorTarget = {
     bookCode: string;
     chapterNumber: number;
     editorMode: EditorModeSetting;
-    lexicalState: ScriptureChapterState["lexicalState"];
 };
 
 /**
@@ -91,7 +90,6 @@ export function useModeSwitching({
             bookCode: currentFileBibleIdentifier,
             chapterNumber: currentChapter,
             editorMode: resolvedEditorMode,
-            lexicalState: currentChapterData.lexicalState,
         };
     }
 
@@ -141,8 +139,7 @@ export function useModeSwitching({
         return (
             appliedTarget.bookCode === visibleTarget.bookCode &&
             appliedTarget.chapterNumber === visibleTarget.chapterNumber &&
-            appliedTarget.editorMode === visibleTarget.editorMode &&
-            appliedTarget.lexicalState === visibleTarget.lexicalState
+            appliedTarget.editorMode === visibleTarget.editorMode
         );
     }
 
