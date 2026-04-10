@@ -16,7 +16,7 @@ pre-commit:
       only:
         - ref: master
       # block master commits for lint errors
-      run: pnpm run format {staged_files}
+      run: pnpm run format {staged_files} && pnpm run check
       stage_fixed: true
     sync-versions:
       only:

@@ -108,8 +108,7 @@ export function useModeSwitching({
             nextTarget &&
             appliedTarget.bookCode === nextTarget.bookCode &&
             appliedTarget.chapterNumber === nextTarget.chapterNumber &&
-            appliedTarget.editorMode === nextTarget.editorMode &&
-            appliedTarget.lexicalState === nextTarget.lexicalState;
+            appliedTarget.editorMode === nextTarget.editorMode;
 
         if (!nextTarget) return;
 
