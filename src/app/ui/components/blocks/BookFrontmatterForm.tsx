@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { SerializedLexicalNode } from "lexical";
 import { Plus, Trash2 } from "lucide-react";
 import {
@@ -50,7 +50,6 @@ type BookFrontmatterFormProps = {
  * save, lint, diff, and history.
  */
 export function BookFrontmatterForm(props: BookFrontmatterFormProps) {
-    const { t } = useLingui();
     const entries = useMemo(
         () => parseBookFrontmatterEntries(props.tokens),
         [props.tokens],
@@ -121,10 +120,14 @@ export function BookFrontmatterForm(props: BookFrontmatterFormProps) {
         >
             <div className={styles.header}>
                 <div className={styles.titleBlock}>
-                    <div className={styles.title}>{t`Book frontmatter`}</div>
-                    <div
-                        className={styles.subtitle}
-                    >{t`Chapter 0 metadata and introductory markers`}</div>
+                    <div className={styles.title}>
+                        <Trans>Book frontmatter</Trans>
+                    </div>
+                    <div className={styles.subtitle}>
+                        <Trans>
+                            Chapter 0 metadata and introductory markers
+                        </Trans>
+                    </div>
                 </div>
             </div>
 
@@ -314,12 +317,20 @@ function FrontmatterCard(props: {
                         }
                     />
                     <div className={styles.note}>
-                        {t`Most projects should stay UTF-8. Change this only when the source text truly depends on another encoding.`}
+                        <Trans>
+                            Most projects should stay UTF-8. Change this only
+                            when the source text truly depends on another
+                            encoding.
+                        </Trans>
                     </div>
                     {props.entry.encoding &&
                     props.entry.encoding.toUpperCase() !== "UTF-8" ? (
                         <div className={styles.warning}>
-                            {t`This file is not using UTF-8. Avoid changing the encoding casually because it can corrupt the text.`}
+                            <Trans>
+                                This file is not using UTF-8. Avoid changing the
+                                encoding casually because it can corrupt the
+                                text.
+                            </Trans>
                         </div>
                     ) : null}
                 </>

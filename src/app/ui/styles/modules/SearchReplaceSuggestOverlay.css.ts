@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 const darkSelector = "[data-theme='dark']";
 
@@ -7,7 +8,7 @@ export const overlayHost = style({
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
-    zIndex: 60,
+    zIndex: zLayer.floatingPanel,
 });
 
 export const suggestion = style({

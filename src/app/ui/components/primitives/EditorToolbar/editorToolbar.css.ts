@@ -4,8 +4,6 @@ import { vars } from "@/app/ui/styles/designSystem.css.ts";
 export const root = style({
     display: "flex",
     flexDirection: "column",
-    gap: vars.spacing.sm,
-    minHeight: "4.5rem",
     paddingBlock: vars.spacing.xs,
     paddingInline: vars.spacing.sm,
 });
@@ -20,12 +18,13 @@ export const toolbarRow = style({
 });
 
 export const clusterRow = style({
-    //   width: "100%",
+    flex: "1 1 auto",
     display: "flex",
     alignItems: "center",
     gap: vars.spacing.sm,
     flexWrap: "wrap",
     minWidth: 0,
+    justifyContent: "flex-end",
 });
 
 export const cluster = style({
@@ -39,14 +38,6 @@ export const cluster = style({
 
 export const leftCluster = style({
     flex: "1 1 auto",
-});
-
-export const rightCluster = style({
-    flex: "0 1 auto",
-});
-
-export const rightControls = style({
-    flex: "0 1 auto",
 });
 
 export const locationSeparator = style({
@@ -190,6 +181,23 @@ export const sectionLabel = style({
     marginRight: vars.spacing.xs,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
+});
+
+export const quoteLevelIcon = style({
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+});
+
+export const quoteLevelBadge = style({
+    position: "absolute",
+    bottom: "-2px",
+    right: "-4px",
+    fontSize: "8px",
+    fontWeight: 700,
+    lineHeight: 1,
+    color: "currentColor",
 });
 
 export const markerButton = style({

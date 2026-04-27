@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useClickOutside } from "@/app/ui/hooks/general/useClickOutside.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import type { EditorContext } from "../actions/types.ts";
 import { useEditorContext } from "../hooks/useEditorContext.ts";
 import { ActionPalette } from "./ContextMenu/ActionPalette.tsx";
@@ -212,7 +213,7 @@ export function NodeContextMenuPlugin() {
                 position: "fixed",
                 top: pos.y,
                 left: pos.x,
-                zIndex: 2000,
+                zIndex: zLayer.floatingOverlay,
             }}
         >
             <ActionPalette context={context} onClose={closePalette} />

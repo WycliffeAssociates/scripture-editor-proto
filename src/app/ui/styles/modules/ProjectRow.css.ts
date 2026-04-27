@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const row = style({
     display: "flex",
@@ -83,7 +84,7 @@ export const dialogOverlay = style({
     display: "grid",
     placeItems: "center",
     padding: vars.spacing.md,
-    zIndex: 60,
+    zIndex: zLayer.floatingPanel,
 });
 
 export const dialog = style({

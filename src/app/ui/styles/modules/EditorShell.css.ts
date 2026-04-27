@@ -1,5 +1,6 @@
-import { keyframes, style } from "@vanilla-extract/css";
+import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 const vars = {
     ...dsVars,
@@ -41,7 +42,7 @@ export const contentEditable = style({
     width: "100%",
     minHeight: "100%",
     padding: `${vars.spacing.sm} ${vars.spacing.sm} 20rem`,
-    zIndex: 5100,
+    zIndex: zLayer.editorContent,
     fontFamily: vars.typography.fontFamilySerif,
     maxWidth: "75ch",
     margin: "0 auto",
@@ -65,7 +66,7 @@ export const switchingOverlay = style({
     position: "absolute",
     top: vars.spacing.md,
     right: vars.spacing.md,
-    zIndex: 5202,
+    zIndex: zLayer.editorSwitchingOverlay,
     borderRadius: vars.radius.full,
     border: `1px solid ${vars.colors.gray[3]}`,
     backgroundColor: vars.colors.gray[0],
@@ -124,8 +125,15 @@ export const translationNoteCard = style({
 });
 
 export const translationNoteBody = style({
-    whiteSpace: "pre-wrap",
+    whiteSpace: "normal",
 });
+
+globalStyle(`${translationNoteBody} h1`, {
+    fontSize: "1.25rem",
+    marginBlockStart: "1rem",
+    marginBlockEnd: "0.5rem",
+});
+
 export const contentEditableReference = style({
     outline: "none",
     width: "100%",

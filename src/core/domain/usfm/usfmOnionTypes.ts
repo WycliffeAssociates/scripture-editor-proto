@@ -6,6 +6,7 @@ import type {
     FormatOptions as OnionFormatOptions,
     LintCode as OnionLintCode,
     LintIssue as OnionLintIssue,
+    LintIssueType as OnionLintIssueType,
     LintOptions as OnionLintOptions,
     LintSeverity as OnionLintSeverity,
     MarkerInfo as OnionMarkerInfo,
@@ -98,11 +99,14 @@ export type ProjectUsfmOptions = {
 };
 
 // todo: this is a whacky type. and I still dislike how much we are recreating some of this stuff ourself
+export type LintIssueType = OnionLintIssueType;
+
 export type LintIssue = Omit<
     OnionLintIssue,
     | "code"
     | "category"
     | "severity"
+    | "issueType"
     | "marker"
     | "messageParams"
     | "span"
@@ -115,6 +119,7 @@ export type LintIssue = Omit<
     code: OnionLintCode | string;
     category?: OnionLintIssue["category"];
     severity: OnionLintSeverity | string;
+    issueType: LintIssueType;
     marker: string | null;
     messageParams: Record<string, string>;
     span: Span | null;

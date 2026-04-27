@@ -138,7 +138,9 @@ export function SearchResults() {
         return (
             <div className={styles.searchEmptyState}>
                 <span className={styles.searchEmptyIcon}>🔍</span>
-                <span>{t`Type to start searching`}</span>
+                <span>
+                    <Trans>Type to start searching</Trans>
+                </span>
             </div>
         );
     }

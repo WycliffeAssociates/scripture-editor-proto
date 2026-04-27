@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const trigger = style({
     width: "2rem",
@@ -18,7 +19,7 @@ export const trigger = style({
 });
 
 export const positioner = style({
-    zIndex: 10000,
+    zIndex: zLayer.toolbarMenu,
 });
 
 export const popup = style({

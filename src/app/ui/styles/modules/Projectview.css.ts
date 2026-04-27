@@ -3,6 +3,7 @@
 import { style } from "@vanilla-extract/css";
 import { mediaQuery } from "@/app/ui/styles/breakpoints.ts";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 // Layout
 export const appLayout = style({
@@ -213,7 +214,7 @@ export const workspaceOverlayPane = style({
     minWidth: 0,
     minHeight: 0,
     height: "100%",
-    zIndex: 5000,
+    zIndex: zLayer.editorOverlayPane,
 });
 
 export const editorPaneHeader = style({
@@ -225,7 +226,7 @@ export const editorPaneHeader = style({
     position: "sticky",
     top: "0",
     backgroundColor: vars.color.surfacePrimary,
-    zIndex: 1000,
+    zIndex: zLayer.popoverPositioner,
 });
 
 export const referenceToggleButton = style({
@@ -372,7 +373,7 @@ export const bottomPanel = style({
     borderTop: `1px solid ${vars.color.surfaceBorder}`,
     backgroundColor: vars.color.surfaceSecondary,
     overflow: "hidden",
-    zIndex: 5200,
+    zIndex: zLayer.referencePanelBottom,
 });
 
 export const bottomPanelResizeHandle = style({
@@ -597,7 +598,7 @@ export const lintFilterMenuPopup = style({
 });
 
 export const lintFilterMenuPositioner = style({
-    zIndex: 5305,
+    zIndex: zLayer.editorMenuPositioner,
 });
 
 export const lintFilterMenuList = style({

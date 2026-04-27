@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const shell = style({
     display: "flex",
@@ -58,7 +59,7 @@ export const insertRule = style({
 });
 
 export const insertMenuPositioner = style({
-    zIndex: 5305,
+    zIndex: zLayer.editorMenuPositioner,
 });
 
 export const insertMenuPopup = style({

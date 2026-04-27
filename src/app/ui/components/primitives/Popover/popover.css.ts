@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const popup = style({
     backgroundColor: vars.color.surfacePrimary,
@@ -7,7 +8,7 @@ export const popup = style({
     borderRadius: vars.border.radius.md,
     boxShadow: vars.shadow.large,
     padding: vars.spacing.md,
-    zIndex: 100,
+    zIndex: zLayer.popover,
     minWidth: "300px",
     outline: "none",
     isolation: "isolate",

@@ -1,11 +1,15 @@
+import { Menu } from "@base-ui/react/menu";
 import { Popover as BasePopover } from "@base-ui/react/popover";
-import { useLingui } from "@lingui/react/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
     AlertCircle,
     ArrowRight,
+    Check,
     CheckCircle2,
+    ChevronDown,
     ChevronRight,
+    Filter,
     X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -19,12 +23,16 @@ import {
     summarizeSelection,
     toggleSelection,
 } from "@/app/ui/components/blocks/lintFilters.tsx";
+import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/LintIssuesPopover.css.ts";
+import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import { parseSid, sortListByBookCanonical } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Scope = "local" | "all";
+type IssueTypeFilter = "all" | "usfm" | "content";
 
 function joinClassNames(...names: Array<string | false | undefined>) {
     return names.filter(Boolean).join(" ");
@@ -37,8 +45,20 @@ export function LintIssuesPopover() {
 
     const [opened, setOpened] = useState(false);
     const [scope, setScope] = useState<Scope>("local");
+    const [issueTypeFilter, setIssueTypeFilter] =
+        useState<IssueTypeFilter>("content");
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
+
+    const typeFilteredAllIssues = useMemo(
+        () =>
+            issueTypeFilter === "all"
+                ? lint.allIssues
+                : lint.allIssues.filter(
+                      (issue) => issue.issueType === issueTypeFilter,
+                  ),
+        [lint.allIssues, issueTypeFilter],
+    );
 
     const filterLabels: LintFilterLabels = useMemo(
         () => ({ all: t`All`, none: t`None` }),
@@ -46,17 +66,17 @@ export function LintIssuesPopover() {
     );
 
     const codeOptions = useMemo(
-        () => buildLintCodeOptions(lint.allIssues, filterLabels),
-        [lint.allIssues, filterLabels],
+        () => buildLintCodeOptions(typeFilteredAllIssues, filterLabels),
+        [typeFilteredAllIssues, filterLabels],
     );
     const bookOptions = useMemo(
         () =>
             buildLintBookOptions(
-                lint.allIssues,
+                typeFilteredAllIssues,
                 bookCodeToProjectLocalizedTitle,
                 filterLabels,
             ),
-        [bookCodeToProjectLocalizedTitle, lint.allIssues, filterLabels],
+        [bookCodeToProjectLocalizedTitle, typeFilteredAllIssues, filterLabels],
     );
 
     useEffect(() => {
@@ -87,7 +107,7 @@ export function LintIssuesPopover() {
 
     const localIssues = useMemo(
         () =>
-            lint.allIssues.filter((issue) => {
+            typeFilteredAllIssues.filter((issue) => {
                 if (!issue.sid) return false;
                 const parsed = parseSid(issue.sid);
                 return (
@@ -95,15 +115,15 @@ export function LintIssuesPopover() {
                     parsed.chapter === currentChapter
                 );
             }),
-        [lint.allIssues, currentBookCode, currentChapter],
+        [typeFilteredAllIssues, currentBookCode, currentChapter],
     );
 
     const localCount = localIssues.length;
-    const allCount = lint.allIssues.length;
+    const allCount = typeFilteredAllIssues.length;
     const badgeCount = scope === "local" ? localCount : allCount;
 
     const baseIssues: LintIssue[] =
-        scope === "local" ? localIssues : lint.allIssues;
+        scope === "local" ? localIssues : typeFilteredAllIssues;
 
     const filteredIssues = useMemo(
         () =>
@@ -158,9 +178,12 @@ export function LintIssuesPopover() {
 
     const distinctBookCount = useMemo(
         () =>
-            new Set(lint.allIssues.map((issue) => getLintIssueBookCode(issue)))
-                .size,
-        [lint.allIssues],
+            new Set(
+                typeFilteredAllIssues.map((issue) =>
+                    getLintIssueBookCode(issue),
+                ),
+            ).size,
+        [typeFilteredAllIssues],
     );
 
     const handleJump = (issue: LintIssue) => {
@@ -171,24 +194,6 @@ export function LintIssuesPopover() {
         });
         setOpened(false);
     };
-
-    const subtitle = formatSubtitle({
-        scope,
-        currentBookName,
-        currentChapter,
-        distinctBookCount,
-        t,
-    });
-
-    const emptyStateNode = renderEmptyState({
-        scope,
-        localCount,
-        allCount,
-        filterExcludesEverything:
-            baseIssues.length > 0 && filteredIssues.length === 0,
-        onSwitchScope: () => setScope(scope === "local" ? "all" : "local"),
-        t,
-    });
 
     return (
         <BasePopover.Root open={opened} onOpenChange={setOpened}>
@@ -206,16 +211,21 @@ export function LintIssuesPopover() {
                     side="bottom"
                     align="start"
                     sideOffset={8}
-                    style={{ zIndex: 1000 }}
+                    style={{ zIndex: zLayer.popoverPositioner }}
                 >
                     <BasePopover.Popup className={styles.popover}>
                         <div className={styles.header}>
                             <div className={styles.headerText}>
-                                <div
-                                    className={styles.title}
-                                >{t`Content errors`}</div>
+                                <div className={styles.title}>
+                                    <Trans>Content errors</Trans>
+                                </div>
                                 <div className={styles.subtitle}>
-                                    {subtitle}
+                                    <SubtitleText
+                                        scope={scope}
+                                        currentBookName={currentBookName}
+                                        currentChapter={currentChapter}
+                                        distinctBookCount={distinctBookCount}
+                                    />
                                 </div>
                             </div>
                             <button
@@ -243,30 +253,56 @@ export function LintIssuesPopover() {
                             />
                         </div>
 
-                        {baseIssues.length > 0 ? (
-                            <div className={styles.filterRibbon}>
-                                <LintFilterMenu
-                                    label={t`Filter`}
-                                    options={codeOptions}
-                                    activeValues={selectedCodes}
-                                    summary={codeSummary}
-                                    onToggle={toggleCode}
-                                />
-                                {scope === "all" ? (
+                        <div className={styles.filterRibbon}>
+                            <IssueTypeSelect
+                                value={issueTypeFilter}
+                                onChange={setIssueTypeFilter}
+                                counts={countByIssueType(lint.allIssues)}
+                                label={t`Type`}
+                                labels={{
+                                    all: t`All`,
+                                    content: t`Content`,
+                                    usfm: t`USFM`,
+                                }}
+                            />
+                            {baseIssues.length > 0 ? (
+                                <>
                                     <LintFilterMenu
-                                        label={t`Books`}
-                                        options={bookOptions}
-                                        activeValues={selectedBooks}
-                                        summary={bookSummary}
-                                        onToggle={toggleBook}
+                                        label={t`Filter`}
+                                        options={codeOptions}
+                                        activeValues={selectedCodes}
+                                        summary={codeSummary}
+                                        onToggle={toggleCode}
                                     />
-                                ) : null}
-                            </div>
-                        ) : null}
+                                    {scope === "all" ? (
+                                        <LintFilterMenu
+                                            label={t`Books`}
+                                            options={bookOptions}
+                                            activeValues={selectedBooks}
+                                            summary={bookSummary}
+                                            onToggle={toggleBook}
+                                        />
+                                    ) : null}
+                                </>
+                            ) : null}
+                        </div>
 
                         {sortedIssues.length === 0 ? (
                             <div className={styles.listViewport}>
-                                {emptyStateNode}
+                                <EmptyState
+                                    scope={scope}
+                                    localCount={localCount}
+                                    allCount={allCount}
+                                    filterExcludesEverything={
+                                        baseIssues.length > 0 &&
+                                        filteredIssues.length === 0
+                                    }
+                                    onSwitchScope={() =>
+                                        setScope(
+                                            scope === "local" ? "all" : "local",
+                                        )
+                                    }
+                                />
                             </div>
                         ) : (
                             <VirtualizedIssueList
@@ -315,6 +351,94 @@ function TriggerButton(props: {
             ) : null}
         </button>
     );
+}
+
+function IssueTypeSelect(props: {
+    value: IssueTypeFilter;
+    onChange: (next: IssueTypeFilter) => void;
+    counts: Record<IssueTypeFilter, number>;
+    label: string;
+    labels: Record<IssueTypeFilter, string>;
+}) {
+    const order: IssueTypeFilter[] = ["content", "usfm", "all"];
+    const triggerClassName = [
+        buttonStyles.buttonBase,
+        buttonStyles.buttonVariants.secondary,
+        buttonStyles.buttonSizes.xs,
+        projectViewStyles.lintFilterTrigger,
+    ].join(" ");
+    return (
+        <Menu.Root>
+            <Menu.Trigger className={triggerClassName}>
+                <span className={projectViewStyles.lintFilterTriggerLabel}>
+                    <Filter size={14} />
+                    {props.label}
+                </span>
+                <span className={projectViewStyles.lintFilterTriggerValue}>
+                    {props.labels[props.value]}
+                </span>
+                <ChevronDown size={14} />
+            </Menu.Trigger>
+            <Menu.Portal>
+                <Menu.Positioner
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    alignOffset={0}
+                    className={projectViewStyles.lintFilterMenuPositioner}
+                >
+                    <Menu.Popup
+                        className={projectViewStyles.lintFilterMenuPopup}
+                    >
+                        <Menu.RadioGroup
+                            value={props.value}
+                            onValueChange={(next) =>
+                                props.onChange(next as IssueTypeFilter)
+                            }
+                            className={projectViewStyles.lintFilterMenuList}
+                        >
+                            {order.map((key) => (
+                                <Menu.RadioItem
+                                    key={key}
+                                    value={key}
+                                    className={
+                                        projectViewStyles.lintFilterMenuItem
+                                    }
+                                >
+                                    <span
+                                        className={
+                                            projectViewStyles.lintFilterMenuIndicator
+                                        }
+                                        aria-hidden="true"
+                                    >
+                                        {props.value === key ? (
+                                            <Check size={14} />
+                                        ) : null}
+                                    </span>
+                                    <span>
+                                        {props.labels[key]} ({props.counts[key]}
+                                        )
+                                    </span>
+                                </Menu.RadioItem>
+                            ))}
+                        </Menu.RadioGroup>
+                    </Menu.Popup>
+                </Menu.Positioner>
+            </Menu.Portal>
+        </Menu.Root>
+    );
+}
+
+function countByIssueType(
+    issues: LintIssue[],
+): Record<IssueTypeFilter, number> {
+    let usfm = 0;
+    let content = 0;
+    for (const issue of issues) {
+        if (issue.issueType === "content") content++;
+        else usfm++;
+    }
+    return { all: issues.length, usfm, content };
 }
 
 function ScopeTab(props: {
@@ -427,22 +551,26 @@ function VirtualizedIssueList(props: {
     );
 }
 
-function formatSubtitle(args: {
+function SubtitleText(props: {
     scope: Scope;
     currentBookName: string;
     currentChapter: number;
     distinctBookCount: number;
-    t: ReturnType<typeof useLingui>["t"];
-}): string {
-    const { scope, currentBookName, currentChapter, distinctBookCount, t } =
-        args;
-    if (scope === "local") {
-        return t`In ${currentBookName} ${currentChapter}`;
+}) {
+    if (props.scope === "local") {
+        return (
+            <Trans>
+                In {props.currentBookName} {props.currentChapter}
+            </Trans>
+        );
     }
-    if (distinctBookCount === 1) {
-        return t`In 1 book`;
-    }
-    return t`Across ${distinctBookCount} books`;
+    return (
+        <Plural
+            value={props.distinctBookCount}
+            one="In 1 book"
+            other="Across # books"
+        />
+    );
 }
 
 function formatIssueReference(
@@ -468,52 +596,44 @@ function isLocalSceneCleanProjectDirty(
     return scope === "local" && localCount === 0 && allCount > 0;
 }
 
-function renderEmptyState(args: {
+function EmptyState(props: {
     scope: Scope;
     localCount: number;
     allCount: number;
     filterExcludesEverything: boolean;
     onSwitchScope: () => void;
-    t: ReturnType<typeof useLingui>["t"];
 }) {
-    const {
-        scope,
-        localCount,
-        allCount,
-        filterExcludesEverything,
-        onSwitchScope,
-        t,
-    } = args;
-
-    if (filterExcludesEverything) {
-        return <FilteredOutEmptyState t={t} />;
+    if (props.filterExcludesEverything) {
+        return <FilteredOutEmptyState />;
     }
 
-    if (isLocalSceneCleanProjectDirty(scope, localCount, allCount)) {
+    if (
+        isLocalSceneCleanProjectDirty(
+            props.scope,
+            props.localCount,
+            props.allCount,
+        )
+    ) {
         return (
             <LocalCleanEmptyState
-                allCount={allCount}
-                onSwitchScope={onSwitchScope}
-                t={t}
+                allCount={props.allCount}
+                onSwitchScope={props.onSwitchScope}
             />
         );
     }
 
-    return <AllClearEmptyState t={t} />;
+    return <AllClearEmptyState />;
 }
 
-function FilteredOutEmptyState(props: {
-    t: ReturnType<typeof useLingui>["t"];
-}) {
-    const { t } = props;
+function FilteredOutEmptyState() {
     return (
         <div className={styles.emptyState}>
             <div className={styles.emptyStateIconCircle}>
                 <CheckCircle2 size={24} />
             </div>
-            <div
-                className={styles.emptyStateTitle}
-            >{t`No issues match this filter`}</div>
+            <div className={styles.emptyStateTitle}>
+                <Trans>No issues match this filter</Trans>
+            </div>
         </div>
     );
 }
@@ -521,38 +641,41 @@ function FilteredOutEmptyState(props: {
 function LocalCleanEmptyState(props: {
     allCount: number;
     onSwitchScope: () => void;
-    t: ReturnType<typeof useLingui>["t"];
 }) {
-    const { allCount, onSwitchScope, t } = props;
     return (
         <div className={styles.emptyState}>
             <div className={styles.emptyStateIconCircle}>
                 <CheckCircle2 size={24} />
             </div>
-            <div
-                className={styles.emptyStateTitle}
-            >{t`This chapter is clean`}</div>
+            <div className={styles.emptyStateTitle}>
+                <Trans>
+                    This chapter has no errors that match your filters
+                </Trans>
+            </div>
             <div className={styles.emptyStateBody}>
-                {allCount === 1
-                    ? t`Nice work. 1 issue remains elsewhere in the project.`
-                    : t`Nice work. ${allCount} issues remain elsewhere in the project.`}
+                <Plural
+                    value={props.allCount}
+                    one="Nice work. 1 issue remains elsewhere in the project."
+                    other="Nice work. # issues remain elsewhere in the project."
+                />
             </div>
             <button
                 type="button"
                 className={styles.emptyStateAction}
-                onClick={onSwitchScope}
+                onClick={props.onSwitchScope}
             >
-                {allCount === 1
-                    ? t`View 1 project issue`
-                    : t`View ${allCount} project issues`}
+                <Plural
+                    value={props.allCount}
+                    one="View 1 project issue"
+                    other="View # project issues"
+                />
                 <ArrowRight size={14} />
             </button>
         </div>
     );
 }
 
-function AllClearEmptyState(props: { t: ReturnType<typeof useLingui>["t"] }) {
-    const { t } = props;
+function AllClearEmptyState() {
     return (
         <div className={styles.emptyState}>
             <div
@@ -569,11 +692,11 @@ function AllClearEmptyState(props: { t: ReturnType<typeof useLingui>["t"] }) {
                     styles.emptyStateTitleLarge,
                 )}
             >
-                {t`All clear`}
+                <Trans>All clear</Trans>
             </div>
-            <div
-                className={styles.emptyStateBody}
-            >{t`No content errors found`}</div>
+            <div className={styles.emptyStateBody}>
+                <Trans>No content errors found</Trans>
+            </div>
         </div>
     );
 }

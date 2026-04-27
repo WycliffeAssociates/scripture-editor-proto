@@ -1,5 +1,6 @@
 import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const trigger = style({
     display: "flex",
@@ -65,7 +66,7 @@ export const popup = style({
     border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.md,
     boxShadow: vars.shadow.large,
-    zIndex: 7000,
+    zIndex: zLayer.selectDropdown,
     overflow: "hidden",
     transformOrigin: "var(--transform-origin)",
     transition: "transform 150ms ease, opacity 150ms ease",

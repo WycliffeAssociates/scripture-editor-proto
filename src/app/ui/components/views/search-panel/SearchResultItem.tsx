@@ -1,4 +1,4 @@
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowRight } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
@@ -43,11 +43,10 @@ export function SearchResultItem(props: SearchResultItemProps) {
     const [replacement, setReplacement] = useState(defaultReplaceTerm);
     const [hasCustomReplacement, setHasCustomReplacement] = useState(false);
     const [isReplacing, setIsReplacing] = useState(false);
-    const locationLabel = formatResultLocationLabel(
-        result,
-        t,
-        localizedBookName,
-    );
+    const locationLabel =
+        result.chapNum === 0
+            ? t`Introduction`
+            : formatResultLocationLabel(result, localizedBookName);
     const isGrouped = Boolean(sourceProjectName && currentProjectName);
     const missingVerseFallback = t`Verse not available in this text`;
 
@@ -323,7 +322,7 @@ function ReplaceControls(props: {
                     aria-label={t`Replace next match`}
                     title={t`Replace next match`}
                 >
-                    {t`Replace next`}
+                    <Trans>Replace next</Trans>
                 </button>
             </div>
         </form>
@@ -332,13 +331,8 @@ function ReplaceControls(props: {
 
 function formatResultLocationLabel(
     result: SearchResult,
-    t: ReturnType<typeof useLingui>["t"],
     localizedBookName?: string,
 ) {
-    if (result.chapNum === 0) {
-        return t`Introduction`;
-    }
-
     const parsed = result.parsedSid;
     if (!parsed) {
         return result.sid;

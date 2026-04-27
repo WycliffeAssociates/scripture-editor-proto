@@ -1,5 +1,6 @@
 import * as onion from "usfm-onion-web";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
+import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -43,10 +44,6 @@ function throwPathIoUnsupported(): never {
     throw new UnsupportedError("Path I/O is desktop-only");
 }
 
-function shouldKeepLintIssue(issue: { code: string; marker?: string | null }) {
-    return issue.code !== "unknown-marker" || issue.marker !== "s5";
-}
-
 function toWebTokenLintOptions(
     options?: TokenLintOptions | null,
 ): onion.LintOptions | undefined {
@@ -81,6 +78,7 @@ function fromWebLintIssue(issue: onion.LintIssue): LintIssue {
     return {
         code: issue.code,
         severity: issue.severity,
+        issueType: issue.issueType,
         marker: issue.marker ?? null,
         message: issue.message,
         messageParams: issueWithParams.messageParams ?? {},

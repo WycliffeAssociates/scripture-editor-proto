@@ -5,6 +5,7 @@ import {
     type ReactNode,
     useContext,
 } from "react";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import * as styles from "./popover.css.ts";
 
 type Side = "top" | "right" | "bottom" | "left";
@@ -110,7 +111,7 @@ export function PopoverDropdown({ children, className }: PopoverDropdownProps) {
                 side={side}
                 align={align}
                 sideOffset={offset}
-                style={{ zIndex: 100 }}
+                style={{ zIndex: zLayer.popover }}
             >
                 <BasePopover.Popup
                     className={`${styles.popup} ${className || ""}`}

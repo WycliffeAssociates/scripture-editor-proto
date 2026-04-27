@@ -6,7 +6,7 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
     HISTORY_MERGE_TAG,
     LineBreakNode,
@@ -121,8 +121,8 @@ function TranslationNotesReferencePane() {
                                 key={note.documentId}
                                 className={shellStyles.translationNoteCard}
                             >
-                                <h5 style={{ margin: 0, fontWeight: 600 }}>
-                                    Verse {note.verseNumber}
+                                <h5>
+                                    <Trans>Verse {note.verseNumber}</Trans>
                                 </h5>
                                 <div
                                     className={shellStyles.translationNoteBody}

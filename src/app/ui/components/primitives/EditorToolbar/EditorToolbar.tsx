@@ -3,11 +3,16 @@ import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
 import { $getSelection, $isRangeSelection } from "lexical";
 import {
+    AlignLeft,
     BookCopy,
     ChevronLeft,
     ChevronRight,
     ClipboardPaste,
     Copy,
+    Hash,
+    MessageSquare,
+    Pilcrow,
+    Quote,
     Redo2,
     Save,
     Scissors,
@@ -68,8 +73,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
     const currentBookLabel = bookCodeToProjectLocalizedTitle({
         bookCode: project.pickedFile.bookCode,
     });
-    const currentChapterLabel =
-        project.pickedChapter?.chapterNumber ?? project.currentChapter;
     const cloudStatus = getCloudStatusPresentation(
         remote.status,
         remote.isRefreshing,
@@ -191,12 +194,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <div className={styles.root}>
             <div className={styles.toolbarRow}>
                 <div className={styles.clusterRow}>
-                    <div
-                        className={joinClassNames(
-                            styles.cluster,
-                            styles.leftCluster,
-                        )}
-                    >
+                    <div className={styles.cluster}>
                         <ToolbarTooltipButton
                             label={t`Previous chapter`}
                             onClick={actions.prevChapter.go}
@@ -220,11 +218,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         <span className={styles.currentLocationBook}>
                             {currentBookLabel}
                         </span>
-                        <span className={styles.currentLocationChapter}>
-                            {currentChapterLabel === 0
-                                ? t`Introduction`
-                                : t`Chapter ${currentChapterLabel}`}
-                        </span>
                     </div>
 
                     <div
@@ -232,12 +225,53 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         aria-hidden="true"
                     />
 
+                    <div className={styles.cluster}>
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("p")}
+                            onClick={() => handleInsertUsfm("p")}
+                            icon={<Pilcrow size={15} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("m")}
+                            onClick={() => handleInsertUsfm("m")}
+                            icon={<AlignLeft size={15} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("q1")}
+                            onClick={() => handleInsertUsfm("q1")}
+                            icon={<QuoteLevelIcon level={1} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("q2")}
+                            onClick={() => handleInsertUsfm("q2")}
+                            icon={<QuoteLevelIcon level={2} />}
+                        />
+                    </div>
+
                     <div
-                        className={joinClassNames(
-                            styles.cluster,
-                            styles.rightControls,
-                        )}
-                    >
+                        className={styles.locationSeparator}
+                        aria-hidden="true"
+                    />
+
+                    <div className={styles.cluster}>
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("v")}
+                            onClick={() => handleInsertUsfm("v")}
+                            icon={<Hash size={14} />}
+                        />
+                        <ToolbarTooltipButton
+                            label={markerButtonLabel("f")}
+                            onClick={() => handleInsertUsfm("f")}
+                            icon={<MessageSquare size={14} />}
+                        />
+                    </div>
+
+                    <div
+                        className={styles.locationSeparator}
+                        aria-hidden="true"
+                    />
+
+                    <div className={styles.cluster}>
                         <ToolbarTooltipButton
                             label={t`Cut`}
                             onClick={() => {
@@ -276,6 +310,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             disabled={!history.canRedo}
                             icon={<Redo2 size={16} />}
                         />
+                    </div>
+
+                    <div
+                        className={styles.locationSeparator}
+                        aria-hidden="true"
+                    />
+
+                    <div className={styles.cluster}>
                         <ToolbarTooltipButton
                             label={
                                 props.isReferencePaneOpen
@@ -301,73 +343,13 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             onCopyEditorJson={() => void handleCopyEditorJson()}
                             onOpenVersions={handleOpenPreviousVersions}
                         />
+                        <CloudStatusPopover
+                            buttonState={cloudStatus.state}
+                            buttonLabel={cloudStatus.label}
+                            buttonDescription={cloudStatus.description}
+                            buttonAriaLabel={cloudStatus.ariaLabel}
+                        />
                     </div>
-                </div>
-
-                <div className={styles.rightCluster}>
-                    <CloudStatusPopover
-                        buttonState={cloudStatus.state}
-                        buttonLabel={cloudStatus.label}
-                        buttonDescription={cloudStatus.description}
-                        buttonAriaLabel={cloudStatus.ariaLabel}
-                    />
-                </div>
-            </div>
-
-            <div className={styles.toolbarRow}>
-                <div className={styles.markerSection}>
-                    <span
-                        className={styles.sectionLabel}
-                    >{t`Insert USFM`}</span>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("v")}
-                    >
-                        {markerButtonLabel("v")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("p")}
-                    >
-                        {markerButtonLabel("p")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("cl")}
-                    >
-                        {markerButtonLabel("cl")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("f")}
-                    >
-                        {markerButtonLabel("f")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("m")}
-                    >
-                        {markerButtonLabel("m")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("q1")}
-                    >
-                        {markerButtonLabel("q1")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.markerButton}
-                        onClick={() => handleInsertUsfm("q2")}
-                    >
-                        {markerButtonLabel("q2")}
-                    </button>
                 </div>
             </div>
         </div>
@@ -455,6 +437,15 @@ function getCloudStatusPresentation(
                 ariaLabel: t`Open cloud status`,
             };
     }
+}
+
+function QuoteLevelIcon({ level }: { level: 1 | 2 }) {
+    return (
+        <span className={styles.quoteLevelIcon}>
+            <Quote size={12} />
+            <span className={styles.quoteLevelBadge}>{level}</span>
+        </span>
+    );
 }
 
 function ToolbarTooltipButton(props: {

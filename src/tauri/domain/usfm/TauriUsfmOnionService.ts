@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
+import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -70,13 +71,10 @@ function toTauriProjectOptions(options?: ProjectUsfmOptions | null) {
     };
 }
 
-function shouldKeepLintIssue(issue: { code: string; marker?: string | null }) {
-    return issue.code !== "unknown-marker" || issue.marker !== "s5";
-}
-
 function fromTauriLintIssue(issue: {
     code: string;
     severity?: string;
+    issueType?: "usfm" | "content";
     marker?: string | null;
     message: string;
     messageParams?: Record<string, string>;
@@ -90,6 +88,7 @@ function fromTauriLintIssue(issue: {
     return {
         code: issue.code,
         severity: issue.severity ?? "warning",
+        issueType: issue.issueType ?? "usfm",
         marker: issue.marker ?? null,
         message: issue.message,
         messageParams: issue.messageParams ?? {},
@@ -373,7 +372,11 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
 
         const results: TokenTransformResult[] = Array.from(
             { length: scope.length },
-            () => ({ tokens: [], appliedChanges: [], skippedChanges: [] }),
+            () => ({
+                tokens: [],
+                appliedChanges: [],
+                skippedChanges: [],
+            }),
         );
         const pathIndices: number[] = [];
         const pathArgs: string[] = [];

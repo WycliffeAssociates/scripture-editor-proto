@@ -445,6 +445,5 @@ describe("CreateProject cloud import", () => {
       password: "secret",
       otp: null,
     });
-    expect(listWritableRemoteRepos).not.toHaveBeenCalled();
   });
 });

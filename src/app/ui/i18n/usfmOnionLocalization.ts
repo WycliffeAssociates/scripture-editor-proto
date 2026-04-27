@@ -34,7 +34,6 @@ export const LOCALIZED_LINT_CODES = [
     "verse-content-not-empty",
     "unknown-token",
     "char-not-closed",
-    "note-not-closed",
     "paragraph-before-first-chapter",
     "verse-before-first-chapter",
     "note-submarker-outside-note",
@@ -49,7 +48,7 @@ export const LOCALIZED_LINT_CODES = [
     "stray-close-marker",
     "misnested-close-marker",
     "unclosed-note",
-    "unclosed-marker-at-eof",
+    "unclosed-marker",
     "duplicate-chapter-number",
     "chapter-expected-increase-by-one",
     "duplicate-verse-number",
@@ -90,8 +89,6 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`This token could not be classified.`;
         case "char-not-closed":
             return t`Character marker ${marker} was not closed.`;
-        case "note-not-closed":
-            return t`Note marker ${marker} was not closed before the next block boundary.`;
         case "paragraph-before-first-chapter":
             return t`Paragraph marker ${marker} appears before the first chapter marker.`;
         case "verse-before-first-chapter":
@@ -120,7 +117,7 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`Close marker ${marker} closes markers out of order.`;
         case "unclosed-note":
             return t`Note marker ${marker} was not closed.`;
-        case "unclosed-marker-at-eof":
+        case "unclosed-marker":
             return t`Marker ${marker} was still open at the end of the file.`;
         case "duplicate-chapter-number":
             return t`Chapter number ${chapter} is duplicated.`;

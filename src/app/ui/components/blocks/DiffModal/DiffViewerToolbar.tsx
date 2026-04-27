@@ -172,7 +172,9 @@ export function DiffViewerToolbar({
         <div className={styles.toolbarSection}>
             <div className={styles.overlayHeaderRow}>
                 <div className={styles.headerCopy}>
-                    <h2 className={styles.modalTitle}>{t`Review changes`}</h2>
+                    <h2 className={styles.modalTitle}>
+                        <Trans>Review changes</Trans>
+                    </h2>
                     <span className={styles.diffTextMuted}>
                         {compareSummaryText}
                     </span>
@@ -183,7 +185,7 @@ export function DiffViewerToolbar({
                     onClick={onClose}
                     leftIcon={<X size={14} />}
                 >
-                    {t`Close`}
+                    <Trans>Close</Trans>
                 </Button>
             </div>
 

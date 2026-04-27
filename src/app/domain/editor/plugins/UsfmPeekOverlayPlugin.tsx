@@ -2,6 +2,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS } from "@/app/data/constants.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 type OverlayItem = {
     key: string;
@@ -244,7 +245,7 @@ export function UsfmPeekOverlayPlugin() {
                 host.style.position = "absolute";
                 host.style.inset = "0";
                 host.style.pointerEvents = "none";
-                host.style.zIndex = "50";
+                host.style.zIndex = String(zLayer.usfmPeekOverlay);
                 container.append(host);
                 setOverlayHostEl(host);
             }

@@ -10,6 +10,7 @@ function makeError(overrides: Partial<LintIssue>): LintIssue {
         message: "msg",
         code: "unknown-token",
         severity: "warning",
+        issueType: "usfm",
         marker: null,
         messageParams: {},
         sid: "GEN 1:1",

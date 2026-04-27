@@ -46,7 +46,7 @@ export const countPill = style({
     padding: "0 0.4375rem",
     borderRadius: vars.border.radius.full,
     backgroundColor: vars.color.surfaceError,
-    color: vars.color.onSurfaceInvert,
+    color: vars.color.onSurfaceError,
     fontSize: "0.75rem",
     fontWeight: 700,
     lineHeight: 1,

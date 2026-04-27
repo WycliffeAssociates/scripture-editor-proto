@@ -1,5 +1,6 @@
 import { keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 const slideIn = keyframes({
     from: { opacity: 0, transform: "translateY(0.5rem)" },
@@ -15,7 +16,7 @@ export const viewport = style({
     position: "fixed",
     right: vars.spacing.md,
     bottom: vars.spacing.md,
-    zIndex: 1000,
+    zIndex: zLayer.popoverPositioner,
     width: "min(24rem, calc(100vw - 2rem))",
     display: "flex",
     flexDirection: "column-reverse",

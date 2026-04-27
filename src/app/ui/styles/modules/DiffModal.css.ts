@@ -1,5 +1,6 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars as dsVars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 const darkSelector = "[data-theme='dark']";
 const breakpoints = {
@@ -133,7 +134,7 @@ export const diffModalFooterActions = style({
 export const overlayShell = style({
     position: "absolute",
     inset: 0,
-    zIndex: 5000,
+    zIndex: zLayer.editorOverlayPane,
     display: "none",
     backgroundColor: vars.colors.body,
     isolation: "isolate",

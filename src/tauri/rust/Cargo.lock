@@ -923,7 +923,7 @@ dependencies = [
 
 [[package]]
 name = "dovetail"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "git2",
  "md-5",
@@ -5055,7 +5055,7 @@ dependencies = [
 [[package]]
 name = "usfm_onion"
 version = "0.1.0"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion#03947775b9c0c67830ea1de9df8659841bd2008d"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion#4e3759370d0cc7510c49d096749751c31c55614d"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",

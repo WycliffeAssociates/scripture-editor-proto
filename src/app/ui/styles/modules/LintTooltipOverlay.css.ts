@@ -1,9 +1,10 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const host = style({
     position: "fixed",
-    zIndex: 2000,
+    zIndex: zLayer.floatingOverlay,
     transform: "translate(-50%, -110%)",
     pointerEvents: "none",
 });

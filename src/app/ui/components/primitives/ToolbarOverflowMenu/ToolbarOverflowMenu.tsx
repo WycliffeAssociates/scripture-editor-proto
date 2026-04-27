@@ -1,5 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { Copy, History } from "lucide-react";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import * as styles from "./toolbarOverflowMenu.css.ts";
 
 export interface ToolbarOverflowMenuProps {
@@ -24,7 +25,7 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                     <circle cx="8" cy="13.5" r="1.5" fill="currentColor" />
                 </svg>
             </Menu.Trigger>
-            <Menu.Portal style={{ zIndex: 10000 }}>
+            <Menu.Portal style={{ zIndex: zLayer.toolbarMenu }}>
                 <Menu.Positioner sideOffset={4} className={styles.positioner}>
                     <Menu.Popup className={styles.popup}>
                         <Menu.Item

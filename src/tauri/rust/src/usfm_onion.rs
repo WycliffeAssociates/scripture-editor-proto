@@ -106,6 +106,7 @@ pub struct FormatOptionsDto {
 pub struct LintIssueDto {
     pub code: String,
     pub severity: String,
+    pub issue_type: String,
     pub marker: Option<String>,
     pub message: String,
     pub message_params: BTreeMap<String, String>,
@@ -499,6 +500,10 @@ fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
         severity: match issue.severity {
             onion::LintSeverity::Error => "error".to_string(),
             onion::LintSeverity::Warning => "warning".to_string(),
+        },
+        issue_type: match issue.issue_type {
+            onion::LintIssueType::Usfm => "usfm".to_string(),
+            onion::LintIssueType::Content => "content".to_string(),
         },
         marker: issue.marker.clone(),
         message: issue.message.clone(),

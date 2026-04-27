@@ -4,7 +4,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Tooltip } from "@base-ui/react/tooltip";
 import type { I18n } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, ChevronRight, Info } from "lucide-react";
@@ -28,6 +28,7 @@ import { useGiteaLogin } from "@/app/ui/hooks/useGiteaLogin.ts";
 import { useNetworkStatus } from "@/app/ui/hooks/useNetworkStatus.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/CloudStatusPopover.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
@@ -325,7 +326,7 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
                     side="bottom"
                     align="end"
                     sideOffset={8}
-                    style={{ zIndex: 1000 }}
+                    style={{ zIndex: zLayer.popoverPositioner }}
                 >
                     <BasePopover.Popup className={styles.popover}>
                         <div ref={popupContainerRef} className={styles.section}>
@@ -398,24 +399,32 @@ function CloudStatusContent(props: CloudStatusProps) {
 }
 
 function OfflineState() {
-    const { t } = useLingui();
     return (
         <>
-            <h3 className={styles.heading}>{t`Offline`}</h3>
+            <h3 className={styles.heading}>
+                <Trans>Offline</Trans>
+            </h3>
             <p className={styles.body}>
-                {t`You are currently offline, but your work is still being saved locally.`}
+                <Trans>
+                    You are currently offline, but your work is still being
+                    saved locally.
+                </Trans>
             </p>
         </>
     );
 }
 
 function SyncingState() {
-    const { t } = useLingui();
     return (
         <>
-            <h3 className={styles.heading}>{t`Syncing`}</h3>
+            <h3 className={styles.heading}>
+                <Trans>Syncing</Trans>
+            </h3>
             <p className={styles.body}>
-                {t`Syncing with the cloud. This may take a moment. A window will appear to review changes if needed.`}
+                <Trans>
+                    Syncing with the cloud. This may take a moment. A window
+                    will appear to review changes if needed.
+                </Trans>
             </p>
             <div className={styles.progressTrack}>
                 <div className={styles.progressBar} />
@@ -441,9 +450,11 @@ function ConnectedStatus(
                         onClick={() => props.handleRunSyncAction()}
                         disabled={!props.canRunNetworkActions}
                     >
-                        {props.syncActionMode === "review"
-                            ? t`Review changes`
-                            : t`Sync now`}
+                        {props.syncActionMode === "review" ? (
+                            <Trans>Review changes</Trans>
+                        ) : (
+                            <Trans>Sync now</Trans>
+                        )}
                     </Button>
                 ) : (
                     <Button
@@ -453,24 +464,26 @@ function ConnectedStatus(
                         onClick={() => props.remote.syncNow()}
                         disabled={!props.canRunNetworkActions}
                     >
-                        {t`Refresh status`}
+                        <Trans>Refresh status</Trans>
                     </Button>
                 )}
             </div>
             <div className={styles.statusMeta}>
-                <span className={styles.statusMetaLabel}>{t`Remote`}</span>
+                <span className={styles.statusMetaLabel}>
+                    <Trans>Remote</Trans>
+                </span>
                 <span>
                     {props.remote.projectInfo?.repoUrl ?? t`Not connected`}
                 </span>
-                <span
-                    className={styles.statusMetaLabel}
-                >{t`Last local commit`}</span>
+                <span className={styles.statusMetaLabel}>
+                    <Trans>Last local commit</Trans>
+                </span>
                 <span className={styles.statusMetaTimestamp}>
                     {props.localCommitLabel}
                 </span>
-                <span
-                    className={styles.statusMetaLabel}
-                >{t`Last remote commit`}</span>
+                <span className={styles.statusMetaLabel}>
+                    <Trans>Last remote commit</Trans>
+                </span>
                 <span className={styles.statusMetaTimestamp}>
                     {props.remoteCommitLabel}
                 </span>
@@ -504,12 +517,18 @@ function NotUploadedState(
         LoginState &
         RepoSelectionState,
 ) {
-    const { t } = useLingui();
     return (
         <>
-            <h3 className={styles.heading}>{t`Your Project Isn't Uploaded`}</h3>
+            <h3 className={styles.heading}>
+                <Trans>Your Project Isn't Uploaded</Trans>
+            </h3>
             <p className={styles.body}>
-                {t`You are currently not saving work to the cloud, but your project is still being saved locally. Uploading keeps your work safe if something happens to your device and lets others collaborate with you.`}
+                <Trans>
+                    You are currently not saving work to the cloud, but your
+                    project is still being saved locally. Uploading keeps your
+                    work safe if something happens to your device and lets
+                    others collaborate with you.
+                </Trans>
             </p>
             {props.sessionUsername ? (
                 <SignedInState
@@ -552,9 +571,9 @@ function SignedInState(
     const { t } = useLingui();
     return (
         <>
-            <p
-                className={styles.signedIn}
-            >{t`Signed in as ${props.sessionUsername}.`}</p>
+            <p className={styles.signedIn}>
+                <Trans>Signed in as {props.sessionUsername}.</Trans>
+            </p>
             <div className={styles.actionsRow}>
                 <Button
                     type="button"
@@ -563,15 +582,17 @@ function SignedInState(
                     onClick={() => props.handleCreateRemote()}
                     disabled={!props.canRunNetworkActions}
                 >
-                    {props.isRunningCreate
-                        ? t`Creating...`
-                        : t`Save as new cloud project`}
+                    {props.isRunningCreate ? (
+                        <Trans>Creating...</Trans>
+                    ) : (
+                        <Trans>Save as new cloud project</Trans>
+                    )}
                 </Button>
             </div>
             <div className={styles.fieldGroup}>
-                <span
-                    className={styles.label}
-                >{t`Attach existing cloud project`}</span>
+                <span className={styles.label}>
+                    <Trans>Attach existing cloud project</Trans>
+                </span>
                 <Combobox.Root<RemoteRepoSummary>
                     items={props.displayedRepos}
                     value={props.selectedRepo}
@@ -653,7 +674,9 @@ function SignedInState(
                                         <Combobox.Empty
                                             className={styles.comboboxEmpty}
                                         >
-                                            {t`No cloud projects found.`}
+                                            <Trans>
+                                                No cloud projects found.
+                                            </Trans>
                                         </Combobox.Empty>
                                     </ScrollArea.Viewport>
                                     <ScrollArea.Scrollbar orientation="vertical">
@@ -673,7 +696,11 @@ function SignedInState(
                     onClick={() => props.gitea.refresh()}
                     disabled={!props.canRunNetworkActions}
                 >
-                    {props.gitea.isLoading ? t`Refreshing...` : t`Refresh`}
+                    {props.gitea.isLoading ? (
+                        <Trans>Refreshing...</Trans>
+                    ) : (
+                        <Trans>Refresh</Trans>
+                    )}
                 </Button>
                 <Button
                     type="button"
@@ -684,12 +711,19 @@ function SignedInState(
                         !props.canRunNetworkActions || !props.selectedRepo
                     }
                 >
-                    {props.isRunningAttach ? t`Attaching...` : t`Attach`}
+                    {props.isRunningAttach ? (
+                        <Trans>Attaching...</Trans>
+                    ) : (
+                        <Trans>Attach</Trans>
+                    )}
                 </Button>
             </div>
             {props.gitea.hasAdditionalReposAvailable ? (
                 <p className={styles.helper}>
-                    {t`Showing ${props.gitea.visiblePageSize} projects to start. Search to find additional repositories.`}
+                    <Trans>
+                        Showing {props.gitea.visiblePageSize} projects to start.
+                        Search to find additional repositories.
+                    </Trans>
                 </p>
             ) : null}
         </>
@@ -707,18 +741,25 @@ function LoginForm(args: {
     onConnect: () => Promise<void>;
     isRunningConnect: boolean;
 }) {
-    const { t } = useLingui();
     return (
         <div className={styles.section}>
             <p className={styles.body}>
-                {args.hostBaseUrl
-                    ? t`Connect to ${args.hostBaseUrl} to browse remote projects.`
-                    : t`Cloud login is not configured for this build yet.`}
+                {args.hostBaseUrl ? (
+                    <Trans>
+                        Connect to {args.hostBaseUrl} to browse remote projects.
+                    </Trans>
+                ) : (
+                    <Trans>
+                        Cloud login is not configured for this build yet.
+                    </Trans>
+                )}
             </p>
             {args.hostBaseUrl ? (
                 <>
                     <label className={styles.fieldGroup}>
-                        <span className={styles.label}>{t`Username`}</span>
+                        <span className={styles.label}>
+                            <Trans>Username</Trans>
+                        </span>
                         <input
                             type="text"
                             value={args.loginUsername}
@@ -729,7 +770,9 @@ function LoginForm(args: {
                         />
                     </label>
                     <label className={styles.fieldGroup}>
-                        <span className={styles.label}>{t`Password`}</span>
+                        <span className={styles.label}>
+                            <Trans>Password</Trans>
+                        </span>
                         <input
                             type="password"
                             value={args.loginPassword}
@@ -740,7 +783,9 @@ function LoginForm(args: {
                         />
                     </label>
                     <label className={styles.fieldGroup}>
-                        <span className={styles.label}>{t`One-time code`}</span>
+                        <span className={styles.label}>
+                            <Trans>One-time code</Trans>
+                        </span>
                         <input
                             type="text"
                             value={args.loginOtp}
@@ -758,9 +803,11 @@ function LoginForm(args: {
                             onClick={() => args.onConnect()}
                             disabled={args.isRunningConnect}
                         >
-                            {args.isRunningConnect
-                                ? t`Connecting...`
-                                : t`Connect account`}
+                            {args.isRunningConnect ? (
+                                <Trans>Connecting...</Trans>
+                            ) : (
+                                <Trans>Connect account</Trans>
+                            )}
                         </Button>
                     </div>
                 </>
@@ -825,7 +872,7 @@ function AutoSyncSettings(props: {
                 >
                     <ChevronRight size={12} />
                 </span>
-                {t`Auto-sync settings`}
+                <Trans>Auto-sync settings</Trans>
             </button>
             {expanded ? (
                 <div className={styles.settingsList}>
@@ -857,7 +904,9 @@ function AutoSyncSettings(props: {
                                             side="top"
                                             align="center"
                                             sideOffset={6}
-                                            style={{ zIndex: 1500 }}
+                                            style={{
+                                                zIndex: zLayer.cloudTooltipPositioner,
+                                            }}
                                         >
                                             <Tooltip.Popup
                                                 className={styles.tooltipPopup}

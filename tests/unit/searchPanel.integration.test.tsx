@@ -165,6 +165,9 @@ function makeWorkspaceValue(
             pickedChapter: { chapterNumber: 1, chapterNumberLabel: "1" },
             currentChapter: 1,
         },
+        loadedProject: {
+            projectPath: "/userData/projects/llx_reg",
+        },
         bookCodeToProjectLocalizedTitle: ({
             bookCode,
         }: {

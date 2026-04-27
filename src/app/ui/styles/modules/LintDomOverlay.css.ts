@@ -1,11 +1,12 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const host = style({
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
-    zIndex: 12,
+    zIndex: zLayer.lintDomOverlay,
 });
 
 export const item = style({

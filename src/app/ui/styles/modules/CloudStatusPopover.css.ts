@@ -1,5 +1,6 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 export const popover = style({
     width: "min(30rem, calc(100vw - 1.5rem))",
@@ -327,7 +328,7 @@ export const tooltipPopup = style({
     lineHeight: 1.35,
     boxShadow: vars.shadow.medium,
     maxWidth: "18rem",
-    zIndex: 1100,
+    zIndex: zLayer.cloudTooltipPopup,
 });
 
 const indeterminate = keyframes({

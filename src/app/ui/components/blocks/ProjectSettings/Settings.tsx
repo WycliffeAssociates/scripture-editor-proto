@@ -3,6 +3,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area";
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
 import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Check, Languages, MoonStar, Save, SunMedium } from "lucide-react";
@@ -117,7 +118,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <div className={styles.headerOuter}>
                     <div className={styles.contentInner}>
                         <div className={styles.header}>
-                            <div className={styles.title}>{t`Settings`}</div>
+                            <div className={styles.title}>
+                                <Trans>Settings</Trans>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -136,19 +139,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                     value="app-appearance"
                                     className={styles.tabsTrigger}
                                 >
-                                    {t`App Appearance`}
+                                    <Trans>App Appearance</Trans>
                                 </BaseTabs.Tab>
                                 <BaseTabs.Tab
                                     value="reference-panel"
                                     className={styles.tabsTrigger}
                                 >
-                                    {t`Reference Panel`}
+                                    <Trans>Reference Panel</Trans>
                                 </BaseTabs.Tab>
                                 <BaseTabs.Tab
                                     value="advanced"
                                     className={styles.tabsTrigger}
                                 >
-                                    {t`Advanced`}
+                                    <Trans>Advanced</Trans>
                                 </BaseTabs.Tab>
                             </BaseTabs.List>
                         </div>
@@ -205,7 +208,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                             leftIcon={<Save size={16} />}
                             onClick={onClose}
                         >
-                            {t`Save and Close`}
+                            <Trans>Save and Close</Trans>
                         </Button>
                         <Button
                             type="button"
@@ -217,7 +220,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                             }}
                             disabled={isReverting}
                         >
-                            {t`Close without Saving`}
+                            <Trans>Close without Saving</Trans>
                         </Button>
                     </div>
                 </div>
@@ -381,9 +384,15 @@ function AppAppearanceTab({
 function ReferencePanelTab() {
     return (
         <div className={styles.placeholder}>
-            <div className={styles.rowTitle}>{t`Reference panel settings`}</div>
+            <div className={styles.rowTitle}>
+                <Trans>Reference panel settings</Trans>
+            </div>
             <div className={styles.rowDescription}>
-                {t`This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it.`}
+                <Trans>
+                    This tab shell is in place. The remaining reference-specific
+                    persisted settings still need to be defined before we wire
+                    real controls into it.
+                </Trans>
             </div>
         </div>
     );
@@ -824,12 +833,16 @@ function BuildInfoFooter() {
     return (
         <div className={styles.buildInfo}>
             <div className={styles.buildInfoRow}>
-                <span className={styles.buildInfoLabel}>{t`Version`}:</span>
+                <span className={styles.buildInfoLabel}>
+                    <Trans>Version</Trans>:
+                </span>
                 <span className={styles.buildInfoValue}>{versionLabel}</span>
             </div>
             {showSha ? (
                 <div className={styles.buildInfoRow}>
-                    <span className={styles.buildInfoLabel}>{t`SHA`}:</span>
+                    <span className={styles.buildInfoLabel}>
+                        <Trans>SHA</Trans>:
+                    </span>
                     <span className={styles.buildInfoValue}>
                         {import.meta.env.VITE_GITHUB_SHA}
                     </span>

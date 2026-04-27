@@ -81,6 +81,7 @@ function makeIssue(overrides: Partial<LintIssue> = {}): LintIssue {
     return {
         code: "missing-space",
         severity: "warning",
+        issueType: "usfm",
         marker: null,
         message: "Missing space",
         messageParams: {},
