@@ -32,6 +32,7 @@ import type { CloudStatusButtonState } from "@/app/ui/components/primitives/Clou
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
@@ -474,7 +475,12 @@ function ToolbarTooltipButton(props: {
                 }
             />
             <Tooltip.Portal>
-                <Tooltip.Positioner side="top" align="center">
+                <Tooltip.Positioner
+                    side="top"
+                    align="center"
+                    sideOffset={6}
+                    style={{ zIndex: zLayer.toolbarTooltip }}
+                >
                     <Tooltip.Popup className={styles.tooltipPopup}>
                         {props.label}
                     </Tooltip.Popup>

@@ -55,4 +55,7 @@ export const zLayer = {
 
     /** Toolbar overflow menu — must clear everything */
     toolbarMenu: 15,
+
+    /** Toolbar tooltip — sits above the toolbar menu */
+    toolbarTooltip: 16,
 } as const;
