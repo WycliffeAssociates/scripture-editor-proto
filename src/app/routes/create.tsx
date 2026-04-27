@@ -14,6 +14,7 @@ import {
     showProgressNotification,
     updateProgressNotification,
 } from "@/app/ui/components/primitives/Notifications.tsx";
+import { useGiteaLogin } from "@/app/ui/hooks/useGiteaLogin.ts";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
 import {
@@ -62,14 +63,9 @@ export function CreateProject() {
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
-    const [isConnectingCloudAccount, setIsConnectingCloudAccount] =
-        useState(false);
     const [cloudSessionUsername, setCloudSessionUsername] = useState<
         string | null
     >(null);
-    const [loginUsername, setLoginUsername] = useState("");
-    const [loginPassword, setLoginPassword] = useState("");
-    const [loginOtp, setLoginOtp] = useState("");
     const [isDisconnectingCloudAccount, setIsDisconnectingCloudAccount] =
         useState(false);
     const [cloudError, setCloudError] = useState<string | null>(null);
@@ -227,71 +223,23 @@ export function CreateProject() {
         }
     }, [authSessionProvider, resetCloudRepoState, t]);
 
-    const connectCloudAccount = useCallback(async () => {
-        if (!giteaHostBaseUrl) {
-            ShowErrorNotification({
-                notification: {
-                    title: t`Cloud login unavailable`,
-                    message: t`This build is missing the configured Gitea host.`,
-                },
-            });
-            return;
-        }
-        if (!loginUsername.trim() || !loginPassword) {
-            ShowErrorNotification({
-                notification: {
-                    title: t`Enter your credentials`,
-                    message: t`Username and password are required to connect your cloud account.`,
-                },
-            });
-            return;
-        }
-
-        try {
-            setIsConnectingCloudAccount(true);
-            setCloudError(null);
-            const session = await authSessionProvider.loginWithPassword({
-                hostBaseUrl: giteaHostBaseUrl,
-                username: loginUsername.trim(),
-                password: loginPassword,
-                otp: loginOtp.trim() || null,
-            });
-            setCloudSessionUsername(session.username);
-            resetCloudRepoState();
-            setLoginPassword("");
-            setLoginOtp("");
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Cloud account connected`,
-                    message: t`You can now browse your writable cloud projects.`,
-                    autoClose: 4000,
-                },
-            });
-        } catch (error) {
-            console.error("Cloud login failed", error);
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : t`Could not connect your cloud account.`;
-            setCloudError(message);
-            ShowErrorNotification({
-                notification: {
-                    title: t`Cloud login failed`,
-                    message,
-                },
-            });
-        } finally {
-            setIsConnectingCloudAccount(false);
-        }
-    }, [
+    const {
+        loginUsername,
+        loginPassword,
+        loginOtp,
+        setLoginUsername: onLoginUsernameChange,
+        setLoginPassword: onLoginPasswordChange,
+        setLoginOtp: onLoginOtpChange,
+        isRunningConnect: isConnectingCloudAccount,
+        handleConnect: connectCloudAccount,
+    } = useGiteaLogin({
         authSessionProvider,
         giteaHostBaseUrl,
-        loginOtp,
-        loginPassword,
-        loginUsername,
-        resetCloudRepoState,
-        t,
-    ]);
+        onSuccess: (username) => {
+            setCloudSessionUsername(username);
+            resetCloudRepoState();
+        },
+    });
 
     const cloneCloudRepo = async (repo: RemoteRepoSummary) => {
         try {
@@ -583,9 +531,9 @@ export function CreateProject() {
                     loginOtp={loginOtp}
                     error={cloudError}
                     projectsService={projectsService}
-                    onLoginUsernameChange={setLoginUsername}
-                    onLoginPasswordChange={setLoginPassword}
-                    onLoginOtpChange={setLoginOtp}
+                    onLoginUsernameChange={onLoginUsernameChange}
+                    onLoginPasswordChange={onLoginPasswordChange}
+                    onLoginOtpChange={onLoginOtpChange}
                     onConnect={() => {
                         void connectCloudAccount();
                     }}

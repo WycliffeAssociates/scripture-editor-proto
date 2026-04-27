@@ -59,6 +59,8 @@ const GitRemoteProjectStatusSchema = v.object({
     lastPublishedAt: v.nullish(v.string()),
     lastKnownLocalHead: v.nullish(v.string()),
     lastKnownRemoteHead: v.nullish(v.string()),
+    lastKnownLocalHeadAuthoredAt: v.nullish(v.string()),
+    lastKnownRemoteHeadAuthoredAt: v.nullish(v.string()),
     latestIncomingAuthorName: v.nullish(v.string()),
 });
 
@@ -108,6 +110,8 @@ export function createDefaultGitRemoteProjectStatus(
         lastPublishedAt: null,
         lastKnownLocalHead: null,
         lastKnownRemoteHead: null,
+        lastKnownLocalHeadAuthoredAt: null,
+        lastKnownRemoteHeadAuthoredAt: null,
         latestIncomingAuthorName: null,
     };
 }
@@ -174,6 +178,10 @@ export function parseGitRemoteProjectStatus(
         lastPublishedAt: parsed.output.lastPublishedAt ?? null,
         lastKnownLocalHead: parsed.output.lastKnownLocalHead ?? null,
         lastKnownRemoteHead: parsed.output.lastKnownRemoteHead ?? null,
+        lastKnownLocalHeadAuthoredAt:
+            parsed.output.lastKnownLocalHeadAuthoredAt ?? null,
+        lastKnownRemoteHeadAuthoredAt:
+            parsed.output.lastKnownRemoteHeadAuthoredAt ?? null,
         latestIncomingAuthorName:
             parsed.output.latestIncomingAuthorName ?? null,
     };

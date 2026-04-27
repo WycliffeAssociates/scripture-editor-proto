@@ -1,15 +1,18 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
 
+const controlRibbonHeight = "2.25rem";
+
 // Main panel container
 export const searchPanel = style({
     display: "grid",
     gridTemplateRows: "auto 1fr",
     width: "100%",
-    height: "100dvh",
+    height: "100%",
     minHeight: 0,
     backgroundColor: vars.color.surfacePrimary,
-    borderLeft: `1px solid ${vars.color.surfaceBorder}`,
+    paddingTop: vars.spacing.md,
+    gap: vars.spacing.lg,
 });
 
 export const searchPopoverDropdown = style({
@@ -72,8 +75,8 @@ export const searchPopoverAction = style({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "28px",
-    height: "28px",
+    width: "1.75rem",
+    height: "1.75rem",
     borderRadius: vars.border.radius.sm,
     border: "none",
     backgroundColor: "transparent",
@@ -122,16 +125,16 @@ export const searchPopoverResizeIcon = style({
 // Header
 export const searchPanelHeader = style({
     flexShrink: 0,
-    padding: vars.spacing.md,
-    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
-    backgroundColor: vars.color.surfaceSecondary,
+    paddingInline: vars.spacing.lg,
+    borderBottom: "none",
+    backgroundColor: "transparent",
 });
 
 export const searchPanelHeaderTop = style({
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: vars.spacing.sm,
+    marginBottom: vars.spacing.md,
 });
 
 export const searchPanelTitle = style({
@@ -144,17 +147,21 @@ export const searchPanelClose = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "28px",
-    height: "28px",
-    border: "none",
+    minWidth: "5rem",
+    height: "2.25rem",
+    border: `1px solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.sm,
-    backgroundColor: "transparent",
-    color: vars.color.onSurfaceSecondary,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    padding: `0 ${vars.spacing.sm}`,
     cursor: "pointer",
-    transition: "background-color 0.15s ease",
+    transition: "background-color 0.15s ease, border-color 0.15s ease",
     selectors: {
         "&:hover": {
             backgroundColor: vars.color.surfaceSecondary,
+            borderColor: vars.color.brandBase,
         },
     },
 });
@@ -163,12 +170,12 @@ export const searchPanelClose = style({
 export const searchControls = style({
     display: "flex",
     flexDirection: "column",
-    gap: vars.spacing.sm,
+    gap: vars.spacing.md,
 });
 
 export const searchInputRow = style({
     display: "flex",
-    gap: vars.spacing.xs,
+    gap: vars.spacing.sm,
     alignItems: "center",
 });
 
@@ -177,6 +184,7 @@ export const searchInputWrapper = style({
     flex: 1,
     display: "flex",
     alignItems: "center",
+    minHeight: "4rem",
 });
 
 export const searchInputIcon = style({
@@ -188,8 +196,9 @@ export const searchInputIcon = style({
 
 export const searchInput = style({
     width: "100%",
-    padding: `${vars.spacing.xs} ${vars.spacing.sm} ${vars.spacing.xs} calc(${vars.spacing.sm} + ${vars.spacing.sm} + 16px)`,
-    fontSize: vars.typography.bodySmall.fontSize,
+    height: "100%",
+    padding: `${vars.spacing.sm} ${vars.spacing.md} ${vars.spacing.sm} calc(${vars.spacing.md} + ${vars.spacing.md} + 16px)`,
+    fontSize: vars.typography.bodyNormal.fontSize,
     border: `1px solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.md,
     backgroundColor: vars.color.surfacePrimary,
@@ -204,12 +213,12 @@ export const searchInput = style({
 
 export const searchRunButton = style({
     position: "absolute",
-    right: vars.spacing.xs,
+    right: vars.spacing.sm,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "24px",
-    height: "24px",
+    width: "2rem",
+    height: "2rem",
     border: "none",
     borderRadius: vars.border.radius.sm,
     backgroundColor: vars.button.primary.surface,
@@ -224,15 +233,15 @@ export const searchRunButton = style({
 
 export const searchNavButtons = style({
     display: "flex",
-    gap: vars.spacing.xs,
+    gap: vars.spacing.sm,
 });
 
 export const searchNavButton = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "28px",
-    height: "28px",
+    width: "2.25rem",
+    height: "2.25rem",
     border: `1px solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.sm,
     backgroundColor: vars.color.surfacePrimary,
@@ -251,34 +260,62 @@ export const searchNavButton = style({
 
 export const searchOptionsRow = style({
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
-    gap: vars.spacing.sm,
+    gap: vars.spacing.xs,
+    flexWrap: "nowrap",
+    minWidth: 0,
 });
 
 export const searchStats = style({
+    display: "inline-flex",
+    alignItems: "center",
+    height: controlRibbonHeight,
     fontSize: vars.typography.bodySmallest.fontSize,
     color: vars.color.onSurfaceSecondary,
     fontWeight: 500,
+    marginRight: vars.spacing.xs,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
 });
 
 export const searchToggles = style({
     display: "flex",
+    alignItems: "center",
     gap: vars.spacing.xs,
+    flexWrap: "nowrap",
+    minWidth: 0,
+});
+
+export const searchInlineControls = style({
+    display: "inline-flex",
+    alignItems: "flex-end",
+    gap: vars.spacing.xs,
+    flexWrap: "nowrap",
+    minWidth: 0,
+    marginLeft: "auto",
+    flexShrink: 0,
 });
 
 export const toggleButton = style({
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "28px",
-    height: "28px",
+    minHeight: controlRibbonHeight,
+    height: controlRibbonHeight,
+    padding: `0 ${vars.spacing.xs}`,
+    gap: "0.2rem",
     border: `1px solid ${vars.color.surfaceBorder}`,
-    borderRadius: vars.border.radius.sm,
+    borderRadius: vars.border.radius.md,
     backgroundColor: vars.color.surfacePrimary,
     color: vars.color.onSurfaceSecondary,
     cursor: "pointer",
     transition: "all 0.15s ease",
+    fontSize: vars.typography.bodySmallest.fontSize,
+    fontWeight: 500,
+    lineHeight: 1,
+    whiteSpace: "nowrap",
+    boxSizing: "border-box",
     selectors: {
         "&:hover:not(:disabled)": {
             backgroundColor: vars.color.surfaceSecondary,
@@ -304,24 +341,68 @@ export const toggleButtonActive = style({
 export const searchReplaceRow = style({
     display: "flex",
     gap: vars.spacing.xs,
+    alignItems: "center",
+    flexWrap: "nowrap",
+    minWidth: 0,
+    flexShrink: 0,
 });
 
 export const searchModeRow = style({
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: vars.spacing.xs,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    minWidth: 0,
+});
+
+export const searchModeField = style({
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "flex-end",
+    minWidth: 0,
+});
+
+export const searchModeFieldLabel = style({
+    fontSize: "0.65rem",
+    lineHeight: 1,
+    fontWeight: 600,
+    color: vars.color.onSurfaceTertiary,
+    textTransform: "uppercase",
+    letterSpacing: "0.02em",
+    position: "absolute",
+    left: "0.4rem",
+    top: "-0.55rem",
+    backgroundColor: vars.color.surfacePrimary,
+    padding: "0 0.15rem",
+    pointerEvents: "none",
+});
+
+export const searchScopeSwitch = style({
+    minHeight: controlRibbonHeight,
+    alignItems: "center",
 });
 
 export const searchModeLabel = style({
     fontSize: vars.typography.bodySmallest.fontSize,
     fontWeight: 600,
     color: vars.color.onSurfaceSecondary,
+    whiteSpace: "nowrap",
 });
 
 export const searchModeSelect = style({
-    width: "8.5rem",
-    minWidth: "8.5rem",
+    width: "10rem",
+    minWidth: "10rem",
+    height: controlRibbonHeight,
+    minHeight: controlRibbonHeight,
+    padding: `0 ${vars.spacing.xs}`,
+    borderRadius: vars.border.radius.sm,
+    gap: "0.2rem",
+    boxSizing: "border-box",
+});
+
+export const searchModeSelectList = style({
+    maxHeight: "20rem",
+    overflowY: "auto",
 });
 
 export const searchModeLoading = style({
@@ -342,10 +423,13 @@ export const searchModeLoadingIcon = style({
 });
 
 globalStyle(`${searchModeSelect}[data-scope="select"][data-part="trigger"]`, {
-    minHeight: "1.75rem",
-    padding: `0 ${vars.spacing.xs}`,
-    borderRadius: vars.border.radius.sm,
-    gap: vars.spacing.xs,
+    height: controlRibbonHeight,
+    minHeight: controlRibbonHeight,
+    boxSizing: "border-box",
+    borderRadius: vars.border.radius.md,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    backgroundColor: vars.color.surfacePrimary,
+    padding: `0 ${vars.spacing.sm}`,
 });
 
 globalStyle(
@@ -359,8 +443,8 @@ globalStyle(
 globalStyle(
     `${searchModeSelect}[data-scope="select"][data-part="trigger"] [data-scope="select"][data-part="icon"]`,
     {
-        width: "14px",
-        height: "14px",
+        width: ".875rem",
+        height: ".875rem",
     },
 );
 
@@ -369,26 +453,32 @@ globalStyle(`${searchModeSelect} [data-scope="select"][data-part="value"]`, {
 });
 
 globalStyle(`${searchModeSelect} [data-scope="select"][data-part="icon"]`, {
-    width: "16px",
-    height: "16px",
+    width: "1rem",
+    height: "1rem",
 });
 
 export const replaceInputWrapper = style({
-    flex: 1,
+    width: "13rem",
+    minWidth: "13rem",
+    maxWidth: "13rem",
 });
 
 export const replaceInput = style({
     width: "100%",
-    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
-    fontSize: vars.typography.bodySmall.fontSize,
+    height: controlRibbonHeight,
+    minHeight: controlRibbonHeight,
+    padding: `0 ${vars.spacing.sm}`,
+    fontSize: vars.typography.bodySmallest.fontSize,
     border: `1px solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.md,
     backgroundColor: vars.color.surfacePrimary,
     color: vars.color.onSurfacePrimary,
     outline: "none",
+    boxSizing: "border-box",
     selectors: {
         "&:focus": {
             borderColor: vars.color.brandBase,
+            backgroundColor: "transparent",
         },
         "&:disabled": {
             backgroundColor: vars.color.surfaceSecondary,
@@ -404,11 +494,12 @@ export const searchResultsContainer = style({
     height: "100%",
     overflowY: "auto",
     overflowX: "hidden",
-    padding: 0,
+    paddingInline: vars.spacing.lg,
+    paddingBlockEnd: "5rem",
 });
 
 export const searchResultsInner = style({
-    padding: vars.spacing.sm,
+    padding: 0,
 });
 
 export const searchEmptyState = style({
@@ -423,7 +514,7 @@ export const searchEmptyState = style({
 });
 
 export const searchEmptyIcon = style({
-    fontSize: "32px",
+    fontSize: "2rem",
 });
 
 export const searchLoadingState = style({
@@ -451,25 +542,21 @@ export const searchResultRow = style({
     top: 0,
     left: 0,
     width: "100%",
+    paddingBottom: vars.spacing.md,
 });
 
 // Result item
 export const searchResultItem = style({
     padding: vars.spacing.sm,
-    borderBottom: `1px solid ${vars.color.surfaceBorder}`,
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    borderRadius: vars.border.radius.md,
     backgroundColor: vars.color.surfacePrimary,
     cursor: "pointer",
-    transition: "background-color 0.15s ease",
-    selectors: {
-        "&:hover": {
-            backgroundColor: vars.color.surfaceSecondary,
-        },
-    },
 });
 
 export const searchResultItemActive = style({
     backgroundColor: vars.toggleGroup.itemSelectedSurface,
-    borderLeft: `3px solid ${vars.color.brandBase}`,
+    borderColor: vars.color.brandBase,
     selectors: {
         "&:hover": {
             backgroundColor: vars.toggleGroup.itemSelectedSurface,
@@ -485,19 +572,17 @@ export const searchResultHeader = style({
 });
 
 export const searchResultLocation = style({
-    fontSize: vars.typography.bodySmallest.fontSize,
-    fontWeight: 600,
-    color: vars.color.onSurfaceSecondary,
-    textTransform: "uppercase",
-    letterSpacing: "0.025em",
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 700,
+    color: vars.color.onSurfacePrimary,
 });
 
 export const searchResultNavigate = style({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "24px",
-    height: "24px",
+    width: "1.5rem",
+    height: "1.5rem",
     border: "none",
     borderRadius: vars.border.radius.sm,
     backgroundColor: "transparent",
@@ -521,12 +606,16 @@ export const searchResultPreview = style({
 
 export const searchResultPair = style({
     display: "grid",
-    gap: vars.spacing.sm,
+    gridTemplateColumns: "repeat(auto-fit, minmax(25ch, 1fr))",
+    gap: "1.5rem",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
 });
 
 export const searchResultPairBlock = style({
     display: "grid",
     gap: vars.spacing.xs,
+    minWidth: 0,
 });
 
 export const searchResultProjectLabel = style({
@@ -560,26 +649,34 @@ export const searchHighlight = style({
 });
 
 export const searchResultReplace = style({
-    display: "flex",
-    gap: vars.spacing.xs,
-    alignItems: "center",
+    display: "block",
     marginTop: vars.spacing.xs,
 });
 
+export const searchResultReplaceControls = style({
+    display: "inline-flex",
+    alignItems: "stretch",
+    gap: vars.spacing.xs,
+    width: "100%",
+    maxWidth: "100%",
+    marginLeft: 0,
+    padding: "0.25rem",
+    borderRadius: vars.border.radius.lg,
+    backgroundColor: vars.color.surfaceSecondary,
+});
+
 export const searchResultReplaceInput = style({
-    flex: 1,
+    flex: "1 1 auto",
     minWidth: 0,
-    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    height: "2.75rem",
+    padding: `0 ${vars.spacing.sm}`,
     fontSize: vars.typography.bodySmallest.fontSize,
-    border: `1px solid ${vars.color.surfaceBorder}`,
+    border: "none",
     borderRadius: vars.border.radius.sm,
-    backgroundColor: vars.color.surfacePrimary,
+    backgroundColor: "transparent",
     color: vars.color.onSurfacePrimary,
     outline: "none",
     selectors: {
-        "&:focus": {
-            borderColor: vars.color.brandBase,
-        },
         "&:disabled": {
             backgroundColor: vars.color.surfaceSecondary,
             cursor: "not-allowed",
@@ -587,18 +684,25 @@ export const searchResultReplaceInput = style({
     },
 });
 
+export const searchResultFallbackText = style({
+    display: "inline-block",
+    fontSize: vars.typography.bodySmallest.fontSize,
+    color: vars.color.onSurfaceTertiary,
+    fontStyle: "italic",
+});
+
 export const searchResultReplaceButton = style({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: "4.75rem",
-    height: "28px",
-    padding: `0 ${vars.spacing.sm}`,
-    border: `1px solid ${vars.button.primary.border}`,
-    borderRadius: vars.border.radius.sm,
-    backgroundColor: vars.button.primary.surface,
+    minWidth: "7.5rem",
+    height: "2.75rem",
+    padding: `0 ${vars.spacing.md}`,
+    border: `1px solid ${vars.color.brandDark}`,
+    borderRadius: vars.border.radius.md,
+    backgroundColor: vars.color.brandBase,
     color: vars.button.primary.onSurface,
-    fontSize: vars.typography.bodySmallest.fontSize,
+    fontSize: vars.typography.bodySmall.fontSize,
     fontWeight: 600,
     cursor: "pointer",
     flexShrink: 0,

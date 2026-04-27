@@ -8,19 +8,13 @@ import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx"
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { BottomPanel } from "../bottom-panel/BottomPanel.tsx";
-import type { BottomPanelTab } from "../bottom-panel/index.ts";
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
 interface EditorPaneProps {
     isSmall: boolean;
-    activeBottomPanelTab: BottomPanelTab;
-    isLintDockOpen: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
     openBottomPanel: () => void;
-    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
-    onToggleLintDock: () => void;
-    onOpenCloudDock: () => void;
     onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
@@ -39,9 +33,6 @@ function EditorPane(props: EditorPaneProps) {
             <div className={styles.editorPaneHeader}>
                 <EditorToolbar
                     isReferencePaneOpen={props.hasReferenceResource}
-                    isLintDockOpen={props.isLintDockOpen}
-                    onToggleLintDock={props.onToggleLintDock}
-                    onOpenCloudDock={props.onOpenCloudDock}
                     onOpenVersionsDock={props.onOpenVersionsDock}
                     onToggleReferencePane={props.toggleReferencePane}
                     isSearchPaneOpen={props.hasSearchPaneOpen}
@@ -88,17 +79,14 @@ function ProjectsPane(props: ProjectsPaneProps) {
     return <ProjectBrowserPane onClose={props.onClose} />;
 }
 
+export type WorkspacePane = "editor" | "settings" | "projects" | "search";
+
 interface WorkspacePaneStackProps {
     isSmall: boolean;
-    activeWorkspacePane: "editor" | "settings" | "projects";
-    activeBottomPanelTab: BottomPanelTab;
-    isLintDockOpen: boolean;
+    activeWorkspacePane: WorkspacePane;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
     openBottomPanel: () => void;
-    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
-    onToggleLintDock: () => void;
-    onOpenCloudDock: () => void;
     onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
@@ -110,14 +98,9 @@ function WorkspacePaneStack(props: WorkspacePaneStackProps) {
             <div className={styles.workspaceEditorPane}>
                 <EditorPane
                     isSmall={props.isSmall}
-                    activeBottomPanelTab={props.activeBottomPanelTab}
-                    isLintDockOpen={props.isLintDockOpen}
                     hasReferenceResource={props.hasReferenceResource}
                     hasSearchPaneOpen={props.hasSearchPaneOpen}
                     openBottomPanel={props.openBottomPanel}
-                    setActiveBottomPanelTab={props.setActiveBottomPanelTab}
-                    onToggleLintDock={props.onToggleLintDock}
-                    onOpenCloudDock={props.onOpenCloudDock}
                     onOpenVersionsDock={props.onOpenVersionsDock}
                     toggleReferencePane={props.toggleReferencePane}
                     toggleSearchPane={props.toggleSearchPane}
@@ -131,27 +114,22 @@ interface EditorsShellProps {
     isSmall: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
-    activeWorkspacePane: "editor" | "settings" | "projects";
+    activeWorkspacePane: WorkspacePane;
     isBottomPanelOpen: boolean;
-    activeBottomPanelTab: BottomPanelTab;
-    isLintDockOpen: boolean;
     bottomPanelHeight: number;
     closeProjectsPane: () => void;
     closeSettingsPane: () => void;
+    closeSearchPane: () => void;
     openBottomPanel: () => void;
     closeBottomPanel: () => void;
     setBottomPanelHeight: (height: number) => void;
-    setActiveBottomPanelTab: (tab: BottomPanelTab) => void;
-    onToggleLintDock: () => void;
-    onOpenCloudDock: () => void;
     onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
 
 function EditorsShell(props: EditorsShellProps) {
-    const showRightPanel =
-        props.hasReferenceResource || props.hasSearchPaneOpen;
+    const showRightPanel = props.hasReferenceResource;
 
     return (
         <section
@@ -174,18 +152,12 @@ function EditorsShell(props: EditorsShellProps) {
                     {props.hasReferenceResource ? (
                         <ReferencePane isSmall={props.isSmall} />
                     ) : null}
-                    {props.hasSearchPaneOpen ? <SearchPanel /> : null}
                     <WorkspacePaneStack
                         isSmall={props.isSmall}
                         activeWorkspacePane={props.activeWorkspacePane}
-                        activeBottomPanelTab={props.activeBottomPanelTab}
-                        isLintDockOpen={props.isLintDockOpen}
                         hasReferenceResource={props.hasReferenceResource}
                         hasSearchPaneOpen={props.hasSearchPaneOpen}
                         openBottomPanel={props.openBottomPanel}
-                        setActiveBottomPanelTab={props.setActiveBottomPanelTab}
-                        onToggleLintDock={props.onToggleLintDock}
-                        onOpenCloudDock={props.onOpenCloudDock}
                         onOpenVersionsDock={props.onOpenVersionsDock}
                         toggleReferencePane={props.toggleReferencePane}
                         toggleSearchPane={props.toggleSearchPane}
@@ -196,19 +168,19 @@ function EditorsShell(props: EditorsShellProps) {
                     <div className={styles.workspaceOverlayPane}>
                         {props.activeWorkspacePane === "settings" ? (
                             <SettingsPane onClose={props.closeSettingsPane} />
-                        ) : (
+                        ) : props.activeWorkspacePane === "projects" ? (
                             <ProjectsPane onClose={props.closeProjectsPane} />
+                        ) : (
+                            <SearchPanel onClose={props.closeSearchPane} />
                         )}
                     </div>
                 ) : null}
             </div>
             {props.isBottomPanelOpen ? (
                 <BottomPanel
-                    activeTab={props.activeBottomPanelTab}
                     height={props.bottomPanelHeight}
                     onClose={props.closeBottomPanel}
                     onHeightChange={props.setBottomPanelHeight}
-                    onTabChange={props.setActiveBottomPanelTab}
                 />
             ) : null}
         </section>

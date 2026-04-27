@@ -243,6 +243,18 @@ async function publishWithCurrentSession(args: {
             token: args.session.token,
         },
     });
+    const localHead = publishResult.localHead ?? args.localHead;
+    const remoteHead = publishResult.remoteHead ?? localHead;
+    const localHeadAuthoredAt = await readHeadAuthoredAt({
+        gitProvider: args.gitProvider,
+        projectPath: args.projectPath,
+        head: localHead,
+    });
+    const remoteHeadAuthoredAt = await readHeadAuthoredAt({
+        gitProvider: args.gitProvider,
+        projectPath: args.projectPath,
+        head: remoteHead,
+    });
 
     switch (publishResult.outcome) {
         case GIT_REMOTE_PUBLISH_PUBLISHED:
@@ -263,11 +275,10 @@ async function publishWithCurrentSession(args: {
                 status: buildNextStatus({
                     existingStatus: args.existingStatus,
                     kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-                    localHead: publishResult.localHead ?? args.localHead,
-                    remoteHead:
-                        publishResult.remoteHead ??
-                        publishResult.localHead ??
-                        args.localHead,
+                    localHead,
+                    remoteHead,
+                    localHeadAuthoredAt,
+                    remoteHeadAuthoredAt,
                     checkedAt: args.now,
                     publishedAt: args.now,
                 }),
@@ -288,8 +299,13 @@ async function publishWithCurrentSession(args: {
                 status: buildNextStatus({
                     existingStatus: args.existingStatus,
                     kind: GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
-                    localHead: publishResult.localHead ?? args.localHead,
+                    localHead,
                     remoteHead: publishResult.remoteHead,
+                    localHeadAuthoredAt,
+                    remoteHeadAuthoredAt:
+                        publishResult.remoteHead === null
+                            ? null
+                            : remoteHeadAuthoredAt,
                     checkedAt: args.now,
                 }),
             });
@@ -312,8 +328,13 @@ async function publishWithCurrentSession(args: {
                 status: buildNextStatus({
                     existingStatus: args.existingStatus,
                     kind: GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-                    localHead: publishResult.localHead ?? args.localHead,
+                    localHead,
                     remoteHead: publishResult.remoteHead,
+                    localHeadAuthoredAt,
+                    remoteHeadAuthoredAt:
+                        publishResult.remoteHead === null
+                            ? null
+                            : remoteHeadAuthoredAt,
                     checkedAt: args.now,
                 }),
             });
@@ -333,8 +354,13 @@ async function publishWithCurrentSession(args: {
                 status: buildNextStatus({
                     existingStatus: args.existingStatus,
                     kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-                    localHead: publishResult.localHead ?? args.localHead,
+                    localHead,
                     remoteHead: publishResult.remoteHead,
+                    localHeadAuthoredAt,
+                    remoteHeadAuthoredAt:
+                        publishResult.remoteHead === null
+                            ? null
+                            : remoteHeadAuthoredAt,
                     checkedAt: args.now,
                 }),
             });
@@ -355,6 +381,8 @@ function buildNextStatus(args: {
     kind: GitRemoteProjectStatus["kind"];
     localHead: string | null;
     remoteHead?: string | null;
+    localHeadAuthoredAt?: string | null;
+    remoteHeadAuthoredAt?: string | null;
     checkedAt: string;
     publishedAt?: string;
 }): GitRemoteProjectStatus {
@@ -368,5 +396,36 @@ function buildNextStatus(args: {
             args.localHead ?? args.existingStatus.lastKnownLocalHead,
         lastKnownRemoteHead:
             args.remoteHead ?? args.existingStatus.lastKnownRemoteHead,
+        lastKnownLocalHeadAuthoredAt:
+            args.localHeadAuthoredAt ??
+            args.existingStatus.lastKnownLocalHeadAuthoredAt,
+        lastKnownRemoteHeadAuthoredAt:
+            args.remoteHeadAuthoredAt ??
+            args.existingStatus.lastKnownRemoteHeadAuthoredAt,
     };
+}
+
+async function readHeadAuthoredAt(args: {
+    gitProvider: GitProvider;
+    projectPath: string;
+    head: string | null;
+}): Promise<string | null> {
+    if (!args.head) return null;
+    try {
+        const commit = await args.gitProvider.readCommitDetails(
+            args.projectPath,
+            args.head,
+        );
+        return commit.authoredAtIso || null;
+    } catch (error) {
+        console.debug(
+            "[gitRemotePublishCoordinator] Failed to read commit timestamp for head.",
+            {
+                projectPath: args.projectPath,
+                head: args.head,
+                error: error instanceof Error ? error.message : String(error),
+            },
+        );
+        return null;
+    }
 }

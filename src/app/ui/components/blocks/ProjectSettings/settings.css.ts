@@ -207,6 +207,30 @@ export const cloudProjectComboboxValue = style({
     whiteSpace: "nowrap",
 });
 
+export const cloudProjectComboboxTrigger = style({
+    width: "100%",
+    maxWidth: "24rem",
+    minHeight: "2.25rem",
+    border: `1px solid ${vars.color.surfaceBorder}`,
+    borderRadius: vars.border.radius.md,
+    backgroundColor: vars.color.surfacePrimary,
+    color: vars.color.onSurfacePrimary,
+    padding: `0 ${vars.spacing.sm}`,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.spacing.xs,
+    cursor: "pointer",
+    selectors: {
+        "&[data-popup-open]": {
+            borderColor: vars.color.brandBase,
+        },
+        "&:hover": {
+            backgroundColor: vars.color.surfaceSecondary,
+        },
+    },
+});
+
 export const cloudProjectComboboxChevron = style({
     flex: "0 0 auto",
     color: vars.color.onSurfaceSecondary,
@@ -299,6 +323,21 @@ export const cloudProjectComboboxItemIndicator = style({
 
 export const cloudProjectComboboxEmpty = style({
     padding: `${vars.spacing.sm} ${vars.spacing.xs}`,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const cloudProjectComboboxFooter = style({
+    borderTop: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    fontSize: vars.typography.bodySmallest.fontSize,
+    lineHeight: vars.typography.bodySmallest.lineHeight,
+    color: vars.color.onSurfaceSecondary,
+});
+
+export const cloudProjectComboboxMeta = style({
+    marginTop: vars.spacing.xs,
     fontSize: vars.typography.bodySmallest.fontSize,
     lineHeight: vars.typography.bodySmallest.lineHeight,
     color: vars.color.onSurfaceSecondary,

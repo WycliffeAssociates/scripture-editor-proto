@@ -68,10 +68,25 @@ function normalizeSearchToken(value: string) {
     return value.trim().toLowerCase().replace(/^_+/u, "");
 }
 
+/**
+ * Two-query split:
+ * - `browseQuery` is the always-on listing call (cached per scope, page size
+ *   {@link UseGiteaApiArgs.browsePageSize}). Backs the default repo list when
+ *   the user has not typed a meaningful search.
+ * - `searchQuery` only fires when the typed query crosses
+ *   {@link MIN_SEARCH_LENGTH} and is not low-signal. It hits the same endpoint
+ *   with `searchQuery` set and a larger page size, cached per query string.
+ *
+ * Splitting them keeps the cheap browse list warm while live search spawns
+ * its own cache-keyed query that does not invalidate the browse cache. The
+ * `repos` memo merges them in search mode (search hits + locally-filtered
+ * browse hits, deduped).
+ */
 export function useGiteaApi({
     sessionUsername,
     projectsService,
     topic,
+    browsePageSize = 50,
     searchPageSize = 100,
     initialScope = "all",
     initialQuery = "",
@@ -89,15 +104,12 @@ export function useGiteaApi({
     const trimmedQuery = debouncedQuery.trim();
     const normalizedQuery = trimmedQuery.toLowerCase();
     const normalizedToken = normalizeSearchToken(trimmedQuery);
-    const hasSession = Boolean(sessionUsername);
-    const hasProjectsService = Boolean(projectsService);
-    const isSearchEligible = normalizedQuery.length >= MIN_SEARCH_LENGTH;
+    const hasSession = !!sessionUsername;
+    const hasProjectsService = !!projectsService;
+    const isSearchMode = normalizedQuery.length >= MIN_SEARCH_LENGTH;
     const isLowSignalSearch =
-        isSearchEligible && LOW_SIGNAL_SEARCH_TERMS.has(normalizedToken);
-    const isSearchMode = isSearchEligible;
-    const isBelowSearchThreshold =
-        normalizedQuery.length > 0 &&
-        normalizedQuery.length < MIN_SEARCH_LENGTH;
+        isSearchMode && LOW_SIGNAL_SEARCH_TERMS.has(normalizedToken);
+    const isBelowSearchThreshold = false;
 
     const listRepos = async (args: {
         scope: RepoScope;
@@ -130,6 +142,26 @@ export function useGiteaApi({
         });
     };
 
+    const browseQuery = useQuery({
+        queryKey: [
+            "giteaRepos",
+            "browse",
+            sessionUsername,
+            scope,
+            topic ?? "",
+            browsePageSize,
+        ],
+        queryFn: async ({ signal }) =>
+            await listRepos({
+                scope,
+                page: 1,
+                pageSize: browsePageSize,
+                signal,
+            }),
+        enabled: hasSession && hasProjectsService,
+        placeholderData: keepPreviousData,
+    });
+
     const searchQuery = useQuery({
         queryKey: [
             "giteaRepos",
@@ -156,20 +188,29 @@ export function useGiteaApi({
         placeholderData: keepPreviousData,
     });
 
-    const browsedRepos = useMemo(() => [], []);
+    const browsedRepos = useMemo(
+        () => browseQuery.data?.repos ?? [],
+        [browseQuery.data?.repos],
+    );
 
     const repos = useMemo(() => {
         if (!hasSession) {
             return [];
         }
         if (!isSearchMode) {
-            return [];
+            if (!normalizedQuery) {
+                return dedupeRepos(browsedRepos);
+            }
+            const localMatches = browsedRepos.filter((repo) =>
+                matchesLocalRepoQuery(repo, normalizedQuery),
+            );
+            return dedupeRepos(localMatches);
         }
-        const cachedMatches = browsedRepos.filter((repo) =>
+        const localMatches = browsedRepos.filter((repo) =>
             matchesLocalRepoQuery(repo, normalizedQuery),
         );
         const searchedRepos = searchQuery.data?.repos ?? [];
-        return dedupeRepos([...searchedRepos, ...cachedMatches]);
+        return dedupeRepos([...searchedRepos, ...localMatches]);
     }, [
         browsedRepos,
         hasSession,
@@ -180,16 +221,23 @@ export function useGiteaApi({
 
     const isLoading = isSearchMode
         ? searchQuery.isLoading || searchQuery.isFetching
-        : false;
-    const isInitialLoading = isSearchMode ? searchQuery.isLoading : false;
+        : browseQuery.isLoading || browseQuery.isFetching;
+    const isInitialLoading = isSearchMode
+        ? searchQuery.isLoading
+        : browseQuery.isLoading;
     const isBackgroundFetching = isSearchMode
         ? searchQuery.isFetching && !searchQuery.isLoading
-        : false;
-    const isFetchingMore = false;
-    const error = searchQuery.error;
-    const hasLoaded = isSearchMode ? searchQuery.data !== undefined : false;
-    const hasNextPage = false;
-    const rawResultCount = searchQuery.data?.rawResultCount ?? 0;
+        : browseQuery.isFetching && !browseQuery.isLoading;
+    const error = isSearchMode ? searchQuery.error : browseQuery.error;
+    const hasLoaded = isSearchMode
+        ? searchQuery.data !== undefined
+        : browseQuery.data !== undefined;
+    const activePageData = isSearchMode ? searchQuery.data : browseQuery.data;
+    const hasAdditionalReposAvailable = Boolean(activePageData?.nextPage);
+    const visiblePageSize = isSearchMode ? searchPageSize : browsePageSize;
+    const rawResultCount = isSearchMode
+        ? (searchQuery.data?.rawResultCount ?? 0)
+        : (browseQuery.data?.rawResultCount ?? 0);
     const hasOnlyIncompatibleResults =
         isSearchMode && rawResultCount > 0 && repos.length === 0;
 
@@ -208,7 +256,6 @@ export function useGiteaApi({
         isLoading,
         isInitialLoading,
         isBackgroundFetching,
-        isFetchingMore,
         minSearchLength: MIN_SEARCH_LENGTH,
         rawResultCount,
         error:
@@ -218,15 +265,15 @@ export function useGiteaApi({
                   ? error.message
                   : null,
         hasLoaded,
-        hasNextPage,
+        hasAdditionalReposAvailable,
+        visiblePageSize,
         refresh: async () => {
             if (!hasSession) return;
             if (isSearchMode) {
                 await searchQuery.refetch();
+                return;
             }
-        },
-        loadMore: async () => {
-            return;
+            await browseQuery.refetch();
         },
     };
 }

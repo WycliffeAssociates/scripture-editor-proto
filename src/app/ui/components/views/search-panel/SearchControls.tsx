@@ -3,38 +3,40 @@ import {
     ArrowUpDown,
     Braces,
     CaseSensitive,
-    ChevronLeft,
-    ChevronRight,
     CornerRightDown,
     LoaderCircle,
     Search,
     WholeWord,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type KeyboardEvent, type RefObject, useEffect, useState } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import {
     type SelectItem,
     SelectPrimitive,
 } from "@/app/ui/components/primitives/Select/Select.tsx";
+import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
-import {
-    isEditableScriptureProjectLibraryItem,
-    type ResourceLibraryItem,
-} from "@/core/library/ProjectIndex.ts";
+import type { ResourceLibraryItem } from "@/core/library/ProjectIndex.ts";
 
-export function SearchControls() {
-    const { search, referenceResource } = useWorkspaceContext();
+type SearchHook = ReturnType<typeof useWorkspaceContext>["search"];
+
+const NO_REFERENCE_VALUE = "none";
+
+interface SearchControlsProps {
+    portalContainer?: RefObject<HTMLElement | null>;
+}
+
+export function SearchControls({ portalContainer }: SearchControlsProps = {}) {
+    const { search, referenceResource, loadedProject } = useWorkspaceContext();
     const { t } = useLingui();
     const [
         isSwitchingReferenceSearchSource,
         setIsSwitchingReferenceSearchSource,
     ] = useState(false);
-    const [selectedReferenceSearchSource, setSelectedReferenceSearchSource] =
+    const [selectedReferenceDisplaySource, setSelectedReferenceDisplaySource] =
         useState<string>(
-            search.searchReference
-                ? (referenceResource.activeReferenceResourcePath ?? "current")
-                : "current",
+            referenceResource.activeReferenceResourcePath ?? NO_REFERENCE_VALUE,
         );
     const isReferenceSearchLoading =
         isSwitchingReferenceSearchSource ||
@@ -44,250 +46,333 @@ export function SearchControls() {
 
     useEffect(() => {
         if (isSwitchingReferenceSearchSource) return;
-        setSelectedReferenceSearchSource(
-            search.searchReference
-                ? (referenceResource.activeReferenceResourcePath ?? "current")
-                : "current",
+        setSelectedReferenceDisplaySource(
+            referenceResource.activeReferenceResourcePath ?? NO_REFERENCE_VALUE,
         );
     }, [
         isSwitchingReferenceSearchSource,
         referenceResource.activeReferenceResourcePath,
-        search.searchReference,
     ]);
+
+    const searchableReferenceResources = filterSearchableReferenceResources(
+        referenceResource.referenceResourcesQuery.data ?? [],
+        loadedProject.projectPath,
+    );
+
+    const hasDisplayReference =
+        selectedReferenceDisplaySource !== NO_REFERENCE_VALUE;
+    const selectedReferenceLabel =
+        searchableReferenceResources.find(
+            (resource) =>
+                resource.projectPath === selectedReferenceDisplaySource,
+        )?.displayName || t`Selected reference`;
+
+    const handleSelectReferenceSource = async (value: string | null) => {
+        if (!value || value === NO_REFERENCE_VALUE) {
+            setSelectedReferenceDisplaySource(NO_REFERENCE_VALUE);
+            search.setSearchReferenceImmediate(false);
+            referenceResource.setActiveReferenceResourcePath(undefined);
+            await search.runSearchLogic(search.searchTerm, {
+                autoPick: false,
+                scope: "project",
+                overrides: { searchReference: false },
+            });
+            return;
+        }
+
+        setSelectedReferenceDisplaySource(value);
+        setIsSwitchingReferenceSearchSource(true);
+        try {
+            const loadedReference =
+                await referenceResource.selectActiveReferenceResourcePath(
+                    value,
+                );
+            // Default search scope stays "project" even when a reference is
+            // shown side-by-side. The user toggles into reference scope below.
+            search.setSearchReferenceImmediate(false);
+            await search.runSearchLogic(search.searchTerm, {
+                autoPick: false,
+                scope: "project",
+                overrides: {
+                    searchReference: false,
+                    referenceFiles: loadedReference?.parsedFiles ?? [],
+                },
+            });
+        } finally {
+            setIsSwitchingReferenceSearchSource(false);
+        }
+    };
+
+    const handleToggleSearchScope = async (checked: boolean) => {
+        search.setSearchReferenceImmediate(checked);
+        await search.runSearchLogic(search.searchTerm, {
+            autoPick: false,
+            scope: "project",
+            overrides: {
+                searchReference: checked,
+                referenceFiles:
+                    referenceResource.referenceScriptureQuery.data
+                        ?.parsedFiles ?? [],
+            },
+        });
+    };
 
     return (
         <div className={styles.searchControls}>
-            <div className={styles.searchInputRow}>
-                <div className={styles.searchInputWrapper}>
-                    <Search size={16} className={styles.searchInputIcon} />
-                    <input
-                        type="text"
-                        className={styles.searchInput}
-                        value={search.searchTerm}
-                        data-testid={TESTING_IDS.searchInput}
-                        data-js={DATA_JS.searchInput}
-                        onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                                search.submitSearchNow();
-                            }
-                        }}
-                        onChange={(event) =>
-                            search.onSearchChange(event.currentTarget.value)
-                        }
-                        placeholder={t`Search`}
-                    />
-                    <button
-                        type="button"
-                        className={styles.searchRunButton}
-                        data-testid={TESTING_IDS.searchRunButton}
-                        onClick={search.submitSearchNow}
-                        aria-label={t`Run search`}
-                        title={t`Run search`}
-                    >
-                        <CornerRightDown size={14} />
-                    </button>
-                </div>
-
-                <div className={styles.searchNavButtons}>
-                    <button
-                        type="button"
-                        className={styles.searchNavButton}
-                        data-testid={TESTING_IDS.searchPrevButton}
-                        onClick={search.prevMatch}
-                        disabled={!search.hasPrev}
-                        aria-label={t`Previous result`}
-                        title={t`Previous result`}
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.searchNavButton}
-                        data-testid={TESTING_IDS.searchNextButton}
-                        onClick={search.nextMatch}
-                        disabled={!search.hasNext}
-                        aria-label={t`Next result`}
-                        title={t`Next result`}
-                    >
-                        <ChevronRight size={16} />
-                    </button>
-                </div>
-            </div>
-
+            <SearchInputBar search={search} />
             <div className={styles.searchOptionsRow}>
                 <div
                     className={styles.searchStats}
                     data-testid={TESTING_IDS.searchStats}
                 >
-                    {search.pickedResultIdx >= 0
-                        ? `${search.pickedResultIdx + 1} of ${search.results.length} results`
-                        : `${search.results.length} results`}
+                    {`${search.results.length} results`}
                 </div>
-
-                <div className={styles.searchToggles}>
-                    <ToggleButton
-                        active={search.currentSort === "caseMismatch"}
-                        onClick={() =>
-                            search.sortBy(
-                                search.currentSort === "caseMismatch"
-                                    ? "canonical"
-                                    : "caseMismatch",
-                            )
-                        }
-                        icon={<ArrowUpDown size={14} />}
-                        label={
-                            search.currentSort === "caseMismatch"
-                                ? t`Remove sort`
-                                : t`Group case mismatches`
-                        }
-                        testId={TESTING_IDS.sortToggleButton}
-                        disabled={!search.results.length}
+                <SearchToggles search={search} />
+                <div className={styles.searchInlineControls}>
+                    <ReferenceSourceSelector
+                        portalContainer={portalContainer}
+                        availableResources={searchableReferenceResources}
+                        selectedSource={selectedReferenceDisplaySource}
+                        isSwitching={isSwitchingReferenceSearchSource}
+                        onSelect={handleSelectReferenceSource}
                     />
-                    <ToggleButton
-                        active={search.matchCase}
-                        onClick={() => search.setMatchCase(!search.matchCase)}
-                        icon={<CaseSensitive size={14} />}
-                        label={
-                            search.matchCase
-                                ? t`Disable match case`
-                                : t`Match case`
-                        }
-                        testId={TESTING_IDS.matchCaseCheckbox}
-                    />
-                    <ToggleButton
-                        active={search.matchWholeWord}
-                        onClick={() =>
-                            search.setMatchWholeWord(!search.matchWholeWord)
-                        }
-                        icon={<WholeWord size={14} />}
-                        label={
-                            search.matchWholeWord
-                                ? t`Disable whole word`
-                                : t`Whole word`
-                        }
-                        testId={TESTING_IDS.matchWholeWordCheckbox}
-                    />
-                    <ToggleButton
-                        active={search.searchUSFM}
-                        onClick={() => search.setSearchUSFM(!search.searchUSFM)}
-                        icon={<Braces size={14} />}
-                        label={
-                            search.searchUSFM
-                                ? t`Disable USFM markers`
-                                : t`Include USFM markers`
-                        }
-                        testId={TESTING_IDS.includeUSFMMarkersCheckbox}
-                    />
+                    {hasDisplayReference ? (
+                        <SearchScopeToggle
+                            checked={search.searchReference}
+                            referenceLabel={selectedReferenceLabel}
+                            currentLabel={t`Current`}
+                            onChange={handleToggleSearchScope}
+                        />
+                    ) : null}
+                    {isReferenceSearchLoading ? (
+                        <ReferenceLoadingIndicator />
+                    ) : null}
                 </div>
             </div>
-
-            <div className={styles.searchModeRow}>
-                <span className={styles.searchModeLabel}>
-                    <Trans>Search reference text</Trans>
-                </span>
-                <div data-testid={TESTING_IDS.searchReferenceToggle}>
-                    <SelectPrimitive
-                        items={searchModeItems({
-                            t,
-                            availableResources:
-                                filterSearchableReferenceResources(
-                                    referenceResource.referenceResourcesQuery
-                                        .data ?? [],
-                                ),
-                        })}
-                        value={selectedReferenceSearchSource}
-                        placeholder={t`Current text`}
-                        disabled={isSwitchingReferenceSearchSource}
-                        onValueChange={async (value) => {
-                            if (!value || value === "current") {
-                                setSelectedReferenceSearchSource("current");
-                                search.setSearchReferenceImmediate(false);
-                                await search.runSearchLogic(search.searchTerm, {
-                                    autoPick: false,
-                                    scope: "project",
-                                    overrides: {
-                                        searchReference: false,
-                                    },
-                                });
-                                return;
-                            }
-
-                            setSelectedReferenceSearchSource(value);
-                            setIsSwitchingReferenceSearchSource(true);
-                            try {
-                                const loadedReference =
-                                    await referenceResource.selectActiveReferenceResourcePath(
-                                        value,
-                                    );
-                                search.setSearchReferenceImmediate(true);
-                                await search.runSearchLogic(search.searchTerm, {
-                                    autoPick: false,
-                                    scope: "project",
-                                    overrides: {
-                                        searchReference: true,
-                                        referenceFiles:
-                                            loadedReference?.parsedFiles ?? [],
-                                    },
-                                });
-                            } finally {
-                                setIsSwitchingReferenceSearchSource(false);
-                            }
-                        }}
-                        className={styles.searchModeSelect}
-                    />
-                </div>
-                {isReferenceSearchLoading ? (
-                    <span className={styles.searchModeLoading}>
-                        <LoaderCircle
-                            size={12}
-                            className={styles.searchModeLoadingIcon}
-                        />
-                        <span>
-                            <Trans>Loading</Trans>
-                        </span>
-                    </span>
-                ) : null}
-            </div>
-
-            {!search.searchReference ? (
-                <div className={styles.searchReplaceRow}>
-                    <span className={styles.searchModeLabel}>
-                        <Trans>Default replace term</Trans>
-                    </span>
-                    <div className={styles.replaceInputWrapper}>
-                        <input
-                            type="text"
-                            className={styles.replaceInput}
-                            value={search.replaceTerm}
-                            data-testid={TESTING_IDS.replaceInput}
-                            onChange={(event) =>
-                                search.setReplaceTerm(event.currentTarget.value)
-                            }
-                            placeholder={t`Replace with...`}
-                        />
-                    </div>
-                </div>
-            ) : null}
         </div>
     );
 }
 
-function searchModeItems(args: {
-    t: ReturnType<typeof useLingui>["t"];
+function SearchInputBar(props: { search: SearchHook }) {
+    const { t } = useLingui();
+    const { search } = props;
+    const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") {
+            search.submitSearchNow();
+        }
+    };
+    return (
+        <div className={styles.searchInputRow}>
+            <div className={styles.searchInputWrapper}>
+                <Search size={16} className={styles.searchInputIcon} />
+                <input
+                    type="text"
+                    className={styles.searchInput}
+                    value={search.searchTerm}
+                    data-testid={TESTING_IDS.searchInput}
+                    data-js={DATA_JS.searchInput}
+                    onKeyDown={handleKeyDown}
+                    onChange={(event) =>
+                        search.onSearchChange(event.currentTarget.value)
+                    }
+                    placeholder={t`Search`}
+                />
+                <button
+                    type="button"
+                    className={styles.searchRunButton}
+                    data-testid={TESTING_IDS.searchRunButton}
+                    onClick={search.submitSearchNow}
+                    aria-label={t`Run search`}
+                    title={t`Run search`}
+                >
+                    <CornerRightDown size={14} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function SearchToggles(props: { search: SearchHook }) {
+    const { t } = useLingui();
+    const { search } = props;
+    const toggleSort = () =>
+        search.sortBy(
+            search.currentSort === "caseMismatch"
+                ? "canonical"
+                : "caseMismatch",
+        );
+    return (
+        <div className={styles.searchToggles}>
+            <ToggleButton
+                active={search.currentSort === "caseMismatch"}
+                onClick={toggleSort}
+                icon={<ArrowUpDown size={12} />}
+                label={
+                    search.currentSort === "caseMismatch"
+                        ? t`Remove sort`
+                        : t`Group case mismatches`
+                }
+                visualLabel={t`Case`}
+                testId={TESTING_IDS.sortToggleButton}
+                disabled={!search.results.length}
+            />
+            <ToggleButton
+                active={search.matchCase}
+                onClick={() => search.setMatchCase(!search.matchCase)}
+                icon={<CaseSensitive size={12} />}
+                label={search.matchCase ? t`Disable match case` : t`Match case`}
+                visualLabel={t`Match Case`}
+                testId={TESTING_IDS.matchCaseCheckbox}
+            />
+            <ToggleButton
+                active={search.matchWholeWord}
+                onClick={() => search.setMatchWholeWord(!search.matchWholeWord)}
+                icon={<WholeWord size={12} />}
+                label={
+                    search.matchWholeWord
+                        ? t`Disable whole word`
+                        : t`Whole word`
+                }
+                visualLabel={t`Match Word`}
+                testId={TESTING_IDS.matchWholeWordCheckbox}
+            />
+            <ToggleButton
+                active={search.searchUSFM}
+                onClick={() => search.setSearchUSFM(!search.searchUSFM)}
+                icon={<Braces size={12} />}
+                label={
+                    search.searchUSFM
+                        ? t`Disable USFM markers`
+                        : t`Include USFM markers`
+                }
+                visualLabel={t`USFM`}
+                testId={TESTING_IDS.includeUSFMMarkersCheckbox}
+            />
+            <ReplaceTermInput search={search} />
+        </div>
+    );
+}
+
+function ReplaceTermInput(props: { search: SearchHook }) {
+    const { t } = useLingui();
+    const { search } = props;
+    return (
+        <div className={styles.searchReplaceRow}>
+            <div className={styles.replaceInputWrapper}>
+                <input
+                    type="text"
+                    className={styles.replaceInput}
+                    value={search.replaceTerm}
+                    data-testid={TESTING_IDS.replaceInput}
+                    onChange={(event) =>
+                        search.setReplaceTerm(event.currentTarget.value)
+                    }
+                    placeholder={t`Default replace term`}
+                    disabled={search.searchReference}
+                />
+            </div>
+        </div>
+    );
+}
+
+function ReferenceSourceSelector(props: {
+    portalContainer?: RefObject<HTMLElement | null>;
     availableResources: Array<{ projectPath: string; displayName: string }>;
+    selectedSource: string;
+    isSwitching: boolean;
+    onSelect: (value: string | null) => Promise<void>;
+}) {
+    const { t } = useLingui();
+    return (
+        <div className={styles.searchModeRow}>
+            <div className={styles.searchModeField}>
+                <span className={styles.searchModeFieldLabel}>
+                    <Trans>Show reference</Trans>
+                </span>
+                <div data-testid={TESTING_IDS.searchReferenceToggle}>
+                    <SelectPrimitive
+                        items={showReferenceItems({
+                            availableResources: props.availableResources,
+                            noneLabel: t`None`,
+                        })}
+                        value={props.selectedSource || NO_REFERENCE_VALUE}
+                        defaultValue={NO_REFERENCE_VALUE}
+                        placeholder={t`Show reference`}
+                        disabled={props.isSwitching}
+                        onValueChange={(value) => {
+                            void props.onSelect(value);
+                        }}
+                        className={styles.searchModeSelect}
+                        listClassName={styles.searchModeSelectList}
+                        portalContainer={props.portalContainer}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SearchScopeToggle(props: {
+    checked: boolean;
+    referenceLabel: string;
+    currentLabel: string;
+    onChange: (checked: boolean) => Promise<void>;
+}) {
+    const { t } = useLingui();
+    return (
+        <div className={styles.searchModeField}>
+            <span className={styles.searchModeFieldLabel}>
+                <Trans>Search in</Trans>
+            </span>
+            <Switch
+                className={styles.searchScopeSwitch}
+                checked={props.checked}
+                onCheckedChange={(checked) => {
+                    void props.onChange(Boolean(checked));
+                }}
+                label={
+                    props.checked ? props.referenceLabel : props.currentLabel
+                }
+                aria-label={t`Search in`}
+            />
+        </div>
+    );
+}
+
+function ReferenceLoadingIndicator() {
+    return (
+        <span className={styles.searchModeLoading}>
+            <LoaderCircle size={12} className={styles.searchModeLoadingIcon} />
+            <span>
+                <Trans>Loading</Trans>
+            </span>
+        </span>
+    );
+}
+
+function showReferenceItems(args: {
+    availableResources: Array<{ projectPath: string; displayName: string }>;
+    noneLabel: string;
 }): SelectItem[] {
     return [
-        { value: "current", label: args.t`Current text` },
+        { value: NO_REFERENCE_VALUE, label: args.noneLabel },
         ...args.availableResources.map((resource) => ({
             value: resource.projectPath,
-            label: resource.displayName,
+            label: resource.displayName || resource.projectPath,
         })),
     ];
 }
 
-function filterSearchableReferenceResources(resources: ResourceLibraryItem[]) {
+function filterSearchableReferenceResources(
+    resources: ResourceLibraryItem[],
+    currentProjectPath: string,
+) {
     return resources
-        .filter((resource) => isEditableScriptureProjectLibraryItem(resource))
+        .filter(
+            (resource) =>
+                resource.type === "usfmScripture" &&
+                resource.projectPath !== currentProjectPath,
+        )
         .map((resource) => ({
             projectPath: resource.projectPath,
             displayName: resource.displayName,
@@ -299,6 +384,7 @@ function ToggleButton(props: {
     onClick: () => void;
     icon: React.ReactNode;
     label: string;
+    visualLabel: string;
     testId?: string;
     disabled?: boolean;
 }) {
@@ -313,6 +399,7 @@ function ToggleButton(props: {
             title={props.label}
         >
             {props.icon}
+            <span>{props.visualLabel}</span>
         </button>
     );
 }

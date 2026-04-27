@@ -3,7 +3,6 @@ import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
 import { $getSelection, $isRangeSelection } from "lexical";
 import {
-    AlertCircle,
     BookCopy,
     ChevronLeft,
     ChevronRight,
@@ -22,10 +21,9 @@ import {
     parseClipboardUsfmToTokens,
     parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
-import {
-    CloudStatusButton,
-    type CloudStatusButtonState,
-} from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
+import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
+import { LintIssuesPopover } from "@/app/ui/components/blocks/LintIssuesPopover.tsx";
+import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
@@ -48,9 +46,6 @@ function joinClassNames(...classNames: Array<string | undefined>) {
 type EditorToolbarProps = {
     isReferencePaneOpen: boolean;
     onToggleReferencePane: () => void;
-    isLintDockOpen: boolean;
-    onToggleLintDock: () => void;
-    onOpenCloudDock: () => void;
     onOpenVersionsDock: () => void;
     isSearchPaneOpen?: boolean;
     onToggleSearchPane?: () => void;
@@ -81,29 +76,37 @@ export function EditorToolbar(props: EditorToolbarProps) {
         t,
     );
 
-    const handleCut = () => {
+    const handleCut = async () => {
         const editor = editorRef.current;
         if (!editor) return;
         editor.focus();
+        const selectedText = window.getSelection()?.toString() ?? "";
+        if (!selectedText) return;
         try {
-            document.execCommand("cut");
+            await navigator.clipboard.writeText(selectedText);
         } catch {
-            // The editor still keeps its own keyboard cut path; toolbar cut is best-effort.
+            return;
         }
+        editor.update(
+            () => {
+                const selection = $getSelection();
+                if (!$isRangeSelection(selection)) return;
+                selection.removeText();
+            },
+            { discrete: true },
+        );
     };
 
-    const handleCopy = () => {
+    const handleCopy = async () => {
         const editor = editorRef.current;
         if (!editor) return;
         editor.focus();
+        const selectedText = window.getSelection()?.toString() ?? "";
+        if (!selectedText) return;
         try {
-            document.execCommand("copy");
+            await navigator.clipboard.writeText(selectedText);
         } catch {
-            // Best-effort fallback below.
-            const selectedText = window.getSelection()?.toString() ?? "";
-            if (selectedText) {
-                void navigator.clipboard.writeText(selectedText);
-            }
+            // Clipboard API may be denied; nothing else to fall back to.
         }
     };
 
@@ -237,12 +240,16 @@ export function EditorToolbar(props: EditorToolbarProps) {
                     >
                         <ToolbarTooltipButton
                             label={t`Cut`}
-                            onClick={handleCut}
+                            onClick={() => {
+                                void handleCut();
+                            }}
                             icon={<Scissors size={16} />}
                         />
                         <ToolbarTooltipButton
                             label={t`Copy`}
-                            onClick={handleCopy}
+                            onClick={() => {
+                                void handleCopy();
+                            }}
                             icon={<Copy size={16} />}
                         />
                         <ToolbarTooltipButton
@@ -279,16 +286,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isReferencePaneOpen}
                             icon={<BookCopy size={16} />}
                         />
-                        <ToolbarTooltipButton
-                            label={
-                                props.isLintDockOpen
-                                    ? t`Close lint dock`
-                                    : t`Open lint dock`
-                            }
-                            onClick={props.onToggleLintDock}
-                            active={props.isLintDockOpen}
-                            icon={<AlertCircle size={16} />}
-                        />
+                        <LintIssuesPopover />
                         <ToolbarTooltipButton
                             label={
                                 props.isSearchPaneOpen
@@ -307,12 +305,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 </div>
 
                 <div className={styles.rightCluster}>
-                    <CloudStatusButton
-                        state={cloudStatus.state}
-                        tooltipLabel={cloudStatus.label}
-                        tooltipDescription={cloudStatus.description}
-                        ariaLabel={cloudStatus.ariaLabel}
-                        onClick={props.onOpenCloudDock}
+                    <CloudStatusPopover
+                        buttonState={cloudStatus.state}
+                        buttonLabel={cloudStatus.label}
+                        buttonDescription={cloudStatus.description}
+                        buttonAriaLabel={cloudStatus.ariaLabel}
                     />
                 </div>
             </div>
@@ -377,78 +374,85 @@ export function EditorToolbar(props: EditorToolbarProps) {
     );
 }
 
+type CloudStatusPresentation = {
+    state: CloudStatusButtonState;
+    label: string;
+    description: string;
+    ariaLabel: string;
+};
+
 function getCloudStatusPresentation(
     status: GitRemoteProjectStatus | null,
     isRefreshing: boolean,
     t: (strings: TemplateStringsArray, ...args: Array<unknown>) => string,
-) {
+): CloudStatusPresentation {
     if (isRefreshing) {
         return {
-            state: "syncing" as CloudStatusButtonState,
+            state: "syncing",
             label: t`Syncing`,
-            description: t`Cloud status is refreshing. Open the git status dock.`,
+            description: t`Cloud status is refreshing.`,
             ariaLabel: t`Syncing cloud status`,
         };
     }
 
     if (!status) {
         return {
-            state: "connected" as CloudStatusButtonState,
+            state: "connected",
             label: t`Cloud`,
-            description: t`Open the git status dock.`,
-            ariaLabel: t`Open cloud dock`,
+            description: t`Open cloud status.`,
+            ariaLabel: t`Open cloud status`,
         };
     }
 
     switch (status.kind) {
         case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
             return {
-                state: "connected" as CloudStatusButtonState,
+                state: "connected",
                 label: t`Connected`,
-                description: t`Cloud is connected. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Cloud is connected.`,
+                ariaLabel: t`Open cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_SYNCING:
             return {
-                state: "syncing" as CloudStatusButtonState,
+                state: "syncing",
                 label: t`Syncing`,
-                description: t`Cloud status is refreshing. Open the git status dock.`,
+                description: t`Cloud status is refreshing.`,
                 ariaLabel: t`Syncing cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
             return {
-                state: "behind" as CloudStatusButtonState,
+                state: "behind",
                 label: t`Behind`,
-                description: t`Local changes are ahead of cloud. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Local changes are ahead of cloud.`,
+                ariaLabel: t`Open cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
             return {
-                state: "behind" as CloudStatusButtonState,
+                state: "behind",
                 label: t`Behind`,
-                description: t`Cloud changes are waiting to be reviewed. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Cloud changes are waiting to be reviewed.`,
+                ariaLabel: t`Open cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
             return {
-                state: "diverged" as CloudStatusButtonState,
+                state: "diverged",
                 label: t`Diverged`,
-                description: t`Local and cloud changes need review. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Local and cloud changes need review.`,
+                ariaLabel: t`Open cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
             return {
-                state: "behind" as CloudStatusButtonState,
+                state: "behind",
                 label: t`Behind`,
-                description: t`Cloud is currently unavailable. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Cloud is currently unavailable.`,
+                ariaLabel: t`Open cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED:
             return {
-                state: "diverged" as CloudStatusButtonState,
+                state: "diverged",
                 label: t`Reconnect`,
-                description: t`Reconnect your account to resume cloud sync. Open the git status dock.`,
-                ariaLabel: t`Open cloud dock`,
+                description: t`Reconnect your account to resume cloud sync.`,
+                ariaLabel: t`Open cloud status`,
             };
     }
 }

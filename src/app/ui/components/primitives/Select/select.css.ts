@@ -65,7 +65,7 @@ export const popup = style({
     border: `${vars.border.width.thin} solid ${vars.color.surfaceBorder}`,
     borderRadius: vars.border.radius.md,
     boxShadow: vars.shadow.large,
-    zIndex: 1000,
+    zIndex: 7000,
     overflow: "hidden",
     transformOrigin: "var(--transform-origin)",
     transition: "transform 150ms ease, opacity 150ms ease",

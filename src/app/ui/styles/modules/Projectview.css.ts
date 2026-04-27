@@ -412,6 +412,20 @@ export const bottomPanelHeader = style({
     paddingBlock: `${vars.spacing.md} ${vars.spacing.xs}`,
 });
 
+export const bottomPanelTitle = style({
+    fontSize: vars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    color: vars.color.onSurfacePrimary,
+    paddingTop: "0.375rem",
+});
+
+export const bottomPanelBody = style({
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+});
+
 export const bottomPanelTabsRoot = style({
     flex: 1,
     minWidth: 0,

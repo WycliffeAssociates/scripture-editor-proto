@@ -10,19 +10,22 @@ import {
     type ReactNode,
     type RefObject,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { GET_LOCALES, type Settings } from "@/app/data/settings.ts";
-import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import {
-    ShowErrorNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+    type CloudProjectsService,
+    sortReposByOwnerPriority,
+} from "@/app/domain/project/cloudProjectActions.ts";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
+import { useCloudProjectActions } from "@/app/ui/hooks/useCloudProjectActions.ts";
 import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
@@ -400,8 +403,7 @@ function AdvancedTab({
     isCloudLinked: boolean;
     syncRemoteStatus: () => Promise<void>;
     authSessionProvider: Pick<AuthSessionProvider, "getCurrentSession">;
-    projectsService: {
-        createRemoteForProject: (projectRef: string) => Promise<unknown>;
+    projectsService: CloudProjectsService & {
         listWritableRemoteRepos: (args: {
             page: number;
             pageSize: number;
@@ -422,18 +424,6 @@ function AdvancedTab({
             nextPage: number | null;
             rawResultCount: number;
         }>;
-        attachProjectToRemote: (args: {
-            projectRef: string;
-            repo: Pick<
-                RemoteRepoSummary,
-                | "id"
-                | "owner"
-                | "name"
-                | "htmlUrl"
-                | "cloneUrl"
-                | "defaultBranch"
-            >;
-        }) => Promise<unknown>;
     };
     settings: Settings;
     applyUpdates: (updates: Partial<Settings>) => Promise<void>;
@@ -448,16 +438,18 @@ function AdvancedTab({
         sessionUsername: cloudSessionUsername,
         projectsService,
     });
-    const [selectedRepoName, setSelectedRepoName] = useState<string | null>(
+    const [selectedRepo, setSelectedRepo] = useState<RemoteRepoSummary | null>(
         null,
     );
-    const [isCreatingRemoteProject, setIsCreatingRemoteProject] =
-        useState(false);
-    const [isAttachingRemoteProject, setIsAttachingRemoteProject] =
-        useState(false);
-
-    const selectedRepo =
-        gitea.repos.find((repo) => repo.fullName === selectedRepoName) ?? null;
+    const cloudActions = useCloudProjectActions({
+        projectsService,
+        loadedProjectPath,
+        refresh: syncRemoteStatus,
+    });
+    const displayedRepos = useMemo(
+        () => sortReposByOwnerPriority(gitea.repos, cloudSessionUsername),
+        [gitea.repos, cloudSessionUsername],
+    );
 
     useEffect(() => {
         if (!gitea.error) return;
@@ -469,460 +461,380 @@ function AdvancedTab({
         });
     }, [gitea.error]);
 
-    useEffect(() => {
-        setSelectedRepoName((current) => {
-            if (
-                current &&
-                gitea.repos.some((repo) => repo.fullName === current)
-            ) {
-                return current;
-            }
-            return gitea.repos[0]?.fullName ?? null;
-        });
-    }, [gitea.repos]);
-
-    const handleCreateRemote = async () => {
-        setIsCreatingRemoteProject(true);
-        try {
-            await projectsService.createRemoteForProject(loadedProjectPath);
-            await syncRemoteStatus();
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Cloud project created`,
-                    message: t`This project is now linked and published to cloud.`,
-                },
-            });
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : t`Please try again.`;
-            const duplicateNameMatch =
-                /same name already exists/i.test(message) ||
-                /already exists/i.test(message);
-            ShowErrorNotification({
-                notification: {
-                    title: t`Failed to create remote project`,
-                    message: duplicateNameMatch
-                        ? t`A cloud project with this name already exists in your account. Attach the existing cloud project instead.`
-                        : message,
-                },
-            });
-        } finally {
-            setIsCreatingRemoteProject(false);
-        }
-    };
-
-    const handleAttachRemote = async () => {
-        if (!selectedRepo) return;
-        setIsAttachingRemoteProject(true);
-        try {
-            await projectsService.attachProjectToRemote({
-                projectRef: loadedProjectPath,
-                repo: {
-                    id: selectedRepo.id,
-                    owner: selectedRepo.owner,
-                    name: selectedRepo.name,
-                    htmlUrl: selectedRepo.htmlUrl,
-                    cloneUrl: selectedRepo.cloneUrl,
-                    defaultBranch: selectedRepo.defaultBranch,
-                },
-            });
-            await syncRemoteStatus();
-            ShowNotificationSuccess({
-                notification: {
-                    title: t`Cloud project attached`,
-                    message: t`This project is now linked to the selected cloud repository.`,
-                },
-            });
-        } catch (error) {
-            ShowErrorNotification({
-                notification: {
-                    title: t`Failed to attach cloud project`,
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : t`Please try again.`,
-                },
-            });
-        } finally {
-            setIsAttachingRemoteProject(false);
-        }
-    };
-
     return (
         <div className={styles.section}>
-            <SettingRow
-                title={t`Default review view`}
-                description={t`Choose how change review opens by default.`}
-                control={
-                    <div className={styles.fieldControl}>
-                        <ToggleGroup
-                            value={settings.diffViewModeDefault}
-                            onValueChange={(value) => {
-                                if (value === "list" || value === "chapter") {
-                                    void applyUpdates({
-                                        diffViewModeDefault:
-                                            value as Settings["diffViewModeDefault"],
-                                    });
-                                }
-                            }}
-                            items={[
-                                { value: "list", label: t`By verse` },
-                                { value: "chapter", label: t`By chapter` },
-                            ]}
-                            className={styles.toggleGroup}
-                        />
-                    </div>
+            <DiffViewModeRow
+                value={settings.diffViewModeDefault}
+                onChange={(value) =>
+                    applyUpdates({ diffViewModeDefault: value })
                 }
             />
-
-            <SettingRow
+            <EnabledDisabledRow
                 title={t`Auto Sync on Open`}
                 description={t`Check for cloud updates automatically when opening a linked project.`}
-                control={
-                    <div
-                        className={styles.rowControlEnd}
-                        data-testid={TESTING_IDS.settings.autoSyncOnOpenToggle}
-                    >
-                        <Switch
-                            checked={settings.autoSyncOnOpen}
-                            onCheckedChange={(checked) =>
-                                void applyUpdates({ autoSyncOnOpen: checked })
-                            }
-                            label={
-                                <span className={styles.switchLabel}>
-                                    <span className={styles.switchLabelTitle}>
-                                        {settings.autoSyncOnOpen
-                                            ? t`Enabled`
-                                            : t`Disabled`}
-                                    </span>
-                                </span>
-                            }
-                        />
-                    </div>
+                checked={settings.autoSyncOnOpen}
+                testId={TESTING_IDS.settings.autoSyncOnOpenToggle}
+                onChange={(checked) =>
+                    applyUpdates({ autoSyncOnOpen: checked })
                 }
             />
-
-            <SettingRow
+            <EnabledDisabledRow
                 title={t`Auto Publish on Save`}
                 description={t`Publish local saves automatically for linked cloud projects.`}
-                control={
-                    <div
-                        className={styles.rowControlEnd}
-                        data-testid={TESTING_IDS.settings.autoPushOnSaveToggle}
-                    >
-                        <Switch
-                            checked={settings.autoPushOnSave}
-                            onCheckedChange={(checked) =>
-                                void applyUpdates({ autoPushOnSave: checked })
-                            }
-                            label={
-                                <span className={styles.switchLabel}>
-                                    <span className={styles.switchLabelTitle}>
-                                        {settings.autoPushOnSave
-                                            ? t`Enabled`
-                                            : t`Disabled`}
-                                    </span>
-                                </span>
-                            }
-                        />
-                    </div>
+                checked={settings.autoPushOnSave}
+                testId={TESTING_IDS.settings.autoPushOnSaveToggle}
+                onChange={(checked) =>
+                    applyUpdates({ autoPushOnSave: checked })
                 }
             />
-
-            <SettingRow
+            <EnabledDisabledRow
                 title={t`Auto Accept My Work on Save`}
                 description={t`Skip review for your own local edits and commit them directly when you save.`}
-                control={
-                    <div
-                        className={styles.rowControlEnd}
-                        data-testid={
-                            TESTING_IDS.settings.autoAcceptOwnWorkOnSaveToggle
-                        }
-                    >
-                        <Switch
-                            checked={settings.autoAcceptOwnWorkOnSave}
-                            onCheckedChange={(checked) =>
-                                void applyUpdates({
-                                    autoAcceptOwnWorkOnSave: checked,
-                                })
-                            }
-                            label={
-                                <span className={styles.switchLabel}>
-                                    <span className={styles.switchLabelTitle}>
-                                        {settings.autoAcceptOwnWorkOnSave
-                                            ? t`Enabled`
-                                            : t`Disabled`}
-                                    </span>
-                                </span>
-                            }
-                        />
-                    </div>
+                checked={settings.autoAcceptOwnWorkOnSave}
+                testId={TESTING_IDS.settings.autoAcceptOwnWorkOnSaveToggle}
+                onChange={(checked) =>
+                    applyUpdates({ autoAcceptOwnWorkOnSave: checked })
                 }
             />
-
-            <SettingRow
+            <EnabledDisabledRow
                 title={t`Auto Accept Incoming Work`}
                 description={t`Accept incoming cloud changes automatically unless the same verse already has unresolved local edits.`}
-                control={
-                    <div
-                        className={styles.rowControlEnd}
-                        data-testid={
-                            TESTING_IDS.settings.autoAcceptIncomingWorkToggle
-                        }
-                    >
-                        <Switch
-                            checked={settings.autoAcceptIncomingWork}
-                            onCheckedChange={(checked) =>
-                                void applyUpdates({
-                                    autoAcceptIncomingWork: checked,
-                                })
-                            }
-                            label={
-                                <span className={styles.switchLabel}>
-                                    <span className={styles.switchLabelTitle}>
-                                        {settings.autoAcceptIncomingWork
-                                            ? t`Enabled`
-                                            : t`Disabled`}
-                                    </span>
-                                </span>
-                            }
-                        />
-                    </div>
+                checked={settings.autoAcceptIncomingWork}
+                testId={TESTING_IDS.settings.autoAcceptIncomingWorkToggle}
+                onChange={(checked) =>
+                    applyUpdates({ autoAcceptIncomingWork: checked })
                 }
             />
 
             {!isCloudLinked ? (
                 <>
-                    <SettingRow
-                        title={t`Create cloud project`}
-                        description={t`Create and link a new cloud repository from this local project.`}
-                        control={
-                            <div className={styles.rowControlEnd}>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    data-testid={
-                                        TESTING_IDS.settings
-                                            .createRemoteProjectButton
-                                    }
-                                    disabled={
-                                        !cloudSessionUsername ||
-                                        isCreatingRemoteProject
-                                    }
-                                    onClick={() => void handleCreateRemote()}
-                                >
-                                    {isCreatingRemoteProject
-                                        ? t`Creating...`
-                                        : t`Save as new cloud project`}
-                                </Button>
-                            </div>
-                        }
+                    <CreateCloudProjectRow
+                        cloudSessionUsername={cloudSessionUsername}
+                        isCreating={cloudActions.isCreating}
+                        onCreate={() => cloudActions.create()}
                     />
-
-                    <SettingRow
-                        title={t`Attach existing cloud project`}
-                        description={t`Link this local project to any cloud repository you can edit.`}
-                        control={
-                            <div className={styles.fieldControl}>
-                                <div
-                                    data-testid={
-                                        TESTING_IDS.settings
-                                            .attachRemoteProjectSelect
-                                    }
-                                >
-                                    <Combobox.Root<RemoteRepoSummary>
-                                        items={gitea.repos}
-                                        value={selectedRepo}
-                                        inputValue={gitea.query}
-                                        onInputValueChange={gitea.setQuery}
-                                        onValueChange={(value) =>
-                                            setSelectedRepoName(
-                                                value?.fullName ?? null,
-                                            )
-                                        }
-                                        itemToStringLabel={(item) =>
-                                            item.fullName
-                                        }
-                                        itemToStringValue={(item) =>
-                                            item.fullName
-                                        }
-                                    >
-                                        <Combobox.Trigger
-                                            className={styles.selectControl}
-                                            aria-label={t`Select cloud project`}
-                                        >
-                                            <span
-                                                className={
-                                                    styles.cloudProjectComboboxValue
-                                                }
-                                            >
-                                                {selectedRepo?.fullName ??
-                                                    t`Select cloud project`}
-                                            </span>
-                                            <span
-                                                className={
-                                                    styles.cloudProjectComboboxChevron
-                                                }
-                                                aria-hidden="true"
-                                            >
-                                                ⌄
-                                            </span>
-                                        </Combobox.Trigger>
-
-                                        <Combobox.Portal
-                                            container={portalContainer}
-                                        >
-                                            <Combobox.Positioner
-                                                sideOffset={8}
-                                                align="start"
-                                            >
-                                                <Combobox.Popup
-                                                    className={
-                                                        styles.cloudProjectComboboxPopup
-                                                    }
-                                                >
-                                                    <div
-                                                        className={
-                                                            styles.cloudProjectComboboxHeader
-                                                        }
-                                                    >
-                                                        <Combobox.Input
-                                                            className={
-                                                                styles.cloudProjectComboboxInput
-                                                            }
-                                                            aria-label={t`Search cloud projects`}
-                                                            placeholder={t`Search cloud projects`}
-                                                            autoFocus
-                                                        />
-                                                    </div>
-                                                    <ScrollArea.Root
-                                                        className={
-                                                            styles.cloudProjectComboboxScrollArea
-                                                        }
-                                                    >
-                                                        <ScrollArea.Viewport
-                                                            className={
-                                                                styles.cloudProjectComboboxScrollViewport
-                                                            }
-                                                        >
-                                                            <Combobox.List
-                                                                className={
-                                                                    styles.cloudProjectComboboxList
-                                                                }
-                                                            >
-                                                                {gitea.repos.map(
-                                                                    (repo) => (
-                                                                        <Combobox.Item
-                                                                            key={
-                                                                                repo.id
-                                                                            }
-                                                                            value={
-                                                                                repo
-                                                                            }
-                                                                            className={
-                                                                                styles.cloudProjectComboboxItem
-                                                                            }
-                                                                        >
-                                                                            <span
-                                                                                className={
-                                                                                    styles.cloudProjectComboboxItemIndicator
-                                                                                }
-                                                                                aria-hidden="true"
-                                                                            >
-                                                                                {selectedRepoName ===
-                                                                                repo.fullName ? (
-                                                                                    <Check
-                                                                                        size={
-                                                                                            14
-                                                                                        }
-                                                                                    />
-                                                                                ) : null}
-                                                                            </span>
-                                                                            <span>
-                                                                                {
-                                                                                    repo.fullName
-                                                                                }
-                                                                            </span>
-                                                                        </Combobox.Item>
-                                                                    ),
-                                                                )}
-                                                            </Combobox.List>
-                                                            <Combobox.Empty
-                                                                className={
-                                                                    styles.cloudProjectComboboxEmpty
-                                                                }
-                                                            >
-                                                                {t`No cloud projects found.`}
-                                                            </Combobox.Empty>
-                                                        </ScrollArea.Viewport>
-                                                        <ScrollArea.Scrollbar orientation="vertical">
-                                                            <ScrollArea.Thumb />
-                                                        </ScrollArea.Scrollbar>
-                                                    </ScrollArea.Root>
-                                                </Combobox.Popup>
-                                            </Combobox.Positioner>
-                                        </Combobox.Portal>
-                                    </Combobox.Root>
-                                </div>
-                                <div className={styles.cloudAttachActions}>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="secondary"
-                                        disabled={gitea.isLoading}
-                                        onClick={() => void gitea.refresh()}
-                                    >
-                                        {gitea.isLoading
-                                            ? t`Refreshing...`
-                                            : t`Refresh`}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="primary"
-                                        data-testid={
-                                            TESTING_IDS.settings
-                                                .attachRemoteProjectButton
-                                        }
-                                        disabled={
-                                            !cloudSessionUsername ||
-                                            !selectedRepo ||
-                                            isAttachingRemoteProject
-                                        }
-                                        onClick={() =>
-                                            void handleAttachRemote()
-                                        }
-                                    >
-                                        {isAttachingRemoteProject
-                                            ? t`Attaching...`
-                                            : t`Attach`}
-                                    </Button>
-                                </div>
-                            </div>
-                        }
+                    <AttachCloudProjectRow
+                        cloudSessionUsername={cloudSessionUsername}
+                        gitea={gitea}
+                        displayedRepos={displayedRepos}
+                        selectedRepo={selectedRepo}
+                        onSelectRepo={setSelectedRepo}
+                        portalContainer={portalContainer}
+                        isAttaching={cloudActions.isAttaching}
+                        onAttach={() => cloudActions.attach(selectedRepo)}
                     />
                 </>
             ) : null}
 
-            <div className={styles.buildInfo}>
+            <BuildInfoFooter />
+        </div>
+    );
+}
+
+function DiffViewModeRow(props: {
+    value: Settings["diffViewModeDefault"];
+    onChange: (value: Settings["diffViewModeDefault"]) => void;
+}) {
+    const handleChange = (value: string | null) => {
+        if (value === "list" || value === "chapter") {
+            props.onChange(value);
+        }
+    };
+    return (
+        <SettingRow
+            title={t`Default review view`}
+            description={t`Choose how change review opens by default.`}
+            control={
+                <div className={styles.fieldControl}>
+                    <ToggleGroup
+                        value={props.value}
+                        onValueChange={handleChange}
+                        items={[
+                            { value: "list", label: t`By verse` },
+                            { value: "chapter", label: t`By chapter` },
+                        ]}
+                        className={styles.toggleGroup}
+                    />
+                </div>
+            }
+        />
+    );
+}
+
+function EnabledDisabledRow(props: {
+    title: string;
+    description: string;
+    checked: boolean;
+    testId?: string;
+    onChange: (checked: boolean) => void;
+}) {
+    return (
+        <SettingRow
+            title={props.title}
+            description={props.description}
+            control={
+                <div
+                    className={styles.rowControlEnd}
+                    data-testid={props.testId}
+                >
+                    <Switch
+                        checked={props.checked}
+                        onCheckedChange={(checked) => props.onChange(checked)}
+                        label={
+                            <span className={styles.switchLabel}>
+                                <span className={styles.switchLabelTitle}>
+                                    {props.checked ? t`Enabled` : t`Disabled`}
+                                </span>
+                            </span>
+                        }
+                    />
+                </div>
+            }
+        />
+    );
+}
+
+function CreateCloudProjectRow(props: {
+    cloudSessionUsername: string | null;
+    isCreating: boolean;
+    onCreate: () => void;
+}) {
+    return (
+        <SettingRow
+            title={t`Create cloud project`}
+            description={t`Create and link a new cloud repository from this local project.`}
+            control={
+                <div className={styles.rowControlEnd}>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        data-testid={
+                            TESTING_IDS.settings.createRemoteProjectButton
+                        }
+                        disabled={
+                            !props.cloudSessionUsername || props.isCreating
+                        }
+                        onClick={props.onCreate}
+                    >
+                        {props.isCreating
+                            ? t`Creating...`
+                            : t`Save as new cloud project`}
+                    </Button>
+                </div>
+            }
+        />
+    );
+}
+
+function AttachCloudProjectRow(props: {
+    cloudSessionUsername: string | null;
+    gitea: ReturnType<typeof useGiteaApi>;
+    displayedRepos: RemoteRepoSummary[];
+    selectedRepo: RemoteRepoSummary | null;
+    onSelectRepo: (repo: RemoteRepoSummary | null) => void;
+    portalContainer: RefObject<HTMLElement | null>;
+    isAttaching: boolean;
+    onAttach: () => void;
+}) {
+    return (
+        <SettingRow
+            title={t`Attach existing cloud project`}
+            description={t`Link this local project to any cloud repository you can edit.`}
+            control={
+                <div className={styles.fieldControl}>
+                    <CloudProjectCombobox
+                        gitea={props.gitea}
+                        displayedRepos={props.displayedRepos}
+                        selectedRepo={props.selectedRepo}
+                        onSelectRepo={props.onSelectRepo}
+                        portalContainer={props.portalContainer}
+                    />
+                    {props.gitea.hasAdditionalReposAvailable ? (
+                        <div className={styles.cloudProjectComboboxMeta}>
+                            {t`Showing ${props.gitea.visiblePageSize} projects to start. Search to find additional repositories.`}
+                        </div>
+                    ) : null}
+                    <CloudAttachActions
+                        cloudSessionUsername={props.cloudSessionUsername}
+                        gitea={props.gitea}
+                        selectedRepo={props.selectedRepo}
+                        isAttaching={props.isAttaching}
+                        onAttach={props.onAttach}
+                    />
+                </div>
+            }
+        />
+    );
+}
+
+function CloudProjectCombobox(props: {
+    gitea: ReturnType<typeof useGiteaApi>;
+    displayedRepos: RemoteRepoSummary[];
+    selectedRepo: RemoteRepoSummary | null;
+    onSelectRepo: (repo: RemoteRepoSummary | null) => void;
+    portalContainer: RefObject<HTMLElement | null>;
+}) {
+    return (
+        <div data-testid={TESTING_IDS.settings.attachRemoteProjectSelect}>
+            <Combobox.Root<RemoteRepoSummary>
+                items={props.displayedRepos}
+                value={props.selectedRepo}
+                inputValue={props.gitea.query}
+                onInputValueChange={props.gitea.setQuery}
+                onValueChange={(value) => props.onSelectRepo(value ?? null)}
+                itemToStringLabel={(item) => item.fullName}
+                itemToStringValue={(item) => item.fullName}
+            >
+                <Combobox.Trigger
+                    className={styles.cloudProjectComboboxTrigger}
+                    aria-label={t`Select cloud project`}
+                >
+                    <span className={styles.cloudProjectComboboxValue}>
+                        {props.selectedRepo?.fullName ??
+                            t`Select cloud project`}
+                    </span>
+                    <span
+                        className={styles.cloudProjectComboboxChevron}
+                        aria-hidden="true"
+                    >
+                        ⌄
+                    </span>
+                </Combobox.Trigger>
+                <Combobox.Portal container={props.portalContainer}>
+                    <Combobox.Positioner sideOffset={8} align="start">
+                        <Combobox.Popup
+                            className={styles.cloudProjectComboboxPopup}
+                        >
+                            <div className={styles.cloudProjectComboboxHeader}>
+                                <Combobox.Input
+                                    className={styles.cloudProjectComboboxInput}
+                                    aria-label={t`Search cloud projects`}
+                                    placeholder={t`Search cloud projects`}
+                                    autoFocus
+                                />
+                            </div>
+                            <ScrollArea.Root
+                                className={
+                                    styles.cloudProjectComboboxScrollArea
+                                }
+                            >
+                                <ScrollArea.Viewport
+                                    className={
+                                        styles.cloudProjectComboboxScrollViewport
+                                    }
+                                >
+                                    <Combobox.List
+                                        className={
+                                            styles.cloudProjectComboboxList
+                                        }
+                                    >
+                                        {props.displayedRepos.map((repo) => (
+                                            <Combobox.Item
+                                                key={repo.id}
+                                                value={repo}
+                                                className={
+                                                    styles.cloudProjectComboboxItem
+                                                }
+                                            >
+                                                <span
+                                                    className={
+                                                        styles.cloudProjectComboboxItemIndicator
+                                                    }
+                                                    aria-hidden="true"
+                                                >
+                                                    {props.selectedRepo
+                                                        ?.fullName ===
+                                                    repo.fullName ? (
+                                                        <Check size={14} />
+                                                    ) : null}
+                                                </span>
+                                                <span>{repo.fullName}</span>
+                                            </Combobox.Item>
+                                        ))}
+                                    </Combobox.List>
+                                    <Combobox.Empty
+                                        className={
+                                            styles.cloudProjectComboboxEmpty
+                                        }
+                                    >
+                                        {t`No cloud projects found.`}
+                                    </Combobox.Empty>
+                                </ScrollArea.Viewport>
+                                <ScrollArea.Scrollbar orientation="vertical">
+                                    <ScrollArea.Thumb />
+                                </ScrollArea.Scrollbar>
+                            </ScrollArea.Root>
+                            {props.gitea.hasAdditionalReposAvailable ? (
+                                <div
+                                    className={
+                                        styles.cloudProjectComboboxFooter
+                                    }
+                                >
+                                    {t`Showing initial ${props.gitea.visiblePageSize}. Search to find more.`}
+                                </div>
+                            ) : null}
+                        </Combobox.Popup>
+                    </Combobox.Positioner>
+                </Combobox.Portal>
+            </Combobox.Root>
+        </div>
+    );
+}
+
+function CloudAttachActions(props: {
+    cloudSessionUsername: string | null;
+    gitea: ReturnType<typeof useGiteaApi>;
+    selectedRepo: RemoteRepoSummary | null;
+    isAttaching: boolean;
+    onAttach: () => void;
+}) {
+    const attachDisabled =
+        !props.cloudSessionUsername || !props.selectedRepo || props.isAttaching;
+    return (
+        <div className={styles.cloudAttachActions}>
+            <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={props.gitea.isLoading}
+                onClick={() => void props.gitea.refresh()}
+            >
+                {props.gitea.isLoading ? t`Refreshing...` : t`Refresh`}
+            </Button>
+            <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                data-testid={TESTING_IDS.settings.attachRemoteProjectButton}
+                disabled={attachDisabled}
+                onClick={props.onAttach}
+            >
+                {props.isAttaching ? t`Attaching...` : t`Attach`}
+            </Button>
+        </div>
+    );
+}
+
+function BuildInfoFooter() {
+    const versionLabel = import.meta.env.DEV
+        ? "local"
+        : import.meta.env.VITE_VERSION_TAG || "";
+    const showSha = !import.meta.env.DEV && import.meta.env.VITE_GITHUB_SHA;
+    return (
+        <div className={styles.buildInfo}>
+            <div className={styles.buildInfoRow}>
+                <span className={styles.buildInfoLabel}>{t`Version`}:</span>
+                <span className={styles.buildInfoValue}>{versionLabel}</span>
+            </div>
+            {showSha ? (
                 <div className={styles.buildInfoRow}>
-                    <span className={styles.buildInfoLabel}>{t`Version`}:</span>
+                    <span className={styles.buildInfoLabel}>{t`SHA`}:</span>
                     <span className={styles.buildInfoValue}>
-                        {import.meta.env.DEV
-                            ? "local"
-                            : import.meta.env.VITE_VERSION_TAG || ""}
+                        {import.meta.env.VITE_GITHUB_SHA}
                     </span>
                 </div>
-                {!import.meta.env.DEV && import.meta.env.VITE_GITHUB_SHA && (
-                    <div className={styles.buildInfoRow}>
-                        <span className={styles.buildInfoLabel}>{t`SHA`}:</span>
-                        <span className={styles.buildInfoValue}>
-                            {import.meta.env.VITE_GITHUB_SHA}
-                        </span>
-                    </div>
-                )}
-            </div>
+            ) : null}
         </div>
     );
 }

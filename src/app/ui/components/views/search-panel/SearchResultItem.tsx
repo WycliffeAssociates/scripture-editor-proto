@@ -1,9 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
+
+const REGEX_SPECIAL_CHARS = /[.*+?^${}()|[\]\\]/g;
 
 interface SearchResultItemProps {
     result: SearchResult;
@@ -11,6 +13,7 @@ interface SearchResultItemProps {
     searchTerm: string;
     matchCase: boolean;
     matchWholeWord: boolean;
+    localizedBookName?: string;
     onPick: () => void;
     sourceProjectName?: string;
     currentProjectName?: string;
@@ -25,6 +28,9 @@ export function SearchResultItem(props: SearchResultItemProps) {
         result,
         isActive,
         searchTerm,
+        matchCase,
+        matchWholeWord,
+        localizedBookName,
         onPick,
         sourceProjectName,
         currentProjectName,
@@ -37,13 +43,43 @@ export function SearchResultItem(props: SearchResultItemProps) {
     const [replacement, setReplacement] = useState(defaultReplaceTerm);
     const [hasCustomReplacement, setHasCustomReplacement] = useState(false);
     const [isReplacing, setIsReplacing] = useState(false);
-    const locationLabel = formatResultLocationLabel(result, t);
+    const locationLabel = formatResultLocationLabel(
+        result,
+        t,
+        localizedBookName,
+    );
     const isGrouped = Boolean(sourceProjectName && currentProjectName);
+    const missingVerseFallback = t`Verse not available in this text`;
 
     useEffect(() => {
         if (hasCustomReplacement) return;
         setReplacement(defaultReplaceTerm);
     }, [defaultReplaceTerm, hasCustomReplacement]);
+
+    const handleReplaceSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!replacement.trim() || !onReplace) return;
+        setIsReplacing(true);
+        try {
+            await onReplace(replacement);
+            setReplacement("");
+        } finally {
+            setIsReplacing(false);
+        }
+    };
+
+    const replaceControls = canReplace ? (
+        <ReplaceControls
+            replacement={replacement}
+            isReplacing={isReplacing}
+            onChange={(value) => {
+                setReplacement(value);
+                setHasCustomReplacement(true);
+            }}
+            onSubmit={handleReplaceSubmit}
+        />
+    ) : null;
 
     return (
         <div
@@ -53,126 +89,251 @@ export function SearchResultItem(props: SearchResultItemProps) {
             data-search-book={result.bibleIdentifier}
             data-search-chapter={String(result.chapNum)}
         >
-            <div className={styles.searchResultHeader}>
-                <span className={styles.searchResultLocation}>
-                    {locationLabel}
-                </span>
+            <ResultHeader
+                locationLabel={locationLabel}
+                onPick={onPick}
+                navigateLabel={t`Navigate to ${locationLabel}`}
+            />
+            <PreviewSurface onPick={onPick}>
+                {isGrouped ? (
+                    <GroupedPreview
+                        sourceProjectName={sourceProjectName ?? ""}
+                        currentProjectName={currentProjectName ?? ""}
+                        result={result}
+                        targetResult={targetResult}
+                        searchTerm={searchTerm}
+                        replacement={replacement}
+                        matchCase={matchCase}
+                        matchWholeWord={matchWholeWord}
+                        missingVerseFallback={missingVerseFallback}
+                        replaceControls={replaceControls}
+                    />
+                ) : (
+                    <SinglePreview
+                        text={result.text}
+                        searchTerm={searchTerm}
+                        replacement={replacement}
+                        matchCase={matchCase}
+                        matchWholeWord={matchWholeWord}
+                    />
+                )}
+            </PreviewSurface>
+            {!isGrouped ? replaceControls : null}
+        </div>
+    );
+}
+
+function ResultHeader(props: {
+    locationLabel: string;
+    navigateLabel: string;
+    onPick: () => void;
+}) {
+    return (
+        <div className={styles.searchResultHeader}>
+            <span className={styles.searchResultLocation}>
+                {props.locationLabel}
+            </span>
+            <button
+                type="button"
+                className={styles.searchResultNavigate}
+                onClick={props.onPick}
+                aria-label={props.navigateLabel}
+                title={props.navigateLabel}
+            >
+                <ArrowRight size={14} />
+            </button>
+        </div>
+    );
+}
+
+function PreviewSurface(props: {
+    onPick: () => void;
+    children: React.ReactNode;
+}) {
+    const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            props.onPick();
+        }
+    };
+    return (
+        <button
+            className={styles.searchResultPreview}
+            type="button"
+            onClick={props.onPick}
+            onKeyDown={handleKeyDown}
+        >
+            {props.children}
+        </button>
+    );
+}
+
+function GroupedPreview(props: {
+    sourceProjectName: string;
+    currentProjectName: string;
+    result: SearchResult;
+    targetResult: SearchResult | undefined;
+    searchTerm: string;
+    replacement: string;
+    matchCase: boolean;
+    matchWholeWord: boolean;
+    missingVerseFallback: string;
+    replaceControls: React.ReactNode;
+}) {
+    return (
+        <div className={styles.searchResultPair} data-search-row-type="grouped">
+            <PreviewBlock
+                projectName={props.sourceProjectName}
+                projectLabelKind="source"
+                text={props.result.text}
+                searchTerm={props.searchTerm}
+                replacement=""
+                matchCase={props.matchCase}
+                matchWholeWord={props.matchWholeWord}
+                missingVerseFallback={props.missingVerseFallback}
+            />
+            <PreviewBlock
+                projectName={props.currentProjectName}
+                projectLabelKind="target"
+                text={props.targetResult?.text ?? ""}
+                searchTerm={props.searchTerm}
+                replacement={props.replacement}
+                matchCase={props.matchCase}
+                matchWholeWord={props.matchWholeWord}
+                missingVerseFallback={props.missingVerseFallback}
+                trailing={props.replaceControls}
+            />
+        </div>
+    );
+}
+
+function PreviewBlock(props: {
+    projectName: string;
+    projectLabelKind: "source" | "target";
+    text: string;
+    searchTerm: string;
+    replacement: string;
+    matchCase: boolean;
+    matchWholeWord: boolean;
+    missingVerseFallback: string;
+    trailing?: React.ReactNode;
+}) {
+    return (
+        <div className={styles.searchResultPairBlock}>
+            <span
+                className={styles.searchResultProjectLabel}
+                data-project-label={props.projectLabelKind}
+            >
+                {props.projectName}
+            </span>
+            <div className={styles.searchResultPairText}>
+                <VersePreviewText
+                    text={props.text}
+                    searchTerm={props.searchTerm}
+                    replacement={props.replacement}
+                    matchCase={props.matchCase}
+                    matchWholeWord={props.matchWholeWord}
+                    missingVerseFallback={props.missingVerseFallback}
+                />
+            </div>
+            {props.trailing}
+        </div>
+    );
+}
+
+function SinglePreview(props: {
+    text: string;
+    searchTerm: string;
+    replacement: string;
+    matchCase: boolean;
+    matchWholeWord: boolean;
+}) {
+    return (
+        <span data-search-row-type="single">
+            {renderSearchPreview(
+                props.text,
+                props.searchTerm,
+                props.replacement,
+                props.matchCase,
+                props.matchWholeWord,
+            )}
+        </span>
+    );
+}
+
+function VersePreviewText(props: {
+    text: string;
+    searchTerm: string;
+    replacement: string;
+    matchCase: boolean;
+    matchWholeWord: boolean;
+    missingVerseFallback: string;
+}) {
+    if (!props.text.trim()) {
+        return (
+            <span className={styles.searchResultFallbackText}>
+                {props.missingVerseFallback}
+            </span>
+        );
+    }
+    return (
+        <>
+            {renderSearchPreview(
+                props.text,
+                props.searchTerm,
+                props.replacement,
+                props.matchCase,
+                props.matchWholeWord,
+            )}
+        </>
+    );
+}
+
+function ReplaceControls(props: {
+    replacement: string;
+    isReplacing: boolean;
+    onChange: (value: string) => void;
+    onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+}) {
+    const { t } = useLingui();
+    return (
+        <form
+            className={styles.searchResultReplace}
+            onSubmit={(event) => {
+                void props.onSubmit(event);
+            }}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+        >
+            <div className={styles.searchResultReplaceControls}>
+                <input
+                    type="text"
+                    className={styles.searchResultReplaceInput}
+                    value={props.replacement}
+                    onChange={(event) =>
+                        props.onChange(event.currentTarget.value)
+                    }
+                    placeholder={t`Replace with...`}
+                    disabled={props.isReplacing}
+                />
                 <button
-                    type="button"
-                    className={styles.searchResultNavigate}
-                    onClick={onPick}
-                    aria-label={t`Navigate to ${locationLabel}`}
-                    title={t`Navigate to ${locationLabel}`}
+                    type="submit"
+                    className={styles.searchResultReplaceButton}
+                    disabled={props.isReplacing || !props.replacement.trim()}
+                    aria-label={t`Replace next match`}
+                    title={t`Replace next match`}
                 >
-                    <ArrowRight size={14} />
+                    {t`Replace next`}
                 </button>
             </div>
-
-            {/** biome-ignore lint/a11y/noStaticElementInteractions: <todo fix> */}
-            <div
-                className={styles.searchResultPreview}
-                onClick={onPick}
-                onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                        onPick();
-                    }
-                }}
-            >
-                {isGrouped ? (
-                    <div
-                        className={styles.searchResultPair}
-                        data-search-row-type="grouped"
-                    >
-                        <div className={styles.searchResultPairBlock}>
-                            <span
-                                className={styles.searchResultProjectLabel}
-                                data-project-label="source"
-                            >
-                                {sourceProjectName}
-                            </span>
-                            <div className={styles.searchResultPairText}>
-                                {renderSearchPreview(
-                                    result.text,
-                                    searchTerm,
-                                    "",
-                                    props.matchCase,
-                                    props.matchWholeWord,
-                                )}
-                            </div>
-                        </div>
-                        <div className={styles.searchResultPairBlock}>
-                            <span
-                                className={styles.searchResultProjectLabel}
-                                data-project-label="target"
-                            >
-                                {currentProjectName}
-                            </span>
-                            <div className={styles.searchResultPairText}>
-                                {renderSearchPreview(
-                                    targetResult?.text ?? "",
-                                    searchTerm,
-                                    replacement,
-                                    props.matchCase,
-                                    props.matchWholeWord,
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <span data-search-row-type="single">
-                        {renderSearchPreview(
-                            result.text,
-                            searchTerm,
-                            replacement,
-                            props.matchCase,
-                            props.matchWholeWord,
-                        )}
-                    </span>
-                )}
-            </div>
-
-            {canReplace ? (
-                <form
-                    className={styles.searchResultReplace}
-                    onSubmit={async (event) => {
-                        event.preventDefault();
-                        if (!replacement.trim() || !onReplace) return;
-                        setIsReplacing(true);
-                        try {
-                            await onReplace(replacement);
-                            setReplacement("");
-                        } finally {
-                            setIsReplacing(false);
-                        }
-                    }}
-                >
-                    <input
-                        type="text"
-                        className={styles.searchResultReplaceInput}
-                        value={replacement}
-                        onChange={(event) => {
-                            setReplacement(event.currentTarget.value);
-                            setHasCustomReplacement(true);
-                        }}
-                        placeholder={t`Replace this result`}
-                        disabled={isReplacing}
-                    />
-                    <button
-                        type="submit"
-                        className={styles.searchResultReplaceButton}
-                        disabled={isReplacing || !replacement.trim()}
-                    >
-                        {t`Replace`}
-                    </button>
-                </form>
-            ) : null}
-        </div>
+        </form>
     );
 }
 
 function formatResultLocationLabel(
     result: SearchResult,
     t: ReturnType<typeof useLingui>["t"],
+    localizedBookName?: string,
 ) {
     if (result.chapNum === 0) {
         return t`Introduction`;
@@ -182,16 +343,17 @@ function formatResultLocationLabel(
     if (!parsed) {
         return result.sid;
     }
+    const bookLabel = localizedBookName || parsed.book;
 
     if (parsed.isBookChapOnly) {
-        return `${parsed.book} ${parsed.chapter}`;
+        return `${bookLabel} ${parsed.chapter}`;
     }
 
     if (parsed.verseStart !== parsed.verseEnd) {
-        return `${parsed.book} ${parsed.chapter}:${parsed.verseStart}-${parsed.verseEnd}`;
+        return `${bookLabel} ${parsed.chapter}:${parsed.verseStart}-${parsed.verseEnd}`;
     }
 
-    return `${parsed.book} ${parsed.chapter}:${parsed.verseStart}`;
+    return `${bookLabel} ${parsed.chapter}:${parsed.verseStart}`;
 }
 
 function renderSearchPreview(
@@ -204,12 +366,13 @@ function renderSearchPreview(
     if (!searchTerm) return text;
 
     const flags = matchCase ? "g" : "gi";
-    const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedTerm = searchTerm.replace(REGEX_SPECIAL_CHARS, "\\$&");
     const pattern = matchWholeWord
         ? `\\b(${escapedTerm})\\b`
         : `(${escapedTerm})`;
-    const regex = new RegExp(pattern, flags);
-    const parts = text.split(regex);
+    const searchTermRegex = new RegExp(pattern, flags);
+    const parts = text.split(searchTermRegex);
+    let hasRenderedReplacementPreview = false;
 
     return parts.map((part, index) => {
         const isMatch = matchCase
@@ -217,7 +380,8 @@ function renderSearchPreview(
             : part.toLowerCase() === searchTerm.toLowerCase();
 
         if (isMatch) {
-            if (replacement.trim()) {
+            if (replacement.trim() && !hasRenderedReplacementPreview) {
+                hasRenderedReplacementPreview = true;
                 return (
                     <span
                         key={`${index}-${part}`}

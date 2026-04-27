@@ -225,12 +225,60 @@ async function buildStatusFromInspection(args: {
         | "applyReplayPlanOntoRemote"
     >;
 }): Promise<GitRemoteProjectStatus> {
-    const latestIncomingAuthorName = await readLatestIncomingAuthorName({
+    const headMetadata = await readHeadCommitMetadata({
         inspection: args.inspection,
         projectPath: args.projectPath,
         gitProvider: args.gitProvider,
     });
+    const latestIncomingAuthorName =
+        args.inspection.relationship.kind ===
+            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
+        args.inspection.relationship.kind === GIT_REMOTE_RELATIONSHIP_DIVERGED
+            ? headMetadata.remoteAuthorName
+            : null;
 
+    const adoptRemoteResult = await shouldAdoptRemoteLatest({
+        inspection: args.inspection,
+        loadedProject: args.loadedProject,
+        projectPath: args.projectPath,
+        trackedBranch: args.trackedBranch,
+        gitProvider: args.gitProvider,
+    });
+
+    if (adoptRemoteResult.shouldAdopt) {
+        return buildStatus({
+            existingStatus: args.existingStatus,
+            kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            checkedAt: args.checkedAt,
+            localHead: args.inspection.remoteHead,
+            remoteHead: args.inspection.remoteHead,
+            localHeadAuthoredAt: headMetadata.remoteAuthoredAt,
+            remoteHeadAuthoredAt: headMetadata.remoteAuthoredAt,
+            latestIncomingAuthorName: null,
+        });
+    }
+
+    return buildStatusFromRelationship({
+        existingStatus: args.existingStatus,
+        inspection: args.inspection,
+        checkedAt: args.checkedAt,
+        headMetadata,
+        latestIncomingAuthorName,
+    });
+}
+
+async function shouldAdoptRemoteLatest(args: {
+    inspection: GitRemoteInspection;
+    loadedProject?: Pick<Project, "books" | "getBook">;
+    projectPath: string;
+    trackedBranch: string;
+    gitProvider: Pick<
+        GitProvider,
+        | "readCommitDetails"
+        | "readProjectSnapshotAtCommit"
+        | "applyReplayPlanOntoRemote"
+    >;
+}): Promise<{ shouldAdopt: boolean }> {
     if (
         (args.inspection.relationship.kind ===
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
@@ -252,17 +300,23 @@ async function buildStatusFromInspection(args: {
                 remoteHead: args.inspection.remoteHead,
                 gitProvider: args.gitProvider as GitProvider,
             });
-            return buildStatus({
-                existingStatus: args.existingStatus,
-                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-                checkedAt: args.checkedAt,
-                localHead: args.inspection.remoteHead,
-                remoteHead: args.inspection.remoteHead,
-                latestIncomingAuthorName: null,
-            });
+            return { shouldAdopt: true };
         }
     }
+    return { shouldAdopt: false };
+}
 
+function buildStatusFromRelationship(args: {
+    existingStatus: GitRemoteProjectStatus;
+    inspection: GitRemoteInspection;
+    checkedAt: string;
+    headMetadata: {
+        localAuthoredAt: string | null;
+        remoteAuthoredAt: string | null;
+        remoteAuthorName: string | null;
+    };
+    latestIncomingAuthorName: string | null;
+}): GitRemoteProjectStatus {
     switch (args.inspection.relationship.kind) {
         case GIT_REMOTE_RELATIONSHIP_UP_TO_DATE:
             return buildStatus({
@@ -271,6 +325,8 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
+                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
                 latestIncomingAuthorName: null,
             });
         case GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY:
@@ -280,7 +336,9 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
-                latestIncomingAuthorName,
+                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
+                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
+                latestIncomingAuthorName: args.latestIncomingAuthorName,
             });
         case GIT_REMOTE_RELATIONSHIP_DIVERGED:
             return buildStatus({
@@ -289,7 +347,9 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
-                latestIncomingAuthorName,
+                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
+                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
+                latestIncomingAuthorName: args.latestIncomingAuthorName,
             });
         case GIT_REMOTE_RELATIONSHIP_AHEAD_ONLY:
         case GIT_REMOTE_RELATIONSHIP_UNTRACKED:
@@ -299,43 +359,74 @@ async function buildStatusFromInspection(args: {
                 checkedAt: args.checkedAt,
                 localHead: args.inspection.localHead,
                 remoteHead: args.inspection.remoteHead,
+                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
+                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
                 latestIncomingAuthorName: null,
             });
     }
 }
 
-async function readLatestIncomingAuthorName(args: {
+async function readHeadCommitMetadata(args: {
     inspection: GitRemoteInspection;
     projectPath: string;
     gitProvider: Pick<GitProvider, "readCommitDetails">;
-}): Promise<string | null> {
-    const relationshipKind = args.inspection.relationship.kind;
-    const remoteHead = args.inspection.remoteHead;
-    if (
-        !remoteHead ||
-        (relationshipKind !== GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
-            relationshipKind !== GIT_REMOTE_RELATIONSHIP_DIVERGED)
-    ) {
-        return null;
-    }
+}): Promise<{
+    localAuthoredAt: string | null;
+    remoteAuthoredAt: string | null;
+    remoteAuthorName: string | null;
+}> {
+    const uniqueHeads = [
+        args.inspection.localHead,
+        args.inspection.remoteHead,
+    ].filter((head): head is string => Boolean(head));
+    const metadataByHead = new Map<
+        string,
+        { authoredAtIso: string | null; authorName: string | null }
+    >();
 
-    try {
-        const commit = await args.gitProvider.readCommitDetails(
-            args.projectPath,
-            remoteHead,
-        );
-        return commit.authorName || null;
-    } catch (error) {
-        console.debug(
-            "[gitRemoteOpenStatus] Failed to read incoming commit author.",
-            {
-                projectPath: args.projectPath,
-                remoteHead,
-                error: error instanceof Error ? error.message : String(error),
-            },
-        );
-        return null;
-    }
+    await Promise.all(
+        uniqueHeads.map(async (head) => {
+            try {
+                const commit = await args.gitProvider.readCommitDetails(
+                    args.projectPath,
+                    head,
+                );
+                metadataByHead.set(head, {
+                    authoredAtIso: commit.authoredAtIso || null,
+                    authorName: commit.authorName || null,
+                });
+            } catch (error) {
+                console.debug(
+                    "[gitRemoteOpenStatus] Failed to read commit metadata for head.",
+                    {
+                        projectPath: args.projectPath,
+                        head,
+                        error:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                    },
+                );
+                metadataByHead.set(head, {
+                    authoredAtIso: null,
+                    authorName: null,
+                });
+            }
+        }),
+    );
+
+    const localHeadMetadata = args.inspection.localHead
+        ? metadataByHead.get(args.inspection.localHead)
+        : null;
+    const remoteHeadMetadata = args.inspection.remoteHead
+        ? metadataByHead.get(args.inspection.remoteHead)
+        : null;
+
+    return {
+        localAuthoredAt: localHeadMetadata?.authoredAtIso ?? null,
+        remoteAuthoredAt: remoteHeadMetadata?.authoredAtIso ?? null,
+        remoteAuthorName: remoteHeadMetadata?.authorName ?? null,
+    };
 }
 
 async function projectContentMatchesRemoteLatest(args: {
@@ -382,6 +473,8 @@ function buildStatus(args: {
     checkedAt: string;
     localHead?: string | null;
     remoteHead?: string | null;
+    localHeadAuthoredAt?: string | null;
+    remoteHeadAuthoredAt?: string | null;
     latestIncomingAuthorName?: string | null;
 }): GitRemoteProjectStatus {
     return {
@@ -392,6 +485,12 @@ function buildStatus(args: {
             args.localHead ?? args.existingStatus.lastKnownLocalHead,
         lastKnownRemoteHead:
             args.remoteHead ?? args.existingStatus.lastKnownRemoteHead,
+        lastKnownLocalHeadAuthoredAt:
+            args.localHeadAuthoredAt ??
+            args.existingStatus.lastKnownLocalHeadAuthoredAt,
+        lastKnownRemoteHeadAuthoredAt:
+            args.remoteHeadAuthoredAt ??
+            args.existingStatus.lastKnownRemoteHeadAuthoredAt,
         latestIncomingAuthorName: args.latestIncomingAuthorName ?? null,
     };
 }

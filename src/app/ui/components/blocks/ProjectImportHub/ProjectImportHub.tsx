@@ -100,6 +100,20 @@ function matchesTerm(value: string | undefined, term: string) {
     return normalize(value).includes(term);
 }
 
+function shouldShowCloudPagingHint(args: {
+    sourceFilter: SourceFilter;
+    sessionUsername: string | null | undefined;
+    hasAdditionalReposAvailable: boolean;
+    isLoading: boolean;
+}): boolean {
+    return (
+        args.sourceFilter === "cloud" &&
+        Boolean(args.sessionUsername) &&
+        args.hasAdditionalReposAvailable &&
+        !args.isLoading
+    );
+}
+
 function matchesVisibleRowText(args: {
     title: string;
     subtitle: string;
@@ -651,30 +665,6 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                 </td>
                             </tr>
                         ) : sourceFilter === "cloud" &&
-                          rows.length === 0 &&
-                          gitea.query.trim().length < gitea.minSearchLength ? (
-                            <tr>
-                                <td className={styles.td} colSpan={3}>
-                                    <div className={styles.emptyState}>
-                                        {gitea.query.trim().length > 0 ? (
-                                            <Trans>
-                                                Type at least{" "}
-                                                {gitea.minSearchLength}{" "}
-                                                characters to search linked
-                                                cloud projects.
-                                            </Trans>
-                                        ) : (
-                                            <Trans>
-                                                Type at least{" "}
-                                                {gitea.minSearchLength}{" "}
-                                                characters to search linked
-                                                cloud projects.
-                                            </Trans>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : sourceFilter === "cloud" &&
                           (gitea.isInitialLoading ||
                               (gitea.isSearchMode &&
                                   gitea.isLoading &&
@@ -728,19 +718,11 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                                                             </Trans>
                                                         </div>
                                                     </>
-                                                ) : gitea.query.trim().length >=
-                                                  gitea.minSearchLength ? (
+                                                ) : gitea.query.trim().length >
+                                                  0 ? (
                                                     <Trans>
                                                         No linked cloud projects
                                                         matched this search.
-                                                    </Trans>
-                                                ) : gitea.query.trim().length <
-                                                  gitea.minSearchLength ? (
-                                                    <Trans>
-                                                        Type at least{" "}
-                                                        {gitea.minSearchLength}{" "}
-                                                        characters to search
-                                                        linked cloud projects.
                                                     </Trans>
                                                 ) : gitea.scope === "owned" ? (
                                                     <Trans>
@@ -832,9 +814,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
             {sourceFilter === "cloud" && gitea.isBackgroundFetching ? (
                 <div className={styles.footerActions}>
                     <span className={styles.sourceHint}>
-                        {gitea.isFetchingMore ? (
-                            <Trans>Loading more linked cloud projects...</Trans>
-                        ) : gitea.isSearchMode ? (
+                        {gitea.isSearchMode ? (
                             <Trans>Searching linked cloud projects...</Trans>
                         ) : (
                             <Trans>Refreshing linked cloud projects...</Trans>
@@ -842,24 +822,19 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                     </span>
                 </div>
             ) : null}
-
-            {props.sessionUsername &&
-            sourceFilter !== "catalog" &&
-            gitea.hasNextPage ? (
+            {shouldShowCloudPagingHint({
+                sourceFilter,
+                sessionUsername: props.sessionUsername,
+                hasAdditionalReposAvailable: gitea.hasAdditionalReposAvailable,
+                isLoading: gitea.isLoading,
+            }) ? (
                 <div className={styles.footerActions}>
-                    <Button
-                        variant="secondary"
-                        onClick={() => {
-                            void gitea.loadMore();
-                        }}
-                        disabled={
-                            gitea.isLoading ||
-                            props.isImporting ||
-                            props.isDisconnecting
-                        }
-                    >
-                        <Trans>Load more</Trans>
-                    </Button>
+                    <span className={styles.sourceHint}>
+                        <Trans>
+                            Showing initial {gitea.visiblePageSize} linked cloud
+                            projects. More results available via search.
+                        </Trans>
+                    </span>
                 </div>
             ) : null}
         </section>

@@ -1,19 +1,30 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { X } from "lucide-react";
+import { useRef } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
 import { SearchControls } from "./SearchControls.tsx";
 import { SearchResults } from "./SearchResults.tsx";
 
-export function SearchPanel() {
+interface SearchPanelProps {
+    onClose?: () => void;
+}
+
+export function SearchPanel({ onClose }: SearchPanelProps = {}) {
     const { search } = useWorkspaceContext();
     const { t } = useLingui();
+    const overlayPortalRef = useRef<HTMLDivElement | null>(null);
 
     if (!search.isSearchPaneOpen) return null;
 
+    const handleClose = () => {
+        search.setIsSearchPaneOpen(false);
+        onClose?.();
+    };
+
     return (
         <aside
+            ref={overlayPortalRef}
             className={styles.searchPanel}
             data-testid={TESTING_IDS.searchResultsContainer}
         >
@@ -25,14 +36,14 @@ export function SearchPanel() {
                     <button
                         type="button"
                         className={styles.searchPanelClose}
-                        onClick={() => search.setIsSearchPaneOpen(false)}
+                        onClick={handleClose}
                         aria-label={t`Close search`}
                     >
-                        <X size={16} />
+                        <Trans>Close</Trans>
                     </button>
                 </div>
 
-                <SearchControls />
+                <SearchControls portalContainer={overlayPortalRef} />
             </div>
 
             <SearchResults />
