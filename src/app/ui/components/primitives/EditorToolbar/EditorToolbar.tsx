@@ -28,6 +28,7 @@ import {
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
 import { LintIssuesPopover } from "@/app/ui/components/blocks/LintIssuesPopover.tsx";
+import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -52,7 +53,6 @@ function joinClassNames(...classNames: Array<string | undefined>) {
 type EditorToolbarProps = {
     isReferencePaneOpen: boolean;
     onToggleReferencePane: () => void;
-    onOpenVersionsDock: () => void;
     isSearchPaneOpen?: boolean;
     onToggleSearchPane?: () => void;
 };
@@ -166,10 +166,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
         if (!editor) return;
         const json = JSON.stringify(editor.getEditorState().toJSON(), null, 2);
         await navigator.clipboard.writeText(json);
-    };
-
-    const handleOpenPreviousVersions = () => {
-        props.onOpenVersionsDock();
     };
 
     const handleOpenSaveReview = () => {
@@ -340,9 +336,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isSearchPaneOpen}
                             icon={<Search size={16} />}
                         />
+                        <VersionsPopover />
                         <ToolbarOverflowMenu
                             onCopyEditorJson={() => void handleCopyEditorJson()}
-                            onOpenVersions={handleOpenPreviousVersions}
                         />
                         <CloudStatusPopover
                             buttonState={cloudStatus.state}

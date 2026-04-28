@@ -58,7 +58,11 @@ export function MainEditor() {
                                         : ""
                                 }`}
                                 aria-label="USFM Editor"
-                                data-mode={project?.appSettings.editorMode}
+                                data-mode={
+                                    project?.appSettings.editorMode === "view"
+                                        ? "regular"
+                                        : project?.appSettings.editorMode
+                                }
                                 spellCheck={false}
                             />
                         }

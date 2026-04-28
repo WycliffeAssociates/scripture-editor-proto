@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ALL_FILTER_VALUE,
     buildLintBookOptions,
     buildLintCodeOptions,
     getLintIssueBookCode,
@@ -44,21 +43,19 @@ export function LintIssuesPopover() {
         useWorkspaceContext();
 
     const [opened, setOpened] = useState(false);
-    const [scope, setScope] = useState<Scope>("local");
-    const [issueTypeFilter, setIssueTypeFilter] =
-        useState<IssueTypeFilter>("content");
-    const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
-    const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
-
-    const typeFilteredAllIssues = useMemo(
-        () =>
-            issueTypeFilter === "all"
-                ? lint.allIssues
-                : lint.allIssues.filter(
-                      (issue) => issue.issueType === issueTypeFilter,
-                  ),
-        [lint.allIssues, issueTypeFilter],
-    );
+    const {
+        scope,
+        setScope,
+        issueTypeFilter,
+        setIssueTypeFilter,
+        selectedCodes,
+        setSelectedCodes,
+        selectedBooks,
+        setSelectedBooks,
+        typeFilteredAllIssues,
+        filteredVisibleIssues,
+        filteredAllIssues,
+    } = lint;
 
     const filterLabels: LintFilterLabels = useMemo(
         () => ({ all: t`All`, none: t`None` }),
@@ -79,77 +76,20 @@ export function LintIssuesPopover() {
         [bookCodeToProjectLocalizedTitle, typeFilteredAllIssues, filterLabels],
     );
 
-    useEffect(() => {
-        const allCodes = codeOptions
-            .filter((option) => option.value !== ALL_FILTER_VALUE)
-            .map((option) => option.value);
-        setSelectedCodes((current) => {
-            if (!current.length) return allCodes;
-            const next = current.filter((code) => allCodes.includes(code));
-            return next.length ? next : allCodes;
-        });
-    }, [codeOptions]);
-
-    useEffect(() => {
-        const allBooks = bookOptions
-            .filter((option) => option.value !== ALL_FILTER_VALUE)
-            .map((option) => option.value);
-        setSelectedBooks((current) => {
-            if (!current.length) return allBooks;
-            const next = current.filter((book) => allBooks.includes(book));
-            return next.length ? next : allBooks;
-        });
-    }, [bookOptions]);
-
     const currentBookCode = project.pickedFile.bookCode;
     const currentChapter =
         project.pickedChapter?.chapterNumber ?? project.currentChapter;
 
-    const localIssues = useMemo(
-        () =>
-            typeFilteredAllIssues.filter((issue) => {
-                if (!issue.sid) return false;
-                const parsed = parseSid(issue.sid);
-                return (
-                    parsed?.book === currentBookCode &&
-                    parsed.chapter === currentChapter
-                );
-            }),
-        [typeFilteredAllIssues, currentBookCode, currentChapter],
-    );
-
-    const localCount = localIssues.length;
-    const allCount = typeFilteredAllIssues.length;
+    const localCount = filteredVisibleIssues.length;
+    const allCount = filteredAllIssues.length;
     const badgeCount = scope === "local" ? localCount : allCount;
 
-    const baseIssues: LintIssue[] =
-        scope === "local" ? localIssues : typeFilteredAllIssues;
-
-    const filteredIssues = useMemo(
-        () =>
-            baseIssues.filter((issue) => {
-                const matchesCode =
-                    selectedCodes.length === codeOptions.length - 1 ||
-                    selectedCodes.includes(issue.code);
-                const matchesBook =
-                    scope === "local" ||
-                    selectedBooks.length === bookOptions.length - 1 ||
-                    selectedBooks.includes(getLintIssueBookCode(issue));
-                return matchesCode && matchesBook;
-            }),
-        [
-            baseIssues,
-            bookOptions.length,
-            codeOptions.length,
-            scope,
-            selectedBooks,
-            selectedCodes,
-        ],
-    );
-
     const sortedIssues = useMemo(
-        () => sortIssuesForDisplay(filteredIssues),
-        [filteredIssues],
+        () =>
+            sortIssuesForDisplay(
+                scope === "local" ? filteredVisibleIssues : filteredAllIssues,
+            ),
+        [scope, filteredVisibleIssues, filteredAllIssues],
     );
 
     const codeSummary = summarizeSelection(
@@ -185,6 +125,20 @@ export function LintIssuesPopover() {
             ).size,
         [typeFilteredAllIssues],
     );
+
+    // Count of issues in the active scope before code/book filters apply,
+    // used to decide whether the empty state should say "no issues" vs
+    // "filters exclude everything."
+    const baseScopeCount = useMemo(() => {
+        if (scope === "local") {
+            return lint.visibleIssues.filter(
+                (issue) =>
+                    issueTypeFilter === "all" ||
+                    issue.issueType === issueTypeFilter,
+            ).length;
+        }
+        return typeFilteredAllIssues.length;
+    }, [scope, issueTypeFilter, lint.visibleIssues, typeFilteredAllIssues]);
 
     const handleJump = (issue: LintIssue) => {
         navigateToLintIssue(issue, {
@@ -265,7 +219,7 @@ export function LintIssuesPopover() {
                                     usfm: t`USFM`,
                                 }}
                             />
-                            {baseIssues.length > 0 ? (
+                            {baseScopeCount > 0 ? (
                                 <>
                                     <LintFilterMenu
                                         label={t`Filter`}
@@ -294,8 +248,8 @@ export function LintIssuesPopover() {
                                     localCount={localCount}
                                     allCount={allCount}
                                     filterExcludesEverything={
-                                        baseIssues.length > 0 &&
-                                        filteredIssues.length === 0
+                                        baseScopeCount > 0 &&
+                                        sortedIssues.length === 0
                                     }
                                     onSwitchScope={() =>
                                         setScope(

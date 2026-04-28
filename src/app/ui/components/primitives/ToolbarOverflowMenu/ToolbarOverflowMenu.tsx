@@ -1,11 +1,10 @@
 import { Menu } from "@base-ui/react/menu";
-import { Copy, History } from "lucide-react";
+import { Copy } from "lucide-react";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import * as styles from "./toolbarOverflowMenu.css.ts";
 
 export interface ToolbarOverflowMenuProps {
     onCopyEditorJson?: () => void;
-    onOpenVersions?: () => void;
 }
 
 export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
@@ -35,14 +34,6 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
                             <Copy size={14} className={styles.itemIcon} />
                             Copy editor JSON
                         </Menu.Item>
-                        <Menu.Item
-                            className={styles.item}
-                            onClick={() => props.onOpenVersions?.()}
-                        >
-                            <History size={14} className={styles.itemIcon} />
-                            Versions
-                        </Menu.Item>
-                        <Menu.Separator className={styles.separator} />
                     </Menu.Popup>
                 </Menu.Positioner>
             </Menu.Portal>

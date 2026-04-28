@@ -149,9 +149,12 @@ function TranslationNotesReferencePane() {
  */
 function ScriptureReferencePane() {
     const { t } = useLingui();
-    const { referenceResource, search, referenceEditorRef } =
+    const { referenceResource, search, referenceEditorRef, project } =
         useWorkspaceContext();
     const { referenceChapter } = referenceResource;
+    const editorMode = project?.appSettings.editorMode ?? "regular";
+    const resolvedReferenceMode =
+        editorMode === "view" ? "regular" : editorMode;
 
     useEffect(() => {
         if (!referenceChapter) return;
@@ -264,6 +267,7 @@ function ScriptureReferencePane() {
                                             : ""
                                     }`}
                                     aria-label={t`USFM Editor`}
+                                    data-mode={resolvedReferenceMode}
                                 />
                             }
                             ErrorBoundary={LexicalErrorBoundary}

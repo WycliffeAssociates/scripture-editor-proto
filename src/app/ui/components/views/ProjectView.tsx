@@ -14,17 +14,11 @@ import type { WorkspacePane } from "./layout/WorkspaceShell.tsx";
  * on top of it. This component is responsible for layout orchestration only.
  */
 export function ProjectView() {
-    const { save, search } = useWorkspaceContext();
+    const { search } = useWorkspaceContext();
     const [isReferencePaneOpen, setIsReferencePaneOpen] = useState(false);
     const [activeWorkspacePane, setActiveWorkspacePane] =
         useState<WorkspacePane>("editor");
-    const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(false);
-    const [bottomPanelHeight, setBottomPanelHeight] = useState(240);
     const { isSm } = useWorkspaceMediaQuery();
-    const openVersionsDock = () => {
-        setIsBottomPanelOpen(true);
-        void save.versions.ensureLoaded();
-    };
     const hasReferenceResource = isReferencePaneOpen;
     const layoutClassName = hasReferenceResource
         ? styles.appLayoutWithReference
@@ -53,8 +47,6 @@ export function ProjectView() {
     const layoutProps = {
         hasReferenceResource,
         activeWorkspacePane,
-        isBottomPanelOpen,
-        bottomPanelHeight,
         openProjectsPane: () => {
             search.setIsSearchPaneOpen(false);
             setActiveWorkspacePane("projects");
@@ -67,10 +59,6 @@ export function ProjectView() {
         closeSettingsPane: () => setActiveWorkspacePane("editor"),
         openSearchPane,
         closeSearchPane,
-        openBottomPanel: () => setIsBottomPanelOpen(true),
-        closeBottomPanel: () => setIsBottomPanelOpen(false),
-        setBottomPanelHeight,
-        onOpenVersionsDock: openVersionsDock,
         toggleReferencePane: () =>
             setIsReferencePaneOpen((current) => !current),
     };

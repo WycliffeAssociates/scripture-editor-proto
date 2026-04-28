@@ -299,7 +299,7 @@ export function LintDomAnnotatorPlugin({
         tooltipPosition,
         onTooltipMouseEnter,
         onTooltipMouseLeave,
-    } = useEditorLintTooltip(lint.visibleIssues);
+    } = useEditorLintTooltip(lint.filteredVisibleIssues);
 
     useEffect(() => {
         const editorRoot = editor.getRootElement();
@@ -449,7 +449,7 @@ export function LintDomAnnotatorPlugin({
 
     useEffect(() => {
         const nextRecords = new Map<string, AnchorRecord>();
-        for (const issue of lint.visibleIssues) {
+        for (const issue of lint.filteredVisibleIssues) {
             const issueKey = getLintIssueKey(issue);
             const previous = recordsRef.current.get(issueKey);
             nextRecords.set(issueKey, {
@@ -464,7 +464,7 @@ export function LintDomAnnotatorPlugin({
 
         recordsRef.current = nextRecords;
         resolveAnchorsRef.current?.(2);
-    }, [lint.visibleIssues]);
+    }, [lint.filteredVisibleIssues]);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;
