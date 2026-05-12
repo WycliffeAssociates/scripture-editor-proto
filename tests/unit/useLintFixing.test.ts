@@ -79,16 +79,15 @@ function makeScriptureBookState(): ScriptureBookState {
 
 function makeIssue(overrides: Partial<LintIssue> = {}): LintIssue {
     return {
-        code: "missing-space",
+        code: "missing-space" as LintIssue["code"],
+        category: "structure",
         severity: "warning",
         issueType: "usfm",
-        marker: null,
+        template: "Missing space",
         message: "Missing space",
         messageParams: {},
         span: { start: 0, end: 1 },
-        relatedSpan: null,
         tokenId: "tok-2",
-        relatedTokenId: null,
         sid: "GEN 2:1",
         fix: {
             type: "replaceToken",
@@ -126,7 +125,6 @@ function makeService(args?: {
                         kind: "text",
                         text: "fixed",
                         sid: "GEN 2:1",
-                        marker: null,
                         span: { start: 0, end: 5 },
                     },
                 ],
@@ -214,7 +212,6 @@ describe("applyLintFixToFile", () => {
                         kind: "text",
                         text: "fixed",
                         sid: "GEN 2:1",
-                        marker: null,
                         span: { start: 0, end: 5 },
                     },
                 ],
@@ -292,7 +289,7 @@ describe("applyLintFixToFile", () => {
         });
         const service = makeService({
             applyTokenFixes,
-            lintScope: vi.fn(async () => [[makeIssue({ fix: null })]]),
+            lintScope: vi.fn(async () => [[makeIssue({ fix: undefined })]]),
         });
         const notifySuccess = vi.fn();
         const fix = makeIssue().fix;

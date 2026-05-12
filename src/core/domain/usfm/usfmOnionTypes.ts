@@ -3,16 +3,15 @@ import type {
     ChapterTokenDiff as OnionChapterTokenDiff,
     DiffTokenChange as OnionDiffTokenChange,
     DiffUndoSide as OnionDiffUndoSide,
-    FormatOptions as OnionFormatOptions,
     LintCode as OnionLintCode,
     LintIssue as OnionLintIssue,
     LintIssueType as OnionLintIssueType,
     LintOptions as OnionLintOptions,
-    LintSeverity as OnionLintSeverity,
     MarkerInfo as OnionMarkerInfo,
     ParsedUsfm as OnionParsedUsfm,
     Span as OnionSpan,
     Token as OnionToken,
+    TokenAlignment as OnionTokenAlignment,
     UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
     TokenFix,
 } from "usfm-onion-web";
@@ -26,17 +25,15 @@ import type {
 export type Span = OnionSpan;
 export type Token = OnionToken;
 export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
-export type FormatOptions = OnionFormatOptions;
 export type ParsedUsfm = OnionParsedUsfm;
 export type MarkerInfo = OnionMarkerInfo;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
 export type DiffTokenChange = OnionDiffTokenChange;
 export type DiffUndoSide = OnionDiffUndoSide;
+export type DiffTokenAlignment = OnionTokenAlignment;
+export type LintIssue = OnionLintIssue;
+export type LintIssueType = OnionLintIssueType;
 export type { TokenFix };
-
-export type BatchExecutionOptions = {
-    parallel?: boolean;
-};
 
 export type IntoTokensOptions = {
     mergeHorizontalWhitespace?: boolean;
@@ -50,13 +47,10 @@ export type TokenScopeItem = {
 export type LintScopeOptions = {
     lintOptions?: LintOptions;
     tokenOptions?: TokenLintOptions;
-    batchOptions?: BatchExecutionOptions;
 };
 
 export type FormatScopeOptions = {
     tokenOptions?: IntoTokensOptions;
-    formatOptions?: FormatOptions;
-    batchOptions?: BatchExecutionOptions;
 };
 
 export type DiffPathPair = {
@@ -74,7 +68,6 @@ export type DiffScopeItem = {
 export type DiffScopeOptions = {
     tokenOptions?: IntoTokensOptions;
     buildOptions?: BuildSidBlocksOptions;
-    batchOptions?: BatchExecutionOptions;
 };
 
 export type TokenScopeLintSuppression = {
@@ -98,37 +91,6 @@ export type ProjectUsfmOptions = {
     lintOptions?: LintOptions | null;
 };
 
-// todo: this is a whacky type. and I still dislike how much we are recreating some of this stuff ourself
-export type LintIssueType = OnionLintIssueType;
-
-export type LintIssue = Omit<
-    OnionLintIssue,
-    | "code"
-    | "category"
-    | "severity"
-    | "issueType"
-    | "marker"
-    | "messageParams"
-    | "span"
-    | "relatedSpan"
-    | "tokenId"
-    | "relatedTokenId"
-    | "sid"
-    | "fix"
-> & {
-    code: OnionLintCode | string;
-    category?: OnionLintIssue["category"];
-    severity: OnionLintSeverity | string;
-    issueType: LintIssueType;
-    marker: string | null;
-    messageParams: Record<string, string>;
-    span: Span | null;
-    relatedSpan: Span | null;
-    tokenId: string | null;
-    relatedTokenId: string | null;
-    sid: string | null;
-    fix: TokenFix | null;
-};
 export type ProjectedUsfmDocument = {
     tokens: Token[];
     lintIssues: LintIssue[] | null;
@@ -168,11 +130,6 @@ export type TokenTransformResult = {
     tokens: Token[];
     appliedChanges: TokenTransformChange[];
     skippedChanges: SkippedTokenTransform[];
-};
-
-export type DiffTokenAlignment = {
-    change: DiffTokenChange;
-    counterpartIndex: number | null;
 };
 
 export type Diff = {

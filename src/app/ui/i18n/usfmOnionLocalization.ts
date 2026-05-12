@@ -4,9 +4,11 @@ import type { LintIssue, TokenFix } from "@/core/domain/usfm/usfmOnionTypes.ts";
 /**
  * UI-localized labels for USFM onion diagnostics and fixes.
  *
- * The underlying parser/linter emits stable machine-readable codes. This file
- * translates those codes into user-facing text close to the UI layer so the core
- * token pipeline can stay language-neutral.
+ * The wording here mirrors the upstream ICU templates carried on each
+ * {@link LintIssue}. The library renders an English `message` and also
+ * exposes the canonical `template` plus the populated `messageParams`,
+ * so localizers (this file) can re-render the same template against
+ * translated wording without diverging from upstream semantics.
  */
 function getParam(
     params: Record<string, string> | undefined,
@@ -24,43 +26,41 @@ function markerForFix(fix: TokenFix) {
     return getParam(fix.labelParams, "marker", "");
 }
 
-// todo: this and it's accompanying test likely not needed. Would rather have a function that says it returns type Record<onionLintCode, descriptor> or whatever:
 export const LOCALIZED_LINT_CODES = [
     "missing-id-marker",
-    "missing-separator-after-marker",
-    "empty-paragraph",
-    "number-range-after-chapter-marker",
-    "verse-range-expected-after-verse-marker",
-    "verse-content-not-empty",
-    "unknown-token",
-    "char-not-closed",
-    "paragraph-before-first-chapter",
-    "verse-before-first-chapter",
-    "note-submarker-outside-note",
     "duplicate-id-marker",
     "id-marker-not-at-file-start",
-    "chapter-metadata-outside-chapter",
-    "verse-metadata-outside-verse",
+    "empty-paragraph",
     "missing-chapter-number",
     "missing-verse-number",
+    "verse-is-empty",
+    "unknown-token",
+    "unknown-marker",
+    "unknown-close-marker",
+    "content-before-first-chapter",
+    "verse-outside-explicit-paragraph",
+    "note-submarker-outside-note",
+    "metadata-outside-target",
+    "marker-not-valid-in-context",
     "missing-milestone-self-close",
-    "implicitly-closed-marker",
     "stray-close-marker",
     "misnested-close-marker",
-    "unclosed-note",
+    "implicitly-closed-marker",
     "unclosed-marker",
     "duplicate-chapter-number",
     "chapter-expected-increase-by-one",
+    "inconsistent-chapter-label",
     "duplicate-verse-number",
     "verse-expected-increase-by-one",
     "invalid-number-range",
     "number-range-not-preceded-by-marker-expecting-number",
-    "verse-text-follows-verse-range",
-    "unknown-marker",
-    "unknown-close-marker",
-    "inconsistent-chapter-label",
-    "marker-not-valid-in-context",
-    "verse-outside-explicit-paragraph",
+    "missing-whitespace-before-marker",
+    "missing-horizontal-whitespace-after-marker-name",
+    "missing-tag-end-delimiter-after-marker",
+    "excess-whitespace-around-marker",
+    "excess-whitespace-in-content",
+    "missing-content-space-after-close-marker",
+    "verse-in-section-or-other-paragraph",
 ] as const;
 
 export function formatLintIssueMessage(issue: LintIssue): string {
@@ -70,83 +70,133 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     const chapter = getParam(issue.messageParams, "chapter");
     const verse = getParam(issue.messageParams, "verse");
     const context = getParam(issue.messageParams, "context");
+    const kind = getParam(issue.messageParams, "kind");
+    const target = getParam(issue.messageParams, "target");
+    const position = getParam(issue.messageParams, "position");
+    const closer = getParam(issue.messageParams, "closer");
+    const form = getParam(issue.messageParams, "form");
+    const category = getParam(issue.messageParams, "category");
+    const location = getParam(issue.messageParams, "location");
+    const text = getParam(issue.messageParams, "text");
     const fallbackMessage = issue.message.trim();
 
     switch (issue.code) {
         case "missing-id-marker":
-            return t`The file is missing a \\id marker.`;
-        case "missing-separator-after-marker":
-            return t`Marker ${marker} is immediately followed by text and is missing a space or new line`;
-        case "empty-paragraph":
-            return t`Paragraph marker ${marker} creates an empty paragraph since the next marker opens its own paragraph.`;
-        case "number-range-after-chapter-marker":
-            return t`Chapter marker ${marker} must be followed by a chapter number.`;
-        case "verse-range-expected-after-verse-marker":
-            return t`Verse marker ${marker} must be followed by a verse number.`;
-        case "verse-content-not-empty":
-            return t`Verse number ${verse} is followed by unexpected content.`;
-        case "unknown-token":
-            return t`This token could not be classified.`;
-        case "char-not-closed":
-            return t`Character marker ${marker} was not closed.`;
-        case "paragraph-before-first-chapter":
-            return t`Paragraph marker ${marker} appears before the first chapter marker.`;
-        case "verse-before-first-chapter":
-            return t`Verse marker ${marker} appears before the first chapter marker.`;
-        case "note-submarker-outside-note":
-            return t`Note submarker ${marker} appears outside a note.`;
+            return t`File is missing its \\id (book identifier).`;
         case "duplicate-id-marker":
-            return t`The file contains more than one \\id marker.`;
+            return t`This file has more than one \\id; only one is allowed.`;
         case "id-marker-not-at-file-start":
-            return t`The \\id marker must be the first marker in the file.`;
-        case "chapter-metadata-outside-chapter":
-            return t`Chapter metadata appears outside a chapter.`;
-        case "verse-metadata-outside-verse":
-            return t`Verse metadata appears outside a verse.`;
+            return t`\\id must come before any other content.`;
+        case "empty-paragraph":
+            return t`\\${marker} starts an empty paragraph — the next paragraph begins right after, with no content in between.`;
         case "missing-chapter-number":
-            return t`Chapter marker ${marker} is missing its chapter number.`;
+            return t`\\c needs a chapter number after it.`;
         case "missing-verse-number":
-            return t`Verse marker ${marker} is missing its verse number.`;
+            return t`\\v needs a verse number after it.`;
+        case "verse-is-empty":
+            return t`This verse has no content.`;
+        case "unknown-token":
+            return text
+                ? t`Couldn't recognize "${text}".`
+                : t`Couldn't recognize this token.`;
+        case "unknown-marker":
+            return t`\\${marker} is not a known USFM marker.`;
+        case "unknown-close-marker":
+            return t`\\${marker}* is not a known closing marker.`;
+        case "content-before-first-chapter":
+            if (kind === "paragraph") {
+                return t`Paragraph marker \\${marker} appears before the first \\c.`;
+            }
+            if (kind === "verse") {
+                return t`Verse marker \\v appears before the first \\c.`;
+            }
+            return t`\\${marker} appears before the first \\c.`;
+        case "verse-outside-explicit-paragraph":
+            return t`Verses must appear inside a paragraph, list, or table.`;
+        case "note-submarker-outside-note":
+            return t`\\${marker} is part of a footnote or cross-reference and must appear inside one.`;
+        case "metadata-outside-target":
+            if (target === "chapter") {
+                return t`\\${marker} must follow a \\c chapter marker.`;
+            }
+            if (target === "verse") {
+                return t`\\${marker} must follow a \\v verse marker.`;
+            }
+            return t`\\${marker} must follow its target marker.`;
+        case "marker-not-valid-in-context":
+            return context
+                ? t`\\${marker} is not allowed inside a ${context}.`
+                : t`\\${marker} is not allowed in this context.`;
         case "missing-milestone-self-close":
-            return t`Milestone marker ${marker} must be self-closing.`;
-        case "implicitly-closed-marker":
-            return t`Marker ${marker} was implicitly closed by the following structure.`;
+            return t`\\${marker} is a milestone and needs to end with \\*.`;
         case "stray-close-marker":
-            return t`Close marker ${marker} does not match any open marker.`;
+            if (form === "milestone-end") {
+                return t`Found \\* with no open milestone to close.`;
+            }
+            return t`\\${marker}* has no matching opening \\${marker}.`;
         case "misnested-close-marker":
-            return t`Close marker ${marker} closes markers out of order.`;
-        case "unclosed-note":
-            return t`Note marker ${marker} was not closed.`;
-        case "unclosed-marker":
-            return t`Marker ${marker} was still open at the end of the file.`;
+            return expected
+                ? t`Expected \\${expected}* here, but found \\${marker}*.`
+                : t`\\${marker}* does not match the marker that is currently open.`;
+        case "implicitly-closed-marker":
+            return t`\\${marker} was never closed; \\${closer}* closed it indirectly. Add an explicit \\${marker}* before \\${closer}*.`;
+        case "unclosed-marker": {
+            const kindLabel =
+                kind === "note"
+                    ? t`Note`
+                    : kind === "character"
+                      ? t`Character marker`
+                      : t`Marker`;
+            if (location === "at-eof") {
+                return t`${kindLabel} \\${marker} was opened but never closed before the file ended.`;
+            }
+            if (location === "at-boundary") {
+                return t`${kindLabel} \\${marker} was opened but never closed before a new block began.`;
+            }
+            return t`${kindLabel} \\${marker} was opened but never closed.`;
+        }
         case "duplicate-chapter-number":
-            return t`Chapter number ${chapter} is duplicated.`;
+            return t`Chapter ${chapter} appears more than once.`;
         case "chapter-expected-increase-by-one":
             if (!expected || !found) return fallbackMessage;
-            return t`Chapter numbering is out of sequence. Expected ${expected} but found ${found}.`;
-        case "duplicate-verse-number":
-            return t`Verse number ${verse} is duplicated.`;
-        case "verse-expected-increase-by-one":
-            if (!expected || !found) return fallbackMessage;
-            return t`Verse numbering is out of sequence. Expected ${expected} but found ${found}.`;
-        case "invalid-number-range":
-            if (!found) return fallbackMessage;
-            return t`Number range ${found} is invalid.`;
-        case "number-range-not-preceded-by-marker-expecting-number":
-            return t`A number appears without a preceding marker that expects a number.`;
-        case "verse-text-follows-verse-range":
-            return t`Verse text appears in an invalid position after the verse number.`;
-        case "unknown-marker":
-            return t`Marker ${marker} is not recognized.`;
-        case "unknown-close-marker":
-            return t`Close marker ${marker} is not recognized.`;
+            return t`Chapters should count up by one: expected chapter ${expected}, found chapter ${found}.`;
         case "inconsistent-chapter-label":
             if (!expected || !found) return fallbackMessage;
-            return t`Chapter label ${found} does not match the expected chapter number ${expected}.`;
-        case "marker-not-valid-in-context":
-            return t`Marker ${marker} is not valid in this context${context ? ` (${context})` : ""}.`;
-        case "verse-outside-explicit-paragraph":
-            return t`Verse marker ${marker} appears outside an explicit paragraph.`;
+            return t`Chapter label '${found}' does not match the label '${expected}' used elsewhere in this file.`;
+        case "duplicate-verse-number":
+            return t`Verse ${verse} appears more than once in chapter ${chapter}.`;
+        case "verse-expected-increase-by-one":
+            if (!expected || !found) return fallbackMessage;
+            return t`Verses should count up by one: expected verse ${expected}, found verse ${found}.`;
+        case "invalid-number-range":
+            return verse
+                ? t`'${verse}' is not a valid verse range.`
+                : fallbackMessage;
+        case "number-range-not-preceded-by-marker-expecting-number":
+            return t`This number range is not preceded by a marker that expects a number (like \\c or \\v).`;
+        case "missing-whitespace-before-marker":
+            return t`\\${marker} needs a space or newline before it.`;
+        case "missing-horizontal-whitespace-after-marker-name":
+            return t`\\${marker} needs a space after the marker name.`;
+        case "missing-tag-end-delimiter-after-marker":
+            return t`\\${marker} needs a space before the text that follows.`;
+        case "excess-whitespace-around-marker":
+            if (position === "before") {
+                return t`Too much whitespace before \\${marker}.`;
+            }
+            if (position === "after") {
+                return t`Too much whitespace after \\${marker}.`;
+            }
+            return t`Too much whitespace around \\${marker}.`;
+        case "excess-whitespace-in-content":
+            return t`Multiple spaces or a stray newline inside this text — collapse to a single space.`;
+        case "missing-content-space-after-close-marker":
+            return t`\\${marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this.`;
+        case "verse-in-section-or-other-paragraph":
+            if (category === "section") {
+                return t`\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables.`;
+            }
+            return t`\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables.`;
         default:
             return fallbackMessage;
     }

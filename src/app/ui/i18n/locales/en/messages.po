@@ -23,6 +23,10 @@ msgstr "Failed to save settings"
 msgid "Settings could not be applied."
 msgstr "Settings could not be applied."
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:173
+msgid "'{verse}' is not a valid verse range."
+msgstr "'{verse}' is not a valid verse range."
+
 #: src/app/ui/components/blocks/Toolbar.tsx:642
 #~ msgid "(Current)"
 #~ msgstr "(Current)"
@@ -38,17 +42,17 @@ msgid "(Verse deleted)"
 msgstr "(Verse deleted)"
 
 #. placeholder {0}: props.distinctBookCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:568
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:522
 msgid "{0, plural, one {In 1 book} other {Across # books}}"
 msgstr "{0, plural, one {In 1 book} other {Across # books}}"
 
 #. placeholder {0}: props.allCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:656
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:610
 msgid "{0, plural, one {Nice work. 1 issue remains elsewhere in the project.} other {Nice work. # issues remain elsewhere in the project.}}"
 msgstr "{0, plural, one {Nice work. 1 issue remains elsewhere in the project.} other {Nice work. # issues remain elsewhere in the project.}}"
 
 #. placeholder {0}: props.allCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:667
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:621
 msgid "{0, plural, one {View 1 project issue} other {View # project issues}}"
 msgstr "{0, plural, one {View 1 project issue} other {View # project issues}}"
 
@@ -78,6 +82,18 @@ msgstr "{0}/{1} books"
 msgid "{completedBooks}/{0} books"
 msgstr "{completedBooks}/{0} books"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:154
+msgid "{kindLabel} \\{marker} was opened but never closed before a new block began."
+msgstr "{kindLabel} \\{marker} was opened but never closed before a new block began."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:151
+msgid "{kindLabel} \\{marker} was opened but never closed before the file ended."
+msgstr "{kindLabel} \\{marker} was opened but never closed before the file ended."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:156
+msgid "{kindLabel} \\{marker} was opened but never closed."
+msgstr "{kindLabel} \\{marker} was opened but never closed."
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:274
 msgid "{visibleChapterCount} chapters"
 msgstr "{visibleChapterCount} chapters"
@@ -85,6 +101,98 @@ msgstr "{visibleChapterCount} chapters"
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:277
 msgid "{visibleDiffCount} diffs"
 msgstr "{visibleDiffCount} diffs"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:113
+msgid "\\{marker} appears before the first \\c."
+msgstr "\\{marker} appears before the first \\c."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:131
+msgid "\\{marker} is a milestone and needs to end with \\*."
+msgstr "\\{marker} is a milestone and needs to end with \\*."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:103
+msgid "\\{marker} is not a known USFM marker."
+msgstr "\\{marker} is not a known USFM marker."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:129
+msgid "\\{marker} is not allowed in this context."
+msgstr "\\{marker} is not allowed in this context."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:128
+msgid "\\{marker} is not allowed inside a {context}."
+msgstr "\\{marker} is not allowed inside a {context}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:117
+msgid "\\{marker} is part of a footnote or cross-reference and must appear inside one."
+msgstr "\\{marker} is part of a footnote or cross-reference and must appear inside one."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:120
+msgid "\\{marker} must follow a \\c chapter marker."
+msgstr "\\{marker} must follow a \\c chapter marker."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:123
+msgid "\\{marker} must follow a \\v verse marker."
+msgstr "\\{marker} must follow a \\v verse marker."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:125
+msgid "\\{marker} must follow its target marker."
+msgstr "\\{marker} must follow its target marker."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:180
+msgid "\\{marker} needs a space after the marker name."
+msgstr "\\{marker} needs a space after the marker name."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:182
+msgid "\\{marker} needs a space before the text that follows."
+msgstr "\\{marker} needs a space before the text that follows."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:178
+msgid "\\{marker} needs a space or newline before it."
+msgstr "\\{marker} needs a space or newline before it."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:91
+msgid "\\{marker} starts an empty paragraph — the next paragraph begins right after, with no content in between."
+msgstr "\\{marker} starts an empty paragraph — the next paragraph begins right after, with no content in between."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:142
+msgid "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
+msgstr "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:140
+msgid "\\{marker}* does not match the marker that is currently open."
+msgstr "\\{marker}* does not match the marker that is currently open."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:136
+msgid "\\{marker}* has no matching opening \\{marker}."
+msgstr "\\{marker}* has no matching opening \\{marker}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:194
+msgid "\\{marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
+msgstr "\\{marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:105
+msgid "\\{marker}* is not a known closing marker."
+msgstr "\\{marker}* is not a known closing marker."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:93
+msgid "\\c needs a chapter number after it."
+msgstr "\\c needs a chapter number after it."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:89
+msgid "\\id must come before any other content."
+msgstr "\\id must come before any other content."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:199
+msgid "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
+msgstr "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:197
+msgid "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
+msgstr "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:95
+msgid "\\v needs a verse number after it."
+msgstr "\\v needs a verse number after it."
 
 #: src/app/routes/$project.index.tsx:19
 #~ msgid "<0>Loading...</0>"
@@ -95,8 +203,8 @@ msgid "A cloud project with this name already exists in your account. Attach the
 msgstr "A cloud project with this name already exists in your account. Attach the existing cloud project instead."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:136
-msgid "A number appears without a preceding marker that expects a number."
-msgstr "A number appears without a preceding marker that expects a number."
+#~ msgid "A number appears without a preceding marker that expects a number."
+#~ msgstr "A number appears without a preceding marker that expects a number."
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:87
 msgid "Abbreviated book name."
@@ -149,15 +257,15 @@ msgid "Affected {0} chapters"
 msgstr "Affected {0} chapters"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:224
-msgid "Ahead"
-msgstr "Ahead"
+#~ msgid "Ahead"
+#~ msgstr "Ahead"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:64
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:263
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:61
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:217
 msgid "All"
 msgstr "All"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:695
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:649
 msgid "All clear"
 msgstr "All clear"
 
@@ -234,8 +342,8 @@ msgid "Auto Accept My Work on Save"
 msgstr "Auto Accept My Work on Save"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:165
-msgid "Auto publish on save"
-msgstr "Auto publish on save"
+#~ msgid "Auto publish on save"
+#~ msgstr "Auto publish on save"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:844
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:491
@@ -243,8 +351,8 @@ msgid "Auto Publish on Save"
 msgstr "Auto Publish on Save"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:157
-msgid "Auto sync on open"
-msgstr "Auto sync on open"
+#~ msgid "Auto sync on open"
+#~ msgstr "Auto sync on open"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:839
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:482
@@ -281,8 +389,8 @@ msgid "Back to projects"
 msgstr "Back to projects"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:235
-msgid "Behind"
-msgstr "Behind"
+#~ msgid "Behind"
+#~ msgstr "Behind"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:21
 msgid "Book abbreviation"
@@ -292,7 +400,7 @@ msgstr "Book abbreviation"
 msgid "Book code"
 msgstr "Book code"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:260
+#: src/app/ui/hooks/usePrettifyOperations.tsx:254
 msgid "Book Formatted"
 msgstr "Book Formatted"
 
@@ -304,13 +412,13 @@ msgstr "Book frontmatter"
 msgid "Book identifiers"
 msgstr "Book identifiers"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:279
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:233
 msgid "Books"
 msgstr "Books"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:264
-msgid "Both local and cloud changed. Review to choose the final result."
-msgstr "Both local and cloud changed. Review to choose the final result."
+#~ msgid "Both local and cloud changed. Review to choose the final result."
+#~ msgstr "Both local and cloud changed. Review to choose the final result."
 
 #: src/app/ui/components/import/CloudProjectImporter.tsx:144
 msgid "Branch"
@@ -348,6 +456,10 @@ msgstr "Changes not yet published"
 msgid "Chapter"
 msgstr "Chapter"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:159
+msgid "Chapter {chapter} appears more than once."
+msgstr "Chapter {chapter} appears more than once."
+
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:220
 #~ msgid "Chapter {currentChapterLabel}"
 #~ msgstr "Chapter {currentChapterLabel}"
@@ -356,7 +468,7 @@ msgstr "Chapter"
 msgid "Chapter 0 metadata and introductory markers"
 msgstr "Chapter 0 metadata and introductory markers"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:206
+#: src/app/ui/hooks/usePrettifyOperations.tsx:200
 msgid "Chapter Formatted"
 msgstr "Chapter Formatted"
 
@@ -364,29 +476,33 @@ msgstr "Chapter Formatted"
 msgid "Chapter label"
 msgstr "Chapter label"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:165
+msgid "Chapter label '{found}' does not match the label '{expected}' used elsewhere in this file."
+msgstr "Chapter label '{found}' does not match the label '{expected}' used elsewhere in this file."
+
 #: src/app/ui/i18n/usfmOnionLocalization.ts:145
-msgid "Chapter label {found} does not match the expected chapter number {expected}."
-msgstr "Chapter label {found} does not match the expected chapter number {expected}."
+#~ msgid "Chapter label {found} does not match the expected chapter number {expected}."
+#~ msgstr "Chapter label {found} does not match the expected chapter number {expected}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:107
-msgid "Chapter marker {marker} is missing its chapter number."
-msgstr "Chapter marker {marker} is missing its chapter number."
+#~ msgid "Chapter marker {marker} is missing its chapter number."
+#~ msgstr "Chapter marker {marker} is missing its chapter number."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:83
-msgid "Chapter marker {marker} must be followed by a chapter number."
-msgstr "Chapter marker {marker} must be followed by a chapter number."
+#~ msgid "Chapter marker {marker} must be followed by a chapter number."
+#~ msgstr "Chapter marker {marker} must be followed by a chapter number."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:103
-msgid "Chapter metadata appears outside a chapter."
-msgstr "Chapter metadata appears outside a chapter."
+#~ msgid "Chapter metadata appears outside a chapter."
+#~ msgstr "Chapter metadata appears outside a chapter."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:123
-msgid "Chapter number {chapter} is duplicated."
-msgstr "Chapter number {chapter} is duplicated."
+#~ msgid "Chapter number {chapter} is duplicated."
+#~ msgstr "Chapter number {chapter} is duplicated."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:126
-msgid "Chapter numbering is out of sequence. Expected {expected} but found {found}."
-msgstr "Chapter numbering is out of sequence. Expected {expected} but found {found}."
+#~ msgid "Chapter numbering is out of sequence. Expected {expected} but found {found}."
+#~ msgstr "Chapter numbering is out of sequence. Expected {expected} but found {found}."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:327
 msgid "Chapter picker"
@@ -397,6 +513,10 @@ msgstr "Chapter picker"
 #~ msgid "Chapter view"
 #~ msgstr "Chapter view"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:162
+msgid "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
+msgstr "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
+
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:13
 msgid "Character encoding"
 msgstr "Character encoding"
@@ -405,9 +525,13 @@ msgstr "Character encoding"
 msgid "Character encoding scheme used for the file contents."
 msgstr "Character encoding scheme used for the file contents."
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:148
+msgid "Character marker"
+msgstr "Character marker"
+
 #: src/app/ui/i18n/usfmOnionLocalization.ts:91
-msgid "Character marker {marker} was not closed."
-msgstr "Character marker {marker} was not closed."
+#~ msgid "Character marker {marker} was not closed."
+#~ msgstr "Character marker {marker} was not closed."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:840
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:483
@@ -415,13 +539,13 @@ msgid "Check for cloud updates automatically when opening a linked project."
 msgstr "Check for cloud updates automatically when opening a linked project."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:218
-msgid "Check now"
-msgstr "Check now"
+#~ msgid "Check now"
+#~ msgstr "Check now"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:193
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:294
-msgid "Checking cloud status for this project."
-msgstr "Checking cloud status for this project."
+#~ msgid "Checking cloud status for this project."
+#~ msgstr "Checking cloud status for this project."
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:62
 msgid "Checking cloud updates for this project."
@@ -480,7 +604,7 @@ msgid "Clear source"
 msgstr "Clear source"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:188
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:235
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:189
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:45
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:42
 msgid "Close"
@@ -491,18 +615,18 @@ msgstr "Close"
 #~ msgstr "Close lint dock"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:117
-msgid "Close marker {marker} closes markers out of order."
-msgstr "Close marker {marker} closes markers out of order."
+#~ msgid "Close marker {marker} closes markers out of order."
+#~ msgstr "Close marker {marker} closes markers out of order."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:115
-msgid "Close marker {marker} does not match any open marker."
-msgstr "Close marker {marker} does not match any open marker."
+#~ msgid "Close marker {marker} does not match any open marker."
+#~ msgstr "Close marker {marker} does not match any open marker."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:142
-msgid "Close marker {marker} is not recognized."
-msgstr "Close marker {marker} is not recognized."
+#~ msgid "Close marker {marker} is not recognized."
+#~ msgstr "Close marker {marker} is not recognized."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:335
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:332
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:40
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:114
 msgid "Close search"
@@ -525,13 +649,13 @@ msgid "Cloud account logged out"
 msgstr "Cloud account logged out"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:283
-msgid "Cloud account needs reconnect"
-msgstr "Cloud account needs reconnect"
+#~ msgid "Cloud account needs reconnect"
+#~ msgstr "Cloud account needs reconnect"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:54
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:79
-msgid "Cloud action failed"
-msgstr "Cloud action failed"
+#~ msgid "Cloud action failed"
+#~ msgstr "Cloud action failed"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:107
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:141
@@ -547,23 +671,22 @@ msgstr "Cloud and local changes need review"
 #~ msgstr "Cloud and local work can be reconciled automatically"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:254
-msgid "Cloud and local work may be reconciled automatically"
-msgstr "Cloud and local work may be reconciled automatically"
+#~ msgid "Cloud and local work may be reconciled automatically"
+#~ msgstr "Cloud and local work may be reconciled automatically"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:255
-msgid "Cloud and local work need reconciliation"
-msgstr "Cloud and local work need reconciliation"
+#~ msgid "Cloud and local work need reconciliation"
+#~ msgstr "Cloud and local work need reconciliation"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:158
 #~ msgid "Cloud head"
 #~ msgstr "Cloud head"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:202
-msgid "Cloud is not linked"
-msgstr "Cloud is not linked"
+#~ msgid "Cloud is not linked"
+#~ msgstr "Cloud is not linked"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:97
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:274
 msgid "Cloud is unavailable"
 msgstr "Cloud is unavailable"
 
@@ -594,13 +717,13 @@ msgstr "Cloud project imported successfully!"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:47
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:73
-msgid "Cloud status refreshed"
-msgstr "Cloud status refreshed"
+#~ msgid "Cloud status refreshed"
+#~ msgstr "Cloud status refreshed"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:191
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:292
-msgid "Cloud sync in progress"
-msgstr "Cloud sync in progress"
+#~ msgid "Cloud sync in progress"
+#~ msgstr "Cloud sync in progress"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:77
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:79
@@ -658,7 +781,6 @@ msgid "Connect to {0}to browse remote projects you can push and pull."
 msgstr "Connect to {0}to browse remote projects you can push and pull."
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:50
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:215
 msgid "Connected"
 msgstr "Connected"
 
@@ -671,15 +793,15 @@ msgstr "Connected as {0}"
 msgid "Connecting..."
 msgstr "Connecting..."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:264
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:218
 msgid "Content"
 msgstr "Content"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:220
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:174
 msgid "Content errors"
 msgstr "Content errors"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:205
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:159
 msgid "Content errors ({badgeCount})"
 msgstr "Content errors ({badgeCount})"
 
@@ -687,7 +809,7 @@ msgstr "Content errors ({badgeCount})"
 #~ msgid "Controls"
 #~ msgstr "Controls"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:283
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:280
 msgid "Copy"
 msgstr "Copy"
 
@@ -716,6 +838,14 @@ msgstr "Could not connect your cloud account."
 #: src/app/routes/create.tsx:214
 msgid "Could not disconnect cloud account"
 msgstr "Could not disconnect cloud account"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:100
+msgid "Couldn't recognize \"{text}\"."
+msgstr "Couldn't recognize \"{text}\"."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:101
+msgid "Couldn't recognize this token."
+msgstr "Couldn't recognize this token."
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:42
 #~ msgid "Create a new project"
@@ -784,7 +914,7 @@ msgstr "Current Projects"
 #~ msgid "Current text"
 #~ msgstr "Current text"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:276
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:273
 msgid "Cut"
 msgstr "Cut"
 
@@ -852,8 +982,6 @@ msgid "Disable whole word"
 msgstr "Disable whole word"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:595
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:161
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:169
 msgid "Disabled"
 msgstr "Disabled"
 
@@ -940,8 +1068,6 @@ msgid "Empty {label}. Type to add text, or press Enter to insert below."
 msgstr "Empty {label}. Type to add text, or press Enter to insert below."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:595
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:160
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:168
 msgid "Enabled"
 msgstr "Enabled"
 
@@ -969,6 +1095,10 @@ msgstr "Español"
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:808
 #~ msgid "Existing project"
 #~ msgstr "Existing project"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:139
+msgid "Expected \\{expected}* here, but found \\{marker}*."
+msgstr "Expected \\{expected}* here, but found \\{marker}*."
 
 #: src/app/domain/project/cloudProjectActions.ts:22
 msgid "Failed to attach cloud project"
@@ -1021,7 +1151,11 @@ msgstr "Failed to prepare download"
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:271
+#: src/app/ui/i18n/usfmOnionLocalization.ts:85
+msgid "File is missing its \\id (book identifier)."
+msgstr "File is missing its \\id (book identifier)."
+
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:225
 msgid "Filter"
 msgstr "Filter"
 
@@ -1045,29 +1179,29 @@ msgstr "Folder"
 msgid "Footnote"
 msgstr "Footnote"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:224
+#: src/app/ui/hooks/usePrettifyOperations.tsx:218
 msgid "Format Book ({targetBookCode})"
 msgstr "Format Book ({targetBookCode})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:160
+#: src/app/ui/hooks/usePrettifyOperations.tsx:154
 msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
 msgstr "Format Chapter ({targetBookCode} {targetChapterNumber})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:278
+#: src/app/ui/hooks/usePrettifyOperations.tsx:272
 msgid "Format Project"
 msgstr "Format Project"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:261
+#: src/app/ui/hooks/usePrettifyOperations.tsx:255
 msgid "Formatted {0}"
 msgstr "Formatted {0}"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:207
+#: src/app/ui/hooks/usePrettifyOperations.tsx:201
 msgid "Formatted {0} {targetChapterNumber}"
 msgstr "Formatted {0} {targetChapterNumber}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:368
+#: src/app/ui/hooks/usePrettifyOperations.tsx:359
 msgid "Formatted {modifiedBooksCount} book(s)"
 msgstr "Formatted {modifiedBooksCount} book(s)"
 
@@ -1077,14 +1211,18 @@ msgstr "Formatted {modifiedBooksCount} book(s)"
 msgid "Formatting Matched"
 msgstr "Formatting Matched"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:271
-#: src/app/ui/hooks/usePrettifyOperations.tsx:303
+#: src/app/ui/hooks/usePrettifyOperations.tsx:265
+#: src/app/ui/hooks/usePrettifyOperations.tsx:294
 msgid "Formatting Project"
 msgstr "Formatting Project"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:257
 #~ msgid "Formatting Suggestion"
 #~ msgstr "Formatting Suggestion"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+msgid "Found \\* with no open milestone to close."
+msgstr "Found \\* with no open milestone to close."
 
 #: src/app/ui/components/import/CloudProjectImporter.tsx:47
 msgid "From my cloud projects"
@@ -1102,7 +1240,7 @@ msgstr "Group case mismatches"
 #~ msgid "Hello \"/create\"!"
 #~ msgstr "Hello \"/create\"!"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:324
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:321
 msgid "Hide reference panel"
 msgstr "Hide reference panel"
 
@@ -1152,7 +1290,7 @@ msgstr "Importing file..."
 
 #. placeholder {0}: props.currentBookName
 #. placeholder {1}: props.currentChapter
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:562
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:516
 msgid "In {0} {1}"
 msgstr "In {0} {1}"
 
@@ -1169,18 +1307,18 @@ msgid "Incoming cloud changes"
 msgstr "Incoming cloud changes"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:234
-msgid "Incoming cloud updates are available"
-msgstr "Incoming cloud updates are available"
+#~ msgid "Incoming cloud updates are available"
+#~ msgstr "Incoming cloud updates are available"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:233
-msgid "Incoming cloud updates are ready to sync"
-msgstr "Incoming cloud updates are ready to sync"
+#~ msgid "Incoming cloud updates are ready to sync"
+#~ msgstr "Incoming cloud updates are ready to sync"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:312
 #~ msgid "Insert \\{0} Here"
 #~ msgstr "Insert \\{0} Here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:169
+#: src/app/ui/i18n/usfmOnionLocalization.ts:219
 msgid "Insert close marker for {marker}"
 msgstr "Insert close marker for {marker}"
 
@@ -1189,7 +1327,7 @@ msgstr "Insert close marker for {marker}"
 msgid "Insert marker here"
 msgstr "Insert marker here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:161
+#: src/app/ui/i18n/usfmOnionLocalization.ts:211
 msgid "Insert separator after {marker}"
 msgstr "Insert separator after {marker}"
 
@@ -1230,24 +1368,24 @@ msgstr "Introduction"
 #~ msgstr "Keep all target paragraph markers"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:149
-msgid "Last checked"
-msgstr "Last checked"
+#~ msgid "Last checked"
+#~ msgstr "Last checked"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:479
 msgid "Last local commit"
 msgstr "Last local commit"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:153
-msgid "Last published"
-msgstr "Last published"
+#~ msgid "Last published"
+#~ msgstr "Last published"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:485
 msgid "Last remote commit"
 msgstr "Last remote commit"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:327
-msgid "Latest changes are from {latestIncomingAuthorName}. {fallback}"
-msgstr "Latest changes are from {latestIncomingAuthorName}. {fallback}"
+#~ msgid "Latest changes are from {latestIncomingAuthorName}. {fallback}"
+#~ msgstr "Latest changes are from {latestIncomingAuthorName}. {fallback}"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:323
 msgid "Light"
@@ -1282,6 +1420,7 @@ msgstr "Linked cloud projects import with their Gitea connection so changes can 
 msgid "Load more"
 msgstr "Load more"
 
+#: src/app/ui/components/blocks/ReferencePicker.tsx:145
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:347
 msgid "Loading"
 msgstr "Loading"
@@ -1311,12 +1450,12 @@ msgid "Loading translation notes for {referenceBookCode} {referenceChapterNumber
 msgstr "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 
 #: src/app/routes/$project.index.tsx:20
+#: src/app/ui/components/blocks/ReferencePicker.tsx:56
 #: src/app/ui/components/import/LanguageApiImporter.tsx:194
 msgid "Loading..."
 msgstr "Loading..."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:125
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:216
 msgid "Local and cloud are aligned."
 msgstr "Local and cloud are aligned."
 
@@ -1325,16 +1464,16 @@ msgid "Local changes ahead"
 msgstr "Local changes ahead"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:223
-msgid "Local changes are ready to publish"
-msgstr "Local changes are ready to publish"
+#~ msgid "Local changes are ready to publish"
+#~ msgstr "Local changes are ready to publish"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:153
 #~ msgid "Local head"
 #~ msgstr "Local head"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:203
-msgid "Local only"
-msgstr "Local only"
+#~ msgid "Local only"
+#~ msgstr "Local only"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:428
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:480
@@ -1378,34 +1517,33 @@ msgstr "Major title shown before the scripture text begins."
 #~ msgid "Margin"
 #~ msgstr "Margin"
 
-#: src/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx:40
-#~ msgid "Marker"
-#~ msgstr "Marker"
+#: src/app/ui/i18n/usfmOnionLocalization.ts:149
+msgid "Marker"
+msgstr "Marker"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:79
-msgid "Marker {marker} is immediately followed by text and is missing a space or new line"
-msgstr "Marker {marker} is immediately followed by text and is missing a space or new line"
+#~ msgid "Marker {marker} is immediately followed by text and is missing a space or new line"
+#~ msgstr "Marker {marker} is immediately followed by text and is missing a space or new line"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:79
 #~ msgid "Marker {marker} is immediately followed by text."
 #~ msgstr "Marker {marker} is immediately followed by text."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:140
-msgid "Marker {marker} is not recognized."
-msgstr "Marker {marker} is not recognized."
+#~ msgid "Marker {marker} is not recognized."
+#~ msgstr "Marker {marker} is not recognized."
 
-#. placeholder {0}: context ? ` (${context})` : ""
 #: src/app/ui/i18n/usfmOnionLocalization.ts:147
-msgid "Marker {marker} is not valid in this context{0}."
-msgstr "Marker {marker} is not valid in this context{0}."
+#~ msgid "Marker {marker} is not valid in this context{0}."
+#~ msgstr "Marker {marker} is not valid in this context{0}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:113
-msgid "Marker {marker} was implicitly closed by the following structure."
-msgstr "Marker {marker} was implicitly closed by the following structure."
+#~ msgid "Marker {marker} was implicitly closed by the following structure."
+#~ msgstr "Marker {marker} was implicitly closed by the following structure."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:121
-msgid "Marker {marker} was still open at the end of the file."
-msgstr "Marker {marker} was still open at the end of the file."
+#~ msgid "Marker {marker} was still open at the end of the file."
+#~ msgstr "Marker {marker} was still open at the end of the file."
 
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:87
 msgid "Match {chapterMatchNumber} of {chapterTotalMatches} in {activeBookTitle} {chapterLabel}"
@@ -1463,8 +1601,8 @@ msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Matched formatting for Chapter {currentChapter}"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:111
-msgid "Milestone marker {marker} must be self-closing."
-msgstr "Milestone marker {marker} must be self-closing."
+#~ msgid "Milestone marker {marker} must be self-closing."
+#~ msgstr "Milestone marker {marker} must be self-closing."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:173
 #~ msgid "Mine"
@@ -1488,6 +1626,10 @@ msgstr "Milestone marker {marker} must be self-closing."
 msgid "Most projects should stay UTF-8. Change this only when the source text truly depends on another encoding."
 msgstr "Most projects should stay UTF-8. Change this only when the source text truly depends on another encoding."
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:192
+msgid "Multiple spaces or a stray newline inside this text — collapse to a single space."
+msgstr "Multiple spaces or a stray newline inside this text — collapse to a single space."
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:359
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:453
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:759
@@ -1503,7 +1645,6 @@ msgid "Needs reconciliation"
 msgstr "Needs reconciliation"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:86
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:256
 msgid "Needs review"
 msgstr "Needs review"
 
@@ -1522,9 +1663,9 @@ msgstr "New Project"
 #~ msgstr "Next"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:427
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:228
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:229
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:205
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:231
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:232
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:202
 msgid "Next chapter"
 msgstr "Next chapter"
 
@@ -1553,11 +1694,11 @@ msgstr "No cloud projects are available for this account yet."
 msgid "No cloud projects found."
 msgstr "No cloud projects found."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:698
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:652
 msgid "No content errors found"
 msgstr "No content errors found"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:635
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:589
 msgid "No issues match this filter"
 msgstr "No issues match this filter"
 
@@ -1575,6 +1716,10 @@ msgstr "No matching projects"
 #: src/app/routes/index.tsx:78
 msgid "No projects yet"
 msgstr "No projects yet"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:125
+msgid "No references found."
+msgstr "No references found."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:734
 msgid "No remote projects are available for this account yet."
@@ -1609,7 +1754,7 @@ msgstr "No version selected"
 msgid "Non-indented paragraph"
 msgstr "Non-indented paragraph"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:64
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:61
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:296
 msgid "None"
 msgstr "None"
@@ -1619,36 +1764,38 @@ msgstr "None"
 #~ msgstr "Normal — shows only the bible text and verse numbers."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:476
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:339
 msgid "Not connected"
 msgstr "Not connected"
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:146
+msgid "Note"
+msgstr "Note"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:94
 #~ msgid "Note marker {marker} was not closed before the next block boundary."
 #~ msgstr "Note marker {marker} was not closed before the next block boundary."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:119
-msgid "Note marker {marker} was not closed."
-msgstr "Note marker {marker} was not closed."
+#~ msgid "Note marker {marker} was not closed."
+#~ msgstr "Note marker {marker} was not closed."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:97
-msgid "Note submarker {marker} appears outside a note."
-msgstr "Note submarker {marker} appears outside a note."
+#~ msgid "Note submarker {marker} appears outside a note."
+#~ msgstr "Note submarker {marker} appears outside a note."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:176
-#: src/app/ui/hooks/usePrettifyOperations.tsx:231
-#: src/app/ui/hooks/usePrettifyOperations.tsx:336
+#: src/app/ui/hooks/usePrettifyOperations.tsx:170
+#: src/app/ui/hooks/usePrettifyOperations.tsx:225
+#: src/app/ui/hooks/usePrettifyOperations.tsx:327
 msgid "Nothing changed"
 msgstr "Nothing changed"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:134
-msgid "Number range {found} is invalid."
-msgstr "Number range {found} is invalid."
+#~ msgid "Number range {found} is invalid."
+#~ msgstr "Number range {found} is invalid."
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:95
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:148
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:405
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:275
 msgid "Offline"
 msgstr "Offline"
 
@@ -1685,7 +1832,7 @@ msgstr "Open project"
 #~ msgid "Open project drawer"
 #~ msgstr "Open project drawer"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:325
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
 msgid "Open reference panel"
 msgstr "Open reference panel"
 
@@ -1693,7 +1840,7 @@ msgstr "Open reference panel"
 #~ msgid "Open reference picker"
 #~ msgstr "Open reference picker"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:336
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:333
 msgid "Open search"
 msgstr "Open search"
 
@@ -1727,16 +1874,20 @@ msgstr "Paragraph"
 #~ msgstr "Paragraph at margin"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:93
-msgid "Paragraph marker {marker} appears before the first chapter marker."
-msgstr "Paragraph marker {marker} appears before the first chapter marker."
+#~ msgid "Paragraph marker {marker} appears before the first chapter marker."
+#~ msgstr "Paragraph marker {marker} appears before the first chapter marker."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:81
 #~ msgid "Paragraph marker {marker} creates an empty block before the next block marker."
 #~ msgstr "Paragraph marker {marker} creates an empty block before the next block marker."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:81
-msgid "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
-msgstr "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
+#~ msgid "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
+#~ msgstr "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:108
+msgid "Paragraph marker \\{marker} appears before the first \\c."
+msgstr "Paragraph marker \\{marker} appears before the first \\c."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:774
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:538
@@ -1744,7 +1895,7 @@ msgstr "Paragraph marker {marker} creates an empty paragraph since the next mark
 msgid "Password"
 msgstr "Password"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:290
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:287
 msgid "Paste"
 msgstr "Paste"
 
@@ -1767,8 +1918,6 @@ msgstr "Please enter a more specific search term."
 
 #: src/app/domain/project/cloudProjectActions.ts:23
 #: src/app/routes/create.tsx:218
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:58
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:83
 msgid "Please try again."
 msgstr "Please try again."
 
@@ -1797,9 +1946,9 @@ msgstr "Preparing..."
 #~ msgstr "Prev"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:403
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:214
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:215
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:199
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:217
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:218
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:196
 msgid "Previous chapter"
 msgstr "Previous chapter"
 
@@ -1819,11 +1968,11 @@ msgstr "Previous chapter"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:304
+#: src/app/ui/hooks/usePrettifyOperations.tsx:295
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Processing {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:272
+#: src/app/ui/hooks/usePrettifyOperations.tsx:266
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Processing book 1 of {totalBooks}..."
 
@@ -1850,7 +1999,7 @@ msgstr "Project downloaded successfully!"
 msgid "Project downloaded successfully. Metadata needs review before opening it."
 msgstr "Project downloaded successfully. Metadata needs review before opening it."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:367
+#: src/app/ui/hooks/usePrettifyOperations.tsx:358
 msgid "Project Formatted"
 msgstr "Project Formatted"
 
@@ -1863,7 +2012,6 @@ msgid "Project imported successfully. Metadata needs review before opening it."
 msgstr "Project imported successfully. Metadata needs review before opening it."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:124
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:214
 msgid "Project is in sync"
 msgstr "Project is in sync"
 
@@ -1878,8 +2026,8 @@ msgid "Publish local saves automatically for linked cloud projects."
 msgstr "Publish local saves automatically for linked cloud projects."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:227
-msgid "Publish now"
-msgstr "Publish now"
+#~ msgid "Publish now"
+#~ msgstr "Publish now"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:276
 #~ msgid "Put cursor in verse #{0} to place this marker near your translation:"
@@ -1890,8 +2038,8 @@ msgstr "Publish now"
 #~ msgstr "Recommended (keep in-verse + poetry markers)"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:284
-msgid "Reconnect"
-msgstr "Reconnect"
+#~ msgid "Reconnect"
+#~ msgstr "Reconnect"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:104
 msgid "Reconnect account"
@@ -1903,8 +2051,8 @@ msgid "Reconnect your account"
 msgstr "Reconnect your account"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:285
-msgid "Reconnect your cloud account to resume sync and publish."
-msgstr "Reconnect your cloud account to resume sync and publish."
+#~ msgid "Reconnect your cloud account to resume sync and publish."
+#~ msgstr "Reconnect your cloud account to resume sync and publish."
 
 #. placeholder {0}: notificationTarget.chapter.chapterNum
 #: src/app/ui/hooks/useCustomHistory.ts:379
@@ -1915,7 +2063,7 @@ msgstr "Redid last edit in {bookName} {0}"
 msgid "Redid: {label}"
 msgstr "Redid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:308
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:305
 msgid "Redo"
 msgstr "Redo"
 
@@ -1923,7 +2071,7 @@ msgstr "Redo"
 #~ msgid "Redo — {next}"
 #~ msgstr "Redo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:308
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:305
 msgid "Redo — {redoLabel}"
 msgstr "Redo — {redoLabel}"
 
@@ -1947,10 +2095,6 @@ msgid "Refresh"
 msgstr "Refresh"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:467
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:228
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:249
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:270
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:288
 msgid "Refresh status"
 msgstr "Refresh status"
 
@@ -1960,7 +2104,6 @@ msgstr "Refreshing linked cloud projects..."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:700
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:812
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:136
 msgid "Refreshing..."
 msgstr "Refreshing..."
 
@@ -1977,10 +2120,10 @@ msgid "Remote login is not configured for this build yet."
 msgstr "Remote login is not configured for this build yet."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:145
-msgid "Remote project connected"
-msgstr "Remote project connected"
+#~ msgid "Remote project connected"
+#~ msgstr "Remote project connected"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:163
+#: src/app/ui/i18n/usfmOnionLocalization.ts:213
 msgid "Remove empty {marker} paragraph"
 msgstr "Remove empty {marker} paragraph"
 
@@ -1996,12 +2139,12 @@ msgstr "Remove sort"
 #~ msgid "Replace all in this chapter"
 #~ msgstr "Replace all in this chapter"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:325
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:310
 msgid "Replace next"
 msgstr "Replace next"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:322
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:323
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:307
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:308
 msgid "Replace next match"
 msgstr "Replace next match"
 
@@ -2013,7 +2156,7 @@ msgstr "Replace next match"
 #~ msgid "Replace With:"
 #~ msgstr "Replace With:"
 
-#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:315
+#: src/app/ui/components/views/search-panel/SearchResultItem.tsx:300
 msgid "Replace with..."
 msgstr "Replace with..."
 
@@ -2050,8 +2193,8 @@ msgid "Resource imported successfully! It is available in the reference picker."
 msgstr "Resource imported successfully! It is available in the reference picker."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:278
-msgid "Retry sync"
-msgstr "Retry sync"
+#~ msgid "Retry sync"
+#~ msgstr "Retry sync"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:397
 #~ msgid "Revert"
@@ -2085,8 +2228,6 @@ msgstr "Revert changes in this chapter"
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:91
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:454
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:176
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:248
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:269
 msgid "Review changes"
 msgstr "Review changes"
 
@@ -2095,8 +2236,8 @@ msgstr "Review changes"
 #~ msgstr "Review Changes Before Saving"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:243
-msgid "Review incoming changes before bringing them into this project."
-msgstr "Review incoming changes before bringing them into this project."
+#~ msgid "Review incoming changes before bringing them into this project."
+#~ msgstr "Review incoming changes before bringing them into this project."
 
 #: src/app/routes/create.tsx:153
 msgid "Review metadata"
@@ -2124,7 +2265,7 @@ msgid "S5 chunk marker"
 msgstr "S5 chunk marker"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:297
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:294
 msgid "Save"
 msgstr "Save"
 
@@ -2256,9 +2397,17 @@ msgstr "Search Projects"
 #~ msgid "Search reference"
 #~ msgstr "Search reference"
 
+#: src/app/ui/components/blocks/ReferencePicker.tsx:87
+msgid "Search reference resources"
+msgstr "Search reference resources"
+
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:186
 #~ msgid "Search reference text"
 #~ msgstr "Search reference text"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:88
+msgid "Search references"
+msgstr "Search references"
 
 #. placeholder {0}: search.searchTerm
 #: src/app/ui/components/views/search-panel/SearchResults.tsx:151
@@ -2340,13 +2489,17 @@ msgstr "Select project"
 #~ msgid "Select Reference Project"
 #~ msgstr "Select Reference Project"
 
-#: src/app/ui/components/blocks/Toolbar.tsx:740
-#~ msgid "Select reference resource"
-#~ msgstr "Select reference resource"
+#: src/app/ui/components/blocks/ReferencePicker.tsx:74
+msgid "Select reference resource"
+msgstr "Select reference resource"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:728
 #~ msgid "Select Reference Resource"
 #~ msgstr "Select Reference Resource"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:57
+msgid "Select reference..."
+msgstr "Select reference..."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:684
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:883
@@ -2373,7 +2526,7 @@ msgstr "Selected reference"
 msgid "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 msgstr "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:165
+#: src/app/ui/i18n/usfmOnionLocalization.ts:215
 msgid "Set number to {number}"
 msgstr "Set number to {number}"
 
@@ -2462,7 +2615,7 @@ msgstr "Some projects may appear in both lists. Linked cloud keeps the Gitea con
 #~ msgid "Source type"
 #~ msgstr "Source type"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:167
+#: src/app/ui/i18n/usfmOnionLocalization.ts:217
 msgid "Split unknown token"
 msgstr "Split unknown token"
 
@@ -2495,8 +2648,6 @@ msgstr "Switch to this chapter"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:73
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:456
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:247
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:268
 msgid "Sync now"
 msgstr "Sync now"
 
@@ -2505,12 +2656,12 @@ msgstr "Sync now"
 #~ msgstr "Sync now will auto-accept non-conflicting incoming changes and save a reconciliation commit."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:239
-msgid "Sync now will auto-accept non-conflicting incoming changes."
-msgstr "Sync now will auto-accept non-conflicting incoming changes."
+#~ msgid "Sync now will auto-accept non-conflicting incoming changes."
+#~ msgstr "Sync now will auto-accept non-conflicting incoming changes."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:260
-msgid "Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open."
-msgstr "Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open."
+#~ msgid "Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open."
+#~ msgstr "Sync now will auto-accept non-conflicting incoming changes. If overlap remains, review will open."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:388
 #~ msgid "Sync started just now. You may close this window."
@@ -2523,8 +2674,6 @@ msgstr "Sync now will auto-accept non-conflicting incoming changes. If overlap r
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:59
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:144
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:421
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:192
-#: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:293
 msgid "Syncing"
 msgstr "Syncing"
 
@@ -2541,8 +2690,8 @@ msgid "Syncing with the cloud..."
 msgstr "Syncing with the cloud..."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:122
-msgid "Syncing..."
-msgstr "Syncing..."
+#~ msgid "Syncing..."
+#~ msgstr "Syncing..."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:373
 #~ msgid "Take"
@@ -2573,18 +2722,18 @@ msgstr "Text Size"
 #~ msgstr "TGT"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:101
-msgid "The \\id marker must be the first marker in the file."
-msgstr "The \\id marker must be the first marker in the file."
+#~ msgid "The \\id marker must be the first marker in the file."
+#~ msgstr "The \\id marker must be the first marker in the file."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:99
-msgid "The file contains more than one \\id marker."
-msgstr "The file contains more than one \\id marker."
+#~ msgid "The file contains more than one \\id marker."
+#~ msgstr "The file contains more than one \\id marker."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:77
-msgid "The file is missing a \\id marker."
-msgstr "The file is missing a \\id marker."
+#~ msgid "The file is missing a \\id marker."
+#~ msgstr "The file is missing a \\id marker."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:232
+#: src/app/ui/hooks/usePrettifyOperations.tsx:226
 msgid "This book is already formatted"
 msgstr "This book is already formatted"
 
@@ -2592,21 +2741,25 @@ msgstr "This book is already formatted"
 #~ msgid "This build is missing the configured Gitea host."
 #~ msgstr "This build is missing the configured Gitea host."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:243
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:197
 msgid "This chapter"
 msgstr "This chapter"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:651
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:605
 msgid "This chapter has no errors that match your filters"
 msgstr "This chapter has no errors that match your filters"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:177
+#: src/app/ui/hooks/usePrettifyOperations.tsx:171
 msgid "This chapter is already formatted"
 msgstr "This chapter is already formatted"
 
 #: src/app/routes/create.tsx:207
 msgid "This device no longer has access to your cloud session."
 msgstr "This device no longer has access to your cloud session."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:87
+msgid "This file has more than one \\id; only one is allowed."
+msgstr "This file has more than one \\id; only one is allowed."
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:329
 msgid "This file is not using UTF-8. Avoid changing the encoding casually because it can corrupt the text."
@@ -2618,17 +2771,21 @@ msgstr "This file is not using UTF-8. Avoid changing the encoding casually becau
 #~ msgid "This is introductory material for this book"
 #~ msgstr "This is introductory material for this book"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:176
+msgid "This number range is not preceded by a marker that expects a number (like \\c or \\v)."
+msgstr "This number range is not preceded by a marker that expects a number (like \\c or \\v)."
+
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:89
 msgid "This project has local and cloud changes that need review before the next publish."
 msgstr "This project has local and cloud changes that need review before the next publish."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:337
+#: src/app/ui/hooks/usePrettifyOperations.tsx:328
 msgid "This project is already formatted"
 msgstr "This project is already formatted"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:204
-msgid "This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection."
-msgstr "This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection."
+#~ msgid "This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection."
+#~ msgstr "This project is local only. Projects imported with Download only start unlinked. Use Settings > Advanced to attach it, or import from Linked cloud to keep the Gitea connection."
 
 #: src/app/domain/project/cloudProjectActions.ts:17
 msgid "This project is now linked and published to cloud."
@@ -2643,12 +2800,28 @@ msgid "This tab shell is in place. The remaining reference-specific persisted se
 msgstr "This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:89
-msgid "This token could not be classified."
-msgstr "This token could not be classified."
+#~ msgid "This token could not be classified."
+#~ msgstr "This token could not be classified."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:97
+msgid "This verse has no content."
+msgstr "This verse has no content."
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:211
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "This will remove files from disk and delete the project's metadata from the local database."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:188
+msgid "Too much whitespace after \\{marker}."
+msgstr "Too much whitespace after \\{marker}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:190
+msgid "Too much whitespace around \\{marker}."
+msgstr "Too much whitespace around \\{marker}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:185
+msgid "Too much whitespace before \\{marker}."
+msgstr "Too much whitespace before \\{marker}."
 
 #: src/app/ui/components/blocks/Toolbar.tsx:281
 #~ msgid "Tools"
@@ -2666,7 +2839,7 @@ msgstr "This will remove files from disk and delete the project's metadata from 
 msgid "Try again"
 msgstr "Try again"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:261
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:215
 msgid "Type"
 msgstr "Type"
 
@@ -2693,7 +2866,7 @@ msgstr "Undid last edit in {bookName} {0}"
 msgid "Undid: {label}"
 msgstr "Undid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:302
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:299
 msgid "Undo"
 msgstr "Undo"
 
@@ -2701,7 +2874,7 @@ msgstr "Undo"
 #~ msgid "Undo — {next}"
 #~ msgstr "Undo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:302
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:299
 msgid "Undo — {undoLabel}"
 msgstr "Undo — {undoLabel}"
 
@@ -2742,7 +2915,7 @@ msgstr "Username"
 msgid "Username and password are required to connect your cloud account."
 msgstr "Username and password are required to connect your cloud account."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:265
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:219
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:248
 msgid "USFM"
 msgstr "USFM"
@@ -2751,7 +2924,7 @@ msgstr "USFM"
 #~ msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 #~ msgstr "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:266
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:269
 msgid "USFM Editor"
 msgstr "USFM Editor"
 
@@ -2777,45 +2950,61 @@ msgstr "Verse"
 msgid "Verse {0}"
 msgstr "Verse {0}"
 
+#: src/app/ui/i18n/usfmOnionLocalization.ts:167
+msgid "Verse {verse} appears more than once in chapter {chapter}."
+msgstr "Verse {verse} appears more than once in chapter {chapter}."
+
 #: src/app/ui/i18n/usfmOnionLocalization.ts:95
-msgid "Verse marker {marker} appears before the first chapter marker."
-msgstr "Verse marker {marker} appears before the first chapter marker."
+#~ msgid "Verse marker {marker} appears before the first chapter marker."
+#~ msgstr "Verse marker {marker} appears before the first chapter marker."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:149
-msgid "Verse marker {marker} appears outside an explicit paragraph."
-msgstr "Verse marker {marker} appears outside an explicit paragraph."
+#~ msgid "Verse marker {marker} appears outside an explicit paragraph."
+#~ msgstr "Verse marker {marker} appears outside an explicit paragraph."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:109
-msgid "Verse marker {marker} is missing its verse number."
-msgstr "Verse marker {marker} is missing its verse number."
+#~ msgid "Verse marker {marker} is missing its verse number."
+#~ msgstr "Verse marker {marker} is missing its verse number."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:85
-msgid "Verse marker {marker} must be followed by a verse number."
-msgstr "Verse marker {marker} must be followed by a verse number."
+#~ msgid "Verse marker {marker} must be followed by a verse number."
+#~ msgstr "Verse marker {marker} must be followed by a verse number."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:111
+msgid "Verse marker \\v appears before the first \\c."
+msgstr "Verse marker \\v appears before the first \\c."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:105
-msgid "Verse metadata appears outside a verse."
-msgstr "Verse metadata appears outside a verse."
+#~ msgid "Verse metadata appears outside a verse."
+#~ msgstr "Verse metadata appears outside a verse."
 
 #: src/app/ui/components/views/search-panel/SearchResultItem.tsx:51
 msgid "Verse not available in this text"
 msgstr "Verse not available in this text"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:128
-msgid "Verse number {verse} is duplicated."
-msgstr "Verse number {verse} is duplicated."
+#~ msgid "Verse number {verse} is duplicated."
+#~ msgstr "Verse number {verse} is duplicated."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:87
-msgid "Verse number {verse} is followed by unexpected content."
-msgstr "Verse number {verse} is followed by unexpected content."
+#~ msgid "Verse number {verse} is followed by unexpected content."
+#~ msgstr "Verse number {verse} is followed by unexpected content."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:131
-msgid "Verse numbering is out of sequence. Expected {expected} but found {found}."
-msgstr "Verse numbering is out of sequence. Expected {expected} but found {found}."
+#~ msgid "Verse numbering is out of sequence. Expected {expected} but found {found}."
+#~ msgstr "Verse numbering is out of sequence. Expected {expected} but found {found}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:138
-msgid "Verse text appears in an invalid position after the verse number."
-msgstr "Verse text appears in an invalid position after the verse number."
+#~ msgid "Verse text appears in an invalid position after the verse number."
+#~ msgstr "Verse text appears in an invalid position after the verse number."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:115
+msgid "Verses must appear inside a paragraph, list, or table."
+msgstr "Verses must appear inside a paragraph, list, or table."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:170
+msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
+msgstr "Verses should count up by one: expected verse {expected}, found verse {found}."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:837
 msgid "Version"
@@ -2862,7 +3051,7 @@ msgstr "Version history unavailable"
 msgid "Whitespace Only"
 msgstr "Whitespace Only"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:249
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:203
 msgid "Whole project"
 msgstr "Whole project"
 
@@ -2892,8 +3081,8 @@ msgid "You are currently offline, but your work is still being saved locally."
 msgstr "You are currently offline, but your work is still being saved locally."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:276
-msgid "You can keep working locally and retry cloud sync when available."
-msgstr "You can keep working locally and retry cloud sync when available."
+#~ msgid "You can keep working locally and retry cloud sync when available."
+#~ msgstr "You can keep working locally and retry cloud sync when available."
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:98
 msgid "You can keep working locally. Try syncing again when you are back online."
@@ -2925,8 +3114,8 @@ msgid "Your latest local save has not been published to the cloud yet."
 msgstr "Your latest local save has not been published to the cloud yet."
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:225
-msgid "Your latest local save is not yet in cloud."
-msgstr "Your latest local save is not yet in cloud."
+#~ msgid "Your latest local save is not yet in cloud."
+#~ msgstr "Your latest local save is not yet in cloud."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:523
 msgid "Your Project Isn't Uploaded"

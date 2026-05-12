@@ -8,17 +8,15 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 function makeError(overrides: Partial<LintIssue>): LintIssue {
     return {
         message: "msg",
+        template: "msg",
         code: "unknown-token",
+        category: "structure",
         severity: "warning",
         issueType: "usfm",
-        marker: null,
         messageParams: {},
         sid: "GEN 1:1",
         tokenId: "n1",
-        relatedTokenId: null,
         span: { start: 0, end: 1 },
-        relatedSpan: null,
-        fix: null,
         ...overrides,
     };
 }

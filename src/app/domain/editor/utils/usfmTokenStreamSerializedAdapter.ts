@@ -284,6 +284,7 @@ export function lexicalToTokens(
 
         const sid = node.sid ?? lastSid;
         const text = node.text ?? "";
+        const marker = node.marker ?? undefined;
         tokens.push({
             id: node.id,
             kind: lexicalTokenTypeToOnionKind(node.tokenType),
@@ -292,7 +293,10 @@ export function lexicalToTokens(
                 end: cursor + text.length,
             },
             sid,
-            marker: node.marker ?? undefined,
+            marker,
+            // USFM 3.1 marks nested character markers with a "+" prefix;
+            // upstream's linter pairs openers and closes using this flag.
+            nested: marker?.startsWith("+") || undefined,
             text,
         });
         cursor += text.length;

@@ -28,7 +28,7 @@ git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", features = ["rayon"] }
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", tag = "v0.0.1" }
 rayon = "1.10.0"
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = ["blocking", "rustls-tls"] }

@@ -4,7 +4,6 @@ import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
-    BatchExecutionOptions,
     BuildSidBlocksOptions,
     Diff,
     DiffScopeItem,
@@ -28,11 +27,18 @@ import type {
 /**
  * Browser implementation of the shared USFM-onion seam.
  *
- * This service gives the editor, lint, diff, and formatting flows the same API
- * they use on desktop, but everything runs in-browser against already-loaded
- * token arrays or file contents because web builds do not have path-based native
- * IO into the USFM engine.
+ * Web builds run the wasm parser in-process against token arrays or file
+ * contents. Path-based IO is desktop-only and rejected with an
+ * {@link UnsupportedError} here.
  */
+
+// WYSIWYG (Reading) profile: same as the wasm default except structural
+// linebreaks are omitted so paragraph blocks flow continuously the way the
+// rendered editor surface displays them.
+const WYSIWYG_FORMAT_OPTIONS: onion.FormatOptions = {
+    insertStructuralLinebreaks: false,
+};
+
 class UnsupportedError extends Error {
     constructor(message: string) {
         super(message);
@@ -68,26 +74,6 @@ function toWebProjectLintOptions(
         suppressed: options.suppressed ?? [],
         allowImplicitChapterContentVerse:
             options.allowImplicitChapterContentVerse ?? false,
-    };
-}
-
-function fromWebLintIssue(issue: onion.LintIssue): LintIssue {
-    const issueWithParams = issue as onion.LintIssue & {
-        messageParams?: Record<string, string>;
-    };
-    return {
-        code: issue.code,
-        severity: issue.severity,
-        issueType: issue.issueType,
-        marker: issue.marker ?? null,
-        message: issue.message,
-        messageParams: issueWithParams.messageParams ?? {},
-        span: issue.span ?? null,
-        relatedSpan: issue.relatedSpan ?? null,
-        tokenId: issue.tokenId ?? null,
-        relatedTokenId: issue.relatedTokenId ?? null,
-        sid: issue.sid ?? null,
-        fix: (issue as onion.LintIssue & { fix?: TokenFix | null }).fix ?? null,
     };
 }
 
@@ -141,7 +127,6 @@ function parsedToProjectedDocument(
         ? parsed
               .lint(toWebProjectLintOptions(options.lintOptions))
               .issues.filter(shouldKeepLintIssue)
-              .map(fromWebLintIssue)
         : null;
     return {
         tokens: parsed.tokens(),
@@ -207,14 +192,8 @@ function fromRawDiff(diff: onion.ChapterTokenDiff): Diff {
         isUsfmStructureChange: diff.isUsfmStructureChange,
         originalTokens: diff.originalTokens,
         currentTokens: diff.currentTokens,
-        originalAlignment: (diff.originalAlignment ?? []).map((entry) => ({
-            change: entry.change,
-            counterpartIndex: entry.counterpartIndex ?? null,
-        })),
-        currentAlignment: (diff.currentAlignment ?? []).map((entry) => ({
-            change: entry.change,
-            counterpartIndex: entry.counterpartIndex ?? null,
-        })),
+        originalAlignment: diff.originalAlignment ?? [],
+        currentAlignment: diff.currentAlignment ?? [],
         undoSide: diff.undoSide,
     };
 }
@@ -245,7 +224,6 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: null,
         },
-        _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return throwPathIoUnsupported();
     }
@@ -256,13 +234,13 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: null,
         },
-        _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return timeInDevAsync(async () => {
-            const parsedBatch = onion.parseBatch(sources);
-            return parsedBatch
-                .items()
-                .map((parsed) => parsedToProjectedDocument(parsed, options));
+            return Promise.all(
+                sources.map(async (source) =>
+                    parsedToProjectedDocument(onion.parse(source), options),
+                ),
+            );
         }, "web:parseUsfmBatchFromContents");
     }
 
@@ -271,13 +249,11 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
         return timeInDevAsync(async () => {
-            const [result] = onion.lintTokenBatch(
-                [tokens],
+            const result = onion.lintTokens(
+                tokens,
                 toWebTokenLintOptions(options),
             );
-            return (result?.issues ?? [])
-                .filter(shouldKeepLintIssue)
-                .map(fromWebLintIssue);
+            return result.issues.filter(shouldKeepLintIssue);
         }, "web:lintExisting");
     }
 
@@ -290,40 +266,37 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             return throwPathIoUnsupported();
         }
         return timeInDevAsync(async () => {
-            const tokenBatches = scope.map((item) => item.tokens ?? []);
             const lintOptions =
                 options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
-            return onion
-                .lintTokenBatch(
-                    tokenBatches,
-                    toWebTokenLintOptions(lintOptions),
-                )
-                .map((result) =>
-                    result.issues
-                        .filter(shouldKeepLintIssue)
-                        .map(fromWebLintIssue),
-                );
+            const webLintOptions = toWebTokenLintOptions(lintOptions);
+            return Promise.all(
+                scope.map(async (item) =>
+                    onion
+                        .lintTokens(item.tokens ?? [], webLintOptions)
+                        .issues.filter(shouldKeepLintIssue),
+                ),
+            );
         }, "web:lintScope");
     }
 
     async formatScope(
         scope: TokenScopeItem[],
-        options: FormatScopeOptions = {},
+        _options: FormatScopeOptions = {},
     ): Promise<TokenTransformResult[]> {
         if (!scope.length) return [];
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
         return timeInDevAsync(async () => {
-            const inputTokenBatches = scope.map((item) => item.tokens ?? []);
-            return onion
-                .formatTokenBatch(inputTokenBatches, options.formatOptions)
-                .map((result, index) =>
-                    formatTokensToTransformResult(
-                        inputTokenBatches[index] ?? [],
-                        result,
-                    ),
-                );
+            return Promise.all(
+                scope.map(async (item) => {
+                    const tokens = item.tokens ?? [];
+                    return formatTokensToTransformResult(
+                        tokens,
+                        onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
+                    );
+                }),
+            );
         }, "web:formatScope");
     }
 
@@ -339,16 +312,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
                     skippedChanges: [],
                 };
             }
-            const wasm = onion as typeof onion & {
-                applyTokenFix: (
-                    tokens: onion.Token[],
-                    fix: TokenFix,
-                ) => onion.Token[];
-            };
             let nextTokens = tokens;
             const appliedChanges: TokenTransformResult["appliedChanges"] = [];
             for (const fix of fixes) {
-                nextTokens = wasm.applyTokenFix(nextTokens, fix);
+                nextTokens = onion.applyTokenFix(nextTokens, fix);
                 appliedChanges.push({
                     kind: "applyTokenFix",
                     code: fix.code,

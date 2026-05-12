@@ -52,7 +52,6 @@ function onionKindToLexicalTokenType(kind: Token["kind"]): string {
             return UsfmTokenTypes.numberRange;
         case "bookCode":
         case "optBreak":
-        case "attributeList":
             return UsfmTokenTypes.text;
         default:
             return kind;

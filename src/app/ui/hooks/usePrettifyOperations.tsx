@@ -89,12 +89,9 @@ export function useFormatOperations({
         if (!chapter) return { changed: false as const };
 
         const chapterTokens = chapterTokensForFormatting(chapter);
-        const [result] = await usfmOnionService.formatScope(
-            [{ tokens: chapterTokens }],
-            {
-                formatOptions: {},
-            },
-        );
+        const [result] = await usfmOnionService.formatScope([
+            { tokens: chapterTokens },
+        ]);
         if (!result.appliedChanges.length) return { changed: false as const };
 
         const direction =
@@ -120,12 +117,9 @@ export function useFormatOperations({
         const baselineTokens = file.chapters.flatMap((chapter) =>
             chapterTokensForFormatting(chapter),
         );
-        const [result] = await usfmOnionService.formatScope(
-            [{ tokens: baselineTokens }],
-            {
-                formatOptions: {},
-            },
-        );
+        const [result] = await usfmOnionService.formatScope([
+            { tokens: baselineTokens },
+        ]);
         if (!result.appliedChanges.length) return { changed: false as const };
 
         const nextBookUsfm = result.tokens.map((token) => token.text).join("");
@@ -288,9 +282,6 @@ export function useFormatOperations({
                                 chapterTokensForFormatting(chapter),
                             ),
                         })),
-                        {
-                            formatOptions: {},
-                        },
                     );
 
                     const modifiedFiles: ScriptureBookState[] = [];

@@ -7,40 +7,15 @@ import type { UsfmMarkerCatalog } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * The registry is initialized from the USFM Onion marker catalog and then exposes
  * readonly marker sets for the rest of the application.
  */
-const LOCAL_ONLY_MARKERS = [
-    "lim4",
-    "liv1",
-    "liv2",
-    "liv3",
-    "liv4",
-    "liv5",
-    "qt1-e",
-    "qt1-s",
-    "qt2-e",
-    "qt2-s",
-    "qt3-e",
-    "qt3-s",
-    "qt4-e",
-    "qt4-s",
-    "qt5-e",
-    "qt5-s",
-    "s5",
-    "sd4",
-    "t-e",
-    "t-s",
-    "ts",
-    "ts-e",
-    "ts-s",
-] as const;
+// Markers we accept at the editor boundary that the upstream catalog does not
+// enumerate. `s5` is USFM 2.x legacy: a chunk-delimiter used heavily in WA
+// source data. USFM 3.x caps `s#` at level 4, so upstream will not add it. We
+// accept it here and suppress its `unknown-marker` lint via
+// `shouldKeepLintIssue` (see src/app/utils/sharedPlatformLogic.ts).
+const LOCAL_ONLY_MARKERS = ["s5"] as const;
 
-const LOCAL_ONLY_PARAGRAPH_MARKERS = ["lim4", "s5", "sd4"] as const;
-const LOCAL_ONLY_REGULAR_CHARACTER_MARKERS = [
-    "liv1",
-    "liv2",
-    "liv3",
-    "liv4",
-    "liv5",
-] as const;
+const LOCAL_ONLY_PARAGRAPH_MARKERS = ["s5"] as const;
+const LOCAL_ONLY_REGULAR_CHARACTER_MARKERS = [] as const;
 const LOCAL_ONLY_CHARACTER_MARKERS = LOCAL_ONLY_MARKERS.filter(
     (marker) =>
         !LOCAL_ONLY_PARAGRAPH_MARKERS.includes(

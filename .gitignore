@@ -57,3 +57,4 @@ tests/mockData/en_tn_condensed/*
 
 # bv (beads viewer) local config and caches
 .bv/
+.repomix/

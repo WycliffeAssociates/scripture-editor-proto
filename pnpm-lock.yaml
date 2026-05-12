@@ -84,8 +84,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.2)(react@19.2.0)
       usfm-onion-web:
-        specifier: github:WycliffeAssociates/usfm-onion#4e3759370d0cc7510c49d096749751c31c55614d
-        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d
+        specifier: github:WycliffeAssociates/usfm-onion#v0.0.1
+        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/2dc6304d2b3483a23aa269d526d48735a2a0716c
       valibot:
         specifier: ^1.3.0
         version: 1.3.0(typescript@5.9.3)
@@ -1846,8 +1846,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@20.19.37':
-    resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
+  '@types/node@20.19.41':
+    resolution: {integrity: sha512-ECymXOukMnOoVkC2bb1Vc/w/836DXncOg5m8Xj1RH7xSHZJWNYY6Zh7EH477vcnD5egKNNfy2RpNOmuChhFPgQ==}
 
   '@types/node@24.10.0':
     resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
@@ -3543,8 +3543,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d:
-    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/2dc6304d2b3483a23aa269d526d48735a2a0716c:
+    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/2dc6304d2b3483a23aa269d526d48735a2a0716c}
     version: 0.1.0
 
   util-deprecate@1.0.2:
@@ -3777,6 +3777,18 @@ packages:
 
   ws@8.19.0:
     resolution: {integrity: sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -5272,7 +5284,7 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@20.19.37':
+  '@types/node@20.19.41':
     dependencies:
       undici-types: 6.21.0
     optional: true
@@ -5985,11 +5997,11 @@ snapshots:
 
   happy-dom@20.1.0:
     dependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.41
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       whatwg-mimetype: 3.0.0
-      ws: 8.19.0
+      ws: 8.20.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -7274,7 +7286,7 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d: {}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/2dc6304d2b3483a23aa269d526d48735a2a0716c: {}
 
   util-deprecate@1.0.2: {}
 
@@ -7472,6 +7484,9 @@ snapshots:
   ws@8.18.0: {}
 
   ws@8.19.0: {}
+
+  ws@8.20.1:
+    optional: true
 
   xml-name-validator@5.0.0: {}
 

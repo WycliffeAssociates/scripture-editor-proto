@@ -30,19 +30,13 @@ describe("TauriUsfmOnionService path I/O", () => {
         );
         await service.lintScope([{ path: "/tmp/a.usfm" }], {
             lintOptions: {},
-            batchOptions: { parallel: true },
         });
-        await service.formatScope([{ path: "/tmp/a.usfm" }], {
-            tokenOptions: {},
-            formatOptions: {},
-            batchOptions: { parallel: true },
-        });
+        await service.formatScope([{ path: "/tmp/a.usfm" }]);
         await service.diffScope(
             [{ baselinePath: "/tmp/a.usfm", currentPath: "/tmp/b.usfm" }],
             {
                 tokenOptions: {},
                 buildOptions: {},
-                batchOptions: { parallel: true },
             },
         );
 
@@ -55,7 +49,6 @@ describe("TauriUsfmOnionService path I/O", () => {
                     tokenOptions: { mergeHorizontalWhitespace: false },
                     lintOptions: null,
                 },
-                batchOptions: { parallel: true },
             },
         );
         expect(invokeMock).toHaveBeenNthCalledWith(2, "usfm_onion_lint_paths", {
@@ -66,7 +59,6 @@ describe("TauriUsfmOnionService path I/O", () => {
                 enabledCodes: undefined,
                 suppressed: undefined,
             },
-            batchOptions: { parallel: true },
         });
         expect(invokeMock).toHaveBeenNthCalledWith(
             3,
@@ -74,8 +66,6 @@ describe("TauriUsfmOnionService path I/O", () => {
             {
                 paths: ["/tmp/a.usfm"],
                 tokenOptions: { mergeHorizontalWhitespace: false },
-                formatOptions: {},
-                batchOptions: { parallel: true },
             },
         );
         expect(invokeMock).toHaveBeenNthCalledWith(
@@ -87,7 +77,6 @@ describe("TauriUsfmOnionService path I/O", () => {
                 ],
                 tokenOptions: { mergeHorizontalWhitespace: false },
                 buildOptions: {},
-                batchOptions: { parallel: true },
             },
         );
     });
