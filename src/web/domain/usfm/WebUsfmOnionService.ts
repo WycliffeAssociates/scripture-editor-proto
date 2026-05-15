@@ -142,7 +142,7 @@ function tokensEqual(left: Token[], right: Token[]): boolean {
         if (!a || !b) return false;
         if (a.id !== b.id) return false;
         if (a.kind !== b.kind) return false;
-        if (a.text !== b.text) return false;
+        if (a.source !== b.source) return false;
         if ((a.sid ?? null) !== (b.sid ?? null)) return false;
         if ((a.marker ?? null) !== (b.marker ?? null)) return false;
         if (

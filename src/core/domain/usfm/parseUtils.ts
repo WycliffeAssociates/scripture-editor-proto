@@ -18,6 +18,7 @@ export type TokenForSidCalculation = {
     text: string;
     marker?: string;
     sid?: string;
+    numberInfo?: { start: number; end?: number };
 };
 
 /**
@@ -60,7 +61,11 @@ function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     }
     const t = tokens[idx];
     if (t?.tokenType !== "numberRange") return null;
-    const value = t.text.trim();
+    if (t.numberInfo) {
+        const { start, end } = t.numberInfo;
+        return end != null && end !== start ? `${start}-${end}` : `${start}`;
+    }
+    const value = t.text?.trim();
     if (!value) return null;
     return value;
 }

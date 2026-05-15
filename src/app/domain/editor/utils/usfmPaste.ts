@@ -136,7 +136,7 @@ export function parsedUsfmTokensToInsertableNodes(
         }
 
         nodes.push(
-            $createUSFMTextNode(token.text, {
+            $createUSFMTextNode(token.source, {
                 id: token.id || guidGenerator(),
                 sid: token.sid || "",
                 tokenType,

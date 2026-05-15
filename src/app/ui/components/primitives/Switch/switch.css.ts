@@ -84,3 +84,41 @@ export const label = style({
     transition: "color 0.2s ease",
     textAlign: "left",
 });
+
+export const rootCompact = style([
+    root,
+    {
+        gap: vars.spacing.xs,
+        gridTemplateColumns: "max-content max-content",
+    },
+]);
+
+export const trackCompact = style([
+    track,
+    {
+        width: "1.75rem",
+        height: "0.875rem",
+    },
+]);
+
+export const thumbCompact = style([
+    thumb,
+    {
+        width: "0.625rem",
+        height: "0.625rem",
+        selectors: {
+            "&[data-checked]": {
+                left: "calc(100% - 2px - 0.625rem)",
+            },
+        },
+    },
+]);
+
+export const labelCompact = style([
+    label,
+    {
+        minWidth: 0,
+        fontSize: vars.typography.bodySmallest.fontSize,
+        fontWeight: 500,
+    },
+]);

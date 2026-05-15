@@ -5,6 +5,7 @@ import { BookOpen, Check, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/ReferencePicker.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 
 type ReferenceItem = {
     value: string;
@@ -79,7 +80,11 @@ export function ReferencePicker() {
                     </span>
                 </Combobox.Trigger>
                 <Combobox.Portal>
-                    <Combobox.Positioner sideOffset={8} align="start">
+                    <Combobox.Positioner
+                        sideOffset={8}
+                        align="start"
+                        style={{ zIndex: zLayer.selectDropdown }}
+                    >
                         <Combobox.Popup className={styles.comboboxPopup}>
                             <div className={styles.comboboxHeader}>
                                 <Combobox.Input

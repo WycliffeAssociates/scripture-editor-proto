@@ -1,10 +1,7 @@
 import type { EditorState, LexicalEditor } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_MODES, EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import {
-    maintainDocumentStructure,
-    maintainDocumentStructureDebounced,
-} from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
+import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
 import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -30,11 +27,11 @@ export function useEditorStructure(editor: LexicalEditor) {
         (editorState: EditorState) => {
             return editorState.read(() => {
                 console.time("debouncedStructuralUpdates");
-                maintainDocumentStructureDebounced(
-                    editorState,
-                    editor,
-                    project.appSettings,
-                );
+                // maintainDocumentStructureDebounced(
+                //     editorState,
+                //     editor,
+                //     project.appSettings,
+                // );
                 console.timeEnd("debouncedStructuralUpdates");
             });
         },

@@ -16,9 +16,10 @@ function toSidCalculationToken(token: Token): TokenForSidCalculation {
                     : token.kind === "newline"
                       ? "nl"
                       : token.kind,
-        text: token.text,
+        text: token.source,
         marker: token.marker,
         sid: token.sid,
+        numberInfo: token.numberInfo,
     };
 }
 

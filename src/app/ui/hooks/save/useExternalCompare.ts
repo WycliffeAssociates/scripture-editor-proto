@@ -232,7 +232,9 @@ function buildBookTextByCodeFromScriptureFiles(files: ScriptureBookState[]) {
     for (const file of files) {
         const usfmText = file.chapters
             .flatMap((chapter) => chapter.currentTokens)
-            .map((token) => ("text" in token ? String(token.text ?? "") : ""))
+            .map((token) =>
+                "source" in token ? String(token.source ?? "") : "",
+            )
             .join("");
         byBook.set(file.bookCode.toUpperCase(), usfmText);
     }

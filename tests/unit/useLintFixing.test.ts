@@ -123,7 +123,7 @@ function makeService(args?: {
                     {
                         id: "tok-2",
                         kind: "text",
-                        text: "fixed",
+                        source: "fixed",
                         sid: "GEN 2:1",
                         span: { start: 0, end: 5 },
                     },
@@ -210,7 +210,7 @@ describe("applyLintFixToFile", () => {
                     {
                         id: "tok-2b",
                         kind: "text",
-                        text: "fixed",
+                        source: "fixed",
                         sid: "GEN 2:1",
                         span: { start: 0, end: 5 },
                     },
@@ -360,7 +360,7 @@ describe("applyLintFixToFile", () => {
 
         const lintScope = vi.fn(async ([scope]) => {
             const texts = scope.tokens.map(
-                (token: { text: string }) => token.text,
+                (token: { source: string }) => token.source,
             );
             return [texts.includes("rebuilt") ? [] : [makeIssue()]];
         });

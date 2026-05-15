@@ -61,8 +61,8 @@ export function useEditorState({
         });
         chapToUpdate.dirty =
             isDirty ??
-            chapToUpdate.currentTokens.map((token) => token.text).join("") !==
-                chapToUpdate.sourceTokens.map((token) => token.text).join("");
+            chapToUpdate.currentTokens.map((token) => token.source).join("") !==
+                chapToUpdate.sourceTokens.map((token) => token.source).join("");
         updateDiffMapForChapter(file.bookCode, chap);
         return mutWorkingFilesRef;
     }

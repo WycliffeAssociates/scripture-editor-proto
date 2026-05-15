@@ -111,14 +111,14 @@ describe("tokensToLexical chapter 0 frontmatter form", () => {
 
         expect(
             roundTripped.map((token) => ({
-                text: token.text,
+                source: token.source,
                 kind: token.kind,
                 sid: token.sid ?? "",
                 marker: token.marker ?? "",
             })),
         ).toEqual(
             originalChapterZero.map((token) => ({
-                text: token.text,
+                source: token.source,
                 kind: token.kind,
                 sid: token.sid ?? "",
                 marker: token.marker ?? "",
@@ -144,32 +144,32 @@ describe("tokensToLexical chapter 0 frontmatter form", () => {
         });
         const roundTripped = lexicalToTokens(lexicalState);
         const idSlice = roundTripped.slice(0, 4).map((token) => ({
-            text: token.text,
+            source: token.source,
             kind: token.kind,
             sid: token.sid ?? "",
             marker: token.marker ?? "",
         }));
         expect(idSlice).toEqual([
             {
-                text: "\\id",
+                source: "\\id",
                 kind: "marker",
                 sid: "",
                 marker: "id",
             },
             {
-                text: " GEN",
+                source: " GEN",
                 kind: "bookCode",
                 sid: "GEN 0:0",
                 marker: "",
             },
             {
-                text: " Unlocked Literal Bible",
+                source: " Unlocked Literal Bible",
                 kind: "text",
                 sid: "GEN 0:0",
                 marker: "",
             },
             {
-                text: "\n",
+                source: "\n",
                 kind: "newline",
                 sid: "GEN 0:0",
                 marker: "",
@@ -203,8 +203,8 @@ describe("tokensToLexical chapter 0 frontmatter form", () => {
         const roundTripped = lexicalToTokens(lexicalState);
         const originalChapterZero = groupFlatTokensByChapter(projected.tokens)[0] ?? [];
 
-        expect(roundTripped.map((token) => token.text)).toEqual(
-            originalChapterZero.map((token) => token.text),
+        expect(roundTripped.map((token) => token.source)).toEqual(
+            originalChapterZero.map((token) => token.source),
         );
     });
 });

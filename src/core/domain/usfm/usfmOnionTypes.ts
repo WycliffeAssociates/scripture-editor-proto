@@ -1,4 +1,5 @@
 import type {
+    AttributeItem as OnionAttributeItem,
     BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
     ChapterTokenDiff as OnionChapterTokenDiff,
     DiffTokenChange as OnionDiffTokenChange,
@@ -24,6 +25,8 @@ import type {
  */
 export type Span = OnionSpan;
 export type Token = OnionToken;
+/** USFM 3.1 character-marker attribute (`|key="value"` after `\w` etc.). */
+export type AttributeItem = OnionAttributeItem;
 export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
 export type ParsedUsfm = OnionParsedUsfm;
 export type MarkerInfo = OnionMarkerInfo;

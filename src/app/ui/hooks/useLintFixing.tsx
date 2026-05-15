@@ -127,7 +127,7 @@ export async function applyLintFixToFile(args: {
 
     if (!result.appliedChanges.length) return false;
 
-    const nextUsfm = result.tokens.map((token) => token.text).join("");
+    const nextUsfm = result.tokens.map((token) => token.source).join("");
     await rebuildParsedFileFromUsfm({
         targetFile: args.file,
         sourceUsfm: nextUsfm,

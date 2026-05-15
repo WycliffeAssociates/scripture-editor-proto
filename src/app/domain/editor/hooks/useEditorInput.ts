@@ -145,7 +145,10 @@ export function useEditorInput(editor: LexicalEditor) {
                     const { isStartOfLine } = calculateIsStartOfLine(
                         anchorNode,
                         anchorOffset,
-                        { editor, editorMode: editorModeSetting },
+                        {
+                            editor,
+                            editorMode: editorModeSetting,
+                        },
                     );
                     if (!isStartOfLine) return false;
 

@@ -22,8 +22,8 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
     // TODO(usfm-onion): this token-based dirty check is pure USFM logic and is a
     // candidate to move behind the crate boundary in a later pass.
     return (
-        chapter.currentTokens.map((token) => token.text).join("") !==
-        chapter.sourceTokens.map((token) => token.text).join("")
+        chapter.currentTokens.map((token) => token.source).join("") !==
+        chapter.sourceTokens.map((token) => token.source).join("")
     );
 }
 
@@ -98,7 +98,7 @@ export function buildBooksSavePayload(
 
         toSave[file.bookCode] = orderedChapters
             .map((chapter) =>
-                chapter.currentTokens.map((token) => token.text).join(""),
+                chapter.currentTokens.map((token) => token.source).join(""),
             )
             .join("");
     }

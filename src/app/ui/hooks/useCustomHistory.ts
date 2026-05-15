@@ -225,8 +225,8 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
             });
             chapter.dirty =
-                chapter.currentTokens.map((token) => token.text).join("") !==
-                chapter.sourceTokens.map((token) => token.text).join("");
+                chapter.currentTokens.map((token) => token.source).join("") !==
+                chapter.sourceTokens.map((token) => token.source).join("");
         },
         [currentFileBibleIdentifier],
     );

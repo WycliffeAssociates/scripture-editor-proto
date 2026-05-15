@@ -9,6 +9,7 @@ import type { LexicalEditor } from "lexical";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { getLintIssueKey } from "@/app/ui/hooks/lintState.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -172,10 +173,41 @@ function findVisibleSiblingTarget(
     return direct;
 }
 
+// In usfm/plain mode, if we landed on the verse numberRange span, walk back to
+// the \v marker so the badge sits left of the marker instead of the number.
+function adjustAnchorForMode(
+    el: HTMLElement,
+    isRawMode: boolean,
+    renderedState: WeakMap<HTMLElement, boolean>,
+): HTMLElement {
+    if (!isRawMode || el.getAttribute("data-token-type") !== "numberRange")
+        return el;
+    let probe = el.previousElementSibling as HTMLElement | null;
+    while (probe) {
+        if (probe.tagName === "BR") {
+            probe = probe.previousElementSibling as HTMLElement | null;
+            continue;
+        }
+        if (
+            probe.getAttribute("data-token-type") === "marker" &&
+            probe.getAttribute("data-marker") === "v" &&
+            isRenderedElementCached(renderedState, probe)
+        ) {
+            return probe;
+        }
+        break;
+    }
+    return el;
+}
+
 function findBestVisibleTarget(
     lookup: DomLookup,
     issue: LintIssue,
+    editorMode: string,
 ): HTMLElement | null {
+    const isRawMode =
+        editorMode === EDITOR_MODES.usfm || editorMode === EDITOR_MODES.plain;
+
     for (const candidate of getIssueCandidates(issue)) {
         const directMatches = lookup.byDataId.get(candidate) ?? [];
         for (const match of directMatches) {
@@ -186,23 +218,39 @@ function findBestVisibleTarget(
                 visible &&
                 isRenderedElementCached(lookup.renderedState, visible)
             ) {
-                return visible;
+                return adjustAnchorForMode(
+                    visible,
+                    isRawMode,
+                    lookup.renderedState,
+                );
             }
         }
 
         const sidMatches = lookup.bySid.get(candidate) ?? [];
         if (sidMatches.length > 0) {
-            const preferred = sidMatches.find(
-                (el) =>
-                    isRenderedElementCached(lookup.renderedState, el) &&
-                    el.getAttribute("data-token-type") === "numberRange",
-            );
+            const preferred = isRawMode
+                ? sidMatches.find(
+                      (el) =>
+                          isRenderedElementCached(lookup.renderedState, el) &&
+                          el.getAttribute("data-token-type") === "marker" &&
+                          el.getAttribute("data-marker") === "v",
+                  )
+                : sidMatches.find(
+                      (el) =>
+                          isRenderedElementCached(lookup.renderedState, el) &&
+                          el.getAttribute("data-token-type") === "numberRange",
+                  );
             if (preferred) return preferred;
 
             const visible = sidMatches.find((el) =>
                 isRenderedElementCached(lookup.renderedState, el),
             );
-            if (visible) return visible;
+            if (visible)
+                return adjustAnchorForMode(
+                    visible,
+                    isRawMode,
+                    lookup.renderedState,
+                );
         }
     }
 
@@ -286,9 +334,12 @@ type LintDomAnnotatorPluginProps = {
 export function LintDomAnnotatorPlugin({
     editor,
 }: LintDomAnnotatorPluginProps) {
-    const { actions, lint } = useWorkspaceContext();
+    const { actions, lint, project } = useWorkspaceContext();
+    const editorMode = project.appSettings.editorMode;
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
+    const editorModeRef = useRef(editorMode);
+    editorModeRef.current = editorMode;
     const recordsRef = useRef<Map<string, AnchorRecord>>(new Map());
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
     const resolveAnchorsRef = useRef<((retryCount?: number) => void) | null>(
@@ -332,12 +383,25 @@ export function LintDomAnnotatorPlugin({
                     const hasConnectedElement = Boolean(
                         record.element?.isConnected,
                     );
+                    const isRawMode =
+                        editorModeRef.current === EDITOR_MODES.usfm ||
+                        editorModeRef.current === EDITOR_MODES.plain;
+                    const cachedIsWrongType =
+                        hasConnectedElement &&
+                        record.element?.getAttribute("data-token-type") ===
+                            "numberRange" &&
+                        isRawMode;
                     const element =
                         hasConnectedElement &&
                         record.element &&
-                        isRenderedElement(record.element)
+                        isRenderedElement(record.element) &&
+                        !cachedIsWrongType
                             ? record.element
-                            : findBestVisibleTarget(lookup, record.issue);
+                            : findBestVisibleTarget(
+                                  lookup,
+                                  record.issue,
+                                  editorModeRef.current,
+                              );
 
                     if (!element) {
                         record.element = null;
@@ -465,6 +529,15 @@ export function LintDomAnnotatorPlugin({
         recordsRef.current = nextRecords;
         resolveAnchorsRef.current?.(2);
     }, [lint.filteredVisibleIssues]);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <We intentionally want this to run when editorMode changes>
+    useEffect(() => {
+        for (const record of recordsRef.current.values()) {
+            record.element = null;
+            record.stale = true;
+        }
+        resolveAnchorsRef.current?.(2);
+    }, [editorMode]);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;

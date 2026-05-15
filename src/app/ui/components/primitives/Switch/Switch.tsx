@@ -6,6 +6,11 @@ export interface SwitchProps
     extends Omit<ComponentPropsWithoutRef<typeof BaseSwitch.Root>, "children"> {
     label?: ReactNode;
     className?: string;
+    /**
+     * Render a smaller variant (slimmer track + lighter label) suitable for
+     * dense surfaces like the reference pane sticky nav.
+     */
+    compact?: boolean;
 }
 
 function joinClassNames(...classNames: Array<string | undefined>) {
@@ -20,22 +25,34 @@ export function Switch({
     readOnly,
     label,
     className,
+    compact,
     ...rootProps
 }: SwitchProps) {
     return (
-        <span className={joinClassNames(styles.root, className)}>
+        <span
+            className={joinClassNames(
+                compact ? styles.rootCompact : styles.root,
+                className,
+            )}
+        >
             <BaseSwitch.Root
                 checked={checked}
                 defaultChecked={defaultChecked}
                 onCheckedChange={onCheckedChange}
                 disabled={disabled}
                 readOnly={readOnly}
-                className={styles.track}
+                className={compact ? styles.trackCompact : styles.track}
                 {...rootProps}
             >
-                <BaseSwitch.Thumb className={styles.thumb} />
+                <BaseSwitch.Thumb
+                    className={compact ? styles.thumbCompact : styles.thumb}
+                />
             </BaseSwitch.Root>
-            {label ? <span className={styles.label}>{label}</span> : null}
+            {label ? (
+                <span className={compact ? styles.labelCompact : styles.label}>
+                    {label}
+                </span>
+            ) : null}
         </span>
     );
 }

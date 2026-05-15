@@ -54,8 +54,8 @@ function makeChapter(text: string, chapterNumber = 1): ScriptureChapterState {
     return {
         chapterNumber,
         dirty: text !== "source",
-        sourceTokens: [{ kind: "text", text: "source", id: `src-${chapterNumber}` }],
-        currentTokens: [{ kind: "text", text, id: `cur-${chapterNumber}` }],
+        sourceTokens: [{ kind: "text", source: "source", id: `src-${chapterNumber}` }],
+        currentTokens: [{ kind: "text", source: text, id: `cur-${chapterNumber}` }],
         loadedLexicalState: { root: { children: [], direction: "ltr" } },
         lexicalState: { root: { children: [], direction: "ltr" } },
     } as unknown as ScriptureChapterState;
@@ -154,9 +154,9 @@ function createAuthProvider(): AuthSessionProvider {
 
 function buildDiffMap(currentFiles: ScriptureBookState[], sourceFiles: ScriptureBookState[]) {
     const currentText =
-        currentFiles[0]?.chapters[0]?.currentTokens[0]?.text ?? "";
+        currentFiles[0]?.chapters[0]?.currentTokens[0]?.source ?? "";
     const sourceText =
-        sourceFiles[0]?.chapters[0]?.currentTokens[0]?.text ?? "";
+        sourceFiles[0]?.chapters[0]?.currentTokens[0]?.source ?? "";
     return {
         GEN: {
             1:
@@ -233,8 +233,8 @@ function HookHarness(props: {
         usfmOnionService: {
             diffTokens: vi.fn(),
             diffScope: vi.fn(async (scope) =>
-                scope.map((entry: { baselineTokens: { text: string }[]; currentTokens: { text: string }[] }) =>
-                    entry.baselineTokens[0]?.text === entry.currentTokens[0]?.text
+                scope.map((entry: { baselineTokens: { source: string }[]; currentTokens: { source: string }[] }) =>
+                    entry.baselineTokens[0]?.source === entry.currentTokens[0]?.source
                         ? []
                         : [
                               {
@@ -386,7 +386,7 @@ describe("useExternalCompare", () => {
             { bookCode: "GEN", chapterNum: 1 },
         ]);
         expect(bumpDirtyVersion).not.toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
@@ -429,7 +429,7 @@ describe("useExternalCompare", () => {
         expect(refreshUnsavedChapters).toHaveBeenCalledWith([
             { bookCode: "GEN", chapterNum: 1 },
         ]);
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
@@ -534,7 +534,7 @@ describe("useExternalCompare", () => {
             await flush();
         });
 
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
@@ -701,8 +701,8 @@ describe("useExternalCompare", () => {
         });
 
         expect(openDiffModal).not.toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe("incoming-gen");
-        expect(workingFiles[1]?.chapters[0]?.currentTokens[0]?.text).toBe("local-exo");
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.source).toBe("incoming-gen");
+        expect(workingFiles[1]?.chapters[0]?.currentTokens[0]?.source).toBe("local-exo");
         expect(workingFiles[1]?.chapters[0]?.dirty).toBe(true);
         expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).not.toHaveBeenCalled();
         expect(result?.requiresReconciliationSave).toEqual(
@@ -772,7 +772,7 @@ describe("useExternalCompare", () => {
         });
 
         expect(openDiffModal).toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "local-gen",
         );
         expect(

@@ -1,6 +1,7 @@
 import type { SerializedLexicalNode } from "lexical";
 import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedBookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
+import { isSerializedFormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -111,6 +112,11 @@ function* materializeFlatTokensFromSerialized(
                 node.tokens ?? [],
                 options,
             );
+        } else if (isSerializedFormBlockNode(node)) {
+            yield* materializeFlatTokensFromSerialized(
+                node.tokens ?? [],
+                options,
+            );
         } else if (isSerializedUSFMNestedEditorNode(node)) {
             if (nested === "preserve") {
                 yield node;
@@ -126,7 +132,6 @@ function* materializeFlatTokensFromSerialized(
                 marker: node.marker,
                 inPara: node.inPara,
                 inChars: node.inChars,
-                attributes: node.attributes,
                 show: true,
                 isMutable: true,
             });
