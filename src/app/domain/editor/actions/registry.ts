@@ -1,3 +1,4 @@
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { MARKER_ACTIONS } from "./markerActions.ts";
 import { MODE_ACTIONS } from "./modeActions.ts";
 import { NAVIGATION_ACTIONS } from "./navigationActions.tsx";
@@ -49,8 +50,19 @@ function sortVisibleActions(
  * state.
  */
 export function getVisibleActions(context: EditorContext): EditorAction[] {
-    const visible = EDITOR_ACTIONS.filter((action) =>
-        action.isVisible(context),
-    );
+    const visible = EDITOR_ACTIONS.filter((action) => {
+        // Form mode owns marker insertion via its own `+` slots and
+        // textarea right-click menu. The cursor-anchored "Insert
+        // marker" / "Make verse marker" / "Change previous marker"
+        // entries from the action palette would compete with that
+        // and operate on a non-existent text-cursor surface.
+        if (
+            context.editorMode === EDITOR_MODES.form &&
+            action.category === "Markers"
+        ) {
+            return false;
+        }
+        return action.isVisible(context);
+    });
     return sortVisibleActions(visible, context);
 }

@@ -3,7 +3,12 @@ import type {
     SerializedElementNode,
     SerializedLexicalNode,
 } from "lexical";
-import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    type EditorModeSetting,
+    type EditorShape,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import {
     createSerializedUSFMTextNode,
@@ -12,6 +17,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import {
+    isFormModeRootChildren,
     isRegularModeRootChildren,
     transformToMode,
     unwrapFlatTokensFromRootChildren,
@@ -39,9 +45,12 @@ function detectDirection(nodes: SerializedLexicalNode[]): "ltr" | "rtl" {
     return "ltr";
 }
 
-export type RootShape = "regularTree" | "wrappedFlat" | "unknown";
+export type RootShape = "regularTree" | "formTree" | "wrappedFlat" | "unknown";
 
 function detectRootShape(nodes: SerializedLexicalNode[]): RootShape {
+    if (isFormModeRootChildren(nodes)) {
+        return "formTree";
+    }
     if (isRegularModeRootChildren(nodes)) {
         return "regularTree";
     }
@@ -138,7 +147,7 @@ export function usfmTokenStreamToLexicalRootChildren(
         .map(prettifyTokenToLexicalNode)
         .filter(Boolean) as SerializedLexicalNode[];
 
-    if (shape === "regularTree") {
+    if (shape === "regularTree" || shape === "formTree") {
         return transformToMode(
             {
                 root: {
@@ -155,7 +164,7 @@ export function usfmTokenStreamToLexicalRootChildren(
                     indent: 0,
                 },
             },
-            "regular",
+            shape === "formTree" ? "form" : "regular",
         ).root.children as SerializedLexicalNode[];
     }
 
@@ -172,10 +181,14 @@ export function usfmTokenStreamToLexicalRootChildren(
 
     return [wrapFlatTokensInLexicalParagraph(serializedFlat, direction)];
 }
-
+// Returns an *editor mode* (the "usfm" string is `EDITOR_MODES.usfm`),
+// not a tree shape. The mode-vs-shape distinction is real: "usfm"
+// mode loads with the "flat" tree shape. Callers that need a shape
+// value should run `editorModeToShape` on this result.
 export function inferContentEditorModeFromRootChildren(
     rootChildren: SerializedLexicalNode[],
-): "regular" | "usfm" {
+): Extract<EditorModeSetting, "regular" | "form" | "usfm"> {
+    if (isFormModeRootChildren(rootChildren)) return "form";
     return isRegularModeRootChildren(rootChildren) ? "regular" : "usfm";
 }
 
@@ -274,7 +287,7 @@ export function lexicalToTokens(
                     end: cursor + 1,
                 },
                 sid: lastSid,
-                text: "\n",
+                source: "\n",
             });
             cursor += 1;
             continue;
@@ -297,7 +310,13 @@ export function lexicalToTokens(
             // USFM 3.1 marks nested character markers with a "+" prefix;
             // upstream's linter pairs openers and closes using this flag.
             nested: marker?.startsWith("+") || undefined,
-            text,
+            // Upstream renamed `Token.text` → `Token.source` in v0.0.3; the
+            // value carried is still the lexed byte slice for this token.
+            source: text,
+            // USFM 3.1 character-marker attribute list (`|key="value"`).
+            // Round-tripped via `tokensToUsfm` upstream — without this
+            // the attribute slice silently drops on save.
+            attributes: node.attributes,
         });
         cursor += text.length;
         if (sid) lastSid = sid;
@@ -314,7 +333,7 @@ export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {
             token.kind === "newline"
                 ? ({ type: "linebreak", version: 1 } as SerializedLexicalNode)
                 : (createSerializedUSFMTextNode({
-                      text: token.text,
+                      text: token.source,
                       id: token.id ?? guidGenerator(),
                       sid: token.sid ?? "",
                       tokenType: flatTokenKindToLexicalTokenType(token.kind),
@@ -333,7 +352,9 @@ export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {
     });
 }
 
-export type TokensToLexicalMode = "regular" | "flat";
+// Aliased to `EditorShape`. Callers reading "this is the shape the
+// loader will use" don't have to retrain their eye on the new name.
+export type TokensToLexicalMode = EditorShape;
 
 export function tokensToLexical(args: {
     tokens: Token[];
@@ -351,13 +372,14 @@ export function tokensToLexical(args: {
                                   version: 1,
                               } as SerializedLexicalNode)
                             : (createSerializedUSFMTextNode({
-                                  text: token.text,
+                                  text: token.source,
                                   id: token.id ?? guidGenerator(),
                                   sid: token.sid ?? "",
                                   tokenType: flatTokenKindToLexicalTokenType(
                                       token.kind,
                                   ),
                                   marker: token.marker ?? undefined,
+                                  attributes: token.attributes,
                               }) as SerializedLexicalNode),
                     ),
                     args.direction,
@@ -371,8 +393,8 @@ export function tokensToLexical(args: {
         },
     };
 
-    if (args.mode === EDITOR_MODES.regular) {
-        return transformToMode(base, "regular");
+    if (args.mode === EDITOR_MODES.regular || args.mode === EDITOR_MODES.form) {
+        return transformToMode(base, args.mode);
     }
 
     return base;

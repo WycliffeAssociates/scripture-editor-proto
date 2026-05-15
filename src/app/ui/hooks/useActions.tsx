@@ -1,7 +1,6 @@
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import type {
     ScriptureBookState,
@@ -18,7 +17,6 @@ import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
-import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -45,9 +43,7 @@ type Props = {
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
-    autoOpenFormatMatchSuggestions: boolean;
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
-    projectLanguageDirection: LanguageDirection;
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
     history: CustomHistoryHook;
 };
@@ -77,9 +73,7 @@ export const useWorkspaceActions = ({
     referenceResource,
     setIsProcessing,
     setFormatMatchReport,
-    autoOpenFormatMatchSuggestions,
     setIsFormatMatchSuggestionsOpen,
-    projectLanguageDirection,
     targetMarkerPreservationMode,
     history,
 }: Props) => {
@@ -169,11 +163,9 @@ export const useWorkspaceActions = ({
         setEditorContent: setEditorContentWrapper,
         saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         setFormatMatchReport,
-        autoOpenFormatMatchSuggestions,
         setIsFormatMatchSuggestionsOpen,
-        editorRef,
-        editorMode: appSettings.editorMode ?? EDITOR_MODES.regular,
-        languageDirection: projectLanguageDirection,
+        setEditorMode: (next) =>
+            modeSwitching.setEditorMode(next, editorRef.current ?? undefined),
         targetMarkerPreservationMode,
         history,
     });
@@ -252,8 +244,6 @@ export const useWorkspaceActions = ({
         matchFormattingChapter: formatMatching.matchFormattingChapter,
         matchFormattingBook: formatMatching.matchFormattingBook,
         matchFormattingProject: formatMatching.matchFormattingProject,
-        applyMatchFormattingSuggestion:
-            formatMatching.applyMatchFormattingSuggestion,
 
         // Lint fixing
         fixLintError: lintFixing.fixLintError,

@@ -6,12 +6,18 @@ import type {
 import {
     type ContentEditorModeSetting,
     EDITOR_MODES,
+    EDITOR_SHAPES,
+    type EditorShape,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import {
     createSerializedBookFrontmatterFormNode,
     isSerializedBookFrontmatterFormNode,
 } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
+import {
+    createSerializedFormBlockNode,
+    isSerializedFormBlockNode,
+} from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import {
     nestedEditorMarkers,
     USFM_NESTED_DECORATOR_TYPE,
@@ -23,6 +29,7 @@ import {
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { groupFlatNodesIntoParagraphContainers } from "@/app/domain/editor/serialization/fromSerializedToLexical.ts";
+import { buildFormBlockTree } from "@/app/domain/editor/utils/formModeBlockTree.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
 import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -246,36 +253,78 @@ export function transformToMode(
     const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
-    const isCurrentlyParagraphMode = isRegularModeRootChildren(rootChildren);
-    const wantsParagraphMode = targetMode === EDITOR_MODES.regular;
+    const currentShape = detectCurrentShape(rootChildren);
+    const targetShape = targetShapeForMode(targetMode);
 
-    if (isCurrentlyParagraphMode === wantsParagraphMode) {
-        // Already in correct format
+    // Chapter 0 (book frontmatter) renders the same dedicated form on
+    // both Regular and Form modes — we never want to break out the
+    // identifiers / titles into either regular paragraphs or
+    // discourse-style FormBlockNodes. If the current state is already
+    // a single BookFrontmatterFormNode and the target is one of the
+    // editable modes that share that shape, short-circuit before
+    // `currentShape === targetShape` would mis-classify it as a flat
+    // shape that needs reflowing.
+    const isAlreadyFrontmatter =
+        rootChildren.length === 1 &&
+        isSerializedBookFrontmatterFormNode(rootChildren[0]);
+    if (
+        isAlreadyFrontmatter &&
+        (targetShape === "regular" || targetShape === "form")
+    ) {
         return state;
     }
 
-    // Unwrap if wrapped in paragraph element
-    const unwrapped = unwrapFlatTokensFromRootChildren(rootChildren);
+    if (currentShape === targetShape) {
+        return state;
+    }
 
-    if (wantsParagraphMode) {
-        // Transform TO regular mode (paragraph containers)
-        const flatTokens =
-            unwrapped ??
-            materializeFlatTokensArray(rootChildren, { nested: "flatten" });
-        if (shouldRenderAsBookFrontmatterForm(flatTokens)) {
-            return {
-                ...state,
-                root: {
-                    ...state.root,
-                    children: [
-                        createSerializedBookFrontmatterFormNode({
-                            direction,
-                            tokens: flatTokens,
-                        }),
-                    ],
-                },
-            };
-        }
+    // Always reduce to a flat token list first, then rebuild for the target shape.
+    const flatTokens = flattenToTokens(rootChildren);
+
+    // Frontmatter detection runs before the form/regular split so
+    // both paths produce the BookFrontmatterFormNode shape.
+    // Otherwise the form-mode branch below would parse `\id`, `\h`,
+    // `\toc*`, `\mt*` markers into ordinary paragraph blocks and the
+    // user would lose the dedicated frontmatter UI.
+    if (
+        (targetShape === EDITOR_SHAPES.form ||
+            targetShape === EDITOR_SHAPES.regular) &&
+        shouldRenderAsBookFrontmatterForm(flatTokens)
+    ) {
+        return {
+            ...state,
+            root: {
+                ...state.root,
+                children: [
+                    createSerializedBookFrontmatterFormNode({
+                        direction,
+                        tokens: flatTokens,
+                    }),
+                ],
+            },
+        };
+    }
+
+    if (targetShape === "form") {
+        // Discourse-first: each paragraph-class marker becomes a top-level
+        // FormBlockNode. Verse markers are fragments inside their block, not
+        // top-level containers — so a `\p` containing two verses is one block,
+        // and a verse spanning many paragraph markers spans many blocks.
+        const blocks = buildFormBlockTree(flatTokens);
+        const children: SerializedLexicalNode[] = blocks.map((block) =>
+            createSerializedFormBlockNode({
+                direction,
+                tokens: block.tokens,
+                id: block.id,
+            }),
+        );
+        return {
+            ...state,
+            root: { ...state.root, children },
+        };
+    }
+
+    if (targetShape === "regular") {
         const withNested = rewrapNestedEditorNodesFromFlatTokens(
             flatTokens,
             direction,
@@ -290,21 +339,46 @@ export function transformToMode(
                 ),
             },
         };
-    } else {
-        // Transform TO usfm/plain mode (flat tokens wrapped in paragraph)
-        const flatTokens =
-            unwrapped ??
-            materializeFlatTokensArray(rootChildren, { nested: "flatten" });
-        return {
-            ...state,
-            root: {
-                ...state.root,
-                children: [
-                    wrapFlatTokensInLexicalParagraph(flatTokens, direction),
-                ],
-            },
-        };
     }
+
+    // targetShape === "flat" — wrap in a single Lexical paragraph for usfm/plain.
+    return {
+        ...state,
+        root: {
+            ...state.root,
+            children: [wrapFlatTokensInLexicalParagraph(flatTokens, direction)],
+        },
+    };
+}
+
+function detectCurrentShape(
+    rootChildren: SerializedLexicalNode[],
+): EditorShape {
+    if (isFormModeRootChildren(rootChildren)) return "form";
+    if (isRegularModeRootChildren(rootChildren)) return "regular";
+    return "flat";
+}
+
+function targetShapeForMode(mode: ContentEditorModeSetting): EditorShape {
+    if (mode === EDITOR_MODES.form) return "form";
+    if (mode === EDITOR_MODES.regular) return "regular";
+    return "flat";
+}
+
+function flattenToTokens(
+    rootChildren: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const unwrapped = unwrapFlatTokensFromRootChildren(rootChildren);
+    return (
+        unwrapped ??
+        materializeFlatTokensArray(rootChildren, { nested: "flatten" })
+    );
+}
+
+export function isFormModeRootChildren(
+    rootChildren: SerializedLexicalNode[],
+): boolean {
+    return rootChildren.some((child) => isSerializedFormBlockNode(child));
 }
 
 export function isRegularModeRootChildren(

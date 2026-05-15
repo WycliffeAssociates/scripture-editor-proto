@@ -1,4 +1,8 @@
-import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
+import {
+    type EditorModeSetting,
+    type EditorShape,
+    editorModeToShape,
+} from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -153,9 +157,7 @@ export async function scriptureProjectToParsedFiles(args: {
         if (!projection) continue;
         const mergedTokens = projection.tokens;
         const lintIssues = projection.lintIssues ?? [];
-        const needsParagraphs =
-            args.editorMode === EDITOR_MODES.regular ||
-            args.editorMode === EDITOR_MODES.view;
+        const initialLoadMode: EditorShape = editorModeToShape(args.editorMode);
         const bookCode = getBookSlug(book.code);
         const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
         const sourceTokensByChapter =
@@ -180,7 +182,7 @@ export async function scriptureProjectToParsedFiles(args: {
                     const lexicalState = tokensToLexical({
                         tokens: sourceTokens,
                         direction,
-                        mode: needsParagraphs ? "regular" : "flat",
+                        mode: initialLoadMode,
                     });
                     const loadedLexicalState = tokensToLexical({
                         tokens: sourceTokens,

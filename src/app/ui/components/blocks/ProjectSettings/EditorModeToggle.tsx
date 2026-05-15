@@ -12,10 +12,11 @@ interface EditorModeToggleProps {
     onValueChange?: (value: EditorModeSetting) => void;
     portalContainer?: RefObject<HTMLElement | null>;
 }
-
+// @AI? - CHECK AND SEE IF THIS IS SOMETHING THAT NEEDS LOCALIZATION ON THE LABEL. SOMETIMES THE LINGUI MACRO STUFF GETS ME CAUSE THEN YOU HAVE TO _ THE RESULTS OR WHATEVER, BUT OBV OUR STRINGS DO NEED LOCALIZAITON.
 const editorModeItems: SelectItem[] = [
     { value: EDITOR_MODES.regular, label: "Regular mode" },
     { value: EDITOR_MODES.view, label: "View mode" },
+    { value: EDITOR_MODES.form, label: "Form mode" },
     { value: EDITOR_MODES.plain, label: "Plain mode" },
     { value: EDITOR_MODES.usfm, label: "USFM mode" },
 ];

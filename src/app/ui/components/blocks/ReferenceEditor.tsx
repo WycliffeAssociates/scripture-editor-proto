@@ -17,7 +17,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
+import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -26,6 +28,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
 import { Switch } from "@/app/ui/components/primitives/Switch/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -72,6 +75,7 @@ function TranslationNotesReferencePane() {
                     }}
                 >
                     <Switch
+                        compact
                         data-testid={TESTING_IDS.reference.syncNavigationToggle}
                         label="Sync navigation"
                         checked={referenceResource.isReferenceNavSynced}
@@ -152,9 +156,9 @@ function ScriptureReferencePane() {
     const { referenceResource, search, referenceEditorRef, project } =
         useWorkspaceContext();
     const { referenceChapter } = referenceResource;
-    const editorMode = project?.appSettings.editorMode ?? "regular";
+    const editorMode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
     const resolvedReferenceMode =
-        editorMode === "view" ? "regular" : editorMode;
+        editorMode === EDITOR_MODES.view ? EDITOR_MODES.regular : editorMode;
 
     useEffect(() => {
         if (!referenceChapter) return;
@@ -162,12 +166,15 @@ function ScriptureReferencePane() {
         if (!editor) return;
 
         editor.setEditable(false);
-        const clonedState = structuredClone(referenceChapter.lexicalState);
+        const clonedState = transformToMode(
+            structuredClone(referenceChapter.lexicalState),
+            resolvedReferenceMode,
+        );
 
         editor.setEditorState(editor.parseEditorState(clonedState), {
             tag: HISTORY_MERGE_TAG,
         });
-    }, [referenceChapter, referenceEditorRef]);
+    }, [referenceChapter, referenceEditorRef, resolvedReferenceMode]);
 
     return (
         <div className={shellStyles.referenceEditorRoot}>
@@ -184,6 +191,7 @@ function ScriptureReferencePane() {
                     }}
                 >
                     <Switch
+                        compact
                         data-testid={TESTING_IDS.reference.syncNavigationToggle}
                         label="Sync navigation"
                         checked={referenceResource.isReferenceNavSynced}
@@ -194,6 +202,7 @@ function ScriptureReferencePane() {
                         }
                     />
                     <Switch
+                        compact
                         data-testid={TESTING_IDS.reference.syncScrollingToggle}
                         label="Sync scrolling"
                         checked={referenceResource.isReferenceScrollSynced}
@@ -268,6 +277,7 @@ function ScriptureReferencePane() {
                                     }`}
                                     aria-label={t`USFM Editor`}
                                     data-mode={resolvedReferenceMode}
+                                    data-form-pane="reference"
                                 />
                             }
                             ErrorBoundary={LexicalErrorBoundary}
@@ -369,6 +379,7 @@ function getIntialConfig(): InitialConfigType {
             ParagraphNode,
             LineBreakNode,
             BookFrontmatterFormNode,
+            FormBlockNode,
             USFMNestedEditorNode,
         ],
         onError: console.error,

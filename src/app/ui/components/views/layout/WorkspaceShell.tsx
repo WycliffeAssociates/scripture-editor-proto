@@ -6,6 +6,7 @@ import { ProjectBrowserPane } from "@/app/ui/components/blocks/ProjectSwitcher/P
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
+import { FormFocusProvider } from "@/app/ui/contexts/FormFocusContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
@@ -169,7 +170,9 @@ interface WorkspaceMainShellProps extends EditorsShellProps {}
 export function WorkspaceMainShell(props: WorkspaceMainShellProps) {
     return (
         <div className={styles.workspaceMain}>
-            <EditorsShell {...props} />
+            <FormFocusProvider>
+                <EditorsShell {...props} />
+            </FormFocusProvider>
         </div>
     );
 }

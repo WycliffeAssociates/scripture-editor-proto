@@ -7,8 +7,7 @@ import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
  * anchors as the stable join key.
  *
  * This lets the app apply formatting or marker styling from one scripture source to
- * another without blindly replacing text content. Ambiguous intra-verse placement
- * cases are surfaced back as suggestions instead of guessed.
+ * another without blindly replacing text content.
  */
 export type MatchFormattingScope = "chapter" | "book" | "project";
 export type TargetMarkerPreservationMode =
@@ -52,9 +51,6 @@ type VerseSegment = {
     endIndex: number;
 };
 
-const PRELUDE_COPY_ALLOWED_MARKERS = VALID_PARA_MARKERS;
-const DISALLOWED_SOURCE_MARKERS = new Set(["s5"]);
-
 const isLinebreakToken = (token: TokenEnvelope | undefined): boolean =>
     token?.tokenType === "nl";
 
@@ -67,22 +63,10 @@ const isNumberRangeToken = (token: TokenEnvelope | undefined): boolean =>
 const isContentfulTextToken = (token: TokenEnvelope | undefined): boolean =>
     token?.tokenType === "text" && token.text.trim().length > 0;
 
-const isParagraphMarkerToken = (token: TokenEnvelope | undefined): boolean =>
-    token?.tokenType === "marker" &&
-    !!token.marker &&
-    PRELUDE_COPY_ALLOWED_MARKERS.has(token.marker);
-
 const isStructureMarkerToken = (token: TokenEnvelope | undefined): boolean =>
-    isParagraphMarkerToken(token) &&
-    Boolean(token?.marker) &&
-    !DISALLOWED_SOURCE_MARKERS.has(token?.marker || "");
-
-const isDisallowedSourceMarkerToken = (
-    token: TokenEnvelope | undefined,
-): boolean =>
     token?.tokenType === "marker" &&
     !!token.marker &&
-    DISALLOWED_SOURCE_MARKERS.has(token.marker);
+    (token.marker === "s5" || VALID_PARA_MARKERS.has(token.marker));
 
 function isPoetryMarkerToken(token: TokenEnvelope | undefined): boolean {
     return (
@@ -97,8 +81,6 @@ function shouldKeepTargetParagraphMarker(
     nextToken: TokenEnvelope | undefined,
     targetMarkerPreservation: TargetMarkerPreservationMode,
 ): boolean {
-    if (isDisallowedSourceMarkerToken(token)) return false;
-
     if (targetMarkerPreservation === "keep_all") return true;
     if (targetMarkerPreservation === "strip_all") return false;
 
@@ -121,7 +103,7 @@ function stripTargetFormattingTokensByMode(
         const token = tokens[index];
         if (!token) continue;
         if (isLinebreakToken(token)) continue;
-        if (isParagraphMarkerToken(token)) {
+        if (isStructureMarkerToken(token)) {
             const nextToken = tokens[index + 1];
             if (
                 !shouldKeepTargetParagraphMarker(
@@ -136,24 +118,6 @@ function stripTargetFormattingTokensByMode(
         out.push(token);
     }
     return out;
-}
-
-function normalizeWhitespaceAndJoin(parts: string[]): string {
-    return parts.join("").replace(/\s+/g, " ").trim();
-}
-
-function tokenSnippet(tokens: TokenEnvelope[], maxChars = 180): string {
-    const raw = normalizeWhitespaceAndJoin(
-        tokens.map((token) => {
-            if (token.tokenType === "nl") return " ";
-            if (token.tokenType === "marker") {
-                return token.text || `\\${token.marker ?? ""}`;
-            }
-            return token.text;
-        }),
-    );
-    if (raw.length <= maxChars) return raw;
-    return `${raw.slice(0, maxChars - 1)}…`;
 }
 
 function guessChapterFromTokens(
@@ -262,11 +226,7 @@ function findBoundaryStartBeforeVerse(
     let i = verseStartIndex - 1;
     while (i >= 0) {
         const token = tokens[i];
-        if (
-            isLinebreakToken(token) ||
-            isStructureMarkerToken(token) ||
-            isDisallowedSourceMarkerToken(token)
-        ) {
+        if (isLinebreakToken(token) || isStructureMarkerToken(token)) {
             i -= 1;
             continue;
         }
@@ -300,19 +260,49 @@ function compactConsecutiveLinebreaks(
     return out;
 }
 
-function buildSkippedSuggestionsForSegment({
-    scope,
+function findTrailingBoundaryStart(body: TokenEnvelope[]): number {
+    let trailingStart = body.length;
+    for (let i = body.length - 1; i >= 0; i--) {
+        const token = body[i];
+        if (isLinebreakToken(token) || isStructureMarkerToken(token)) {
+            trailingStart = i;
+            continue;
+        }
+        break;
+    }
+    return trailingStart;
+}
+
+function collectIntraVerseMarkers(
+    body: TokenEnvelope[],
+    bodyFirstContentIndex: number,
+    trailingBoundaryStart: number,
+): Array<{ token: TokenEnvelope; index: number }> {
+    const markers: Array<{ token: TokenEnvelope; index: number }> = [];
+    for (let i = bodyFirstContentIndex + 1; i < body.length; i++) {
+        if (i >= trailingBoundaryStart) continue;
+        const token = body[i];
+        if (!isStructureMarkerToken(token)) continue;
+        markers.push({ token, index: i });
+    }
+    return markers;
+}
+
+function findMissingIntraVerseMarkers({
     sourceTokens,
     sourceSegment,
     targetTokens,
     targetSegment,
 }: {
-    scope: MatchFormattingScope;
     sourceTokens: TokenEnvelope[];
     sourceSegment: VerseSegment;
     targetTokens: TokenEnvelope[];
     targetSegment: VerseSegment;
-}): SkippedMarkerSuggestion[] {
+}): Array<{
+    token: TokenEnvelope;
+    index: number;
+    sourceMarkerPosition: number;
+}> {
     const sourceBody = sourceTokens.slice(
         sourceSegment.numberIndex + 1,
         sourceSegment.endIndex,
@@ -325,38 +315,6 @@ function buildSkippedSuggestionsForSegment({
         isContentfulTextToken(token),
     );
     if (firstContentIndex < 0) return [];
-
-    const findTrailingBoundaryStart = (body: TokenEnvelope[]): number => {
-        let trailingStart = body.length;
-        for (let i = body.length - 1; i >= 0; i--) {
-            const token = body[i];
-            if (
-                isLinebreakToken(token) ||
-                isStructureMarkerToken(token) ||
-                isDisallowedSourceMarkerToken(token)
-            ) {
-                trailingStart = i;
-                continue;
-            }
-            break;
-        }
-        return trailingStart;
-    };
-
-    const collectIntraVerseMarkers = (
-        body: TokenEnvelope[],
-        bodyFirstContentIndex: number,
-        trailingBoundaryStart: number,
-    ): Array<{ token: TokenEnvelope; index: number }> => {
-        const markers: Array<{ token: TokenEnvelope; index: number }> = [];
-        for (let i = bodyFirstContentIndex + 1; i < body.length; i++) {
-            if (i >= trailingBoundaryStart) continue;
-            const token = body[i];
-            if (!isStructureMarkerToken(token)) continue;
-            markers.push({ token, index: i });
-        }
-        return markers;
-    };
 
     const trailingBoundaryStart = findTrailingBoundaryStart(sourceBody);
     const allIntraVerseMarkers = collectIntraVerseMarkers(
@@ -417,46 +375,47 @@ function buildSkippedSuggestionsForSegment({
     }
     if (missingMarkers.length === 0) return [];
 
-    return missingMarkers.map(({ token, index, sourceMarkerPosition }) => {
-        const parsedSid = parseSid(token.sid ?? "");
-        const contextStart = Math.max(0, index - 3);
-        const contextEnd = Math.min(sourceBody.length, index + 4);
-        const sourceContext = sourceBody.slice(contextStart, contextEnd);
+    return missingMarkers;
+}
 
-        let blockEnd = sourceBody.length;
-        for (let i = index + 1; i < sourceBody.length; i++) {
-            if (isStructureMarkerToken(sourceBody[i])) {
-                blockEnd = i;
-                break;
-            }
-        }
-        const sourceBlock = sourceBody.slice(index, blockEnd);
-
-        return {
-            id: [
-                parsedSid?.book ?? "",
-                sourceSegment.key,
-                token.marker ?? "unknown",
-                sourceMarkerPosition,
-            ].join(":"),
-            reason: "intra_verse_placement_ambiguous",
-            scope,
-            bookCode: parsedSid?.book,
-            chapter: parsedSid?.chapter,
-            verse: sourceSegment.verseText,
-            marker: token.marker ?? "unknown",
-            sourceVerseTextExcerpt: tokenSnippet(sourceBody),
-            sourceMarkerLocalContext: tokenSnippet(sourceContext, 120),
-            sourceBlockExcerpt: tokenSnippet(sourceBlock, 140),
-            targetVerseTextExcerpt: tokenSnippet(targetBody),
-        } as const;
+function buildTargetSegmentWithSourceIntraVerseMarkers({
+    sourceTokens,
+    sourceSegment,
+    targetTokens,
+    targetSegment,
+}: {
+    sourceTokens: TokenEnvelope[];
+    sourceSegment: VerseSegment;
+    targetTokens: TokenEnvelope[];
+    targetSegment: VerseSegment;
+}): TokenEnvelope[] {
+    const segmentTokens = targetTokens.slice(
+        targetSegment.startIndex,
+        targetSegment.endIndex,
+    );
+    const missingMarkers = findMissingIntraVerseMarkers({
+        sourceTokens,
+        sourceSegment,
+        targetTokens,
+        targetSegment,
     });
+    if (missingMarkers.length === 0) return segmentTokens;
+
+    const insertions = missingMarkers.flatMap(
+        ({ token, sourceMarkerPosition }) => [
+            cloneTokenForInsert(
+                token,
+                `${targetSegment.key}-body-${sourceMarkerPosition}`,
+            ),
+            { tokenType: "nl", text: "\n" } satisfies TokenEnvelope,
+        ],
+    );
+    return [...segmentTokens, ...insertions];
 }
 
 export function matchFormattingByVerseAnchors({
     targetTokens,
     sourceTokens,
-    scope,
     targetMarkerPreservation = "strip_all",
 }: {
     targetTokens: TokenEnvelope[];
@@ -496,20 +455,6 @@ export function matchFormattingByVerseAnchors({
     }
 
     const suggestions: SkippedMarkerSuggestion[] = [];
-    for (const key of matchedKeys) {
-        const sourceSegment = sourceMap.get(key);
-        const targetSegment = targetMap.get(key);
-        if (!sourceSegment || !targetSegment) continue;
-        suggestions.push(
-            ...buildSkippedSuggestionsForSegment({
-                scope,
-                sourceTokens,
-                sourceSegment,
-                targetTokens: normalizedTargetTokens,
-                targetSegment,
-            }),
-        );
-    }
 
     if (targetSegments.length === 0) {
         return {
@@ -562,12 +507,19 @@ export function matchFormattingByVerseAnchors({
             output.push(...targetBoundary);
         }
 
-        output.push(
-            ...normalizedTargetTokens.slice(
-                targetSegment.startIndex,
-                targetSegment.endIndex,
-            ),
-        );
+        const sourceSegment = sourceMap.get(key);
+        const matchedSegmentTokens = sourceSegment
+            ? buildTargetSegmentWithSourceIntraVerseMarkers({
+                  sourceTokens,
+                  sourceSegment,
+                  targetTokens: normalizedTargetTokens,
+                  targetSegment,
+              })
+            : normalizedTargetTokens.slice(
+                  targetSegment.startIndex,
+                  targetSegment.endIndex,
+              );
+        output.push(...matchedSegmentTokens);
         cursor = targetSegment.endIndex;
     }
 

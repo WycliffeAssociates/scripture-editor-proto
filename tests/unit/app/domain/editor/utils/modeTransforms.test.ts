@@ -10,6 +10,80 @@ import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@tests/helpers/testEditor.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
+describe("modeTransforms form-mode round-trip", () => {
+    // The user's primary invariant: switching regular → form → regular
+    // produces byte-identical USFM. Form mode is purely a presentation
+    // remapping; nothing about the underlying token stream should drift.
+    const fixtures: Array<{ name: string; usfm: string }> = [
+        {
+            name: "single-verse paragraph",
+            usfm:
+                "\\c 1\n" +
+                "\\p\n" +
+                "\\v 1 Blessed is the man who does not walk in the counsel of the wicked.",
+        },
+        {
+            name: "verse spanning paragraph + poetry",
+            usfm:
+                "\\c 1\n" +
+                "\\p\n" +
+                "\\v 5 For to which of the angels did God ever say,\n" +
+                "\\q You are my Son,\n" +
+                "\\q2 today I have become your Father?",
+        },
+        {
+            name: "paragraph holding multiple verses",
+            usfm:
+                "\\c 4\n" +
+                "\\p\n" +
+                "\\v 5 Then the devil took him into the holy city.\n" +
+                "\\v 6 If you are the Son of God, throw yourself down.",
+        },
+        {
+            name: "blank-line break inside a verse",
+            usfm:
+                "\\c 1\n" +
+                "\\p\n" +
+                "\\v 3 For this is he who was spoken of by the prophet,\n" +
+                "\\b\n" +
+                "\\q The voice of one calling out in the wilderness.",
+        },
+        {
+            name: "section heading before first verse",
+            usfm:
+                "\\c 1\n" +
+                "\\s1 Beatitudes\n" +
+                "\\p\n" +
+                "\\v 1 Blessed are the poor in spirit.",
+        },
+    ];
+
+    for (const fixture of fixtures) {
+        it(`regular → form → regular is byte-identical for ${fixture.name}`, async () => {
+            const editor = await createTestEditor(fixture.usfm, {
+                needsParagraphs: true,
+            });
+            const start = editor
+                .getEditorState()
+                .toJSON() as SerializedEditorState<SerializedLexicalNode>;
+            const startUsfm = serializeToUsfmString(
+                start.root.children as SerializedLexicalNode[],
+            );
+
+            const toForm = transformToMode(structuredClone(start), "form");
+            const backToRegular = transformToMode(
+                structuredClone(toForm),
+                "regular",
+            );
+            const backUsfm = serializeToUsfmString(
+                backToRegular.root.children as SerializedLexicalNode[],
+            );
+
+            expect(backUsfm).toBe(startUsfm);
+        });
+    }
+});
+
 describe("modeTransforms nested editor round-trip", () => {
     it("rewraps flattened footnotes when switching back to regular", async () => {
         const editor = await createTestEditor(
@@ -121,7 +195,7 @@ describe("modeTransforms nested editor round-trip", () => {
         const lintTokens = lexicalToTokens(start, {
             structuralParagraphBreaks: true,
         });
-        const lintUsfm = lintTokens.map((token) => token.text).join("");
+        const lintUsfm = lintTokens.map((token) => token.source).join("");
 
         expect(lintUsfm).toContain(
             "\\+xt Matthew 19:4\\+xt* and \\+xt Mark 10:6\\+xt*",
@@ -145,7 +219,7 @@ describe("modeTransforms nested editor round-trip", () => {
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
         const projected = lexicalToTokens(start)
-            .map((token) => token.text)
+            .map((token) => token.source)
             .join("");
 
         expect(projected).toContain("\\fqa comfort\\ft .\\f*");
@@ -167,7 +241,7 @@ describe("modeTransforms nested editor round-trip", () => {
             structuralParagraphBreaks: true,
         });
 
-        const lintUsfm = lintTokens.map((token) => token.text).join("");
+        const lintUsfm = lintTokens.map((token) => token.source).join("");
         expect(lintUsfm).toContain(
             "\\f + \\fr 1:26 \\ft MT; Syriac \\fqa and over all the beasts of the earth\\f*",
         );

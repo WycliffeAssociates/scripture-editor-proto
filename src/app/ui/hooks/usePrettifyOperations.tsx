@@ -101,15 +101,25 @@ export function useFormatOperations({
         const targetMode = inferContentEditorModeFromRootChildren(
             chapter.lexicalState.root.children,
         );
+        // Preserve the chapter's current presentation mode through the
+        // format pass. Previously this collapsed anything other than
+        // `regular` to `flat`, which kicked form mode into a USFM-shaped
+        // state on every Format Chapter run.
+        const rebuildMode =
+            targetMode === EDITOR_MODES.regular
+                ? "regular"
+                : targetMode === EDITOR_MODES.form
+                  ? "form"
+                  : "flat";
         chapter.lexicalState = tokensToLexical({
             tokens: result.tokens,
             direction,
-            mode: targetMode === EDITOR_MODES.regular ? "regular" : "flat",
+            mode: rebuildMode,
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =
-            result.tokens.map((token) => token.text).join("") !==
-            chapter.sourceTokens.map((token) => token.text).join("");
+            result.tokens.map((token) => token.source).join("") !==
+            chapter.sourceTokens.map((token) => token.source).join("");
         return { changed: true as const };
     };
 
@@ -122,7 +132,9 @@ export function useFormatOperations({
         ]);
         if (!result.appliedChanges.length) return { changed: false as const };
 
-        const nextBookUsfm = result.tokens.map((token) => token.text).join("");
+        const nextBookUsfm = result.tokens
+            .map((token) => token.source)
+            .join("");
         await rebuildParsedFileFromUsfm({
             targetFile: file,
             sourceUsfm: nextBookUsfm,
@@ -296,7 +308,7 @@ export function useFormatOperations({
                         });
 
                         const nextBookUsfm = result.tokens
-                            .map((token) => token.text)
+                            .map((token) => token.source)
                             .join("");
                         await rebuildParsedFileFromUsfm({
                             targetFile: file,

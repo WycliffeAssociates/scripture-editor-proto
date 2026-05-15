@@ -1,11 +1,12 @@
-import type { LexicalEditor, SerializedLexicalNode } from "lexical";
+import type { LexicalEditor } from "lexical";
 import { useEffect, useRef } from "react";
-import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
-import type { Settings } from "@/app/data/settings.ts";
 import {
-    isRegularModeRootChildren,
-    transformToMode,
-} from "@/app/domain/editor/utils/modeTransforms.ts";
+    type ContentEditorModeSetting,
+    EDITOR_MODES,
+    type EditorModeSetting,
+} from "@/app/data/editor.ts";
+import type { Settings } from "@/app/data/settings.ts";
+import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type {
     ScriptureBookState,
@@ -169,34 +170,34 @@ export function useModeSwitching({
             pendingModeCompleteRef.current = null;
         }
 
+        // Already in the requested mode — skip the dirty-save / re-transform path.
+        // Running it would call `saveCurrentDirtyLexical()` which reads the editor's
+        // *current* state and writes it back to `chapter.lexicalState`. If a caller
+        // (e.g. match-formatting) just mutated `chapter.lexicalState` ahead of time
+        // and hasn't pushed it to the editor yet, that write would clobber the
+        // pending change with the editor's stale view.
+        if (next === resolvedEditorMode) {
+            return;
+        }
+
         const inProgress = saveCurrentDirtyLexical();
         const filesToUse = inProgress || mutWorkingFilesRef;
         let thisChapterUpdated: ScriptureChapterState | undefined;
 
+        const targetTransformMode: ContentEditorModeSetting =
+            next === EDITOR_MODES.view
+                ? EDITOR_MODES.regular
+                : (next as ContentEditorModeSetting);
+
         for (const { file, chapter } of walkChapters(filesToUse)) {
-            const rootChildren = chapter.lexicalState.root
-                .children as SerializedLexicalNode[];
-
-            const isCurrentlyParagraphMode =
-                isRegularModeRootChildren(rootChildren);
-            const wantsParagraphMode =
-                next === EDITOR_MODES.regular || next === EDITOR_MODES.view;
-
-            if (isCurrentlyParagraphMode === wantsParagraphMode) {
-                // Already in correct format, skip transformation
-                if (
-                    chapter.chapterNumber === currentChapter &&
-                    file.bookCode === currentFileBibleIdentifier
-                ) {
-                    thisChapterUpdated = chapter;
-                }
-                continue;
-            }
-
-            chapter.lexicalState = transformToMode(
+            const transformed = transformToMode(
                 chapter.lexicalState,
-                wantsParagraphMode ? EDITOR_MODES.regular : EDITOR_MODES.usfm,
+                targetTransformMode,
             );
+
+            if (transformed !== chapter.lexicalState) {
+                chapter.lexicalState = transformed;
+            }
 
             if (
                 chapter.chapterNumber === currentChapter &&

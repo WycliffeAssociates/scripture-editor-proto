@@ -221,10 +221,8 @@ export const ProjectProvider = ({
         referenceResource,
         setIsProcessing: project.setIsProcessing,
         setFormatMatchReport: project.setFormatMatchReport,
-        autoOpenFormatMatchSuggestions: project.autoOpenFormatMatchSuggestions,
         setIsFormatMatchSuggestionsOpen:
             project.setIsFormatMatchSuggestionsOpen,
-        projectLanguageDirection,
         targetMarkerPreservationMode: project.targetMarkerPreservationMode,
         history,
     });

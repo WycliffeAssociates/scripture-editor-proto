@@ -1,4 +1,4 @@
-import { Code, Eye, EyeOff } from "lucide-react";
+import { Code, Eye, EyeOff, FormInput } from "lucide-react";
 import React from "react";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import type { EditorAction } from "./types.ts";
@@ -72,6 +72,23 @@ export const MODE_ACTIONS: EditorAction[] = [
         execute: (_editor, context) => {
             if (context.editorMode === EDITOR_MODES.usfm) return undefined;
             context.actions.setEditorMode?.(EDITOR_MODES.usfm);
+            return undefined;
+        },
+    },
+    {
+        id: "switch-form",
+        // todo: not only this one, but this whole actionPallete isn't localized like should be
+        label: (context) =>
+            context.editorMode === EDITOR_MODES.form
+                ? "Form Mode (Current)"
+                : "Form Mode",
+        category: "Modes",
+        icon: React.createElement(FormInput, { size: 16 }),
+        isVisible: () => true,
+        isDisabled: (context) => context.editorMode === EDITOR_MODES.form,
+        execute: (_editor, context) => {
+            if (context.editorMode === EDITOR_MODES.form) return undefined;
+            context.actions.setEditorMode?.(EDITOR_MODES.form);
             return undefined;
         },
     },

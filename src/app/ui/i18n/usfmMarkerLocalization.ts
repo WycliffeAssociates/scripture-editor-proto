@@ -37,7 +37,6 @@ export function getLocalizedUsfmMarkerLabel(marker: string): string {
         case "b":
             return t`Intentional line break`;
         case "m":
-            return t`Non-indented paragraph`;
         case "p":
             return t`Paragraph`;
         case "q":

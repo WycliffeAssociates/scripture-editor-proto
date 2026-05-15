@@ -122,7 +122,7 @@ describe("matchFormattingByVerseAnchors", () => {
         expect(result.suggestions).toHaveLength(0);
     });
 
-    it("emits skipped suggestions for intra-verse markers that are not boundary markers", () => {
+    it("copies missing intra-verse markers into the target segment", () => {
         const sourceTokens: PrettifyToken[] = [
             marker("c"),
             number("1"),
@@ -155,14 +155,23 @@ describe("matchFormattingByVerseAnchors", () => {
             scope: "project",
         });
 
-        expect(result.suggestions).toHaveLength(1);
-        expect(result.suggestions[0]).toMatchObject({
-            scope: "project",
-            marker: "q",
-            verse: "1",
-            chapter: 1,
-            bookCode: "PSA",
-        });
+        const verse1Index = result.tokens.findIndex(
+            (token) =>
+                token.tokenType === TokenMap.marker && token.sid === "PSA 1:1",
+        );
+        const verse2Index = result.tokens.findIndex(
+            (token) =>
+                token.tokenType === TokenMap.marker && token.sid === "PSA 1:2",
+        );
+        const verse1Body = result.tokens.slice(verse1Index, verse2Index);
+
+        expect(
+            verse1Body.some(
+                (token) =>
+                    token.tokenType === TokenMap.marker && token.marker === "q",
+            ),
+        ).toBe(true);
+        expect(result.suggestions).toHaveLength(0);
     });
 
     it("does not suggest intra-verse markers already present in target in sequence", () => {
@@ -261,7 +270,7 @@ describe("matchFormattingByVerseAnchors", () => {
         ).toHaveLength(1);
     });
 
-    it("does not carry source s5 markers", () => {
+    it("carries source s5 markers", () => {
         const sourceTokens: PrettifyToken[] = [
             marker("c"),
             number("1"),
@@ -297,7 +306,7 @@ describe("matchFormattingByVerseAnchors", () => {
                     token.tokenType === TokenMap.marker &&
                     token.marker === "s5",
             ),
-        ).toBe(false);
+        ).toBe(true);
         expect(
             result.tokens.some(
                 (token) =>
@@ -306,7 +315,7 @@ describe("matchFormattingByVerseAnchors", () => {
         ).toBe(true);
     });
 
-    it("keeps boundary markers across disallowed s5 separators", () => {
+    it("keeps boundary markers across s5 separators", () => {
         const sourceTokens: PrettifyToken[] = [
             marker("c"),
             number("1"),
@@ -364,15 +373,70 @@ describe("matchFormattingByVerseAnchors", () => {
             ),
         ).toBe(true);
         expect(
-            result.tokens.some(
+            boundaryBeforeVerse15.some(
                 (token) =>
                     token.tokenType === TokenMap.marker &&
                     token.marker === "s5",
             ),
-        ).toBe(false);
+        ).toBe(true);
         expect(
             result.suggestions.map((suggestion) => suggestion.marker),
         ).not.toContain("b");
+    });
+
+    it("strictly mirrors source s5 and paragraph boundaries before the next verse", () => {
+        const sourceTokens: PrettifyToken[] = [
+            marker("c"),
+            number("1"),
+            nl(),
+            marker("p"),
+            nl(),
+            marker("v", "REV 1:3"),
+            number("3", "REV 1:3"),
+            text(" Blessed is the one who reads aloud", "REV 1:3"),
+            nl(),
+            marker("s5"),
+            nl(),
+            marker("p"),
+            nl(),
+            marker("v", "REV 1:4"),
+            number("4", "REV 1:4"),
+            text(" John, to the seven churches", "REV 1:4"),
+        ];
+        const targetTokens: PrettifyToken[] = [
+            marker("c"),
+            number("1"),
+            nl(),
+            marker("p"),
+            nl(),
+            marker("v", "REV 1:3"),
+            number("3", "REV 1:3"),
+            text(" Ali nuvukasu oyo asomanga", "REV 1:3"),
+            marker("v", "REV 1:4"),
+            number("4", "REV 1:4"),
+            text(" Yohana, yarumwa khumakanisa", "REV 1:4"),
+        ];
+
+        const result = matchFormattingByVerseAnchors({
+            sourceTokens,
+            targetTokens,
+            scope: "chapter",
+        });
+
+        const verse4Index = result.tokens.findIndex(
+            (token) =>
+                token.tokenType === TokenMap.marker && token.sid === "REV 1:4",
+        );
+        const boundaryBeforeVerse4 = result.tokens.slice(
+            Math.max(0, verse4Index - 5),
+            verse4Index,
+        );
+
+        expect(
+            boundaryBeforeVerse4.map((token) =>
+                token.tokenType === TokenMap.marker ? token.marker : token.text,
+            ),
+        ).toEqual(["\n", "s5", "\n", "p", "\n"]);
     });
 
     it("recommended mode preserves inline markers but strips boundary-style markers", () => {
