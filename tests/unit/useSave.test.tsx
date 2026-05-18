@@ -133,7 +133,6 @@ function HookHarness(props: {
     onState: (value: ReturnType<typeof useSave>) => void;
 }) {
     const value = useSave({
-        mutWorkingFilesRef: [],
         workingFilesStore: STABLE_WORKING_FILES_STORE,
         editorRef: { current: null },
         pickedFile: null,

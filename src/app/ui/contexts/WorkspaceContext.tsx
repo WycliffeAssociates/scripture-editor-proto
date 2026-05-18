@@ -189,7 +189,6 @@ export const ProjectProvider = ({
     const [isRefreshingRemoteStatus, setIsRefreshingRemoteStatus] =
         useState(false);
     const save = useSave({
-        mutWorkingFilesRef: mutWorkingFilesRef.current,
         workingFilesStore,
         // setWorkingFiles,
         editorRef: editorRef,

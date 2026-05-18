@@ -34,7 +34,6 @@ import type {
 } from "@/core/persistence/WorkspaceService.ts";
 
 type UseSaveProps = {
-    mutWorkingFilesRef: ScriptureBookState[];
     workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
@@ -63,7 +62,6 @@ export type UseSaveReturn = ReturnType<typeof useSave>;
  * revert execution.
  */
 export function useSave({
-    mutWorkingFilesRef,
     workingFilesStore,
     editorRef,
     pickedFile,
@@ -115,7 +113,7 @@ export function useSave({
     });
 
     const compare = useExternalCompare({
-        mutWorkingFilesRef,
+        workingFilesStore,
         loadedProject,
         projectsService,
         fileSystem,
@@ -284,28 +282,14 @@ export function useSave({
         },
     };
 
-    /**
-     * TODO(stage-1C): shim — sync the legacy `mutWorkingFilesRef` from the
-     * store before delegating into `useExternalCompare`, which still reads
-     * `args.mutWorkingFilesRef` extensively (~40 sites). Stage 1C migrates
-     * those reads directly to the store using Option D (clone + commit for
-     * the in-place-mutation paths around applyIncomingHunkToCurrent /
-     * applyIncomingChapter / applyIncomingAll) and then removes this sync,
-     * the no-op callback passed below, and the `saveCurrentDirtyLexical`
-     * parameter on `useExternalCompare.openRemoteLatestReview` itself.
-     * Tracking: progress.md "Stage 1B shim inventory" item 1.
-     */
     const openRemoteLatestReview = async (options?: {
         openModalOnRequiresReview?: boolean;
-    }) => {
-        syncMutWorkingFilesRefFromStore(mutWorkingFilesRef, workingFilesStore);
-        return compare.actions.openRemoteLatestReview(
-            () => {},
+    }) =>
+        compare.actions.openRemoteLatestReview(
             diff.actions.open,
             diff.state.isOpen,
             options,
         );
-    };
 
     return {
         diff: {
@@ -357,20 +341,4 @@ export function useSave({
             applyIncomingAll: compare.actions.applyIncomingAll,
         },
     };
-}
-
-/**
- * TODO(stage-1C): shim — copy the store's working-files state into the legacy
- * `mutWorkingFilesRef` array, preserving the array's reference identity so
- * deeply-attached consumers (useExternalCompare etc.) keep working without a
- * deeper migration. Removed once 1C migrates those reads directly to the
- * store. See progress.md "Stage 1B shim inventory" item 1.
- */
-function syncMutWorkingFilesRefFromStore(
-    mutWorkingFilesRef: ScriptureBookState[],
-    workingFilesStore: WorkingFilesStore,
-): void {
-    const fresh = workingFilesStore.read();
-    mutWorkingFilesRef.length = 0;
-    for (const file of fresh) mutWorkingFilesRef.push(file);
 }

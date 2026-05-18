@@ -28,6 +28,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     createDiffCalculationRunner,
     yieldToMainThread,
@@ -268,7 +269,7 @@ function collectChangedBookCodes(args: {
  * and exposes apply/refresh helpers for the compare UI.
  */
 export function useExternalCompare(args: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     loadedProject: Project;
     projectsService: OpenProjectService & ReadOnlyOpenProjectService;
     fileSystem: FileSystem;
@@ -343,7 +344,7 @@ export function useExternalCompare(args: {
         cleanup?: () => Promise<void>,
     ) {
         const result = await buildCompareResultAsync({
-            currentFiles: args.mutWorkingFilesRef,
+            currentFiles: args.workingFilesStore.read(),
             usfmOnionService: args.usfmOnionService,
             config: buildExternalCompareConfig(),
             sourceFiles,
@@ -369,7 +370,8 @@ export function useExternalCompare(args: {
     ): Promise<DirtySemanticSidMap> {
         const dirtyScope = chapterRefs
             .map(({ bookCode, chapterNum }) => {
-                const currentChapter = args.mutWorkingFilesRef
+                const currentChapter = args.workingFilesStore
+                    .read()
                     .find((file) => file.bookCode === bookCode)
                     ?.chapters.find(
                         (chapter) => chapter.chapterNumber === chapterNum,
@@ -487,7 +489,7 @@ export function useExternalCompare(args: {
             const remoteByBook =
                 buildBookTextByCodeFromSnapshot(remoteSnapshot);
             const workingByBook = buildBookTextByCodeFromScriptureFiles(
-                args.mutWorkingFilesRef,
+                args.workingFilesStore.read(),
             );
 
             const localChangedBooks = collectChangedBookCodes({
@@ -518,31 +520,58 @@ export function useExternalCompare(args: {
                 return null;
             }
 
+            const workingDraft = structuredClone(args.workingFilesStore.read());
             const preservedByBook = new Map(
-                args.mutWorkingFilesRef.map((file) => [
+                workingDraft.map((file) => [
                     file.bookCode,
                     structuredClone(file),
                 ]),
             );
             applyVersionSnapshotToWorkingFiles({
-                workingFiles: args.mutWorkingFilesRef,
+                workingFiles: workingDraft,
                 sourceFiles: argsForAuto.sourceFiles,
             });
             for (const bookCode of locallyProtectedBooks) {
                 const preserved = preservedByBook.get(bookCode);
                 if (!preserved) continue;
-                const existingIndex = args.mutWorkingFilesRef.findIndex(
+                const existingIndex = workingDraft.findIndex(
                     (file) => file.bookCode === bookCode,
                 );
                 if (existingIndex >= 0) {
-                    args.mutWorkingFilesRef[existingIndex] = preserved;
+                    workingDraft[existingIndex] = preserved;
                 } else {
-                    args.mutWorkingFilesRef.push(preserved);
+                    workingDraft.push(preserved);
                 }
             }
+            const locallyProtectedChapters = workingDraft.flatMap((file) =>
+                locallyProtectedBooks.has(file.bookCode)
+                    ? file.chapters.map((chapter) => ({
+                          bookCode: file.bookCode,
+                          chapterNum: chapter.chapterNumber,
+                      }))
+                    : [],
+            );
+            for (const chapterRef of locallyProtectedChapters) {
+                const chapter = workingDraft
+                    .find((file) => file.bookCode === chapterRef.bookCode)
+                    ?.chapters.find(
+                        (entry) =>
+                            entry.chapterNumber === chapterRef.chapterNum,
+                    );
+                if (!chapter) continue;
+                chapter.dirty = true;
+            }
+            args.workingFilesStore.commit(
+                { kind: "bulk", files: workingDraft },
+                {
+                    kind: "import",
+                    scope: { project: true },
+                    dirtyTextContent: true,
+                },
+            );
 
             const refreshed = await buildCompareResultAsync({
-                currentFiles: args.mutWorkingFilesRef,
+                currentFiles: args.workingFilesStore.read(),
                 usfmOnionService: args.usfmOnionService,
                 config: buildExternalCompareConfig(),
                 sourceFiles: argsForAuto.sourceFiles,
@@ -556,25 +585,6 @@ export function useExternalCompare(args: {
             const changedChapters = listChangedChapterRefs(
                 refreshed.diffsByChapter,
             );
-            const locallyProtectedChapters = args.mutWorkingFilesRef.flatMap(
-                (file) =>
-                    locallyProtectedBooks.has(file.bookCode)
-                        ? file.chapters.map((chapter) => ({
-                              bookCode: file.bookCode,
-                              chapterNum: chapter.chapterNumber,
-                          }))
-                        : [],
-            );
-            for (const chapterRef of locallyProtectedChapters) {
-                const chapter = args.mutWorkingFilesRef
-                    .find((file) => file.bookCode === chapterRef.bookCode)
-                    ?.chapters.find(
-                        (entry) =>
-                            entry.chapterNumber === chapterRef.chapterNum,
-                    );
-                if (!chapter) continue;
-                chapter.dirty = true;
-            }
 
             const touchedChapterMap = new Map<string, ChapterRef>();
             for (const chapterRef of [
@@ -591,7 +601,7 @@ export function useExternalCompare(args: {
                 bumpDirtyVersion: args.bumpDirtyVersion,
                 refreshUnsavedChapters: args.refreshUnsavedChapters,
                 editorRef: args.editorRef,
-                workingFiles: args.mutWorkingFilesRef,
+                workingFiles: args.workingFilesStore.read(),
                 pickedFile: args.pickedFile,
                 pickedChapter: args.pickedChapter,
             });
@@ -659,16 +669,25 @@ export function useExternalCompare(args: {
             !hasDiffsByChapter(blockedDiffsByChapter)
         ) {
             const touchedChapters = listCompareChapterRefs();
+            const behindDraft = structuredClone(args.workingFilesStore.read());
             applyVersionSnapshotToWorkingFiles({
-                workingFiles: args.mutWorkingFilesRef,
+                workingFiles: behindDraft,
                 sourceFiles: argsForAuto.sourceFiles,
             });
+            args.workingFilesStore.commit(
+                { kind: "bulk", files: behindDraft },
+                {
+                    kind: "import",
+                    scope: { project: true },
+                    dirtyTextContent: true,
+                },
+            );
             await invalidateWorkingScriptureChanges({
                 chapters: touchedChapters,
                 bumpDirtyVersion: args.bumpDirtyVersion,
                 refreshUnsavedChapters: args.refreshUnsavedChapters,
                 editorRef: args.editorRef,
-                workingFiles: args.mutWorkingFilesRef,
+                workingFiles: args.workingFilesStore.read(),
                 pickedFile: args.pickedFile,
                 pickedChapter: args.pickedChapter,
             });
@@ -751,9 +770,10 @@ export function useExternalCompare(args: {
             label: "Auto Accept Incoming Changes",
             candidates: touchedChapters,
             run: async () => {
+                const draft = structuredClone(args.workingFilesStore.read());
                 for (const chapter of fullChapterApplies) {
                     applyIncomingChapter({
-                        workingFiles: args.mutWorkingFilesRef,
+                        workingFiles: draft,
                         sourceFiles: argsForAuto.sourceFiles,
                         bookCode: chapter.bookCode,
                         chapterNum: chapter.chapterNum,
@@ -761,12 +781,20 @@ export function useExternalCompare(args: {
                 }
                 for (const diff of hunkApplies) {
                     await applyIncomingHunk({
-                        workingFiles: args.mutWorkingFilesRef,
+                        workingFiles: draft,
                         sourceFiles: argsForAuto.sourceFiles,
                         diff,
                         usfmOnionService: args.usfmOnionService,
                     });
                 }
+                args.workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
             },
         });
 
@@ -775,13 +803,13 @@ export function useExternalCompare(args: {
             bumpDirtyVersion: args.bumpDirtyVersion,
             refreshUnsavedChapters: args.refreshUnsavedChapters,
             editorRef: args.editorRef,
-            workingFiles: args.mutWorkingFilesRef,
+            workingFiles: args.workingFilesStore.read(),
             pickedFile: args.pickedFile,
             pickedChapter: args.pickedChapter,
         });
 
         const refreshed = await buildCompareResultAsync({
-            currentFiles: args.mutWorkingFilesRef,
+            currentFiles: args.workingFilesStore.read(),
             usfmOnionService: args.usfmOnionService,
             config: buildExternalCompareConfig(),
             sourceFiles: argsForAuto.sourceFiles,
@@ -798,10 +826,21 @@ export function useExternalCompare(args: {
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
         ) {
             if (!hasDiffsByChapter(refreshed.diffsByChapter)) {
+                const cleanDraft = structuredClone(
+                    args.workingFilesStore.read(),
+                );
                 applyVersionSnapshotToWorkingFiles({
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: cleanDraft,
                     sourceFiles: argsForAuto.sourceFiles,
                 });
+                args.workingFilesStore.commit(
+                    { kind: "bulk", files: cleanDraft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
             }
             const nextStatus = await acceptRemoteLatestReview({
                 projectPath: args.loadedProject.projectPath,
@@ -837,7 +876,7 @@ export function useExternalCompare(args: {
 
         const result = await buildCompareResultAsync({
             currentFiles: selectScriptureBookStatesForChapterRefs(
-                args.mutWorkingFilesRef,
+                args.workingFilesStore.read(),
                 chapters,
             ),
             sourceFiles: selectScriptureBookStatesForChapterRefs(
@@ -883,7 +922,7 @@ export function useExternalCompare(args: {
 
     function listCompareChapterRefs(): ChapterRef[] {
         const keys = new Set<string>();
-        for (const file of args.mutWorkingFilesRef) {
+        for (const file of args.workingFilesStore.read()) {
             for (const chapter of file.chapters) {
                 keys.add(`${file.bookCode}:${chapter.chapterNumber}`);
             }
@@ -1003,7 +1042,7 @@ export function useExternalCompare(args: {
             setSourceProjectId("");
             setSourceVersionHash("");
             const result = await buildCompareResultAsync({
-                currentFiles: args.mutWorkingFilesRef,
+                currentFiles: args.workingFilesStore.read(),
                 usfmOnionService: args.usfmOnionService,
                 config: buildExternalCompareConfig(),
                 sourceFiles: loaded.parsedFiles,
@@ -1054,14 +1093,12 @@ export function useExternalCompare(args: {
     }
 
     async function openRemoteLatestReview(
-        saveCurrentDirtyLexical: () => void,
-        openDiffModal: (saveCurrentDirtyLexical: () => void) => Promise<void>,
+        openDiffModal: () => Promise<void>,
         isDiffModalOpen: boolean,
         options?: {
             openModalOnRequiresReview?: boolean;
         },
     ) {
-        saveCurrentDirtyLexical();
         setMode("external");
         setSourceKind(COMPARE_SOURCE_KIND.REMOTE_LATEST);
         const result = await loadFromRemoteLatest();
@@ -1070,7 +1107,7 @@ export function useExternalCompare(args: {
             (options?.openModalOnRequiresReview ?? true) &&
             !isDiffModalOpen
         ) {
-            await openDiffModal(() => undefined);
+            await openDiffModal();
         }
         return result;
     }
@@ -1083,12 +1120,21 @@ export function useExternalCompare(args: {
                 { bookCode: diff.bookCode, chapterNum: diff.chapterNum },
             ],
             run: async () => {
+                const draft = structuredClone(args.workingFilesStore.read());
                 await applyIncomingHunk({
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
                     diff,
                     usfmOnionService: args.usfmOnionService,
                 });
+                args.workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
                 await invalidateWorkingScriptureChanges({
                     chapters: [
                         {
@@ -1099,7 +1145,7 @@ export function useExternalCompare(args: {
                     bumpDirtyVersion: args.bumpDirtyVersion,
                     refreshUnsavedChapters: args.refreshUnsavedChapters,
                     editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: args.workingFilesStore.read(),
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                 });
@@ -1122,18 +1168,27 @@ export function useExternalCompare(args: {
             label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
             candidates: [{ bookCode, chapterNum }],
             run: async () => {
+                const draft = structuredClone(args.workingFilesStore.read());
                 applyIncomingChapter({
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
                     bookCode,
                     chapterNum,
                 });
+                args.workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
                 await invalidateWorkingScriptureChanges({
                     chapters: [{ bookCode, chapterNum }],
                     bumpDirtyVersion: args.bumpDirtyVersion,
                     refreshUnsavedChapters: args.refreshUnsavedChapters,
                     editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: args.workingFilesStore.read(),
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                 });
@@ -1146,23 +1201,41 @@ export function useExternalCompare(args: {
         if (!compareResult?.sourceFiles) return;
         void args.history.runTransaction({
             label: "Take All Incoming Chapters",
-            candidates: args.mutWorkingFilesRef.flatMap((file) =>
+            candidates: args.workingFilesStore.read().flatMap((file) =>
                 file.chapters.map((chapter) => ({
                     bookCode: file.bookCode,
                     chapterNum: chapter.chapterNumber,
                 })),
             ),
             run: async () => {
+                const draft = structuredClone(args.workingFilesStore.read());
                 applyIncomingChapterAll({
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
                 });
+                if (
+                    compareResult.remoteSync?.relationship ===
+                    GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+                ) {
+                    applyVersionSnapshotToWorkingFiles({
+                        workingFiles: draft,
+                        sourceFiles: compareResult.sourceFiles ?? [],
+                    });
+                }
+                args.workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
                 await invalidateWorkingScriptureChanges({
                     chapters: listCompareChapterRefs(),
                     bumpDirtyVersion: args.bumpDirtyVersion,
                     refreshUnsavedChapters: args.refreshUnsavedChapters,
                     editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: args.workingFilesStore.read(),
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                 });
@@ -1170,10 +1243,6 @@ export function useExternalCompare(args: {
                     compareResult.remoteSync?.relationship ===
                     GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
                 ) {
-                    applyVersionSnapshotToWorkingFiles({
-                        workingFiles: args.mutWorkingFilesRef,
-                        sourceFiles: compareResult.sourceFiles ?? [],
-                    });
                     const nextStatus = await acceptRemoteLatestReview({
                         projectPath: args.loadedProject.projectPath,
                         trackedBranch: compareResult.remoteSync.trackedBranch,
