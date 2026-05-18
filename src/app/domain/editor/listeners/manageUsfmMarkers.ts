@@ -190,7 +190,16 @@ export function textNodeTransform({
  * prevents the editor from leaving behind a marker-typed node whose contents no
  * longer correspond to a real USFM marker.
  */
-export function inverseTextNodeTransform({ node }: TextNodeTransformParams) {
+export function inverseTextNodeTransform({
+    node,
+    editorMode,
+}: TextNodeTransformParams) {
+    if (
+        editorMode === EDITOR_MODES.regular ||
+        editorMode === EDITOR_MODES.view
+    ) {
+        return;
+    }
     const undoableNodeTypes = [
         UsfmTokenTypes.marker,
         UsfmTokenTypes.numberRange,
