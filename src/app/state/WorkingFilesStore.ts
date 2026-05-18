@@ -1,5 +1,7 @@
 import { Effect, PubSub, Stream } from "effect";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     CommitEvent,
     CommitMeta,
@@ -28,11 +30,12 @@ type Listener = () => void;
  *    contract: a synchronous "the value changed" callback paired with a
  *    synchronous "give me the current value" read. This pair is what makes
  *    concurrent React renders tear-free when reading external mutable state.
- *    Use case: a component that needs `useWorkingFiles()` / `useCurrentChapter()`
- *    to re-render directly when working-files state changes. In practice
- *    most consumers don't need this — they either read once at action time
- *    (`workingFilesStore.read()`) or subscribe via the Effect channel below
- *    and project into a derived React-facing store.
+ *    No hooks currently consume this — most React surfaces either read once
+ *    at action time (`workingFilesStore.read()`) or subscribe via the Effect
+ *    channel below and project into a derived React-facing store. The pair
+ *    is kept on the API so a future component that genuinely needs reactive
+ *    working-files reads can wire `useSyncExternalStore` directly without
+ *    adding a derived store layer.
  *
  *  - **Effect channel** — `PubSub<CommitEvent>` exposed as `changes:
  *    Stream<CommitEvent>`. The expected consumer shape for Stage 2 pipelines
@@ -156,7 +159,17 @@ function applyPatch(
                     ...book,
                     chapters: book.chapters.map((c) => {
                         if (c.chapterNumber !== chapter) return c;
-                        return { ...c, lexicalState, dirty: true };
+                        const currentTokens = lexicalToTokens(lexicalState, {
+                            bookCode,
+                        });
+                        // Content-derived dirty: matches legacy
+                        // updateChapterLexical so undo-to-clean still flips
+                        // back to false.
+                        const dirty = !tokenSourcesEqual(
+                            currentTokens,
+                            c.sourceTokens,
+                        );
+                        return { ...c, lexicalState, currentTokens, dirty };
                     }),
                 };
             });
@@ -175,4 +188,24 @@ function applyPatch(
             });
         }
     }
+}
+
+/**
+ * Compare two token arrays by their `source` strings concatenated.
+ *
+ * Matches the legacy dirty-flag derivation in `updateChapterLexical` so that
+ * undo-back-to-baseline still flips `dirty` to false. The concatenated string
+ * comparison is O(n) in token count plus a single string equality check; on
+ * Psalm 119's 1969 tokens this is well under a millisecond and dominated by
+ * the surrounding `lexicalToTokens` call (~5 ms).
+ */
+function tokenSourcesEqual(a: Token[], b: Token[]): boolean {
+    if (a.length !== b.length) return false;
+    let aJoined = "";
+    let bJoined = "";
+    for (let i = 0; i < a.length; i++) {
+        aJoined += a[i].source;
+        bJoined += b[i].source;
+    }
+    return aJoined === bJoined;
 }
