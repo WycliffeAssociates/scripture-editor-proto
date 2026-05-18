@@ -4,6 +4,7 @@ import type { LexicalEditor } from "lexical";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import { makeOverlayTickPipeline } from "@/app/domain/editor/pipelines/overlayTickPipeline.ts";
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import { LintStore } from "@/app/state/LintStore.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -98,6 +100,12 @@ export interface WorkSpaceContextType {
      * editor await this instead of polling `editorRef.current`.
      */
     mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
+    /**
+     * Workspace-scoped layout-tick counter. Bumped by the overlay-tick
+     * pipeline after working-files commits, and by window-level
+     * resize/scroll listeners. Overlay sinks subscribe via `useLayoutTick`.
+     */
+    layoutTickStore: LayoutTickStore;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -183,6 +191,14 @@ export const ProjectProvider = ({
     }
     const saveStatusStore = saveStatusStoreRef.current;
 
+    // Workspace-scoped layout-tick counter. Overlay/mutation sinks subscribe
+    // via `useLayoutTick` and re-measure in `useLayoutEffect`.
+    const layoutTickStoreRef = useRef<LayoutTickStore | null>(null);
+    if (layoutTickStoreRef.current === null) {
+        layoutTickStoreRef.current = new LayoutTickStore();
+    }
+    const layoutTickStore = layoutTickStoreRef.current;
+
     // Deferred<LexicalEditor> — resolves once the bridge plugin mounts. The
     // structure pipeline (and future Effect.gen commands like chapter-swap)
     // await this so they don't race the editor reference.
@@ -233,6 +249,36 @@ export const ProjectProvider = ({
             Effect.runFork(Fiber.interrupt(fiber));
         };
     }, [workingFilesStore, saveStatusStore]);
+
+    // Fork the overlay-tick pipeline. Bumps `LayoutTickStore` once per quiet
+    // 16ms after commits settle so overlay sinks can re-measure without each
+    // wiring its own MutationObserver. Window-level resize/scroll bumps below
+    // cover the non-commit layout signals.
+    useEffect(() => {
+        const pipeline = makeOverlayTickPipeline({
+            workingFilesStore,
+            layoutTickStore,
+        });
+        const fiber = Effect.runFork(pipeline);
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore, layoutTickStore]);
+
+    // Window-level resize/scroll → layout tick. Plain DOM listeners; the
+    // store coalesces (consumers debounce via rAF if they want).
+    useEffect(() => {
+        const onChange = () => layoutTickStore.bump();
+        window.addEventListener("resize", onChange);
+        window.addEventListener("scroll", onChange, {
+            capture: true,
+            passive: true,
+        });
+        return () => {
+            window.removeEventListener("resize", onChange);
+            window.removeEventListener("scroll", onChange, { capture: true });
+        };
+    }, [layoutTickStore]);
 
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
@@ -573,6 +619,7 @@ export const ProjectProvider = ({
                 bookCodeToProjectLocalizedTitle,
                 workingFilesStore,
                 mainEditorDeferred,
+                layoutTickStore,
             }}
         >
             {children}
