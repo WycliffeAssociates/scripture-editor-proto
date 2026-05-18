@@ -218,7 +218,7 @@ describe("useSave", () => {
         render(false);
 
         await act(async () => {
-            await latestState?.diff.open(vi.fn());
+            await latestState?.diff.open();
         });
 
         expect(diffOpenMock).toHaveBeenCalled();
@@ -226,14 +226,12 @@ describe("useSave", () => {
     });
 
     it("saves directly when auto-accept-own-work is enabled", async () => {
-        const saveCurrentDirtyLexical = vi.fn();
         render(true);
 
         await act(async () => {
-            await latestState?.diff.open(saveCurrentDirtyLexical);
+            await latestState?.diff.open();
         });
 
-        expect(saveCurrentDirtyLexical).toHaveBeenCalled();
         expect(saveProjectToDiskMock).toHaveBeenCalled();
         expect(diffOpenMock).not.toHaveBeenCalled();
     });

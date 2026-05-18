@@ -92,7 +92,7 @@ export function useSave({
     const versions = useVersionHistory({
         loadedProject,
         gitProvider,
-        mutWorkingFilesRef,
+        workingFilesStore,
         pickedFile,
         pickedChapter,
         editorRef,
@@ -127,7 +127,7 @@ export function useSave({
     });
 
     const diff = useDiffModalState({
-        mutWorkingFilesRef,
+        workingFilesStore,
         usfmOnionService,
         ensureVersionsLoaded: versions.actions.ensureLoaded,
         closeVersions: versions.actions.close,
@@ -220,23 +220,15 @@ export function useSave({
      * workspace state.
      */
     const saveReview = {
-        open: async (saveCurrentDirtyLexical: () => void) => {
+        open: async () => {
             if (settingsManager.get("autoAcceptOwnWorkOnSave")) {
-                saveCurrentDirtyLexical();
                 await saveAndRevert.actions.saveProjectToDisk();
                 return;
             }
-            await diff.actions.open(saveCurrentDirtyLexical);
+            await diff.actions.open();
         },
     };
 
-    // TODO(stage-1C): shim — every version-history flow that used to take a
-    // `saveCurrentDirtyLexical` flush callback now syncs the legacy
-    // `mutWorkingFilesRef` from the store at the wrapper entry and passes a
-    // no-op down. `useVersionHistory.actions.*` still reads
-    // `args.mutWorkingFilesRef` directly. 1C migrates those reads to
-    // `workingFilesStore.read()` and drops the no-op callback parameter.
-    // See progress.md "Stage 1B shim inventory" item 4.
     const versionHistory = {
         isOpen: versions.state.isOpen,
         entries: versions.state.entries,
@@ -246,12 +238,7 @@ export function useSave({
         latestHash: versions.state.latestHash,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
         open: async () => {
-            syncMutWorkingFilesRefFromStore(
-                mutWorkingFilesRef,
-                workingFilesStore,
-            );
             await versions.actions.open({
-                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
@@ -259,23 +246,13 @@ export function useSave({
         ensureLoaded: versions.actions.ensureLoaded,
         loadMore: versions.actions.loadMore,
         select: async (hash: string) => {
-            syncMutWorkingFilesRefFromStore(
-                mutWorkingFilesRef,
-                workingFilesStore,
-            );
             await versions.actions.select({
                 hash,
-                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
         backToLatest: async () => {
-            syncMutWorkingFilesRefFromStore(
-                mutWorkingFilesRef,
-                workingFilesStore,
-            );
             await versions.actions.backToLatest({
-                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
@@ -289,40 +266,7 @@ export function useSave({
             },
             saveAndContinue: () => {
                 versions.actions.saveAndContinue(() => {
-                    // Why a second sync here (we already synced at the start of
-                    // `versions.select` / `.backToLatest` / `.open`):
-                    //
-                    // The dirty-prompt is asynchronous from the user's
-                    // perspective. When the user clicks a version, we sync the
-                    // legacy `mutWorkingFilesRef` from the store and then *open
-                    // a modal asking* whether to save or discard their unsaved
-                    // changes. That modal can sit on screen for an arbitrary
-                    // amount of time, and the editor is NOT locked while it's
-                    // open — the user can click back into the editor, type
-                    // more, and then return to the modal and click "save and
-                    // continue".
-                    //
-                    // During that gap, the bridge plugin has been pushing every
-                    // editor commit straight into `workingFilesStore`. The
-                    // store is fresh. But `mutWorkingFilesRef` only got the
-                    // snapshot we copied at click-time — it's now stale by
-                    // however many keystrokes happened during the prompt.
-                    //
-                    // `diff.actions.open` (called below) hands off to
-                    // `useDiffModalState`, which reads `args.mutWorkingFilesRef`
-                    // to build the save-review diff. Without a re-sync here it
-                    // would diff the stale snapshot, missing the user's most
-                    // recent keystrokes. Mirror the store into the legacy ref
-                    // again, then open the modal.
-                    //
-                    // TODO(stage-1C): once `useDiffModalState` reads from the
-                    // store directly, both this sync and the one at
-                    // `versions.select` / etc. can disappear.
-                    syncMutWorkingFilesRefFromStore(
-                        mutWorkingFilesRef,
-                        workingFilesStore,
-                    );
-                    void diff.actions.open(() => {});
+                    void diff.actions.open();
                 });
             },
         },

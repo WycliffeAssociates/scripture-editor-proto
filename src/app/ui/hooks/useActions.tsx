@@ -195,12 +195,12 @@ export const useWorkspaceActions = ({
         _currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
     ): Token[] {
-        saveCurrentDirtyLexicalWrapper();
-
         const targetBookCode = opts?.bookCode;
         const fileForLint =
             (targetBookCode
-                ? mutWorkingFilesRef.find((f) => f.bookCode === targetBookCode)
+                ? workingFilesStore
+                      .read()
+                      .find((f) => f.bookCode === targetBookCode)
                 : null) ?? pickedFile;
 
         if (!fileForLint) return [];
