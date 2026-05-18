@@ -15,6 +15,7 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
     useSyncExternalStore,
 } from "react";
@@ -68,7 +69,7 @@ export function useLint({
 
     const [scope, setScope] = useState<LintScope>("local");
     const [issueTypeFilter, setIssueTypeFilter] =
-        useState<LintIssueTypeFilter>("content");
+        useState<LintIssueTypeFilter>("all");
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
 
@@ -98,21 +99,38 @@ export function useLint({
         return set;
     }, [typeFilteredAllIssues]);
 
-    // Reset selection to "all" when the universe of codes/books changes and
-    // the current selection no longer matches anything available.
+    // Reconcile selection when the universe of codes/books changes:
+    // - drop selections that no longer exist
+    // - if the previous selection was matching-all, expand to include
+    //   any newly-arrived entries (otherwise new lint codes for a fully-
+    //   checked filter would silently arrive de-selected)
+    const prevKnownCodesRef = useRef<Set<string>>(new Set());
     useEffect(() => {
+        const prev = prevKnownCodesRef.current;
+        prevKnownCodesRef.current = knownCodes;
         const allCodes = Array.from(knownCodes);
         setSelectedCodes((current) => {
             if (!current.length) return allCodes;
+            const wasMatchingAll =
+                current.length === prev.size &&
+                current.every((code) => prev.has(code));
+            if (wasMatchingAll) return allCodes;
             const next = current.filter((code) => knownCodes.has(code));
             return next.length ? next : allCodes;
         });
     }, [knownCodes]);
 
+    const prevKnownBooksRef = useRef<Set<string>>(new Set());
     useEffect(() => {
+        const prev = prevKnownBooksRef.current;
+        prevKnownBooksRef.current = knownBooks;
         const allBooks = Array.from(knownBooks);
         setSelectedBooks((current) => {
             if (!current.length) return allBooks;
+            const wasMatchingAll =
+                current.length === prev.size &&
+                current.every((book) => prev.has(book));
+            if (wasMatchingAll) return allBooks;
             const next = current.filter((book) => knownBooks.has(book));
             return next.length ? next : allBooks;
         });
