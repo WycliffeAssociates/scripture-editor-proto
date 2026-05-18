@@ -4,6 +4,7 @@ import type { LexicalEditor } from "lexical";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
+import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import {
     GIT_REMOTE_OPEN_STATUS_NOT_LINKED,
     type GitRemoteOpenStatusResult,
@@ -16,6 +17,7 @@ import {
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LintStore } from "@/app/state/LintStore.ts";
+import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -160,6 +162,20 @@ export const ProjectProvider = ({
     }
     const lintStore = lintStoreRef.current;
 
+    // Workspace-scoped save-lifecycle store. Initial status follows the
+    // working files: dirty if any chapter is dirty (e.g., crash-recovery load
+    // from cache); clean otherwise.
+    const saveStatusStoreRef = useRef<SaveStatusStore | null>(null);
+    if (saveStatusStoreRef.current === null) {
+        const startsDirty = projectFiles.some((file) =>
+            file.chapters.some((chapter) => chapter.dirty),
+        );
+        saveStatusStoreRef.current = new SaveStatusStore(
+            startsDirty ? { kind: "dirty" } : { kind: "clean" },
+        );
+    }
+    const saveStatusStore = saveStatusStoreRef.current;
+
     const {
         settingsManager,
         projectsService,
@@ -170,11 +186,9 @@ export const ProjectProvider = ({
         usfmOnionService,
         gitProvider,
     } = useRouter().options.context;
-    // Fork the lint pipeline as a workspace-scoped fiber. The pipeline
-    // subscribes to `workingFilesStore.changes`, debounces, switchMaps to
-    // `lintExisting`, and writes results into the LintStore. In Stage 2A.2
-    // the legacy `useEditorLinter` listener still runs alongside; 2A.3
-    // deletes it once we verify the pipeline produces matching output.
+    // Fork the lint pipeline as a workspace-scoped fiber. Subscribes to
+    // `workingFilesStore.changes`, debounces, switchMaps to `lintExisting`,
+    // writes results into LintStore. See `makeLintPipeline` for the filter.
     useEffect(() => {
         const pipeline = makeLintPipeline({
             workingFilesStore,
@@ -186,6 +200,20 @@ export const ProjectProvider = ({
             Effect.runFork(Fiber.interrupt(fiber));
         };
     }, [workingFilesStore, lintStore, usfmOnionService]);
+
+    // Fork the save-status pipeline as a workspace-scoped fiber. Flips
+    // SaveStatusStore to `dirty` on every text-changing commit. See
+    // `makeSaveStatusPipeline` for the filter.
+    useEffect(() => {
+        const pipeline = makeSaveStatusPipeline({
+            workingFilesStore,
+            saveStatusStore,
+        });
+        const fiber = Effect.runFork(pipeline);
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore, saveStatusStore]);
 
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
@@ -209,6 +237,7 @@ export const ProjectProvider = ({
         useState(false);
     const save = useSave({
         workingFilesStore,
+        saveStatusStore,
         // setWorkingFiles,
         editorRef: editorRef,
         pickedFile: project.pickedFile,

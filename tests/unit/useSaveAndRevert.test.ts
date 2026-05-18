@@ -5,6 +5,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -253,6 +254,7 @@ describe("useSaveAndRevert", () => {
 
         const save = useSaveAndRevert({
             workingFilesStore: store,
+            saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,
@@ -350,6 +352,7 @@ describe("useSaveAndRevert", () => {
 
         const save = useSaveAndRevert({
             workingFilesStore: store,
+            saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,

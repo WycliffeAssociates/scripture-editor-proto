@@ -127,6 +127,16 @@ const STABLE_WORKING_FILES_STORE = {
     subscribe: () => () => {},
     getSnapshot: () => STABLE_EMPTY_WORKING_FILES,
 } as never;
+const STABLE_SAVE_STATUS_STORE = {
+    read: () => ({ kind: "clean" }),
+    getSnapshot: () => ({ kind: "clean" }),
+    subscribe: () => () => {},
+    setDirty: () => {},
+    setCleanFromCommit: () => {},
+    setSaving: () => {},
+    setSaved: () => {},
+    setFailed: () => {},
+} as never;
 
 function HookHarness(props: {
     autoAcceptOwnWorkOnSave: boolean;
@@ -134,6 +144,7 @@ function HookHarness(props: {
 }) {
     const value = useSave({
         workingFilesStore: STABLE_WORKING_FILES_STORE,
+        saveStatusStore: STABLE_SAVE_STATUS_STORE,
         editorRef: { current: null },
         pickedFile: null,
         pickedChapter: null,

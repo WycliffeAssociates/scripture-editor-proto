@@ -13,6 +13,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useDiffModalState } from "@/app/ui/hooks/save/useDiffModalState.ts";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
@@ -35,6 +36,7 @@ import type {
 
 type UseSaveProps = {
     workingFilesStore: WorkingFilesStore;
+    saveStatusStore: SaveStatusStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
@@ -63,6 +65,7 @@ export type UseSaveReturn = ReturnType<typeof useSave>;
  */
 export function useSave({
     workingFilesStore,
+    saveStatusStore,
     editorRef,
     pickedFile,
     pickedChapter,
@@ -148,6 +151,7 @@ export function useSave({
 
     const saveAndRevert = useSaveAndRevert({
         workingFilesStore,
+        saveStatusStore,
         editorRef,
         pickedFile,
         pickedChapter,

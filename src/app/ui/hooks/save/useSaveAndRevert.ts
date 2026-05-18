@@ -22,6 +22,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     ShowErrorNotification,
@@ -51,6 +52,7 @@ import {
  */
 export function useSaveAndRevert(args: {
     workingFilesStore: WorkingFilesStore;
+    saveStatusStore: SaveStatusStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
@@ -87,6 +89,7 @@ export function useSaveAndRevert(args: {
     async function saveProjectToDisk(options?: {
         prepareRemoteBaseForSave?: () => Promise<void>;
     }) {
+        args.saveStatusStore.setSaving();
         const dirtyChapterRefs = listDirtyChapterRefs(
             args.workingFilesStore.read(),
         ).map(({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`);
@@ -132,6 +135,7 @@ export function useSaveAndRevert(args: {
 
         if (saveError) {
             console.error(saveError);
+            args.saveStatusStore.setFailed(saveError);
         } else if (Object.keys(toSave).length > 0) {
             ShowNotificationSuccess({
                 notification: {
@@ -224,6 +228,9 @@ export function useSaveAndRevert(args: {
         );
         args.clearUnsavedDiffs();
         args.bumpDirtyVersion();
+        if (!saveError) {
+            args.saveStatusStore.setSaved();
+        }
     }
 
     async function discardAllChanges() {
