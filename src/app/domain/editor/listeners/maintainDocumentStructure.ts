@@ -113,7 +113,7 @@ export function maintainDocumentStructure(
                 {
                     tag: [
                         EDITOR_TAGS_USED.historyMerge,
-                        // EDITOR_TAGS_USED.programaticIgnore,
+                        EDITOR_TAGS_USED.programmaticStructuralFix,
                     ],
                 },
             );

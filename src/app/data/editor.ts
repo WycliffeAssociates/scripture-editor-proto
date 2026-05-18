@@ -80,6 +80,10 @@ export const UsfmTokenTypes = {
 export const EDITOR_TAGS_USED = {
     programaticIgnore: "programatic-ignore",
     programmaticDoRunChanges: "programmatic-do-run-changes",
+    // Marks structure/metadata writebacks from the structure-maintenance
+    // pipeline. The bridge maps this to commit kind "structuralFixup"; downstream
+    // pipelines filter that kind out to break the feedback loop.
+    programmaticStructuralFix: "programmatic-structural-fix",
     historyMerge: HISTORY_MERGE_TAG,
     historic: HISTORIC_TAG,
 };

@@ -225,9 +225,11 @@ export function maintainDocumentMetaData(
             }
         },
         {
+            // The bridge classifies this as `kind: "structuralFixup"`; the
+            // historyMerge tag keeps these writebacks out of the undo stack.
             tag: [
                 EDITOR_TAGS_USED.historyMerge,
-                EDITOR_TAGS_USED.programaticIgnore,
+                EDITOR_TAGS_USED.programmaticStructuralFix,
             ],
         },
     );

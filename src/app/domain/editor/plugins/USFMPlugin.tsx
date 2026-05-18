@@ -2,7 +2,6 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useEffect } from "react";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useEditorInput } from "@/app/domain/editor/hooks/useEditorInput.ts";
-import { useEditorStructure } from "@/app/domain/editor/hooks/useEditorStructure.ts";
 import { useEditorView } from "@/app/domain/editor/hooks/useEditorView.ts";
 import { LintDomAnnotatorPlugin } from "@/app/domain/editor/plugins/LintDomAnnotatorPlugin.tsx";
 import { SearchReplaceSuggestPlugin } from "@/app/domain/editor/plugins/SearchReplaceSuggestPlugin.tsx";
@@ -19,7 +18,6 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
     const { actions, project } = useWorkspaceContext();
-    useEditorStructure(editor);
     useEditorInput(editor);
     useEditorView(editor);
 

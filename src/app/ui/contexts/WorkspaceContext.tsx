@@ -1,10 +1,11 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
-import { Effect, Fiber } from "effect";
+import { Deferred, Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
-import type { SettingsManager } from "@/app/data/settings.ts";
+import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
+import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import {
     GIT_REMOTE_OPEN_STATUS_NOT_LINKED,
     type GitRemoteOpenStatusResult,
@@ -91,6 +92,12 @@ export interface WorkSpaceContextType {
      * stream.
      */
     workingFilesStore: WorkingFilesStore;
+    /**
+     * Resolved by `WorkingFilesBridgePlugin` once the Lexical editor mounts.
+     * Effect-side commands and pipelines that need to write back into the
+     * editor await this instead of polling `editorRef.current`.
+     */
+    mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -176,6 +183,18 @@ export const ProjectProvider = ({
     }
     const saveStatusStore = saveStatusStoreRef.current;
 
+    // Deferred<LexicalEditor> — resolves once the bridge plugin mounts. The
+    // structure pipeline (and future Effect.gen commands like chapter-swap)
+    // await this so they don't race the editor reference.
+    const mainEditorDeferredRef =
+        useRef<Deferred.Deferred<LexicalEditor> | null>(null);
+    if (mainEditorDeferredRef.current === null) {
+        mainEditorDeferredRef.current = Effect.runSync(
+            Deferred.make<LexicalEditor>(),
+        );
+    }
+    const mainEditorDeferred = mainEditorDeferredRef.current;
+
     const {
         settingsManager,
         projectsService,
@@ -222,6 +241,31 @@ export const ProjectProvider = ({
         queryBookOverride,
         queryChapterOverride,
     );
+
+    // Refs read by the structure pipeline at fire time. Kept in sync below so
+    // edits made after the fiber forks still see current settings/book.
+    const appSettingsRef = useRef<Settings>(project.appSettings);
+    appSettingsRef.current = project.appSettings;
+    const visibleBookCodeRef = useRef<string>(project.pickedFile.bookCode);
+    visibleBookCodeRef.current = project.pickedFile.bookCode;
+
+    // Fork the structure-maintenance pipeline as a workspace-scoped fiber.
+    // Filters `userEdit && dirtyTextContent`, debounces, awaits the editor
+    // Deferred, then runs structure + metadata passes. Writebacks publish as
+    // `kind: "structuralFixup"` (filtered by every other pipeline, including
+    // this one) which breaks the feedback loop.
+    useEffect(() => {
+        const pipeline = makeStructureMaintenancePipeline({
+            workingFilesStore,
+            mainEditorDeferred,
+            getAppSettings: () => appSettingsRef.current,
+            getVisibleBookCode: () => visibleBookCodeRef.current,
+        });
+        const fiber = Effect.runFork(pipeline);
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore, mainEditorDeferred]);
     const history = useCustomHistory({
         workingFilesStore,
         editorRef,
@@ -528,6 +572,7 @@ export const ProjectProvider = ({
                 isProcessing: project.isProcessing,
                 bookCodeToProjectLocalizedTitle,
                 workingFilesStore,
+                mainEditorDeferred,
             }}
         >
             {children}
