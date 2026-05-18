@@ -13,6 +13,7 @@ import {
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import {
@@ -78,6 +79,12 @@ export interface WorkSpaceContextType {
     cssStyleSheet: UseDynamicStylesheetHook;
     save: UseSaveReturn;
     history: CustomHistoryHook;
+    /**
+     * Single source of live current truth for working-files state. Stage 1A
+     * shadow-mirrors `mutWorkingFilesRef`; Stage 1B migrates consumers off the
+     * pull-based path; Stage 1C deletes the ref entirely.
+     */
+    workingFilesStore: WorkingFilesStore;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -135,6 +142,15 @@ export const ProjectProvider = ({
 
     // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
     const mutWorkingFilesRef = useRef(projectFiles);
+
+    // Stage 1A: parallel push-based store. The editor's bridge plugin commits
+    // here on every update; consumers read via `workingFilesStore.read()`
+    // instead of pulling via `saveCurrentDirtyLexical()`.
+    const workingFilesStoreRef = useRef<WorkingFilesStore | null>(null);
+    if (workingFilesStoreRef.current === null) {
+        workingFilesStoreRef.current = new WorkingFilesStore(projectFiles);
+    }
+    const workingFilesStore = workingFilesStoreRef.current;
 
     const {
         settingsManager,
@@ -349,7 +365,11 @@ export const ProjectProvider = ({
     // sync props to state: Be sure all dirty work is saved before navigating away or closing app
     useEffect(() => {
         mutWorkingFilesRef.current = projectFiles;
-    }, [projectFiles]);
+        // Mirror into the store without publishing a commit event — this is a
+        // structural reload, not an edit. Subscribers that need to react to a
+        // fresh project listen for the route-level load instead.
+        workingFilesStore.reset(projectFiles);
+    }, [projectFiles, workingFilesStore]);
 
     // keep ref in sync when React commits new state
     // useEffect(() => {
@@ -467,6 +487,7 @@ export const ProjectProvider = ({
                 projectLanguageDirection,
                 isProcessing: project.isProcessing,
                 bookCodeToProjectLocalizedTitle,
+                workingFilesStore,
             }}
         >
             {children}

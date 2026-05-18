@@ -21,6 +21,7 @@ import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPl
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -116,6 +117,7 @@ export function MainEditor() {
                 <NodeContextMenuPlugin />
                 {/* <StructuralEmptyMarkerChipsPlugin /> */}
                 <UsfmPeekOverlayPlugin />
+                <WorkingFilesBridgePlugin />
             </LexicalComposer>
         </div>
     );
