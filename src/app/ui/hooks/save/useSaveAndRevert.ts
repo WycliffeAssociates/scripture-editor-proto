@@ -22,6 +22,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     ShowErrorNotification,
     ShowNotificationSuccess,
@@ -49,7 +50,7 @@ import {
  * and keeps the diff/history UI aligned with the new saved state.
  */
 export function useSaveAndRevert(args: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
@@ -73,17 +74,23 @@ export function useSaveAndRevert(args: {
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     prepareRemoteBaseForSave?: () => Promise<void>;
 }) {
-    const hasUnsavedChanges = args.mutWorkingFilesRef.some((file) =>
-        file.chapters.some((chapter) => chapter.dirty),
-    );
+    // `hasUnsavedChanges` is recomputed every time this hook re-runs. To
+    // keep it current as the user types, the *parent* (useSave) subscribes
+    // to the store via useSyncExternalStore; that re-renders useSave and
+    // therefore re-invokes this hook with a fresh `read()`. Subscribing
+    // here would couple the hook to React and break unit tests that call
+    // it directly.
+    const hasUnsavedChanges = args.workingFilesStore
+        .read()
+        .some((file) => file.chapters.some((chapter) => chapter.dirty));
 
     async function saveProjectToDisk(options?: {
         prepareRemoteBaseForSave?: () => Promise<void>;
     }) {
         const dirtyChapterRefs = listDirtyChapterRefs(
-            args.mutWorkingFilesRef,
+            args.workingFilesStore.read(),
         ).map(({ bookCode, chapterNum }) => `${bookCode} ${chapterNum}`);
-        const filesToSave = getDirtyFiles(args.mutWorkingFilesRef);
+        const filesToSave = getDirtyFiles(args.workingFilesStore.read());
         const toSave = buildBooksSavePayload(filesToSave);
         const persistencePlan = buildBookPersistencePlan({
             existingBooks: args.loadedProject.books,
@@ -205,7 +212,7 @@ export function useSaveAndRevert(args: {
 
     async function discardAllChanges() {
         revertAllChanges({
-            mutWorkingFilesRef: args.mutWorkingFilesRef,
+            mutWorkingFilesRef: args.workingFilesStore.read(),
             setDiffsByChapter: args.setUnsavedDiffsByChapter,
             bumpDirtyVersion: args.bumpDirtyVersion,
             pickedFile: args.pickedFile,
@@ -224,7 +231,8 @@ export function useSaveAndRevert(args: {
                 },
             ],
             run: async () => {
-                const changedChapter = args.mutWorkingFilesRef
+                const changedChapter = args.workingFilesStore
+                    .read()
                     .find((file) => file.bookCode === diffToRevert.bookCode)
                     ?.chapters.find(
                         (chapter) =>
@@ -243,7 +251,7 @@ export function useSaveAndRevert(args: {
                 );
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: args.workingFilesStore.read(),
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode: diffToRevert.bookCode,
@@ -264,7 +272,8 @@ export function useSaveAndRevert(args: {
             label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
             candidates: [{ bookCode, chapterNum }],
             run: async () => {
-                const changedChapter = args.mutWorkingFilesRef
+                const changedChapter = args.workingFilesStore
+                    .read()
                     .find((file) => file.bookCode === bookCode)
                     ?.chapters.find(
                         (chapter) => chapter.chapterNumber === chapterNum,
@@ -274,7 +283,7 @@ export function useSaveAndRevert(args: {
                 args.refreshUnsavedChapter(bookCode, chapterNum);
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: args.mutWorkingFilesRef,
+                    workingFiles: args.workingFilesStore.read(),
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode,
@@ -286,7 +295,7 @@ export function useSaveAndRevert(args: {
     }
 
     function revertAll() {
-        const candidates = args.mutWorkingFilesRef.flatMap((file) =>
+        const candidates = args.workingFilesStore.read().flatMap((file) =>
             file.chapters.map((chapter) => ({
                 bookCode: file.bookCode,
                 chapterNum: chapter.chapterNumber,

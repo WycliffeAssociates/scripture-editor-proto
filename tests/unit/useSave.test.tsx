@@ -118,20 +118,23 @@ vi.mock("@/app/ui/hooks/save/useSaveAndRevert.ts", () => ({
     }),
 }));
 
+const STABLE_EMPTY_WORKING_FILES: never[] = [];
+const STABLE_WORKING_FILES_STORE = {
+    read: () => STABLE_EMPTY_WORKING_FILES,
+    readChapter: () => undefined,
+    commit: () => {},
+    reset: () => {},
+    subscribe: () => () => {},
+    getSnapshot: () => STABLE_EMPTY_WORKING_FILES,
+} as never;
+
 function HookHarness(props: {
     autoAcceptOwnWorkOnSave: boolean;
     onState: (value: ReturnType<typeof useSave>) => void;
 }) {
     const value = useSave({
         mutWorkingFilesRef: [],
-        workingFilesStore: {
-            read: () => [],
-            readChapter: () => undefined,
-            commit: () => {},
-            reset: () => {},
-            subscribe: () => () => {},
-            getSnapshot: () => [],
-        } as never,
+        workingFilesStore: STABLE_WORKING_FILES_STORE,
         editorRef: { current: null },
         pickedFile: null,
         pickedChapter: null,

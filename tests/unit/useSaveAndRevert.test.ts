@@ -250,7 +250,14 @@ describe("useSaveAndRevert", () => {
             .mockRejectedValue(new Error("offline"));
 
         const save = useSaveAndRevert({
-            mutWorkingFilesRef: workingFiles,
+            workingFilesStore: {
+                read: () => workingFiles,
+                readChapter: () => undefined,
+                commit: () => {},
+                reset: () => {},
+                subscribe: () => () => {},
+                getSnapshot: () => workingFiles,
+            } as never,
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,
@@ -346,7 +353,14 @@ describe("useSaveAndRevert", () => {
         });
 
         const save = useSaveAndRevert({
-            mutWorkingFilesRef: workingFiles,
+            workingFilesStore: {
+                read: () => workingFiles,
+                readChapter: () => undefined,
+                commit: () => {},
+                reset: () => {},
+                subscribe: () => () => {},
+                getSnapshot: () => workingFiles,
+            } as never,
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,
