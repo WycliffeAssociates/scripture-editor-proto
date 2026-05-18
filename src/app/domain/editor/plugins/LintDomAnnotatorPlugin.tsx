@@ -409,6 +409,7 @@ export function LintDomAnnotatorPlugin({
     // Tick-driven remeasure: commit-settle pulses, window resize, and
     // scroll bumps all flow through `useLayoutTick`. No MutationObserver —
     // editor DOM changes ride the bridge → commit → overlay-tick pipeline.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the trigger; body reads via ref.
     useLayoutEffect(() => {
         resolveAnchorsRef.current?.();
     }, [tick]);
