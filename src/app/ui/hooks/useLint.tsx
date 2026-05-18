@@ -27,15 +27,6 @@ import {
     getLintSnapshotChapterKey,
 } from "./lintState.ts";
 
-export type LintRequestReason =
-    | "typing"
-    | "cut"
-    | "paste"
-    | "undo"
-    | "redo"
-    | "chapter-load"
-    | "programmatic";
-
 export type LintScope = "local" | "all";
 export type LintIssueTypeFilter = "all" | "usfm" | "content";
 
@@ -175,32 +166,6 @@ export function useLint({
         [typeFilteredAllIssues, matchesActiveFilters],
     );
 
-    const beginLintRequest = useCallback(
-        (input: {
-            reason: LintRequestReason;
-            bookCode: string;
-            chapter: number;
-            basedOnDocumentVersion?: number;
-        }) =>
-            lintStore.beginLintRequest({
-                bookCode: input.bookCode,
-                chapter: input.chapter,
-                basedOnDocumentVersion: input.basedOnDocumentVersion,
-            }),
-        [lintStore],
-    );
-
-    const commitLintResult = useCallback(
-        (input: {
-            bookCode: string;
-            chapter: number;
-            requestId: number;
-            issues: LintIssue[];
-            basedOnDocumentVersion?: number;
-        }) => lintStore.commitLintResult(input),
-        [lintStore],
-    );
-
     const commitBookLintResults = useCallback(
         (resultsByBook: Record<string, LintIssue[]>) =>
             lintStore.commitBookLintResults(resultsByBook),
@@ -214,8 +179,6 @@ export function useLint({
         visibleChapterKey,
         visibleSnapshot,
         visibleIssues,
-        beginLintRequest,
-        commitLintResult,
         commitBookLintResults,
         // Filter state — single source of truth shared by popover + DOM
         // annotator so the user sees one consistent picture.

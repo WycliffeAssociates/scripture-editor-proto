@@ -71,19 +71,20 @@ function booksToLintForEvent(event: CommitEvent): Set<string> {
  *
  * Wiring (per plan.md Stage 2A):
  *  - Subscribe to `workingFilesStore.changes`.
- *  - Filter to text-changing commits, excluding structural-fixup writebacks
- *    (their job is fixing structure, not surfacing new issues) and `load`
- *    commits (the loader pre-seeds initial lint state).
+ *  - Filter to text-changing commits, excluding:
+ *    - `metadataOnly` — only dirty-flag flips, no token changes.
+ *    - `structuralFixup` — writebacks from the structure-maintenance pipeline;
+ *      they fix structure, not surface new issues.
+ *    - `load` — initial project load; initial lint state is loader-seeded.
+ *    - `undo` / `redo` — `WorkspaceContext`'s post-undo/redo effect collects
+ *      the touched books from the history event and re-lints just those; the
+ *      pipeline would otherwise lint the entire snapshot because undo commits
+ *      use project scope.
  *  - Debounce: coalesce rapid typing into a single lint pass per quiet window.
  *  - switchMap: new commit interrupts any in-flight lint pass so we don't burn
  *    cycles on a snapshot the user has already typed past.
  *  - Run lint per touched book against the commit's snapshot; write results
  *    into the LintStore.
- *
- * The legacy `useEditorLinter` listener still runs alongside this in 2A.2 so
- * the UI keeps working while we verify the pipeline produces matching output.
- * Stage 2A.3 deletes the listener and the `beginLintRequest` / `commitLintResult`
- * request-id bookkeeping along with it.
  */
 export function makeLintPipeline(args: {
     workingFilesStore: WorkingFilesStore;
@@ -98,7 +99,9 @@ export function makeLintPipeline(args: {
                 event.meta.dirtyTextContent &&
                 event.meta.kind !== "metadataOnly" &&
                 event.meta.kind !== "structuralFixup" &&
-                event.meta.kind !== "load",
+                event.meta.kind !== "load" &&
+                event.meta.kind !== "undo" &&
+                event.meta.kind !== "redo",
         ),
         Stream.debounce(Duration.millis(debounceMs)),
         Stream.switchMap((event) =>

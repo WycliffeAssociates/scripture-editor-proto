@@ -12,21 +12,20 @@ type Listener = () => void;
 /**
  * Workspace-scoped store for lint snapshots.
  *
- * Replaces the React-internal lint state previously held inside `useLint`. The
- * editor-side scheduler / commit-stream pipeline writes here; React consumers
- * read via `useSyncExternalStore(subscribe, getSnapshot)`.
+ * The editor-side `lintPipeline` (forked Effect fiber on
+ * `workingFilesStore.changes`) writes here on every debounced commit. React
+ * consumers read via `useSyncExternalStore(subscribe, getSnapshot)`.
  *
- * Cancellation today still uses the begin/commit request-id pattern so the
- * legacy `useEditorLinter` listener keeps working unchanged. Stage 2A.2 layers
- * a `Stream`-driven pipeline on top (whose `switchMap` handles cancellation
- * via fiber interruption); 2A.3 deletes the request-id bookkeeping along with
- * the legacy listener.
+ * Cancellation is the pipeline's responsibility: `Stream.switchMap` interrupts
+ * the in-flight lint fiber when a newer commit arrives, so the store never
+ * needs request-id bookkeeping. `commitBookLintResults` is a simple batch
+ * replace — by the time we get here, this is the result the pipeline (or the
+ * post-undo/redo relint effect) decided is current.
  */
 export class LintStore {
     private state: LintSnapshotsByChapter;
     private readonly listeners = new Set<Listener>();
     private requestCounter = 0;
-    private readonly latestRequestIdByChapter: Record<string, number> = {};
 
     constructor(initialIssuesByBook: LintMessagesByBook) {
         this.state = createInitialSnapshots(initialIssuesByBook);
@@ -45,79 +44,9 @@ export class LintStore {
     };
 
     /**
-     * Mark a chapter's lint pass as in-flight and return a requestId. Latest
-     * begin call for a chapter wins; previous in-flight results are dropped
-     * by `commitLintResult` when the requestId no longer matches.
-     */
-    beginLintRequest(input: {
-        bookCode: string;
-        chapter: number;
-        basedOnDocumentVersion?: number;
-    }): number {
-        const requestId = ++this.requestCounter;
-        const chapterKey = getLintSnapshotChapterKey(
-            input.bookCode,
-            input.chapter,
-        );
-        this.latestRequestIdByChapter[chapterKey] = requestId;
-
-        const previous = this.state[chapterKey];
-        const retainedIssues = previous?.issues ?? [];
-        const nextSnapshot = createLintSnapshot({
-            requestId,
-            bookCode: input.bookCode,
-            chapter: input.chapter,
-            issues: retainedIssues,
-            status: "pending",
-            basedOnDocumentVersion: input.basedOnDocumentVersion ?? 0,
-        });
-
-        if (
-            previous &&
-            previous.requestId === nextSnapshot.requestId &&
-            previous.status === nextSnapshot.status &&
-            previous.basedOnDocumentVersion ===
-                nextSnapshot.basedOnDocumentVersion
-        ) {
-            return requestId;
-        }
-
-        this.state = { ...this.state, [chapterKey]: nextSnapshot };
-        this.notify();
-        return requestId;
-    }
-
-    commitLintResult(input: {
-        bookCode: string;
-        chapter: number;
-        requestId: number;
-        issues: LintIssue[];
-        basedOnDocumentVersion?: number;
-    }): boolean {
-        const chapterKey = getLintSnapshotChapterKey(
-            input.bookCode,
-            input.chapter,
-        );
-        if (this.latestRequestIdByChapter[chapterKey] !== input.requestId) {
-            return false;
-        }
-        const nextSnapshot = createLintSnapshot({
-            requestId: input.requestId,
-            bookCode: input.bookCode,
-            chapter: input.chapter,
-            issues: input.issues,
-            status: "ready",
-            basedOnDocumentVersion: input.basedOnDocumentVersion ?? 0,
-        });
-        this.state = { ...this.state, [chapterKey]: nextSnapshot };
-        this.notify();
-        return true;
-    }
-
-    /**
-     * Batch-replace lint results for one or more books. Used by the
-     * post-undo/redo relint pass and by code paths that lint a whole book at
-     * once (e.g., format match, prettify project).
+     * Batch-replace lint results for one or more books. Used by the lint
+     * pipeline (typing / programmatic edits) and by the post-undo/redo relint
+     * effect in `WorkspaceContext`.
      */
     commitBookLintResults(resultsByBook: Record<string, LintIssue[]>): void {
         let next = this.state;
@@ -145,7 +74,6 @@ export class LintStore {
                     normalizedBookCode,
                     chapter,
                 );
-                this.latestRequestIdByChapter[chapterKey] = requestId;
                 next[chapterKey] = createLintSnapshot({
                     requestId,
                     bookCode: normalizedBookCode,
