@@ -23,7 +23,6 @@ import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
  * state before leaving the chapter" behavior.
  */
 export function useNavigation({
-    mutWorkingFilesRef,
     workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
@@ -33,7 +32,6 @@ export function useNavigation({
     pickedFile,
     setEditorContent,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
     workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -56,11 +54,6 @@ export function useNavigation({
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
         // Push-based read: the bridge plugin keeps the store fresh on every
         // commit, so no flush is needed before leaving the chapter.
-        // TODO(stage-1C): the other `mutWorkingFilesRef` reads in this hook
-        // (next/prev chapter ~line 145, reference parsing ~line 195,
-        // uniqueStartsWith ~line 245) still use the legacy ref. Migrate to
-        // `workingFilesStore.read()` and drop the prop. See progress.md
-        // "Stage 1B shim inventory" item 2.
         const filesToUse = workingFilesStore.read();
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,
@@ -146,9 +139,9 @@ export function useNavigation({
                     hasNext: false,
                     go: () => {},
                 };
-            const nextBook = mutWorkingFilesRef.find(
-                (file) => file.bookCode === nextBookId,
-            );
+            const nextBook = workingFilesStore
+                .read()
+                .find((file) => file.bookCode === nextBookId);
             if (!nextBook || !nextBook.chapters?.length)
                 return {
                     hasNext: false,
@@ -196,9 +189,9 @@ export function useNavigation({
                     hasPrev: false,
                     go: () => {},
                 };
-            const prevBook = mutWorkingFilesRef.find(
-                (file) => file.bookCode === prevBookId,
-            );
+            const prevBook = workingFilesStore
+                .read()
+                .find((file) => file.bookCode === prevBookId);
             if (!prevBook || !prevBook.chapters?.length)
                 return {
                     hasPrev: false,
@@ -237,23 +230,27 @@ export function useNavigation({
         if (!ref) return false;
 
         let file = ref.knownBookId
-            ? mutWorkingFilesRef.find(
-                  (f) =>
-                      f.bookCode?.toLowerCase() ===
-                      ref.knownBookId?.toLowerCase(),
-              )
+            ? workingFilesStore
+                  .read()
+                  .find(
+                      (f) =>
+                          f.bookCode?.toLowerCase() ===
+                          ref.knownBookId?.toLowerCase(),
+                  )
             : undefined;
 
         if (!file) {
-            const uniqueStartsWith = mutWorkingFilesRef.filter(
-                (f) =>
-                    f.title
-                        ?.toLocaleLowerCase()
-                        .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
-                    f.bookCode
-                        ?.toLocaleLowerCase()
-                        .startsWith(ref.bookMatch.toLocaleLowerCase()),
-            );
+            const uniqueStartsWith = workingFilesStore
+                .read()
+                .filter(
+                    (f) =>
+                        f.title
+                            ?.toLocaleLowerCase()
+                            .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
+                        f.bookCode
+                            ?.toLocaleLowerCase()
+                            .startsWith(ref.bookMatch.toLocaleLowerCase()),
+                );
             if (uniqueStartsWith.length === 1) {
                 file = uniqueStartsWith[0];
             }

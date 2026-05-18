@@ -139,7 +139,6 @@ export const useWorkspaceActions = ({
     });
 
     const navigation = useNavigation({
-        mutWorkingFilesRef,
         workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
@@ -177,14 +176,13 @@ export const useWorkspaceActions = ({
     });
 
     const lintFixing = useLintFixing({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         editorRef,
         updateDiffMapForChapter,
         commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
     });
 

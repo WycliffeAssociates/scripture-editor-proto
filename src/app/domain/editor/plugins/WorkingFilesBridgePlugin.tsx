@@ -15,16 +15,22 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * latest editor state on demand, the editor pushes here once per commit and
  * consumers read from the store.
  *
- * Stage 1A: skip selection-only commits (no subscriber reads them yet); skip
- * programmatic-ignore updates (the bridge would round-trip them right back).
- * In dev, runs a shadow-mirror assertion against the legacy
- * `saveCurrentDirtyLexical` output and warns loudly on divergence (1A.5).
- * Also installs a dev-only commit logger (1A.7). Both gated by
- * `import.meta.env.DEV` so prod is tree-shaken.
+ * Skip rules:
+ *  - `programaticIgnore` tag — write-backs *from* the store via
+ *    `setEditorContent`; if we republished them the bridge would round-trip
+ *    its own output.
+ *  - `HISTORY_MERGE_TAG` — pure history-replay glue; the originating event
+ *    already published.
+ *  - Selection-only commits (dirty leaves/elements both empty) — no current
+ *    consumer reads them. When a selection-aware consumer arrives, route
+ *    through `kind: "metadataOnly"` here instead of dropping.
+ *
+ * Dev-only commit logger uses the store's `changes: Stream<CommitEvent>` to
+ * surface every commit on the console; tree-shaken from prod.
  */
 export function WorkingFilesBridgePlugin() {
     const [editor] = useLexicalComposerContext();
-    const { workingFilesStore, project, actions } = useWorkspaceContext();
+    const { workingFilesStore, project } = useWorkspaceContext();
 
     useEffect(() => {
         // Dev-only commit logger — subscribes to the store's commit Stream.
@@ -47,20 +53,10 @@ export function WorkingFilesBridgePlugin() {
 
         const unregisterUpdate = editor.registerUpdateListener(
             ({ editorState, dirtyElements, dirtyLeaves, tags }) => {
-                // Don't round-trip programmatic ignore writes back into the
-                // store — those are write-backs *from* the store via
-                // `setEditorContent` or similar.
                 if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
-
-                // Skip pure history-merge replays; they don't represent a user
-                // intent and the originating event already published.
                 if (tags.has(HISTORY_MERGE_TAG)) return;
 
                 const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
-
-                // Stage 1A: drop selection-only commits. No current consumer
-                // reads them; keep the option open for Stage 2A by routing
-                // through `kind: "metadataOnly"` here when a consumer arrives.
                 if (!dirty) return;
 
                 const bookCode = project.pickedFile.bookCode;
@@ -68,7 +64,6 @@ export function WorkingFilesBridgePlugin() {
                     project.pickedChapter?.chapterNumber ??
                     project.currentChapter;
                 const kind = getCommitKind(tags);
-
                 const lexicalState = editorState.toJSON();
 
                 workingFilesStore.commit(
@@ -79,15 +74,6 @@ export function WorkingFilesBridgePlugin() {
                         dirtyTextContent: true,
                     },
                 );
-
-                if (import.meta.env.DEV) {
-                    runShadowMirrorAssertion({
-                        store: workingFilesStore,
-                        legacy: actions.saveCurrentDirtyLexical,
-                        bookCode,
-                        chapter,
-                    });
-                }
             },
         );
 
@@ -95,7 +81,7 @@ export function WorkingFilesBridgePlugin() {
             unregisterUpdate();
             if (loggerFiber) Effect.runFork(Fiber.interrupt(loggerFiber));
         };
-    }, [editor, workingFilesStore, project, actions]);
+    }, [editor, workingFilesStore, project]);
 
     return null;
 }
@@ -117,55 +103,4 @@ function getCommitKind(tags: Set<string>): CommitKind {
     if (tags.has(EDITOR_TAGS_USED.programmaticDoRunChanges))
         return "programmaticFix";
     return "userEdit";
-}
-
-/**
- * Dev-only shadow-mirror: compare the store's view of the current chapter
- * against `saveCurrentDirtyLexical`'s view. Catches drift while both systems
- * run in parallel during Stage 1A/1B. Deleted in Stage 1C.
- *
- * Sampled (every Nth commit) because a deep JSON diff per keystroke compounds
- * the hot-path cost the refactor is trying to reduce. Steady-state typing
- * still hits the assertion every ~3 seconds, which is plenty to catch drift
- * during the "5-minute manual exercise" verification gate.
- */
-let shadowMirrorTickCounter = 0;
-const SHADOW_MIRROR_SAMPLE_EVERY = 50;
-
-function runShadowMirrorAssertion(args: {
-    store: ReturnType<typeof useWorkspaceContext>["workingFilesStore"];
-    legacy: ReturnType<
-        typeof useWorkspaceContext
-    >["actions"]["saveCurrentDirtyLexical"];
-    bookCode: string;
-    chapter: number;
-}): void {
-    shadowMirrorTickCounter++;
-    if (shadowMirrorTickCounter % SHADOW_MIRROR_SAMPLE_EVERY !== 0) return;
-
-    const { store, legacy, bookCode, chapter } = args;
-    legacy();
-    const storeChapter = store.readChapter(bookCode, chapter);
-    if (!storeChapter) {
-        // eslint-disable-next-line no-console
-        console.error("[shadow-mirror] store has no chapter", {
-            bookCode,
-            chapter,
-        });
-        return;
-    }
-    // The legacy path wrote into mutWorkingFilesRef but we don't have direct
-    // access to that ref from here without expanding the context surface.
-    // Compare the store's chapter root key-count as a coarse-grained sanity
-    // signal — divergence in shape would surface here without paying for a
-    // full JSON diff.
-    const rootKeys = Object.keys(storeChapter).length;
-    if (rootKeys < 3) {
-        // eslint-disable-next-line no-console
-        console.error("[shadow-mirror] store chapter looks malformed", {
-            bookCode,
-            chapter,
-            rootKeys,
-        });
-    }
 }
