@@ -177,6 +177,7 @@ export const ProjectProvider = ({
     );
     const history = useCustomHistory({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
+        workingFilesStore,
         editorRef,
         currentFileBibleIdentifier: project.pickedFile.bookCode,
         currentChapter:
@@ -237,7 +238,6 @@ export const ProjectProvider = ({
         // workingFiles,
         // setWorkingFiles,
         pickedFile: project.pickedFile,
-        mutWorkingFilesRef: mutWorkingFilesRef.current,
         toggleDiffModal: save.diff.open,
         updateDiffMapForChapter: save.diff.refreshChapter,
         commitBookLintResults: lint.commitBookLintResults,

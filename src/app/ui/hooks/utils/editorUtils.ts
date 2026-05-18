@@ -5,6 +5,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
@@ -63,7 +64,7 @@ export function setEditorContent(
     fileBibleIdentifier: string,
     chapter: number,
     chapterContent: ScriptureChapterState | undefined,
-    mutWorkingFilesRef: ScriptureBookState[],
+    workingFilesStore: WorkingFilesStore,
     selectionOverride?: unknown,
     editorStateOverride?: SerializedEditorState,
 ) {
@@ -78,7 +79,9 @@ export function setEditorContent(
 
     const targetFile = chapterContent
         ? null
-        : mutWorkingFilesRef.find((f) => f.bookCode === fileBibleIdentifier);
+        : workingFilesStore
+              .read()
+              .find((f) => f.bookCode === fileBibleIdentifier);
     const chapterState =
         chapterContent ||
         targetFile?.chapters.find((c) => c.chapterNumber === chapter);

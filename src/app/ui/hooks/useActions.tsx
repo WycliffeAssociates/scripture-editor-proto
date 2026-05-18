@@ -27,7 +27,6 @@ export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
-    mutWorkingFilesRef: ScriptureBookState[];
     workingFilesStore: WorkingFilesStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
@@ -60,7 +59,6 @@ type Props = {
  * verbs instead of manually stitching those concerns together.
  */
 export const useWorkspaceActions = ({
-    mutWorkingFilesRef,
     workingFilesStore,
     editorRef,
     currentFileBibleIdentifier,
@@ -103,8 +101,7 @@ export const useWorkspaceActions = ({
     };
 
     const editorState = useEditorState({
-        mutWorkingFilesRef,
-        updateDiffMapForChapter,
+        workingFilesStore,
     });
 
     const modeSwitching = useModeSwitching({
@@ -194,7 +191,6 @@ export const useWorkspaceActions = ({
 
     return {
         // Editor state management
-        updateChapterLexical: editorState.updateChapterLexical,
         setEditorContent: setEditorContentWrapper,
 
         // Navigation

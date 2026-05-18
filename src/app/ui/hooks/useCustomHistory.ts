@@ -24,6 +24,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 
@@ -49,6 +50,7 @@ export type UndoRedoEvent = {
 
 type UseCustomHistoryArgs = {
     mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -102,6 +104,7 @@ export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
  */
 export function useCustomHistory({
     mutWorkingFilesRef,
+    workingFilesStore,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -250,7 +253,7 @@ export function useCustomHistory({
                 currentRef.bookCode,
                 currentRef.chapterNum,
                 currentRecord.chapter,
-                mutWorkingFilesRef,
+                workingFilesStore,
                 selectionOverride,
             );
         },
@@ -259,7 +262,7 @@ export function useCustomHistory({
             currentChapter,
             editorRef,
             findChapterRecord,
-            mutWorkingFilesRef,
+            workingFilesStore,
         ],
     );
 

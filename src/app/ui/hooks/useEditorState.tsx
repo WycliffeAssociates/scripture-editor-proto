@@ -1,64 +1,23 @@
-import type { LexicalEditor, SerializedEditorState } from "lexical";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import type {
-    ScriptureBookState,
-    ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { LexicalEditor } from "lexical";
+import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
 /**
- * Local editor-state mutators for the currently open scripture workspace.
+ * Editor-side helper that pushes chapter content into the visible Lexical
+ * instance for the currently open scripture workspace.
  *
- * This hook owns the bridge between live Lexical state and the mutable
- * `ScriptureBookState[]` workspace model that save, diff, compare, and
- * navigation all share.
+ * After the WorkingFilesStore migration, the legacy `updateChapterLexical`
+ * write-back path is gone — the bridge plugin publishes Lexical edits into the
+ * store directly. This hook now only owns the read-side `setEditorContent`
+ * call, which can fall back to the store when callers don't pre-resolve a
+ * chapter state object.
  */
 export function useEditorState({
-    mutWorkingFilesRef,
-    updateDiffMapForChapter,
+    workingFilesStore,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
+    workingFilesStore: WorkingFilesStore;
 }) {
-    /**
-     * Persist the latest serialized Lexical state back into the mutable
-     * workspace chapter record and refresh diff bookkeeping for that chapter.
-     */
-    function updateChapterLexical({
-        fileBibleIdentifier,
-        chap,
-        newLexical,
-        isDirty,
-    }: {
-        fileBibleIdentifier: string;
-        chap: number;
-        newLexical: SerializedEditorState;
-        isDirty?: boolean;
-    }) {
-        const file = mutWorkingFilesRef.find(
-            (file) => file.bookCode === fileBibleIdentifier,
-        );
-        if (!file) return;
-        const chapToUpdate = file.chapters.find(
-            (c) => c.chapterNumber === chap,
-        );
-        if (!chapToUpdate) return;
-        chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.currentTokens = lexicalToTokens(newLexical, {
-            bookCode: file.bookCode,
-        });
-        chapToUpdate.dirty =
-            isDirty ??
-            chapToUpdate.currentTokens.map((token) => token.source).join("") !==
-                chapToUpdate.sourceTokens.map((token) => token.source).join("");
-        updateDiffMapForChapter(file.bookCode, chap);
-        return mutWorkingFilesRef;
-    }
-
-    /**
-     * Set editor content while preserving access to the shared mutable
-     * workspace-array reference.
-     */
     function setEditorContentWithDependencies(
         editor: LexicalEditor,
         fileBibleIdentifier: string,
@@ -70,12 +29,11 @@ export function useEditorState({
             fileBibleIdentifier,
             chapter,
             chapterContent,
-            mutWorkingFilesRef,
+            workingFilesStore,
         );
     }
 
     return {
-        updateChapterLexical,
         setEditorContent: setEditorContentWithDependencies,
     };
 }
