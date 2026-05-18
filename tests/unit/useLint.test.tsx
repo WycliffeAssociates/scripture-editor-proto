@@ -2,6 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
+import { LintStore } from "@/app/state/LintStore.ts";
 import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint.tsx";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -22,11 +23,11 @@ function makeError(overrides: Partial<LintIssue>): LintIssue {
 }
 
 function Harness(props: {
-    initialLintErrorsByBook: Record<string, LintIssue[]>;
+    lintStore: LintStore;
     onRender: (value: UseLintReturn) => void;
 }) {
     const lint = useLint({
-        initialLintErrorsByBook: props.initialLintErrorsByBook,
+        lintStore: props.lintStore,
         visibleBookCode: "GEN",
         visibleChapter: 1,
     });
@@ -55,13 +56,15 @@ describe("useLint", () => {
         document.body.appendChild(container);
         root = createRoot(container);
 
+        const lintStore = new LintStore({
+            GEN: [makeError({ sid: "GEN 1:1", tokenId: "gen-1" })],
+            EXO: [makeError({ sid: "EXO 1:1", tokenId: "exo-1" })],
+        });
+
         act(() => {
             root?.render(
                 <Harness
-                    initialLintErrorsByBook={{
-                        GEN: [makeError({ sid: "GEN 1:1", tokenId: "gen-1" })],
-                        EXO: [makeError({ sid: "EXO 1:1", tokenId: "exo-1" })],
-                    }}
+                    lintStore={lintStore}
                     onRender={(value) => {
                         latest = value;
                     }}

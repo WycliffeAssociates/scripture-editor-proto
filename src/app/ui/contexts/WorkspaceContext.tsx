@@ -13,6 +13,7 @@ import {
 } from "@/app/domain/project/gitRemotePublishCoordinator.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { LintStore } from "@/app/state/LintStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -150,6 +151,13 @@ export const ProjectProvider = ({
     }
     const workingFilesStore = workingFilesStoreRef.current;
 
+    // Workspace-scoped lint snapshot store. Seeded once from the route loader.
+    const lintStoreRef = useRef<LintStore | null>(null);
+    if (lintStoreRef.current === null) {
+        lintStoreRef.current = new LintStore(initialLintErrorsByBook);
+    }
+    const lintStore = lintStoreRef.current;
+
     const {
         settingsManager,
         projectsService,
@@ -200,7 +208,7 @@ export const ProjectProvider = ({
     });
 
     const lint = useLint({
-        initialLintErrorsByBook,
+        lintStore,
         visibleBookCode: project.pickedFile.bookCode,
         visibleChapter:
             project.pickedChapter?.chapterNumber || project.currentChapter,

@@ -1,26 +1,30 @@
 /**
  * Workspace-owned lint state.
  *
- * This hook is the canonical home for diagnostics in the app. The editor and
- * overlays project from these snapshots, but they do not decide which issues
- * exist or which lint result "wins" when requests overlap.
+ * Snapshot data lives in `LintStore` (a workspace-scoped class); this hook is
+ * a React-facing view that subscribes to the store via `useSyncExternalStore`
+ * and adds filter UI state (scope / issue-type / selected codes / books).
+ * The editor and overlays project from these snapshots — they do not decide
+ * which issues exist or which lint result "wins" when requests overlap.
  *
- * Filter state (scope, issueTypeFilter, selectedCodes, selectedBooks) is also
- * centralized here so the lint popover and the DOM annotator render the same
- * filtered set — what the user sees in the popover is exactly what gets
- * highlighted in the editor.
+ * Filter state stays in React state so the lint popover and the DOM annotator
+ * render the same filtered set — what the user sees in the popover is exactly
+ * what gets highlighted in the editor.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    useSyncExternalStore,
+} from "react";
+import type { LintStore } from "@/app/state/LintStore.ts";
 import { getLintIssueBookCode } from "@/app/ui/components/blocks/lintFilters.tsx";
-import { parseSid } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import {
     buildLintMessagesByBookFromSnapshots,
-    createLintSnapshot,
     flattenLintSnapshotsByChapter,
     getLintSnapshotChapterKey,
-    type LintMessagesByBook,
-    type LintSnapshotsByChapter,
 } from "./lintState.ts";
 
 export type LintRequestReason =
@@ -38,55 +42,20 @@ export type LintIssueTypeFilter = "all" | "usfm" | "content";
 export type UseLintReturn = ReturnType<typeof useLint>;
 
 type UseLintProps = {
-    initialLintErrorsByBook: LintMessagesByBook;
+    lintStore: LintStore;
     visibleBookCode: string;
     visibleChapter: number;
 };
 
-function createInitialSnapshots(
-    initialLintErrorsByBook: LintMessagesByBook,
-): LintSnapshotsByChapter {
-    const next: LintSnapshotsByChapter = {};
-    const requestId = 0;
-
-    for (const [bookCode, issues] of Object.entries(initialLintErrorsByBook)) {
-        const issuesByChapter = new Map<number, LintIssue[]>();
-        for (const issue of issues) {
-            const parsed = issue.sid ? parseSid(issue.sid) : null;
-            const chapter = parsed?.chapter;
-            if (!chapter) continue;
-            const previous = issuesByChapter.get(chapter);
-            if (previous) previous.push(issue);
-            else issuesByChapter.set(chapter, [issue]);
-        }
-
-        for (const [chapter, chapterIssues] of issuesByChapter.entries()) {
-            const key = getLintSnapshotChapterKey(bookCode, chapter);
-            next[key] = createLintSnapshot({
-                requestId,
-                bookCode,
-                chapter,
-                issues: chapterIssues,
-                status: "ready",
-                basedOnDocumentVersion: 0,
-            });
-        }
-    }
-
-    return next;
-}
-
 export function useLint({
-    initialLintErrorsByBook,
+    lintStore,
     visibleBookCode,
     visibleChapter,
 }: UseLintProps) {
-    const [snapshotsByChapter, setSnapshotsByChapter] =
-        useState<LintSnapshotsByChapter>(() =>
-            createInitialSnapshots(initialLintErrorsByBook),
-        );
-    const requestCounterRef = useRef(0);
-    const latestRequestIdByChapterRef = useRef<Record<string, number>>({});
+    const snapshotsByChapter = useSyncExternalStore(
+        lintStore.subscribe,
+        lintStore.getSnapshot,
+    );
 
     const visibleChapterKey = useMemo(
         () => getLintSnapshotChapterKey(visibleBookCode, visibleChapter),
@@ -138,8 +107,8 @@ export function useLint({
         return set;
     }, [typeFilteredAllIssues]);
 
-    // Reset selection to "all" when the universe of codes/books changes and the
-    // current selection no longer matches anything available, or when first set.
+    // Reset selection to "all" when the universe of codes/books changes and
+    // the current selection no longer matches anything available.
     useEffect(() => {
         const allCodes = Array.from(knownCodes);
         setSelectedCodes((current) => {
@@ -190,9 +159,6 @@ export function useLint({
         ],
     );
 
-    // Visible-chapter slice the DOM annotator and the popover's "this chapter"
-    // tab both consume — books filter only matters when the popover is in
-    // "whole project" scope.
     const filteredVisibleIssues = useMemo(
         () =>
             visibleIssues.filter((issue) =>
@@ -201,7 +167,6 @@ export function useLint({
         [visibleIssues, matchesActiveFilters, scope],
     );
 
-    // Whole-project slice the popover's "all" tab consumes.
     const filteredAllIssues = useMemo(
         () =>
             typeFilteredAllIssues.filter((issue) =>
@@ -211,134 +176,35 @@ export function useLint({
     );
 
     const beginLintRequest = useCallback(
-        ({
-            bookCode,
-            chapter,
-            basedOnDocumentVersion = 0,
-        }: {
+        (input: {
             reason: LintRequestReason;
             bookCode: string;
             chapter: number;
             basedOnDocumentVersion?: number;
-        }) => {
-            const requestId = ++requestCounterRef.current;
-            const chapterKey = getLintSnapshotChapterKey(bookCode, chapter);
-            latestRequestIdByChapterRef.current[chapterKey] = requestId;
-
-            setSnapshotsByChapter((prev) => {
-                const previous = prev[chapterKey];
-                const retainedIssues = previous?.issues ?? [];
-                const nextSnapshot = createLintSnapshot({
-                    requestId,
-                    bookCode,
-                    chapter,
-                    issues: retainedIssues,
-                    status: "pending",
-                    basedOnDocumentVersion,
-                });
-
-                if (
-                    previous &&
-                    previous.requestId === nextSnapshot.requestId &&
-                    previous.status === nextSnapshot.status &&
-                    previous.basedOnDocumentVersion ===
-                        nextSnapshot.basedOnDocumentVersion
-                ) {
-                    return prev;
-                }
-
-                return {
-                    ...prev,
-                    [chapterKey]: nextSnapshot,
-                };
-            });
-
-            return requestId;
-        },
-        [],
+        }) =>
+            lintStore.beginLintRequest({
+                bookCode: input.bookCode,
+                chapter: input.chapter,
+                basedOnDocumentVersion: input.basedOnDocumentVersion,
+            }),
+        [lintStore],
     );
 
     const commitLintResult = useCallback(
-        ({
-            bookCode,
-            chapter,
-            requestId,
-            issues,
-            basedOnDocumentVersion = 0,
-        }: {
+        (input: {
             bookCode: string;
             chapter: number;
             requestId: number;
             issues: LintIssue[];
             basedOnDocumentVersion?: number;
-        }) => {
-            const chapterKey = getLintSnapshotChapterKey(bookCode, chapter);
-            if (latestRequestIdByChapterRef.current[chapterKey] !== requestId) {
-                return false;
-            }
-
-            setSnapshotsByChapter((prev) => {
-                const nextSnapshot = createLintSnapshot({
-                    requestId,
-                    bookCode,
-                    chapter,
-                    issues,
-                    status: "ready",
-                    basedOnDocumentVersion,
-                });
-                return {
-                    ...prev,
-                    [chapterKey]: nextSnapshot,
-                };
-            });
-
-            return true;
-        },
-        [],
+        }) => lintStore.commitLintResult(input),
+        [lintStore],
     );
 
     const commitBookLintResults = useCallback(
-        (resultsByBook: Record<string, LintIssue[]>) => {
-            setSnapshotsByChapter((prev) => {
-                let next = prev;
-                for (const [bookCode, issues] of Object.entries(
-                    resultsByBook,
-                )) {
-                    const normalizedBookCode = bookCode.toUpperCase();
-                    const requestId = ++requestCounterRef.current;
-                    const chapterKeyPrefix = `${normalizedBookCode}:`;
-
-                    if (next === prev) next = { ...prev };
-                    for (const existingKey of Object.keys(next)) {
-                        if (existingKey.startsWith(chapterKeyPrefix)) {
-                            delete next[existingKey];
-                        }
-                    }
-
-                    for (const {
-                        chapter,
-                        issues: chapterIssues,
-                    } of issuesByChapterFromFlatIssues(issues)) {
-                        const chapterKey = getLintSnapshotChapterKey(
-                            normalizedBookCode,
-                            chapter,
-                        );
-                        latestRequestIdByChapterRef.current[chapterKey] =
-                            requestId;
-                        const snapshot = createLintSnapshot({
-                            requestId,
-                            bookCode: normalizedBookCode,
-                            chapter,
-                            issues: chapterIssues,
-                            status: "ready",
-                        });
-                        next[chapterKey] = snapshot;
-                    }
-                }
-                return next;
-            });
-        },
-        [],
+        (resultsByBook: Record<string, LintIssue[]>) =>
+            lintStore.commitBookLintResults(resultsByBook),
+        [lintStore],
     );
 
     return {
@@ -365,20 +231,4 @@ export function useLint({
         filteredVisibleIssues,
         filteredAllIssues,
     };
-}
-
-function issuesByChapterFromFlatIssues(issues: LintIssue[]) {
-    const grouped = new Map<number, LintIssue[]>();
-    for (const issue of issues) {
-        const parsed = issue.sid ? parseSid(issue.sid) : null;
-        const chapter = parsed?.chapter;
-        if (!chapter) continue;
-        const previous = grouped.get(chapter);
-        if (previous) previous.push(issue);
-        else grouped.set(chapter, [issue]);
-    }
-    return Array.from(grouped.entries()).map(([chapter, chapterIssues]) => ({
-        chapter,
-        issues: chapterIssues,
-    }));
 }
