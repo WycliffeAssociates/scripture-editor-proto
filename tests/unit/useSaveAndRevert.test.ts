@@ -5,6 +5,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
@@ -230,6 +231,7 @@ describe("useSaveAndRevert", () => {
         });
 
         const workingFiles = [makeWorkingFile()];
+        const store = new WorkingFilesStore(workingFiles);
         const saveBook: Project["saveBook"] = vi
             .fn<Project["saveBook"]>()
             .mockResolvedValue(undefined);
@@ -250,14 +252,7 @@ describe("useSaveAndRevert", () => {
             .mockRejectedValue(new Error("offline"));
 
         const save = useSaveAndRevert({
-            workingFilesStore: {
-                read: () => workingFiles,
-                readChapter: () => undefined,
-                commit: () => {},
-                reset: () => {},
-                subscribe: () => () => {},
-                getSnapshot: () => workingFiles,
-            } as never,
+            workingFilesStore: store,
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,
@@ -307,7 +302,7 @@ describe("useSaveAndRevert", () => {
             },
         );
         expect(pushCurrentBranch).toHaveBeenCalled();
-        expect(workingFiles[0].chapters[0].dirty).toBe(false);
+        expect(store.read()[0].chapters[0].dirty).toBe(false);
         expect(notificationMocks.showSuccessNotification).toHaveBeenCalled();
         expect(notificationMocks.showErrorNotification).toHaveBeenCalledWith({
             notification: {
@@ -321,6 +316,7 @@ describe("useSaveAndRevert", () => {
     it("prepares the remote base before saving when reconciliation is pending", async () => {
         const fileSystem = new InMemoryFileSystem();
         const workingFiles = [makeWorkingFile()];
+        const store = new WorkingFilesStore(workingFiles);
         const callOrder: string[] = [];
         const saveBook: Project["saveBook"] = vi
             .fn<Project["saveBook"]>(async () => {
@@ -353,14 +349,7 @@ describe("useSaveAndRevert", () => {
         });
 
         const save = useSaveAndRevert({
-            workingFilesStore: {
-                read: () => workingFiles,
-                readChapter: () => undefined,
-                commit: () => {},
-                reset: () => {},
-                subscribe: () => () => {},
-                getSnapshot: () => workingFiles,
-            } as never,
+            workingFilesStore: store,
             editorRef: { current: null },
             pickedFile: null,
             pickedChapter: null,

@@ -205,20 +205,45 @@ export function useSaveAndRevert(args: {
             }
         }
 
-        markFilesAsSaved(filesToSave);
+        // Mutate a clone, then publish as a bulk patch so the store sees
+        // the cleared `dirty` flags. Without this, the helpers below would
+        // mutate the store's internal chapter objects and leak across
+        // subscribers.
+        const filesClone = structuredClone(args.workingFilesStore.read());
+        const dirtyClone = filesClone.filter((file) =>
+            filesToSave.some((saved) => saved.bookCode === file.bookCode),
+        );
+        markFilesAsSaved(dirtyClone);
+        args.workingFilesStore.commit(
+            { kind: "bulk", files: filesClone },
+            {
+                kind: "metadataOnly",
+                scope: { project: true },
+                dirtyTextContent: false,
+            },
+        );
         args.clearUnsavedDiffs();
         args.bumpDirtyVersion();
     }
 
     async function discardAllChanges() {
+        const filesClone = structuredClone(args.workingFilesStore.read());
         revertAllChanges({
-            mutWorkingFilesRef: args.workingFilesStore.read(),
+            mutWorkingFilesRef: filesClone,
             setDiffsByChapter: args.setUnsavedDiffsByChapter,
             bumpDirtyVersion: args.bumpDirtyVersion,
             pickedFile: args.pickedFile,
             pickedChapter: args.pickedChapter,
             editorRef: args.editorRef,
         });
+        args.workingFilesStore.commit(
+            { kind: "bulk", files: filesClone },
+            {
+                kind: "undo",
+                scope: { project: true },
+                dirtyTextContent: true,
+            },
+        );
     }
 
     function revertDiff(diffToRevert: ProjectDiff) {
@@ -231,8 +256,10 @@ export function useSaveAndRevert(args: {
                 },
             ],
             run: async () => {
-                const changedChapter = args.workingFilesStore
-                    .read()
+                const filesClone = structuredClone(
+                    args.workingFilesStore.read(),
+                );
+                const changedChapter = filesClone
                     .find((file) => file.bookCode === diffToRevert.bookCode)
                     ?.chapters.find(
                         (chapter) =>
@@ -245,13 +272,29 @@ export function useSaveAndRevert(args: {
                     diffBlockId: diffToRevert.uniqueKey,
                     usfmOnionService: args.usfmOnionService,
                 });
+                args.workingFilesStore.commit(
+                    {
+                        kind: "chapter",
+                        bookCode: diffToRevert.bookCode,
+                        chapter: diffToRevert.chapterNum,
+                        lexicalState: changedChapter.lexicalState,
+                    },
+                    {
+                        kind: "undo",
+                        scope: {
+                            bookCode: diffToRevert.bookCode,
+                            chapter: diffToRevert.chapterNum,
+                        },
+                        dirtyTextContent: true,
+                    },
+                );
                 args.refreshUnsavedChapter(
                     diffToRevert.bookCode,
                     diffToRevert.chapterNum,
                 );
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: args.workingFilesStore.read(),
+                    workingFiles: filesClone,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode: diffToRevert.bookCode,
@@ -272,18 +315,33 @@ export function useSaveAndRevert(args: {
             label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
             candidates: [{ bookCode, chapterNum }],
             run: async () => {
-                const changedChapter = args.workingFilesStore
-                    .read()
+                const filesClone = structuredClone(
+                    args.workingFilesStore.read(),
+                );
+                const changedChapter = filesClone
                     .find((file) => file.bookCode === bookCode)
                     ?.chapters.find(
                         (chapter) => chapter.chapterNumber === chapterNum,
                     );
                 if (!changedChapter) return;
                 revertChapterToLoadedState(changedChapter);
+                args.workingFilesStore.commit(
+                    {
+                        kind: "chapter",
+                        bookCode,
+                        chapter: chapterNum,
+                        lexicalState: changedChapter.lexicalState,
+                    },
+                    {
+                        kind: "undo",
+                        scope: { bookCode, chapter: chapterNum },
+                        dirtyTextContent: true,
+                    },
+                );
                 args.refreshUnsavedChapter(bookCode, chapterNum);
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: args.workingFilesStore.read(),
+                    workingFiles: filesClone,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode,
