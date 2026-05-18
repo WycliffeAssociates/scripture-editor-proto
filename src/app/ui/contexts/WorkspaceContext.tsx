@@ -219,6 +219,7 @@ export const ProjectProvider = ({
 
     const actions = useWorkspaceActions({
         editorRef,
+        workingFilesStore,
         loadedProject,
         currentChapter:
             project.pickedChapter?.chapterNumber || project.currentChapter,
@@ -243,10 +244,9 @@ export const ProjectProvider = ({
         history,
     });
     const search = useProjectSearch({
-        workingFiles: projectFiles,
+        workingFilesStore,
         referenceFiles:
             referenceResource.referenceScriptureQuery.data?.parsedFiles,
-        saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
         switchBookOrChapter: actions.switchBookOrChapter,
         editorRef,
         referenceEditorRef,

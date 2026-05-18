@@ -12,6 +12,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
 
 /**
@@ -23,6 +24,7 @@ import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
  */
 export function useNavigation({
     mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     setCurrentFileBibleIdentifier,
@@ -30,9 +32,9 @@ export function useNavigation({
     updateAppSettings,
     pickedFile,
     setEditorContent,
-    saveCurrentDirtyLexical,
 }: {
     mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setCurrentFileBibleIdentifier: (file: string) => void;
@@ -44,7 +46,6 @@ export function useNavigation({
         chapter: number,
         chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
 }) {
     const { t } = useLingui();
 
@@ -53,8 +54,11 @@ export function useNavigation({
      * the current chapter first.
      */
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
-        const dirtySaved = saveCurrentDirtyLexical();
-        const filesToUse = dirtySaved || mutWorkingFilesRef;
+        // Push-based read: the bridge plugin keeps the store fresh on every
+        // commit, so no flush is needed before leaving the chapter. The other
+        // mutWorkingFilesRef reads in this hook (next/prev chapter, reference
+        // parsing) stay on the legacy ref for now; Stage 1C will sweep those.
+        const filesToUse = workingFilesStore.read();
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,
         );

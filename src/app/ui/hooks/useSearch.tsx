@@ -9,6 +9,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSearchExecution } from "@/app/ui/hooks/search/useSearchExecution.ts";
 import { useSearchNavigation } from "@/app/ui/hooks/search/useSearchNavigation.ts";
 import { useSearchReplace } from "@/app/ui/hooks/search/useSearchReplace.ts";
@@ -16,9 +17,8 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { makeSid } from "@/core/data/bible/bible.ts";
 
 type Props = {
-    workingFiles: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     referenceFiles?: ScriptureBookState[];
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     contentProvider?: SearchContentProvider;
     switchBookOrChapter: (
         file: string,
@@ -50,9 +50,8 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
  * search source so the route-level editor shell can consume one cohesive search API.
  */
 export function useProjectSearch({
-    workingFiles,
+    workingFilesStore,
     referenceFiles,
-    saveCurrentDirtyLexical,
     contentProvider,
     switchBookOrChapter,
     editorRef,
@@ -64,17 +63,25 @@ export function useProjectSearch({
     const resolvedContentProvider: SearchContentProvider = useMemo(
         () =>
             contentProvider ?? {
-                getTargetFiles: () => workingFiles,
-                saveDirtyAndGetTargetFiles: () =>
-                    saveCurrentDirtyLexical() || workingFiles,
+                // Push-based read: the bridge plugin keeps the store fresh on
+                // every editor commit, so a one-shot read returns the same shape
+                // the legacy saveCurrentDirtyLexical() flush-then-read path used
+                // to produce.
+                getTargetFiles: () => workingFilesStore.read(),
+                // TODO(stage-1C-or-later): collapse `saveDirtyAndGetTargetFiles`
+                // into `getTargetFiles`. The two-method shape is a leftover from
+                // the pull-based world where a caller had to choose between
+                // "current snapshot" and "flush-then-snapshot". With push, both
+                // are identical reads. Removing the dual method requires
+                // updating `SearchContentProvider` in
+                // src/app/domain/search/SearchService.ts plus its non-default
+                // implementations and call sites; do it once the rest of the
+                // pull-path callers (1B.5/1B.6/1B.7 + 1C) have landed so
+                // SearchContentProvider's shape change is one focused diff.
+                saveDirtyAndGetTargetFiles: () => workingFilesStore.read(),
                 getReferenceFiles: () => referenceFiles ?? [],
             },
-        [
-            contentProvider,
-            referenceFiles,
-            saveCurrentDirtyLexical,
-            workingFiles,
-        ],
+        [contentProvider, referenceFiles, workingFilesStore],
     );
 
     const currentChapterSid = makeSid({

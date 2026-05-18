@@ -10,6 +10,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     hideNotification,
     ShowNotificationInfo,
@@ -30,17 +31,16 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
  * plumbing, and push the resulting lexical state back into the visible editor.
  */
 export function useFormatOperations({
-    mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     setIsProcessing,
     updateDiffMapForChapter,
     commitBookLintResults,
     setEditorContent,
-    saveCurrentDirtyLexical,
     history,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
@@ -51,7 +51,6 @@ export function useFormatOperations({
         chapter: number,
         chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -64,8 +63,8 @@ export function useFormatOperations({
             chapterNum: chapter.chapterNumber,
         }));
 
-    const allChapterRefs = () =>
-        mutWorkingFilesRef.flatMap((file) => toChapterRefs(file));
+    const allChapterRefs = (files: ScriptureBookState[]) =>
+        files.flatMap((file) => toChapterRefs(file));
 
     const refreshLintForFiles = async (files: ScriptureBookState[]) => {
         if (!files.length) return;
@@ -151,16 +150,34 @@ export function useFormatOperations({
         setIsProcessing(true);
         let notificationId: string | null = null;
         try {
-            saveCurrentDirtyLexical();
+            // Read the current snapshot once. The bridge plugin keeps the
+            // store fresh, so no flush is needed. Mutations below operate on
+            // structured clones; the result is published back via
+            // workingFilesStore.commit, and setEditorContent then refreshes
+            // the editor (tagged programaticIgnore, so the bridge does not
+            // republish that as a separate user-edit commit).
+            //
+            // TODO(post-stage-1C): consider extracting the read → clone →
+            // mutator → commit → setEditorContent lifecycle into a formal
+            // helper on `WorkingFilesStore` (e.g. `mutateChapter(book, chap,
+            // (clone) => bool)` returning the previous snapshot). This pattern
+            // currently repeats across ~5–6 sites in this file and
+            // useFormatMatching. Holding off until 1C lands + the Stage 3A
+            // chapter-swap Effect shape is known, so we don't extract a
+            // helper that turns out to be chapter-scope-only and doesn't fit
+            // the bulk / cancellable shapes. If after that audit the pattern
+            // still repeats unchanged, promote it.
+            const workingFiles = workingFilesStore.read();
 
             if (scope === "chapter") {
                 const targetBookCode = bookCode || currentFileBibleIdentifier;
                 const targetChapterNumber = chapterNumber ?? currentChapter;
 
-                const file = mutWorkingFilesRef.find(
+                const file = workingFiles.find(
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
+                const fileClone = structuredClone(file);
 
                 await history.runTransaction({
                     label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
@@ -172,7 +189,7 @@ export function useFormatOperations({
                     ],
                     run: async () => {
                         const result = await formatChapterInPlace(
-                            file,
+                            fileClone,
                             targetChapterNumber,
                         );
 
@@ -186,20 +203,37 @@ export function useFormatOperations({
                             return;
                         }
 
+                        const chapter = fileClone.chapters.find(
+                            (c) => c.chapterNumber === targetChapterNumber,
+                        );
+                        if (!chapter) return;
+                        workingFilesStore.commit(
+                            {
+                                kind: "chapter",
+                                bookCode: targetBookCode,
+                                chapter: targetChapterNumber,
+                                lexicalState: chapter.lexicalState,
+                            },
+                            {
+                                kind: "programmaticFix",
+                                scope: {
+                                    bookCode: targetBookCode,
+                                    chapter: targetChapterNumber,
+                                },
+                                dirtyTextContent: true,
+                            },
+                        );
+
                         updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
-                        await refreshLintForFiles([file]);
+                        await refreshLintForFiles([fileClone]);
 
                         if (
-                            file.bookCode === currentFileBibleIdentifier &&
+                            fileClone.bookCode === currentFileBibleIdentifier &&
                             targetChapterNumber === currentChapter
                         ) {
-                            const chapter = file.chapters.find(
-                                (c) => c.chapterNumber === targetChapterNumber,
-                            );
-                            if (!chapter) return;
                             setEditorContent(
                                 currentFileBibleIdentifier,
                                 currentChapter,
@@ -210,7 +244,7 @@ export function useFormatOperations({
                         ShowNotificationSuccess({
                             notification: {
                                 title: t`Chapter Formatted`,
-                                message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
+                                message: t`Formatted ${fileClone.title || fileClone.bookCode} ${targetChapterNumber}`,
                             },
                         });
                     },
@@ -221,16 +255,17 @@ export function useFormatOperations({
             if (scope === "book") {
                 const targetBookCode = bookCode || currentFileBibleIdentifier;
 
-                const file = mutWorkingFilesRef.find(
+                const file = workingFiles.find(
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
+                const fileClone = structuredClone(file);
 
                 await history.runTransaction({
                     label: t`Format Book (${targetBookCode})`,
-                    candidates: toChapterRefs(file),
+                    candidates: toChapterRefs(fileClone),
                     run: async () => {
-                        const result = await formatBookInPlace(file);
+                        const result = await formatBookInPlace(fileClone);
                         if (!result.changed) {
                             ShowNotificationInfo({
                                 notification: {
@@ -241,14 +276,26 @@ export function useFormatOperations({
                             return;
                         }
 
-                        await refreshLintForFiles([file]);
+                        const newFiles = workingFiles.map((f) =>
+                            f.bookCode === targetBookCode ? fileClone : f,
+                        );
+                        workingFilesStore.commit(
+                            { kind: "bulk", files: newFiles },
+                            {
+                                kind: "programmaticFix",
+                                scope: { project: true },
+                                dirtyTextContent: true,
+                            },
+                        );
+
+                        await refreshLintForFiles([fileClone]);
                         updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
 
-                        if (file.bookCode === currentFileBibleIdentifier) {
-                            const currentChap = file.chapters.find(
+                        if (fileClone.bookCode === currentFileBibleIdentifier) {
+                            const currentChap = fileClone.chapters.find(
                                 (c) => c.chapterNumber === currentChapter,
                             );
 
@@ -264,7 +311,7 @@ export function useFormatOperations({
                         ShowNotificationSuccess({
                             notification: {
                                 title: t`Book Formatted`,
-                                message: t`Formatted ${file.title || file.bookCode}`,
+                                message: t`Formatted ${fileClone.title || fileClone.bookCode}`,
                             },
                         });
                     },
@@ -272,7 +319,7 @@ export function useFormatOperations({
                 return;
             }
 
-            const totalBooks = mutWorkingFilesRef.length;
+            const totalBooks = workingFiles.length;
             notificationId = showProgressNotification({
                 title: t`Formatting Project`,
                 message: t`Processing book 1 of ${totalBooks}...`,
@@ -282,14 +329,17 @@ export function useFormatOperations({
 
             const backup = await history.runTransaction({
                 label: t`Format Project`,
-                candidates: allChapterRefs(),
+                candidates: allChapterRefs(workingFiles),
                 run: async () => {
-                    const previous = structuredClone(mutWorkingFilesRef);
+                    // The store snapshot is immutable from our side; no deep clone
+                    // needed for the rollback baseline.
+                    const previous = workingFiles;
+                    const filesClone = structuredClone(workingFiles);
                     let currentChapterModified = false;
                     let anyModified = false;
 
                     const batchResults = await usfmOnionService.formatScope(
-                        mutWorkingFilesRef.map((file) => ({
+                        filesClone.map((file) => ({
                             tokens: file.chapters.flatMap((chapter) =>
                                 chapterTokensForFormatting(chapter),
                             ),
@@ -297,8 +347,8 @@ export function useFormatOperations({
                     );
 
                     const modifiedFiles: ScriptureBookState[] = [];
-                    for (let i = 0; i < mutWorkingFilesRef.length; i++) {
-                        const file = mutWorkingFilesRef[i];
+                    for (let i = 0; i < filesClone.length; i++) {
+                        const file = filesClone[i];
                         const result = batchResults[i];
                         if (!result || !result.appliedChanges.length) continue;
 
@@ -327,6 +377,14 @@ export function useFormatOperations({
                     }
 
                     if (anyModified) {
+                        workingFilesStore.commit(
+                            { kind: "bulk", files: filesClone },
+                            {
+                                kind: "programmaticFix",
+                                scope: { project: true },
+                                dirtyTextContent: true,
+                            },
+                        );
                         updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
@@ -343,12 +401,12 @@ export function useFormatOperations({
                         return previous;
                     }
 
-                    const modifiedBooksCount = mutWorkingFilesRef.filter((f) =>
+                    const modifiedBooksCount = filesClone.filter((f) =>
                         f.chapters.some((c) => c.dirty),
                     ).length;
 
                     if (currentChapterModified) {
-                        const currentFile = mutWorkingFilesRef.find(
+                        const currentFile = filesClone.find(
                             (f) => f.bookCode === currentFileBibleIdentifier,
                         );
                         const currentChap = currentFile?.chapters.find(
@@ -384,10 +442,16 @@ export function useFormatOperations({
     }
 
     async function revertFormat(backup: ScriptureBookState[]) {
-        mutWorkingFilesRef.length = 0;
-        mutWorkingFilesRef.push(...backup);
+        workingFilesStore.commit(
+            { kind: "bulk", files: backup },
+            {
+                kind: "undo",
+                scope: { project: true },
+                dirtyTextContent: true,
+            },
+        );
 
-        const currentFile = mutWorkingFilesRef.find(
+        const currentFile = backup.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         const currentChap = currentFile?.chapters.find(

@@ -61,3 +61,4 @@ tests/mockData/berean-standard-bible
 # bv (beads viewer) local config and caches
 .bv/
 .repomix/
+.claude/scheduled_tasks.lock

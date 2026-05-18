@@ -31,10 +31,19 @@ msgstr "'{verse}' is not a valid verse range."
 #~ msgid "(Current)"
 #~ msgstr "(Current)"
 
+#: src/app/ui/components/blocks/FormModeChapter.tsx:124
+#: src/app/ui/components/blocks/FormModeChapter.tsx:149
+#~ msgid "(empty)"
+#~ msgstr "(empty)"
+
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:328
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:390
 msgid "(New verse)"
 msgstr "(New verse)"
+
+#: src/app/ui/components/blocks/FormModeChapter.tsx:103
+#~ msgid "(no content)"
+#~ msgstr "(no content)"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:358
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:423
@@ -206,7 +215,7 @@ msgstr "A cloud project with this name already exists in your account. Attach th
 #~ msgid "A number appears without a preceding marker that expects a number."
 #~ msgstr "A number appears without a preceding marker that expects a number."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:87
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:86
 msgid "Abbreviated book name."
 msgstr "Abbreviated book name."
 
@@ -234,6 +243,11 @@ msgstr "Add"
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:295
 msgid "Add it"
 msgstr "Add it"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:830
+#: src/app/ui/components/blocks/FormBlockCard.tsx:831
+msgid "Add line below"
+msgstr "Add line below"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:275
 msgid "Add project"
@@ -276,6 +290,14 @@ msgstr "All clear"
 #: src/app/ui/components/blocks/Search.tsx:88
 #~ msgid "All search results"
 #~ msgstr "All search results"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:645
+msgid "Already at deepest indent"
+msgstr "Already at deepest indent"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:640
+msgid "Already at left edge"
+msgstr "Already at left edge"
 
 #: src/app/routes/scaffold.tsx:100
 #: src/app/routes/scaffold.tsx:108
@@ -400,7 +422,7 @@ msgstr "Book abbreviation"
 msgid "Book code"
 msgstr "Book code"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:254
+#: src/app/ui/hooks/usePrettifyOperations.tsx:266
 msgid "Book Formatted"
 msgstr "Book Formatted"
 
@@ -436,6 +458,7 @@ msgstr "By verse"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:177
 #: src/app/ui/components/blocks/ProjectRow.tsx:219
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:427
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -468,7 +491,7 @@ msgstr "Chapter {chapter} appears more than once."
 msgid "Chapter 0 metadata and introductory markers"
 msgstr "Chapter 0 metadata and introductory markers"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:200
+#: src/app/ui/hooks/usePrettifyOperations.tsx:212
 msgid "Chapter Formatted"
 msgstr "Chapter Formatted"
 
@@ -508,6 +531,10 @@ msgstr "Chapter label '{found}' does not match the label '{expected}' used elsew
 msgid "Chapter picker"
 msgstr "Chapter picker"
 
+#: src/app/ui/components/blocks/FormPreludeCard.tsx:102
+#~ msgid "Chapter prelude"
+#~ msgstr "Chapter prelude"
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:486
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:950
 #~ msgid "Chapter view"
@@ -521,7 +548,7 @@ msgstr "Chapters should count up by one: expected chapter {expected}, found chap
 msgid "Character encoding"
 msgstr "Character encoding"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:79
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:78
 msgid "Character encoding scheme used for the file contents."
 msgstr "Character encoding scheme used for the file contents."
 
@@ -554,6 +581,10 @@ msgstr "Checking cloud updates for this project."
 #: src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx:82
 msgid "Choose a chapter"
 msgstr "Choose a chapter"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:414
+msgid "Choose a scripture reference before matching formatting."
+msgstr "Choose a scripture reference before matching formatting."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:261
 msgid "Choose a source"
@@ -626,7 +657,7 @@ msgstr "Close"
 #~ msgid "Close marker {marker} is not recognized."
 #~ msgstr "Close marker {marker} is not recognized."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:332
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:374
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:40
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:114
 msgid "Close search"
@@ -730,6 +761,14 @@ msgstr "Cloud project imported successfully!"
 msgid "Cloud updates available"
 msgstr "Cloud updates available"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:242
+msgid "Combine"
+msgstr "Combine"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:239
+msgid "Combine these two paragraphs into one"
+msgstr "Combine these two paragraphs into one"
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:360
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:576
 #~ msgid "Compare"
@@ -805,17 +844,25 @@ msgstr "Content errors"
 msgid "Content errors ({badgeCount})"
 msgstr "Content errors ({badgeCount})"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:707
+msgid "Continuation line…"
+msgstr "Continuation line…"
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:438
 #~ msgid "Controls"
 #~ msgstr "Controls"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:280
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
 msgid "Copy"
 msgstr "Copy"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:313
 msgid "Copy diffs (JSON)"
 msgstr "Copy diffs (JSON)"
+
+#: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:51
+msgid "Copy editor JSON"
+msgstr "Copy editor JSON"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:245
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:246
@@ -872,7 +919,7 @@ msgstr "Create your first project"
 msgid "Creating..."
 msgstr "Creating..."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:66
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:65
 msgid "Cross reference"
 msgstr "Cross reference"
 
@@ -914,7 +961,7 @@ msgstr "Current Projects"
 #~ msgid "Current text"
 #~ msgstr "Current text"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:273
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:315
 msgid "Cut"
 msgstr "Cut"
 
@@ -934,14 +981,29 @@ msgstr "Default review view"
 msgid "Delete"
 msgstr "Delete"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:731
+#: src/app/ui/components/blocks/FormBlockCard.tsx:736
+msgid "Delete line"
+msgstr "Delete line"
+
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:268
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:269
 msgid "Delete marker"
 msgstr "Delete marker"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:730
+#: src/app/ui/components/blocks/FormBlockCard.tsx:735
+msgid "Delete paragraph"
+msgstr "Delete paragraph"
+
 #: src/app/ui/components/blocks/ProjectRow.tsx:202
 msgid "Delete project"
 msgstr "Delete project"
+
+#: src/app/ui/components/blocks/FormVerseCard.tsx:145
+#: src/app/ui/components/blocks/FormVerseCard.tsx:146
+#~ msgid "Delete verse"
+#~ msgstr "Delete verse"
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:290
 msgid "Description"
@@ -1075,6 +1137,10 @@ msgstr "Enabled"
 msgid "English"
 msgstr "English"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:706
+msgid "Enter verse text…"
+msgstr "Enter verse text…"
+
 #: src/app/ui/hooks/useGiteaLogin.ts:34
 #: src/app/ui/hooks/useGiteaLogin.ts:43
 msgid "Enter your credentials"
@@ -1138,7 +1204,7 @@ msgstr "Failed to import file"
 msgid "Failed to load cloud projects"
 msgstr "Failed to load cloud projects"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:105
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
 msgid "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 msgstr "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 
@@ -1175,44 +1241,44 @@ msgstr "Folder"
 #~ msgid "Folder..."
 #~ msgstr "Folder..."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:64
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:63
 msgid "Footnote"
 msgstr "Footnote"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:218
+#: src/app/ui/hooks/usePrettifyOperations.tsx:230
 msgid "Format Book ({targetBookCode})"
 msgstr "Format Book ({targetBookCode})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:154
+#: src/app/ui/hooks/usePrettifyOperations.tsx:166
 msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
 msgstr "Format Chapter ({targetBookCode} {targetChapterNumber})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:272
+#: src/app/ui/hooks/usePrettifyOperations.tsx:284
 msgid "Format Project"
 msgstr "Format Project"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:255
+#: src/app/ui/hooks/usePrettifyOperations.tsx:267
 msgid "Formatted {0}"
 msgstr "Formatted {0}"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:201
+#: src/app/ui/hooks/usePrettifyOperations.tsx:213
 msgid "Formatted {0} {targetChapterNumber}"
 msgstr "Formatted {0} {targetChapterNumber}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:359
+#: src/app/ui/hooks/usePrettifyOperations.tsx:371
 msgid "Formatted {modifiedBooksCount} book(s)"
 msgstr "Formatted {modifiedBooksCount} book(s)"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:243
-#: src/app/ui/hooks/useFormatMatching.tsx:327
-#: src/app/ui/hooks/useFormatMatching.tsx:430
+#: src/app/ui/hooks/useFormatMatching.tsx:361
+#: src/app/ui/hooks/useFormatMatching.tsx:445
+#: src/app/ui/hooks/useFormatMatching.tsx:548
 msgid "Formatting Matched"
 msgstr "Formatting Matched"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:265
-#: src/app/ui/hooks/usePrettifyOperations.tsx:294
+#: src/app/ui/hooks/usePrettifyOperations.tsx:277
+#: src/app/ui/hooks/usePrettifyOperations.tsx:306
 msgid "Formatting Project"
 msgstr "Formatting Project"
 
@@ -1240,7 +1306,7 @@ msgstr "Group case mismatches"
 #~ msgid "Hello \"/create\"!"
 #~ msgstr "Hello \"/create\"!"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:321
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:363
 msgid "Hide reference panel"
 msgstr "Hide reference panel"
 
@@ -1313,6 +1379,10 @@ msgstr "Incoming cloud changes"
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:233
 #~ msgid "Incoming cloud updates are ready to sync"
 #~ msgstr "Incoming cloud updates are ready to sync"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:642
+msgid "Indent"
+msgstr "Indent"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:312
 #~ msgid "Insert \\{0} Here"
@@ -1420,7 +1490,7 @@ msgstr "Linked cloud projects import with their Gitea connection so changes can 
 msgid "Load more"
 msgstr "Load more"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:145
+#: src/app/ui/components/blocks/ReferencePicker.tsx:150
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:347
 msgid "Loading"
 msgstr "Loading"
@@ -1445,12 +1515,12 @@ msgstr "Loading downloadable projects..."
 msgid "Loading remote projects..."
 msgstr "Loading remote projects..."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:101
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:105
 msgid "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 msgstr "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 
 #: src/app/routes/$project.index.tsx:20
-#: src/app/ui/components/blocks/ReferencePicker.tsx:56
+#: src/app/ui/components/blocks/ReferencePicker.tsx:57
 #: src/app/ui/components/import/LanguageApiImporter.tsx:194
 msgid "Loading..."
 msgstr "Loading..."
@@ -1485,7 +1555,7 @@ msgstr "Local changes ahead"
 #~ msgid "Logging out..."
 #~ msgstr "Logging out..."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:83
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:82
 msgid "Long book name for the table of contents."
 msgstr "Long book name for the table of contents."
 
@@ -1509,7 +1579,7 @@ msgstr "Main title 3"
 msgid "Main title 4"
 msgstr "Main title 4"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:93
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:92
 msgid "Major title shown before the scripture text begins."
 msgstr "Major title shown before the scripture text begins."
 
@@ -1557,21 +1627,37 @@ msgstr "Match case"
 msgid "Match Case"
 msgstr "Match Case"
 
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:446
+msgid "Match formatting"
+msgstr "Match formatting"
+
 #: src/app/ui/components/blocks/Toolbar.tsx:358
 #~ msgid "Match Formatting"
 #~ msgstr "Match Formatting"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:266
+#: src/app/ui/hooks/useFormatMatching.tsx:384
 msgid "Match Formatting (Book {currentFileBibleIdentifier})"
 msgstr "Match Formatting (Book {currentFileBibleIdentifier})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:198
+#: src/app/ui/hooks/useFormatMatching.tsx:304
 msgid "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
 msgstr "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:346
+#: src/app/ui/hooks/useFormatMatching.tsx:464
 msgid "Match Formatting (Project)"
 msgstr "Match Formatting (Project)"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:416
+msgid "Match formatting can replace paragraph and poetry markers in the current chapter."
+msgstr "Match formatting can replace paragraph and poetry markers in the current chapter."
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:196
+#~ msgid "Match formatting from the selected reference? This can replace paragraph and poetry markers in the current chapter."
+#~ msgstr "Match formatting from the selected reference? This can replace paragraph and poetry markers in the current chapter."
+
+#: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:43
+msgid "Match formatting to source"
+msgstr "Match formatting to source"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:108
 #: src/app/ui/components/blocks/Toolbar.tsx:113
@@ -1587,16 +1673,16 @@ msgstr "Match Formatting (Project)"
 msgid "Match Word"
 msgstr "Match Word"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:431
+#: src/app/ui/hooks/useFormatMatching.tsx:549
 msgid "Matched formatting across {modifiedBooksCount} books"
 msgstr "Matched formatting across {modifiedBooksCount} books"
 
 #. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatMatching.tsx:328
+#: src/app/ui/hooks/useFormatMatching.tsx:446
 msgid "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 msgstr "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:244
+#: src/app/ui/hooks/useFormatMatching.tsx:362
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Matched formatting for Chapter {currentChapter}"
 
@@ -1611,6 +1697,10 @@ msgstr "Matched formatting for Chapter {currentChapter}"
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:268
 #~ msgid "Minimize suggestions"
 #~ msgstr "Minimize suggestions"
+
+#: src/app/ui/components/blocks/FormVerseCard.tsx:154
+#~ msgid "Missing"
+#~ msgstr "Missing"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:443
 #~ msgid "Mode"
@@ -1663,9 +1753,9 @@ msgstr "New Project"
 #~ msgstr "Next"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:427
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:231
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:232
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:202
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:240
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:241
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:243
 msgid "Next chapter"
 msgstr "Next chapter"
 
@@ -1698,6 +1788,11 @@ msgstr "No cloud projects found."
 msgid "No content errors found"
 msgstr "No content errors found"
 
+#: src/app/ui/components/blocks/FormPreludeCard.tsx:60
+#: src/app/ui/components/blocks/FormVerseCard.tsx:81
+#~ msgid "No content yet."
+#~ msgstr "No content yet."
+
 #: src/app/ui/components/blocks/LintIssuesPopover.tsx:589
 msgid "No issues match this filter"
 msgstr "No issues match this filter"
@@ -1717,7 +1812,7 @@ msgstr "No matching projects"
 msgid "No projects yet"
 msgstr "No projects yet"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:125
+#: src/app/ui/components/blocks/ReferencePicker.tsx:130
 msgid "No references found."
 msgstr "No references found."
 
@@ -1742,7 +1837,7 @@ msgstr "No results found for <0>{0}</0>"
 msgid "No source selected"
 msgstr "No source selected"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:113
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 msgstr "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 
@@ -1751,8 +1846,8 @@ msgid "No version selected"
 msgstr "No version selected"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:40
-msgid "Non-indented paragraph"
-msgstr "Non-indented paragraph"
+#~ msgid "Non-indented paragraph"
+#~ msgstr "Non-indented paragraph"
 
 #: src/app/ui/components/blocks/LintIssuesPopover.tsx:61
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:296
@@ -1783,9 +1878,13 @@ msgstr "Note"
 #~ msgid "Note submarker {marker} appears outside a note."
 #~ msgstr "Note submarker {marker} appears outside a note."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:170
-#: src/app/ui/hooks/usePrettifyOperations.tsx:225
-#: src/app/ui/hooks/usePrettifyOperations.tsx:327
+#: src/app/ui/components/blocks/FormBlockCard.tsx:639
+msgid "Nothing above to merge into"
+msgstr "Nothing above to merge into"
+
+#: src/app/ui/hooks/usePrettifyOperations.tsx:182
+#: src/app/ui/hooks/usePrettifyOperations.tsx:237
+#: src/app/ui/hooks/usePrettifyOperations.tsx:339
 msgid "Nothing changed"
 msgstr "Nothing changed"
 
@@ -1832,7 +1931,7 @@ msgstr "Open project"
 #~ msgid "Open project drawer"
 #~ msgstr "Open project drawer"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:364
 msgid "Open reference panel"
 msgstr "Open reference panel"
 
@@ -1840,7 +1939,7 @@ msgstr "Open reference panel"
 #~ msgid "Open reference picker"
 #~ msgstr "Open reference picker"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:333
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
 msgid "Open search"
 msgstr "Open search"
 
@@ -1861,11 +1960,15 @@ msgstr "Original"
 #~ msgid "Other Resources"
 #~ msgstr "Other Resources"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:637
+msgid "Outdent"
+msgstr "Outdent"
+
 #: src/app/ui/components/import/CloudProjectImporter.tsx:139
 msgid "Owner"
 msgstr "Owner"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:42
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:41
 msgid "Paragraph"
 msgstr "Paragraph"
 
@@ -1895,9 +1998,13 @@ msgstr "Paragraph marker \\{marker} appears before the first \\c."
 msgid "Password"
 msgstr "Password"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:287
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:329
 msgid "Paste"
 msgstr "Paste"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:412
+msgid "Pick a reference text"
+msgstr "Pick a reference text"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:287
 msgid "Pick a source"
@@ -1921,19 +2028,31 @@ msgstr "Please enter a more specific search term."
 msgid "Please try again."
 msgstr "Please try again."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:45
+#: src/app/ui/components/blocks/FormBlockCard.tsx:702
+msgid "Poetry (level 1)"
+msgstr "Poetry (level 1)"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:704
+msgid "Poetry (level 2)"
+msgstr "Poetry (level 2)"
+
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:44
 msgid "Poetry 1"
 msgstr "Poetry 1"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:47
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:46
 msgid "Poetry 2"
 msgstr "Poetry 2"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:49
+#: src/app/ui/components/blocks/FormBlockCard.tsx:644
+msgid "Poetry 2 must follow Poetry 1"
+msgstr "Poetry 2 must follow Poetry 1"
+
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:48
 msgid "Poetry 3"
 msgstr "Poetry 3"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:51
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:50
 msgid "Poetry 4"
 msgstr "Poetry 4"
 
@@ -1946,9 +2065,9 @@ msgstr "Preparing..."
 #~ msgstr "Prev"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:403
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:217
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:218
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:196
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:226
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:227
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:237
 msgid "Previous chapter"
 msgstr "Previous chapter"
 
@@ -1968,11 +2087,11 @@ msgstr "Previous chapter"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:295
+#: src/app/ui/hooks/usePrettifyOperations.tsx:307
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Processing {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:266
+#: src/app/ui/hooks/usePrettifyOperations.tsx:278
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Processing book 1 of {totalBooks}..."
 
@@ -1999,7 +2118,7 @@ msgstr "Project downloaded successfully!"
 msgid "Project downloaded successfully. Metadata needs review before opening it."
 msgstr "Project downloaded successfully. Metadata needs review before opening it."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:358
+#: src/app/ui/hooks/usePrettifyOperations.tsx:370
 msgid "Project Formatted"
 msgstr "Project Formatted"
 
@@ -2063,7 +2182,7 @@ msgstr "Redid last edit in {bookName} {0}"
 msgid "Redid: {label}"
 msgstr "Redid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:305
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Redo"
 msgstr "Redo"
 
@@ -2071,9 +2190,17 @@ msgstr "Redo"
 #~ msgid "Redo — {next}"
 #~ msgstr "Redo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:305
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Redo — {redoLabel}"
 msgstr "Redo — {redoLabel}"
+
+#: src/app/ui/components/blocks/FormVerseCard.tsx:154
+#~ msgid "Reference has"
+#~ msgstr "Reference has"
+
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:189
+msgid "Reference is loading"
+msgstr "Reference is loading"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:148
 msgid "Reference Panel"
@@ -2126,6 +2253,17 @@ msgstr "Remote login is not configured for this build yet."
 #: src/app/ui/i18n/usfmOnionLocalization.ts:213
 msgid "Remove empty {marker} paragraph"
 msgstr "Remove empty {marker} paragraph"
+
+#: src/app/ui/components/blocks/FormPreludeCard.tsx:231
+#: src/app/ui/components/blocks/FormPreludeCard.tsx:232
+#: src/app/ui/components/blocks/FormVerseCard.tsx:313
+#: src/app/ui/components/blocks/FormVerseCard.tsx:314
+#~ msgid "Remove marker"
+#~ msgstr "Remove marker"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:636
+msgid "Remove paragraph"
+msgstr "Remove paragraph"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:212
 msgid "Remove sort"
@@ -2260,12 +2398,12 @@ msgstr "Run search"
 msgid "Running header"
 msgstr "Running header"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:62
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:61
 msgid "S5 chunk marker"
 msgstr "S5 chunk marker"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:294
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:336
 msgid "Save"
 msgstr "Save"
 
@@ -2397,7 +2535,7 @@ msgstr "Search Projects"
 #~ msgid "Search reference"
 #~ msgstr "Search reference"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:87
+#: src/app/ui/components/blocks/ReferencePicker.tsx:92
 msgid "Search reference resources"
 msgstr "Search reference resources"
 
@@ -2405,7 +2543,7 @@ msgstr "Search reference resources"
 #~ msgid "Search reference text"
 #~ msgstr "Search reference text"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:88
+#: src/app/ui/components/blocks/ReferencePicker.tsx:93
 msgid "Search references"
 msgstr "Search references"
 
@@ -2419,7 +2557,11 @@ msgstr "Searching for <0>{0}</0>..."
 msgid "Searching linked cloud projects..."
 msgstr "Searching linked cloud projects..."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:54
+#: src/app/ui/components/blocks/FormBlockCard.tsx:284
+msgid "Section heading"
+msgstr "Section heading"
+
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:53
 msgid "Section title"
 msgstr "Section title"
 
@@ -2427,15 +2569,15 @@ msgstr "Section title"
 #~ msgid "Section Title"
 #~ msgstr "Section Title"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:56
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:55
 msgid "Section title 2"
 msgstr "Section title 2"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:58
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:57
 msgid "Section title 3"
 msgstr "Section title 3"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:60
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:59
 msgid "Section title 4"
 msgstr "Section title 4"
 
@@ -2489,7 +2631,7 @@ msgstr "Select project"
 #~ msgid "Select Reference Project"
 #~ msgstr "Select Reference Project"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:74
+#: src/app/ui/components/blocks/ReferencePicker.tsx:75
 msgid "Select reference resource"
 msgstr "Select reference resource"
 
@@ -2497,7 +2639,11 @@ msgstr "Select reference resource"
 #~ msgid "Select Reference Resource"
 #~ msgstr "Select Reference Resource"
 
-#: src/app/ui/components/blocks/ReferencePicker.tsx:57
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:180
+#~ msgid "Select reference text"
+#~ msgstr "Select reference text"
+
+#: src/app/ui/components/blocks/ReferencePicker.tsx:58
 msgid "Select reference..."
 msgstr "Select reference..."
 
@@ -2538,11 +2684,11 @@ msgstr "Settings"
 msgid "SHA"
 msgstr "SHA"
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:85
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:84
 msgid "Short book name for the table of contents."
 msgstr "Short book name for the table of contents."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:81
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:80
 msgid "Short book name shown in running headers."
 msgstr "Short book name shown in running headers."
 
@@ -2615,6 +2761,14 @@ msgstr "Some projects may appear in both lists. Linked cloud keeps the Gitea con
 #~ msgid "Source type"
 #~ msgstr "Source type"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:416
+msgid "Split paragraph"
+msgstr "Split paragraph"
+
+#: src/app/ui/components/blocks/FormBlockCard.tsx:413
+msgid "Split paragraph here"
+msgstr "Split paragraph here"
+
 #: src/app/ui/i18n/usfmOnionLocalization.ts:217
 msgid "Split unknown token"
 msgstr "Split unknown token"
@@ -2628,7 +2782,7 @@ msgstr "Split unknown token"
 msgid "Staging uploaded file {0}..."
 msgstr "Staging uploaded file {0}..."
 
-#: src/app/ui/i18n/usfmMarkerLocalization.ts:77
+#: src/app/ui/i18n/usfmMarkerLocalization.ts:76
 msgid "Standard 3-character scripture book identifier plus optional description."
 msgstr "Standard 3-character scripture book identifier plus optional description."
 
@@ -2709,6 +2863,10 @@ msgstr "Take all changes in this chapter"
 #~ msgid "Target Marker Handling"
 #~ msgstr "Target Marker Handling"
 
+#: src/app/ui/components/blocks/FormPreludeCard.tsx:89
+#~ msgid "Text"
+#~ msgstr "Text"
+
 #: src/app/ui/components/blocks/ProjectSettings/FontSizeControl.tsx:104
 #~ msgid "Text size"
 #~ msgstr "Text size"
@@ -2733,7 +2891,7 @@ msgstr "Text Size"
 #~ msgid "The file is missing a \\id marker."
 #~ msgstr "The file is missing a \\id marker."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:226
+#: src/app/ui/hooks/usePrettifyOperations.tsx:238
 msgid "This book is already formatted"
 msgstr "This book is already formatted"
 
@@ -2749,9 +2907,13 @@ msgstr "This chapter"
 msgid "This chapter has no errors that match your filters"
 msgstr "This chapter has no errors that match your filters"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:171
+#: src/app/ui/hooks/usePrettifyOperations.tsx:183
 msgid "This chapter is already formatted"
 msgstr "This chapter is already formatted"
+
+#: src/app/ui/components/blocks/FormModeChapter.tsx:43
+#~ msgid "This chapter is empty."
+#~ msgstr "This chapter is empty."
 
 #: src/app/routes/create.tsx:207
 msgid "This device no longer has access to your cloud session."
@@ -2779,7 +2941,7 @@ msgstr "This number range is not preceded by a marker that expects a number (lik
 msgid "This project has local and cloud changes that need review before the next publish."
 msgstr "This project has local and cloud changes that need review before the next publish."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:328
+#: src/app/ui/hooks/usePrettifyOperations.tsx:340
 msgid "This project is already formatted"
 msgstr "This project is already formatted"
 
@@ -2839,6 +3001,10 @@ msgstr "Too much whitespace before \\{marker}."
 msgid "Try again"
 msgstr "Try again"
 
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:190
+msgid "Try matching formatting again once the reference chapter is visible."
+msgstr "Try matching formatting again once the reference chapter is visible."
+
 #: src/app/ui/components/blocks/LintIssuesPopover.tsx:215
 msgid "Type"
 msgstr "Type"
@@ -2866,7 +3032,7 @@ msgstr "Undid last edit in {bookName} {0}"
 msgid "Undid: {label}"
 msgstr "Undid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:299
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
 msgid "Undo"
 msgstr "Undo"
 
@@ -2874,7 +3040,7 @@ msgstr "Undo"
 #~ msgid "Undo — {next}"
 #~ msgstr "Undo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:299
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
 msgid "Undo — {undoLabel}"
 msgstr "Undo — {undoLabel}"
 
@@ -2924,7 +3090,7 @@ msgstr "USFM"
 #~ msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 #~ msgstr "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:269
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:278
 msgid "USFM Editor"
 msgstr "USFM Editor"
 
@@ -2941,12 +3107,16 @@ msgstr "USFM Structure Only"
 msgid "Value"
 msgstr "Value"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:846
+#: src/app/ui/components/blocks/FormBlockCard.tsx:910
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:36
 msgid "Verse"
 msgstr "Verse"
 
 #. placeholder {0}: note.verseNumber
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:125
+#. placeholder {0}: props.number
+#: src/app/ui/components/blocks/FormBlockCard.tsx:396
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:129
 msgid "Verse {0}"
 msgstr "Verse {0}"
 
@@ -2993,6 +3163,10 @@ msgstr "Verse not available in this text"
 #: src/app/ui/i18n/usfmOnionLocalization.ts:131
 #~ msgid "Verse numbering is out of sequence. Expected {expected} but found {found}."
 #~ msgstr "Verse numbering is out of sequence. Expected {expected} but found {found}."
+
+#: src/app/ui/components/blocks/FormVerseCard.tsx:106
+#~ msgid "Verse text"
+#~ msgstr "Verse text"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:138
 #~ msgid "Verse text appears in an invalid position after the verse number."

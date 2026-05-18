@@ -6,6 +6,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
@@ -27,6 +28,7 @@ export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
     mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -59,6 +61,7 @@ type Props = {
  */
 export const useWorkspaceActions = ({
     mutWorkingFilesRef,
+    workingFilesStore,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -132,6 +135,7 @@ export const useWorkspaceActions = ({
 
     const navigation = useNavigation({
         mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         setCurrentFileBibleIdentifier,
@@ -139,29 +143,26 @@ export const useWorkspaceActions = ({
         updateAppSettings,
         pickedFile,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
 
     const prettifyOperations = useFormatOperations({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
         updateDiffMapForChapter,
         commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
     });
 
     const formatMatching = useFormatMatching({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         referenceResource,
         updateDiffMapForChapter,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         setFormatMatchReport,
         setIsFormatMatchSuggestionsOpen,
         setEditorMode: (next) =>

@@ -11,6 +11,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -154,20 +155,19 @@ function sumStats(
  * publishes a UI report for skipped suggestions.
  */
 export function useFormatMatching({
-    mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     referenceResource,
     updateDiffMapForChapter,
     setEditorContent,
-    saveCurrentDirtyLexical,
     setFormatMatchReport,
     setIsFormatMatchSuggestionsOpen,
     setEditorMode,
     targetMarkerPreservationMode,
     history,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     referenceResource: ReferenceItemHook;
@@ -177,7 +177,6 @@ export function useFormatMatching({
         chapter: number,
         chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
@@ -293,9 +292,14 @@ export function useFormatMatching({
 
     async function matchFormattingChapter() {
         if (!referenceResource.referenceChapter) return;
-        saveCurrentDirtyLexical();
 
-        const file = mutWorkingFilesRef.find(
+        // Read the current store snapshot; bridge keeps it fresh, no flush
+        // needed. applyChapterMatchInPlace mutates whatever chapter object we
+        // hand it, so clone before mutating, then publish the result back via
+        // workingFilesStore.commit.
+        // @Ai? -> What are your thoughts on putting a formal method in the store to capture this workflow of a subscriber that then wants to also write back? I.e. a "mutateAndCommit" method that returns teh clone for a reader and then when finalizing does the commit? Takes a fxn as callback? Idk, maybe too much indirection, but was thinkin gif a caller forgot part of the lifecycle on such.
+        const workingFiles = workingFilesStore.read();
+        const file = workingFiles.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
@@ -309,9 +313,14 @@ export function useFormatMatching({
                 },
             ],
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
-                const chapter = file.chapters.find(
-                    (c) => c.chapterNumber === currentChapter,
+                // The store snapshot is immutable from our side (we mutate clones,
+                // never the read() result), so the rollback baseline can be the
+                // snapshot itself — no deep clone needed.
+                const previous = workingFiles;
+                const chapter = structuredClone(
+                    file.chapters.find(
+                        (c) => c.chapterNumber === currentChapter,
+                    ),
                 );
                 const sourceChapter =
                     referenceResource.referenceFile?.chapters.find(
@@ -328,11 +337,23 @@ export function useFormatMatching({
                     targetMarkerPreservation: targetMarkerPreservationMode,
                 });
 
-                // Push the mutated chapter to the editor BEFORE anything that
-                // calls `saveCurrentDirtyLexical` (which reads the editor's
-                // current state). Otherwise that read would observe the stale
-                // pre-match-formatting tree and overwrite our changes.
                 if (result.changed) {
+                    workingFilesStore.commit(
+                        {
+                            kind: "chapter",
+                            bookCode: currentFileBibleIdentifier,
+                            chapter: currentChapter,
+                            lexicalState: chapter.lexicalState,
+                        },
+                        {
+                            kind: "programmaticFix",
+                            scope: {
+                                bookCode: currentFileBibleIdentifier,
+                                chapter: currentChapter,
+                            },
+                            dirtyTextContent: true,
+                        },
+                    );
                     setEditorContent(
                         currentFileBibleIdentifier,
                         currentChapter,
@@ -373,25 +394,30 @@ export function useFormatMatching({
 
     async function matchFormattingBook() {
         if (!referenceResource.referenceFile) return;
-        saveCurrentDirtyLexical();
-
-        const file = mutWorkingFilesRef.find(
+        const workingFiles = workingFilesStore.read();
+        const file = workingFiles.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
+        // Clone the file so applyChapterMatchInPlace mutates the clone, not
+        // the store's snapshot.
+        const fileClone = structuredClone(file);
 
         const backup = await history.runTransaction({
             label: t`Match Formatting (Book ${currentFileBibleIdentifier})`,
-            candidates: toChapterRefs(file),
+            candidates: toChapterRefs(fileClone),
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
+                // The store snapshot is immutable from our side (we mutate clones,
+                // never the read() result), so the rollback baseline can be the
+                // snapshot itself — no deep clone needed.
+                const previous = workingFiles;
                 let currentChapterModified = false;
                 let modifiedChaptersCount = 0;
                 let aggregateStats = ZERO_STATS;
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                file.chapters.forEach((chapter) => {
+                fileClone.chapters.forEach((chapter) => {
                     const refChapter =
                         referenceResource.referenceFile?.chapters.find(
                             (rc) => rc.chapterNumber === chapter.chapterNumber,
@@ -403,7 +429,7 @@ export function useFormatMatching({
                         chapter,
                         sourceChapter: refChapter,
                         scope: "book",
-                        bookCode: file.bookCode,
+                        bookCode: fileClone.bookCode,
                         targetMarkerPreservation: targetMarkerPreservationMode,
                     });
                     aggregateStats = sumStats(aggregateStats, result.stats);
@@ -416,6 +442,22 @@ export function useFormatMatching({
                     }
                 });
 
+                if (modifiedChaptersCount > 0) {
+                    const newFiles = workingFiles.map((f) =>
+                        f.bookCode === currentFileBibleIdentifier
+                            ? fileClone
+                            : f,
+                    );
+                    workingFilesStore.commit(
+                        { kind: "bulk", files: newFiles },
+                        {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
+                }
+
                 publishReport({
                     generatedAt: new Date().toISOString(),
                     scope: "book",
@@ -427,7 +469,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentChap = file.chapters.find(
+                    const currentChap = fileClone.chapters.find(
                         (c) => c.chapterNumber === currentChapter,
                     );
                     if (currentChap) {
@@ -443,7 +485,7 @@ export function useFormatMatching({
                     ShowNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
-                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${file.title || file.bookCode}`,
+                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${fileClone.title || fileClone.bookCode}`,
                         },
                     });
                 }
@@ -458,15 +500,20 @@ export function useFormatMatching({
     async function matchFormattingProject() {
         const referenceData = referenceResource.referenceQuery.data;
         if (!referenceData) return;
-        saveCurrentDirtyLexical();
+
+        const workingFiles = workingFilesStore.read();
 
         const backup = await history.runTransaction({
             label: t`Match Formatting (Project)`,
-            candidates: mutWorkingFilesRef.flatMap((file) =>
-                toChapterRefs(file),
-            ),
+            candidates: workingFiles.flatMap((file) => toChapterRefs(file)),
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
+                // The store snapshot is immutable from our side (we mutate clones,
+                // never the read() result), so the rollback baseline can be the
+                // snapshot itself — no deep clone needed.
+                const previous = workingFiles;
+                // Clone the whole array; mutations happen on the clones and
+                // the result is committed as a single bulk patch at the end.
+                const filesClone = structuredClone(workingFiles);
                 let currentChapterModified = false;
                 let modifiedBooksCount = 0;
                 let modifiedChaptersCount = 0;
@@ -474,7 +521,7 @@ export function useFormatMatching({
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                for (const targetFile of mutWorkingFilesRef) {
+                for (const targetFile of filesClone) {
                     const refFile = referenceData.parsedFiles.find(
                         (rf) => rf.bookCode === targetFile.bookCode,
                     );
@@ -516,6 +563,17 @@ export function useFormatMatching({
                     }
                 }
 
+                if (modifiedChaptersCount > 0) {
+                    workingFilesStore.commit(
+                        { kind: "bulk", files: filesClone },
+                        {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
+                }
+
                 publishReport({
                     generatedAt: new Date().toISOString(),
                     scope: "project",
@@ -527,7 +585,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentFile = mutWorkingFilesRef.find(
+                    const currentFile = filesClone.find(
                         (f) => f.bookCode === currentFileBibleIdentifier,
                     );
                     const currentChap = currentFile?.chapters.find(
