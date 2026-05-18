@@ -1,7 +1,9 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
+import { Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsManager } from "@/app/data/settings.ts";
+import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import {
     GIT_REMOTE_OPEN_STATUS_NOT_LINKED,
     type GitRemoteOpenStatusResult,
@@ -168,6 +170,23 @@ export const ProjectProvider = ({
         usfmOnionService,
         gitProvider,
     } = useRouter().options.context;
+    // Fork the lint pipeline as a workspace-scoped fiber. The pipeline
+    // subscribes to `workingFilesStore.changes`, debounces, switchMaps to
+    // `lintExisting`, and writes results into the LintStore. In Stage 2A.2
+    // the legacy `useEditorLinter` listener still runs alongside; 2A.3
+    // deletes it once we verify the pipeline produces matching output.
+    useEffect(() => {
+        const pipeline = makeLintPipeline({
+            workingFilesStore,
+            lintStore,
+            usfmOnionService,
+        });
+        const fiber = Effect.runFork(pipeline);
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore, lintStore, usfmOnionService]);
+
     const cssStyleSheet = useDynamicStylesheet();
     const project = useWorkspaceState(
         settingsManager,
