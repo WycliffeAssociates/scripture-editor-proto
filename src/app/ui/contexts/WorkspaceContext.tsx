@@ -141,6 +141,12 @@ export const ProjectProvider = ({
     const projectLanguageDirection = loadedProject.language.direction;
 
     // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
+    // TODO(stage-1C): delete `mutWorkingFilesRef` once every consumer reads
+    // from `workingFilesStore` directly. Today it's still referenced by
+    // useNavigation (non-swap paths), useExternalCompare (~40 sites incl.
+    // in-place mutations), useDiffModalState / useVersionHistory /
+    // useSaveAndRevert, and the `saveCurrentDirtyLexical` wrapper in
+    // useActions. See progress.md "Stage 1B shim inventory" item 7.
     const mutWorkingFilesRef = useRef(projectFiles);
 
     // Stage 1A: parallel push-based store. The editor's bridge plugin commits
@@ -184,6 +190,7 @@ export const ProjectProvider = ({
         useState(false);
     const save = useSave({
         mutWorkingFilesRef: mutWorkingFilesRef.current,
+        workingFilesStore,
         // setWorkingFiles,
         editorRef: editorRef,
         pickedFile: project.pickedFile,
@@ -443,15 +450,10 @@ export const ProjectProvider = ({
                                 remoteStatus?.kind ===
                                 GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE;
                             const reviewResult = suppressReviewModal
-                                ? await save.compare.openRemoteLatestReview(
-                                      actions.saveCurrentDirtyLexical,
-                                      {
-                                          openModalOnRequiresReview: false,
-                                      },
-                                  )
-                                : await save.compare.openRemoteLatestReview(
-                                      actions.saveCurrentDirtyLexical,
-                                  );
+                                ? await save.compare.openRemoteLatestReview({
+                                      openModalOnRequiresReview: false,
+                                  })
+                                : await save.compare.openRemoteLatestReview();
                             const reconciliation =
                                 reviewResult?.requiresReconciliationSave;
                             if (reconciliation) {
@@ -479,9 +481,7 @@ export const ProjectProvider = ({
                         await syncRemoteStatus(true);
                     },
                     reviewIncoming: async () => {
-                        await save.compare.openRemoteLatestReview(
-                            actions.saveCurrentDirtyLexical,
-                        );
+                        await save.compare.openRemoteLatestReview();
                     },
                 },
                 projectLanguageDirection,

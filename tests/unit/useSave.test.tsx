@@ -124,6 +124,14 @@ function HookHarness(props: {
 }) {
     const value = useSave({
         mutWorkingFilesRef: [],
+        workingFilesStore: {
+            read: () => [],
+            readChapter: () => undefined,
+            commit: () => {},
+            reset: () => {},
+            subscribe: () => () => {},
+            getSnapshot: () => [],
+        } as never,
         editorRef: { current: null },
         pickedFile: null,
         pickedChapter: null,

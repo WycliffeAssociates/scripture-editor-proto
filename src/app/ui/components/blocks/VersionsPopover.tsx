@@ -27,7 +27,7 @@ function joinClassNames(...names: Array<string | false | undefined>) {
 
 export function VersionsPopover() {
     const [opened, setOpened] = useState(false);
-    const { actions, loadedProject, save } = useWorkspaceContext();
+    const { loadedProject, save } = useWorkspaceContext();
     const { gitProvider, settingsManager, usfmOnionService } =
         useRouter().options.context;
     const queryClient = useQueryClient();
@@ -107,9 +107,7 @@ export function VersionsPopover() {
                                     size="sm"
                                     variant="secondary"
                                     onClick={() =>
-                                        void save.versions.backToLatest(
-                                            actions.saveCurrentDirtyLexical,
-                                        )
+                                        void save.versions.backToLatest()
                                     }
                                     disabled={
                                         !save.versions.isViewingOlderVersion ||
@@ -156,10 +154,7 @@ export function VersionsPopover() {
                                 isSwitching={save.versions.isSwitching}
                                 opened={opened}
                                 onSelect={(hash) =>
-                                    void save.versions.select(
-                                        hash,
-                                        actions.saveCurrentDirtyLexical,
-                                    )
+                                    void save.versions.select(hash)
                                 }
                                 onPrefetch={(hash) =>
                                     prefetchVersionPreview({

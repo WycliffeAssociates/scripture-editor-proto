@@ -650,9 +650,7 @@ describe("ProjectProvider remote open hydration", () => {
             await Promise.resolve();
         });
 
-        expect(openRemoteLatestReviewMock).toHaveBeenCalledWith(
-            expect.any(Function),
-        );
+        expect(openRemoteLatestReviewMock).toHaveBeenCalled();
         expect(saveProjectToDiskMock).toHaveBeenCalledTimes(1);
     });
 });

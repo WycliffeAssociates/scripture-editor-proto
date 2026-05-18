@@ -55,9 +55,12 @@ export function useNavigation({
      */
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
         // Push-based read: the bridge plugin keeps the store fresh on every
-        // commit, so no flush is needed before leaving the chapter. The other
-        // mutWorkingFilesRef reads in this hook (next/prev chapter, reference
-        // parsing) stay on the legacy ref for now; Stage 1C will sweep those.
+        // commit, so no flush is needed before leaving the chapter.
+        // TODO(stage-1C): the other `mutWorkingFilesRef` reads in this hook
+        // (next/prev chapter ~line 145, reference parsing ~line 195,
+        // uniqueStartsWith ~line 245) still use the legacy ref. Migrate to
+        // `workingFilesStore.read()` and drop the prop. See progress.md
+        // "Stage 1B shim inventory" item 2.
         const filesToUse = workingFilesStore.read();
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,

@@ -88,6 +88,12 @@ export const useWorkspaceActions = ({
     /**
      * Guard editor-dependent operations so callers do not have to repeat
      * null-checks for the mounted Lexical instance.
+     *
+     * TODO(stage-1C): delete this wrapper and the underlying
+     * `editorState.saveCurrentDirtyLexical` once 1B.6 / 1B.7 + the 1C sweep
+     * have moved every consumer to `workingFilesStore.read()` / the
+     * commit-based push pattern. See progress.md "Stage 1B shim inventory"
+     * item 6.
      */
     const saveCurrentDirtyLexicalWrapper = () => {
         if (editorRef.current) {
@@ -124,13 +130,12 @@ export const useWorkspaceActions = ({
     });
 
     const modeSwitching = useModeSwitching({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         appSettings,
         updateAppSettings,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
 
     const navigation = useNavigation({

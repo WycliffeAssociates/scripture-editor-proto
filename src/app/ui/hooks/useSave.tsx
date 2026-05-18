@@ -7,6 +7,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useDiffModalState } from "@/app/ui/hooks/save/useDiffModalState.ts";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
@@ -28,6 +29,7 @@ import type {
 
 type UseSaveProps = {
     mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
@@ -56,6 +58,7 @@ export type UseSaveReturn = ReturnType<typeof useSave>;
  */
 export function useSave({
     mutWorkingFilesRef,
+    workingFilesStore,
     editorRef,
     pickedFile,
     pickedChapter,
@@ -73,7 +76,6 @@ export function useSave({
     const { usfmOnionService, settingsManager, authSessionProvider } =
         useRouter().options.context;
     const [, setDirtyVersion] = useState(0);
-    const saveCurrentDirtyRef = useRef<(() => void) | null>(null);
     const refreshUnsavedChaptersRef = useRef<
         (
             chapters: Array<{ bookCode: string; chapterNum: number }>,
@@ -228,6 +230,13 @@ export function useSave({
         },
     };
 
+    // TODO(stage-1C): shim — every version-history flow that used to take a
+    // `saveCurrentDirtyLexical` flush callback now syncs the legacy
+    // `mutWorkingFilesRef` from the store at the wrapper entry and passes a
+    // no-op down. `useVersionHistory.actions.*` still reads
+    // `args.mutWorkingFilesRef` directly. 1C migrates those reads to
+    // `workingFilesStore.read()` and drops the no-op callback parameter.
+    // See progress.md "Stage 1B shim inventory" item 4.
     const versionHistory = {
         isOpen: versions.state.isOpen,
         entries: versions.state.entries,
@@ -236,28 +245,37 @@ export function useSave({
         selectedHash: versions.state.selectedHash,
         latestHash: versions.state.latestHash,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
-        open: async (saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        open: async () => {
+            syncMutWorkingFilesRefFromStore(
+                mutWorkingFilesRef,
+                workingFilesStore,
+            );
             await versions.actions.open({
-                saveCurrentDirtyLexical,
+                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
         close: versions.actions.close,
         ensureLoaded: versions.actions.ensureLoaded,
         loadMore: versions.actions.loadMore,
-        select: async (hash: string, saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        select: async (hash: string) => {
+            syncMutWorkingFilesRefFromStore(
+                mutWorkingFilesRef,
+                workingFilesStore,
+            );
             await versions.actions.select({
                 hash,
-                saveCurrentDirtyLexical,
+                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
-        backToLatest: async (saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        backToLatest: async () => {
+            syncMutWorkingFilesRefFromStore(
+                mutWorkingFilesRef,
+                workingFilesStore,
+            );
             await versions.actions.backToLatest({
-                saveCurrentDirtyLexical,
+                saveCurrentDirtyLexical: () => {},
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
@@ -271,26 +289,67 @@ export function useSave({
             },
             saveAndContinue: () => {
                 versions.actions.saveAndContinue(() => {
-                    const saveCurrentDirtyLexical = saveCurrentDirtyRef.current;
-                    if (!saveCurrentDirtyLexical) return;
-                    void diff.actions.open(saveCurrentDirtyLexical);
+                    // Why a second sync here (we already synced at the start of
+                    // `versions.select` / `.backToLatest` / `.open`):
+                    //
+                    // The dirty-prompt is asynchronous from the user's
+                    // perspective. When the user clicks a version, we sync the
+                    // legacy `mutWorkingFilesRef` from the store and then *open
+                    // a modal asking* whether to save or discard their unsaved
+                    // changes. That modal can sit on screen for an arbitrary
+                    // amount of time, and the editor is NOT locked while it's
+                    // open — the user can click back into the editor, type
+                    // more, and then return to the modal and click "save and
+                    // continue".
+                    //
+                    // During that gap, the bridge plugin has been pushing every
+                    // editor commit straight into `workingFilesStore`. The
+                    // store is fresh. But `mutWorkingFilesRef` only got the
+                    // snapshot we copied at click-time — it's now stale by
+                    // however many keystrokes happened during the prompt.
+                    //
+                    // `diff.actions.open` (called below) hands off to
+                    // `useDiffModalState`, which reads `args.mutWorkingFilesRef`
+                    // to build the save-review diff. Without a re-sync here it
+                    // would diff the stale snapshot, missing the user's most
+                    // recent keystrokes. Mirror the store into the legacy ref
+                    // again, then open the modal.
+                    //
+                    // TODO(stage-1C): once `useDiffModalState` reads from the
+                    // store directly, both this sync and the one at
+                    // `versions.select` / etc. can disappear.
+                    syncMutWorkingFilesRefFromStore(
+                        mutWorkingFilesRef,
+                        workingFilesStore,
+                    );
+                    void diff.actions.open(() => {});
                 });
             },
         },
     };
 
-    const openRemoteLatestReview = async (
-        saveCurrentDirtyLexical: () => void,
-        options?: {
-            openModalOnRequiresReview?: boolean;
-        },
-    ) =>
-        compare.actions.openRemoteLatestReview(
-            saveCurrentDirtyLexical,
+    /**
+     * TODO(stage-1C): shim — sync the legacy `mutWorkingFilesRef` from the
+     * store before delegating into `useExternalCompare`, which still reads
+     * `args.mutWorkingFilesRef` extensively (~40 sites). Stage 1C migrates
+     * those reads directly to the store using Option D (clone + commit for
+     * the in-place-mutation paths around applyIncomingHunkToCurrent /
+     * applyIncomingChapter / applyIncomingAll) and then removes this sync,
+     * the no-op callback passed below, and the `saveCurrentDirtyLexical`
+     * parameter on `useExternalCompare.openRemoteLatestReview` itself.
+     * Tracking: progress.md "Stage 1B shim inventory" item 1.
+     */
+    const openRemoteLatestReview = async (options?: {
+        openModalOnRequiresReview?: boolean;
+    }) => {
+        syncMutWorkingFilesRefFromStore(mutWorkingFilesRef, workingFilesStore);
+        return compare.actions.openRemoteLatestReview(
+            () => {},
             diff.actions.open,
             diff.state.isOpen,
             options,
         );
+    };
 
     return {
         diff: {
@@ -342,4 +401,20 @@ export function useSave({
             applyIncomingAll: compare.actions.applyIncomingAll,
         },
     };
+}
+
+/**
+ * TODO(stage-1C): shim — copy the store's working-files state into the legacy
+ * `mutWorkingFilesRef` array, preserving the array's reference identity so
+ * deeply-attached consumers (useExternalCompare etc.) keep working without a
+ * deeper migration. Removed once 1C migrates those reads directly to the
+ * store. See progress.md "Stage 1B shim inventory" item 1.
+ */
+function syncMutWorkingFilesRefFromStore(
+    mutWorkingFilesRef: ScriptureBookState[],
+    workingFilesStore: WorkingFilesStore,
+): void {
+    const fresh = workingFilesStore.read();
+    mutWorkingFilesRef.length = 0;
+    for (const file of fresh) mutWorkingFilesRef.push(file);
 }
