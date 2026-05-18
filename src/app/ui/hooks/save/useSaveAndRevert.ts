@@ -229,7 +229,7 @@ export function useSaveAndRevert(args: {
     async function discardAllChanges() {
         const filesClone = structuredClone(args.workingFilesStore.read());
         revertAllChanges({
-            mutWorkingFilesRef: filesClone,
+            workingFiles: filesClone,
             setDiffsByChapter: args.setUnsavedDiffsByChapter,
             bumpDirtyVersion: args.bumpDirtyVersion,
             pickedFile: args.pickedFile,

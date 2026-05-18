@@ -250,7 +250,7 @@ export function useSearchExecution({
             clearHighlights();
 
             const targetFilesToSearch =
-                resolvedContentProvider.saveDirtyAndGetTargetFiles();
+                resolvedContentProvider.getTargetFiles();
             const targetChapterKeySet = listChapterKeys(targetFilesToSearch);
             const queryOptions: SearchQuery = {
                 term: query,

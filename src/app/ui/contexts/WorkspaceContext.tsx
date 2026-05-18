@@ -80,9 +80,10 @@ export interface WorkSpaceContextType {
     save: UseSaveReturn;
     history: CustomHistoryHook;
     /**
-     * Single source of live current truth for working-files state. Stage 1A
-     * shadow-mirrors `mutWorkingFilesRef`; Stage 1B migrates consumers off the
-     * pull-based path; Stage 1C deletes the ref entirely.
+     * Single source of live current truth for working-files state. The editor's
+     * bridge plugin commits here on every update; consumers read via
+     * `workingFilesStore.read()` or subscribe via the Effect-side `changes`
+     * stream.
      */
     workingFilesStore: WorkingFilesStore;
     remote: {
@@ -140,18 +141,9 @@ export const ProjectProvider = ({
     const { projects } = useLoaderData({ from: "__root__" });
     const projectLanguageDirection = loadedProject.language.direction;
 
-    // Keep a mutable copy for performance intensive operations: It should always end up being "latest", and then we can call setWorkingFiles back to this ref's value after mutations;
-    // TODO(stage-1C): delete `mutWorkingFilesRef` once every consumer reads
-    // from `workingFilesStore` directly. Today it's still referenced by
-    // useNavigation (non-swap paths), useExternalCompare (~40 sites incl.
-    // in-place mutations), useDiffModalState / useVersionHistory /
-    // useSaveAndRevert, and the `saveCurrentDirtyLexical` wrapper in
-    // useActions. See progress.md "Stage 1B shim inventory" item 7.
-    const mutWorkingFilesRef = useRef(projectFiles);
-
-    // Stage 1A: parallel push-based store. The editor's bridge plugin commits
-    // here on every update; consumers read via `workingFilesStore.read()`
-    // instead of pulling via `saveCurrentDirtyLexical()`.
+    // The editor's bridge plugin commits here on every update; all consumers
+    // read via `workingFilesStore.read()` (or subscribe via the Effect-side
+    // `changes` stream).
     const workingFilesStoreRef = useRef<WorkingFilesStore | null>(null);
     if (workingFilesStoreRef.current === null) {
         workingFilesStoreRef.current = new WorkingFilesStore(projectFiles);
@@ -176,7 +168,6 @@ export const ProjectProvider = ({
         queryChapterOverride,
     );
     const history = useCustomHistory({
-        mutWorkingFilesRef: mutWorkingFilesRef.current,
         workingFilesStore,
         editorRef,
         currentFileBibleIdentifier: project.pickedFile.bookCode,
@@ -325,9 +316,10 @@ export const ProjectProvider = ({
                 const touchedBooks = new Set(
                     event.touchedChapters.map((chapter) => chapter.bookCode),
                 );
+                const currentFiles = workingFilesStore.read();
                 const touchedFiles = [...touchedBooks]
                     .map((bookCode) =>
-                        mutWorkingFilesRef.current.find(
+                        currentFiles.find(
                             (candidate) => candidate.bookCode === bookCode,
                         ),
                     )
@@ -368,20 +360,13 @@ export const ProjectProvider = ({
         return file.title;
     }
 
-    // sync props to state: Be sure all dirty work is saved before navigating away or closing app
+    // Replace store state wholesale when the route swaps in a fresh project.
+    // No commit event is published — this is a structural reload, not an edit.
+    // Subscribers that need to react listen for the route-level load instead.
     useEffect(() => {
-        mutWorkingFilesRef.current = projectFiles;
-        // Mirror into the store without publishing a commit event — this is a
-        // structural reload, not an edit. Subscribers that need to react to a
-        // fresh project listen for the route-level load instead.
         workingFilesStore.reset(projectFiles);
     }, [projectFiles, workingFilesStore]);
 
-    // keep ref in sync when React commits new state
-    // useEffect(() => {
-    //     // won't fire needlesslely when workingFiles is already set to the value of workingFilesRef.current; only if props changes
-    //     mutWorkingFilesRef.current = workingFiles;
-    // }, [workingFiles]);
     return (
         <WorkspaceContext.Provider
             value={{

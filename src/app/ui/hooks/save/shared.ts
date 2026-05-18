@@ -160,19 +160,19 @@ export function buildCurrentProjectCompareMetadata(
  * scripture snapshot, clearing any unsaved diff UI at the same time.
  */
 export function revertAllChanges(args: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFiles: ScriptureBookState[];
     setDiffsByChapter: (next: DiffsByChapter) => void;
     bumpDirtyVersion: () => void;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
     editorRef: RefObject<LexicalEditor | null>;
 }) {
-    revertAllChaptersToLoadedState(args.mutWorkingFilesRef);
+    revertAllChaptersToLoadedState(args.workingFiles);
     args.setDiffsByChapter({});
     args.bumpDirtyVersion();
     syncEditorToPickedChapter({
         editorRef: args.editorRef,
-        workingFiles: args.mutWorkingFilesRef,
+        workingFiles: args.workingFiles,
         pickedFile: args.pickedFile,
         pickedChapter: args.pickedChapter,
     });

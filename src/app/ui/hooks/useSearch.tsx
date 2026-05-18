@@ -68,16 +68,6 @@ export function useProjectSearch({
                 // the legacy saveCurrentDirtyLexical() flush-then-read path used
                 // to produce.
                 getTargetFiles: () => workingFilesStore.read(),
-                // TODO(stage-1C): collapse `saveDirtyAndGetTargetFiles` into
-                // `getTargetFiles`. The two-method shape is a leftover from
-                // the pull-based world where a caller had to choose between
-                // "current snapshot" and "flush-then-snapshot". With push,
-                // both are identical reads. Removing the dual method requires
-                // updating `SearchContentProvider` in
-                // src/app/domain/search/SearchService.ts plus its non-default
-                // implementations and call sites. See progress.md "Stage 1B
-                // shim inventory" item 3.
-                saveDirtyAndGetTargetFiles: () => workingFilesStore.read(),
                 getReferenceFiles: () => referenceFiles ?? [],
             },
         [contentProvider, referenceFiles, workingFilesStore],

@@ -49,7 +49,6 @@ export type UndoRedoEvent = {
 };
 
 type UseCustomHistoryArgs = {
-    mutWorkingFilesRef: ScriptureBookState[];
     workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     currentFileBibleIdentifier: string;
@@ -92,6 +91,21 @@ function cloneSelection(
     return structuredClone(selection);
 }
 
+function findChapterRecordIn(
+    files: ScriptureBookState[],
+    chapterRef: HistoryChapterRef,
+): HistoryChapterRecord | null {
+    const file = files.find(
+        (candidate) => candidate.bookCode === chapterRef.bookCode,
+    );
+    if (!file) return null;
+    const chapter = file.chapters.find(
+        (candidate) => candidate.chapterNumber === chapterRef.chapterNum,
+    );
+    if (!chapter) return null;
+    return { file, chapter };
+}
+
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
 
 /**
@@ -103,7 +117,6 @@ export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
  * and reapplies snapshots back onto the working scripture noun.
  */
 export function useCustomHistory({
-    mutWorkingFilesRef,
     workingFilesStore,
     editorRef,
     currentFileBibleIdentifier,
@@ -138,19 +151,9 @@ export function useCustomHistory({
     }, []);
 
     const findChapterRecord = useCallback(
-        (chapterRef: HistoryChapterRef): HistoryChapterRecord | null => {
-            const file = mutWorkingFilesRef.find(
-                (candidate) => candidate.bookCode === chapterRef.bookCode,
-            );
-            if (!file) return null;
-            const chapter = file.chapters.find(
-                (candidate) =>
-                    candidate.chapterNumber === chapterRef.chapterNum,
-            );
-            if (!chapter) return null;
-            return { file, chapter };
-        },
-        [mutWorkingFilesRef],
+        (chapterRef: HistoryChapterRef): HistoryChapterRecord | null =>
+            findChapterRecordIn(workingFilesStore.read(), chapterRef),
+        [workingFilesStore],
     );
 
     const readSnapshotFromChapter = useCallback(
@@ -327,8 +330,10 @@ export function useCustomHistory({
             };
             let currentChapterSelectionOverride: SerializedSelectionState;
 
+            const draft = structuredClone(workingFilesStore.read());
+            let draftMutated = false;
             for (const change of chapterChanges) {
-                const record = findChapterRecord(change.chapter);
+                const record = findChapterRecordIn(draft, change.chapter);
                 if (!record) continue;
                 const targetSnapshot =
                     direction === "before" ? change.before : change.after;
@@ -352,10 +357,21 @@ export function useCustomHistory({
                 );
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
+                draftMutated = true;
                 if (chapterKey(change.chapter) === chapterKey(currentRef)) {
                     currentChapterSelectionOverride =
                         targetSelection as SerializedSelectionState;
                 }
+            }
+            if (draftMutated) {
+                workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: action,
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
             }
 
             if (touchedChapters.size) {
@@ -406,6 +422,7 @@ export function useCustomHistory({
         [
             currentFileBibleIdentifier,
             currentChapter,
+            workingFilesStore,
             findChapterRecord,
             markChapterDirty,
             setBaselineSnapshot,
