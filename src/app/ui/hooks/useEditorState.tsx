@@ -15,23 +15,11 @@ import { setEditorContent } from "./utils/editorUtils.ts";
  */
 export function useEditorState({
     mutWorkingFilesRef,
-    currentFileBibleIdentifier,
-    currentChapter,
     updateDiffMapForChapter,
 }: {
     mutWorkingFilesRef: ScriptureBookState[];
-    currentFileBibleIdentifier: string;
-    currentChapter: number;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
 }) {
-    function getCurrentChapterState() {
-        return mutWorkingFilesRef
-            .find((file) => file.bookCode === currentFileBibleIdentifier)
-            ?.chapters.find(
-                (chapter) => chapter.chapterNumber === currentChapter,
-            );
-    }
-
     /**
      * Persist the latest serialized Lexical state back into the mutable
      * workspace chapter record and refresh diff bookkeeping for that chapter.
@@ -86,39 +74,9 @@ export function useEditorState({
         );
     }
 
-    /**
-     * Snapshot the currently mounted editor back into workspace state if there
-     * is a live editor instance.
-     */
-    function saveCurrentDirtyLexical(
-        editor: LexicalEditor,
-    ): ScriptureBookState[] | undefined {
-        if (!editor) return;
-        const currentChapterState = getCurrentChapterState();
-        if (
-            shouldSkipEmptyEditorSnapshot({
-                isEditorStateEmpty: editor.getEditorState().isEmpty(),
-                currentChapterState,
-            })
-        ) {
-            return mutWorkingFilesRef;
-        }
-
-        const currentJson = editor.getEditorState().toJSON();
-
-        if (currentJson) {
-            return updateChapterLexical({
-                fileBibleIdentifier: currentFileBibleIdentifier,
-                chap: currentChapter,
-                newLexical: currentJson,
-            });
-        }
-    }
-
     return {
         updateChapterLexical,
         setEditorContent: setEditorContentWithDependencies,
-        saveCurrentDirtyLexical,
     };
 }
 

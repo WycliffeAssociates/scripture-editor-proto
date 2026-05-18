@@ -37,7 +37,7 @@ type Props = {
     appSettings: Settings;
     updateAppSettings: (newSettings: Partial<Settings>) => void;
     pickedFile: ScriptureBookState | null;
-    toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
+    toggleDiffModal: () => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     referenceResource: ReferenceItemHook;
@@ -85,26 +85,6 @@ export const useWorkspaceActions = ({
         applyColorSchemeToDocument(value);
     };
 
-    /**
-     * Guard editor-dependent operations so callers do not have to repeat
-     * null-checks for the mounted Lexical instance.
-     *
-     * TODO(stage-1C): delete this wrapper and the underlying
-     * `editorState.saveCurrentDirtyLexical` once 1B.6 / 1B.7 + the 1C sweep
-     * have moved every consumer to `workingFilesStore.read()` / the
-     * commit-based push pattern. See progress.md "Stage 1B shim inventory"
-     * item 6.
-     */
-    const saveCurrentDirtyLexicalWrapper = () => {
-        if (editorRef.current) {
-            if (!modeSwitching.canPersistVisibleEditorState()) {
-                return mutWorkingFilesRef;
-            }
-            return editorState.saveCurrentDirtyLexical(editorRef.current);
-        }
-        return undefined;
-    };
-
     const setEditorContentWrapper = (
         fileBibleIdentifier: string,
         chapter: number,
@@ -124,8 +104,6 @@ export const useWorkspaceActions = ({
 
     const editorState = useEditorState({
         mutWorkingFilesRef,
-        currentFileBibleIdentifier,
-        currentChapter,
         updateDiffMapForChapter,
     });
 
@@ -218,7 +196,6 @@ export const useWorkspaceActions = ({
         // Editor state management
         updateChapterLexical: editorState.updateChapterLexical,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
 
         // Navigation
         switchBookOrChapter: navigation.switchBookOrChapter,
@@ -254,8 +231,7 @@ export const useWorkspaceActions = ({
 
         // Utility functions
         getFlatFileTokens,
-        toggleDiffModal: () =>
-            toggleDiffModalCallback(() => saveCurrentDirtyLexicalWrapper()),
+        toggleDiffModal: toggleDiffModalCallback,
         setColorScheme,
     };
 };
