@@ -7,20 +7,22 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type {
     SearchMatch,
     SearchRunResult,
 } from "@/app/ui/hooks/search/searchTypes.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import {
-    highlightMatches,
     type MatchInNode,
+    scrollToActiveMatchInEditor,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import { replaceInNodeText } from "@/core/domain/search/replaceEngine.ts";
 
 type Params = {
     history: CustomHistoryHook;
     editorRef: RefObject<LexicalEditor | null>;
+    searchHighlightStore: SearchHighlightStore;
     searchReference: boolean;
     pickedResult: SearchResult | null;
     currentMatches: SearchMatch[];
@@ -72,6 +74,7 @@ type Params = {
 export function useSearchReplace({
     history,
     editorRef,
+    searchHighlightStore,
     searchReference,
     pickedResult,
     currentMatches,
@@ -156,11 +159,14 @@ export function useSearchReplace({
             setCurrentMatchIndex(nextIndex);
 
             if (editorRef.current) {
-                highlightMatches(
-                    searchMatches,
-                    editorRef.current,
-                    nextActiveMatch,
-                );
+                searchHighlightStore.set([
+                    {
+                        editor: editorRef.current,
+                        matches: searchMatches,
+                        activeMatch: nextActiveMatch,
+                    },
+                ]);
+                scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
             }
 
             const nextResult = sortedResults.find(
@@ -184,6 +190,7 @@ export function useSearchReplace({
             pickedResult?.source,
             replaceTerm,
             runSearchLogic,
+            searchHighlightStore,
             searchReference,
             searchTerm,
             setCurrentMatchIndex,
@@ -243,7 +250,14 @@ export function useSearchReplace({
         setCurrentMatchIndex(nextIndex);
 
         if (editorRef.current) {
-            highlightMatches(searchMatches, editorRef.current, nextActiveMatch);
+            searchHighlightStore.set([
+                {
+                    editor: editorRef.current,
+                    matches: searchMatches,
+                    activeMatch: nextActiveMatch,
+                },
+            ]);
+            scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
         }
 
         const nextResult = sortedResults.find(
@@ -265,6 +279,7 @@ export function useSearchReplace({
         pickedResult,
         replaceTerm,
         runSearchLogic,
+        searchHighlightStore,
         searchReference,
         searchTerm,
         setCurrentMatchIndex,

@@ -21,6 +21,7 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
 import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import { LintStore } from "@/app/state/LintStore.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
+import { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -106,6 +107,13 @@ export interface WorkSpaceContextType {
      * resize/scroll listeners. Overlay sinks subscribe via `useLayoutTick`.
      */
     layoutTickStore: LayoutTickStore;
+    /**
+     * Single source of "what to paint" for the CSS Highlight registry.
+     * Search hooks call `set(...)` to publish; `HighlightSink` repaints
+     * on every tick + store change so highlights stay aligned with the
+     * live editor DOM.
+     */
+    searchHighlightStore: SearchHighlightStore;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -198,6 +206,14 @@ export const ProjectProvider = ({
         layoutTickStoreRef.current = new LayoutTickStore();
     }
     const layoutTickStore = layoutTickStoreRef.current;
+
+    // Workspace-scoped search highlight store. Search hooks publish; the
+    // mounted `HighlightSink` repaints from it on store change + layout tick.
+    const searchHighlightStoreRef = useRef<SearchHighlightStore | null>(null);
+    if (searchHighlightStoreRef.current === null) {
+        searchHighlightStoreRef.current = new SearchHighlightStore();
+    }
+    const searchHighlightStore = searchHighlightStoreRef.current;
 
     // Deferred<LexicalEditor> — resolves once the bridge plugin mounts. The
     // structure pipeline (and future Effect.gen commands like chapter-swap)
@@ -363,6 +379,7 @@ export const ProjectProvider = ({
 
     const actions = useWorkspaceActions({
         editorRef,
+        mainEditorDeferred,
         workingFilesStore,
         loadedProject,
         currentChapter:
@@ -388,6 +405,7 @@ export const ProjectProvider = ({
     });
     const search = useProjectSearch({
         workingFilesStore,
+        searchHighlightStore,
         referenceFiles:
             referenceResource.referenceScriptureQuery.data?.parsedFiles,
         switchBookOrChapter: actions.switchBookOrChapter,
@@ -620,6 +638,7 @@ export const ProjectProvider = ({
                 workingFilesStore,
                 mainEditorDeferred,
                 layoutTickStore,
+                searchHighlightStore,
             }}
         >
             {children}

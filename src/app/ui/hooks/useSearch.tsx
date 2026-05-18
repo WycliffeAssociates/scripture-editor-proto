@@ -9,6 +9,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSearchExecution } from "@/app/ui/hooks/search/useSearchExecution.ts";
 import { useSearchNavigation } from "@/app/ui/hooks/search/useSearchNavigation.ts";
@@ -18,6 +19,7 @@ import { makeSid } from "@/core/data/bible/bible.ts";
 
 type Props = {
     workingFilesStore: WorkingFilesStore;
+    searchHighlightStore: SearchHighlightStore;
     referenceFiles?: ScriptureBookState[];
     contentProvider?: SearchContentProvider;
     switchBookOrChapter: (
@@ -51,6 +53,7 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
  */
 export function useProjectSearch({
     workingFilesStore,
+    searchHighlightStore,
     referenceFiles,
     contentProvider,
     switchBookOrChapter,
@@ -82,6 +85,7 @@ export function useProjectSearch({
         editorRef,
         referenceEditorRef,
         switchBookOrChapter,
+        searchHighlightStore,
     });
 
     const execution = useSearchExecution({
@@ -90,6 +94,7 @@ export function useProjectSearch({
         pickedChapter,
         currentChapterSid,
         editorRef,
+        searchHighlightStore,
         collectMatchesInCurrentEditor: navigation.collectMatchesInCurrentEditor,
         pick: navigation.pick,
         currentMatchesControls: {
@@ -104,6 +109,7 @@ export function useProjectSearch({
     const replace = useSearchReplace({
         history,
         editorRef,
+        searchHighlightStore,
         searchReference: execution.searchReference,
         pickedResult: navigation.pickedResult,
         currentMatches: navigation.currentMatches,

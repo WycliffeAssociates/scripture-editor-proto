@@ -1,3 +1,4 @@
+import { Deferred, Effect } from "effect";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
@@ -27,6 +28,7 @@ export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
+    mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
     workingFilesStore: WorkingFilesStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
@@ -61,6 +63,7 @@ type Props = {
 export const useWorkspaceActions = ({
     workingFilesStore,
     editorRef,
+    mainEditorDeferred,
     currentFileBibleIdentifier,
     currentChapter,
     setCurrentFileBibleIdentifier,
@@ -98,6 +101,20 @@ export const useWorkspaceActions = ({
                 chapterContent,
             );
         }
+        // Editor not mounted yet — schedule the write for first mount instead
+        // of silently dropping it. Previously a navigation that fired before
+        // mount left the editor blank until the next interaction.
+        Effect.runFork(
+            Effect.gen(function* () {
+                const readyEditor = yield* Deferred.await(mainEditorDeferred);
+                editorState.setEditorContent(
+                    readyEditor,
+                    fileBibleIdentifier,
+                    chapter,
+                    chapterContent,
+                );
+            }),
+        );
     };
 
     const editorState = useEditorState({

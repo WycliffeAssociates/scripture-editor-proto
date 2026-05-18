@@ -18,6 +18,7 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
+import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
@@ -117,6 +118,7 @@ export function MainEditor() {
                 <NodeContextMenuPlugin />
                 {/* <StructuralEmptyMarkerChipsPlugin /> */}
                 <UsfmPeekOverlayPlugin />
+                <HighlightSink />
                 <WorkingFilesBridgePlugin />
             </LexicalComposer>
         </div>
