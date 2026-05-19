@@ -98,9 +98,27 @@ export function setEditorContent(
                   selection: selectionOverride,
               } as SerializedEditorState);
 
-    editor.setEditorState(editor.parseEditorState(nextEditorState), {
+    const TRACE = import.meta.env.DEV;
+    const t0 = TRACE ? performance.now() : 0;
+    const parsed = editor.parseEditorState(nextEditorState);
+    if (TRACE) {
+        // eslint-disable-next-line no-console
+        console.log(
+            `[history]   parseEditorState: ${(performance.now() - t0).toFixed(1)}ms`,
+        );
+    }
+    const t1 = TRACE ? performance.now() : 0;
+    editor.setEditorState(parsed, {
         tag: EDITOR_TAGS_USED.programaticIgnore,
     });
+    if (TRACE) {
+        // eslint-disable-next-line no-console
+        console.log(
+            `[history]   editor.setEditorState (sync portion): ${(
+                performance.now() - t1
+            ).toFixed(1)}ms`,
+        );
+    }
     if (selectionOverride !== undefined) {
         editor.focus();
     }
@@ -108,10 +126,19 @@ export function setEditorContent(
     // We intentionally load with `programaticIgnore` to avoid expensive maintenance work
     // running during hydration, then immediately trigger one tagged update so
     // listeners can compute derived metadata (e.g. structural-empty marker lines).
+    const t2 = TRACE ? performance.now() : 0;
     editor.update(
         () => {
             // no-op
         },
         { tag: EDITOR_TAGS_USED.programmaticDoRunChanges },
     );
+    if (TRACE) {
+        // eslint-disable-next-line no-console
+        console.log(
+            `[history]   editor.update (programmaticDoRunChanges tag, queued): ${(
+                performance.now() - t2
+            ).toFixed(1)}ms`,
+        );
+    }
 }

@@ -90,7 +90,10 @@ export class WorkingFilesStore {
      * subscribers consume in their own fibers.
      */
     commit(patch: WorkingFilesPatch, meta: CommitMetaInput): void {
+        const TRACE = import.meta.env.DEV;
+        const t0 = TRACE ? performance.now() : 0;
         this.state = applyPatch(this.state, patch);
+        const tApply = TRACE ? performance.now() : 0;
         const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
         const event: CommitEvent = {
             meta: fullMeta,
@@ -99,7 +102,20 @@ export class WorkingFilesStore {
         };
 
         for (const tickListener of this.tickListeners) tickListener();
+        const tTick = TRACE ? performance.now() : 0;
         Effect.runFork(PubSub.publish(this.pubsub, event));
+        if (TRACE) {
+            const total = performance.now() - t0;
+            // Only log when we have something interesting to say — bulk
+            // commits or anything past 1ms. Filters out keystroke noise.
+            const isBulk = patch.kind === "bulk";
+            if (isBulk || total > 1) {
+                // eslint-disable-next-line no-console
+                console.log(
+                    `[store.commit ${patch.kind}/${meta.kind}] total ${total.toFixed(1)}ms · applyPatch ${(tApply - t0).toFixed(1)}ms · tickListeners(${this.tickListeners.size}) ${(tTick - tApply).toFixed(1)}ms · publishFork ${(performance.now() - tTick).toFixed(1)}ms`,
+                );
+            }
+        }
     }
 
     /**

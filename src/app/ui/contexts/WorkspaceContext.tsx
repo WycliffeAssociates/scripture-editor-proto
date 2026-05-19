@@ -493,10 +493,20 @@ export const ProjectProvider = ({
 
                 if (!touchedFiles.length) return;
 
+                const TRACE = import.meta.env.DEV;
+                const t0 = TRACE ? performance.now() : 0;
                 const lintResultsByBook = await relintBookFiles(
                     touchedFiles,
                     usfmOnionService,
                 );
+                if (TRACE) {
+                    // eslint-disable-next-line no-console
+                    console.log(
+                        `[history] postUndoRedo relintBookFiles (${touchedFiles.length} book(s)): ${(
+                            performance.now() - t0
+                        ).toFixed(1)}ms`,
+                    );
+                }
 
                 for (const file of touchedFiles) {
                     lint.commitBookLintResults({
