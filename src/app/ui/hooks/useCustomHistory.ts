@@ -1,9 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
-import type {
-    EditorState,
-    LexicalEditor,
-    SerializedEditorState,
-    SerializedLexicalNode,
+import {
+    $getSelection,
+    type EditorState,
+    type LexicalEditor,
+    type SerializedEditorState,
+    type SerializedLexicalNode,
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
@@ -89,6 +90,28 @@ function cloneSelection(
 ): SerializedSelectionState {
     if (selection === undefined || selection === null) return selection;
     return structuredClone(selection);
+}
+
+/**
+ * Read just the current selection without serializing the whole editor state.
+ *
+ * `editorState.toJSON()` walks every node — on Psalm 119 that's ~300KB per
+ * call. Pure selection moves (arrow keys, clicks) fire `captureEditorUpdate`
+ * on every keystroke, so the selection-only branch must not pay that cost.
+ *
+ * Each Lexical selection class (`RangeSelection`, `NodeSelection`,
+ * `TableSelection`) implements `toJSON()` returning the same shape that
+ * `editorState.toJSON().selection` produces, so callers can drop in this
+ * value wherever the legacy code used the toJSON-derived selection.
+ */
+function readSerializedSelection(
+    editorState: EditorState,
+): SerializedSelectionState {
+    return editorState.read(() => {
+        const sel = $getSelection() as { toJSON?: () => unknown } | null;
+        if (!sel || typeof sel.toJSON !== "function") return null;
+        return sel.toJSON() as SerializedSelectionState;
+    });
 }
 
 function findChapterRecordIn(
@@ -237,6 +260,47 @@ export function useCustomHistory({
         [currentFileBibleIdentifier],
     );
 
+    // FUTURE WORK — undo/redo smoothness (NOT done in 0.4; see plan.md):
+    //
+    // When the user moves the history pointer (undo / redo), all we want
+    // to change visually is the *content* of the affected chapter. We do
+    // NOT want:
+    //   - the editor to scroll up or down to the historical change site,
+    //   - the editor to feel "inert" after the replay (no caret, no
+    //     keyboard input until the user clicks back in),
+    //   - the cursor to snap to wherever the historical edit happened.
+    //
+    // The user's current scroll position and current selection should
+    // survive the replay whenever the underlying nodes still exist. If
+    // the change deleted the nodes the cursor was sitting on, fall through
+    // to "no selection" rather than re-applying the historical selection
+    // (which is the current behavior and causes the scroll/inert feel).
+    //
+    // Today, `applyEntry` passes `currentChapterSelectionOverride` =
+    // `change.selectionBefore | .selectionAfter` (the historical
+    // selection). `setEditorContent` spreads that into the parsed state
+    // and calls `editor.focus()` — that's what causes the snap. Lexical's
+    // `parseEditorState` also regenerates node keys, so any in-flight DOM
+    // selection by key is lost during the swap, which is the "inert"
+    // symptom.
+    //
+    // Sketched fix (separate session):
+    //   Phase A — preserve scroll:
+    //     - capture `editorContainer.scrollTop` before setEditorContent
+    //     - pass a sentinel meaning "leave selection alone" (do not call
+    //       `editor.focus()` and do not splice a selection into the state)
+    //     - restore scrollTop after
+    //   Phase B (if A isn't enough) — preserve selection:
+    //     - before replay, capture current anchor/focus by `data-id`
+    //       (USFMTextNode's stable id, unlike Lexical's regenerated key)
+    //       + offset
+    //     - after replay, walk new tree for nodes with those data-ids,
+    //       construct a `RangeSelection` at the same offsets
+    //     - if data-ids are gone (change deleted them), leave selection
+    //       cleared rather than snapping to historical
+    //
+    // The current `selectionOverride` parameter below is the path the
+    // future work will refactor; treat it as the seam.
     const refreshVisibleEditorIfTouched = useCallback(
         (
             touched: Set<string>,
@@ -446,13 +510,24 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
+
+            // Selection-only commit: skip the full toJSON. This branch fires
+            // on every cursor move (arrow keys, clicks, focus changes), so
+            // the cost has to be O(selection-size), not O(tree-size). See
+            // `readSerializedSelection` for the cheap-read rationale.
+            if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
+                setBaselineSelection(
+                    chapterRef,
+                    readSerializedSelection(editorState),
+                );
+                return;
+            }
+
+            // Content-changing commit: full toJSON is needed for the
+            // canonical snapshot we compare against the baseline.
             const serializedState =
                 editorState.toJSON() as SerializedEditorStateLike;
             const nextSelection = cloneSelection(serializedState.selection);
-            if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
-                setBaselineSelection(chapterRef, nextSelection);
-                return;
-            }
             const nextSnapshot =
                 chapterStateToCanonicalSnapshot(serializedState);
 
