@@ -75,7 +75,27 @@ type SerializedEditorStateLike =
     SerializedEditorState<SerializedLexicalNode> & {
         selection?: unknown | null;
     };
-type SerializedSelectionState = SerializedEditorStateLike["selection"];
+
+/**
+ * Selection state keyed by USFMTextNode `data-id` instead of by Lexical
+ * key. Lexical keys regenerate on every `parseEditorState`, so
+ * key-based selection serializations (what `editorState.toJSON().selection`
+ * produces) can't survive undo/redo replays. `data-id` is preserved
+ * across re-serialization, so a CapturedSelection always re-resolves
+ * if the anchor and focus nodes still exist in the target tree.
+ *
+ * Used everywhere in this hook in place of the legacy serialized
+ * selection: baseline tracking, recorded history entries (selectionBefore
+ * / selectionAfter), and the undo/redo replay restore path.
+ */
+type CapturedSelection = {
+    anchorId: string;
+    anchorOffset: number;
+    focusId: string;
+    focusOffset: number;
+};
+
+type ChapterCursor = CapturedSelection | null;
 
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_COALESCE_WINDOW_MS = 2500;
@@ -94,33 +114,8 @@ function dedupeChapterRefs(candidates: HistoryChapterRef[]) {
     });
 }
 
-function cloneSelection(
-    selection: SerializedSelectionState,
-): SerializedSelectionState {
-    if (selection === undefined || selection === null) return selection;
-    return structuredClone(selection);
-}
-
-/**
- * Read just the current selection without serializing the whole editor state.
- *
- * `editorState.toJSON()` walks every node — on Psalm 119 that's ~300KB per
- * call. Pure selection moves (arrow keys, clicks) fire `captureEditorUpdate`
- * on every keystroke, so the selection-only branch must not pay that cost.
- *
- * Each Lexical selection class (`RangeSelection`, `NodeSelection`,
- * `TableSelection`) implements `toJSON()` returning the same shape that
- * `editorState.toJSON().selection` produces, so callers can drop in this
- * value wherever the legacy code used the toJSON-derived selection.
- */
-function readSerializedSelection(
-    editorState: EditorState,
-): SerializedSelectionState {
-    return editorState.read(() => {
-        const sel = $getSelection() as { toJSON?: () => unknown } | null;
-        if (!sel || typeof sel.toJSON !== "function") return null;
-        return sel.toJSON() as SerializedSelectionState;
-    });
+function cloneCursor(cursor: ChapterCursor): ChapterCursor {
+    return cursor ? { ...cursor } : null;
 }
 
 function findChapterRecordIn(
@@ -155,17 +150,6 @@ function findScrollAncestor(start: HTMLElement | null): HTMLElement | null {
     }
     return null;
 }
-
-/**
- * Selection captured before an undo/redo replay, keyed by `data-id` so it
- * can be re-resolved after `parseEditorState` regenerates Lexical keys.
- */
-type CapturedSelection = {
-    anchorId: string;
-    anchorOffset: number;
-    focusId: string;
-    focusOffset: number;
-};
 
 /**
  * Read the current Lexical selection (range selections only) and capture
@@ -274,7 +258,7 @@ export function useCustomHistory({
         new Map<string, CanonicalChapterSnapshot>(),
     );
     const baselineSelectionByChapterRef = useRef(
-        new Map<string, SerializedSelectionState>(),
+        new Map<string, CapturedSelection>(),
     );
     const nextTypingLabelRef = useRef<{
         label: string;
@@ -304,17 +288,6 @@ export function useCustomHistory({
         [findChapterRecord],
     );
 
-    const readSelectionFromChapter = useCallback(
-        (chapterRef: HistoryChapterRef): SerializedSelectionState => {
-            const record = findChapterRecord(chapterRef);
-            if (!record) return undefined;
-            const state = record.chapter
-                .lexicalState as SerializedEditorStateLike;
-            return cloneSelection(state.selection);
-        },
-        [findChapterRecord],
-    );
-
     const setBaselineSnapshot = useCallback(
         (chapterRef: HistoryChapterRef, snapshot: CanonicalChapterSnapshot) => {
             baselineByChapterRef.current.set(chapterKey(chapterRef), snapshot);
@@ -334,34 +307,24 @@ export function useCustomHistory({
     );
 
     const setBaselineSelection = useCallback(
-        (
-            chapterRef: HistoryChapterRef,
-            selection: SerializedSelectionState,
-        ) => {
+        (chapterRef: HistoryChapterRef, cursor: ChapterCursor) => {
             const key = chapterKey(chapterRef);
-            if (selection === undefined) {
+            if (cursor === null) {
                 baselineSelectionByChapterRef.current.delete(key);
                 return;
             }
-            baselineSelectionByChapterRef.current.set(
-                key,
-                cloneSelection(selection),
-            );
+            baselineSelectionByChapterRef.current.set(key, { ...cursor });
         },
         [],
     );
 
     const getBaselineSelection = useCallback(
-        (chapterRef: HistoryChapterRef): SerializedSelectionState => {
+        (chapterRef: HistoryChapterRef): ChapterCursor => {
             const key = chapterKey(chapterRef);
-            if (baselineSelectionByChapterRef.current.has(key)) {
-                return cloneSelection(
-                    baselineSelectionByChapterRef.current.get(key),
-                );
-            }
-            return readSelectionFromChapter(chapterRef);
+            const existing = baselineSelectionByChapterRef.current.get(key);
+            return existing ? cloneCursor(existing) : null;
         },
-        [readSelectionFromChapter],
+        [],
     );
 
     const markChapterDirty = useCallback(
@@ -380,34 +343,40 @@ export function useCustomHistory({
     //
     // Goal: when the user moves the history pointer, the *content* of the
     // affected chapter changes and nothing else. Scroll stays put and the
-    // caret stays where the user was so the editor never feels inert.
+    // caret lands precisely where it should — for typing, that's the
+    // pre-edit cursor on undo, post-edit cursor on redo.
     //
     // Phase A — scroll + focus snap suppression:
-    //   - the replay path no longer passes `selectionOverride` into
-    //     `setEditorContent`, so the implicit `editor.focus()` and
-    //     historical-selection splice both go away
-    //   - scrollTop on the editor's scrolling ancestor is snapshotted
-    //     before the swap and restored after Lexical's reconcile (one
-    //     `requestAnimationFrame` after `setEditorContent`).
+    //   - `setEditorContent` is called without a selectionOverride so it
+    //     doesn't `editor.focus()` or splice the historical selection
+    //     into the parsed state. We restore both ourselves, deferred.
+    //   - scrollTop on the editor's scrolling ancestor is captured before
+    //     the swap and restored on a deferred tick.
     //
     // Phase B — selection preservation by `data-id`:
-    //   - `parseEditorState` regenerates Lexical keys, so DOM selection
-    //     by key is lost across the swap. USFMTextNode's `data-id` is
-    //     stable across re-serialization (preserved in the JSON), so we
-    //     capture anchor/focus `data-id` + offset BEFORE the swap, then
-    //     walk the new tree by id AFTER the swap and construct a
-    //     `RangeSelection` at the same (clamped) offsets.
-    //   - if either anchor or focus node was deleted by the change being
-    //     undone, fall through to a cleared selection rather than
-    //     snapping anywhere historical.
-    //   - the editor is explicitly focused when restore succeeds so the
-    //     caret is visible (not inert).
+    //   - Lexical regenerates internal keys on `parseEditorState`, so
+    //     selection-by-key doesn't survive. USFMTextNode's stable
+    //     `data-id` does survive — it's preserved in the JSON snapshot.
+    //   - The history entry records `selectionBefore` / `selectionAfter`
+    //     as data-id-keyed CapturedSelection values. applyEntry passes
+    //     the appropriate one as `historicalCursor`. We restore from
+    //     that, because for a typing entry the historical "before" is
+    //     the cursor at the moment typing started — the right target
+    //     for undo. The cursor at *replay* time would clamp into
+    //     now-shorter text and land mid-word, which is what users
+    //     reported pre-Phase-B.
+    //   - If the historical anchor's data-id no longer exists (rare —
+    //     would require deleting the start-of-typing node entirely),
+    //     fall back to the current cursor by data-id, then to
+    //     `defaultSelection: "rootStart"` via `editor.focus`.
     //
-    // Historical `selectionBefore` / `selectionAfter` are still recorded
-    // on baselines for any future need (e.g. as a deeper fallback) but
-    // the replay path doesn't apply them.
+    // The deferred restore uses a chained microtask + rAF (see
+    // implementation) so it lands after Lexical's reconcile from the
+    // setEditorContent's queued updates has flushed; calling focus or
+    // setting selection synchronously before reconcile yields a brief
+    // race the contenteditable loses.
     const refreshVisibleEditorIfTouched = useCallback(
-        (touched: Set<string>) => {
+        (touched: Set<string>, historicalCursor: ChapterCursor) => {
             const currentRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -418,27 +387,21 @@ export function useCustomHistory({
             const currentRecord = findChapterRecord(currentRef);
             if (!currentRecord) return;
 
-            // Phase A: scroll preservation.
             const scrollAncestor = findScrollAncestor(editor.getRootElement());
             const savedScrollTop = scrollAncestor?.scrollTop ?? null;
 
-            // Phase B: capture current selection by stable data-id while
-            // the OLD state is still active. Also remember whether the
-            // editor itself was the focused element — if it was, we want
-            // it focused again after the swap regardless of whether the
-            // exact anchor/focus nodes survive.
-            const capturedSelection = editor
+            // Current cursor in the OLD tree. Acts as a fallback when the
+            // historical cursor's data-ids aren't found in the new tree.
+            const liveCursor: ChapterCursor = editor
                 .getEditorState()
                 .read($captureCurrentSelection);
+
             const rootEl = editor.getRootElement();
             const editorHadFocus =
                 rootEl !== null &&
                 (rootEl === document.activeElement ||
                     rootEl.contains(document.activeElement));
 
-            // No selectionOverride: leaves `editor.focus()` un-called and
-            // doesn't splice the historical selection into the parsed
-            // state. We restore selection + focus ourselves below.
             setEditorContent(
                 editor,
                 currentRef.bookCode,
@@ -447,37 +410,40 @@ export function useCustomHistory({
                 workingFilesStore,
             );
 
-            // Phase B: restore selection in the new tree by matching
-            // data-ids. If the change deleted the anchor or focus node,
-            // the restore is a no-op and selection falls through to
-            // Lexical's default (null). We still re-focus the editor in
-            // that case if it had focus before, so the user can keep
-            // typing — picking up at start-of-doc is better than a
-            // silently dead contenteditable.
-            if (capturedSelection) {
-                editor.update(
-                    () => {
-                        $restoreSelectionById(capturedSelection);
-                    },
-                    { tag: EDITOR_TAGS_USED.programaticIgnore },
-                );
-            }
-
-            // Defer focus + scroll restore until after Lexical's queued
-            // reconcile has flushed. setEditorContent schedules
-            // setEditorState + a tagged empty update + (above) our
-            // selection-restore update; calling editor.focus()
-            // synchronously here lands before any of them, so the
-            // contenteditable refocus loses to the subsequent reconcile.
-            // rAF puts us on the next frame, after the queue drains.
-            window.requestAnimationFrame(() => {
+            // Defer restore until Lexical has flushed reconcile. The
+            // setTimeout(0) (after raw setEditorContent returns) puts us
+            // past the queued tagged updates from setEditorContent itself.
+            // The order inside the timer matters: focus first so the
+            // contenteditable owns the DOM selection target; set selection
+            // second so Lexical can sync DOM selection into the newly
+            // focused host; restore scroll last so neither focus nor
+            // selection can re-trigger a scrollIntoView that fights us.
+            window.setTimeout(() => {
                 if (editorHadFocus) {
                     editor.focus(undefined, { defaultSelection: "rootStart" });
                 }
+
+                const restoreTargets: ChapterCursor[] = [];
+                if (historicalCursor) restoreTargets.push(historicalCursor);
+                if (liveCursor) restoreTargets.push(liveCursor);
+
+                if (restoreTargets.length > 0) {
+                    editor.update(
+                        () => {
+                            for (const target of restoreTargets) {
+                                if (target && $restoreSelectionById(target)) {
+                                    return;
+                                }
+                            }
+                        },
+                        { tag: EDITOR_TAGS_USED.programaticIgnore },
+                    );
+                }
+
                 if (scrollAncestor && savedScrollTop !== null) {
                     scrollAncestor.scrollTop = savedScrollTop;
                 }
-            });
+            }, 0);
         },
         [
             currentFileBibleIdentifier,
@@ -488,15 +454,11 @@ export function useCustomHistory({
         ],
     );
 
-    const getCurrentEditorSelection =
-        useCallback((): SerializedSelectionState => {
-            const editor = editorRef.current;
-            if (!editor) return undefined;
-            const state = editor
-                .getEditorState()
-                .toJSON() as SerializedEditorStateLike;
-            return cloneSelection(state.selection);
-        }, [editorRef]);
+    const getCurrentEditorSelection = useCallback((): ChapterCursor => {
+        const editor = editorRef.current;
+        if (!editor) return null;
+        return editor.getEditorState().read($captureCurrentSelection);
+    }, [editorRef]);
 
     const captureEditorSelection = useCallback(
         (editorState: EditorState) => {
@@ -504,9 +466,10 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
-            const serializedState =
-                editorState.toJSON() as SerializedEditorStateLike;
-            setBaselineSelection(chapterRef, serializedState.selection);
+            setBaselineSelection(
+                chapterRef,
+                editorState.read($captureCurrentSelection),
+            );
         },
         [currentFileBibleIdentifier, currentChapter, setBaselineSelection],
     );
@@ -547,6 +510,12 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
+            // Historical cursor for the visible chapter (if any of the
+            // changes touch it). Used by refreshVisibleEditorIfTouched as
+            // the primary restore target — for typing entries, this is
+            // the cursor at the moment typing started (undo) or ended
+            // (redo), matching what the user expects.
+            let historicalCursorForVisible: ChapterCursor = null;
 
             const draft = structuredClone(workingFilesStore.read());
             let draftMutated = false;
@@ -555,10 +524,11 @@ export function useCustomHistory({
                 if (!record) continue;
                 const targetSnapshot =
                     direction === "before" ? change.before : change.after;
-                const targetSelection =
+                const targetSelection = (
                     direction === "before"
                         ? change.selectionBefore
-                        : change.selectionAfter;
+                        : change.selectionAfter
+                ) as ChapterCursor | undefined;
                 const targetMode = inferChapterModeFromState(
                     record.chapter.lexicalState,
                 );
@@ -569,14 +539,13 @@ export function useCustomHistory({
                 });
                 markChapterDirty(record.chapter);
                 setBaselineSnapshot(change.chapter, targetSnapshot);
-                // Historical selection is still stored on the baseline so a
-                // future Phase B replay path can consult it (e.g. as a
-                // fallback when current-selection preservation isn't
-                // possible); the replay path itself does not apply it.
-                setBaselineSelection(
-                    change.chapter,
-                    targetSelection as SerializedSelectionState,
-                );
+                setBaselineSelection(change.chapter, targetSelection ?? null);
+                if (
+                    chapterKey(change.chapter) === chapterKey(currentRef) &&
+                    targetSelection
+                ) {
+                    historicalCursorForVisible = targetSelection;
+                }
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
                 draftMutated = true;
@@ -593,7 +562,10 @@ export function useCustomHistory({
             }
 
             if (touchedChapters.size) {
-                refreshVisibleEditorIfTouched(touchedChapters);
+                refreshVisibleEditorIfTouched(
+                    touchedChapters,
+                    historicalCursorForVisible,
+                );
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
                     touchedChapters: touchedChapterRefs,
@@ -652,7 +624,7 @@ export function useCustomHistory({
     const captureEditorUpdate = useCallback(
         ({
             editorState,
-            prevEditorState: _prevEditorState,
+            prevEditorState,
             dirtyElements,
             dirtyLeaves,
             tags,
@@ -662,23 +634,32 @@ export function useCustomHistory({
                 chapterNum: currentChapter,
             };
 
-            // Selection-only commit: skip the full toJSON. This branch fires
-            // on every cursor move (arrow keys, clicks, focus changes), so
-            // the cost has to be O(selection-size), not O(tree-size). See
-            // `readSerializedSelection` for the cheap-read rationale.
+            // Selection-only commit: cheap path. Fires on every cursor
+            // move (arrow keys, clicks, focus changes), so the cost has
+            // to be O(selection-size), not O(tree-size). $captureCurrentSelection
+            // reads the live $getSelection and returns a data-id-keyed
+            // snapshot — no full toJSON walk.
             if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
                 setBaselineSelection(
                     chapterRef,
-                    readSerializedSelection(editorState),
+                    editorState.read($captureCurrentSelection),
                 );
                 return;
             }
 
-            // Content-changing commit: full toJSON is needed for the
-            // canonical snapshot we compare against the baseline.
+            // Content-changing commit. Capture the data-id-keyed cursor
+            // BEFORE and AFTER the change: nextSelection from the new
+            // state is "where the cursor is now," prevSelection from the
+            // prior state is "where the cursor was right before this
+            // edit." prevSelection is what undo wants — landing at the
+            // start of the just-undone change instead of clamping the
+            // post-change offset into the now-shorter text.
+            const nextSelection = editorState.read($captureCurrentSelection);
+            const prevSelection = prevEditorState.read(
+                $captureCurrentSelection,
+            );
             const serializedState =
                 editorState.toJSON() as SerializedEditorStateLike;
-            const nextSelection = cloneSelection(serializedState.selection);
             const nextSnapshot =
                 chapterStateToCanonicalSnapshot(serializedState);
 
@@ -720,6 +701,14 @@ export function useCustomHistory({
             const queuedTypingLabel = nextTypingLabelRef.current;
             const label = queuedTypingLabel?.label ?? t`Edit`;
             nextTypingLabelRef.current = null;
+            // selectionBefore on a NEW typing entry = where the cursor was
+            // right before this edit (prevSelection). When this entry is
+            // merged with subsequent typing in the same coalesce window,
+            // HistoryManager keeps the original selectionBefore and only
+            // updates selectionAfter — so the entry's selectionBefore
+            // stays pinned to "where the user started typing this run."
+            // Fall back to the baseline (last known cursor) if prev wasn't
+            // readable.
             managerRef.current.recordTypingChange({
                 label,
                 forceNewEntry: queuedTypingLabel?.forceNewEntry,
@@ -727,7 +716,7 @@ export function useCustomHistory({
                     chapter: chapterRef,
                     before: beforeSnapshot,
                     after: nextSnapshot,
-                    selectionBefore: nextSelection ?? beforeSelection,
+                    selectionBefore: prevSelection ?? beforeSelection,
                     selectionAfter: nextSelection,
                 },
             });
@@ -755,10 +744,7 @@ export function useCustomHistory({
         }: TransactionArgs<T>): Promise<T> => {
             const uniqueCandidates = dedupeChapterRefs(candidates);
             const beforeByChapter = new Map<string, CanonicalChapterSnapshot>();
-            const beforeSelectionByChapter = new Map<
-                string,
-                SerializedSelectionState
-            >();
+            const beforeSelectionByChapter = new Map<string, ChapterCursor>();
             const currentRef: HistoryChapterRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -788,10 +774,10 @@ export function useCustomHistory({
                     if (!before || !after) return null;
                     if (chapterSnapshotsAreEqual(before, after)) return null;
                     setBaselineSnapshot(chapterRef, after);
-                    const selectionAfter =
+                    const selectionAfter: ChapterCursor =
                         key === chapterKey(currentRef)
                             ? getCurrentEditorSelection()
-                            : undefined;
+                            : null;
                     if (key === chapterKey(currentRef)) {
                         setBaselineSelection(chapterRef, selectionAfter);
                     }
@@ -799,7 +785,8 @@ export function useCustomHistory({
                         chapter: chapterRef,
                         before,
                         after,
-                        selectionBefore: beforeSelectionByChapter.get(key),
+                        selectionBefore:
+                            beforeSelectionByChapter.get(key) ?? null,
                         selectionAfter,
                     };
                 })
