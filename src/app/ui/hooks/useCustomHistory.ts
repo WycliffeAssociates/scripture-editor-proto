@@ -129,6 +129,24 @@ function findChapterRecordIn(
     return { file, chapter };
 }
 
+/**
+ * Walk up from the contenteditable to find the nearest scrolling ancestor.
+ * Used so undo/redo can snapshot + restore scroll position across an editor
+ * state swap.
+ */
+function findScrollAncestor(start: HTMLElement | null): HTMLElement | null {
+    let current: HTMLElement | null = start;
+    while (current) {
+        const cs = window.getComputedStyle(current);
+        const canScrollY =
+            /(auto|scroll|overlay)/.test(cs.overflowY) &&
+            current.scrollHeight > current.clientHeight;
+        if (canScrollY) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
 
 /**
@@ -260,52 +278,41 @@ export function useCustomHistory({
         [currentFileBibleIdentifier],
     );
 
-    // FUTURE WORK — undo/redo smoothness (NOT done in 0.4; see plan.md):
+    // Undo / redo smoothness — Phase A (landed):
     //
-    // When the user moves the history pointer (undo / redo), all we want
-    // to change visually is the *content* of the affected chapter. We do
-    // NOT want:
-    //   - the editor to scroll up or down to the historical change site,
-    //   - the editor to feel "inert" after the replay (no caret, no
-    //     keyboard input until the user clicks back in),
-    //   - the cursor to snap to wherever the historical edit happened.
+    // Goal: when the user moves the history pointer, the *content* of the
+    // affected chapter changes and nothing else. Specifically:
+    //   - the editor must NOT scroll to the historical change site,
+    //   - the cursor must NOT snap to where the historical edit happened.
     //
-    // The user's current scroll position and current selection should
-    // survive the replay whenever the underlying nodes still exist. If
-    // the change deleted the nodes the cursor was sitting on, fall through
-    // to "no selection" rather than re-applying the historical selection
-    // (which is the current behavior and causes the scroll/inert feel).
+    // Phase A does two things:
+    //   1. The replay path no longer passes `selectionOverride` into
+    //      `setEditorContent`. That removes both the historical selection
+    //      splice and the implicit `editor.focus()` call (`setEditorContent`
+    //      only focuses when an override is provided). The replayed
+    //      `lexicalState` produced by `canonicalSnapshotToChapterState`
+    //      carries no `selection` field, so Lexical falls back to whatever
+    //      DOM selection survives the swap — typically start-of-doc.
+    //   2. Scroll position is captured on the editor's scrolling ancestor
+    //      before `setEditorContent`, then restored after Lexical's
+    //      reconcile in a `requestAnimationFrame` callback.
     //
-    // Today, `applyEntry` passes `currentChapterSelectionOverride` =
-    // `change.selectionBefore | .selectionAfter` (the historical
-    // selection). `setEditorContent` spreads that into the parsed state
-    // and calls `editor.focus()` — that's what causes the snap. Lexical's
-    // `parseEditorState` also regenerates node keys, so any in-flight DOM
-    // selection by key is lost during the swap, which is the "inert"
-    // symptom.
+    // Phase B (not yet landed) — preserve the user's current selection
+    // across the parseEditorState swap. parseEditorState regenerates
+    // Lexical keys, so DOM selection by key is lost. The plan:
+    //   - before replay, capture current anchor/focus by `data-id` (the
+    //     stable USFMTextNode id, unlike Lexical's regenerated key) +
+    //     offset
+    //   - after replay, walk the new tree for nodes with those data-ids
+    //     and construct a `RangeSelection` at the same offsets
+    //   - if the data-ids are gone (the change deleted them), leave the
+    //     selection cleared rather than snapping anywhere
     //
-    // Sketched fix (separate session):
-    //   Phase A — preserve scroll:
-    //     - capture `editorContainer.scrollTop` before setEditorContent
-    //     - pass a sentinel meaning "leave selection alone" (do not call
-    //       `editor.focus()` and do not splice a selection into the state)
-    //     - restore scrollTop after
-    //   Phase B (if A isn't enough) — preserve selection:
-    //     - before replay, capture current anchor/focus by `data-id`
-    //       (USFMTextNode's stable id, unlike Lexical's regenerated key)
-    //       + offset
-    //     - after replay, walk new tree for nodes with those data-ids,
-    //       construct a `RangeSelection` at the same offsets
-    //     - if data-ids are gone (change deleted them), leave selection
-    //       cleared rather than snapping to historical
-    //
-    // The current `selectionOverride` parameter below is the path the
-    // future work will refactor; treat it as the seam.
+    // Until Phase B lands, the editor may feel briefly "inert" after a
+    // replay (no caret until the user clicks back in). That's the
+    // tradeoff for not snapping scroll to the change.
     const refreshVisibleEditorIfTouched = useCallback(
-        (
-            touched: Set<string>,
-            selectionOverride?: SerializedSelectionState,
-        ) => {
+        (touched: Set<string>) => {
             const currentRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -315,14 +322,32 @@ export function useCustomHistory({
             if (!editor) return;
             const currentRecord = findChapterRecord(currentRef);
             if (!currentRecord) return;
+
+            // Phase A scroll preservation. Capture scrollTop on the
+            // editor's scrolling ancestor before the state swap; restore
+            // it after Lexical's reconcile runs. setEditorContent triggers
+            // a tagged `editor.update` that queues reconciliation on a
+            // microtask, so rAF reliably runs after the new DOM is laid
+            // out.
+            const scrollAncestor = findScrollAncestor(editor.getRootElement());
+            const savedScrollTop = scrollAncestor?.scrollTop ?? null;
+
+            // No selectionOverride: leaves `editor.focus()` un-called and
+            // doesn't splice the historical selection into the parsed
+            // state. See the block comment above.
             setEditorContent(
                 editor,
                 currentRef.bookCode,
                 currentRef.chapterNum,
                 currentRecord.chapter,
                 workingFilesStore,
-                selectionOverride,
             );
+
+            if (scrollAncestor && savedScrollTop !== null) {
+                window.requestAnimationFrame(() => {
+                    scrollAncestor.scrollTop = savedScrollTop;
+                });
+            }
         },
         [
             currentFileBibleIdentifier,
@@ -392,7 +417,6 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
-            let currentChapterSelectionOverride: SerializedSelectionState;
 
             const draft = structuredClone(workingFilesStore.read());
             let draftMutated = false;
@@ -415,6 +439,10 @@ export function useCustomHistory({
                 });
                 markChapterDirty(record.chapter);
                 setBaselineSnapshot(change.chapter, targetSnapshot);
+                // Historical selection is still stored on the baseline so a
+                // future Phase B replay path can consult it (e.g. as a
+                // fallback when current-selection preservation isn't
+                // possible); the replay path itself does not apply it.
                 setBaselineSelection(
                     change.chapter,
                     targetSelection as SerializedSelectionState,
@@ -422,10 +450,6 @@ export function useCustomHistory({
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
                 draftMutated = true;
-                if (chapterKey(change.chapter) === chapterKey(currentRef)) {
-                    currentChapterSelectionOverride =
-                        targetSelection as SerializedSelectionState;
-                }
             }
             if (draftMutated) {
                 workingFilesStore.commit(
@@ -439,10 +463,7 @@ export function useCustomHistory({
             }
 
             if (touchedChapters.size) {
-                refreshVisibleEditorIfTouched(
-                    touchedChapters,
-                    currentChapterSelectionOverride,
-                );
+                refreshVisibleEditorIfTouched(touchedChapters);
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
                     touchedChapters: touchedChapterRefs,
