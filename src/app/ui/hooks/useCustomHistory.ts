@@ -1,6 +1,11 @@
+import { $dfsIterator } from "@lexical/utils";
 import { useLingui } from "@lingui/react/macro";
 import {
+    $createRangeSelection,
+    $getRoot,
     $getSelection,
+    $isRangeSelection,
+    $setSelection,
     type EditorState,
     type LexicalEditor,
     type SerializedEditorState,
@@ -8,6 +13,10 @@ import {
 } from "lexical";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import {
+    $isUSFMTextNode,
+    type USFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
@@ -147,6 +156,95 @@ function findScrollAncestor(start: HTMLElement | null): HTMLElement | null {
     return null;
 }
 
+/**
+ * Selection captured before an undo/redo replay, keyed by `data-id` so it
+ * can be re-resolved after `parseEditorState` regenerates Lexical keys.
+ */
+type CapturedSelection = {
+    anchorId: string;
+    anchorOffset: number;
+    focusId: string;
+    focusOffset: number;
+};
+
+/**
+ * Read the current Lexical selection (range selections only) and capture
+ * its anchor/focus by USFMTextNode `data-id`. Returns null when there's
+ * nothing to preserve (non-range selection, selection sits on a non-USFM
+ * node, or nodes lack ids). MUST be called from inside `editor.read` or
+ * `editor.update`.
+ */
+function $captureCurrentSelection(): CapturedSelection | null {
+    const sel = $getSelection();
+    if (!$isRangeSelection(sel)) return null;
+    const anchorNode = sel.anchor.getNode();
+    const focusNode = sel.focus.getNode();
+    if (!$isUSFMTextNode(anchorNode) || !$isUSFMTextNode(focusNode)) {
+        return null;
+    }
+    const anchorId = anchorNode.getId();
+    const focusId = focusNode.getId();
+    if (!anchorId || !focusId) return null;
+    return {
+        anchorId,
+        anchorOffset: sel.anchor.offset,
+        focusId,
+        focusOffset: sel.focus.offset,
+    };
+}
+
+/**
+ * Find USFMTextNodes in the current editor state by `data-id`. Single
+ * DFS walk, returns both anchor and focus nodes (which may be the same).
+ * MUST be called from inside `editor.read` or `editor.update`.
+ */
+function $findUsfmTextNodesById(
+    anchorId: string,
+    focusId: string,
+): { anchorNode: USFMTextNode | null; focusNode: USFMTextNode | null } {
+    let anchorNode: USFMTextNode | null = null;
+    let focusNode: USFMTextNode | null = null;
+    for (const dfsNode of $dfsIterator($getRoot())) {
+        const node = dfsNode.node;
+        if (!$isUSFMTextNode(node)) continue;
+        const id = node.getId();
+        if (anchorNode === null && id === anchorId) anchorNode = node;
+        if (focusNode === null && id === focusId) focusNode = node;
+        if (anchorNode && focusNode) break;
+    }
+    return { anchorNode, focusNode };
+}
+
+/**
+ * Restore selection by `data-id` after a state replay. If both anchor
+ * and focus nodes are found in the new tree, set a RangeSelection at the
+ * same (clamped) offsets. If either is missing (the change deleted the
+ * node the cursor was sitting on), leave the selection cleared. MUST be
+ * called from inside `editor.update`.
+ */
+function $restoreSelectionById(captured: CapturedSelection): boolean {
+    const { anchorNode, focusNode } = $findUsfmTextNodesById(
+        captured.anchorId,
+        captured.focusId,
+    );
+    if (!anchorNode || !focusNode) return false;
+    const sel = $createRangeSelection();
+    const anchorTextLen = anchorNode.getTextContentSize();
+    const focusTextLen = focusNode.getTextContentSize();
+    sel.anchor.set(
+        anchorNode.getKey(),
+        Math.min(captured.anchorOffset, anchorTextLen),
+        "text",
+    );
+    sel.focus.set(
+        focusNode.getKey(),
+        Math.min(captured.focusOffset, focusTextLen),
+        "text",
+    );
+    $setSelection(sel);
+    return true;
+}
+
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
 
 /**
@@ -278,39 +376,36 @@ export function useCustomHistory({
         [currentFileBibleIdentifier],
     );
 
-    // Undo / redo smoothness — Phase A (landed):
+    // Undo / redo smoothness — Phases A + B (landed):
     //
     // Goal: when the user moves the history pointer, the *content* of the
-    // affected chapter changes and nothing else. Specifically:
-    //   - the editor must NOT scroll to the historical change site,
-    //   - the cursor must NOT snap to where the historical edit happened.
+    // affected chapter changes and nothing else. Scroll stays put and the
+    // caret stays where the user was so the editor never feels inert.
     //
-    // Phase A does two things:
-    //   1. The replay path no longer passes `selectionOverride` into
-    //      `setEditorContent`. That removes both the historical selection
-    //      splice and the implicit `editor.focus()` call (`setEditorContent`
-    //      only focuses when an override is provided). The replayed
-    //      `lexicalState` produced by `canonicalSnapshotToChapterState`
-    //      carries no `selection` field, so Lexical falls back to whatever
-    //      DOM selection survives the swap — typically start-of-doc.
-    //   2. Scroll position is captured on the editor's scrolling ancestor
-    //      before `setEditorContent`, then restored after Lexical's
-    //      reconcile in a `requestAnimationFrame` callback.
+    // Phase A — scroll + focus snap suppression:
+    //   - the replay path no longer passes `selectionOverride` into
+    //     `setEditorContent`, so the implicit `editor.focus()` and
+    //     historical-selection splice both go away
+    //   - scrollTop on the editor's scrolling ancestor is snapshotted
+    //     before the swap and restored after Lexical's reconcile (one
+    //     `requestAnimationFrame` after `setEditorContent`).
     //
-    // Phase B (not yet landed) — preserve the user's current selection
-    // across the parseEditorState swap. parseEditorState regenerates
-    // Lexical keys, so DOM selection by key is lost. The plan:
-    //   - before replay, capture current anchor/focus by `data-id` (the
-    //     stable USFMTextNode id, unlike Lexical's regenerated key) +
-    //     offset
-    //   - after replay, walk the new tree for nodes with those data-ids
-    //     and construct a `RangeSelection` at the same offsets
-    //   - if the data-ids are gone (the change deleted them), leave the
-    //     selection cleared rather than snapping anywhere
+    // Phase B — selection preservation by `data-id`:
+    //   - `parseEditorState` regenerates Lexical keys, so DOM selection
+    //     by key is lost across the swap. USFMTextNode's `data-id` is
+    //     stable across re-serialization (preserved in the JSON), so we
+    //     capture anchor/focus `data-id` + offset BEFORE the swap, then
+    //     walk the new tree by id AFTER the swap and construct a
+    //     `RangeSelection` at the same (clamped) offsets.
+    //   - if either anchor or focus node was deleted by the change being
+    //     undone, fall through to a cleared selection rather than
+    //     snapping anywhere historical.
+    //   - the editor is explicitly focused when restore succeeds so the
+    //     caret is visible (not inert).
     //
-    // Until Phase B lands, the editor may feel briefly "inert" after a
-    // replay (no caret until the user clicks back in). That's the
-    // tradeoff for not snapping scroll to the change.
+    // Historical `selectionBefore` / `selectionAfter` are still recorded
+    // on baselines for any future need (e.g. as a deeper fallback) but
+    // the replay path doesn't apply them.
     const refreshVisibleEditorIfTouched = useCallback(
         (touched: Set<string>) => {
             const currentRef = {
@@ -323,18 +418,19 @@ export function useCustomHistory({
             const currentRecord = findChapterRecord(currentRef);
             if (!currentRecord) return;
 
-            // Phase A scroll preservation. Capture scrollTop on the
-            // editor's scrolling ancestor before the state swap; restore
-            // it after Lexical's reconcile runs. setEditorContent triggers
-            // a tagged `editor.update` that queues reconciliation on a
-            // microtask, so rAF reliably runs after the new DOM is laid
-            // out.
+            // Phase A: scroll preservation.
             const scrollAncestor = findScrollAncestor(editor.getRootElement());
             const savedScrollTop = scrollAncestor?.scrollTop ?? null;
 
+            // Phase B: capture current selection by stable data-id while
+            // the OLD state is still active.
+            const capturedSelection = editor
+                .getEditorState()
+                .read($captureCurrentSelection);
+
             // No selectionOverride: leaves `editor.focus()` un-called and
             // doesn't splice the historical selection into the parsed
-            // state. See the block comment above.
+            // state. We restore selection ourselves below.
             setEditorContent(
                 editor,
                 currentRef.bookCode,
@@ -342,6 +438,21 @@ export function useCustomHistory({
                 currentRecord.chapter,
                 workingFilesStore,
             );
+
+            // Phase B: restore selection in the new tree by matching
+            // data-ids. Only call focus() when restore succeeds — if the
+            // change deleted the user's anchor node, leave the selection
+            // cleared rather than snapping to something arbitrary.
+            if (capturedSelection) {
+                let restored = false;
+                editor.update(
+                    () => {
+                        restored = $restoreSelectionById(capturedSelection);
+                    },
+                    { tag: EDITOR_TAGS_USED.programaticIgnore },
+                );
+                if (restored) editor.focus();
+            }
 
             if (scrollAncestor && savedScrollTop !== null) {
                 window.requestAnimationFrame(() => {
