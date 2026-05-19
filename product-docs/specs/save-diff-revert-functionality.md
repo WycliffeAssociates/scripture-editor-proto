@@ -96,9 +96,36 @@
 - Diff granularity is SID block based (not character-level persistence units).
 - For v1 cloud reconciliation, USFM content is the primary explicit review target. Derived metadata is regenerated later rather than reviewed as a primary user-edit surface.
 
+## How edits flow through the store
+
+Save / diff / revert all operate over `WorkingFilesStore` (see
+`state-architecture.md` and `editor-data-flow.md`) rather than pulling a
+fresh snapshot from the editor each time. The relevant paths:
+
+- **Dirty tracking is reactive.** `useSave`'s `hasUnsavedChanges` subscribes
+  to `SaveStatusStore` via `useSyncExternalStore`. The `saveStatusPipeline`
+  drives `clean` ↔ `dirty` transitions from `WorkingFilesStore` commits;
+  the save command drives `saving` → `saved` | `failed` around the actual
+  disk write. The legacy bug where `hasUnsavedChanges` could go stale after
+  a revert is gone — the pipeline observes the post-commit snapshot's
+  per-chapter `dirty` flags and reports authoritatively.
+- **Mark-saved uses `draftWithChapters`.** `useSaveAndRevert.saveProjectToDisk`
+  computes the refs for chapters being saved, drafts those chapters,
+  flips their `dirty` flags to `false`, and bulk-commits.
+- **External-compare apply uses `draftWithChapters`.** `useExternalCompare`
+  builds a draft of every chapter the apply touches, mutates the draft via
+  `applyIncomingHunkToCurrent` / `applyIncomingChapter`, and bulk-commits.
+  This pattern (clone → mutate → bulk commit) replaces the old
+  "mutate-in-place, then call rebuild" approach across all programmatic
+  flows.
+- **Revert all** uses the same pattern with the original loaded source.
+
 ## Key modules (for agents)
 - `src/app/ui/hooks/useSave.tsx`
+- `src/app/ui/hooks/save/useSaveAndRevert.ts`
 - `src/app/ui/hooks/save/useExternalCompare.ts`
+- `src/app/state/SaveStatusStore.ts`
+- `src/app/domain/editor/pipelines/saveStatusPipeline.ts`
 - `src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx`
 - `src/app/ui/components/blocks/DiffModal/DiffModalChapterView.tsx`

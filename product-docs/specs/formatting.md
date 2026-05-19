@@ -26,6 +26,28 @@
 4. Tokens are converted back to the current editor root shape.
 5. Changed chapters are marked dirty and included in `Review & Save`.
 
+## How edits flow through the store
+
+Format scopes (chapter / book / project) all use the Option D mutation
+pattern from `state-architecture.md`:
+
+1. Collect every chapter ref the scope will touch.
+2. `workingFilesStore.draftWithChapters(refs)` — shallow-copy only those
+   chapters; everything else aliases the store.
+3. For each touched chapter: convert serialized state → flat tokens, run
+   the format transforms, convert back → serialized state, recompute
+   `currentTokens` and `dirty`.
+4. Synchronously `workingFilesStore.commit({ kind: "bulk", files: draft },
+   { kind: "programmaticFix", scope, dirtyTextContent: true })`.
+
+Book-scope and project-scope format additionally use
+`rebuildParsedFileFromUsfm` which reassigns `book.chapters` wholesale —
+this is safe because the book itself was shallow-copied by the draft.
+
+`useFormatMatching.matchFormattingChapter` follows the same pattern and
+captures the pre-draft `read()` as its rollback baseline; because the
+draft only mutates copies, the snapshot stays a valid undo target.
+
 ## Current limits and non-goals
 - Format is best-effort normalization, not full semantic rewriting of complex USFM.
 - It does not auto-save; user still saves through diff/save flow.
@@ -33,7 +55,10 @@
 
 ## Key modules (for agents)
 - `src/app/ui/hooks/usePrettifyOperations.tsx`
+- `src/app/ui/hooks/useFormatMatching.tsx`
+- `src/app/ui/hooks/useLintFixing.tsx`
 - `src/core/domain/usfm/prettify/prettifyTokenStream.ts`
 - `src/app/domain/editor/utils/prettifySerializedNode.ts`
 - `src/app/domain/editor/actions/prettifyActions.ts`
+- `src/app/state/WorkingFilesStore.ts` — `draftWithChapters`
 - `src/app/ui/components/blocks/Toolbar.tsx`

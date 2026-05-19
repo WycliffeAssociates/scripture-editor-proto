@@ -37,9 +37,41 @@
 - Replacement is literal text replacement in matched text nodes (no regex replace workflow).
 - This is not a linguistic concordance or morphology search tool.
 
+## Highlight architecture (drift-free)
+
+Highlight painting was previously imperative: each search call site called
+the highlighter directly. When the structure-maintenance pipeline or a
+chapter swap moved Lexical nodes between paints, the painted decorations
+drifted away from where matches actually lived.
+
+The current architecture decouples *what should be highlighted* from
+*when to repaint*:
+
+- **`SearchHighlightStore`** (`src/app/state/SearchHighlightStore.ts`) holds
+  the current `SearchHighlightInput[] | null`. Search hooks (execution,
+  navigation, replace) publish via `set(...)` whenever the query or active
+  match changes; `clear()` removes all highlights.
+- **`HighlightSink`** (`src/app/domain/editor/plugins/HighlightSink.tsx`)
+  subscribes to both the store **and** `LayoutTickStore` (via
+  `useLayoutTick`) and repaints in `useLayoutEffect`. The layout tick is
+  bumped by `overlayTickPipeline` after commits and by workspace-level
+  scroll / resize listeners, so highlights stay in lockstep with the live
+  DOM.
+
+Replace operations mutate Lexical directly in `editor.update()`, then
+re-run `runSearchLogic()` so the result list and highlights stay
+consistent with the new content. After undo/redo, the search panel
+re-runs its query via the `useCustomHistory` post-replay hook so results
+don't go stale.
+
 ## Key modules (for agents)
 - `src/app/ui/components/blocks/Search.tsx`
 - `src/app/ui/components/blocks/SearchTrigger.tsx`
 - `src/app/ui/hooks/useSearch.tsx`
-- `src/app/domain/search/search.utils.ts`
+- `src/app/ui/hooks/search/useSearchExecution.ts`
+- `src/app/ui/hooks/search/useSearchNavigation.ts`
+- `src/app/ui/hooks/search/useSearchReplace.ts`
 - `src/app/ui/hooks/useSearchHighlighter.ts`
+- `src/app/state/SearchHighlightStore.ts`
+- `src/app/domain/editor/plugins/HighlightSink.tsx`
+- `src/app/domain/search/search.utils.ts`
