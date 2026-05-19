@@ -462,13 +462,22 @@ export function useCustomHistory({
                     { tag: EDITOR_TAGS_USED.programaticIgnore },
                 );
             }
-            if (editorHadFocus) editor.focus();
 
-            if (scrollAncestor && savedScrollTop !== null) {
-                window.requestAnimationFrame(() => {
+            // Defer focus + scroll restore until after Lexical's queued
+            // reconcile has flushed. setEditorContent schedules
+            // setEditorState + a tagged empty update + (above) our
+            // selection-restore update; calling editor.focus()
+            // synchronously here lands before any of them, so the
+            // contenteditable refocus loses to the subsequent reconcile.
+            // rAF puts us on the next frame, after the queue drains.
+            window.requestAnimationFrame(() => {
+                if (editorHadFocus) {
+                    editor.focus(undefined, { defaultSelection: "rootStart" });
+                }
+                if (scrollAncestor && savedScrollTop !== null) {
                     scrollAncestor.scrollTop = savedScrollTop;
-                });
-            }
+                }
+            });
         },
         [
             currentFileBibleIdentifier,
