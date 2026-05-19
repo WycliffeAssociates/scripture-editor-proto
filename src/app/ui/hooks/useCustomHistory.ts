@@ -423,14 +423,22 @@ export function useCustomHistory({
             const savedScrollTop = scrollAncestor?.scrollTop ?? null;
 
             // Phase B: capture current selection by stable data-id while
-            // the OLD state is still active.
+            // the OLD state is still active. Also remember whether the
+            // editor itself was the focused element — if it was, we want
+            // it focused again after the swap regardless of whether the
+            // exact anchor/focus nodes survive.
             const capturedSelection = editor
                 .getEditorState()
                 .read($captureCurrentSelection);
+            const rootEl = editor.getRootElement();
+            const editorHadFocus =
+                rootEl !== null &&
+                (rootEl === document.activeElement ||
+                    rootEl.contains(document.activeElement));
 
             // No selectionOverride: leaves `editor.focus()` un-called and
             // doesn't splice the historical selection into the parsed
-            // state. We restore selection ourselves below.
+            // state. We restore selection + focus ourselves below.
             setEditorContent(
                 editor,
                 currentRef.bookCode,
@@ -440,19 +448,21 @@ export function useCustomHistory({
             );
 
             // Phase B: restore selection in the new tree by matching
-            // data-ids. Only call focus() when restore succeeds — if the
-            // change deleted the user's anchor node, leave the selection
-            // cleared rather than snapping to something arbitrary.
+            // data-ids. If the change deleted the anchor or focus node,
+            // the restore is a no-op and selection falls through to
+            // Lexical's default (null). We still re-focus the editor in
+            // that case if it had focus before, so the user can keep
+            // typing — picking up at start-of-doc is better than a
+            // silently dead contenteditable.
             if (capturedSelection) {
-                let restored = false;
                 editor.update(
                     () => {
-                        restored = $restoreSelectionById(capturedSelection);
+                        $restoreSelectionById(capturedSelection);
                     },
                     { tag: EDITOR_TAGS_USED.programaticIgnore },
                 );
-                if (restored) editor.focus();
             }
+            if (editorHadFocus) editor.focus();
 
             if (scrollAncestor && savedScrollTop !== null) {
                 window.requestAnimationFrame(() => {
