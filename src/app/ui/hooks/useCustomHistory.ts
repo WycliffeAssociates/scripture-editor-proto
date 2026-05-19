@@ -563,9 +563,47 @@ export function useCustomHistory({
             // (redo), matching what the user expects.
             let historicalCursorForVisible: ChapterCursor = null;
 
-            const tClone = traceStart("structuredClone(workingFilesStore)");
-            const draft = structuredClone(workingFilesStore.read());
-            traceEnd("structuredClone(workingFilesStore)", tClone);
+            // Structural-sharing draft: deep-cloning the whole project
+            // was costing ~1.5s on real projects (every book, chapter,
+            // and token array gets walked). We only mutate a handful of
+            // chapter objects per history entry, so the rest can share
+            // references with current state.
+            //
+            // Build the "touched (book, chapter)" index up front, then
+            // map over books: untouched books share their existing
+            // reference; touched books get a shallow copy with a new
+            // `chapters` array where only the touched chapters are
+            // freshly copied. Anything we mutate downstream
+            // (`record.chapter.lexicalState =`, `markChapterDirty`) only
+            // touches the new chapter object — original state stays
+            // immutable, and React/Effect subscribers see fresh
+            // references exactly where content changed.
+            const tDraft = traceStart("build draft (structural share)");
+            const touchedKeySet = new Set<string>();
+            for (const change of chapterChanges) {
+                touchedKeySet.add(chapterKey(change.chapter));
+            }
+            const touchedBooks = new Set<string>();
+            for (const change of chapterChanges) {
+                touchedBooks.add(change.chapter.bookCode);
+            }
+            const draft = workingFilesStore.read().map((book) => {
+                if (!touchedBooks.has(book.bookCode)) return book;
+                return {
+                    ...book,
+                    chapters: book.chapters.map((c) =>
+                        touchedKeySet.has(
+                            chapterKey({
+                                bookCode: book.bookCode,
+                                chapterNum: c.chapterNumber,
+                            }),
+                        )
+                            ? { ...c }
+                            : c,
+                    ),
+                };
+            });
+            traceEnd("build draft (structural share)", tDraft);
 
             const tChapters = traceStart(
                 `apply ${chapterChanges.length} chapter change(s)`,
