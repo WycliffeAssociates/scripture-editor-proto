@@ -1,4 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+// @vitest-environment jsdom
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type {
@@ -209,6 +212,45 @@ function createHistory(): CustomHistoryHook {
     };
 }
 
+type SaveApi = ReturnType<typeof useSaveAndRevert>;
+
+let container: HTMLDivElement | null = null;
+let root: Root | null = null;
+let api: SaveApi | null = null;
+
+function Harness(props: { args: Parameters<typeof useSaveAndRevert>[0] }) {
+    api = useSaveAndRevert(props.args);
+    return null;
+}
+
+function renderSaveHook(args: Parameters<typeof useSaveAndRevert>[0]): SaveApi {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+        root?.render(<Harness args={args} />);
+    });
+    if (!api) throw new Error("Harness failed to mount useSaveAndRevert");
+    return api;
+}
+
+beforeAll(() => {
+    const g = globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    if (!g.IS_REACT_ACT_ENVIRONMENT) g.IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterEach(() => {
+    if (root) {
+        act(() => {
+            root?.unmount();
+        });
+    }
+    if (container) container.remove();
+    root = null;
+    container = null;
+    api = null;
+});
+
 describe("useSaveAndRevert", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -252,7 +294,7 @@ describe("useSaveAndRevert", () => {
             .fn<GitProvider["pushCurrentBranch"]>()
             .mockRejectedValue(new Error("offline"));
 
-        const save = useSaveAndRevert({
+        const save = renderSaveHook({
             workingFilesStore: store,
             saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },
@@ -350,7 +392,7 @@ describe("useSaveAndRevert", () => {
             callOrder.push("prepare");
         });
 
-        const save = useSaveAndRevert({
+        const save = renderSaveHook({
             workingFilesStore: store,
             saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },

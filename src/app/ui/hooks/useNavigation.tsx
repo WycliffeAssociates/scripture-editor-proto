@@ -52,8 +52,6 @@ export function useNavigation({
      * the current chapter first.
      */
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
-        // Push-based read: the bridge plugin keeps the store fresh on every
-        // commit, so no flush is needed before leaving the chapter.
         const filesToUse = workingFilesStore.read();
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,

@@ -17,6 +17,10 @@ export function makeOverlayTickPipeline(args: {
     layoutTickStore: LayoutTickStore;
 }): Effect.Effect<void> {
     return args.workingFilesStore.changes.pipe(
+        // Skip selection-only commits — cursor movement doesn't change layout
+        // and re-measuring overlays on every arrow key wastes work. Scroll/
+        // resize/font signals still bump the tick directly.
+        Stream.filter((event) => event.meta.kind !== "metadataOnly"),
         Stream.debounce(Duration.millis(16)),
         Stream.tap(() =>
             Effect.sync(() => {

@@ -18,40 +18,14 @@ type Listener = () => void;
 /**
  * Single source of live current truth for working-files state.
  *
- * Replaces the pull-based `mutWorkingFilesRef` + `saveCurrentDirtyLexical()`
- * coordination. Editor commits push here via the bridge plugin; consumers
- * either pull (`read*`) or subscribe.
+ * `this.state` is the truth. Two protocols read it:
+ *  - React via `subscribe` + `getSnapshot` (used by `useSave`'s
+ *    `useSyncExternalStore` for reactive `hasUnsavedChanges`).
+ *  - Effect via `changes: Stream<CommitEvent>` (used by Stage 2 pipelines —
+ *    lint, save status, structure, overlay tick).
  *
- * ## One source of truth, two read protocols
- *
- * `this.state` is the truth. `subscribe`/`getSnapshot` and `changes` are two
- * different *protocols* for reading or reacting to that truth — they are not
- * two independent stores and they cannot disagree.
- *
- *  - **React channel** — plain `Set<() => void>` exposed via `subscribe` /
- *    `getSnapshot`. Exists solely to satisfy React's `useSyncExternalStore`
- *    contract: a synchronous "the value changed" callback paired with a
- *    synchronous "give me the current value" read. This pair is what makes
- *    concurrent React renders tear-free when reading external mutable state.
- *    No hooks currently consume this — most React surfaces either read once
- *    at action time (`workingFilesStore.read()`) or subscribe via the Effect
- *    channel below and project into a derived React-facing store. The pair
- *    is kept on the API so a future component that genuinely needs reactive
- *    working-files reads can wire `useSyncExternalStore` directly without
- *    adding a derived store layer.
- *
- *  - **Effect channel** — `PubSub<CommitEvent>` exposed as `changes:
- *    Stream<CommitEvent>`. The expected consumer shape for Stage 2 pipelines
- *    (lint, save status, structure maintenance, overlay tick): a forked
- *    fiber that filters/debounces/switchMaps commits, does its work, and
- *    writes results into its own derived store (e.g. `LintStore`,
- *    `SaveStatusStore`). Those derived stores then expose React-facing
- *    reads. Streams compose; callbacks don't — that's why this channel
- *    exists alongside the simpler React one.
- *
- * If a component finds itself needing both a `useSyncExternalStore` read of
- * working files *and* a stream subscription, that's a smell — it should be
- * one or the other, with a derived store sitting between them.
+ * A component should pick one channel; using both is a smell — derive into a
+ * second store instead.
  */
 export class WorkingFilesStore {
     private state: ScriptureBookState[];
@@ -61,15 +35,11 @@ export class WorkingFilesStore {
 
     constructor(initial: ScriptureBookState[]) {
         this.state = initial;
-        // Unbounded by design: every CommitEvent must reach every subscriber
-        // (dropping commits would let derived state diverge from `this.state`).
-        // The pressure-relief mechanism is per-subscriber operator choice —
-        // `Stream.switchMap` (lint) interrupts in-flight work, `Stream.debounce`
-        // coalesces bursts. If a subscriber accumulates (e.g. save uses
-        // `mapEffect` and a save hangs), the queue grows. Stage 2A will add a
-        // dev-mode `PubSub.size` watcher that logs when the backlog exceeds a
-        // threshold — treat any overflow as a bug in the offending subscriber's
-        // pipeline, not as a reason to bound here.
+        // Unbounded so every CommitEvent reaches every subscriber. Pressure
+        // relief is per-subscriber: `Stream.switchMap` (lint) interrupts
+        // in-flight work, `Stream.debounce` coalesces bursts. A growing queue
+        // means an upstream subscriber is hanging, not that we should bound
+        // here.
         this.pubsub = Effect.runSync(PubSub.unbounded<CommitEvent>());
     }
 
@@ -87,72 +57,27 @@ export class WorkingFilesStore {
     }
 
     /**
-     * Build a writable draft of the current state via structural sharing.
-     *
-     * For every (bookCode, chapterNum) in `refs`:
-     *   - the containing book is shallow-copied (`{...book}` with a new
-     *     `chapters` array), and
-     *   - the named chapter is shallow-copied (`{...chapter}`).
-     *
-     * Everything else — untouched books, untouched chapters within touched
-     * books — shares its reference with current state. The caller mutates
-     * only the chapters in `refs`, then hands the draft back via
+     * Build a writable draft via structural sharing. For each `(bookCode,
+     * chapterNum)` in `refs` the containing book and chapter are shallow-
+     * copied; everything else aliases current state. Caller mutates the
+     * named chapters in place, then commits via
      * `commit({ kind: "bulk", files: draft }, meta)`.
      *
-     * Why this exists instead of `structuredClone(read())`: deep-cloning
-     * the whole project was a real perf cliff (~1.5s on Psalm 119 just to
-     * undo a single keystroke). Structural sharing produces exactly the
-     * new object identities the commit boundary actually needs for
-     * subscriber change detection — touched paths get new refs, untouched
-     * paths stay stable. Untouched-ref stability is also a perf win for
-     * downstream `useMemo` / `React.memo` (no spurious recomputes).
+     * Why not `structuredClone(read())`: deep-cloning the whole project was
+     * ~1.5s on Psalm 119 per undo. Structural sharing produces the exact
+     * object identities the commit boundary needs — touched paths get new
+     * refs, untouched paths stay stable (which also keeps downstream
+     * `useMemo` / `React.memo` quiet).
      *
-     * ## Recipe A — known targets (most consumers)
-     * ```ts
-     * const draft = store.draftWithChapters([
-     *     { bookCode: "JUD", chapterNum: 1 },
-     * ]);
-     * const ch = findChapterInDraft(draft, "JUD", 1);
-     * ch.lexicalState = computeNewState();
-     * store.commit({ kind: "bulk", files: draft }, meta);
-     * ```
+     * Discovery flows (don't know targets yet): walk to collect refs, then
+     * draft + mutate in a second pass. Two passes is cheap; deep clone was
+     * hundreds of ms.
      *
-     * ## Recipe B — discovery flows (format match, prettify-project)
-     *
-     * If you don't know which chapters you'll touch until you walk the
-     * project, do a read-only pass first to collect refs, then a second
-     * pass that mutates:
-     *
-     * ```ts
-     * const candidates: HistoryChapterRef[] = [];
-     * for (const book of store.read()) {
-     *     for (const ch of book.chapters) {
-     *         if (shouldTouch(book, ch)) {
-     *             candidates.push({ bookCode: book.bookCode, chapterNum: ch.chapterNumber });
-     *         }
-     *     }
-     * }
-     * const draft = store.draftWithChapters(candidates);
-     * for (const ref of candidates) {
-     *     const ch = findChapterInDraft(draft, ref.bookCode, ref.chapterNum);
-     *     applyTo(ch);
-     * }
-     * store.commit({ kind: "bulk", files: draft }, meta);
-     * ```
-     *
-     * Two passes is fine — the per-chapter walk cost is ~µs; the deep
-     * clone it replaces was hundreds of ms or more.
-     *
-     * ## Concurrency note
-     *
-     * The draft → mutate → commit sequence must stay synchronous within
-     * one stack frame. If you `await` between drafting and committing,
-     * another commit may have landed in the meantime, and your draft's
-     * shared-reference paths will overwrite that newer state — the
-     * classic lost-update / write-skew problem. (Deep cloning had the
-     * same hazard; structural sharing doesn't introduce it.) If a flow
-     * genuinely needs async work first, gather async results, THEN
-     * synchronously build the draft from the latest `read()` and commit.
+     * Concurrency: draft → mutate → commit must stay synchronous in one
+     * stack frame. An `await` between drafting and committing lets a newer
+     * commit land in between; your shared-ref draft will then overwrite it
+     * (lost update). Gather async results first, then synchronously draft
+     * from the latest `read()` and commit.
      */
     draftWithChapters(
         refs: ReadonlyArray<{ bookCode: string; chapterNum: number }>,
@@ -208,10 +133,7 @@ export class WorkingFilesStore {
         this.state = next;
     }
 
-    /**
-     * Plain-tick subscription for React via `useSyncExternalStore`. Listeners
-     * receive no payload; they re-read via `getSnapshot`.
-     */
+    /** React-side `useSyncExternalStore` subscribe (used by `useSave`). */
     subscribe(listener: Listener): () => void {
         this.tickListeners.add(listener);
         return () => this.tickListeners.delete(listener);
@@ -221,12 +143,8 @@ export class WorkingFilesStore {
         return this.state;
     }
 
-    /**
-     * Effect-side commit stream. Composes with `Stream.filter`,
-     * `Stream.debounce`, `Stream.switchMap`, etc. Use `Effect.runFork` on a
-     * `Stream.runForEach` / `Stream.runDrain` to start a subscriber fiber;
-     * interrupt the returned fiber to unsubscribe.
-     */
+    /** Effect-side commit stream — pipe with `Stream.filter` / `debounce` /
+     * `switchMap`; `Effect.runFork(Stream.runDrain(...))` to start a fiber. */
     get changes(): Stream.Stream<CommitEvent> {
         return Stream.fromPubSub(this.pubsub);
     }
@@ -258,12 +176,10 @@ function applyPatch(
     switch (patch.kind) {
         case "bulk":
             return patch.files;
+        case "selectionOnly":
+            return state;
         case "chapter": {
-            const { bookCode, chapter } = patch;
-            const lexicalState =
-                typeof patch.lexicalState === "function"
-                    ? patch.lexicalState()
-                    : patch.lexicalState;
+            const { bookCode, chapter, lexicalState } = patch;
             return state.map((book) => {
                 if (book.bookCode !== bookCode) return book;
                 return {

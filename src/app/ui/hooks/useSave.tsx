@@ -1,12 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type {
@@ -82,12 +76,6 @@ export function useSave({
 }: UseSaveProps) {
     const { usfmOnionService, settingsManager, authSessionProvider } =
         useRouter().options.context;
-    // Re-render useSave on every store commit so downstream derivations like
-    // useSaveAndRevert's `hasUnsavedChanges` stay current as the user types.
-    useSyncExternalStore(
-        workingFilesStore.subscribe.bind(workingFilesStore),
-        workingFilesStore.getSnapshot.bind(workingFilesStore),
-    );
     const [, setDirtyVersion] = useState(0);
     const refreshUnsavedChaptersRef = useRef<
         (

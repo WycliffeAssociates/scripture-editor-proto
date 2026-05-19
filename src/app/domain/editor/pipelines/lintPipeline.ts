@@ -1,5 +1,6 @@
 import { Duration, Effect, Stream } from "effect";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { isLintRelevant } from "@/app/state/commitFilters.ts";
 import type { LintStore } from "@/app/state/LintStore.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -69,22 +70,17 @@ function booksToLintForEvent(event: CommitEvent): Set<string> {
 /**
  * Stream pipeline that runs lint in response to working-files commits.
  *
- * Wiring (per plan.md Stage 2A):
- *  - Subscribe to `workingFilesStore.changes`.
- *  - Filter to text-changing commits, excluding:
- *    - `metadataOnly` — only dirty-flag flips, no token changes.
- *    - `structuralFixup` — writebacks from the structure-maintenance pipeline;
- *      they fix structure, not surface new issues.
- *    - `load` — initial project load; initial lint state is loader-seeded.
- *    - `undo` / `redo` — `WorkspaceContext`'s post-undo/redo effect collects
- *      the touched books from the history event and re-lints just those; the
- *      pipeline would otherwise lint the entire snapshot because undo commits
- *      use project scope.
- *  - Debounce: coalesce rapid typing into a single lint pass per quiet window.
- *  - switchMap: new commit interrupts any in-flight lint pass so we don't burn
- *    cycles on a snapshot the user has already typed past.
- *  - Run lint per touched book against the commit's snapshot; write results
- *    into the LintStore.
+ * Filters text-changing commits, excluding:
+ *  - `metadataOnly` — only dirty-flag flips, no token changes.
+ *  - `structuralFixup` — writebacks from the structure-maintenance pipeline;
+ *    they fix structure, not surface new issues.
+ *  - `load` — initial project load; initial lint state is loader-seeded.
+ *  - `undo` / `redo` — `WorkspaceContext`'s post-undo/redo effect re-lints
+ *    just the touched books; without this exclusion the pipeline would lint
+ *    the entire snapshot because undo commits use project scope.
+ *
+ * `debounce` coalesces rapid typing; `switchMap` interrupts in-flight lint
+ * when a newer commit arrives.
  */
 export function makeLintPipeline(args: {
     workingFilesStore: WorkingFilesStore;
@@ -94,15 +90,7 @@ export function makeLintPipeline(args: {
 }): Effect.Effect<void> {
     const debounceMs = args.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS;
     return args.workingFilesStore.changes.pipe(
-        Stream.filter(
-            (event) =>
-                event.meta.dirtyTextContent &&
-                event.meta.kind !== "metadataOnly" &&
-                event.meta.kind !== "structuralFixup" &&
-                event.meta.kind !== "load" &&
-                event.meta.kind !== "undo" &&
-                event.meta.kind !== "redo",
-        ),
+        Stream.filter(isLintRelevant),
         Stream.debounce(Duration.millis(debounceMs)),
         Stream.switchMap((event) =>
             Stream.fromIterable(booksToLintForEvent(event)).pipe(

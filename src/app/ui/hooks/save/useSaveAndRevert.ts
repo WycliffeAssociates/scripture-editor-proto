@@ -1,4 +1,5 @@
 import type { LexicalEditor } from "lexical";
+import { useSyncExternalStore } from "react";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import type {
     DiffsByChapter,
@@ -79,15 +80,16 @@ export function useSaveAndRevert(args: {
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     prepareRemoteBaseForSave?: () => Promise<void>;
 }) {
-    // `hasUnsavedChanges` is recomputed every time this hook re-runs. To
-    // keep it current as the user types, the *parent* (useSave) subscribes
-    // to the store via useSyncExternalStore; that re-renders useSave and
-    // therefore re-invokes this hook with a fresh `read()`. Subscribing
-    // here would couple the hook to React and break unit tests that call
-    // it directly.
-    const hasUnsavedChanges = args.workingFilesStore
-        .read()
-        .some((file) => file.chapters.some((chapter) => chapter.dirty));
+    // Re-derive `hasUnsavedChanges` on every store commit. Subscribing here
+    // (instead of in the parent) keeps the dirty-aware UI honest without
+    // depending on parent re-renders.
+    const files = useSyncExternalStore(
+        args.workingFilesStore.subscribe.bind(args.workingFilesStore),
+        args.workingFilesStore.getSnapshot.bind(args.workingFilesStore),
+    );
+    const hasUnsavedChanges = files.some((file) =>
+        file.chapters.some((chapter) => chapter.dirty),
+    );
 
     async function saveProjectToDisk(options?: {
         prepareRemoteBaseForSave?: () => Promise<void>;

@@ -311,9 +311,8 @@ export function useFormatMatching({
                 },
             ],
             run: async () => {
-                // The store snapshot is immutable from our side (we mutate
-                // draft objects, never the read() result), so the rollback
-                // baseline can be the snapshot itself — no deep clone needed.
+                // Rollback baseline aliases the pre-draft snapshot; safe
+                // because drafts mutate only their shallow-copied chapters.
                 const previous = workingFiles;
                 const draft = workingFilesStore.draftWithChapters([
                     {

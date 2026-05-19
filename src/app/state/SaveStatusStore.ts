@@ -20,16 +20,12 @@ export type SaveStatus =
     | { kind: "failed"; error: unknown };
 
 /**
- * Workspace-scoped save-lifecycle store.
+ * Workspace-scoped save-lifecycle store. Two writers:
+ *  - `saveStatusPipeline` flips `clean` ↔ `dirty` from commit events.
+ *  - The save command (Cmd-S / Save button) drives `setSaving()` →
+ *    `setSaved()` | `setFailed(error)` around `saveProjectToDisk`.
  *
- * Population (per plan.md Stage 2B):
- *  - A tiny subscriber on `workingFilesStore.changes` flips `clean` → `dirty`
- *    on any text-changing commit. Pure observation; no debounce, no disk
- *    write — auto-save-to-file is explicitly out of scope.
- *  - The save command (Cmd-S / Save button) wraps `saveProjectToDisk` with
- *    `setSaving()` → result → `setSaved()` | `setFailed(error)`.
- *
- * React-facing reads use `useSyncExternalStore(subscribe, getSnapshot)`.
+ * React reads via `useSyncExternalStore(subscribe, getSnapshot)`.
  */
 export class SaveStatusStore {
     private state: SaveStatus;

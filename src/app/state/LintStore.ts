@@ -10,17 +10,15 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 type Listener = () => void;
 
 /**
- * Workspace-scoped store for lint snapshots.
+ * Workspace-scoped store for lint snapshots. The lint pipeline (and the
+ * post-undo/redo relint effect) calls `commitBookLintResults` with the
+ * latest results; React consumers read via `useSyncExternalStore(subscribe,
+ * getSnapshot)`.
  *
- * The editor-side `lintPipeline` (forked Effect fiber on
- * `workingFilesStore.changes`) writes here on every debounced commit. React
- * consumers read via `useSyncExternalStore(subscribe, getSnapshot)`.
- *
- * Cancellation is the pipeline's responsibility: `Stream.switchMap` interrupts
- * the in-flight lint fiber when a newer commit arrives, so the store never
- * needs request-id bookkeeping. `commitBookLintResults` is a simple batch
- * replace — by the time we get here, this is the result the pipeline (or the
- * post-undo/redo relint effect) decided is current.
+ * Pipeline cancellation upstream (`Stream.switchMap`) guarantees only the
+ * newest pass writes here. `requestCounter` exists for the snapshot ID
+ * downstream UI uses to order/dedupe per-chapter displays, not for in-store
+ * staleness checks.
  */
 export class LintStore {
     private state: LintSnapshotsByChapter;

@@ -47,6 +47,7 @@ import {
     type UseSearchReturn,
     useProjectSearch,
 } from "@/app/ui/hooks/useSearch.tsx";
+import { useStableInstance } from "@/app/ui/hooks/useStableInstance.ts";
 import {
     useWorkspaceState,
     type WorkspaceState,
@@ -169,63 +170,40 @@ export const ProjectProvider = ({
     const { projects } = useLoaderData({ from: "__root__" });
     const projectLanguageDirection = loadedProject.language.direction;
 
-    // The editor's bridge plugin commits here on every update; all consumers
-    // read via `workingFilesStore.read()` (or subscribe via the Effect-side
-    // `changes` stream).
-    const workingFilesStoreRef = useRef<WorkingFilesStore | null>(null);
-    if (workingFilesStoreRef.current === null) {
-        workingFilesStoreRef.current = new WorkingFilesStore(projectFiles);
-    }
-    const workingFilesStore = workingFilesStoreRef.current;
-
+    // Editor commits push here; consumers read via `workingFilesStore.read()`
+    // or subscribe via the Effect-side `changes` stream.
+    const workingFilesStore = useStableInstance(
+        () => new WorkingFilesStore(projectFiles),
+    );
     // Workspace-scoped lint snapshot store. Seeded once from the route loader.
-    const lintStoreRef = useRef<LintStore | null>(null);
-    if (lintStoreRef.current === null) {
-        lintStoreRef.current = new LintStore(initialLintErrorsByBook);
-    }
-    const lintStore = lintStoreRef.current;
-
+    const lintStore = useStableInstance(
+        () => new LintStore(initialLintErrorsByBook),
+    );
     // Workspace-scoped save-lifecycle store. Initial status follows the
-    // working files: dirty if any chapter is dirty (e.g., crash-recovery load
-    // from cache); clean otherwise.
-    const saveStatusStoreRef = useRef<SaveStatusStore | null>(null);
-    if (saveStatusStoreRef.current === null) {
+    // working files: dirty if any chapter is dirty (crash-recovery cache),
+    // clean otherwise.
+    const saveStatusStore = useStableInstance(() => {
         const startsDirty = projectFiles.some((file) =>
             file.chapters.some((chapter) => chapter.dirty),
         );
-        saveStatusStoreRef.current = new SaveStatusStore(
+        return new SaveStatusStore(
             startsDirty ? { kind: "dirty" } : { kind: "clean" },
         );
-    }
-    const saveStatusStore = saveStatusStoreRef.current;
-
-    // Workspace-scoped layout-tick counter. Overlay/mutation sinks subscribe
-    // via `useLayoutTick` and re-measure in `useLayoutEffect`.
-    const layoutTickStoreRef = useRef<LayoutTickStore | null>(null);
-    if (layoutTickStoreRef.current === null) {
-        layoutTickStoreRef.current = new LayoutTickStore();
-    }
-    const layoutTickStore = layoutTickStoreRef.current;
-
-    // Workspace-scoped search highlight store. Search hooks publish; the
-    // mounted `HighlightSink` repaints from it on store change + layout tick.
-    const searchHighlightStoreRef = useRef<SearchHighlightStore | null>(null);
-    if (searchHighlightStoreRef.current === null) {
-        searchHighlightStoreRef.current = new SearchHighlightStore();
-    }
-    const searchHighlightStore = searchHighlightStoreRef.current;
-
-    // Deferred<LexicalEditor> — resolves once the bridge plugin mounts. The
-    // structure pipeline (and future Effect.gen commands like chapter-swap)
-    // await this so they don't race the editor reference.
-    const mainEditorDeferredRef =
-        useRef<Deferred.Deferred<LexicalEditor> | null>(null);
-    if (mainEditorDeferredRef.current === null) {
-        mainEditorDeferredRef.current = Effect.runSync(
-            Deferred.make<LexicalEditor>(),
-        );
-    }
-    const mainEditorDeferred = mainEditorDeferredRef.current;
+    });
+    // Overlay/mutation sinks subscribe via `useLayoutTick` and re-measure in
+    // `useLayoutEffect`.
+    const layoutTickStore = useStableInstance(() => new LayoutTickStore());
+    // Search hooks publish; the mounted `HighlightSink` repaints from this
+    // store on change + layout tick.
+    const searchHighlightStore = useStableInstance(
+        () => new SearchHighlightStore(),
+    );
+    // Resolves once the bridge plugin mounts. The structure pipeline and
+    // future Effect.gen commands (chapter-swap) await this to avoid racing
+    // the editor reference.
+    const mainEditorDeferred = useStableInstance(() =>
+        Effect.runSync(Deferred.make<LexicalEditor>()),
+    );
 
     const {
         settingsManager,
@@ -344,7 +322,6 @@ export const ProjectProvider = ({
     const save = useSave({
         workingFilesStore,
         saveStatusStore,
-        // setWorkingFiles,
         editorRef: editorRef,
         pickedFile: project.pickedFile,
         pickedChapter: project.pickedChapter || null,
@@ -358,7 +335,6 @@ export const ProjectProvider = ({
         allProjects: projects,
         currentProjectRoute,
         onGitRemoteStatusChanged: setRemoteStatus,
-        // saveCurrentDirtyLexical: actions.saveCurrentDirtyLexical,
     });
 
     const lint = useLint({
@@ -389,8 +365,6 @@ export const ProjectProvider = ({
         setCurrentFileBibleIdentifier: project.setCurrentFileBibleIdentifier,
         updateAppSettings: project.updateAppSettings,
         appSettings: project.appSettings,
-        // workingFiles,
-        // setWorkingFiles,
         pickedFile: project.pickedFile,
         toggleDiffModal: save.diff.open,
         updateDiffMapForChapter: save.diff.refreshChapter,
@@ -463,8 +437,6 @@ export const ProjectProvider = ({
         ],
     );
 
-    // Keep lint state in sync after history replay (undo/redo), including
-    // entries that touch chapters outside the currently visible editor.
     useEffect(() => {
         void syncRemoteStatus().catch((error) => {
             console.error(
@@ -474,6 +446,8 @@ export const ProjectProvider = ({
         });
     }, [syncRemoteStatus]);
 
+    // Keep lint state in sync after history replay (undo/redo), including
+    // entries that touch chapters outside the currently visible editor.
     useEffect(() => {
         return history.registerPostUndoRedoAction((event) => {
             void (async () => {

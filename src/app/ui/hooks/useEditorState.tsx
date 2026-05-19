@@ -5,13 +5,7 @@ import { setEditorContent } from "./utils/editorUtils.ts";
 
 /**
  * Editor-side helper that pushes chapter content into the visible Lexical
- * instance for the currently open scripture workspace.
- *
- * After the WorkingFilesStore migration, the legacy `updateChapterLexical`
- * write-back path is gone — the bridge plugin publishes Lexical edits into the
- * store directly. This hook now only owns the read-side `setEditorContent`
- * call, which can fall back to the store when callers don't pre-resolve a
- * chapter state object.
+ * instance. Reads from the store when callers don't pre-resolve a chapter.
  */
 export function useEditorState({
     workingFilesStore,

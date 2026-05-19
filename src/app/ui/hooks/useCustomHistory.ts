@@ -1,5 +1,6 @@
 import { $dfsIterator } from "@lexical/utils";
 import { useLingui } from "@lingui/react/macro";
+import { Duration, Effect, Fiber } from "effect";
 import {
     $createRangeSelection,
     $getRoot,
@@ -8,10 +9,11 @@ import {
     $setSelection,
     type EditorState,
     type LexicalEditor,
+    type NodeKey,
     type SerializedEditorState,
     type SerializedLexicalNode,
 } from "lexical";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import {
     $isUSFMTextNode,
@@ -41,8 +43,8 @@ import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 type CaptureEditorUpdateArgs = {
     editorState: EditorState;
     prevEditorState: EditorState;
-    dirtyElements: Map<string, unknown>;
-    dirtyLeaves: Set<string>;
+    dirtyElements: Map<NodeKey, boolean>;
+    dirtyLeaves: Set<NodeKey>;
     tags: Set<string>;
 };
 
@@ -99,6 +101,10 @@ type ChapterCursor = CapturedSelection | null;
 
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_COALESCE_WINDOW_MS = 2500;
+// Long enough to land past Lexical's reconcile + flush of the replay's
+// queued tagged update; short enough that one-off undo feels immediate.
+// Tune down toward 30ms if a single undo feels laggy in practice.
+const POST_REPLAY_RESTORE_DELAY_MS = 50;
 
 function chapterKey(chapter: HistoryChapterRef) {
     return `${chapter.bookCode}:${chapter.chapterNum}`;
@@ -254,6 +260,32 @@ export function useCustomHistory({
             coalesceWindowMs,
         }),
     );
+
+    // Post-undo/redo cursor + scroll restore is deferred so it lands after
+    // Lexical's reconcile flushes the queued tagged update from
+    // `setEditorContent`. A scheduled restore is held in a ref; back-to-back
+    // undo presses interrupt the in-flight fiber and reschedule, coalescing
+    // rapid replay into one restore.
+    const pendingRestoreRef = useRef<Fiber.Fiber<void> | null>(null);
+    const cancelPendingRestore = useCallback(() => {
+        const inflight = pendingRestoreRef.current;
+        if (inflight) Effect.runFork(Fiber.interrupt(inflight));
+        pendingRestoreRef.current = null;
+    }, []);
+    // Interrupt the in-flight restore when the visible chapter changes — a
+    // user who undoes and immediately navigates should not have the prior
+    // restore land in the new chapter's editor. The fiber's in-body guard
+    // is a second line of defense; this avoids the wait entirely.
+    useEffect(() => {
+        return () => {
+            cancelPendingRestore();
+        };
+    }, [
+        cancelPendingRestore,
+        currentFileBibleIdentifier,
+        currentChapter,
+        editorRef,
+    ]);
     const baselineByChapterRef = useRef(
         new Map<string, CanonicalChapterSnapshot>(),
     );
@@ -339,42 +371,14 @@ export function useCustomHistory({
         [currentFileBibleIdentifier],
     );
 
-    // Undo / redo smoothness — Phases A + B (landed):
-    //
-    // Goal: when the user moves the history pointer, the *content* of the
-    // affected chapter changes and nothing else. Scroll stays put and the
-    // caret lands precisely where it should — for typing, that's the
-    // pre-edit cursor on undo, post-edit cursor on redo.
-    //
-    // Phase A — scroll + focus snap suppression:
-    //   - `setEditorContent` is called without a selectionOverride so it
-    //     doesn't `editor.focus()` or splice the historical selection
-    //     into the parsed state. We restore both ourselves, deferred.
-    //   - scrollTop on the editor's scrolling ancestor is captured before
-    //     the swap and restored on a deferred tick.
-    //
-    // Phase B — selection preservation by `data-id`:
-    //   - Lexical regenerates internal keys on `parseEditorState`, so
-    //     selection-by-key doesn't survive. USFMTextNode's stable
-    //     `data-id` does survive — it's preserved in the JSON snapshot.
-    //   - The history entry records `selectionBefore` / `selectionAfter`
-    //     as data-id-keyed CapturedSelection values. applyEntry passes
-    //     the appropriate one as `historicalCursor`. We restore from
-    //     that, because for a typing entry the historical "before" is
-    //     the cursor at the moment typing started — the right target
-    //     for undo. The cursor at *replay* time would clamp into
-    //     now-shorter text and land mid-word, which is what users
-    //     reported pre-Phase-B.
-    //   - If the historical anchor's data-id no longer exists (rare —
-    //     would require deleting the start-of-typing node entirely),
-    //     fall back to the current cursor by data-id, then to
-    //     `defaultSelection: "rootStart"` via `editor.focus`.
-    //
-    // The deferred restore uses a chained microtask + rAF (see
-    // implementation) so it lands after Lexical's reconcile from the
-    // setEditorContent's queued updates has flushed; calling focus or
-    // setting selection synchronously before reconcile yields a brief
-    // race the contenteditable loses.
+    // Undo/redo replay swaps chapter content; this hook then restores
+    // focus, cursor (by USFMTextNode `data-id`, which survives
+    // `parseEditorState`), and scroll position. The restore is deferred so
+    // it lands after Lexical reconciles the queued tagged update from
+    // `setEditorContent` — running focus/selection synchronously fights
+    // reconcile and loses the contenteditable. Historical cursor wins;
+    // current cursor in the old tree is a fallback when the historical
+    // anchor's data-id no longer exists.
     const refreshVisibleEditorIfTouched = useCallback(
         (touched: Set<string>, historicalCursor: ChapterCursor) => {
             const currentRef = {
@@ -390,8 +394,6 @@ export function useCustomHistory({
             const scrollAncestor = findScrollAncestor(editor.getRootElement());
             const savedScrollTop = scrollAncestor?.scrollTop ?? null;
 
-            // Current cursor in the OLD tree. Acts as a fallback when the
-            // historical cursor's data-ids aren't found in the new tree.
             const liveCursor: ChapterCursor = editor
                 .getEditorState()
                 .read($captureCurrentSelection);
@@ -410,27 +412,49 @@ export function useCustomHistory({
                 workingFilesStore,
             );
 
-            // Defer restore until Lexical has flushed reconcile. The
-            // setTimeout(0) (after raw setEditorContent returns) puts us
-            // past the queued tagged updates from setEditorContent itself.
-            // The order inside the timer matters: focus first so the
-            // contenteditable owns the DOM selection target; set selection
-            // second so Lexical can sync DOM selection into the newly
-            // focused host; restore scroll last so neither focus nor
-            // selection can re-trigger a scrollIntoView that fights us.
-            window.setTimeout(() => {
+            // Cancel any in-flight restore; the newest replay supersedes.
+            // Coalesces rapid Cmd-Z bursts into one restore. Sleep duration
+            // lets reconcile flush before we touch focus/selection.
+            cancelPendingRestore();
+
+            // Snapshot the visible chapter so the deferred body can verify
+            // the user hasn't navigated away during the 50ms wait. The
+            // chapter-change `useEffect` interrupts in that case too, but
+            // this guard covers paths that don't trigger React updates.
+            const restoreTargetRef = {
+                bookCode: currentRef.bookCode,
+                chapterNum: currentRef.chapterNum,
+            };
+
+            // Order inside the restore matters: focus first (contenteditable
+            // owns selection target), set selection (Lexical syncs DOM
+            // selection into the focused host), then restore scroll last so
+            // focus/selection can't re-trigger a scrollIntoView that fights
+            // us.
+            const restore = Effect.sync(() => {
+                // Bail if the user navigated, the editor was swapped, or
+                // the visible chapter changed before the sleep elapsed.
+                if (editorRef.current !== editor) {
+                    pendingRestoreRef.current = null;
+                    return;
+                }
+                if (
+                    restoreTargetRef.bookCode !== currentFileBibleIdentifier ||
+                    restoreTargetRef.chapterNum !== currentChapter
+                ) {
+                    pendingRestoreRef.current = null;
+                    return;
+                }
                 if (editorHadFocus) {
                     editor.focus(undefined, { defaultSelection: "rootStart" });
                 }
-
-                const restoreTargets: ChapterCursor[] = [];
-                if (historicalCursor) restoreTargets.push(historicalCursor);
-                if (liveCursor) restoreTargets.push(liveCursor);
-
-                if (restoreTargets.length > 0) {
+                const targets: ChapterCursor[] = [];
+                if (historicalCursor) targets.push(historicalCursor);
+                if (liveCursor) targets.push(liveCursor);
+                if (targets.length > 0) {
                     editor.update(
                         () => {
-                            for (const target of restoreTargets) {
+                            for (const target of targets) {
                                 if (target && $restoreSelectionById(target)) {
                                     return;
                                 }
@@ -439,11 +463,17 @@ export function useCustomHistory({
                         { tag: EDITOR_TAGS_USED.programaticIgnore },
                     );
                 }
-
                 if (scrollAncestor && savedScrollTop !== null) {
                     scrollAncestor.scrollTop = savedScrollTop;
                 }
-            }, 0);
+                pendingRestoreRef.current = null;
+            });
+
+            pendingRestoreRef.current = Effect.runFork(
+                Effect.sleep(
+                    Duration.millis(POST_REPLAY_RESTORE_DELAY_MS),
+                ).pipe(Effect.andThen(restore)),
+            );
         },
         [
             currentFileBibleIdentifier,
@@ -451,6 +481,7 @@ export function useCustomHistory({
             editorRef,
             findChapterRecord,
             workingFilesStore,
+            cancelPendingRestore,
         ],
     );
 

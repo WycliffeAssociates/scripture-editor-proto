@@ -4,6 +4,7 @@ import { EDITOR_MODES } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import { maintainDocumentStructure } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
 import { maintainDocumentMetaData } from "@/app/domain/editor/listeners/maintainMetadata.ts";
+import { isStructureMaintenanceRelevant } from "@/app/state/commitFilters.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 
 const DEFAULT_STRUCTURE_DEBOUNCE_MS = 75;
@@ -35,10 +36,7 @@ export function makeStructureMaintenancePipeline(args: {
 }): Effect.Effect<void> {
     const debounceMs = args.debounceMs ?? DEFAULT_STRUCTURE_DEBOUNCE_MS;
     return args.workingFilesStore.changes.pipe(
-        Stream.filter(
-            (event) =>
-                event.meta.kind === "userEdit" && event.meta.dirtyTextContent,
-        ),
+        Stream.filter(isStructureMaintenanceRelevant),
         Stream.debounce(Duration.millis(debounceMs)),
         Stream.mapEffect(() =>
             Effect.gen(function* () {

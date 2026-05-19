@@ -51,15 +51,7 @@ export type WorkingFilesPatch =
           kind: "chapter";
           bookCode: string;
           chapter: number;
-          /**
-           * Either an already-materialized lexical state, or a thunk that produces
-           * one on demand. The thunk form lets the editor bridge publish every
-           * commit (including selection-only) without paying `toJSON` cost when
-           * no subscriber materializes the patch.
-           */
-          lexicalState:
-              | SerializedLexicalChapterState
-              | (() => SerializedLexicalChapterState);
+          lexicalState: SerializedLexicalChapterState;
       }
     | {
           kind: "metadata";
@@ -67,7 +59,14 @@ export type WorkingFilesPatch =
           chapter: number;
           dirty: boolean;
       }
-    | { kind: "bulk"; files: ScriptureBookState[] };
+    | { kind: "bulk"; files: ScriptureBookState[] }
+    /**
+     * Pure event signal — selection or other no-content-change update. State
+     * is unchanged; `applyPatch` returns the same array. Consumers reading
+     * `event.meta.kind === "metadataOnly"` can react to selection movement
+     * (e.g. synced scrolling) without paying any commit-side cost.
+     */
+    | { kind: "selectionOnly"; bookCode: string; chapter: number };
 
 export type CommitEvent = {
     meta: CommitMeta;
