@@ -1,5 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import {
+    // @ai -> MutableRefObject = deprecated warngin
     type MutableRefObject,
     type RefObject,
     useCallback,
