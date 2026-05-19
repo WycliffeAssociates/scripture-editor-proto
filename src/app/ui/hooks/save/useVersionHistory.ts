@@ -73,28 +73,28 @@ export function useVersionHistory(args: {
                 editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
             });
-            // Option D: clone the current snapshot, let
-            // applyVersionSnapshotToWorkingFiles mutate the clone, then
-            // publish the result as a bulk patch. The bridge filters out
-            // setEditorContent's tagged-programaticIgnore commit inside
-            // syncEditorToPickedChapter so we don't get a duplicate.
+            // applyVersionSnapshotToWorkingFiles mutates every chapter of
+            // every book (applyIncomingChapterAll + markFilesAsSaved both
+            // walk all chapters). Draft every chapter writable so those
+            // mutations land on the structural-shared draft, not the store.
             const workingFiles = args.workingFilesStore.read();
-            const filesClone = structuredClone(workingFiles);
+            const allRefs = workingFiles.flatMap((file) =>
+                file.chapters.map((chapter) => ({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapterNumber,
+                })),
+            );
+            const draft = args.workingFilesStore.draftWithChapters(allRefs);
             await args.history.runTransaction({
                 label: "Load Previous Version",
-                candidates: filesClone.flatMap((file) =>
-                    file.chapters.map((chapter) => ({
-                        bookCode: file.bookCode,
-                        chapterNum: chapter.chapterNumber,
-                    })),
-                ),
+                candidates: allRefs,
                 run: async () => {
                     applyVersionSnapshotToWorkingFiles({
-                        workingFiles: filesClone,
+                        workingFiles: draft,
                         sourceFiles: preview.parsedFiles,
                     });
                     args.workingFilesStore.commit(
-                        { kind: "bulk", files: filesClone },
+                        { kind: "bulk", files: draft },
                         {
                             kind: "import",
                             scope: { project: true },
@@ -103,7 +103,7 @@ export function useVersionHistory(args: {
                     );
                     syncEditorToPickedChapter({
                         editorRef: args.editorRef,
-                        workingFiles: filesClone,
+                        workingFiles: draft,
                         pickedFile: args.pickedFile,
                         pickedChapter: args.pickedChapter,
                     });

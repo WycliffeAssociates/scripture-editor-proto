@@ -1,6 +1,9 @@
 import { Effect, PubSub, Stream } from "effect";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type {
+    ScriptureBookState,
+    ScriptureChapterState,
+} from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
     CommitEvent,
@@ -84,16 +87,106 @@ export class WorkingFilesStore {
     }
 
     /**
+     * Build a writable draft of the current state via structural sharing.
+     *
+     * For every (bookCode, chapterNum) in `refs`:
+     *   - the containing book is shallow-copied (`{...book}` with a new
+     *     `chapters` array), and
+     *   - the named chapter is shallow-copied (`{...chapter}`).
+     *
+     * Everything else — untouched books, untouched chapters within touched
+     * books — shares its reference with current state. The caller mutates
+     * only the chapters in `refs`, then hands the draft back via
+     * `commit({ kind: "bulk", files: draft }, meta)`.
+     *
+     * Why this exists instead of `structuredClone(read())`: deep-cloning
+     * the whole project was a real perf cliff (~1.5s on Psalm 119 just to
+     * undo a single keystroke). Structural sharing produces exactly the
+     * new object identities the commit boundary actually needs for
+     * subscriber change detection — touched paths get new refs, untouched
+     * paths stay stable. Untouched-ref stability is also a perf win for
+     * downstream `useMemo` / `React.memo` (no spurious recomputes).
+     *
+     * ## Recipe A — known targets (most consumers)
+     * ```ts
+     * const draft = store.draftWithChapters([
+     *     { bookCode: "JUD", chapterNum: 1 },
+     * ]);
+     * const ch = findChapterInDraft(draft, "JUD", 1);
+     * ch.lexicalState = computeNewState();
+     * store.commit({ kind: "bulk", files: draft }, meta);
+     * ```
+     *
+     * ## Recipe B — discovery flows (format match, prettify-project)
+     *
+     * If you don't know which chapters you'll touch until you walk the
+     * project, do a read-only pass first to collect refs, then a second
+     * pass that mutates:
+     *
+     * ```ts
+     * const candidates: HistoryChapterRef[] = [];
+     * for (const book of store.read()) {
+     *     for (const ch of book.chapters) {
+     *         if (shouldTouch(book, ch)) {
+     *             candidates.push({ bookCode: book.bookCode, chapterNum: ch.chapterNumber });
+     *         }
+     *     }
+     * }
+     * const draft = store.draftWithChapters(candidates);
+     * for (const ref of candidates) {
+     *     const ch = findChapterInDraft(draft, ref.bookCode, ref.chapterNum);
+     *     applyTo(ch);
+     * }
+     * store.commit({ kind: "bulk", files: draft }, meta);
+     * ```
+     *
+     * Two passes is fine — the per-chapter walk cost is ~µs; the deep
+     * clone it replaces was hundreds of ms or more.
+     *
+     * ## Concurrency note
+     *
+     * The draft → mutate → commit sequence must stay synchronous within
+     * one stack frame. If you `await` between drafting and committing,
+     * another commit may have landed in the meantime, and your draft's
+     * shared-reference paths will overwrite that newer state — the
+     * classic lost-update / write-skew problem. (Deep cloning had the
+     * same hazard; structural sharing doesn't introduce it.) If a flow
+     * genuinely needs async work first, gather async results, THEN
+     * synchronously build the draft from the latest `read()` and commit.
+     */
+    draftWithChapters(
+        refs: ReadonlyArray<{ bookCode: string; chapterNum: number }>,
+    ): ScriptureBookState[] {
+        if (refs.length === 0) return this.state;
+        const touchedBooks = new Set<string>();
+        const touchedChapterKeys = new Set<string>();
+        for (const ref of refs) {
+            touchedBooks.add(ref.bookCode);
+            touchedChapterKeys.add(`${ref.bookCode}:${ref.chapterNum}`);
+        }
+        return this.state.map((book) => {
+            if (!touchedBooks.has(book.bookCode)) return book;
+            return {
+                ...book,
+                chapters: book.chapters.map((c) =>
+                    touchedChapterKeys.has(
+                        `${book.bookCode}:${c.chapterNumber}`,
+                    )
+                        ? { ...c }
+                        : c,
+                ),
+            };
+        });
+    }
+
+    /**
      * Apply a patch and notify both channels. React listeners run
      * synchronously (so `useSyncExternalStore` snapshots are coherent within
      * a render). The PubSub publish is forked — non-blocking; stream
      * subscribers consume in their own fibers.
      */
     commit(patch: WorkingFilesPatch, meta: CommitMetaInput): void {
-        const TRACE = import.meta.env.DEV;
-        const t0 = TRACE ? performance.now() : 0;
         this.state = applyPatch(this.state, patch);
-        const tApply = TRACE ? performance.now() : 0;
         const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
         const event: CommitEvent = {
             meta: fullMeta,
@@ -102,20 +195,7 @@ export class WorkingFilesStore {
         };
 
         for (const tickListener of this.tickListeners) tickListener();
-        const tTick = TRACE ? performance.now() : 0;
         Effect.runFork(PubSub.publish(this.pubsub, event));
-        if (TRACE) {
-            const total = performance.now() - t0;
-            // Only log when we have something interesting to say — bulk
-            // commits or anything past 1ms. Filters out keystroke noise.
-            const isBulk = patch.kind === "bulk";
-            if (isBulk || total > 1) {
-                // eslint-disable-next-line no-console
-                console.log(
-                    `[store.commit ${patch.kind}/${meta.kind}] total ${total.toFixed(1)}ms · applyPatch ${(tApply - t0).toFixed(1)}ms · tickListeners(${this.tickListeners.size}) ${(tTick - tApply).toFixed(1)}ms · publishFork ${(performance.now() - tTick).toFixed(1)}ms`,
-                );
-            }
-        }
     }
 
     /**
@@ -150,6 +230,21 @@ export class WorkingFilesStore {
     get changes(): Stream.Stream<CommitEvent> {
         return Stream.fromPubSub(this.pubsub);
     }
+}
+
+/**
+ * Look up a chapter in a draft (or any `ScriptureBookState[]`) by
+ * (bookCode, chapterNumber). Returns the chapter object you can mutate
+ * if you built the draft via `draftWithChapters` and included this ref.
+ */
+export function findChapterInDraft(
+    draft: ScriptureBookState[],
+    bookCode: string,
+    chapterNum: number,
+): ScriptureChapterState | null {
+    const book = draft.find((b) => b.bookCode === bookCode);
+    if (!book) return null;
+    return book.chapters.find((c) => c.chapterNumber === chapterNum) ?? null;
 }
 
 /**

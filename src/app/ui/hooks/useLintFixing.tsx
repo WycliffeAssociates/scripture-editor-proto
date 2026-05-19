@@ -210,12 +210,12 @@ export function useLintFixing({
         const sidParsed = parseSid(err.sid);
         if (!sidParsed) return;
 
-        // Read once from the store; bridge keeps it fresh. Clone the file
-        // because applyLintFixToFile mutates whatever ScriptureBookState we
-        // hand it (via rebuildParsedFileFromUsfm). After the helper returns,
-        // publish the result back to the store as a bulk patch (the helper
-        // may rebuild multiple chapters of the file, not just the one whose
-        // lint issue we clicked).
+        // applyLintFixToFile mutates whatever ScriptureBookState we hand
+        // it — rebuildParsedFileFromUsfm replaces `targetFile.chapters`
+        // wholesale and may rebuild multiple chapters of the file. Draft
+        // the entire affected book (every chapter ref) so the helper
+        // can reassign `book.chapters` safely on the draft's shallow-
+        // copied book object without leaking into the store.
         const workingFiles = workingFilesStore.read();
         const originalFile = workingFiles.find(
             (f) => f.bookCode === sidParsed.book,
@@ -224,7 +224,14 @@ export function useLintFixing({
             console.error(`File not found for book: ${sidParsed.book}`);
             return;
         }
-        const file = structuredClone(originalFile);
+        const draft = workingFilesStore.draftWithChapters(
+            originalFile.chapters.map((c) => ({
+                bookCode: originalFile.bookCode,
+                chapterNum: c.chapterNumber,
+            })),
+        );
+        const file = draft.find((f) => f.bookCode === sidParsed.book);
+        if (!file) return;
 
         const chapter = file.chapters.find(
             (c) => c.chapterNumber === sidParsed.chapter,
@@ -266,11 +273,8 @@ export function useLintFixing({
                     },
                 });
                 if (applied) {
-                    const nextFiles = workingFiles.map((f) =>
-                        f.bookCode === file.bookCode ? file : f,
-                    );
                     workingFilesStore.commit(
-                        { kind: "bulk", files: nextFiles },
+                        { kind: "bulk", files: draft },
                         {
                             kind: "programmaticFix",
                             scope: { project: true },

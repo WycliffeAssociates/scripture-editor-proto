@@ -177,7 +177,19 @@ export function useFormatOperations({
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
-                const fileClone = structuredClone(file);
+                // Only the target chapter needs to be writable;
+                // formatChapterInPlace mutates just that chapter's
+                // lexicalState/currentTokens/dirty.
+                const draft = workingFilesStore.draftWithChapters([
+                    {
+                        bookCode: targetBookCode,
+                        chapterNum: targetChapterNumber,
+                    },
+                ]);
+                const draftFile = draft.find(
+                    (f) => f.bookCode === targetBookCode,
+                );
+                if (!draftFile) return;
 
                 await history.runTransaction({
                     label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
@@ -189,7 +201,7 @@ export function useFormatOperations({
                     ],
                     run: async () => {
                         const result = await formatChapterInPlace(
-                            fileClone,
+                            draftFile,
                             targetChapterNumber,
                         );
 
@@ -203,7 +215,7 @@ export function useFormatOperations({
                             return;
                         }
 
-                        const chapter = fileClone.chapters.find(
+                        const chapter = draftFile.chapters.find(
                             (c) => c.chapterNumber === targetChapterNumber,
                         );
                         if (!chapter) return;
@@ -228,10 +240,10 @@ export function useFormatOperations({
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
-                        await refreshLintForFiles([fileClone]);
+                        await refreshLintForFiles([draftFile]);
 
                         if (
-                            fileClone.bookCode === currentFileBibleIdentifier &&
+                            draftFile.bookCode === currentFileBibleIdentifier &&
                             targetChapterNumber === currentChapter
                         ) {
                             setEditorContent(
@@ -244,7 +256,7 @@ export function useFormatOperations({
                         ShowNotificationSuccess({
                             notification: {
                                 title: t`Chapter Formatted`,
-                                message: t`Formatted ${fileClone.title || fileClone.bookCode} ${targetChapterNumber}`,
+                                message: t`Formatted ${draftFile.title || draftFile.bookCode} ${targetChapterNumber}`,
                             },
                         });
                     },
@@ -259,13 +271,26 @@ export function useFormatOperations({
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
-                const fileClone = structuredClone(file);
+                // formatBookInPlace → rebuildParsedFileFromUsfm replaces the
+                // book's chapters array wholesale. Draft every chapter of
+                // the book writable so the reassignment lands on the
+                // shallow-copied book, not the store's book.
+                const bookDraft = workingFilesStore.draftWithChapters(
+                    file.chapters.map((c) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: c.chapterNumber,
+                    })),
+                );
+                const draftFile = bookDraft.find(
+                    (f) => f.bookCode === targetBookCode,
+                );
+                if (!draftFile) return;
 
                 await history.runTransaction({
                     label: t`Format Book (${targetBookCode})`,
-                    candidates: toChapterRefs(fileClone),
+                    candidates: toChapterRefs(draftFile),
                     run: async () => {
-                        const result = await formatBookInPlace(fileClone);
+                        const result = await formatBookInPlace(draftFile);
                         if (!result.changed) {
                             ShowNotificationInfo({
                                 notification: {
@@ -276,11 +301,8 @@ export function useFormatOperations({
                             return;
                         }
 
-                        const newFiles = workingFiles.map((f) =>
-                            f.bookCode === targetBookCode ? fileClone : f,
-                        );
                         workingFilesStore.commit(
-                            { kind: "bulk", files: newFiles },
+                            { kind: "bulk", files: bookDraft },
                             {
                                 kind: "programmaticFix",
                                 scope: { project: true },
@@ -288,14 +310,14 @@ export function useFormatOperations({
                             },
                         );
 
-                        await refreshLintForFiles([fileClone]);
+                        await refreshLintForFiles([draftFile]);
                         updateDiffMapForChapter(
                             currentFileBibleIdentifier,
                             currentChapter,
                         );
 
-                        if (fileClone.bookCode === currentFileBibleIdentifier) {
-                            const currentChap = fileClone.chapters.find(
+                        if (draftFile.bookCode === currentFileBibleIdentifier) {
+                            const currentChap = draftFile.chapters.find(
                                 (c) => c.chapterNumber === currentChapter,
                             );
 
@@ -311,7 +333,7 @@ export function useFormatOperations({
                         ShowNotificationSuccess({
                             notification: {
                                 title: t`Book Formatted`,
-                                message: t`Formatted ${fileClone.title || fileClone.bookCode}`,
+                                message: t`Formatted ${draftFile.title || draftFile.bookCode}`,
                             },
                         });
                     },
@@ -331,15 +353,30 @@ export function useFormatOperations({
                 label: t`Format Project`,
                 candidates: allChapterRefs(workingFiles),
                 run: async () => {
-                    // The store snapshot is immutable from our side; no deep clone
-                    // needed for the rollback baseline.
+                    // The store snapshot is immutable from our side; no deep
+                    // clone needed for the rollback baseline.
                     const previous = workingFiles;
-                    const filesClone = structuredClone(workingFiles);
+                    // Discovery flow: formatScope returns per-book results;
+                    // we don't know which books will change until we see
+                    // appliedChanges per result. Draft every chapter of every
+                    // book writable so rebuildParsedFileFromUsfm can reassign
+                    // each touched book's `chapters` array safely. The
+                    // not-actually-modified books leave their shallow-copied
+                    // chapters untouched — wasted spread is negligible vs.
+                    // the deep-clone cost it replaces.
+                    const allRefs = workingFiles.flatMap((file) =>
+                        file.chapters.map((c) => ({
+                            bookCode: file.bookCode,
+                            chapterNum: c.chapterNumber,
+                        })),
+                    );
+                    const filesDraft =
+                        workingFilesStore.draftWithChapters(allRefs);
                     let currentChapterModified = false;
                     let anyModified = false;
 
                     const batchResults = await usfmOnionService.formatScope(
-                        filesClone.map((file) => ({
+                        filesDraft.map((file) => ({
                             tokens: file.chapters.flatMap((chapter) =>
                                 chapterTokensForFormatting(chapter),
                             ),
@@ -347,8 +384,8 @@ export function useFormatOperations({
                     );
 
                     const modifiedFiles: ScriptureBookState[] = [];
-                    for (let i = 0; i < filesClone.length; i++) {
-                        const file = filesClone[i];
+                    for (let i = 0; i < filesDraft.length; i++) {
+                        const file = filesDraft[i];
                         const result = batchResults[i];
                         if (!result || !result.appliedChanges.length) continue;
 
@@ -378,7 +415,7 @@ export function useFormatOperations({
 
                     if (anyModified) {
                         workingFilesStore.commit(
-                            { kind: "bulk", files: filesClone },
+                            { kind: "bulk", files: filesDraft },
                             {
                                 kind: "programmaticFix",
                                 scope: { project: true },
@@ -401,12 +438,12 @@ export function useFormatOperations({
                         return previous;
                     }
 
-                    const modifiedBooksCount = filesClone.filter((f) =>
+                    const modifiedBooksCount = filesDraft.filter((f) =>
                         f.chapters.some((c) => c.dirty),
                     ).length;
 
                     if (currentChapterModified) {
-                        const currentFile = filesClone.find(
+                        const currentFile = filesDraft.find(
                             (f) => f.bookCode === currentFileBibleIdentifier,
                         );
                         const currentChap = currentFile?.chapters.find(

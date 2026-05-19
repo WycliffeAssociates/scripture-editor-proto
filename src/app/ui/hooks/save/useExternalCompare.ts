@@ -520,13 +520,30 @@ export function useExternalCompare(args: {
                 return null;
             }
 
-            const workingDraft = structuredClone(args.workingFilesStore.read());
+            // Capture pre-mutation snapshots of locally-protected books
+            // BEFORE building the draft — we'll splice these back over the
+            // touched draft entries below, and we need writable chapters
+            // because the loop further down sets dirty = true on them.
+            const original = args.workingFilesStore.read();
             const preservedByBook = new Map(
-                workingDraft.map((file) => [
-                    file.bookCode,
-                    structuredClone(file),
-                ]),
+                original
+                    .filter((file) => locallyProtectedBooks.has(file.bookCode))
+                    .map((file) => [
+                        file.bookCode,
+                        {
+                            ...file,
+                            chapters: file.chapters.map((c) => ({ ...c })),
+                        },
+                    ]),
             );
+            const allRefs = original.flatMap((file) =>
+                file.chapters.map((chapter) => ({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapterNumber,
+                })),
+            );
+            const workingDraft =
+                args.workingFilesStore.draftWithChapters(allRefs);
             applyVersionSnapshotToWorkingFiles({
                 workingFiles: workingDraft,
                 sourceFiles: argsForAuto.sourceFiles,
@@ -669,7 +686,16 @@ export function useExternalCompare(args: {
             !hasDiffsByChapter(blockedDiffsByChapter)
         ) {
             const touchedChapters = listCompareChapterRefs();
-            const behindDraft = structuredClone(args.workingFilesStore.read());
+            // Discovery flow: applyVersionSnapshotToWorkingFiles walks every
+            // chapter of every book. Draft every existing chapter writable.
+            const behindRefs = args.workingFilesStore.read().flatMap((file) =>
+                file.chapters.map((chapter) => ({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapterNumber,
+                })),
+            );
+            const behindDraft =
+                args.workingFilesStore.draftWithChapters(behindRefs);
             applyVersionSnapshotToWorkingFiles({
                 workingFiles: behindDraft,
                 sourceFiles: argsForAuto.sourceFiles,
@@ -770,7 +796,19 @@ export function useExternalCompare(args: {
             label: "Auto Accept Incoming Changes",
             candidates: touchedChapters,
             run: async () => {
-                const draft = structuredClone(args.workingFilesStore.read());
+                // applyIncomingHunk / applyIncomingChapter may also push
+                // new chapters onto a book that doesn't have them yet
+                // (via ensureWorkingChapterFromSource), so draft every
+                // existing chapter to guarantee every existing book is a
+                // shallow copy with a writable .chapters array. New books
+                // pushed at the top level land on our new array — safe.
+                const allRefs = args.workingFilesStore.read().flatMap((file) =>
+                    file.chapters.map((chapter) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    })),
+                );
+                const draft = args.workingFilesStore.draftWithChapters(allRefs);
                 for (const chapter of fullChapterApplies) {
                     applyIncomingChapter({
                         workingFiles: draft,
@@ -826,9 +864,16 @@ export function useExternalCompare(args: {
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
         ) {
             if (!hasDiffsByChapter(refreshed.diffsByChapter)) {
-                const cleanDraft = structuredClone(
-                    args.workingFilesStore.read(),
-                );
+                const cleanRefs = args.workingFilesStore
+                    .read()
+                    .flatMap((file) =>
+                        file.chapters.map((chapter) => ({
+                            bookCode: file.bookCode,
+                            chapterNum: chapter.chapterNumber,
+                        })),
+                    );
+                const cleanDraft =
+                    args.workingFilesStore.draftWithChapters(cleanRefs);
                 applyVersionSnapshotToWorkingFiles({
                     workingFiles: cleanDraft,
                     sourceFiles: argsForAuto.sourceFiles,
@@ -1120,7 +1165,16 @@ export function useExternalCompare(args: {
                 { bookCode: diff.bookCode, chapterNum: diff.chapterNum },
             ],
             run: async () => {
-                const draft = structuredClone(args.workingFilesStore.read());
+                // Draft every existing chapter so applyIncomingHunk's
+                // ensureWorkingChapterFromSource can safely push new
+                // chapters into any book without leaking into the store.
+                const allRefs = args.workingFilesStore.read().flatMap((file) =>
+                    file.chapters.map((chapter) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    })),
+                );
+                const draft = args.workingFilesStore.draftWithChapters(allRefs);
                 await applyIncomingHunk({
                     workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
@@ -1168,7 +1222,13 @@ export function useExternalCompare(args: {
             label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
             candidates: [{ bookCode, chapterNum }],
             run: async () => {
-                const draft = structuredClone(args.workingFilesStore.read());
+                const allRefs = args.workingFilesStore.read().flatMap((file) =>
+                    file.chapters.map((chapter) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    })),
+                );
+                const draft = args.workingFilesStore.draftWithChapters(allRefs);
                 applyIncomingChapter({
                     workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
@@ -1208,7 +1268,13 @@ export function useExternalCompare(args: {
                 })),
             ),
             run: async () => {
-                const draft = structuredClone(args.workingFilesStore.read());
+                const allRefs = args.workingFilesStore.read().flatMap((file) =>
+                    file.chapters.map((chapter) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    })),
+                );
+                const draft = args.workingFilesStore.draftWithChapters(allRefs);
                 applyIncomingChapterAll({
                     workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],

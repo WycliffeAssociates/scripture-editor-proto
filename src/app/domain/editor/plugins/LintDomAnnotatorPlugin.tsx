@@ -354,6 +354,21 @@ export function LintDomAnnotatorPlugin({
         }
 
         const resolveAnchors = () => {
+            // Form mode renders verses inside decorator-node cards on the
+            // right; the underlying USFMTextNode DOM may be off-screen or
+            // unrendered, so anchor resolution produces stale or
+            // 0,0-clamped rects and badges pile up at the left edge. Hide
+            // the overlay entirely in form mode — form mode has its own
+            // per-card lint affordance.
+            if (editorModeRef.current === EDITOR_MODES.form) {
+                if (hitpointsRef.current.size > 0) {
+                    syncHitpointAttributes(hitpointsRef.current, new Set());
+                    hitpointsRef.current = new Set();
+                }
+                setEntries((prev) => (prev.length === 0 ? prev : []));
+                return;
+            }
+
             const lookup = buildDomLookup(rootEl);
 
             for (const record of recordsRef.current.values()) {
@@ -444,6 +459,10 @@ export function LintDomAnnotatorPlugin({
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;
+        // Belt-and-suspenders: resolveAnchors above clears entries on
+        // form-mode entry, but a transition can leave a frame of stale
+        // entries painted. Skip rendering entirely in form mode.
+        if (editorMode === EDITOR_MODES.form) return null;
         return (
             <div className={styles.host} aria-hidden="true">
                 {entries.map((entry) => (
@@ -461,7 +480,7 @@ export function LintDomAnnotatorPlugin({
                 ))}
             </div>
         );
-    }, [entries, rootEl]);
+    }, [entries, rootEl, editorMode]);
 
     const tooltip =
         hoveredErrors && tooltipPosition

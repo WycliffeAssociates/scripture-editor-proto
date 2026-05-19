@@ -118,33 +118,6 @@ function cloneCursor(cursor: ChapterCursor): ChapterCursor {
     return cursor ? { ...cursor } : null;
 }
 
-/**
- * Dev-only perf tracing for the undo/redo path. Trees-shake in prod via
- * `import.meta.env.DEV`. Calls wrap synchronous blocks; the cost itself
- * is sub-millisecond per call so doesn't distort what's being measured.
- */
-const TRACE = import.meta.env.DEV;
-function traceStart(_label: string): number {
-    if (!TRACE) return 0;
-    return performance.now();
-}
-function traceEnd(label: string, started: number) {
-    if (!TRACE) return;
-    const dt = performance.now() - started;
-    // eslint-disable-next-line no-console
-    console.log(`[history] ${label}: ${dt.toFixed(1)}ms`);
-}
-function traceGroup(label: string) {
-    if (!TRACE) return;
-    // eslint-disable-next-line no-console
-    console.group(`[history] ${label}`);
-}
-function traceGroupEnd() {
-    if (!TRACE) return;
-    // eslint-disable-next-line no-console
-    console.groupEnd();
-}
-
 function findChapterRecordIn(
     files: ScriptureBookState[],
     chapterRef: HistoryChapterRef,
@@ -429,7 +402,6 @@ export function useCustomHistory({
                 (rootEl === document.activeElement ||
                     rootEl.contains(document.activeElement));
 
-            const tSetContent = traceStart("setEditorContent (full)");
             setEditorContent(
                 editor,
                 currentRef.bookCode,
@@ -437,7 +409,6 @@ export function useCustomHistory({
                 currentRecord.chapter,
                 workingFilesStore,
             );
-            traceEnd("setEditorContent (full)", tSetContent);
 
             // Defer restore until Lexical has flushed reconcile. The
             // setTimeout(0) (after raw setEditorContent returns) puts us
@@ -447,21 +418,9 @@ export function useCustomHistory({
             // second so Lexical can sync DOM selection into the newly
             // focused host; restore scroll last so neither focus nor
             // selection can re-trigger a scrollIntoView that fights us.
-            const deferredStartedAt = TRACE ? performance.now() : 0;
             window.setTimeout(() => {
-                if (TRACE) {
-                    // eslint-disable-next-line no-console
-                    console.log(
-                        `[history] deferred fired after ${(
-                            performance.now() - deferredStartedAt
-                        ).toFixed(1)}ms`,
-                    );
-                }
-                const tDeferred = traceStart("deferred restore total");
                 if (editorHadFocus) {
-                    const tFocus = traceStart("editor.focus");
                     editor.focus(undefined, { defaultSelection: "rootStart" });
-                    traceEnd("editor.focus", tFocus);
                 }
 
                 const restoreTargets: ChapterCursor[] = [];
@@ -469,9 +428,6 @@ export function useCustomHistory({
                 if (liveCursor) restoreTargets.push(liveCursor);
 
                 if (restoreTargets.length > 0) {
-                    const tSel = traceStart(
-                        "editor.update (selection restore)",
-                    );
                     editor.update(
                         () => {
                             for (const target of restoreTargets) {
@@ -482,13 +438,11 @@ export function useCustomHistory({
                         },
                         { tag: EDITOR_TAGS_USED.programaticIgnore },
                     );
-                    traceEnd("editor.update (selection restore)", tSel);
                 }
 
                 if (scrollAncestor && savedScrollTop !== null) {
                     scrollAncestor.scrollTop = savedScrollTop;
                 }
-                traceEnd("deferred restore total", tDeferred);
             }, 0);
         },
         [
@@ -563,51 +517,10 @@ export function useCustomHistory({
             // (redo), matching what the user expects.
             let historicalCursorForVisible: ChapterCursor = null;
 
-            // Structural-sharing draft: deep-cloning the whole project
-            // was costing ~1.5s on real projects (every book, chapter,
-            // and token array gets walked). We only mutate a handful of
-            // chapter objects per history entry, so the rest can share
-            // references with current state.
-            //
-            // Build the "touched (book, chapter)" index up front, then
-            // map over books: untouched books share their existing
-            // reference; touched books get a shallow copy with a new
-            // `chapters` array where only the touched chapters are
-            // freshly copied. Anything we mutate downstream
-            // (`record.chapter.lexicalState =`, `markChapterDirty`) only
-            // touches the new chapter object — original state stays
-            // immutable, and React/Effect subscribers see fresh
-            // references exactly where content changed.
-            const tDraft = traceStart("build draft (structural share)");
-            const touchedKeySet = new Set<string>();
-            for (const change of chapterChanges) {
-                touchedKeySet.add(chapterKey(change.chapter));
-            }
-            const touchedBooks = new Set<string>();
-            for (const change of chapterChanges) {
-                touchedBooks.add(change.chapter.bookCode);
-            }
-            const draft = workingFilesStore.read().map((book) => {
-                if (!touchedBooks.has(book.bookCode)) return book;
-                return {
-                    ...book,
-                    chapters: book.chapters.map((c) =>
-                        touchedKeySet.has(
-                            chapterKey({
-                                bookCode: book.bookCode,
-                                chapterNum: c.chapterNumber,
-                            }),
-                        )
-                            ? { ...c }
-                            : c,
-                    ),
-                };
-            });
-            traceEnd("build draft (structural share)", tDraft);
-
-            const tChapters = traceStart(
-                `apply ${chapterChanges.length} chapter change(s)`,
+            const draft = workingFilesStore.draftWithChapters(
+                chapterChanges.map((c) => c.chapter),
             );
+
             let draftMutated = false;
             for (const change of chapterChanges) {
                 const record = findChapterRecordIn(draft, change.chapter);
@@ -623,26 +536,11 @@ export function useCustomHistory({
                     record.chapter.lexicalState,
                 );
 
-                const tSnap = traceStart(
-                    `canonicalSnapshotToChapterState (${change.chapter.bookCode} ${change.chapter.chapterNum})`,
-                );
                 record.chapter.lexicalState = canonicalSnapshotToChapterState({
                     snapshot: targetSnapshot,
                     targetMode,
                 });
-                traceEnd(
-                    `canonicalSnapshotToChapterState (${change.chapter.bookCode} ${change.chapter.chapterNum})`,
-                    tSnap,
-                );
-
-                const tDirty = traceStart(
-                    `markChapterDirty (${change.chapter.bookCode} ${change.chapter.chapterNum})`,
-                );
                 markChapterDirty(record.chapter);
-                traceEnd(
-                    `markChapterDirty (${change.chapter.bookCode} ${change.chapter.chapterNum})`,
-                    tDirty,
-                );
 
                 setBaselineSnapshot(change.chapter, targetSnapshot);
                 setBaselineSelection(change.chapter, targetSelection ?? null);
@@ -656,15 +554,8 @@ export function useCustomHistory({
                 touchedChapterRefs.push(change.chapter);
                 draftMutated = true;
             }
-            traceEnd(
-                `apply ${chapterChanges.length} chapter change(s)`,
-                tChapters,
-            );
 
             if (draftMutated) {
-                const tCommit = traceStart(
-                    "workingFilesStore.commit (bulk, kind=" + action + ")",
-                );
                 workingFilesStore.commit(
                     { kind: "bulk", files: draft },
                     {
@@ -673,19 +564,13 @@ export function useCustomHistory({
                         dirtyTextContent: true,
                     },
                 );
-                traceEnd(
-                    "workingFilesStore.commit (bulk, kind=" + action + ")",
-                    tCommit,
-                );
             }
 
             if (touchedChapters.size) {
-                const tRefresh = traceStart("refreshVisibleEditorIfTouched");
                 refreshVisibleEditorIfTouched(
                     touchedChapters,
                     historicalCursorForVisible,
                 );
-                traceEnd("refreshVisibleEditorIfTouched", tRefresh);
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
                     touchedChapters: touchedChapterRefs,
@@ -950,25 +835,13 @@ export function useCustomHistory({
     const undo = useCallback(() => {
         const entry = managerRef.current.undo();
         if (!entry) return;
-        traceGroup(
-            `undo "${entry.label}" (${entry.changes.length} chapter(s))`,
-        );
-        const t = traceStart("undo total");
         applyEntry("undo", "before", "Undid", entry.changes, entry.label);
-        traceEnd("undo total", t);
-        traceGroupEnd();
     }, [applyEntry]);
 
     const redo = useCallback(() => {
         const entry = managerRef.current.redo();
         if (!entry) return;
-        traceGroup(
-            `redo "${entry.label}" (${entry.changes.length} chapter(s))`,
-        );
-        const t = traceStart("redo total");
         applyEntry("redo", "after", "Redid", entry.changes, entry.label);
-        traceEnd("redo total", t);
-        traceGroupEnd();
     }, [applyEntry]);
 
     const clearHistory = useCallback(() => {

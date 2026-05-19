@@ -180,11 +180,20 @@ export function useModeSwitching({
             return;
         }
 
-        // Read once from the store; the bridge keeps it fresh on every
-        // editor commit, so no flush is needed. Clone so we can mutate the
-        // transformed chapter objects safely before publishing.
+        // Discovery flow: transformToMode returns the same ref on a no-op
+        // and a new ref when the shape needs to change. We can't know
+        // which chapters will change without running the transform, so
+        // draft every chapter writable up front — shallow object spreads
+        // for the whole project (O(N), still vastly cheaper than the
+        // previous structuredClone deep walk).
         const workingFiles = workingFilesStore.read();
-        const filesToUse = structuredClone(workingFiles);
+        const allRefs = workingFiles.flatMap((file) =>
+            file.chapters.map((c) => ({
+                bookCode: file.bookCode,
+                chapterNum: c.chapterNumber,
+            })),
+        );
+        const filesToUse = workingFilesStore.draftWithChapters(allRefs);
         let thisChapterUpdated: ScriptureChapterState | undefined;
         let anyChanged = false;
 
@@ -218,15 +227,22 @@ export function useModeSwitching({
             // its input stream and avoid a feedback loop. Mode switching is a
             // user-initiated programmatic rewrite — the same character as
             // match-formatting / prettify, which also use `programmaticFix`.
-            // `dirtyTextContent: true` because the lexical tree shape changes
-            // (paragraph ↔ poetry markers etc.); lint rules that care about
-            // marker placement need to re-run after a mode switch.
+            //
+            // `dirtyTextContent: false`: mode switching changes the *lexical
+            // tree shape* (paragraph ↔ poetry markers etc.) but does NOT
+            // change the underlying USFM token stream. Lint, save-status, and
+            // structure-maintenance pipelines all gate on `dirtyTextContent`
+            // and should NOT re-run on a mode switch — lint results are
+            // invariant across modes and re-running every book per switch is
+            // visibly expensive. The overlay-tick pipeline doesn't filter on
+            // `dirtyTextContent`, so DOM annotation reposition still fires
+            // for the new layout.
             workingFilesStore.commit(
                 { kind: "bulk", files: filesToUse },
                 {
                     kind: "programmaticFix",
                     scope: { project: true },
-                    dirtyTextContent: true,
+                    dirtyTextContent: false,
                 },
             );
         }

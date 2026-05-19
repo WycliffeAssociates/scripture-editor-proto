@@ -23,7 +23,10 @@ import type {
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
-import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    findChapterInDraft,
+    type WorkingFilesStore,
+} from "@/app/state/WorkingFilesStore.ts";
 import {
     ShowErrorNotification,
     ShowNotificationSuccess,
@@ -39,8 +42,8 @@ import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 import {
     type ChapterRef,
-    revertAllChanges,
     syncEditorToChapter,
+    syncEditorToPickedChapter,
 } from "./shared.ts";
 
 /**
@@ -209,17 +212,28 @@ export function useSaveAndRevert(args: {
             }
         }
 
-        // Mutate a clone, then publish as a bulk patch so the store sees
-        // the cleared `dirty` flags. Without this, the helpers below would
-        // mutate the store's internal chapter objects and leak across
-        // subscribers.
-        const filesClone = structuredClone(args.workingFilesStore.read());
-        const dirtyClone = filesClone.filter((file) =>
-            filesToSave.some((saved) => saved.bookCode === file.bookCode),
+        // Structural-share draft: only the chapters of books we're
+        // marking-saved need fresh object identities. markFilesAsSaved
+        // walks every chapter of every passed book, so collect all
+        // chapter refs for those books up front.
+        const savedBookCodes = new Set(filesToSave.map((f) => f.bookCode));
+        const refs: ChapterRef[] = [];
+        for (const file of args.workingFilesStore.read()) {
+            if (!savedBookCodes.has(file.bookCode)) continue;
+            for (const chapter of file.chapters) {
+                refs.push({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapterNumber,
+                });
+            }
+        }
+        const draft = args.workingFilesStore.draftWithChapters(refs);
+        const draftSavedBooks = draft.filter((file) =>
+            savedBookCodes.has(file.bookCode),
         );
-        markFilesAsSaved(dirtyClone);
+        markFilesAsSaved(draftSavedBooks);
         args.workingFilesStore.commit(
-            { kind: "bulk", files: filesClone },
+            { kind: "bulk", files: draft },
             {
                 kind: "metadataOnly",
                 scope: { project: true },
@@ -234,17 +248,40 @@ export function useSaveAndRevert(args: {
     }
 
     async function discardAllChanges() {
-        const filesClone = structuredClone(args.workingFilesStore.read());
-        revertAllChanges({
-            workingFiles: filesClone,
-            setDiffsByChapter: args.setUnsavedDiffsByChapter,
-            bumpDirtyVersion: args.bumpDirtyVersion,
+        // Discovery pass: only dirty chapters need reverting. revertAllChanges'
+        // previous "walk every chapter" implementation was structurally
+        // incompatible with the draft pattern (would mutate chapters that
+        // share refs with the store).
+        const dirtyRefs: ChapterRef[] = [];
+        for (const file of args.workingFilesStore.read()) {
+            for (const chapter of file.chapters) {
+                if (chapter.dirty) {
+                    dirtyRefs.push({
+                        bookCode: file.bookCode,
+                        chapterNum: chapter.chapterNumber,
+                    });
+                }
+            }
+        }
+        const draft = args.workingFilesStore.draftWithChapters(dirtyRefs);
+        for (const ref of dirtyRefs) {
+            const chapter = findChapterInDraft(
+                draft,
+                ref.bookCode,
+                ref.chapterNum,
+            );
+            if (chapter) revertChapterToLoadedState(chapter);
+        }
+        args.setUnsavedDiffsByChapter({});
+        args.bumpDirtyVersion();
+        syncEditorToPickedChapter({
+            editorRef: args.editorRef,
+            workingFiles: draft,
             pickedFile: args.pickedFile,
             pickedChapter: args.pickedChapter,
-            editorRef: args.editorRef,
         });
         args.workingFilesStore.commit(
-            { kind: "bulk", files: filesClone },
+            { kind: "bulk", files: draft },
             {
                 kind: "undo",
                 scope: { project: true },
@@ -263,15 +300,17 @@ export function useSaveAndRevert(args: {
                 },
             ],
             run: async () => {
-                const filesClone = structuredClone(
-                    args.workingFilesStore.read(),
+                const draft = args.workingFilesStore.draftWithChapters([
+                    {
+                        bookCode: diffToRevert.bookCode,
+                        chapterNum: diffToRevert.chapterNum,
+                    },
+                ]);
+                const changedChapter = findChapterInDraft(
+                    draft,
+                    diffToRevert.bookCode,
+                    diffToRevert.chapterNum,
                 );
-                const changedChapter = filesClone
-                    .find((file) => file.bookCode === diffToRevert.bookCode)
-                    ?.chapters.find(
-                        (chapter) =>
-                            chapter.chapterNumber === diffToRevert.chapterNum,
-                    );
                 if (!changedChapter) return;
 
                 await revertChapterDiffByBlockId({
@@ -301,7 +340,7 @@ export function useSaveAndRevert(args: {
                 );
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: filesClone,
+                    workingFiles: draft,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode: diffToRevert.bookCode,
@@ -322,14 +361,14 @@ export function useSaveAndRevert(args: {
             label: `Revert Chapter Changes (${bookCode} ${chapterNum})`,
             candidates: [{ bookCode, chapterNum }],
             run: async () => {
-                const filesClone = structuredClone(
-                    args.workingFilesStore.read(),
+                const draft = args.workingFilesStore.draftWithChapters([
+                    { bookCode, chapterNum },
+                ]);
+                const changedChapter = findChapterInDraft(
+                    draft,
+                    bookCode,
+                    chapterNum,
                 );
-                const changedChapter = filesClone
-                    .find((file) => file.bookCode === bookCode)
-                    ?.chapters.find(
-                        (chapter) => chapter.chapterNumber === chapterNum,
-                    );
                 if (!changedChapter) return;
                 revertChapterToLoadedState(changedChapter);
                 args.workingFilesStore.commit(
@@ -348,7 +387,7 @@ export function useSaveAndRevert(args: {
                 args.refreshUnsavedChapter(bookCode, chapterNum);
                 syncEditorToChapter({
                     editorRef: args.editorRef,
-                    workingFiles: filesClone,
+                    workingFiles: draft,
                     pickedFile: args.pickedFile,
                     pickedChapter: args.pickedChapter,
                     bookCode,

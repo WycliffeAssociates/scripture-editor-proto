@@ -2,8 +2,6 @@ import type { LexicalEditor } from "lexical";
 import type { RefObject } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { CompareMetadataSummary } from "@/app/domain/project/compare/compareService.ts";
-import type { DiffsByChapter } from "@/app/domain/project/diffTypes.ts";
-import { revertAllChaptersToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import { findChapter } from "@/app/domain/project/workingFileMutations.ts";
 import type {
     ScriptureBookState,
@@ -153,27 +151,4 @@ export function buildCurrentProjectCompareMetadata(
         languageId: loadedProject.language.code,
         languageDirection: loadedProject.language.direction,
     };
-}
-
-/**
- * Revert the in-memory workspace and the visible editor back to the loaded
- * scripture snapshot, clearing any unsaved diff UI at the same time.
- */
-export function revertAllChanges(args: {
-    workingFiles: ScriptureBookState[];
-    setDiffsByChapter: (next: DiffsByChapter) => void;
-    bumpDirtyVersion: () => void;
-    pickedFile: ScriptureBookState | null;
-    pickedChapter: ScriptureChapterState | null;
-    editorRef: RefObject<LexicalEditor | null>;
-}) {
-    revertAllChaptersToLoadedState(args.workingFiles);
-    args.setDiffsByChapter({});
-    args.bumpDirtyVersion();
-    syncEditorToPickedChapter({
-        editorRef: args.editorRef,
-        workingFiles: args.workingFiles,
-        pickedFile: args.pickedFile,
-        pickedChapter: args.pickedChapter,
-    });
 }

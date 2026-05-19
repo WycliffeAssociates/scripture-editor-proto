@@ -43,14 +43,6 @@ export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
     chapter.dirty = false;
 }
 
-export function revertAllChaptersToLoadedState(files: ScriptureBookState[]) {
-    for (const file of files) {
-        for (const chapter of file.chapters) {
-            revertChapterToLoadedState(chapter);
-        }
-    }
-}
-
 export async function revertChapterDiffByBlockId(args: {
     chapter: ScriptureChapterState;
     diffBlockId: string;

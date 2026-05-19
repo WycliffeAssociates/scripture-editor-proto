@@ -11,7 +11,10 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
-import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    findChapterInDraft,
+    type WorkingFilesStore,
+} from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -293,11 +296,6 @@ export function useFormatMatching({
     async function matchFormattingChapter() {
         if (!referenceResource.referenceChapter) return;
 
-        // Read the current store snapshot; bridge keeps it fresh, no flush
-        // needed. applyChapterMatchInPlace mutates whatever chapter object we
-        // hand it, so clone before mutating, then publish the result back via
-        // workingFilesStore.commit.
-        // @Ai? -> What are your thoughts on putting a formal method in the store to capture this workflow of a subscriber that then wants to also write back? I.e. a "mutateAndCommit" method that returns teh clone for a reader and then when finalizing does the commit? Takes a fxn as callback? Idk, maybe too much indirection, but was thinkin gif a caller forgot part of the lifecycle on such.
         const workingFiles = workingFilesStore.read();
         const file = workingFiles.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
@@ -313,14 +311,20 @@ export function useFormatMatching({
                 },
             ],
             run: async () => {
-                // The store snapshot is immutable from our side (we mutate clones,
-                // never the read() result), so the rollback baseline can be the
-                // snapshot itself — no deep clone needed.
+                // The store snapshot is immutable from our side (we mutate
+                // draft objects, never the read() result), so the rollback
+                // baseline can be the snapshot itself — no deep clone needed.
                 const previous = workingFiles;
-                const chapter = structuredClone(
-                    file.chapters.find(
-                        (c) => c.chapterNumber === currentChapter,
-                    ),
+                const draft = workingFilesStore.draftWithChapters([
+                    {
+                        bookCode: currentFileBibleIdentifier,
+                        chapterNum: currentChapter,
+                    },
+                ]);
+                const chapter = findChapterInDraft(
+                    draft,
+                    currentFileBibleIdentifier,
+                    currentChapter,
                 );
                 const sourceChapter =
                     referenceResource.referenceFile?.chapters.find(
@@ -399,17 +403,26 @@ export function useFormatMatching({
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
-        // Clone the file so applyChapterMatchInPlace mutates the clone, not
-        // the store's snapshot.
-        const fileClone = structuredClone(file);
+        // Draft with every chapter of the touched book writable —
+        // applyChapterMatchInPlace decides per chapter whether to mutate.
+        const draft = workingFilesStore.draftWithChapters(
+            file.chapters.map((c) => ({
+                bookCode: file.bookCode,
+                chapterNum: c.chapterNumber,
+            })),
+        );
+        const draftFile = draft.find(
+            (f) => f.bookCode === currentFileBibleIdentifier,
+        );
+        if (!draftFile) return;
 
         const backup = await history.runTransaction({
             label: t`Match Formatting (Book ${currentFileBibleIdentifier})`,
-            candidates: toChapterRefs(fileClone),
+            candidates: toChapterRefs(draftFile),
             run: async () => {
-                // The store snapshot is immutable from our side (we mutate clones,
-                // never the read() result), so the rollback baseline can be the
-                // snapshot itself — no deep clone needed.
+                // The store snapshot is immutable from our side (we mutate
+                // the draft, never the read() result), so the rollback
+                // baseline can be the snapshot itself — no deep clone needed.
                 const previous = workingFiles;
                 let currentChapterModified = false;
                 let modifiedChaptersCount = 0;
@@ -417,7 +430,7 @@ export function useFormatMatching({
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                fileClone.chapters.forEach((chapter) => {
+                draftFile.chapters.forEach((chapter) => {
                     const refChapter =
                         referenceResource.referenceFile?.chapters.find(
                             (rc) => rc.chapterNumber === chapter.chapterNumber,
@@ -429,7 +442,7 @@ export function useFormatMatching({
                         chapter,
                         sourceChapter: refChapter,
                         scope: "book",
-                        bookCode: fileClone.bookCode,
+                        bookCode: draftFile.bookCode,
                         targetMarkerPreservation: targetMarkerPreservationMode,
                     });
                     aggregateStats = sumStats(aggregateStats, result.stats);
@@ -443,13 +456,8 @@ export function useFormatMatching({
                 });
 
                 if (modifiedChaptersCount > 0) {
-                    const newFiles = workingFiles.map((f) =>
-                        f.bookCode === currentFileBibleIdentifier
-                            ? fileClone
-                            : f,
-                    );
                     workingFilesStore.commit(
-                        { kind: "bulk", files: newFiles },
+                        { kind: "bulk", files: draft },
                         {
                             kind: "programmaticFix",
                             scope: { project: true },
@@ -469,7 +477,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentChap = fileClone.chapters.find(
+                    const currentChap = draftFile.chapters.find(
                         (c) => c.chapterNumber === currentChapter,
                     );
                     if (currentChap) {
@@ -485,7 +493,7 @@ export function useFormatMatching({
                     ShowNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
-                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${fileClone.title || fileClone.bookCode}`,
+                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${draftFile.title || draftFile.bookCode}`,
                         },
                     });
                 }
@@ -507,13 +515,21 @@ export function useFormatMatching({
             label: t`Match Formatting (Project)`,
             candidates: workingFiles.flatMap((file) => toChapterRefs(file)),
             run: async () => {
-                // The store snapshot is immutable from our side (we mutate clones,
-                // never the read() result), so the rollback baseline can be the
-                // snapshot itself — no deep clone needed.
+                // The store snapshot is immutable from our side (we mutate
+                // the draft, never the read() result), so the rollback
+                // baseline can be the snapshot itself — no deep clone needed.
                 const previous = workingFiles;
-                // Clone the whole array; mutations happen on the clones and
-                // the result is committed as a single bulk patch at the end.
-                const filesClone = structuredClone(workingFiles);
+                // Discovery flow: applyChapterMatchInPlace decides per
+                // chapter whether to mutate. Draft every chapter writable
+                // (shallow object spreads — O(N), still vastly cheaper than
+                // structuredClone's deep walk).
+                const allRefs = workingFiles.flatMap((file) =>
+                    file.chapters.map((c) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: c.chapterNumber,
+                    })),
+                );
+                const draft = workingFilesStore.draftWithChapters(allRefs);
                 let currentChapterModified = false;
                 let modifiedBooksCount = 0;
                 let modifiedChaptersCount = 0;
@@ -521,7 +537,7 @@ export function useFormatMatching({
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                for (const targetFile of filesClone) {
+                for (const targetFile of draft) {
                     const refFile = referenceData.parsedFiles.find(
                         (rf) => rf.bookCode === targetFile.bookCode,
                     );
@@ -565,7 +581,7 @@ export function useFormatMatching({
 
                 if (modifiedChaptersCount > 0) {
                     workingFilesStore.commit(
-                        { kind: "bulk", files: filesClone },
+                        { kind: "bulk", files: draft },
                         {
                             kind: "programmaticFix",
                             scope: { project: true },
@@ -585,7 +601,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentFile = filesClone.find(
+                    const currentFile = draft.find(
                         (f) => f.bookCode === currentFileBibleIdentifier,
                     );
                     const currentChap = currentFile?.chapters.find(
