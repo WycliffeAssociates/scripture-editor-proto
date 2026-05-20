@@ -201,7 +201,7 @@ export function deriveBlockKind(
  * Maps a marker name to its block kind, or null when the marker is not
  * paragraph-class (and therefore should not start a new block).
  */
-export function classifyMarker(marker: string): FormBlockKind | null {
+function classifyMarker(marker: string): FormBlockKind | null {
     if (POETRY_MARKERS.has(marker)) return { variant: "poetry", marker };
     if (HEADING_MARKERS.has(marker)) return { variant: "heading", marker };
     if (RULE_MARKERS.has(marker)) return { variant: "rule", marker };
@@ -221,7 +221,7 @@ export function classifyMarker(marker: string): FormBlockKind | null {
  * `\q`/`\q1`-`\q4`/`\qm*`/`\qa`/`\qc`/`\qr`/`\qd` (poetry), and
  * `\li*`/`\lim*` (list) all paint a card. Anything else doesn't.
  */
-export function isCardEligibleKind(kind: FormBlockKind | null): boolean {
+function isCardEligibleKind(kind: FormBlockKind | null): boolean {
     return (
         kind?.variant === "paragraph" ||
         kind?.variant === "poetry" ||
@@ -251,7 +251,7 @@ export function isCardEligibleKind(kind: FormBlockKind | null): boolean {
  *
  * Keep this function and the CSS `CONTINUATION_PAIRS` array in sync.
  */
-export function isContinuationOfPrev(
+function isContinuationOfPrev(
     ownKind: FormBlockKind,
     previousVisibleKind: FormBlockKind | null,
 ): boolean {

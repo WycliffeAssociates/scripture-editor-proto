@@ -479,7 +479,7 @@ export const ProjectProvider = ({
                 }
             })();
         });
-    }, [history, lint, usfmOnionService]);
+    }, [history, lint, usfmOnionService, workingFilesStore]);
 
     function bookCodeToProjectLocalizedTitle({
         bookCode,

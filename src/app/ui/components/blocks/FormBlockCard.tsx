@@ -340,8 +340,7 @@ function FragmentStack(props: FragmentStackProps) {
                 const nextFragment = isLastInBlock
                     ? null
                     : props.fragments[index + 1];
-                const nextIsVerseStart =
-                    nextFragment !== null && nextFragment.isFirstOfVerse;
+                const nextIsVerseStart = nextFragment?.isFirstOfVerse;
                 return (
                     <Fragment key={fragment.id}>
                         {fragment.isFirstOfVerse && fragment.verseNumber ? (

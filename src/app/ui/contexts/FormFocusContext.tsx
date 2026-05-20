@@ -84,14 +84,6 @@ export function useFormFocus(): FormFocusContextValue {
     return useContext(FormFocusContext);
 }
 
-export function isFormFocusMatch(
-    focused: FormFocusKey | null,
-    sid: string,
-    rowKey: string,
-): boolean {
-    return !!focused && focused.sid === sid && focused.rowKey === rowKey;
-}
-
 function cssEscape(value: string): string {
     if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
         return CSS.escape(value);

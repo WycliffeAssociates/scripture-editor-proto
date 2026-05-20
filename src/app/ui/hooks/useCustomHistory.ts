@@ -275,7 +275,11 @@ export function useCustomHistory({
     // Interrupt the in-flight restore when the visible chapter changes — a
     // user who undoes and immediately navigates should not have the prior
     // restore land in the new chapter's editor. The fiber's in-body guard
-    // is a second line of defense; this avoids the wait entirely.
+    // is a second line of defense; this avoids the wait entirely. The
+    // chapter/editor deps are intentional — their identity change triggers
+    // cleanup → cancelPendingRestore. The effect body doesn't reference
+    // them directly; that's the point.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above.
     useEffect(() => {
         return () => {
             cancelPendingRestore();

@@ -5,8 +5,6 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 
 /**
@@ -64,7 +62,7 @@ function isMarker(node: SerializedLexicalNode): node is SerializedUSFMTextNode {
     );
 }
 
-export function isVerseMarker(node: SerializedLexicalNode): boolean {
+function isVerseMarker(node: SerializedLexicalNode): boolean {
     return isMarker(node) && node.marker === "v";
 }
 
@@ -186,61 +184,6 @@ export function extractRowsFromSlice(
 }
 
 /**
- * Replace the text content for a row in a token slice. Drops the row's
- * existing text/linebreak tokens and inserts a single text token with the
- * provided value, preserving the row's marker token (for marker rows).
- */
-export function replaceRowText(
-    slice: SerializedLexicalNode[],
-    row: FormModeMarkerRow,
-    nextText: string,
-    sidHint: string,
-): SerializedLexicalNode[] {
-    if (row.textTokenIndices.length === 0 && nextText.length === 0) {
-        return slice;
-    }
-
-    const indicesToRemove = new Set(row.textTokenIndices);
-    const result: SerializedLexicalNode[] = [];
-    let inserted = false;
-    const insertionAnchor =
-        row.kind === "text"
-            ? (row.textTokenIndices[0] ?? slice.length)
-            : row.markerTokenIndex + 1;
-
-    for (let i = 0; i < slice.length; i++) {
-        if (i === insertionAnchor && !inserted) {
-            if (nextText.length > 0) {
-                result.push(
-                    createSerializedUSFMTextNode({
-                        text: row.kind === "text" ? nextText : ` ${nextText}`,
-                        id: guidGenerator(),
-                        sid: sidHint,
-                        tokenType: UsfmTokenTypes.text,
-                    }),
-                );
-            }
-            inserted = true;
-        }
-        if (indicesToRemove.has(i)) continue;
-        result.push(slice[i] as SerializedLexicalNode);
-    }
-
-    if (!inserted && nextText.length > 0) {
-        result.push(
-            createSerializedUSFMTextNode({
-                text: row.kind === "text" ? nextText : ` ${nextText}`,
-                id: guidGenerator(),
-                sid: sidHint,
-                tokenType: UsfmTokenTypes.text,
-            }),
-        );
-    }
-
-    return result;
-}
-
-/**
  * Inserts a structural marker inside one form field.
  *
  * Form fields are a presentation over serialized token slices. A mid-field
@@ -307,109 +250,6 @@ export function insertMarkerInsideRowText(
     return result;
 }
 
-/**
- * Remove the marker token (and a single trailing linebreak, if present) for a
- * marker row. Text rows are not removable individually — they are content. The
- * row's text tokens are left in place so that whatever marker now precedes
- * them takes ownership on the next regrouping pass; this is exactly the
- * "shift content into the previous marker's scope" behavior we want.
- */
-export function removeMarkerRow(
-    slice: SerializedLexicalNode[],
-    row: FormModeMarkerRow,
-): SerializedLexicalNode[] {
-    if (row.kind === "text") return slice;
-
-    const removeIndices = new Set<number>([row.markerTokenIndex]);
-    // Drop a single trailing linebreak that visually belongs to this marker
-    // (paragraph markers in regular mode are typically followed by a `\n`).
-    const trailing = slice[row.markerTokenIndex + 1];
-    if (trailing && trailing.type === "linebreak") {
-        removeIndices.add(row.markerTokenIndex + 1);
-    }
-
-    const result: SerializedLexicalNode[] = [];
-    for (let i = 0; i < slice.length; i++) {
-        if (removeIndices.has(i)) continue;
-        result.push(slice[i] as SerializedLexicalNode);
-    }
-    return result;
-}
-
-/**
- * Insert a paragraph/poetry marker at a token-index boundary, then a single
- * linebreak (so the marker visually separates from the row before it). The
- * boundary index is the token index *before which* to insert.
- */
-export function insertMarkerAtBoundary(
-    slice: SerializedLexicalNode[],
-    boundary: number,
-    marker: string,
-    sidHint: string,
-): SerializedLexicalNode[] {
-    const safeBoundary = Math.max(0, Math.min(boundary, slice.length));
-    const newMarker = createSerializedUSFMTextNode({
-        text: `\\${marker} `,
-        id: guidGenerator(),
-        sid: sidHint,
-        tokenType: UsfmTokenTypes.marker,
-        marker,
-        inPara: marker,
-    });
-    const newLinebreak: SerializedLexicalNode = {
-        type: "linebreak",
-        version: 1,
-    } as SerializedLexicalNode;
-
-    const result: SerializedLexicalNode[] = [];
-    for (let i = 0; i < slice.length; i++) {
-        if (i === safeBoundary) {
-            result.push(newMarker, newLinebreak);
-        }
-        result.push(slice[i] as SerializedLexicalNode);
-    }
-    if (safeBoundary >= slice.length) {
-        result.push(newMarker, newLinebreak);
-    }
-    return result;
-}
-
-/**
- * Resolve the token-index boundary for inserting a marker before a given row.
- * For marker rows that's the marker token index; for text rows it's the first
- * text-token index; if the row is empty (no tokens) we fall back to the slice
- * length so insertion lands at the end of the card.
- */
-export function boundaryBeforeRow(row: FormModeMarkerRow): number | null {
-    if (row.kind === "text") {
-        return row.textTokenIndices[0] ?? null;
-    }
-    return row.markerTokenIndex;
-}
-
-/**
- * Pull the verse number / sid out of a verse-prefixed slice (one starting
- * with `\v N`).
- */
-export function readVerseHeader(slice: SerializedLexicalNode[]): {
-    sid: string;
-    verseNumber: string;
-} {
-    const verseMarker = slice[0] as SerializedUSFMTextNode | undefined;
-    const numberToken = slice[1];
-    const sid = verseMarker?.sid ?? "";
-    const verseNumber =
-        numberToken && isNumberRange(numberToken)
-            ? (numberToken.text ?? "").trim()
-            : "";
-    if (verseNumber) return { sid, verseNumber };
-    const parsed = parseSid(sid);
-    return {
-        sid,
-        verseNumber: parsed ? String(parsed.verseStart) : "",
-    };
-}
-
 export type FormModeFlatGrouping = {
     prelude: SerializedLexicalNode[] | null;
     verses: SerializedLexicalNode[][];
@@ -450,14 +290,4 @@ export function groupFlatTokensByVerse(
     }
 
     return { prelude, verses };
-}
-
-/**
- * Convenience: flatten a chapter's regular-tree root children into a flat
- * token array suitable for `groupFlatTokensByVerse`.
- */
-export function flattenChapterRootForFormMode(
-    rootChildren: SerializedLexicalNode[],
-): SerializedLexicalNode[] {
-    return materializeFlatTokensArray(rootChildren, { nested: "preserve" });
 }

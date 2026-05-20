@@ -2,15 +2,12 @@ import type {
     AttributeItem as OnionAttributeItem,
     BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
     ChapterTokenDiff as OnionChapterTokenDiff,
-    DiffTokenChange as OnionDiffTokenChange,
     DiffUndoSide as OnionDiffUndoSide,
     LintCode as OnionLintCode,
     LintIssue as OnionLintIssue,
-    LintIssueType as OnionLintIssueType,
     LintOptions as OnionLintOptions,
     MarkerInfo as OnionMarkerInfo,
     ParsedUsfm as OnionParsedUsfm,
-    Span as OnionSpan,
     Token as OnionToken,
     TokenAlignment as OnionTokenAlignment,
     UsfmMarkerCatalog as OnionUsfmMarkerCatalog,
@@ -23,7 +20,6 @@ import type {
  * Keeping these aliases here prevents the rest of the codebase from depending
  * directly on package-specific names at every call site.
  */
-export type Span = OnionSpan;
 export type Token = OnionToken;
 /** USFM 3.1 character-marker attribute (`|key="value"` after `\w` etc.). */
 export type AttributeItem = OnionAttributeItem;
@@ -31,11 +27,9 @@ export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
 export type ParsedUsfm = OnionParsedUsfm;
 export type MarkerInfo = OnionMarkerInfo;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
-export type DiffTokenChange = OnionDiffTokenChange;
 export type DiffUndoSide = OnionDiffUndoSide;
 export type DiffTokenAlignment = OnionTokenAlignment;
 export type LintIssue = OnionLintIssue;
-export type LintIssueType = OnionLintIssueType;
 export type { TokenFix };
 
 export type IntoTokensOptions = {

@@ -439,6 +439,7 @@ export function useSearchExecution({
             pickedFile.bookCode,
             referenceResults,
             resolvedContentProvider,
+            searchHighlightStore,
             searchReference,
             searchUSFM,
             targetResults,
@@ -477,7 +478,7 @@ export function useSearchExecution({
 
             handleSearchDebounced(value);
         },
-        [currentMatchesControls, handleSearchDebounced],
+        [currentMatchesControls, handleSearchDebounced, searchHighlightStore],
     );
 
     const submitSearchNow = useCallback(() => {
@@ -497,7 +498,12 @@ export function useSearchExecution({
             return;
         }
         void runSearchLogic(searchTerm);
-    }, [currentMatchesControls, runSearchLogic, searchTerm]);
+    }, [
+        currentMatchesControls,
+        runSearchLogic,
+        searchHighlightStore,
+        searchTerm,
+    ]);
 
     const rerunForCurrentChapter = useCallback(() => {
         if (!isSearchPaneOpen) return;

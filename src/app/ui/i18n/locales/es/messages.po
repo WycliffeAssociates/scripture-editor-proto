@@ -51,28 +51,27 @@ msgid "(Verse deleted)"
 msgstr "(Verso eliminado)"
 
 #. placeholder {0}: props.distinctBookCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:522
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:536
 msgid "{0, plural, one {In 1 book} other {Across # books}}"
 msgstr "{0, plural, one {En 1 libro} other {En # libros}}"
 
 #. placeholder {0}: props.allCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:610
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:624
 msgid "{0, plural, one {Nice work. 1 issue remains elsewhere in the project.} other {Nice work. # issues remain elsewhere in the project.}}"
 msgstr "{0, plural, one {Buen trabajo. 1 problema permanece en otra parte del proyecto.} other {Buen trabajo. # problemas permanecen en otra parte del proyecto.}}"
 
 #. placeholder {0}: props.allCount
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:621
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:635
 msgid "{0, plural, one {View 1 project issue} other {View # project issues}}"
 msgstr "{0, plural, one {Ver 1 problema del proyecto} other {Ver # problemas del proyecto}}"
 
-#. placeholder {0}: isDownloading ? "Adding..." : "Add"
 #. placeholder {0}: props.isConnecting ? "Connecting..." : "Connect account"
 #. placeholder {0}: props.isConnecting ? "Connecting..." : "Connect account"
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:436
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:607
+#. placeholder {0}: props.isDisconnecting ? "Logging out..." : "Log out"
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:440
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:611
 #: src/app/ui/components/import/CloudProjectImporter.tsx:112
 #: src/app/ui/components/import/CloudProjectImporter.tsx:229
-#: src/app/ui/components/import/LanguageApiImporter.tsx:277
 msgid "{0}"
 msgstr "{0}"
 
@@ -219,7 +218,7 @@ msgstr "Ya existe un proyecto en la nube con este nombre en tu cuenta. En su lug
 msgid "Abbreviated book name."
 msgstr "Nombre abreviado del libro."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:507
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:508
 msgid "Accept all incoming changes in all chapters"
 msgstr "Aceptar todos los cambios entrantes en todos los capítulos"
 
@@ -240,18 +239,18 @@ msgstr "Aceptar automáticamente los cambios entrantes de la nube, a menos que e
 msgid "Add"
 msgstr "Agregar"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:295
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:298
 msgid "Add it"
 msgstr "Añadirlo"
 
+#: src/app/ui/components/blocks/FormBlockCard.tsx:829
 #: src/app/ui/components/blocks/FormBlockCard.tsx:830
-#: src/app/ui/components/blocks/FormBlockCard.tsx:831
 msgid "Add line below"
 msgstr ""
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:275
-msgid "Add project"
-msgstr "Agregar proyecto"
+#~ msgid "Add project"
+#~ msgstr "Agregar proyecto"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:368
 msgid "Adjust the overall application zoom when supported."
@@ -266,7 +265,7 @@ msgid "Advanced"
 msgstr "Avanzado"
 
 #. placeholder {0}: notificationTarget.count
-#: src/app/ui/hooks/useCustomHistory.ts:390
+#: src/app/ui/hooks/useCustomHistory.ts:636
 msgid "Affected {0} chapters"
 msgstr "Afectados {0} capítulos"
 
@@ -274,12 +273,12 @@ msgstr "Afectados {0} capítulos"
 #~ msgid "Ahead"
 #~ msgstr "Adelante"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:61
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:217
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:62
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:222
 msgid "All"
 msgstr "Todo"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:649
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:663
 msgid "All clear"
 msgstr "Todo limpio"
 
@@ -291,11 +290,11 @@ msgstr "Todo limpio"
 #~ msgid "All search results"
 #~ msgstr "Todos los resultados de búsqueda"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:645
+#: src/app/ui/components/blocks/FormBlockCard.tsx:644
 msgid "Already at deepest indent"
 msgstr ""
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:640
+#: src/app/ui/components/blocks/FormBlockCard.tsx:639
 msgid "Already at left edge"
 msgstr ""
 
@@ -317,7 +316,7 @@ msgstr "Apariencia de la aplicación"
 #~ msgid "Apply Autofix ({0})"
 #~ msgstr "Aplicar corrección automática ({0})"
 
-#: src/app/ui/hooks/useLintFixing.tsx:232
+#: src/app/ui/hooks/useLintFixing.tsx:245
 msgid "Apply Autofix ({localizedFixLabel})"
 msgstr "Aplicar corrección automática ({localizedFixLabel})"
 
@@ -350,8 +349,8 @@ msgid "Attaching..."
 msgstr "Adjuntando..."
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:183
-msgid "Author"
-msgstr "Autor"
+#~ msgid "Author"
+#~ msgstr "Autor"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:854
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:509
@@ -393,7 +392,7 @@ msgstr "Configuración de sincronización automática"
 #~ msgid "Autofix applied for {0}"
 #~ msgstr "Corrección automática aplicada para {0}"
 
-#: src/app/ui/hooks/useLintFixing.tsx:257
+#: src/app/ui/hooks/useLintFixing.tsx:270
 msgid "Autofix applied for {localizedFixLabel}"
 msgstr "Corrección automática aplicada para {localizedFixLabel}"
 
@@ -422,7 +421,7 @@ msgstr "Abreviatura del libro"
 msgid "Book code"
 msgstr "Código del libro"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:266
+#: src/app/ui/hooks/usePrettifyOperations.tsx:335
 msgid "Book Formatted"
 msgstr "Libro formateado"
 
@@ -434,7 +433,7 @@ msgstr "Frontmatter del libro"
 msgid "Book identifiers"
 msgstr "Identificadores del libro"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:233
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:238
 msgid "Books"
 msgstr "Libros"
 
@@ -458,7 +457,7 @@ msgstr "Por versículo"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:177
 #: src/app/ui/components/blocks/ProjectRow.tsx:219
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:427
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:431
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -491,7 +490,7 @@ msgstr ""
 msgid "Chapter 0 metadata and introductory markers"
 msgstr "Metadatos del capítulo 0 y marcadores introductorios"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:212
+#: src/app/ui/hooks/usePrettifyOperations.tsx:258
 msgid "Chapter Formatted"
 msgstr "Capítulo formateado"
 
@@ -582,11 +581,11 @@ msgstr "Verificando actualizaciones en la nube para este proyecto."
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:414
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:418
 msgid "Choose a scripture reference before matching formatting."
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:261
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:264
 msgid "Choose a source"
 msgstr "Elegir una fuente"
 
@@ -625,17 +624,16 @@ msgstr "Elegir el tema usado en toda la aplicación."
 #~ msgid "Clear Reference Resource"
 #~ msgstr "Limpiar recurso de referencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:386
-#: src/app/ui/components/import/LanguageApiImporter.tsx:150
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:389
 msgid "Clear search"
 msgstr "Limpiar búsqueda"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:499
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:500
 msgid "Clear source"
 msgstr "Borrar fuente"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:188
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:189
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:194
 #: src/app/ui/components/blocks/ProjectSwitcher/ProjectBrowserPane.tsx:45
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:42
 msgid "Close"
@@ -657,9 +655,8 @@ msgstr "Cerrar"
 #~ msgid "Close marker {marker} is not recognized."
 #~ msgstr "El marcador de cierre {marker} no es reconocido."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:374
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:378
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:40
-#: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:114
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
@@ -787,8 +784,8 @@ msgstr ""
 msgid "Comparing your current vs {sourceLabel}"
 msgstr "Comparando tu actual vs {sourceLabel}"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:429
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:457
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:430
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:458
 msgid "Comparison"
 msgstr "Comparación"
 
@@ -815,7 +812,7 @@ msgid "Connect to {0} to browse remote projects."
 msgstr "Conéctate a {0} para navegar por proyectos remotos."
 
 #. placeholder {0}: props.hostBaseUrl
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:482
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:486
 msgid "Connect to {0}to browse remote projects you can push and pull."
 msgstr "Conéctate a {0}para navegar por proyectos remotos que puedes enviar y recibir."
 
@@ -832,19 +829,19 @@ msgstr "Conectado como {0}"
 msgid "Connecting..."
 msgstr "Conectando..."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:218
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:223
 msgid "Content"
 msgstr "Contenido"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:174
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:179
 msgid "Content errors"
 msgstr "Errores de contenido"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:159
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:160
 msgid "Content errors ({badgeCount})"
 msgstr "Errores de contenido ({badgeCount})"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:707
+#: src/app/ui/components/blocks/FormBlockCard.tsx:706
 msgid "Continuation line…"
 msgstr ""
 
@@ -852,7 +849,7 @@ msgstr ""
 #~ msgid "Controls"
 #~ msgstr "Controles"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:326
 msgid "Copy"
 msgstr "Copiar"
 
@@ -923,8 +920,8 @@ msgstr "Creando..."
 msgid "Cross reference"
 msgstr "Referencia cruzada"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:430
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:458
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:431
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:459
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:143
 msgid "Current"
 msgstr "Actual"
@@ -961,7 +958,7 @@ msgstr "Proyectos actuales"
 #~ msgid "Current text"
 #~ msgstr "Texto actual"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:315
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:319
 msgid "Cut"
 msgstr "Cortar"
 
@@ -981,8 +978,8 @@ msgstr "Vista de revisión predeterminada"
 msgid "Delete"
 msgstr "Eliminar"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:731
-#: src/app/ui/components/blocks/FormBlockCard.tsx:736
+#: src/app/ui/components/blocks/FormBlockCard.tsx:730
+#: src/app/ui/components/blocks/FormBlockCard.tsx:735
 msgid "Delete line"
 msgstr ""
 
@@ -991,8 +988,8 @@ msgstr ""
 msgid "Delete marker"
 msgstr "Eliminar marcador"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:730
-#: src/app/ui/components/blocks/FormBlockCard.tsx:735
+#: src/app/ui/components/blocks/FormBlockCard.tsx:729
+#: src/app/ui/components/blocks/FormBlockCard.tsx:734
 msgid "Delete paragraph"
 msgstr ""
 
@@ -1009,7 +1006,7 @@ msgstr "Eliminar proyecto"
 msgid "Description"
 msgstr "Descripción"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:469
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:473
 msgid "Details"
 msgstr "Detalles"
 
@@ -1071,7 +1068,7 @@ msgstr "Opciones de visualización"
 msgid "Download Error"
 msgstr "Error de descarga"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:796
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:800
 msgid "Download local copy"
 msgstr "Descargar copia local"
 
@@ -1105,10 +1102,10 @@ msgstr "Descargando repositorio..."
 #~ msgstr "Descargando ZIP de andamiaje..."
 
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:74
-msgid "Drag search panel"
-msgstr "Arrastrar panel de búsqueda"
+#~ msgid "Drag search panel"
+#~ msgstr "Arrastrar panel de búsqueda"
 
-#: src/app/ui/hooks/useCustomHistory.ts:475
+#: src/app/ui/hooks/useCustomHistory.ts:742
 msgid "Edit"
 msgstr "Editar"
 
@@ -1137,7 +1134,7 @@ msgstr "Habilitado"
 msgid "English"
 msgstr "Inglés"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:706
+#: src/app/ui/components/blocks/FormBlockCard.tsx:705
 msgid "Enter verse text…"
 msgstr ""
 
@@ -1221,18 +1218,17 @@ msgstr "¡Archivo importado con éxito!"
 msgid "File is missing its \\id (book identifier)."
 msgstr ""
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:225
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:230
 msgid "Filter"
 msgstr "Filtrar"
 
-#: src/app/ui/hooks/useLintFixing.tsx:256
+#: src/app/ui/hooks/useLintFixing.tsx:269
 msgid "Fix Applied"
 msgstr "Corrección aplicada"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:106
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:131
-#: src/app/ui/components/blocks/ProjectCreator.tsx:54
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:316
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:319
 msgid "Folder"
 msgstr "Carpeta"
 
@@ -1245,40 +1241,40 @@ msgstr "Carpeta"
 msgid "Footnote"
 msgstr "Nota al pie"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:230
+#: src/app/ui/hooks/usePrettifyOperations.tsx:290
 msgid "Format Book ({targetBookCode})"
 msgstr "Formatear libro ({targetBookCode})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:166
+#: src/app/ui/hooks/usePrettifyOperations.tsx:195
 msgid "Format Chapter ({targetBookCode} {targetChapterNumber})"
 msgstr "Formatear capítulo ({targetBookCode} {targetChapterNumber})"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:284
+#: src/app/ui/hooks/usePrettifyOperations.tsx:353
 msgid "Format Project"
 msgstr "Formatear proyecto"
 
-#. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:267
+#. placeholder {0}: draftFile.title || draftFile.bookCode
+#: src/app/ui/hooks/usePrettifyOperations.tsx:336
 msgid "Formatted {0}"
 msgstr "Formateado {0}"
 
-#. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/usePrettifyOperations.tsx:213
+#. placeholder {0}: draftFile.title || draftFile.bookCode
+#: src/app/ui/hooks/usePrettifyOperations.tsx:259
 msgid "Formatted {0} {targetChapterNumber}"
 msgstr "Formateado {0} {targetChapterNumber}"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:371
+#: src/app/ui/hooks/usePrettifyOperations.tsx:466
 msgid "Formatted {modifiedBooksCount} book(s)"
 msgstr "Se formatearon {modifiedBooksCount} libro(s)"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:361
-#: src/app/ui/hooks/useFormatMatching.tsx:445
-#: src/app/ui/hooks/useFormatMatching.tsx:548
+#: src/app/ui/hooks/useFormatMatching.tsx:385
+#: src/app/ui/hooks/useFormatMatching.tsx:494
+#: src/app/ui/hooks/useFormatMatching.tsx:621
 msgid "Formatting Matched"
 msgstr "Formato igualado"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:277
-#: src/app/ui/hooks/usePrettifyOperations.tsx:306
+#: src/app/ui/hooks/usePrettifyOperations.tsx:346
+#: src/app/ui/hooks/usePrettifyOperations.tsx:393
 msgid "Formatting Project"
 msgstr "Formateando proyecto"
 
@@ -1306,7 +1302,7 @@ msgstr "Agrupar desajustes de mayúsculas"
 #~ msgid "Hello \"/create\"!"
 #~ msgstr "¡Hola \"/create\"!"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:363
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:367
 msgid "Hide reference panel"
 msgstr "Ocultar panel de referencia"
 
@@ -1319,7 +1315,7 @@ msgstr "Ocultar panel de referencia"
 msgid "Hide whitespace-only diffs"
 msgstr "Ocultar diferencias solo de espacios en blanco"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:264
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:267
 msgid "Import a linked cloud project, download an unlinked copy, or import a local folder or ZIP."
 msgstr "Importa un proyecto en la nube vinculado, descarga una copia desvinculada o importa una carpeta local o un ZIP."
 
@@ -1331,7 +1327,7 @@ msgstr "Importa un proyecto en la nube vinculado, descarga una copia desvinculad
 msgid "Import Error"
 msgstr "Error de importación"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:801
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:805
 msgid "Import linked copy"
 msgstr "Importar copia vinculada"
 
@@ -1356,7 +1352,7 @@ msgstr "Importando archivo..."
 
 #. placeholder {0}: props.currentBookName
 #. placeholder {1}: props.currentChapter
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:516
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:530
 msgid "In {0} {1}"
 msgstr "En {0} {1}"
 
@@ -1380,7 +1376,7 @@ msgstr "Cambios entrantes de la nube"
 #~ msgid "Incoming cloud updates are ready to sync"
 #~ msgstr "Las actualizaciones entrantes de la nube están listas para sincronizarse"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:642
+#: src/app/ui/components/blocks/FormBlockCard.tsx:641
 msgid "Indent"
 msgstr ""
 
@@ -1426,10 +1422,9 @@ msgid "Intro"
 msgstr "Introducción"
 
 #: src/app/ui/components/blocks/DiffModal/chapterOptions.ts:58
-#: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:63
 #: src/app/ui/components/views/search-panel/SearchResultItem.tsx:48
-#: src/app/ui/hooks/useNavigation.tsx:118
-#: src/app/ui/hooks/useNavigation.tsx:153
+#: src/app/ui/hooks/useNavigation.tsx:116
+#: src/app/ui/hooks/useNavigation.tsx:151
 msgid "Introduction"
 msgstr "Introducción"
 
@@ -1477,7 +1472,7 @@ msgstr "Vincula este proyecto local a cualquier repositorio en la nube que pueda
 msgid "Linked cloud"
 msgstr "Nube vinculada"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:270
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:273
 msgid "Linked cloud projects import with their Gitea connection so changes can sync back. Download-only projects copy files onto this device and start unlinked."
 msgstr "Los proyectos en la nube vinculados se importan con su conexión de Gitea para que los cambios puedan sincronizarse de vuelta. Los proyectos de solo descarga copian los archivos en este dispositivo y comienzan desvinculados."
 
@@ -1499,7 +1494,7 @@ msgstr "Cargando"
 msgid "Loading cloud projects..."
 msgstr "Cargando proyectos de nube..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:625
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:629
 msgid "Loading downloadable projects..."
 msgstr "Cargando proyectos descargables..."
 
@@ -1511,7 +1506,7 @@ msgstr "Cargando proyectos descargables..."
 #~ msgid "Loading reference search source"
 #~ msgstr "Cargando fuente de búsqueda de referencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:681
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:685
 msgid "Loading remote projects..."
 msgstr "Cargando proyectos remotos..."
 
@@ -1521,7 +1516,6 @@ msgstr "Cargando notas de traducción para {referenceBookCode} {referenceChapter
 
 #: src/app/routes/$project.index.tsx:20
 #: src/app/ui/components/blocks/ReferencePicker.tsx:57
-#: src/app/ui/components/import/LanguageApiImporter.tsx:194
 msgid "Loading..."
 msgstr "Cargando..."
 
@@ -1616,8 +1610,8 @@ msgstr "Marcador"
 #~ msgstr "El marcador {marker} todavía estaba abierto al final del archivo."
 
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:87
-msgid "Match {chapterMatchNumber} of {chapterTotalMatches} in {activeBookTitle} {chapterLabel}"
-msgstr "Coincidencia {chapterMatchNumber} de {chapterTotalMatches} en {activeBookTitle} {chapterLabel}"
+#~ msgid "Match {chapterMatchNumber} of {chapterTotalMatches} in {activeBookTitle} {chapterLabel}"
+#~ msgstr "Coincidencia {chapterMatchNumber} de {chapterTotalMatches} en {activeBookTitle} {chapterLabel}"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:223
 msgid "Match case"
@@ -1627,7 +1621,7 @@ msgstr "Coincidir mayúsculas"
 msgid "Match Case"
 msgstr "Coincidir mayúsculas/minúsculas"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:446
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:450
 msgid "Match formatting"
 msgstr ""
 
@@ -1635,19 +1629,19 @@ msgstr ""
 #~ msgid "Match Formatting"
 #~ msgstr "Coincidir formato"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:384
+#: src/app/ui/hooks/useFormatMatching.tsx:419
 msgid "Match Formatting (Book {currentFileBibleIdentifier})"
 msgstr "Coincidir formato (Libro {currentFileBibleIdentifier})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:304
+#: src/app/ui/hooks/useFormatMatching.tsx:306
 msgid "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})"
 msgstr "Coincidir formato (Capítulo {currentFileBibleIdentifier} {currentChapter})"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:464
+#: src/app/ui/hooks/useFormatMatching.tsx:514
 msgid "Match Formatting (Project)"
 msgstr "Coincidir formato (Proyecto)"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:416
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:420
 msgid "Match formatting can replace paragraph and poetry markers in the current chapter."
 msgstr ""
 
@@ -1673,16 +1667,16 @@ msgstr ""
 msgid "Match Word"
 msgstr "Palabra completa"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:549
+#: src/app/ui/hooks/useFormatMatching.tsx:622
 msgid "Matched formatting across {modifiedBooksCount} books"
 msgstr "Formato igualado en {modifiedBooksCount} libros"
 
-#. placeholder {0}: file.title || file.bookCode
-#: src/app/ui/hooks/useFormatMatching.tsx:446
+#. placeholder {0}: draftFile.title || draftFile.bookCode
+#: src/app/ui/hooks/useFormatMatching.tsx:495
 msgid "Matched formatting for {modifiedChaptersCount} chapters in {0}"
 msgstr "Formato igualado para {modifiedChaptersCount} capítulos en {0}"
 
-#: src/app/ui/hooks/useFormatMatching.tsx:362
+#: src/app/ui/hooks/useFormatMatching.tsx:386
 msgid "Matched formatting for Chapter {currentChapter}"
 msgstr "Formato igualado para el capítulo {currentChapter}"
 
@@ -1755,7 +1749,7 @@ msgstr "Nuevo proyecto"
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:427
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:240
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:241
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:243
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:244
 msgid "Next chapter"
 msgstr "Capítulo siguiente"
 
@@ -1764,9 +1758,9 @@ msgstr "Capítulo siguiente"
 #~ msgid "Next result"
 #~ msgstr "Siguiente resultado"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:398
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:409
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:470
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:399
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:410
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:471
 msgid "No changes detected."
 msgstr "No se detectaron cambios."
 
@@ -1784,7 +1778,7 @@ msgstr "Aún no hay proyectos de nube disponibles para esta cuenta."
 msgid "No cloud projects found."
 msgstr "No se encontraron proyectos en la nube."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:652
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:666
 msgid "No content errors found"
 msgstr "No se encontraron errores de contenido"
 
@@ -1793,18 +1787,17 @@ msgstr "No se encontraron errores de contenido"
 #~ msgid "No content yet."
 #~ msgstr ""
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:589
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:603
 msgid "No issues match this filter"
 msgstr "Ningún problema coincide con este filtro"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:651
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:702
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:723
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:655
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:706
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:727
 msgid "No linked cloud projects matched this search."
 msgstr "Ningún proyecto en la nube vinculado coincidió con esta búsqueda."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:746
-#: src/app/ui/components/import/LanguageApiImporter.tsx:219
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:750
 msgid "No matching projects"
 msgstr "No se encontraron proyectos coincidentes"
 
@@ -1816,11 +1809,11 @@ msgstr "No hay proyectos aún"
 msgid "No references found."
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:734
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:738
 msgid "No remote projects are available for this account yet."
 msgstr "Todavía no hay proyectos remotos disponibles para esta cuenta."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:728
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:732
 msgid "No repos you own are visible in this list yet."
 msgstr "Todavía no hay repositorios que poseas visibles en esta lista."
 
@@ -1849,7 +1842,7 @@ msgstr "No se seleccionó versión"
 #~ msgid "Non-indented paragraph"
 #~ msgstr "Párrafo sin sangría"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:61
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:62
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:296
 msgid "None"
 msgstr "Ninguno"
@@ -1878,13 +1871,13 @@ msgstr ""
 #~ msgid "Note submarker {marker} appears outside a note."
 #~ msgstr "El submarcador de nota {marker} aparece fuera de una nota."
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:639
+#: src/app/ui/components/blocks/FormBlockCard.tsx:638
 msgid "Nothing above to merge into"
 msgstr ""
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:182
-#: src/app/ui/hooks/usePrettifyOperations.tsx:237
-#: src/app/ui/hooks/usePrettifyOperations.tsx:339
+#: src/app/ui/hooks/usePrettifyOperations.tsx:211
+#: src/app/ui/hooks/usePrettifyOperations.tsx:297
+#: src/app/ui/hooks/usePrettifyOperations.tsx:434
 msgid "Nothing changed"
 msgstr "Nada cambió"
 
@@ -1899,7 +1892,7 @@ msgid "Offline"
 msgstr "Sin conexión"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:787
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:568
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:572
 msgid "One-time code"
 msgstr "Código de un solo uso"
 
@@ -1907,7 +1900,7 @@ msgstr "Código de un solo uso"
 #~ msgid "One-time code (optional)"
 #~ msgstr "Código de un solo uso (opcional)"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:410
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:414
 msgid "Only mine"
 msgstr "Solo míos"
 
@@ -1931,7 +1924,7 @@ msgstr "Abrir proyecto"
 #~ msgid "Open project drawer"
 #~ msgstr "Abrir el desplegable de proyectos"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:364
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:368
 msgid "Open reference panel"
 msgstr "Abrir panel de referencia"
 
@@ -1939,7 +1932,7 @@ msgstr "Abrir panel de referencia"
 #~ msgid "Open reference picker"
 #~ msgstr "Abrir selector de referencia"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:379
 msgid "Open search"
 msgstr "Abrir búsqueda"
 
@@ -1951,8 +1944,8 @@ msgstr "Abrir búsqueda"
 #~ msgid "Or select a ZIP file"
 #~ msgstr "O selecciona un archivo ZIP"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:425
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:453
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:426
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:454
 msgid "Original"
 msgstr "Original"
 
@@ -1960,7 +1953,7 @@ msgstr "Original"
 #~ msgid "Other Resources"
 #~ msgstr "Otros recursos"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:637
+#: src/app/ui/components/blocks/FormBlockCard.tsx:636
 msgid "Outdent"
 msgstr ""
 
@@ -1993,20 +1986,20 @@ msgid "Paragraph marker \\{marker} appears before the first \\c."
 msgstr ""
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:774
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:538
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:542
 #: src/app/ui/components/import/CloudProjectImporter.tsx:198
 msgid "Password"
 msgstr "Contraseña"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:329
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:333
 msgid "Paste"
 msgstr "Pegar"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:412
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:416
 msgid "Pick a reference text"
 msgstr ""
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:287
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:290
 msgid "Pick a source"
 msgstr "Elegir una fuente"
 
@@ -2018,8 +2011,8 @@ msgstr "Elegir una fuente"
 #~ msgid "Plain — shows the underlying markup; fewer editor helpers."
 #~ msgstr "Plano — muestra el marcado subyacente; menos ayudas del editor."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:637
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:695
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:641
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:699
 msgid "Please enter a more specific search term."
 msgstr "Introduce un término de búsqueda más específico."
 
@@ -2028,11 +2021,11 @@ msgstr "Introduce un término de búsqueda más específico."
 msgid "Please try again."
 msgstr "Por favor, intenta de nuevo."
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:702
+#: src/app/ui/components/blocks/FormBlockCard.tsx:701
 msgid "Poetry (level 1)"
 msgstr ""
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:704
+#: src/app/ui/components/blocks/FormBlockCard.tsx:703
 msgid "Poetry (level 2)"
 msgstr ""
 
@@ -2044,7 +2037,7 @@ msgstr "Poesía 1"
 msgid "Poetry 2"
 msgstr "Poesía 2"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:644
+#: src/app/ui/components/blocks/FormBlockCard.tsx:643
 msgid "Poetry 2 must follow Poetry 1"
 msgstr ""
 
@@ -2056,7 +2049,7 @@ msgstr "Poesía 3"
 msgid "Poetry 4"
 msgstr "Poesía 4"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:794
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:798
 msgid "Preparing..."
 msgstr "Preparando..."
 
@@ -2067,7 +2060,7 @@ msgstr "Preparando..."
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:403
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:226
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:227
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:237
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:238
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
 
@@ -2087,11 +2080,11 @@ msgstr "Capítulo anterior"
 
 #. placeholder {0}: file.title || file.bookCode
 #. placeholder {1}: i + 1
-#: src/app/ui/hooks/usePrettifyOperations.tsx:307
+#: src/app/ui/hooks/usePrettifyOperations.tsx:394
 msgid "Processing {0} ({1}/{totalBooks})..."
 msgstr "Procesando {0} ({1}/{totalBooks})..."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:278
+#: src/app/ui/hooks/usePrettifyOperations.tsx:347
 msgid "Processing book 1 of {totalBooks}..."
 msgstr "Procesando libro 1 de {totalBooks}..."
 
@@ -2100,9 +2093,8 @@ msgstr "Procesando libro 1 de {totalBooks}..."
 #~ msgstr "Procesando ZIP de andamiaje..."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:128
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:464
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:468
 #: src/app/ui/components/import/CloudProjectImporter.tsx:133
-#: src/app/ui/components/import/LanguageApiImporter.tsx:171
 msgid "Project"
 msgstr "Proyecto"
 
@@ -2118,7 +2110,7 @@ msgstr "¡Proyecto descargado con éxito!"
 msgid "Project downloaded successfully. Metadata needs review before opening it."
 msgstr "Proyecto descargado con éxito. Los metadatos necesitan revisión antes de abrirlo."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:370
+#: src/app/ui/hooks/usePrettifyOperations.tsx:465
 msgid "Project Formatted"
 msgstr "Proyecto formateado"
 
@@ -2174,15 +2166,15 @@ msgstr "Reconecta tu cuenta"
 #~ msgstr "Reconecta tu cuenta en la nube para reanudar la sincronización y la publicación."
 
 #. placeholder {0}: notificationTarget.chapter.chapterNum
-#: src/app/ui/hooks/useCustomHistory.ts:379
+#: src/app/ui/hooks/useCustomHistory.ts:625
 msgid "Redid last edit in {bookName} {0}"
 msgstr "Rehizo última edición en {bookName} {0}"
 
-#: src/app/ui/hooks/useCustomHistory.ts:389
+#: src/app/ui/hooks/useCustomHistory.ts:635
 msgid "Redid: {label}"
 msgstr "Rehizo: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:351
 msgid "Redo"
 msgstr "Rehacer"
 
@@ -2190,7 +2182,7 @@ msgstr "Rehacer"
 #~ msgid "Redo — {next}"
 #~ msgstr "Rehacer — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:351
 msgid "Redo — {redoLabel}"
 msgstr "Rehacer — {redoLabel}"
 
@@ -2198,7 +2190,7 @@ msgstr "Rehacer — {redoLabel}"
 #~ msgid "Reference has"
 #~ msgstr ""
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:189
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:190
 msgid "Reference is loading"
 msgstr ""
 
@@ -2215,7 +2207,7 @@ msgid "Reference project"
 msgstr "Proyecto de referencia"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:702
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:425
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:429
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:812
 #: src/app/ui/components/import/CloudProjectImporter.tsx:100
 msgid "Refresh"
@@ -2225,7 +2217,7 @@ msgstr "Actualizar"
 msgid "Refresh status"
 msgstr "Actualizar estado"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:820
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:824
 msgid "Refreshing linked cloud projects..."
 msgstr "Actualizando proyectos en la nube vinculados..."
 
@@ -2242,7 +2234,7 @@ msgstr "Actualizando..."
 msgid "Remote"
 msgstr "Remoto"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:489
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:493
 msgid "Remote login is not configured for this build yet."
 msgstr "El inicio de sesión remoto todavía no está configurado para esta compilación."
 
@@ -2261,7 +2253,7 @@ msgstr "Eliminar párrafo vacío {marker}"
 #~ msgid "Remove marker"
 #~ msgstr ""
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:636
+#: src/app/ui/components/blocks/FormBlockCard.tsx:635
 msgid "Remove paragraph"
 msgstr ""
 
@@ -2307,16 +2299,16 @@ msgstr "Reemplazar con..."
 #~ msgstr "Restablecer comparación"
 
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:104
-msgid "Reset position"
-msgstr "Restablecer posición"
+#~ msgid "Reset position"
+#~ msgstr "Restablecer posición"
 
 #: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:129
-msgid "Resize search panel"
-msgstr "Redimensionar panel de búsqueda"
+#~ msgid "Resize search panel"
+#~ msgstr "Redimensionar panel de búsqueda"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:177
-msgid "Resource"
-msgstr "Recurso"
+#~ msgid "Resource"
+#~ msgstr "Recurso"
 
 #: src/app/routes/create.tsx:294
 msgid "Resource downloaded successfully! It is available in the reference picker."
@@ -2342,7 +2334,7 @@ msgstr "¡Recurso importado con éxito! Está disponible en el selector de refer
 #~ msgid "Revert all changes"
 #~ msgstr "Revertir todos los cambios"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:483
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:484
 msgid "Revert all local changes"
 msgstr "Revertir todos los cambios locales"
 
@@ -2403,12 +2395,12 @@ msgid "S5 chunk marker"
 msgstr "Marcador de fragmento S5"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:336
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:340
 msgid "Save"
 msgstr "Guardar"
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:490
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:517
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:491
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:518
 msgid "Save all changes"
 msgstr "Guardar todos los cambios"
 
@@ -2468,7 +2460,6 @@ msgstr "Ámbito"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:178
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:34
-#: src/app/ui/components/views/search-panel/SearchPopoverControls.tsx:84
 msgid "Search"
 msgstr "Buscar"
 
@@ -2477,10 +2468,10 @@ msgstr "Buscar"
 #~ msgstr "Buscar (p. ej., Mat 9, 1Co 1)"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:204
-msgid "Search a language to see projects."
-msgstr "Buscar un idioma para ver proyectos."
+#~ msgid "Search a language to see projects."
+#~ msgstr "Buscar un idioma para ver proyectos."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:748
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:752
 msgid "Search a language, title, owner, or repo name to see projects."
 msgstr "Busca un idioma, título, propietario o nombre de repositorio para ver proyectos."
 
@@ -2505,30 +2496,29 @@ msgstr "Buscar proyectos en la nube"
 #~ msgstr "Buscar un repositorio de Escrituras"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:136
-msgid "Search for projects or authors..."
-msgstr "Buscar proyectos o autores..."
+#~ msgid "Search for projects or authors..."
+#~ msgstr "Buscar proyectos o autores..."
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:325
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:336
 msgid "Search in"
 msgstr "Buscar en"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:376
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:379
 msgid "Search language, title, owner, or repo name..."
 msgstr "Buscar idioma, título, propietario o nombre de repositorio..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:291
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:294
 msgid "Search or log in"
 msgstr "Buscar o iniciar sesión"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:379
-#: src/app/ui/components/import/LanguageApiImporter.tsx:139
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:382
 msgid "Search projects"
 msgstr "Buscar proyectos"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:111
-msgid "Search Projects"
-msgstr "Buscar proyectos"
+#~ msgid "Search Projects"
+#~ msgstr "Buscar proyectos"
 
 #: src/app/ui/components/blocks/Search.tsx:424
 #: src/app/ui/components/blocks/Search.tsx:454
@@ -2552,8 +2542,8 @@ msgstr ""
 msgid "Searching for <0>{0}</0>..."
 msgstr "Buscando <0>{0}</0>..."
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:676
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:818
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:680
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:822
 msgid "Searching linked cloud projects..."
 msgstr "Buscando proyectos en la nube vinculados..."
 
@@ -2585,7 +2575,7 @@ msgstr "Título de sección 4"
 #~ msgid "Select"
 #~ msgstr "Seleccionar"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:741
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:745
 msgid "Select a source to continue."
 msgstr "Selecciona una fuente para continuar."
 
@@ -2722,7 +2712,7 @@ msgid "Showing {0} projects to start. Search to find additional repositories."
 msgstr "Mostrando {0} proyectos para comenzar. Busca para encontrar repositorios adicionales."
 
 #. placeholder {0}: gitea.visiblePageSize
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:833
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:837
 msgid "Showing initial {0} linked cloud projects. More results available via search."
 msgstr "Mostrando {0} proyectos en la nube vinculados inicialmente. Más resultados disponibles mediante búsqueda."
 
@@ -2753,7 +2743,7 @@ msgstr "Omitir la revisión de tus propias ediciones locales y confirmarlas dire
 #~ msgid "Skip Suggestion"
 #~ msgstr "Omitir sugerencia"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:278
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:281
 msgid "Some projects may appear in both lists. Linked cloud keeps the Gitea connection. Download only imports a separate local copy."
 msgstr "Algunos proyectos pueden aparecer en ambas listas. La nube vinculada conserva la conexión con Gitea. Solo descargar importa una copia local separada."
 
@@ -2761,11 +2751,11 @@ msgstr "Algunos proyectos pueden aparecer en ambas listas. La nube vinculada con
 #~ msgid "Source type"
 #~ msgstr "Tipo de fuente"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:416
+#: src/app/ui/components/blocks/FormBlockCard.tsx:415
 msgid "Split paragraph"
 msgstr ""
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:413
+#: src/app/ui/components/blocks/FormBlockCard.tsx:412
 msgid "Split paragraph here"
 msgstr ""
 
@@ -2891,7 +2881,7 @@ msgstr "Tamaño del texto"
 #~ msgid "The file is missing a \\id marker."
 #~ msgstr "Al archivo le falta un marcador \\id."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:238
+#: src/app/ui/hooks/usePrettifyOperations.tsx:298
 msgid "This book is already formatted"
 msgstr "Este libro ya está formateado"
 
@@ -2899,15 +2889,15 @@ msgstr "Este libro ya está formateado"
 #~ msgid "This build is missing the configured Gitea host."
 #~ msgstr "A esta compilación le falta el host de Gitea configurado."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:197
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:202
 msgid "This chapter"
 msgstr "Este capítulo"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:605
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:619
 msgid "This chapter has no errors that match your filters"
 msgstr "Este capítulo no tiene errores que coincidan con tus filtros"
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:183
+#: src/app/ui/hooks/usePrettifyOperations.tsx:212
 msgid "This chapter is already formatted"
 msgstr "Este capítulo ya está formateado"
 
@@ -2941,7 +2931,7 @@ msgstr ""
 msgid "This project has local and cloud changes that need review before the next publish."
 msgstr "Este proyecto tiene cambios locales y en la nube que necesitan revisión antes de la siguiente publicación."
 
-#: src/app/ui/hooks/usePrettifyOperations.tsx:340
+#: src/app/ui/hooks/usePrettifyOperations.tsx:435
 msgid "This project is already formatted"
 msgstr "Este proyecto ya está formateado"
 
@@ -3001,11 +2991,11 @@ msgstr ""
 msgid "Try again"
 msgstr "Intentar de nuevo"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:190
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:191
 msgid "Try matching formatting again once the reference chapter is visible."
 msgstr ""
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:215
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:220
 msgid "Type"
 msgstr "Tipo"
 
@@ -3024,15 +3014,15 @@ msgid "Type to start searching"
 msgstr "Escribe para empezar a buscar"
 
 #. placeholder {0}: notificationTarget.chapter.chapterNum
-#: src/app/ui/hooks/useCustomHistory.ts:378
+#: src/app/ui/hooks/useCustomHistory.ts:624
 msgid "Undid last edit in {bookName} {0}"
 msgstr "Deshizo última edición en {bookName} {0}"
 
-#: src/app/ui/hooks/useCustomHistory.ts:388
+#: src/app/ui/hooks/useCustomHistory.ts:634
 msgid "Undid: {label}"
 msgstr "Deshizo: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:345
 msgid "Undo"
 msgstr "Deshacer"
 
@@ -3040,7 +3030,7 @@ msgstr "Deshacer"
 #~ msgid "Undo — {next}"
 #~ msgstr "Deshacer — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:345
 msgid "Undo — {undoLabel}"
 msgstr "Deshacer — {undoLabel}"
 
@@ -3071,7 +3061,7 @@ msgstr "Actualizaciones disponibles"
 #~ msgstr "Subir una carpeta"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:761
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:508
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:512
 #: src/app/ui/components/import/CloudProjectImporter.tsx:168
 msgid "Username"
 msgstr "Nombre de usuario"
@@ -3081,7 +3071,7 @@ msgstr "Nombre de usuario"
 msgid "Username and password are required to connect your cloud account."
 msgstr "Se requiere nombre de usuario y contraseña para conectar tu cuenta de nube."
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:219
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:224
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:248
 msgid "USFM"
 msgstr "USFM"
@@ -3107,15 +3097,15 @@ msgstr "Solo estructura USFM"
 msgid "Value"
 msgstr "Valor"
 
-#: src/app/ui/components/blocks/FormBlockCard.tsx:846
-#: src/app/ui/components/blocks/FormBlockCard.tsx:910
+#: src/app/ui/components/blocks/FormBlockCard.tsx:845
+#: src/app/ui/components/blocks/FormBlockCard.tsx:909
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:36
 msgid "Verse"
 msgstr "Verso"
 
 #. placeholder {0}: note.verseNumber
 #. placeholder {0}: props.number
-#: src/app/ui/components/blocks/FormBlockCard.tsx:396
+#: src/app/ui/components/blocks/FormBlockCard.tsx:395
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:129
 msgid "Verse {0}"
 msgstr "Versículo {0}"
@@ -3225,7 +3215,7 @@ msgstr "Historial de versiones no disponible"
 msgid "Whitespace Only"
 msgstr "Solo espacios en blanco"
 
-#: src/app/ui/components/blocks/LintIssuesPopover.tsx:203
+#: src/app/ui/components/blocks/LintIssuesPopover.tsx:208
 msgid "Whole project"
 msgstr "Proyecto completo"
 
@@ -3278,8 +3268,8 @@ msgstr "Actualmente tienes trabajo guardado localmente que no está guardado rem
 msgid "Your changes are saved, but they conflict with edits from the remote project. You can continue working and saving locally, but you can't save to the cloud until you review these edits."
 msgstr "Tus cambios están guardados, pero entran en conflicto con ediciones del proyecto remoto. Puedes continuar trabajando y guardando localmente, pero no puedes guardar en la nube hasta que revises estas ediciones."
 
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:424
-#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:452
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:425
+#: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:453
 msgid "Your current"
 msgstr "Tu actual"
 
@@ -3299,13 +3289,12 @@ msgstr "Tu proyecto no está subido"
 #~ msgid "Your Project Isn’t Uploaded"
 #~ msgstr "Tu proyecto no está subido"
 
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:657
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:709
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:661
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:713
 msgid "Your search returned results, but none were cloud projects for this app. Try a more specific search term."
 msgstr "Tu búsqueda devolvió resultados, pero ninguno era un proyecto en la nube para esta app. Prueba con un término de búsqueda más específico."
 
-#: src/app/ui/components/blocks/ProjectCreator.tsx:64
-#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:324
+#: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:327
 msgid "ZIP"
 msgstr "ZIP"
 

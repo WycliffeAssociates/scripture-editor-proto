@@ -5,7 +5,7 @@ import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { parseSid, sortListByBookCanonical } from "@/core/data/bible/bible.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-export const ALL_FILTER_VALUE = "all";
+const ALL_FILTER_VALUE = "all";
 
 export type LintFilterOption = { value: string; label: string };
 

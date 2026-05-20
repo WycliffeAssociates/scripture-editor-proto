@@ -49,9 +49,7 @@ function isNoteOpenerMarker(marker: string | undefined): boolean {
  * drops everything after it (callers shouldn't feed that, but we
  * fail closed rather than open).
  */
-export function dropNoteSpans(
-    tokens: readonly TokenEnvelope[],
-): TokenEnvelope[] {
+function dropNoteSpans(tokens: readonly TokenEnvelope[]): TokenEnvelope[] {
     const out: TokenEnvelope[] = [];
     let inNote = false;
     for (const token of tokens) {
@@ -96,7 +94,7 @@ type VerseGrouping = {
  * Group a flat token stream into one slice per `\v` hunk plus an optional
  * prelude (anything before the first `\v`). Splits at every verse marker.
  */
-export function groupEnvelopesByVerse(
+function groupEnvelopesByVerse(
     tokens: readonly TokenEnvelope[],
 ): VerseGrouping {
     const verseStarts = collectVerseStartIndices(tokens);
@@ -140,7 +138,7 @@ function sliceVerses(
  * for multiset-aware skeleton diffing (so three `\q2`s on the source
  * yield three `\q2`s on the target).
  */
-export function listVerseMarkers(slice: readonly TokenEnvelope[]): string[] {
+function listVerseMarkers(slice: readonly TokenEnvelope[]): string[] {
     const markers: string[] = [];
     for (const token of slice) {
         if (token.tokenType !== "marker") continue;
@@ -154,10 +152,7 @@ export function listVerseMarkers(slice: readonly TokenEnvelope[]): string[] {
  * Multiset difference: items present in `a` but missing from `b`,
  * counting multiplicity. Order follows `a`.
  */
-export function multisetDiff(
-    a: readonly string[],
-    b: readonly string[],
-): string[] {
+function multisetDiff(a: readonly string[], b: readonly string[]): string[] {
     const remaining = [...b];
     const result: string[] = [];
     for (const item of a) {
