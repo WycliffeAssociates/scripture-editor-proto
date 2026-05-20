@@ -1,8 +1,7 @@
-import type { LexicalEditor, LexicalNode } from "lexical";
+import type { LexicalEditor } from "lexical";
 import { type RefObject, useCallback, useState } from "react";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
-import { replaceMatchesInText } from "@/app/domain/search/search.utils.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -29,7 +28,6 @@ type Params = {
     currentMatchIndex: number;
     setCurrentMatchIndex: (value: number) => void;
     setPickedResult: (value: SearchResult | null) => void;
-    setCurrentMatches: (value: SearchMatch[]) => void;
     searchTerm: string;
     runSearchLogic: (
         query: string,
@@ -48,8 +46,6 @@ type Params = {
     matchWholeWord: boolean;
     pickedFile: ScriptureBookState;
     pickedChapter?: ScriptureChapterState;
-    setTargetResults: (value: SearchResult[]) => void;
-    setReferenceResults: (value: SearchResult[]) => void;
     preparePickedResult: (
         result: SearchResult,
         args: {
@@ -81,15 +77,12 @@ export function useSearchReplace({
     currentMatchIndex,
     setCurrentMatchIndex,
     setPickedResult,
-    setCurrentMatches,
     searchTerm,
     runSearchLogic,
     matchCase,
     matchWholeWord,
     pickedFile,
     pickedChapter,
-    setTargetResults,
-    setReferenceResults,
     preparePickedResult,
 }: Params) {
     const [replaceTerm, setReplaceTerm] = useState<string>("");
@@ -286,82 +279,6 @@ export function useSearchReplace({
         setPickedResult,
     ]);
 
-    const replaceAllInChapter = useCallback(async () => {
-        if (searchReference) return;
-        if (!pickedResult || !replaceTerm) return;
-        if (pickedResult.source === "reference") return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        history.setNextTypingLabel(
-            `Replace All (${pickedResult.bibleIdentifier} ${pickedResult.chapNum})`,
-        );
-        editor.update(
-            () => {
-                const uniqueNodes = currentMatches.reduce(
-                    (
-                        acc: { seen: Set<string>; nodes: LexicalNode[] },
-                        curr,
-                    ) => {
-                        const nodeId = curr.node.getKey();
-                        if (!acc.seen.has(nodeId)) {
-                            acc.seen.add(nodeId);
-                            acc.nodes.push(curr.node);
-                        }
-                        return acc;
-                    },
-                    {
-                        seen: new Set<string>(),
-                        nodes: [] as LexicalNode[],
-                    },
-                );
-
-                uniqueNodes.nodes.forEach((node: LexicalNode) => {
-                    if (!$isUSFMTextNode(node)) return;
-                    const text = node.getTextContent();
-                    const newText = replaceMatchesInText({
-                        text,
-                        searchTerm,
-                        replaceTerm,
-                        matchCase,
-                        matchWholeWord,
-                    });
-                    node.setTextContent(newText);
-                });
-            },
-            { discrete: true },
-        );
-
-        if (searchTerm.trim()) {
-            await runSearchLogic(searchTerm, {
-                autoPick: false,
-                scope: "currentChapter",
-            });
-        } else {
-            setTargetResults([]);
-            setReferenceResults([]);
-            setCurrentMatches([]);
-            setCurrentMatchIndex(0);
-            setPickedResult(null);
-        }
-    }, [
-        currentMatches,
-        editorRef,
-        history,
-        matchCase,
-        matchWholeWord,
-        pickedResult,
-        replaceTerm,
-        runSearchLogic,
-        searchReference,
-        searchTerm,
-        setCurrentMatches,
-        setCurrentMatchIndex,
-        setPickedResult,
-        setReferenceResults,
-        setTargetResults,
-    ]);
-
     const replaceSearchResult = useCallback(
         async (result: SearchResult, replacement: string) => {
             if (searchReference) return;
@@ -446,7 +363,6 @@ export function useSearchReplace({
         setReplaceTerm,
         replaceMatch,
         replaceCurrentMatch,
-        replaceAllInChapter,
         replaceSearchResult,
     };
 }

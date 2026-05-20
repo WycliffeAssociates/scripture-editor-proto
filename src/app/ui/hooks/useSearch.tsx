@@ -1,5 +1,7 @@
+import { Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
-import { type RefObject, useEffect, useMemo } from "react";
+import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { makeSearchRerunPipeline } from "@/app/domain/editor/pipelines/searchRerunPipeline.ts";
 import type {
     SearchContentProvider,
     SearchResult,
@@ -116,29 +118,40 @@ export function useProjectSearch({
         currentMatchIndex: navigation.currentMatchIndex,
         setCurrentMatchIndex: navigation.setCurrentMatchIndex,
         setPickedResult: navigation.setPickedResult,
-        setCurrentMatches: navigation.setCurrentMatches,
         searchTerm: execution.searchTerm,
         runSearchLogic: execution.runSearchLogic,
         matchCase: execution.matchCase,
         matchWholeWord: execution.matchWholeWord,
         pickedFile,
         pickedChapter,
-        setTargetResults: execution.setTargetResults,
-        setReferenceResults: execution.setReferenceResults,
         preparePickedResult: navigation.preparePickedResult,
     });
 
     const pickedResultIdx = navigation.getPickedResultIdx(execution.results);
 
+    // Auto-rerun on programmatic working-files changes (undo/redo,
+    // programmaticFix, import). Pipeline + policy live in
+    // `makeSearchRerunPipeline`; this hook just wires it. The
+    // `executionRef` lets the pipeline read the latest search term and
+    // rerun callback through getters without re-forking per render.
+    const executionRef = useRef(execution);
+    executionRef.current = execution;
     useEffect(() => {
-        return history.registerPostUndoRedoAction(() => {
-            if (!execution.isSearchPaneOpen) return;
-            if (!execution.searchTerm.trim()) return;
-            void execution.runSearchLogic(execution.searchTerm, {
-                autoPick: false,
-            });
-        });
-    }, [history, execution]);
+        const fiber = Effect.runFork(
+            makeSearchRerunPipeline({
+                workingFilesStore,
+                getSearchTerm: () => executionRef.current.searchTerm,
+                rerunSearch: (term) => {
+                    void executionRef.current.runSearchLogic(term, {
+                        autoPick: false,
+                    });
+                },
+            }),
+        );
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore]);
 
     return {
         searchTerm: execution.searchTerm,
@@ -174,7 +187,6 @@ export function useProjectSearch({
                 matchWholeWord: execution.matchWholeWord,
             }),
         replaceCurrentMatch: replace.replaceCurrentMatch,
-        replaceAllInChapter: replace.replaceAllInChapter,
         replaceSearchResult: replace.replaceSearchResult,
         replaceMatch: replace.replaceMatch,
         rerunForCurrentChapter: execution.rerunForCurrentChapter,

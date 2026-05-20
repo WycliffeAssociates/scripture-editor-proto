@@ -48,7 +48,6 @@ export const TESTING_IDS = {
     includeUSFMMarkersCheckbox: "search-include-usfm-markers-checkbox",
     replaceInput: "search-replace-input",
     replaceButton: "search-replace-button",
-    replaceAllButton: "search-replace-all-button",
     sortToggleButton: "search-sort-toggle-button",
     searchResultsContainer: "search-results-container",
     searchResultItem: "search-result-item",
