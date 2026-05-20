@@ -4,6 +4,7 @@
   "windows": ["main"],
   "permissions": [
     "window-state:default",
+    "updater:default",
     "fs:default",
     "fs:allow-appdata-write-recursive",
     "fs:allow-open",

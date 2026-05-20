@@ -1,0 +1,33 @@
+name: pr-title
+
+# Conventional Commits PR-title lint. release-please derives changelog sections
+# and version bumps from PR titles when they land on master, so the title is the
+# load-bearing contract. Per-commit messages are not enforced.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            build
+            ci
+            chore
+            style
+            revert
+          requireScope: false
