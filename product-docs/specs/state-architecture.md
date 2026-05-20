@@ -225,9 +225,14 @@ review finding that produced this module.
   would feedback-loop; programmatic / load / undo / redo arrive structurally
   consistent already.
 
+`isSearchRerunRelevant` lives in `searchRerunPipeline.ts` rather than
+`commitFilters.ts` — only one consumer and one direct test
+(`searchRerunPipeline.test.ts` predicate matrix); will promote alongside
+its siblings on the third consumer (rule of three).
+
 ## Pipelines
 
-All four pipelines live under `src/app/domain/editor/pipelines/`. Each is a
+All five pipelines live under `src/app/domain/editor/pipelines/`. Each is a
 factory returning `Effect.Effect<void>` that `WorkspaceContext` forks once
 via `Effect.runFork(pipeline)` and interrupts on unmount.
 
@@ -286,6 +291,30 @@ Coalesces a burst of commits into one tick per animation frame. The tick is
 data-free; `LintDomAnnotatorPlugin`, `HighlightSink`, and any other overlay
 subscribe to `LayoutTickStore` and re-measure in `useLayoutEffect`. Scroll /
 resize / font-load signals bump the store directly (not via this pipeline).
+
+### `makeSearchRerunPipeline`
+
+```
+changes ─► filter(isSearchRerunRelevant) ─► debounce(250ms) ─► tap(rerunSearch(currentTerm))
+```
+
+- Re-runs the current search query when the working-files store changes
+  programmatically — `undo` / `redo` (replay), `programmaticFix` (lint
+  apply, prettify), `import` (revert / external apply). `userEdit` is
+  intentionally excluded: `useSearchReplace.replaceMatch` already runs
+  a scoped rerun synchronously after its own commit, and per-keystroke
+  rerun would re-tokenize the project for results nobody is reading
+  (the search panel occupies the workspace surface).
+- 250 ms debounce coalesces bursts; longer than lint's 100 ms because
+  each rerun re-tokenizes the project at full scope.
+- Reads the current search term + rerun callback via getters
+  (`getSearchTerm`, `rerunSearch`) so the pipeline forks once per
+  workspace; the search hook keeps an `executionRef` that the getters
+  close over — same pattern as `makeStructureMaintenancePipeline`'s
+  `getAppSettings` / `getVisibleBookCode`.
+- Not gated on "search pane open": user flow is "open → search →
+  replace → close → maybe undo → reopen," and reopening must surface
+  fresh results without manual re-submit.
 
 ## Satellite stores
 
@@ -362,11 +391,14 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
 - `src/app/state/WorkingFilesStore.ts` — store, `draftWithChapters`,
   `applyPatch`, `findChapterInDraft`.
 - `src/app/state/commitFilters.ts` — `isLintRelevant`, `isSaveStatusRelevant`,
-  `isStructureMaintenanceRelevant`.
+  `isStructureMaintenanceRelevant`. The search-rerun predicate
+  (`isSearchRerunRelevant`) lives co-located with its pipeline in
+  `searchRerunPipeline.ts`.
 - `src/app/state/LintStore.ts`, `SaveStatusStore.ts`, `LayoutTickStore.ts`,
   `SearchHighlightStore.ts` — satellite stores.
 - `src/app/domain/editor/pipelines/lintPipeline.ts`, `saveStatusPipeline.ts`,
-  `structureMaintenancePipeline.ts`, `overlayTickPipeline.ts` — pipelines.
+  `structureMaintenancePipeline.ts`, `overlayTickPipeline.ts`,
+  `searchRerunPipeline.ts` — pipelines.
 - `src/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx` — editor →
   store bridge.
 - `src/app/domain/editor/plugins/HighlightSink.tsx` — search highlight paint.

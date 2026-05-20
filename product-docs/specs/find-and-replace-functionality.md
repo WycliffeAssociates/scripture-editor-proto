@@ -10,7 +10,7 @@
   - Searching your reference project
 - Supports replacement actions:
   - Replace current selected match
-  - Replace all matches in the current chapter
+  - Replace next match per result row
 - Supports result sorting:
   - Canonical order
   - Case mismatches first
@@ -28,11 +28,17 @@
 2. Enter a query.
 3. Optionally enable `Match Case`, `Whole Word`, or `Include USFM markers`.
 4. Click a result to jump the editor to that book/chapter and highlight a match.
-5. Enter replacement text and use `Replace` or `Replace all in this chapter`.
+5. Enter replacement text and use `Replace` (current match) or
+   `Replace next match` on a specific result row.
 6. Use `Review & Save` to persist changes to disk.
 
 ## Current limits and non-goals
-- `Replace all` is chapter-scoped, not project-wide.
+- **No project-wide "Replace All"** affordance. The blast radius of a
+  single-click replace across every chapter was judged too easy to mess
+  up unknowingly, so the UI exposes only one-match-at-a-time replacement.
+  (The `replaceAllInChapter` action also no longer exists in the hook
+  layer; intentionally removed to avoid being mis-wired into the UI
+  later without a UX review.)
 - Search runs against working in-memory content; changes are not written to disk until save.
 - Replacement is literal text replacement in matched text nodes (no regex replace workflow).
 - This is not a linguistic concordance or morphology search tool.
@@ -60,13 +66,35 @@ The current architecture decouples *what should be highlighted* from
 
 Replace operations mutate Lexical directly in `editor.update()`, then
 re-run `runSearchLogic()` so the result list and highlights stay
-consistent with the new content. After undo/redo, the search panel
-re-runs its query via the `useCustomHistory` post-replay hook so results
-don't go stale.
+consistent with the new content.
+
+For changes that don't go through the search hooks' own replace path
+(`undo` / `redo`, `programmaticFix`, `import`), `makeSearchRerunPipeline`
+subscribes to `workingFilesStore.changes` and re-runs the current query
+through a 250 ms debounce. The policy lives in `isSearchRerunRelevant`
+inside the same module — narrower than `isSaveStatusRelevant`: `userEdit`
+is intentionally excluded because (a) the replace path already re-runs
+synchronously after its own commit and (b) the search panel occupies
+the workspace surface, so per-keystroke auto-rerun would re-tokenize
+the project for results nobody is reading.
+
+**Known gap (2026-05-20):** in some flows the e2e tests have observed
+the search count not refreshing after an undo even with a manual
+`Enter` re-submit, while the editor itself IS restored. The policy +
+mechanism are pinned by `searchRerunPipeline.test.ts` (23 cases) at
+the seam we control; the deeper state-sync gap between
+`workingFilesStore.read()` and the search execution's
+`getTargetFiles` snapshot needs runtime instrumentation to diagnose
+and is tracked as a follow-up. The e2e assertion for the user-visible
+contract (undo restores editor text) is in
+`tests/e2e/editor-history.spec.ts` under the two "reruns search …"
+tests.
 
 ## Key modules (for agents)
-- `src/app/ui/components/blocks/Search.tsx`
-- `src/app/ui/components/blocks/SearchTrigger.tsx`
+- `src/app/ui/components/views/search-panel/SearchPanel.tsx`
+- `src/app/ui/components/views/search-panel/SearchControls.tsx`
+- `src/app/ui/components/views/search-panel/SearchResults.tsx`
+- `src/app/ui/components/views/search-panel/SearchResultItem.tsx`
 - `src/app/ui/hooks/useSearch.tsx`
 - `src/app/ui/hooks/search/useSearchExecution.ts`
 - `src/app/ui/hooks/search/useSearchNavigation.ts`
@@ -74,4 +102,5 @@ don't go stale.
 - `src/app/ui/hooks/useSearchHighlighter.ts`
 - `src/app/state/SearchHighlightStore.ts`
 - `src/app/domain/editor/plugins/HighlightSink.tsx`
+- `src/app/domain/editor/pipelines/searchRerunPipeline.ts`
 - `src/app/domain/search/search.utils.ts`

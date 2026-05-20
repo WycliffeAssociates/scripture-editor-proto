@@ -51,10 +51,13 @@ WorkingFilesStore.commit
   ▼
 Stream<CommitEvent>
   │
-  ├── lintPipeline           filter(isLintRelevant) → debounce(100) → switchMap → LintStore
-  ├── saveStatusPipeline     filter(isSaveStatusRelevant) → tap → SaveStatusStore
-  ├── structurePipeline      filter(userEdit) → debounce(75) → mapEffect → editor writeback
-  └── overlayTickPipeline    filter(kind ≠ metadataOnly) → debounce(16) → LayoutTickStore.bump
+  ├── lintPipeline           filter(isLintRelevant)            → debounce(100) → switchMap → LintStore
+  ├── saveStatusPipeline     filter(isSaveStatusRelevant)      → tap → SaveStatusStore
+  ├── structurePipeline      filter(userEdit)                  → debounce(75)  → mapEffect → editor writeback
+  ├── overlayTickPipeline    filter(kind ≠ metadataOnly)       → debounce(16)  → LayoutTickStore.bump
+  └── searchRerunPipeline    filter(isSearchRerunRelevant)     → debounce(250) → tap → rerunSearch(currentTerm)
+                             // undo/redo/programmaticFix/import only — userEdit excluded
+                             // (replace already re-runs synchronously)
 ```
 
 Latency budget (typical chapter):

@@ -8,8 +8,8 @@
   - Direct typing in the current chapter
   - Programmatic chapter/book/project operations (format, find/replace,
     lint autofix, revert, mode switch)
-- Allows user-facing labels per entry (`Format Project`, `Replace all`, etc.)
-  for better undo/redo intent.
+- Allows user-facing labels per entry (`Format Project`, `Replace
+  (Inline Match)`, etc.) for better undo/redo intent.
 - Restores cursor position across undo/redo by stable `data-id`, surviving
   Lexical key regeneration.
 

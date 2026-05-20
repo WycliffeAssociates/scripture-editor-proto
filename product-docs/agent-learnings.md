@@ -25,7 +25,8 @@ is async in that the closure is a callback.  Doing an update, setting a variable
 When building new USFM actions (formatting, matching, lint autofix, etc), do **not** create new abstraction layers for App <-> Core or Paragraph <-> Flat transforms unless absolutely required.
 
 ## Preferred pipeline (same shape as prettify/format)
-1. In app hook/action: resolve scope (`chapter | book | project`) from `mutWorkingFilesRef`.
+1. In app hook/action: resolve scope (`chapter | book | project`) by
+   reading `workingFilesStore.read()` (or `workingFilesStore.draftWithChapters([...])` if you plan to mutate and commit).
 2. For each chapter in scope: flatten from lexical state using existing utilities.
 3. Run pure core transform on flat token stream.
 4. Convert back to app shape using existing rehydrate utilities.

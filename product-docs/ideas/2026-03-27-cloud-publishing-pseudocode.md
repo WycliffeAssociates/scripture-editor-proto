@@ -564,7 +564,7 @@ async function checkProjectCloudOnOpen(args: {
 ```ts
 async function beginCloudReview(args: {
   projectPath: string;
-  mutWorkingFilesRef: ScriptureBookState[];
+  workingFiles: ScriptureBookState[]; // from `workingFilesStore.read()`
   remoteInfo: ProjectLocalGitRemoteInfo;
   gitRemoteProjectService: GitRemoteProjectService;
   compareBridge: GitRemoteCompareBridge;
