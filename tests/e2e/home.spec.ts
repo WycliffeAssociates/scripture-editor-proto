@@ -57,20 +57,16 @@ test.describe("Project Creation Workflows", () => {
         await expect(page).toHaveURL(/\/create$/);
         await expect(
             page
-                .getByRole("alert")
+                .getByRole("dialog")
                 .filter({ hasText: "File imported successfully!" }),
         ).toBeVisible();
-        await expect(
-            page
-                .getByRole("alert")
-                .filter({ hasText: "File imported successfully!" }),
-        ).toContainText("File imported successfully!");
 
-        const openProjectLink = page.getByRole("link", {
+        // The success toast exposes "Open project" as a button (no longer a link).
+        const openProjectAction = page.getByRole("button", {
             name: "Open project",
         });
-        await expect(openProjectLink).toBeVisible();
-        await openProjectLink.click();
+        await expect(openProjectAction).toBeVisible();
+        await openProjectAction.click();
 
         await expect(page).toHaveURL(/\/llx_reg/);
     });

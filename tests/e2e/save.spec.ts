@@ -38,13 +38,12 @@ test.describe("Save and Diff Functionality", () => {
             .getByTestId(`${TESTING_IDS.save.goToChapterButton}`);
         await goToFirstChapterAgain.click();
 
-        const referencePicker = editorPage.getByTestId(
-            TESTING_IDS.referencePicker,
-        );
-        await expect(referencePicker).toHaveAttribute(
-            "data-test-current-chapter",
-            "1",
-        );
+        // After clicking the "go to chapter" diff link, the main editor
+        // location reflects the picked chapter. Previously this asserted on a
+        // data-test-current-chapter attribute on a reference picker that's
+        // no longer the location source of truth.
+        const mainLocation = editorPage.getByTestId(TESTING_IDS.currentLocation);
+        await expect(mainLocation).toContainText("1");
 
         await openSaveReview(editorPage);
 
@@ -54,7 +53,13 @@ test.describe("Save and Diff Functionality", () => {
         await revertButton.click();
         await expect(diffItems).toHaveCount(1);
 
-        await editorPage.keyboard.press("Escape");
+        // Close the diff modal so the editor toolbar (Next chapter button)
+        // is reachable. The modal does not respond to Escape, but its toolbar
+        // Close button does.
+        await editorPage
+            .getByRole("button", { name: "Close" })
+            .first()
+            .click();
         await moveChapter(editorPage, "next", 2);
 
         const revertedContent = await editorPage

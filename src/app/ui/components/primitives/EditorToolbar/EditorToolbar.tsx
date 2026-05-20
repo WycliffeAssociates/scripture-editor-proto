@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { insertUsfmMarkerAtCursor } from "@/app/domain/editor/utils/insertUsfmMarkerAtCursor.ts";
 import {
     isUsfmLikePaste,
@@ -252,7 +253,10 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         aria-hidden="true"
                     />
 
-                    <div className={styles.currentLocation}>
+                    <div
+                        className={styles.currentLocation}
+                        data-testid={TESTING_IDS.currentLocation}
+                    >
                         <span className={styles.currentLocationBook}>
                             {currentBookLabel}
                         </span>

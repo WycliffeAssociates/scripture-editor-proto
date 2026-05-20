@@ -33,20 +33,22 @@ test.describe("Format Feature", () => {
         ).toBeVisible();
     });
 
-    test("Format Project via Toolbar", async ({
+    test("Format Project via Action Palette", async ({
         editorWithTwoProjects: page,
     }) => {
-        // 1. Open toolbar menu and click Format Project
-        await page.getByRole("button", { name: /more actions/i }).click();
-        const prettifyButton = page.getByTestId(
-            TESTING_IDS.prettify.projectButton,
+        // The "Format Project" action is no longer in a toolbar overflow menu;
+        // it is reachable via the Action Palette (Ctrl+K) like other commands.
+        await page.getByRole("textbox", { name: "USFM Editor" }).click();
+        await page.keyboard.press("Control+k");
+        const actionPaletteSearch = page.getByTestId(
+            TESTING_IDS.contextMenu.searchInput,
         );
-        await expect(prettifyButton).toBeVisible();
-        await prettifyButton.click();
+        await expect(actionPaletteSearch).toBeVisible();
+        await actionPaletteSearch.fill("Format Project");
+        await page.keyboard.press("Enter");
 
         // 2. Open Review & Save modal
-        const saveTrigger = page.getByTestId(TESTING_IDS.save.trigger);
-        await saveTrigger.click();
+        await page.getByRole("button", { name: "Save" }).first().click();
 
         const modal = page.getByTestId(TESTING_IDS.save.modal);
         await expect(modal).toBeVisible();

@@ -1,4 +1,5 @@
 import { Settings2 } from "lucide-react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { BookChapterPickerSidebar } from "@/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx";
 import { ProjectSwitcher } from "@/app/ui/components/blocks/ProjectSwitcher/index.ts";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -25,6 +26,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
                     className={styles.sidebarAction}
                     onClick={props.openSettingsPane}
                     aria-label="Open settings pane"
+                    data-testid={TESTING_IDS.settings.drawerOpenButton}
                 >
                     <span className={styles.sidebarActionIcon}>
                         <Settings2 size={16} />

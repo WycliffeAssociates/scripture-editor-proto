@@ -310,6 +310,7 @@ export function DiffViewerModal({
             data-open={isOpen ? "true" : "false"}
             aria-hidden={!isOpen}
             ref={popupPortalContainerRef}
+            data-testid={TESTING_IDS.save.modal}
         >
             <div className={styles.modalScrollPaper}>
                 <DiffViewerToolbar

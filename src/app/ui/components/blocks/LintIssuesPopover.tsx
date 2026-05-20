@@ -13,6 +13,7 @@ import {
     X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import {
     buildLintBookOptions,
     buildLintCodeOptions,
@@ -157,6 +158,7 @@ export function LintIssuesPopover() {
                         count={badgeCount}
                         active={opened}
                         ariaLabel={t`Content errors (${badgeCount})`}
+                        data-testid={TESTING_IDS.lintPopover.triggerButton}
                     />
                 }
             />
@@ -167,7 +169,10 @@ export function LintIssuesPopover() {
                     sideOffset={8}
                     style={{ zIndex: zLayer.popoverPositioner }}
                 >
-                    <BasePopover.Popup className={styles.popover}>
+                    <BasePopover.Popup
+                        className={styles.popover}
+                        data-testid={TESTING_IDS.lintPopover.container}
+                    >
                         <div className={styles.header}>
                             <div className={styles.headerText}>
                                 <div className={styles.title}>
@@ -436,11 +441,20 @@ function IssueRow(props: {
             type="button"
             className={styles.issueRow}
             onClick={() => props.onJump(props.issue)}
+            data-testid={TESTING_IDS.lintPopover.errorItem}
         >
             <span className={styles.issueContent}>
-                <span className={styles.issueRef}>{ref}</span>
+                <span
+                    className={styles.issueRef}
+                    data-testid={TESTING_IDS.lintPopover.errorSid}
+                >
+                    {ref}
+                </span>
                 <span className={styles.issueSeparator}>&mdash;</span>
-                <span className={styles.issueMessage}>
+                <span
+                    className={styles.issueMessage}
+                    data-testid={TESTING_IDS.lintPopover.errorMessage}
+                >
                     {props.issue.message}
                 </span>
             </span>

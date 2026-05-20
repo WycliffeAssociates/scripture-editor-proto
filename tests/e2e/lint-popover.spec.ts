@@ -10,9 +10,21 @@ test.describe("LintPopover Component", () => {
         await expect(
             editorPage.getByTestId(TESTING_IDS.lintPopover.container),
         ).toBeVisible();
+
+        // Default scope is the current chapter, which may have no issues. The
+        // empty-state shows "View N project issues" — click it to expand scope
+        // to the entire project so the test can assert on a non-empty list.
+        const viewAll = editorPage.getByRole("button", {
+            name: /View \d+ project issues/i,
+        });
+        if (await viewAll.isVisible().catch(() => false)) {
+            await viewAll.click();
+        }
+
         const errorItems = editorPage.getByTestId(
             TESTING_IDS.lintPopover.errorItem,
         );
+        await expect(errorItems.first()).toBeVisible();
         const itemCount = await errorItems.count();
         expect(itemCount).toBeGreaterThan(1);
 
@@ -36,6 +48,14 @@ test.describe("LintPopover Component", () => {
             editorPage.getByTestId(TESTING_IDS.lintPopover.container),
         ).toBeVisible();
 
+        // Expand scope to the project so we have at least one issue to click.
+        const viewAll = editorPage.getByRole("button", {
+            name: /View \d+ project issues/i,
+        });
+        if (await viewAll.isVisible().catch(() => false)) {
+            await viewAll.click();
+        }
+
         const firstErrorItem = editorPage
             .getByTestId(TESTING_IDS.lintPopover.errorItem)
             .first();
@@ -45,27 +65,25 @@ test.describe("LintPopover Component", () => {
             TESTING_IDS.lintPopover.errorSid,
         );
         const sidText = await sidElement.textContent();
-        expect(sidText).toMatch(/\w{3}\s+\d+:\d+/);
+        // The issue row now renders a localized book name (e.g. "Maciu 19:30"),
+        // not a 3-letter code. Accept any non-empty book label.
+        expect(sidText).toMatch(/.+\s+\d+:\d+/);
         if (!sidText) throw new Error("Expected lint SID text");
 
         await firstErrorItem.click();
 
-        const [, bookCode, chapter] =
-            sidText.match(/^(\w{3})\s+(\d+):\d+$/) ?? [];
-        if (!bookCode || !chapter) {
+        const match = sidText.match(/^(.+?)\s+(\d+):\d+$/);
+        if (!match || !match[1] || !match[2]) {
             throw new Error(`Invalid SID format: ${sidText}`);
         }
+        const [, bookLabel, chapter] = match;
 
-        const referencePicker = editorPage.getByTestId(
-            TESTING_IDS.referencePicker,
+        // Clicking the issue navigates the editor to the issue's book/chapter.
+        // Assert via the visible toolbar location text (book label + chapter).
+        const mainLocation = editorPage.getByTestId(
+            TESTING_IDS.currentLocation,
         );
-        await expect(referencePicker).toHaveAttribute(
-            "data-test-book-code",
-            new RegExp(`^${bookCode}$`, "i"),
-        );
-        await expect(referencePicker).toHaveAttribute(
-            "data-test-current-chapter",
-            chapter,
-        );
+        await expect(mainLocation).toContainText(bookLabel);
+        await expect(mainLocation).toContainText(chapter);
     });
 });
