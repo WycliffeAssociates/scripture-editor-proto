@@ -174,7 +174,7 @@ describe("WebGitProvider", () => {
 
         const provider = new WebGitProvider(runtime as never, {
             corsProxyUrl: "https://git-proxy.example.org",
-            requestedWithHeaderValue: "dovetail-web",
+            requestedWithHeaderValue: "zephyr-web",
         });
         await expect(
             provider.cloneRemoteRepo({
@@ -197,7 +197,7 @@ describe("WebGitProvider", () => {
                 singleBranch: true,
                 depth: 1,
                 headers: {
-                    "X-Requested-With": "dovetail-web",
+                    "X-Requested-With": "zephyr-web",
                 },
             }),
         );
@@ -451,7 +451,7 @@ describe("WebGitProvider", () => {
 
         const provider = new WebGitProvider(runtime as never, {
             corsProxyUrl: "https://git-proxy.example.org",
-            requestedWithHeaderValue: "dovetail-web",
+            requestedWithHeaderValue: "zephyr-web",
         });
         const result = await provider.fetchRemoteHeads({
             projectPath: "/userData/projects/p",
@@ -466,7 +466,7 @@ describe("WebGitProvider", () => {
             dir: "/userData/projects/p",
             corsProxy: "https://git-proxy.example.org",
             headers: {
-                "X-Requested-With": "dovetail-web",
+                "X-Requested-With": "zephyr-web",
             },
             remote: "origin",
             ref: "master",
@@ -487,7 +487,7 @@ describe("WebGitProvider", () => {
 
         const provider = new WebGitProvider(runtime as never, {
             corsProxyUrl: "https://git-proxy.example.org",
-            requestedWithHeaderValue: "dovetail-web",
+            requestedWithHeaderValue: "zephyr-web",
         });
         await expect(
             provider.pushCurrentBranch({
@@ -505,7 +505,7 @@ describe("WebGitProvider", () => {
             expect.objectContaining({
                 corsProxy: "https://git-proxy.example.org",
                 headers: {
-                    "X-Requested-With": "dovetail-web",
+                    "X-Requested-With": "zephyr-web",
                 },
             }),
         );

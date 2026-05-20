@@ -1,4 +1,4 @@
-# Dovetail Tech Stack
+# Zephyr Tech Stack
 
 ## Platform Targets
 - Desktop: Rust/Tauri with native file system access.

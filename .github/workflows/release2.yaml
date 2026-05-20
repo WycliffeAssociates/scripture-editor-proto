@@ -347,11 +347,11 @@ jobs:
           AAB_DIR="./src/tauri/rust/gen/android/app/build/outputs/bundle/universalRelease"
 
           if [ -f "$APK_DIR/app-universal-release.apk" ]; then
-            mv "$APK_DIR/app-universal-release.apk" "$APK_DIR/dovetail-${TAG}-android-universal.apk"
+            mv "$APK_DIR/app-universal-release.apk" "$APK_DIR/zephyr-${TAG}-android-universal.apk"
           fi
 
           if [ -f "$AAB_DIR/app-universal-release.aab" ]; then
-            mv "$AAB_DIR/app-universal-release.aab" "$AAB_DIR/dovetail-${TAG}-android-universal.aab"
+            mv "$AAB_DIR/app-universal-release.aab" "$AAB_DIR/zephyr-${TAG}-android-universal.aab"
           fi
 
       - name: Upload Android artifacts

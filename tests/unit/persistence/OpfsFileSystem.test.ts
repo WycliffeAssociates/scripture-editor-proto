@@ -2,7 +2,7 @@
  * These are contract tests for our OPFS-backed implementation, not browser
  * integration tests for the real Origin Private File System runtime.
  *
- * We mock the native handle API and verify the logic that belongs to Dovetail:
+ * We mock the native handle API and verify the logic that belongs to Zephyr:
  * path normalization, managed-root enforcement, and file operation behavior
  * over the OPFS-style handle surface. Real browser/engine behavior still needs
  * end-to-end coverage elsewhere.

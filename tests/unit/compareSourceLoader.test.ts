@@ -112,7 +112,7 @@ async function seedSession(
             hostBaseUrl: "https://gitea.example.org",
             username: "alice",
             token: "secret-token",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             tokenId: "77",
             ...overrides,
     });

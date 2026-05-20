@@ -278,7 +278,7 @@ function AppAppearanceTab({
         <div className={styles.section}>
             <SettingRow
                 title={t`Interface Language`}
-                description={t`Choose the display language for Dovetail.`}
+                description={t`Choose the display language for Zephyr.`}
                 control={
                     <div data-testid={TESTING_IDS.settings.languageSelector}>
                         <SelectPrimitive

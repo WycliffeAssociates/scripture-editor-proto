@@ -148,7 +148,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(GIT_REMOTE_PUBLISH_PUBLISHED),
                 now: () => "2026-03-30T20:00:00.000Z",
@@ -204,7 +204,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(GIT_REMOTE_PUBLISH_PUBLISHED),
                 now: () => "2026-03-30T20:00:00.000Z",
@@ -239,7 +239,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(
                     GIT_REMOTE_PUBLISH_PUBLISHED,
@@ -280,7 +280,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(
                     GIT_REMOTE_PUBLISH_REMOTE_ADVANCED,
@@ -320,7 +320,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(
                     GIT_REMOTE_PUBLISH_OFFLINE,
@@ -351,7 +351,7 @@ describe("publishLinkedProjectAfterSave", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(
                     GIT_REMOTE_PUBLISH_AUTH_FAILED,
@@ -379,7 +379,7 @@ describe("publishLinkedProjectNow", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
                 gitProvider: createGitProvider(
                     GIT_REMOTE_PUBLISH_PUBLISHED,

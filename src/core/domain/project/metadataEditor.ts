@@ -594,7 +594,7 @@ async function normalizeSbDraft(args: {
             version: "1.0.0",
             category: "source",
             generator: {
-                softwareName: "Dovetail",
+                softwareName: "Zephyr",
                 softwareVersion: args.appVersion,
             },
             defaultLocale: "en",

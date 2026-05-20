@@ -1,4 +1,4 @@
-package org.bibletranslationtools.bttrefinerproto
+package org.bibletranslationtools.zephyr
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

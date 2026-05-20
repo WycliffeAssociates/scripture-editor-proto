@@ -21,7 +21,7 @@ We do **not** chase 100% coverage. We chase **Confidence**.
 *   **Medium Risk:** Complex UI interactions, Form submissions. (SHOULD TEST).
 *   **Low Risk:** CSS tweaks, Static content, "Button color". (SKIP).
 
-## How to Write Tests (React/Dovetail)
+## How to Write Tests (React/Zephyr)
 
 ### 1. Integration (Preferred)
 Use `vitest` with `testing-library`. Render the component with its necessary providers.
@@ -54,7 +54,7 @@ Use for complex algorithmic helpers (e.g., `parseUSFM`).
 ## The "Refactor Friendly" Rule
 If I rename a function or refactor a component's internal structure, **the test should still pass**. If the test breaks but the app works, the test was bad.
 
-## Dovetail-Specific Patterns
+## Zephyr-Specific Patterns
 
 ### Lexical Editor Testing
 Use the `testEditor.ts` helper to create headless Lexical editors for integration tests:

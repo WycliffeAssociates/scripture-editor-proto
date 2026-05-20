@@ -159,7 +159,7 @@ function createAuthSessionProvider(): AuthSessionProvider {
             username: "alice",
             token: "token",
             tokenId: "1",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
         }),
         loginWithPassword: vi.fn(),
         replaceSession: vi.fn(),

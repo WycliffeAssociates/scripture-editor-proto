@@ -7,13 +7,13 @@ import {
 } from "@/core/persistence/gitVersionUtils.ts";
 
 describe("parseAppCommitMetadata", () => {
-    it("parses v1 dovetail commit trailers", () => {
+    it("parses v1 zephyr commit trailers", () => {
         const parsed = parseAppCommitMetadata({
             subject: "save:2026-02-27T20:30:00.000Z",
             body: [
-                "x-dovetail-op: save",
-                "x-dovetail-chapters: GEN 1|GEN 2|EXO 3",
-                "x-dovetail-version: 1",
+                "x-zephyr-op: save",
+                "x-zephyr-chapters: GEN 1|GEN 2|EXO 3",
+                "x-zephyr-version: 1",
             ].join("\n"),
         });
 
@@ -83,8 +83,8 @@ describe("buildCommitMessage", () => {
         });
 
         expect(msg).toContain("save:2026-02-27T20:30:00.000Z");
-        expect(msg).toContain("x-dovetail-op: save");
-        expect(msg).toContain("x-dovetail-chapters: GEN 1|GEN 2");
-        expect(msg).toContain("x-dovetail-version: 1");
+        expect(msg).toContain("x-zephyr-op: save");
+        expect(msg).toContain("x-zephyr-chapters: GEN 1|GEN 2");
+        expect(msg).toContain("x-zephyr-version: 1");
     });
 });

@@ -2,7 +2,7 @@
  * Local-storage key that scopes browser managed storage to one logical app
  * namespace. This lets multiple local builds coexist without sharing OPFS roots.
  */
-export const WEB_STORAGE_NAMESPACE_KEY = "dovetail.storageNamespace";
+export const WEB_STORAGE_NAMESPACE_KEY = "zephyr.storageNamespace";
 
 /**
  * Resolve the current web storage namespace early during bootstrap so OPFS root

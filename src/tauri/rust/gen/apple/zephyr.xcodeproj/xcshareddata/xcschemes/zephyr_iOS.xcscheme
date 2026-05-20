@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1430"
-   version = "1.3">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -14,28 +15,33 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "067C19C8047A2326EE93616E"
-               BuildableName = "tauri-app.app"
-               BlueprintName = "tauri-app_iOS"
-               ReferencedContainer = "container:tauri-app.xcodeproj">
+               BlueprintIdentifier = "50A3644A0986E2BB75C7E07F"
+               BuildableName = "zephyr_iOS.app"
+               BlueprintName = "zephyr_iOS"
+               ReferencedContainer = "container:zephyr.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
       buildConfiguration = "debug"
-      selectedIdentifier = "Xcode.Foundation..LLDB"
-      selectedLauncherIdentifier = "Xcode.Foundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "NO">
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "NO"
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "067C19C8047A2326EE93616E"
-            BuildableName = "tauri-app.app"
-            BlueprintName = "tauri-app_iOS"
-            ReferencedContainer = "container:tauri-app.xcodeproj">
+            BlueprintIdentifier = "50A3644A0986E2BB75C7E07F"
+            BuildableName = "zephyr_iOS.app"
+            BlueprintName = "zephyr_iOS"
+            ReferencedContainer = "container:zephyr.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
+      <Testables>
+      </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "RUST_BACKTRACE"
@@ -48,13 +54,11 @@
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
-      <Testables>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "debug"
-      selectedIdentifier = "Xcode.Foundation..LLDB"
-      selectedLauncherIdentifier = "Xcode.Foundation.Launcher.LLDB"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
@@ -65,12 +69,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "067C19C8047A2326EE93616E"
-            BuildableName = "tauri-app.app"
-            BlueprintName = "tauri-app_iOS"
-            ReferencedContainer = "container:tauri-app.xcodeproj">
+            BlueprintIdentifier = "50A3644A0986E2BB75C7E07F"
+            BuildableName = "zephyr_iOS.app"
+            BlueprintName = "zephyr_iOS"
+            ReferencedContainer = "container:zephyr.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "RUST_BACKTRACE"
@@ -94,12 +100,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "067C19C8047A2326EE93616E"
-            BuildableName = "tauri-app.app"
-            BlueprintName = "tauri-app_iOS"
-            ReferencedContainer = "container:tauri-app.xcodeproj">
+            BlueprintIdentifier = "50A3644A0986E2BB75C7E07F"
+            BuildableName = "zephyr_iOS.app"
+            BlueprintName = "zephyr_iOS"
+            ReferencedContainer = "container:zephyr.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "RUST_BACKTRACE"

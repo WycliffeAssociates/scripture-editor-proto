@@ -81,7 +81,7 @@ function makeVerseSid(bookCode: string, chapter: number, verse: string) {
  * Add SIDs in-place across a token stream using chapter/verse marker context.
  *
  * This is a core bridge from raw tokenization into the anchor-addressable model the
- * rest of Dovetail uses for navigation, diffing, lint, and reference sync.
+ * rest of Zephyr uses for navigation, diffing, lint, and reference sync.
  */
 export function mutAddSids<T extends TokenForSidCalculation>(
     tokens: T[],

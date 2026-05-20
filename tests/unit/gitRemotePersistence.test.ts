@@ -164,7 +164,7 @@ describe("git remote json persistence", () => {
         hostBaseUrl: "https://example.org",
         username: "alice",
         token: "secret",
-        tokenName: "dovetail-web",
+        tokenName: "zephyr-web",
         tokenId: "99",
       },
     });
@@ -195,7 +195,7 @@ describe("git remote json persistence", () => {
       hostBaseUrl: "https://example.org",
       username: "alice",
       token: "secret",
-      tokenName: "dovetail-web",
+      tokenName: "zephyr-web",
       tokenId: "99",
     });
   });

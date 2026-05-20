@@ -1333,7 +1333,7 @@ mod tests {
 
     fn make_temp_dir(name: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "dovetail-import-{name}-{}-{nonce}",
+            "zephyr-import-{name}-{}-{nonce}",
             std::process::id(),
             nonce = unique_nonce()
         ));

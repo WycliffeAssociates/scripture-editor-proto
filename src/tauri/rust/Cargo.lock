@@ -922,28 +922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dovetail"
-version = "0.1.4"
-dependencies = [
- "git2",
- "md-5",
- "openssl",
- "rayon",
- "reqwest",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-window-state",
- "usfm_onion",
- "zip",
-]
-
-[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5997,6 +5975,28 @@ dependencies = [
  "static_assertions",
  "winnow 0.7.13",
  "zvariant",
+]
+
+[[package]]
+name = "zephyr"
+version = "0.1.4"
+dependencies = [
+ "git2",
+ "md-5",
+ "openssl",
+ "rayon",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-window-state",
+ "usfm_onion",
+ "zip",
 ]
 
 [[package]]

@@ -35,6 +35,6 @@ function buildNoreplyEmail(username: string, hostBaseUrl: string): string {
         const hostname = new URL(hostBaseUrl).hostname;
         return `${username}@users.noreply.${hostname}`;
     } catch {
-        return `${username}@users.noreply.dovetail.local`;
+        return `${username}@users.noreply.zephyr.local`;
     }
 }

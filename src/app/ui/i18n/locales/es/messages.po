@@ -599,8 +599,12 @@ msgid "Choose how change review opens by default."
 msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:281
-msgid "Choose the display language for Dovetail."
-msgstr "Elegir el idioma de visualización de Dovetail."
+#~ msgid "Choose the display language for Dovetail."
+#~ msgstr "Elegir el idioma de visualización de Dovetail."
+
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:281
+msgid "Choose the display language for Zephyr."
+msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:310
 msgid "Choose the theme used throughout the application."

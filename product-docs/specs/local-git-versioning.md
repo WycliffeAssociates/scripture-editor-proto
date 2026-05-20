@@ -27,33 +27,33 @@
 - When viewing an older version, the main save action is relabeled to `Save as New Version`.
 
 ## Repository lifecycle
-- On project open, Dovetail:
+- On project open, Zephyr:
   - Ensures `.gitignore` contains a minimal baseline
   - Ensures a local Git repo exists
   - Uses `master` as the default branch when initializing app-created repos
   - Checks repository health and reinitializes if needed
   - Attempts detached-HEAD recovery by checking out the preferred branch
-- If the repo has no history after initialization/open, Dovetail creates a baseline commit automatically.
+- If the repo has no history after initialization/open, Zephyr creates a baseline commit automatically.
 
 ## Import and export behavior
 - Imported `.git` directories are discarded.
 - Exported archives exclude `.git`.
-- Current `.gitignore` baseline entries added by Dovetail are:
+- Current `.gitignore` baseline entries added by Zephyr are:
   - `.DS_Store`
   - `Thumbs.db`
   - `node_modules`
 
 ## Commit behavior
-- Dovetail creates commits only on explicit save and only when there are effective tracked-file changes.
+- Zephyr creates commits only on explicit save and only when there are effective tracked-file changes.
 - Commit author is:
-  - `Dovetail <noreply@dovetail.local>`
+  - `Zephyr <noreply@zephyr.local>`
 - Commit subject format:
   - Baseline: `baseline:<ISO_TIMESTAMP>`
   - Save: `save:<ISO_TIMESTAMP>`
 - Commit trailers:
-  - `x-dovetail-op: baseline|save`
-  - `x-dovetail-chapters: GEN 1|EXO 2|...`
-  - `x-dovetail-version: 1`
+  - `x-zephyr-op: baseline|save`
+  - `x-zephyr-chapters: GEN 1|EXO 2|...`
+  - `x-zephyr-version: 1`
 - If a save writes successfully but checkpoint creation fails:
   - The project save still succeeds
   - The user gets a non-blocking warning
@@ -68,7 +68,7 @@
 
 ## Previous Versions behavior
 - Selecting a version is time-travel working state, not read-only preview.
-- Dovetail reads the tracked files from that commit, reparses them, and swaps them into current working state.
+- Zephyr reads the tracked files from that commit, reparses them, and swaps them into current working state.
 - Switching versions also resets the saved baseline in memory, so users can hop between versions without being forced dirty after each hop.
 - `Back to latest` loads the newest saved version into working state without creating a commit.
 - Undo/redo history is cleared after a version switch.
@@ -83,7 +83,7 @@
 
 ## Save-from-older-version behavior
 - When saving while viewing an older version:
-  - Dovetail first restores the tracked file tree from the selected version on disk
+  - Zephyr first restores the tracked file tree from the selected version on disk
   - Then it writes the current in-memory edited books
   - Then it creates a new save commit at the tip
 - This makes the saved result a new latest version derived from the selected historical state.
@@ -92,11 +92,11 @@
 - The existing compare UI supports `previousVersion` as a compare source.
 - Current project content can be compared against one selected previous local version.
 - `Take incoming` actions operate through the existing compare/review flow.
-- This is not Git merge behavior; it is Dovetail’s existing scripture/chapter compare model against a version snapshot.
+- This is not Git merge behavior; it is Zephyr’s existing scripture/chapter compare model against a version snapshot.
 
 ## Branch and recovery behavior
 - App-created repos prefer `master`.
-- If `master` is unavailable in an existing repo, Dovetail falls back to the repo default branch or current branch.
+- If `master` is unavailable in an existing repo, Zephyr falls back to the repo default branch or current branch.
 - Detached HEAD on open triggers a best-effort checkout fallback.
 - On web, missing/unborn HEAD is handled explicitly so a newly initialized repo can exist before the first commit.
 
