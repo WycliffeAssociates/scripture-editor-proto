@@ -135,12 +135,14 @@ jobs:
       - name: Playwright tests (shard ${{ matrix.shard }}/3)
         env:
           BASE_URL: http://localhost:4173
-          PLAYWRIGHT_WORKERS: "4"
-          # HTML reporter generates a navigable report at playwright-report/
-          # and embeds the on-first-retry trace, screenshots, and per-test
-          # console capture so we can see what the page actually rendered.
-          # The default `list` reporter writes nothing to playwright-report/,
-          # which is why the artifact upload was empty on earlier failures.
+          # Stick to playwright.config.ts's CI default (2 workers). The
+          # GitHub-hosted ubuntu runner has 4 cores total, but Chromium +
+          # vite preview + the test process already use 1.5-2 cores each;
+          # pushing past 2 parallel browsers per shard saturates CPU and
+          # causes page loads to time out at 30s (manifested as flaky
+          # waitFor on main-editor-container / listbox / Save button).
+          # Wall-time wins from parallelism above 2 are real but small and
+          # not worth the flake noise.
           PLAYWRIGHT_REPORTER: html
         run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
 
