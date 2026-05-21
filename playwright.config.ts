@@ -4,12 +4,14 @@ import { defineConfig, devices } from "@playwright/test";
 const requestedWorkers = process.env.PLAYWRIGHT_WORKERS
   ? Number(process.env.PLAYWRIGHT_WORKERS)
   : null;
-// Locally, non-chromium projects are off by default. CI always runs all.
 // `E2E_ALL_BROWSERS=1` enables firefox + mobile; `E2E_MOBILE=1` enables only mobile.
-// Mobile is opt-in because feature parity with desktop is a work in progress —
-// turn it on as specs gain real mobile coverage (via test.use(devices['Pixel 5'])).
+// Mobile is opt-in everywhere (including CI) because feature parity with desktop
+// is a work in progress — the mobile layout still uses surfaces (drawer/hamburger
+// menus, etc.) that the existing test helpers don't drive. CI runs chromium +
+// firefox by default; turn mobile on per-run with E2E_MOBILE=1 once a spec gains
+// real mobile coverage (via `test.use(devices['Pixel 5'])`).
 const runFirefox = !!process.env.CI || !!process.env.E2E_ALL_BROWSERS;
-const runMobile = !!process.env.CI || !!process.env.E2E_ALL_BROWSERS || !!process.env.E2E_MOBILE;
+const runMobile = !!process.env.E2E_ALL_BROWSERS || !!process.env.E2E_MOBILE;
 // Default local parallelism: half of available cores (min 2). Uses Playwright-managed
 // Chromium below — concurrent launches of the system Chrome channel are unstable.
 const defaultLocalWorkers = Math.max(2, Math.floor(os.cpus().length / 2));
