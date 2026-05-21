@@ -5,7 +5,7 @@ import type {
 } from "@/core/persistence/GitProvider.ts";
 
 /**
- * Shared commit metadata formatting/parsing helpers for Dovetail-managed git
+ * Shared commit metadata formatting/parsing helpers for Zephyr-managed git
  * history. These utilities let the app distinguish its own save/baseline commits
  * from external git activity while still using normal git commits underneath.
  */
@@ -50,9 +50,9 @@ export function parseAppCommitMetadata(
     }
 
     const trailers = parseTrailers(args.body ?? "");
-    const trailerVersion = trailers.get("x-dovetail-version");
-    const trailerOp = trailers.get("x-dovetail-op");
-    const chapterSummaryRaw = trailers.get("x-dovetail-chapters");
+    const trailerVersion = trailers.get("x-zephyr-version");
+    const trailerOp = trailers.get("x-zephyr-op");
+    const chapterSummaryRaw = trailers.get("x-zephyr-chapters");
 
     const isAppCommit = trailerVersion === "1" && trailerOp === op;
 
@@ -98,9 +98,9 @@ export function buildCommitMessage(args: {
 }): string {
     const subject = `${args.op}:${args.timestampIso}`;
     const trailers = [
-        `x-dovetail-op: ${args.op}`,
-        `x-dovetail-chapters: ${args.changedChapters.join("|")}`,
-        "x-dovetail-version: 1",
+        `x-zephyr-op: ${args.op}`,
+        `x-zephyr-chapters: ${args.changedChapters.join("|")}`,
+        "x-zephyr-version: 1",
     ];
     return [subject, "", ...trailers].join("\n");
 }

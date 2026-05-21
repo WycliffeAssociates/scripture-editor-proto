@@ -1,0 +1,167 @@
+name: verify
+
+# The required check enforced by branch protection on master. Folds in
+# what release.yml's `verify` job and the standalone playwright.yml used
+# to do separately. release.yml trusts this passed before allowing any
+# code to reach master.
+#
+# Two parallel jobs:
+#   suite — typecheck/knip/unit/cargo/build (single runner)
+#   e2e   — Playwright sharded across 3 runners
+# Both must pass for branch protection.
+
+on:
+  # Post-merge sanity on master only — feature branches are covered by the
+  # PR trigger below, so we don't double-fire on every push that has an
+  # open PR.
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+      VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+      VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+      VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+      VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+      VITE_VERSION_TAG: ${{ github.ref_name }}
+      VITE_GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libglib2.0-dev \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Architecture boundaries
+        run: pnpm check:architecture
+
+      - name: Validate version parity
+        run: |
+          set -euo pipefail
+          node scripts/syncVersions.js
+          git diff --exit-code -- src/tauri/rust/Cargo.toml src/tauri/rust/tauri.conf.json
+
+      - name: Typecheck
+        run: pnpm run check
+
+      - name: Knip
+        run: pnpm run knip
+
+      - name: Unit tests
+        run: pnpm run test:unit
+
+      - name: Cargo check
+        run: cargo check --manifest-path src/tauri/rust/Cargo.toml
+
+      - name: Build tauri frontend
+        run: pnpm run build.tauri
+
+  e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Three shards across runners. Playwright distributes test files
+        # deterministically by `--shard N/3` so retries hit the same shard.
+        shard: [1, 2, 3]
+    # Deliberately no VITE_* env vars here. The old standalone playwright.yml
+    # ran a bare web build with everything undefined and that's the proven
+    # baseline; injecting real Gitea / language-API hosts can cause the app
+    # to hang on init network calls inside the CI sandbox where those hosts
+    # are unreachable, leaving every test failing on a blank page.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web SPA
+        run: pnpm run build.web
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps
+
+      - name: Playwright tests (shard ${{ matrix.shard }}/3)
+        env:
+          BASE_URL: http://localhost:4173
+          # Stick to playwright.config.ts's CI default (2 workers). The
+          # GitHub-hosted ubuntu runner has 4 cores total, but Chromium +
+          # vite preview + the test process already use 1.5-2 cores each;
+          # pushing past 2 parallel browsers per shard saturates CPU and
+          # causes page loads to time out at 30s (manifested as flaky
+          # waitFor on main-editor-container / listbox / Save button).
+          # Wall-time wins from parallelism above 2 are real but small and
+          # not worth the flake noise.
+          PLAYWRIGHT_REPORTER: html
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 30
+
+      # Traces, screenshots, and failure artifacts live under test-results/
+      # regardless of reporter. Upload these too so we can inspect failures
+      # even if the HTML report ever falls through.
+      - name: Upload Playwright test-results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-shard-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 30
+          if-no-files-found: ignore

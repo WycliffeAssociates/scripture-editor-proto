@@ -6,16 +6,14 @@ import { ProjectBrowserPane } from "@/app/ui/components/blocks/ProjectSwitcher/P
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { EditorToolbar } from "@/app/ui/components/primitives/EditorToolbar/index.ts";
+import { FormFocusProvider } from "@/app/ui/contexts/FormFocusContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
-import { BottomPanel } from "../bottom-panel/BottomPanel.tsx";
 import { SearchPanel } from "../search-panel/SearchPanel.tsx";
 
 interface EditorPaneProps {
     isSmall: boolean;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
-    openBottomPanel: () => void;
-    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -33,7 +31,6 @@ function EditorPane(props: EditorPaneProps) {
             <div className={styles.editorPaneHeader}>
                 <EditorToolbar
                     isReferencePaneOpen={props.hasReferenceResource}
-                    onOpenVersionsDock={props.onOpenVersionsDock}
                     onToggleReferencePane={props.toggleReferencePane}
                     isSearchPaneOpen={props.hasSearchPaneOpen}
                     onToggleSearchPane={props.toggleSearchPane}
@@ -86,8 +83,6 @@ interface WorkspacePaneStackProps {
     activeWorkspacePane: WorkspacePane;
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
-    openBottomPanel: () => void;
-    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -100,8 +95,6 @@ function WorkspacePaneStack(props: WorkspacePaneStackProps) {
                     isSmall={props.isSmall}
                     hasReferenceResource={props.hasReferenceResource}
                     hasSearchPaneOpen={props.hasSearchPaneOpen}
-                    openBottomPanel={props.openBottomPanel}
-                    onOpenVersionsDock={props.onOpenVersionsDock}
                     toggleReferencePane={props.toggleReferencePane}
                     toggleSearchPane={props.toggleSearchPane}
                 />
@@ -115,15 +108,9 @@ interface EditorsShellProps {
     hasReferenceResource: boolean;
     hasSearchPaneOpen: boolean;
     activeWorkspacePane: WorkspacePane;
-    isBottomPanelOpen: boolean;
-    bottomPanelHeight: number;
     closeProjectsPane: () => void;
     closeSettingsPane: () => void;
     closeSearchPane: () => void;
-    openBottomPanel: () => void;
-    closeBottomPanel: () => void;
-    setBottomPanelHeight: (height: number) => void;
-    onOpenVersionsDock: () => void;
     toggleReferencePane: () => void;
     toggleSearchPane: () => void;
 }
@@ -157,8 +144,6 @@ function EditorsShell(props: EditorsShellProps) {
                         activeWorkspacePane={props.activeWorkspacePane}
                         hasReferenceResource={props.hasReferenceResource}
                         hasSearchPaneOpen={props.hasSearchPaneOpen}
-                        openBottomPanel={props.openBottomPanel}
-                        onOpenVersionsDock={props.onOpenVersionsDock}
                         toggleReferencePane={props.toggleReferencePane}
                         toggleSearchPane={props.toggleSearchPane}
                     />
@@ -176,13 +161,6 @@ function EditorsShell(props: EditorsShellProps) {
                     </div>
                 ) : null}
             </div>
-            {props.isBottomPanelOpen ? (
-                <BottomPanel
-                    height={props.bottomPanelHeight}
-                    onClose={props.closeBottomPanel}
-                    onHeightChange={props.setBottomPanelHeight}
-                />
-            ) : null}
         </section>
     );
 }
@@ -192,7 +170,9 @@ interface WorkspaceMainShellProps extends EditorsShellProps {}
 export function WorkspaceMainShell(props: WorkspaceMainShellProps) {
     return (
         <div className={styles.workspaceMain}>
-            <EditorsShell {...props} />
+            <FormFocusProvider>
+                <EditorsShell {...props} />
+            </FormFocusProvider>
         </div>
     );
 }

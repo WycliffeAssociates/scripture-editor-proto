@@ -99,6 +99,7 @@ export function VerseMarkerSuggestPlugin() {
 
     useEffect(() => {
         return editor.registerUpdateListener(() => {
+            console.count("VerseMarkerSuggestPlugin");
             recomputeSuggestions();
         });
     }, [editor, recomputeSuggestions]);

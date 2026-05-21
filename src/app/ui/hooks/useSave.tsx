@@ -7,6 +7,8 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useDiffModalState } from "@/app/ui/hooks/save/useDiffModalState.ts";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
@@ -27,7 +29,8 @@ import type {
 } from "@/core/persistence/WorkspaceService.ts";
 
 type UseSaveProps = {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
+    saveStatusStore: SaveStatusStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
@@ -55,7 +58,8 @@ export type UseSaveReturn = ReturnType<typeof useSave>;
  * revert execution.
  */
 export function useSave({
-    mutWorkingFilesRef,
+    workingFilesStore,
+    saveStatusStore,
     editorRef,
     pickedFile,
     pickedChapter,
@@ -73,7 +77,6 @@ export function useSave({
     const { usfmOnionService, settingsManager, authSessionProvider } =
         useRouter().options.context;
     const [, setDirtyVersion] = useState(0);
-    const saveCurrentDirtyRef = useRef<(() => void) | null>(null);
     const refreshUnsavedChaptersRef = useRef<
         (
             chapters: Array<{ bookCode: string; chapterNum: number }>,
@@ -90,7 +93,7 @@ export function useSave({
     const versions = useVersionHistory({
         loadedProject,
         gitProvider,
-        mutWorkingFilesRef,
+        workingFilesStore,
         pickedFile,
         pickedChapter,
         editorRef,
@@ -101,7 +104,7 @@ export function useSave({
     });
 
     const compare = useExternalCompare({
-        mutWorkingFilesRef,
+        workingFilesStore,
         loadedProject,
         projectsService,
         fileSystem,
@@ -125,7 +128,7 @@ export function useSave({
     });
 
     const diff = useDiffModalState({
-        mutWorkingFilesRef,
+        workingFilesStore,
         usfmOnionService,
         ensureVersionsLoaded: versions.actions.ensureLoaded,
         closeVersions: versions.actions.close,
@@ -135,7 +138,8 @@ export function useSave({
     refreshUnsavedChaptersRef.current = diff.actions.refreshChapters;
 
     const saveAndRevert = useSaveAndRevert({
-        mutWorkingFilesRef,
+        workingFilesStore,
+        saveStatusStore,
         editorRef,
         pickedFile,
         pickedChapter,
@@ -218,13 +222,12 @@ export function useSave({
      * workspace state.
      */
     const saveReview = {
-        open: async (saveCurrentDirtyLexical: () => void) => {
+        open: async () => {
             if (settingsManager.get("autoAcceptOwnWorkOnSave")) {
-                saveCurrentDirtyLexical();
                 await saveAndRevert.actions.saveProjectToDisk();
                 return;
             }
-            await diff.actions.open(saveCurrentDirtyLexical);
+            await diff.actions.open();
         },
     };
 
@@ -236,28 +239,22 @@ export function useSave({
         selectedHash: versions.state.selectedHash,
         latestHash: versions.state.latestHash,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
-        open: async (saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        open: async () => {
             await versions.actions.open({
-                saveCurrentDirtyLexical,
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
         close: versions.actions.close,
         ensureLoaded: versions.actions.ensureLoaded,
         loadMore: versions.actions.loadMore,
-        select: async (hash: string, saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        select: async (hash: string) => {
             await versions.actions.select({
                 hash,
-                saveCurrentDirtyLexical,
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
-        backToLatest: async (saveCurrentDirtyLexical: () => void) => {
-            saveCurrentDirtyRef.current = saveCurrentDirtyLexical;
+        backToLatest: async () => {
             await versions.actions.backToLatest({
-                saveCurrentDirtyLexical,
                 hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
             });
         },
@@ -271,22 +268,16 @@ export function useSave({
             },
             saveAndContinue: () => {
                 versions.actions.saveAndContinue(() => {
-                    const saveCurrentDirtyLexical = saveCurrentDirtyRef.current;
-                    if (!saveCurrentDirtyLexical) return;
-                    void diff.actions.open(saveCurrentDirtyLexical);
+                    void diff.actions.open();
                 });
             },
         },
     };
 
-    const openRemoteLatestReview = async (
-        saveCurrentDirtyLexical: () => void,
-        options?: {
-            openModalOnRequiresReview?: boolean;
-        },
-    ) =>
+    const openRemoteLatestReview = async (options?: {
+        openModalOnRequiresReview?: boolean;
+    }) =>
         compare.actions.openRemoteLatestReview(
-            saveCurrentDirtyLexical,
             diff.actions.open,
             diff.state.isOpen,
             options,

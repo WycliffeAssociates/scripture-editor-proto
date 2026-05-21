@@ -1,6 +1,6 @@
-name: tauri-app
+name: zephyr
 options:
-  bundleIdPrefix: org.bibletranslationtools.bttrefinerproto
+  bundleIdPrefix: org.bibletranslationtools.zephyr
   deploymentTarget:
     iOS: 14.0
 fileGroups: [../../src]
@@ -10,8 +10,8 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: tauri-app
-      PRODUCT_BUNDLE_IDENTIFIER: org.bibletranslationtools.bttrefinerproto
+      PRODUCT_NAME: Zephyr
+      PRODUCT_BUNDLE_IDENTIFIER: org.bibletranslationtools.zephyr
 targetTemplates:
   app:
     type: application
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  tauri-app_iOS:
+  zephyr_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: tauri-app_iOS
+      - path: zephyr_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: tauri-app_iOS/Info.plist
+      path: zephyr_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -51,10 +51,10 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: "0.1.0"
+        CFBundleShortVersionString: 0.1.4
+        CFBundleVersion: "0.1.4"
     entitlements:
-      path: tauri-app_iOS/tauri-app_iOS.entitlements
+      path: zephyr_iOS/zephyr_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

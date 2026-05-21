@@ -13,17 +13,16 @@ export async function moveChapter(
     direction: "next" | "prev",
     count = 1,
 ) {
-    const buttonId =
-        direction === "next"
-            ? TESTING_IDS.navigation.nextChapterButton
-            : TESTING_IDS.navigation.prevChapterButton;
+    const name = direction === "next" ? "Next chapter" : "Previous chapter";
     for (let i = 0; i < count; i++) {
-        await page.getByTestId(buttonId).click();
+        await page.getByRole("button", { name }).click();
     }
 }
 
 export async function openSaveReview(page: Page) {
-    const trigger = page.getByTestId(TESTING_IDS.save.trigger);
-    await trigger.click();
+    // The save toolbar button is reachable via its aria-label; the modal
+    // (overlayShell) carries the save.modal testid. Previously this helper
+    // pointed at a save.trigger testid that's no longer wired in source.
+    await page.getByRole("button", { name: "Save" }).first().click();
     await expect(page.getByTestId(TESTING_IDS.save.modal)).toBeVisible();
 }

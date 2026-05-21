@@ -208,7 +208,7 @@ describe("CreateProject cloud import", () => {
               hostBaseUrl: "https://gitea.example.org",
               token: "secret-token",
               tokenId: "1",
-              tokenName: "dovetail-web",
+              tokenName: "zephyr-web",
             }),
             loginWithPassword: vi.fn(),
             logoutCurrentSession: vi.fn(),
@@ -316,7 +316,7 @@ describe("CreateProject cloud import", () => {
               hostBaseUrl: "https://gitea.example.org",
               token: "secret-token",
               tokenId: "1",
-              tokenName: "dovetail-web",
+              tokenName: "zephyr-web",
             }),
             loginWithPassword: vi.fn(),
             logoutCurrentSession: vi.fn(),
@@ -365,7 +365,7 @@ describe("CreateProject cloud import", () => {
       hostBaseUrl: "https://gitea.example.org",
       token: "created-token",
       tokenId: "7",
-      tokenName: "dovetail-7",
+      tokenName: "zephyr-7",
     });
     const listWritableRemoteRepos = vi.fn().mockResolvedValue({
       repos: [],

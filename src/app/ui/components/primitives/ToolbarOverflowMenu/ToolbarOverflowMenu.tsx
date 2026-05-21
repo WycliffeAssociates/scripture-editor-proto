@@ -1,11 +1,12 @@
 import { Menu } from "@base-ui/react/menu";
-import { Copy, History } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
+import { BookCopy, Copy } from "lucide-react";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import * as styles from "./toolbarOverflowMenu.css.ts";
 
 export interface ToolbarOverflowMenuProps {
     onCopyEditorJson?: () => void;
-    onOpenVersions?: () => void;
+    onMatchFormattingToSource?: () => void;
 }
 
 export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
@@ -28,21 +29,27 @@ export function ToolbarOverflowMenu(props: ToolbarOverflowMenuProps) {
             <Menu.Portal style={{ zIndex: zLayer.toolbarMenu }}>
                 <Menu.Positioner sideOffset={4} className={styles.positioner}>
                     <Menu.Popup className={styles.popup}>
+                        {props.onMatchFormattingToSource ? (
+                            <Menu.Item
+                                className={styles.item}
+                                onClick={() =>
+                                    props.onMatchFormattingToSource?.()
+                                }
+                            >
+                                <BookCopy
+                                    size={14}
+                                    className={styles.itemIcon}
+                                />
+                                <Trans>Match formatting to source</Trans>
+                            </Menu.Item>
+                        ) : null}
                         <Menu.Item
                             className={styles.item}
                             onClick={() => props.onCopyEditorJson?.()}
                         >
                             <Copy size={14} className={styles.itemIcon} />
-                            Copy editor JSON
+                            <Trans>Copy editor JSON</Trans>
                         </Menu.Item>
-                        <Menu.Item
-                            className={styles.item}
-                            onClick={() => props.onOpenVersions?.()}
-                        >
-                            <History size={14} className={styles.itemIcon} />
-                            Versions
-                        </Menu.Item>
-                        <Menu.Separator className={styles.separator} />
                     </Menu.Popup>
                 </Menu.Positioner>
             </Menu.Portal>

@@ -1,0 +1,22 @@
+name: release-please
+
+# Runs alongside the verify + release workflows. Opens and maintains a Release PR
+# that, when merged, bumps versions across package.json + tauri.conf.json + Cargo.toml,
+# updates CHANGELOG.md, and pushes a v* tag. The tag fires release.yml's Stable channel.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

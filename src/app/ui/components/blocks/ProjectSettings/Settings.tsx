@@ -30,11 +30,13 @@ import { useCloudProjectActions } from "@/app/ui/hooks/useCloudProjectActions.ts
 import { useGiteaApi } from "@/app/ui/hooks/useGiteaApi.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
+import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 import EditorModeToggle from "./EditorModeToggle.tsx";
 import FontSizeControl from "./FontSizeControl.tsx";
 import * as styles from "./settings.css.ts";
+import { UpdateSettingsSection } from "./UpdateSettingsSection.tsx";
 import ZoomControl from "./ZoomControl.tsx";
 
 type SettingsTab = "app-appearance" | "reference-panel" | "advanced";
@@ -45,7 +47,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const { actions, loadedProject, project, remote } = useWorkspaceContext();
-    const { authSessionProvider, projectsService } =
+    const { authSessionProvider, projectsService, updaterService } =
         useRouter().options.context;
     const overlayPortalRef = useRef<HTMLDivElement | null>(null);
     const [activeTab, setActiveTab] = useState<SettingsTab>("app-appearance");
@@ -193,6 +195,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                 settings={project.appSettings}
                                 applyUpdates={handleSettingsChange}
                                 portalContainer={overlayPortalRef}
+                                updaterService={updaterService}
                             />
                         </div>
                     </BaseTabs.Panel>
@@ -278,7 +281,7 @@ function AppAppearanceTab({
         <div className={styles.section}>
             <SettingRow
                 title={t`Interface Language`}
-                description={t`Choose the display language for Dovetail.`}
+                description={t`Choose the display language for Zephyr.`}
                 control={
                     <div data-testid={TESTING_IDS.settings.languageSelector}>
                         <SelectPrimitive
@@ -407,6 +410,7 @@ function AdvancedTab({
     settings,
     applyUpdates,
     portalContainer,
+    updaterService,
 }: {
     loadedProjectPath: string;
     isCloudLinked: boolean;
@@ -437,6 +441,7 @@ function AdvancedTab({
     settings: Settings;
     applyUpdates: (updates: Partial<Settings>) => Promise<void>;
     portalContainer: RefObject<HTMLElement | null>;
+    updaterService: IUpdaterService | null;
 }) {
     const sessionQuery = useQuery({
         queryKey: ["giteaSession", "settings"],
@@ -472,6 +477,7 @@ function AdvancedTab({
 
     return (
         <div className={styles.section}>
+            <UpdateSettingsSection updaterService={updaterService} />
             <DiffViewModeRow
                 value={settings.diffViewModeDefault}
                 onChange={(value) =>

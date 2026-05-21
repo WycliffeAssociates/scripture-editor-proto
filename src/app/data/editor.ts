@@ -15,7 +15,7 @@ import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextN
  * into Lexical/editor state. They are intentionally app-level because many
  * hooks and actions branch on editor mode.
  */
-export type EditorModeSetting = "regular" | "usfm" | "plain" | "view";
+export type EditorModeSetting = "regular" | "usfm" | "plain" | "view" | "form";
 export type ContentEditorModeSetting = Exclude<EditorModeSetting, "view">;
 /**
  * Canonical enum-like object for editor-mode comparisons.
@@ -25,7 +25,41 @@ export const EDITOR_MODES = {
     usfm: "usfm",
     plain: "plain",
     view: "view",
+    form: "form",
 } as const satisfies Record<EditorModeSetting, EditorModeSetting>;
+
+/**
+ * Underlying *shape* of the Lexical tree produced when an editor mode
+ * loads its content. Multiple `EditorModeSetting` values map onto the
+ * same shape — e.g. both `regular` and `view` materialize as the
+ * regular-mode tree, and `usfm`/`plain` collapse to the flat shape.
+ *
+ * Keep this list as the single source of truth: any code that
+ * branches on "is this state shaped as form/regular/flat?" should
+ * import `EDITOR_SHAPES` and the `EditorShape` type rather than
+ * re-declaring the union locally.
+ */
+export type EditorShape = "regular" | "form" | "flat";
+
+export const EDITOR_SHAPES = {
+    regular: "regular",
+    form: "form",
+    flat: "flat",
+} as const satisfies Record<EditorShape, EditorShape>;
+
+/**
+ * Map an `EditorModeSetting` onto the Lexical tree shape it
+ * produces. View and regular share the regular shape; usfm and plain
+ * share the flat shape; form has its own. Centralized here so the
+ * mode-to-shape ternary doesn't drift across call sites.
+ */
+export function editorModeToShape(mode: EditorModeSetting): EditorShape {
+    if (mode === EDITOR_MODES.form) return EDITOR_SHAPES.form;
+    if (mode === EDITOR_MODES.regular || mode === EDITOR_MODES.view) {
+        return EDITOR_SHAPES.regular;
+    }
+    return EDITOR_SHAPES.flat;
+}
 
 /**
  * Token categories surfaced by the USFM parsing pipeline.
@@ -46,6 +80,10 @@ export const UsfmTokenTypes = {
 export const EDITOR_TAGS_USED = {
     programaticIgnore: "programatic-ignore",
     programmaticDoRunChanges: "programmatic-do-run-changes",
+    // Marks structure/metadata writebacks from the structure-maintenance
+    // pipeline. The bridge maps this to commit kind "structuralFixup"; downstream
+    // pipelines filter that kind out to break the feedback loop.
+    programmaticStructuralFix: "programmatic-structural-fix",
     historyMerge: HISTORY_MERGE_TAG,
     historic: HISTORIC_TAG,
 };

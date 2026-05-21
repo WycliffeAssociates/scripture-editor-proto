@@ -1,6 +1,7 @@
 mod git;
 mod import;
 mod md5;
+mod updater;
 mod usfm_onion;
 use tauri::Manager;
 #[tauri::command]
@@ -16,10 +17,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
 
-    // 1. CONDITIONAL WINDOW_STATE PLUGIN REGISTRATION
+    // Desktop-only plugins: window state persistence and the auto-updater.
+    // Mobile builds ship through app stores and use their own update channels.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+        builder = builder
+            .plugin(tauri_plugin_window_state::Builder::new().build())
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
     }
     builder
         .invoke_handler(tauri::generate_handler![
@@ -56,6 +61,7 @@ pub fn run() {
             import::import_download_remote_archive_to_managed_storage,
             import::import_extract_zip_to_managed_storage,
             import::finalize_imported_resource,
+            updater::install_update_from_endpoint,
             hello_world
         ])
         .setup(move |#[allow(unused_variables)] app| {

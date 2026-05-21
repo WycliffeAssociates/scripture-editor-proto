@@ -1,5 +1,21 @@
-import { style } from "@vanilla-extract/css";
+import { keyframes, style } from "@vanilla-extract/css";
 import { vars } from "@/app/ui/styles/designSystem.css.ts";
+
+const spin = keyframes({
+    "0%": { transform: "rotate(0deg)" },
+    "100%": { transform: "rotate(360deg)" },
+});
+
+export const dialogSpinner = style({
+    animation: `${spin} 0.65s linear infinite`,
+    display: "inline-flex",
+});
+
+export const dialogButtonContent = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.4rem",
+});
 
 export const root = style({
     display: "flex",

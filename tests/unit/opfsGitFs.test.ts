@@ -291,7 +291,7 @@ describe("OpfsGitFs", () => {
                 timestampIso: "2026-03-06T12:00:00.000Z",
                 changedChapters: [],
             },
-            { name: "Dovetail", email: "noreply@dovetail.local" },
+            { name: "Zephyr", email: "noreply@zephyr.local" },
         );
 
         expect(commit.hash).toBeTruthy();

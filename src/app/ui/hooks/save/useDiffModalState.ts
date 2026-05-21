@@ -8,7 +8,7 @@ import {
     findChapter,
     listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
-import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     createDiffCalculationRunner,
     yieldToMainThread,
@@ -61,7 +61,7 @@ function mapOnionDiffToProjectDiff(
  * keeps that concern isolated from the rest of the save pipeline.
  */
 export function useDiffModalState(args: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     usfmOnionService: IUsfmOnionService;
     ensureVersionsLoaded: () => Promise<void>;
     closeVersions: () => void;
@@ -84,7 +84,7 @@ export function useDiffModalState(args: {
         chapterNum: number,
     ): Promise<ProjectDiff[]> {
         const chapter = findChapter(
-            args.mutWorkingFilesRef,
+            args.workingFilesStore.read(),
             bookCode,
             chapterNum,
         );
@@ -124,19 +124,18 @@ export function useDiffModalState(args: {
         return out;
     }
 
-    async function open(saveCurrentDirtyLexical: () => void) {
+    async function open() {
         if (isOpen) {
             setIsOpen(false);
             return;
         }
 
-        saveCurrentDirtyLexical();
         args.closeVersions();
         setIsOpen(true);
         await args.ensureVersionsLoaded();
         await calculationRunnerRef.current.run(async () => {
             const chaptersToDiff = listDirtyChapterRefs(
-                args.mutWorkingFilesRef,
+                args.workingFilesStore.read(),
             );
             const allDiffs =
                 await buildUnsavedChapterDiffEntries(chaptersToDiff);

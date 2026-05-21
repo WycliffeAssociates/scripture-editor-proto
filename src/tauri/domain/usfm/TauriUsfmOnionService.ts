@@ -4,14 +4,11 @@ import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
-    BatchExecutionOptions,
     BuildSidBlocksOptions,
     Diff,
     DiffPathPair,
     DiffScopeItem,
     DiffScopeOptions,
-    FormatOptions,
-    FormatScopeOptions,
     LintIssue,
     LintOptions,
     LintScopeOptions,
@@ -28,17 +25,10 @@ import type {
 /**
  * Desktop implementation of the shared USFM-onion seam.
  *
- * The editor, compare flows, linting, and prettify logic all talk to the same
- * {@link IUsfmOnionService} contract. On desktop we route heavier parsing,
- * diffing, and formatting work through Tauri commands so large scripture
- * workspaces can use path-based batch operations instead of reading everything
- * into JS first.
+ * Heavy parsing, diffing, and formatting work runs in Tauri Rust commands so
+ * large scripture workspaces can stream through native rayon parallelism
+ * instead of round-tripping every document into JS.
  */
-function toTauriBatchOptions(batchOptions?: BatchExecutionOptions | null) {
-    return {
-        parallel: batchOptions?.parallel ?? true,
-    };
-}
 
 function toTauriTokenLintOptions(options?: TokenLintOptions) {
     return {
@@ -71,36 +61,6 @@ function toTauriProjectOptions(options?: ProjectUsfmOptions | null) {
     };
 }
 
-function fromTauriLintIssue(issue: {
-    code: string;
-    severity?: string;
-    issueType?: "usfm" | "content";
-    marker?: string | null;
-    message: string;
-    messageParams?: Record<string, string>;
-    span?: { start: number; end: number } | null;
-    relatedSpan?: { start: number; end: number } | null;
-    tokenId?: string | null;
-    relatedTokenId?: string | null;
-    sid?: string | null;
-    fix?: TokenFix | null;
-}): LintIssue {
-    return {
-        code: issue.code,
-        severity: issue.severity ?? "warning",
-        issueType: issue.issueType ?? "usfm",
-        marker: issue.marker ?? null,
-        message: issue.message,
-        messageParams: issue.messageParams ?? {},
-        span: issue.span ?? null,
-        relatedSpan: issue.relatedSpan ?? null,
-        tokenId: issue.tokenId ?? null,
-        relatedTokenId: issue.relatedTokenId ?? null,
-        sid: issue.sid ?? null,
-        fix: issue.fix ?? null,
-    };
-}
-
 function tokensEqual(left: Token[], right: Token[]): boolean {
     if (left.length !== right.length) return false;
     for (let i = 0; i < left.length; i++) {
@@ -109,7 +69,7 @@ function tokensEqual(left: Token[], right: Token[]): boolean {
         if (!a || !b) return false;
         if (a.id !== b.id) return false;
         if (a.kind !== b.kind) return false;
-        if (a.text !== b.text) return false;
+        if (a.source !== b.source) return false;
         if ((a.sid ?? null) !== (b.sid ?? null)) return false;
         if ((a.marker ?? null) !== (b.marker ?? null)) return false;
         if (
@@ -152,22 +112,17 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
     private async lintBatchFromPaths(
         paths: string[],
         options: LintScopeOptions["lintOptions"] = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<LintIssue[][]> {
         const results = await invoke<LintIssue[][]>("usfm_onion_lint_paths", {
             paths,
             options: toTauriLintOptions(options),
-            batchOptions: toTauriBatchOptions(batchOptions),
         });
-        return results.map((batch) =>
-            batch.filter(shouldKeepLintIssue).map(fromTauriLintIssue),
-        );
+        return results.map((batch) => batch.filter(shouldKeepLintIssue));
     }
 
     private async lintTokenBatches(
         tokenBatches: Token[][],
         options: TokenLintOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<LintIssue[][]> {
         return timeInDevAsync(async () => {
             const results = await invoke<LintIssue[][]>(
@@ -175,41 +130,30 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 {
                     tokenBatches,
                     options: toTauriTokenLintOptions(options),
-                    batchOptions: toTauriBatchOptions(batchOptions),
                 },
             );
-            return results.map((batch) =>
-                batch.filter(shouldKeepLintIssue).map(fromTauriLintIssue),
-            );
+            return results.map((batch) => batch.filter(shouldKeepLintIssue));
         }, `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`);
     }
 
     private async formatBatchFromPaths(
         paths: string[],
         tokenOptions = { mergeHorizontalWhitespace: false },
-        formatOptions: FormatOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<TokenTransformResult[]> {
         return invoke("usfm_onion_format_paths", {
             paths,
             tokenOptions,
-            formatOptions,
-            batchOptions: toTauriBatchOptions(batchOptions),
         });
     }
 
     private async formatTokenBatches(
         tokenBatches: Token[][],
-        options: FormatOptions = {},
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<TokenTransformResult[]> {
         return timeInDevAsync(async () => {
             const results = await invoke<TokenTransformResult[]>(
                 "usfm_onion_format_token_batches",
                 {
                     tokenBatches,
-                    options,
-                    batchOptions: toTauriBatchOptions(batchOptions),
                 },
             );
             return results.map((result, index) =>
@@ -222,13 +166,11 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         pathPairs: DiffPathPair[],
         tokenOptions = { mergeHorizontalWhitespace: false },
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<Diff[][]> {
         return invoke("usfm_onion_diff_path_pairs", {
             pathPairs,
             tokenOptions,
             buildOptions,
-            batchOptions: toTauriBatchOptions(batchOptions),
         });
     }
 
@@ -250,9 +192,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             return {
                 ...projection,
                 lintIssues:
-                    projection.lintIssues
-                        ?.filter(shouldKeepLintIssue)
-                        .map(fromTauriLintIssue) ?? null,
+                    projection.lintIssues?.filter(shouldKeepLintIssue) ?? null,
             };
         }, `[tauri] parseUsfm (sourceLength: ${source.length})`);
     }
@@ -263,7 +203,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: null,
         },
-        batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return timeInDevAsync(async () => {
             const projections = await invoke<ProjectedUsfmDocument[]>(
@@ -271,15 +210,12 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                 {
                     paths,
                     options: toTauriProjectOptions(options),
-                    batchOptions: toTauriBatchOptions(batchOptions),
                 },
             );
             return projections.map((projection) => ({
                 ...projection,
                 lintIssues:
-                    projection.lintIssues
-                        ?.filter(shouldKeepLintIssue)
-                        .map(fromTauriLintIssue) ?? null,
+                    projection.lintIssues?.filter(shouldKeepLintIssue) ?? null,
             }));
         }, `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`);
     }
@@ -290,7 +226,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: null,
         },
-        _batchOptions: BatchExecutionOptions = { parallel: true },
     ): Promise<ProjectedUsfmDocument[]> {
         return Promise.all(
             sources.map((source) => this.parseUsfm(source, options)),
@@ -301,9 +236,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         tokens: Token[],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
-        const [result] = await this.lintTokenBatches([tokens], options, {
-            parallel: true,
-        });
+        const [result] = await this.lintTokenBatches([tokens], options);
         return result ?? [];
     }
 
@@ -343,7 +276,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             const pathResults = await this.lintBatchFromPaths(
                 pathArgs,
                 options.lintOptions ?? {},
-                options.batchOptions,
             );
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i] ?? [];
@@ -354,7 +286,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             const tokenResults = await this.lintTokenBatches(
                 tokenArgs,
                 options.tokenOptions ?? {},
-                options.batchOptions,
             );
             for (let i = 0; i < tokenResults.length; i++) {
                 results[tokenIndices[i]] = tokenResults[i] ?? [];
@@ -366,7 +297,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
 
     async formatScope(
         scope: TokenScopeItem[],
-        options: FormatScopeOptions = {},
     ): Promise<TokenTransformResult[]> {
         if (!scope.length) return [];
 
@@ -401,27 +331,14 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         }
 
         if (pathArgs.length > 0) {
-            const pathResults = await this.formatBatchFromPaths(
-                pathArgs,
-                {
-                    mergeHorizontalWhitespace:
-                        options.tokenOptions?.mergeHorizontalWhitespace ??
-                        false,
-                },
-                options.formatOptions ?? {},
-                options.batchOptions,
-            );
+            const pathResults = await this.formatBatchFromPaths(pathArgs);
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i];
             }
         }
 
         if (tokenArgs.length > 0) {
-            const tokenResults = await this.formatTokenBatches(
-                tokenArgs,
-                options.formatOptions ?? {},
-                options.batchOptions,
-            );
+            const tokenResults = await this.formatTokenBatches(tokenArgs);
             for (let i = 0; i < tokenResults.length; i++) {
                 results[tokenIndices[i]] = tokenResults[i];
             }
@@ -517,7 +434,6 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                         false,
                 },
                 options.buildOptions ?? defaultBuildSidBlocksOptions(),
-                options.batchOptions,
             );
             for (let i = 0; i < pathResults.length; i++) {
                 results[pathIndices[i]] = pathResults[i] ?? [];

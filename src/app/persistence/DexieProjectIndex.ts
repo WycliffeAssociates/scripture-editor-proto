@@ -264,7 +264,7 @@ function toContainerFormatForIndexedItem(
 }
 
 export function buildProjectIndexDbName(namespace?: string | null): string {
-    return namespace ? `dovetail-editor:${namespace}` : "dovetail-editor";
+    return namespace ? `zephyr-editor:${namespace}` : "zephyr-editor";
 }
 
 /**
@@ -277,7 +277,7 @@ export function buildProjectIndexDbName(namespace?: string | null): string {
 export class DexieProjectIndex implements ProjectIndex {
     private readonly db: typeof Dexie & ScriptureEditorDB;
 
-    constructor(databaseName = "dovetail-editor") {
+    constructor(databaseName = "zephyr-editor") {
         this.db = new Dexie(databaseName) as typeof Dexie & ScriptureEditorDB;
         configureDb(this.db);
     }

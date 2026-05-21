@@ -1,4 +1,4 @@
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import { EDITOR_MODES, editorModeToShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
     inferContentEditorModeFromRootChildren,
@@ -35,11 +35,11 @@ export async function rebuildParsedFileFromUsfm(args: {
             ? LanguageDirection.RTL
             : LanguageDirection.LTR;
     const modeSampleChapter = args.targetFile.chapters[0];
-    const needsParagraphs = modeSampleChapter
+    const currentMode = modeSampleChapter
         ? inferContentEditorModeFromRootChildren(
               modeSampleChapter.lexicalState.root.children,
-          ) === EDITOR_MODES.regular
-        : true;
+          )
+        : EDITOR_MODES.regular;
 
     const normalizedTokens = normalizeTokenSids(
         projection.tokens,
@@ -65,7 +65,7 @@ export async function rebuildParsedFileFromUsfm(args: {
             const nextLexicalState = tokensToLexical({
                 tokens: nextCurrentTokens,
                 direction,
-                mode: needsParagraphs ? "regular" : "flat",
+                mode: editorModeToShape(currentMode),
             });
             return {
                 lexicalState: nextLexicalState,
@@ -74,8 +74,8 @@ export async function rebuildParsedFileFromUsfm(args: {
                 currentTokens: structuredClone(nextCurrentTokens),
                 chapterNumber,
                 dirty:
-                    nextCurrentTokens.map((token) => token.text).join("") !==
-                    nextSourceTokens.map((token) => token.text).join(""),
+                    nextCurrentTokens.map((token) => token.source).join("") !==
+                    nextSourceTokens.map((token) => token.source).join(""),
             };
         })
         .sort((a, b) => a.chapterNumber - b.chapterNumber);

@@ -254,7 +254,10 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
     const showCloudLogin = sourceFilter === "cloud" && !props.sessionUsername;
 
     return (
-        <section className={styles.shell}>
+        <section
+            className={styles.shell}
+            data-testid={TESTING_IDS.language.apiImporter}
+        >
             <header className={styles.header}>
                 <div className={styles.headerCopy}>
                     <h2 className={styles.title}>
@@ -384,6 +387,7 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
                             className={styles.clearButton}
                             onClick={() => gitea.setQuery("")}
                             aria-label={t`Clear search`}
+                            data-testid={TESTING_IDS.language.importerClear}
                         >
                             <X size={18} />
                         </button>

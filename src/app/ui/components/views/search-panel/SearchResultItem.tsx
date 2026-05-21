@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowRight } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
 import * as styles from "@/app/ui/styles/modules/SearchPanel.css.ts";
@@ -149,22 +149,7 @@ function PreviewSurface(props: {
     onPick: () => void;
     children: React.ReactNode;
 }) {
-    const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-        if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            props.onPick();
-        }
-    };
-    return (
-        <button
-            className={styles.searchResultPreview}
-            type="button"
-            onClick={props.onPick}
-            onKeyDown={handleKeyDown}
-        >
-            {props.children}
-        </button>
-    );
+    return <div className={styles.searchResultPreview}>{props.children}</div>;
 }
 
 function GroupedPreview(props: {

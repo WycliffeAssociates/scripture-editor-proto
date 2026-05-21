@@ -7,7 +7,7 @@ Superseded by: `product-docs/specs/typed-library-item-architecture.md` (2026-03-
 > **Historical note:** This ADR established the `BaseResource` / `Project` two-layer model. The terminology and contract shapes have since been replaced by the `LibraryItem` typed union model. See the superseding ADR for current guidance.
 
 ## Context
-Dovetail currently needs to support more than editable scripture workspaces. The app must still handle scripture projects as the primary writable editing surface, but it also needs a generic read-only seam for other local resource types such as Translation Notes and Translation Words.
+Zephyr currently needs to support more than editable scripture workspaces. The app must still handle scripture projects as the primary writable editing surface, but it also needs a generic read-only seam for other local resource types such as Translation Notes and Translation Words.
 
 The core mistake to avoid is making every local resource look like a scripture project. `Project` should stay scripture-specific and writable. `BaseResource` should be the generic read-only boundary that other content types can fit into without being forced into book/chapter editing semantics.
 

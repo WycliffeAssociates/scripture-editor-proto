@@ -13,9 +13,8 @@ describe("usfmMarkerLocalization", () => {
 
     it("returns shared localized labels for common markers", () => {
         expect(getLocalizedUsfmMarkerLabel("id")).toBe("Book identifiers");
-        expect(getLocalizedUsfmMarkerLabel("m")).toBe(
-            "Non-indented paragraph",
-        );
+        expect(getLocalizedUsfmMarkerLabel("m")).toBe("Paragraph");
+        expect(getLocalizedUsfmMarkerLabel("p")).toBe("Paragraph");
         expect(getLocalizedUsfmMarkerLabel("v")).toBe("Verse");
     });
 

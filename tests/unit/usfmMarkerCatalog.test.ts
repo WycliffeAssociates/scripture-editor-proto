@@ -14,33 +14,9 @@ function diff(left: ReadonlySet<string>, right: ReadonlySet<string>) {
     return [...left].filter((value) => !right.has(value)).sort();
 }
 
-const knownLocalOnlyMarkers = [
-    "lim4",
-    "liv1",
-    "liv2",
-    "liv3",
-    "liv4",
-    "liv5",
-    "qt1-e",
-    "qt1-s",
-    "qt2-e",
-    "qt2-s",
-    "qt3-e",
-    "qt3-s",
-    "qt4-e",
-    "qt4-s",
-    "qt5-e",
-    "qt5-s",
-    "s5",
-    "sd4",
-    "t-e",
-    "t-s",
-    "ts",
-    "ts-e",
-    "ts-s",
-];
+const knownLocalOnlyMarkers = ["s5"];
 
-const knownLocalOnlyParagraphMarkers = ["lim4", "s5", "sd4"];
+const knownLocalOnlyParagraphMarkers = ["s5"];
 const knownUpstreamOnlyMarkers: string[] = [];
 const knownUpstreamOnlyParagraphMarkers: string[] = [];
 

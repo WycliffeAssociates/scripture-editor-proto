@@ -31,14 +31,14 @@ describe("FsBackedAuthSessionProvider", () => {
             hostBaseUrl: "https://gitea.example.org",
             username: "alice",
             token: "token-one",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             tokenId: "1",
         });
         await provider.replaceSession({
             hostBaseUrl: "https://gitea.example.org",
             username: "bob",
             token: "token-two",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             tokenId: "2",
         });
 
@@ -46,7 +46,7 @@ describe("FsBackedAuthSessionProvider", () => {
             hostBaseUrl: "https://gitea.example.org",
             username: "bob",
             token: "token-two",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             tokenId: "2",
         });
     });
@@ -57,7 +57,7 @@ describe("FsBackedAuthSessionProvider", () => {
             ok: true,
             json: async () => ({
                 id: 7,
-                name: "dovetail-123",
+                name: "zephyr-123",
                 sha1: "created-token",
             }),
         });
@@ -91,14 +91,14 @@ describe("FsBackedAuthSessionProvider", () => {
         );
         const requestInit = fetchImpl.mock.calls[0]?.[1];
         expect(JSON.parse(String(requestInit?.body))).toEqual({
-            name: expect.stringMatching(/^dovetail-windows-/u),
+            name: expect.stringMatching(/^zephyr-windows-/u),
             scopes: [...GIT_REMOTE_SESSION_TOKEN_SCOPES],
         });
         expect(session).toEqual({
             hostBaseUrl: "https://gitea.example.org",
             username: "alice",
             token: "created-token",
-            tokenName: "dovetail-123",
+            tokenName: "zephyr-123",
             tokenId: "7",
         });
         await expect(provider.getCurrentSession()).resolves.toEqual(session);
@@ -116,7 +116,7 @@ describe("FsBackedAuthSessionProvider", () => {
             hostBaseUrl: "https://gitea.example.org",
             username: "alice",
             token: "created-token",
-            tokenName: "dovetail-123",
+            tokenName: "zephyr-123",
             tokenId: "7",
         });
 
@@ -136,7 +136,7 @@ describe("FsBackedAuthSessionProvider", () => {
             hostBaseUrl: "https://gitea.example.org",
             username: "alice",
             token: "token-one",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             tokenId: "1",
         });
         await writeGitRemotePendingRevocation({
@@ -145,7 +145,7 @@ describe("FsBackedAuthSessionProvider", () => {
             pending: {
                 hostBaseUrl: "https://gitea.example.org",
                 tokenId: "1",
-                tokenName: "dovetail-web",
+                tokenName: "zephyr-web",
                 retryCount: 0,
                 lastAttemptedAt: null,
                 lastFailureReason: null,
@@ -164,7 +164,7 @@ describe("FsBackedAuthSessionProvider", () => {
         ).resolves.toEqual({
             hostBaseUrl: "https://gitea.example.org",
             tokenId: "1",
-            tokenName: "dovetail-web",
+            tokenName: "zephyr-web",
             retryCount: 0,
             lastAttemptedAt: null,
             lastFailureReason: null,

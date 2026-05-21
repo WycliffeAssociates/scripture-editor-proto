@@ -40,6 +40,8 @@ function getModeForAction(actionId: string): EditorModeSetting | null {
             return EDITOR_MODES.view;
         case "switch-usfm":
             return EDITOR_MODES.usfm;
+        case "switch-form":
+            return EDITOR_MODES.form;
         default:
             return null;
     }

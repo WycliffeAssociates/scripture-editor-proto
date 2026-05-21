@@ -74,7 +74,6 @@ function serializeTokenToNodes(
                 marker: token.marker,
                 inPara: token.inPara,
                 inChars: token.inChars,
-                attributes: token.attributes,
             }),
             ...serializeTokens(
                 token.content ?? [],

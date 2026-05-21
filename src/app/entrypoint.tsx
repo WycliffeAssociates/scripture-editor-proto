@@ -10,9 +10,11 @@ import type { PlatformAndWeb } from "@/app/data/constants.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { routeTree } from "@/app/generated/routeTree.gen.ts";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
+import { UpdateBanner } from "@/app/ui/components/blocks/UpdateBanner.tsx";
 import { NotificationViewport } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
+import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ImportService } from "@/core/library/ImportService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
@@ -42,6 +44,8 @@ type EntryPointProps = {
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
+    /** Desktop wires `TauriUpdaterService`; web passes null (no auto-updates). */
+    updaterService?: IUpdaterService | null;
 };
 
 const queryClient = new QueryClient();
@@ -67,6 +71,7 @@ export interface RouterContext {
     gitProvider: GitProvider;
     opener: IOpener;
     platform: PlatformAndWeb;
+    updaterService: IUpdaterService | null;
 }
 
 const wrapCreateRouter = (
@@ -82,6 +87,7 @@ const wrapCreateRouter = (
     gitProvider: GitProvider,
     opener: IOpener,
     platform: PlatformAndWeb,
+    updaterService: IUpdaterService | null,
 ) => {
     const router = createRouter({
         routeTree,
@@ -99,6 +105,7 @@ const wrapCreateRouter = (
             gitProvider,
             opener,
             platform,
+            updaterService,
         },
     });
     return router;
@@ -130,6 +137,7 @@ export function App({
     gitProvider,
     opener,
     platform,
+    updaterService = null,
 }: EntryPointProps) {
     const router = wrapCreateRouter(
         settingsManager,
@@ -144,6 +152,7 @@ export function App({
         gitProvider,
         opener,
         platform,
+        updaterService,
     );
 
     useEffect(() => {
@@ -164,6 +173,7 @@ export function App({
             <QueryClientProvider client={queryClient}>
                 <ThemeQueryProvider>
                     <NotificationViewport />
+                    <UpdateBanner updaterService={updaterService} />
                     <RouterProvider router={router} />
                 </ThemeQueryProvider>
             </QueryClientProvider>

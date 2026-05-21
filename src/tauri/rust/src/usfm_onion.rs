@@ -20,13 +20,6 @@ pub struct BuildSidBlocksOptionsDto {
     pub allow_empty_sid: bool,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BatchExecutionOptionsDto {
-    #[serde(default = "default_true")]
-    pub parallel: bool,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffPathPairDto {
@@ -81,40 +74,30 @@ pub struct ProjectUsfmOptionsDto {
     pub lint_options: Option<LintOptionsDto>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FormatOptionsDto {
-    pub recover_malformed_markers: Option<bool>,
-    pub collapse_whitespace_in_text: Option<bool>,
-    pub ensure_inline_separators: Option<bool>,
-    pub remove_duplicate_verse_numbers: Option<bool>,
-    pub normalize_spacing_after_paragraph_markers: Option<bool>,
-    pub remove_unwanted_linebreaks: Option<bool>,
-    pub bridge_consecutive_verse_markers: Option<bool>,
-    pub remove_orphan_empty_verse_before_contentful_verse: Option<bool>,
-    pub remove_bridge_verse_enumerators: Option<bool>,
-    pub move_chapter_label_after_chapter_marker: Option<bool>,
-    pub insert_default_paragraph_after_chapter_intro: Option<bool>,
-    pub remove_empty_paragraphs: Option<bool>,
-    pub insert_structural_linebreaks: Option<bool>,
-    pub collapse_consecutive_linebreaks: Option<bool>,
-    pub normalize_marker_whitespace_at_line_start: Option<bool>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LintIssueDto {
     pub code: String,
+    pub category: String,
     pub severity: String,
     pub issue_type: String,
-    pub marker: Option<String>,
+    pub template: String,
     pub message: String,
+    #[serde(default)]
     pub message_params: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub marker: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub span: Option<SpanDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub related_span: Option<SpanDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub related_token_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fix: Option<TokenFixDto>,
 }
 
@@ -285,33 +268,11 @@ fn read_usfm_source_from_path(path: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| "failed to decode utf-8".to_string())
 }
 
-fn should_parallelize(options: Option<BatchExecutionOptionsDto>) -> bool {
-    options.map(|o| o.parallel).unwrap_or(true)
-}
-
-fn map_execution(options: Option<BatchExecutionOptionsDto>) -> onion::ExecutionMode {
-    if should_parallelize(options) {
-        onion::ExecutionMode::Parallel
-    } else {
-        onion::ExecutionMode::Serial
-    }
-}
-
-fn read_sources_from_paths(
-    paths: Vec<String>,
-    batch_options: Option<BatchExecutionOptionsDto>,
-) -> Result<Vec<String>, String> {
-    if should_parallelize(batch_options) {
-        paths
-            .into_par_iter()
-            .map(|path| read_usfm_source_from_path(&path))
-            .collect()
-    } else {
-        paths
-            .into_iter()
-            .map(|path| read_usfm_source_from_path(&path))
-            .collect()
-    }
+fn read_sources_from_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
+    paths
+        .into_par_iter()
+        .map(|path| read_usfm_source_from_path(&path))
+        .collect()
 }
 
 fn map_span(span: Span) -> SpanDto {
@@ -332,7 +293,6 @@ fn map_token_kind(kind: onion::TokenKind) -> String {
         onion::TokenKind::BookCode => "bookCode",
         onion::TokenKind::Number => "number",
         onion::TokenKind::Text => "text",
-        onion::TokenKind::AttributeList => "attributeList",
     }
     .to_string()
 }
@@ -347,7 +307,6 @@ fn parse_token_kind(kind: &str) -> onion::TokenKind {
         "milestoneEnd" => onion::TokenKind::MilestoneEnd,
         "bookCode" => onion::TokenKind::BookCode,
         "number" | "numberRange" => onion::TokenKind::Number,
-        "attributeList" => onion::TokenKind::AttributeList,
         _ => onion::TokenKind::Text,
     }
 }
@@ -360,7 +319,7 @@ fn map_flat_token(token: &onion::Token<'_>) -> FlatTokenDto {
         sid: token
             .sid
             .as_ref()
-            .map(|sid| format!("{} {}:{}", sid.book_code, sid.chapter, sid.verse)),
+            .map(|sid| format!("{} {}:{}", sid.book, sid.chapter, sid.verse)),
         marker: token.marker_name().map(ToString::to_string),
         text: token.source.to_string(),
     }
@@ -439,64 +398,20 @@ fn map_lint_options(options: Option<LintOptionsDto>) -> onion::LintOptions {
     }
 }
 
-fn map_format_options(options: Option<FormatOptionsDto>) -> onion::FormatOptions {
-    let defaults = onion::FormatOptions::default();
-    let Some(options) = options else {
-        return defaults;
-    };
-
-    onion::FormatOptions {
-        recover_malformed_markers: options
-            .recover_malformed_markers
-            .unwrap_or(defaults.recover_malformed_markers),
-        collapse_whitespace_in_text: options
-            .collapse_whitespace_in_text
-            .unwrap_or(defaults.collapse_whitespace_in_text),
-        ensure_inline_separators: options
-            .ensure_inline_separators
-            .unwrap_or(defaults.ensure_inline_separators),
-        remove_duplicate_verse_numbers: options
-            .remove_duplicate_verse_numbers
-            .unwrap_or(defaults.remove_duplicate_verse_numbers),
-        normalize_spacing_after_paragraph_markers: options
-            .normalize_spacing_after_paragraph_markers
-            .unwrap_or(defaults.normalize_spacing_after_paragraph_markers),
-        remove_unwanted_linebreaks: options
-            .remove_unwanted_linebreaks
-            .unwrap_or(defaults.remove_unwanted_linebreaks),
-        bridge_consecutive_verse_markers: options
-            .bridge_consecutive_verse_markers
-            .unwrap_or(defaults.bridge_consecutive_verse_markers),
-        remove_orphan_empty_verse_before_contentful_verse: options
-            .remove_orphan_empty_verse_before_contentful_verse
-            .unwrap_or(defaults.remove_orphan_empty_verse_before_contentful_verse),
-        remove_bridge_verse_enumerators: options
-            .remove_bridge_verse_enumerators
-            .unwrap_or(defaults.remove_bridge_verse_enumerators),
-        move_chapter_label_after_chapter_marker: options
-            .move_chapter_label_after_chapter_marker
-            .unwrap_or(defaults.move_chapter_label_after_chapter_marker),
-        insert_default_paragraph_after_chapter_intro: options
-            .insert_default_paragraph_after_chapter_intro
-            .unwrap_or(defaults.insert_default_paragraph_after_chapter_intro),
-        remove_empty_paragraphs: options
-            .remove_empty_paragraphs
-            .unwrap_or(defaults.remove_empty_paragraphs),
-        insert_structural_linebreaks: options
-            .insert_structural_linebreaks
-            .unwrap_or(defaults.insert_structural_linebreaks),
-        collapse_consecutive_linebreaks: options
-            .collapse_consecutive_linebreaks
-            .unwrap_or(defaults.collapse_consecutive_linebreaks),
-        normalize_marker_whitespace_at_line_start: options
-            .normalize_marker_whitespace_at_line_start
-            .unwrap_or(defaults.normalize_marker_whitespace_at_line_start),
+fn map_lint_category(category: onion::LintCategory) -> String {
+    match category {
+        onion::LintCategory::Document => "document",
+        onion::LintCategory::Structure => "structure",
+        onion::LintCategory::Context => "context",
+        onion::LintCategory::Numbering => "numbering",
     }
+    .to_string()
 }
 
 fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
     LintIssueDto {
         code: issue.code.code().to_string(),
+        category: map_lint_category(issue.category),
         severity: match issue.severity {
             onion::LintSeverity::Error => "error".to_string(),
             onion::LintSeverity::Warning => "warning".to_string(),
@@ -505,9 +420,10 @@ fn map_lint_issue(issue: &onion::LintIssue) -> LintIssueDto {
             onion::LintIssueType::Usfm => "usfm".to_string(),
             onion::LintIssueType::Content => "content".to_string(),
         },
+        template: issue.template.to_string(),
         marker: issue.marker.clone(),
         message: issue.message.clone(),
-        message_params: BTreeMap::new(),
+        message_params: issue.message_params.clone(),
         span: issue.span.map(map_span),
         related_span: issue.related_span.map(map_span),
         token_id: issue.token_id.clone(),
@@ -643,6 +559,8 @@ fn map_projected_document(
 
     ProjectedUsfmDocumentDto {
         tokens: map_tokens(&usfm.tokens()),
+        // TODO: move the \s5 unknown-marker suppression to a data-driven
+        // LintSuppression rather than hard-coding it at every wire boundary.
         lint_issues: lint_issues.map(|issues| {
             issues
                 .into_iter()
@@ -864,40 +782,35 @@ pub fn usfm_onion_project_usfm(
 pub fn usfm_onion_project_paths(
     paths: Vec<String>,
     options: Option<ProjectUsfmOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<ProjectedUsfmDocumentDto>, String> {
-    let sources = read_sources_from_paths(paths, batch_options.clone())?;
-    let exec = should_parallelize(batch_options);
+    let sources = read_sources_from_paths(paths)?;
     let project_options = options.unwrap_or_default();
-    let iter = sources
-        .into_iter()
-        .map(|source| onion::Usfm::from_str(&source));
-    let docs = if exec {
-        let docs = iter.collect::<Vec<_>>();
-        docs.into_par_iter()
-            .map(|doc| map_projected_document(&doc, project_options.clone()))
-            .collect()
-    } else {
-        iter.map(|doc| map_projected_document(&doc, project_options.clone()))
-            .collect()
-    };
-    Ok(docs)
+    Ok(sources
+        .into_par_iter()
+        .map(|source| {
+            let usfm = onion::Usfm::from_str(&source);
+            map_projected_document(&usfm, project_options.clone())
+        })
+        .collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_lint_paths(
     paths: Vec<String>,
     options: Option<LintOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<LintIssueDto>>, String> {
-    let batch = onion::UsfmBatch::from_paths(paths).map_err(|error| error.to_string())?;
-    let results = batch
-        .lint(map_lint_options(options))
-        .with_execution(map_execution(batch_options))
-        .run();
-    Ok(results
-        .into_iter()
-        .map(|item| item.value.issues.iter().map(map_lint_issue).collect())
+    let sources = read_sources_from_paths(paths)?;
+    let lint_options = map_lint_options(options);
+    Ok(sources
+        .into_par_iter()
+        .map(|source| {
+            let usfm = onion::Usfm::from_str(&source);
+            usfm.lint(lint_options.clone())
+                .issues
+                .iter()
+                .map(map_lint_issue)
+                .collect()
+        })
         .collect())
 }
 
@@ -916,54 +829,41 @@ pub fn usfm_onion_lint_tokens(
 pub fn usfm_onion_lint_token_batches(
     token_batches: Vec<Vec<FlatTokenDto>>,
     options: Option<LintOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<LintIssueDto>>, String> {
-    let batch = onion::TokenBatch::from_token_streams(
-        token_batches
-            .into_iter()
-            .map(|tokens| {
-                onion::TokenStream::from_tokens(
-                    tokens.into_iter().map(map_flat_token_dto).collect(),
-                )
-            })
-            .collect(),
-    );
-    let results = batch
-        .lint(map_lint_options(options))
-        .with_execution(map_execution(batch_options))
-        .run();
-    Ok(results
-        .into_iter()
-        .map(|item| item.value.issues.iter().map(map_lint_issue).collect())
+    let lint_options = map_lint_options(options);
+    Ok(token_batches
+        .into_par_iter()
+        .map(|tokens| {
+            let stream = onion::TokenStream::from_tokens(
+                tokens.into_iter().map(map_flat_token_dto).collect(),
+            );
+            stream
+                .lint(lint_options.clone())
+                .issues
+                .iter()
+                .map(map_lint_issue)
+                .collect()
+        })
         .collect())
 }
 
 #[tauri::command]
 pub fn usfm_onion_format_token_batches(
     token_batches: Vec<Vec<FlatTokenDto>>,
-    options: Option<FormatOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<TokenTransformResultDto>, String> {
-    let batch = onion::TokenBatch::from_token_streams(
-        token_batches
-            .into_iter()
-            .map(|tokens| {
-                onion::TokenStream::from_tokens(
-                    tokens.into_iter().map(map_flat_token_dto).collect(),
-                )
-            })
-            .collect(),
-    );
-    let results = batch
-        .format(map_format_options(options))
-        .with_execution(map_execution(batch_options))
-        .run();
-    Ok(results
-        .into_iter()
-        .map(|item| TokenTransformResultDto {
-            tokens: map_format_tokens(&item.value),
-            applied_changes: Vec::new(),
-            skipped_changes: Vec::new(),
+    let format_options = onion::FormatOptions::for_profile(onion::FormatProfile::Reading);
+    Ok(token_batches
+        .into_par_iter()
+        .map(|tokens| {
+            let stream = onion::TokenStream::from_tokens(
+                tokens.into_iter().map(map_flat_token_dto).collect(),
+            );
+            let formatted = stream.format(format_options);
+            TokenTransformResultDto {
+                tokens: map_format_tokens(&formatted),
+                applied_changes: Vec::new(),
+                skipped_changes: Vec::new(),
+            }
         })
         .collect())
 }
@@ -972,20 +872,16 @@ pub fn usfm_onion_format_token_batches(
 pub fn usfm_onion_format_paths(
     paths: Vec<String>,
     _token_options: Option<IntoTokensOptionsDto>,
-    format_options: Option<FormatOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<TokenTransformResultDto>, String> {
-    let batch = onion::UsfmBatch::from_paths(paths).map_err(|error| error.to_string())?;
-    let results = batch
-        .format(map_format_options(format_options))
-        .with_execution(map_execution(batch_options))
-        .run();
-    Ok(results
-        .into_iter()
-        .map(|item| {
-            let parsed = onion::Usfm::from_str(&item.value);
+    let sources = read_sources_from_paths(paths)?;
+    let format_options = onion::FormatOptions::for_profile(onion::FormatProfile::Reading);
+    Ok(sources
+        .into_par_iter()
+        .map(|source| {
+            let parsed = onion::Usfm::from_str(&source).parse_owned();
+            let formatted = parsed.format(format_options);
             TokenTransformResultDto {
-                tokens: map_tokens(&parsed.tokens()),
+                tokens: map_format_tokens(&formatted),
                 applied_changes: Vec::new(),
                 skipped_changes: Vec::new(),
             }
@@ -998,22 +894,36 @@ pub fn usfm_onion_diff_path_pairs(
     path_pairs: Vec<DiffPathPairDto>,
     _token_options: Option<IntoTokensOptionsDto>,
     build_options: Option<BuildSidBlocksOptionsDto>,
-    batch_options: Option<BatchExecutionOptionsDto>,
 ) -> Result<Vec<Vec<DiffDto>>, String> {
-    let left = onion::UsfmBatch::from_paths(path_pairs.iter().map(|pair| &pair.baseline_path))
-        .map_err(|error| error.to_string())?;
-    let right = onion::UsfmBatch::from_paths(path_pairs.iter().map(|pair| &pair.current_path))
-        .map_err(|error| error.to_string())?;
-    let results = left
-        .diff(&right)
-        .with_options(onion::BuildSidBlocksOptions {
-            allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
+    let build_opts = onion::BuildSidBlocksOptions {
+        allow_empty_sid: build_options.map(|o| o.allow_empty_sid).unwrap_or(true),
+    };
+    let left_sources = read_sources_from_paths(
+        path_pairs
+            .iter()
+            .map(|pair| pair.baseline_path.clone())
+            .collect(),
+    )?;
+    let right_sources = read_sources_from_paths(
+        path_pairs
+            .iter()
+            .map(|pair| pair.current_path.clone())
+            .collect(),
+    )?;
+    Ok(left_sources
+        .into_par_iter()
+        .zip(right_sources.into_par_iter())
+        .map(|(left, right)| {
+            let left_parsed = onion::Usfm::from_str(&left).parse_owned();
+            let right_parsed = onion::Usfm::from_str(&right).parse_owned();
+            left_parsed
+                .diff(&right_parsed)
+                .with_options(build_opts)
+                .run()
+                .iter()
+                .map(map_diff)
+                .collect()
         })
-        .with_execution(map_execution(batch_options))
-        .run();
-    Ok(results
-        .into_iter()
-        .map(|item| item.value.iter().map(map_diff).collect())
         .collect())
 }
 

@@ -1,6 +1,6 @@
-# Dovetail AGENTS Guide
+# Zephyr AGENTS Guide
 
-Dovetail is a local-first scripture editor for USFM, with shared core logic across Web (OPFS) and Desktop (Tauri).
+Zephyr is a local-first scripture editor for USFM, with shared core logic across Web (OPFS) and Desktop (Tauri).
 
 ## Repository-wide essentials
 - Package manager: `pnpm`

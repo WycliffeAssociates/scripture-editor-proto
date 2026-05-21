@@ -1,0 +1,275 @@
+/**
+ * Tauri updater manifest endpoint, backed by the GitHub Releases API.
+ *
+ * Routes (path-based; this worker only ever receives traffic on the
+ * `updater.zephyr.*` hostnames configured in wrangler.toml):
+ *
+ *   /{target}/{current_version}       Auto-check. Returns 204 if the latest
+ *                                     release is not newer; manifest JSON
+ *                                     otherwise.
+ *   /versions                         List recent releases for the manual
+ *                                     downgrade picker.
+ *   /{target}/at/{specific_version}   Manifest for an exact version (manual
+ *                                     downgrade / pinning).
+ *
+ * Target strings follow Tauri's convention: e.g. darwin-aarch64,
+ * darwin-x86_64, linux-x86_64, windows-x86_64.
+ *
+ * Manifest lookups are edge-cached for 60s to absorb update-check stampedes.
+ *
+ * Versioning notes:
+ *   - Stable manifests carry stripped semver, e.g. "0.1.5" (not "v0.1.5").
+ *   - Nightly manifests carry "<base>-<YYYYMMDD>.<run_number>.sha<sha7>",
+ *     e.g. "0.1.4-20260521.42.shaabc1234". Three dot-separated pre-release
+ *     identifiers give a monotonic ordering: date (numeric per day),
+ *     github.run_number (numeric, monotonic per release.yml dispatch),
+ *     and a short SHA prefixed with "sha" so it's always parsed as
+ *     alphanumeric (a raw 7-char hex SHA could be all digits with a leading
+ *     zero, which is invalid as a numeric semver identifier). release.yml
+ *     bakes the same string into the binary so the client's reported
+ *     `current_version` is in the same form.
+ *   - isNewer relies on `semver.gt` so 0.10.0 > 0.9.0 (string sort fails this).
+ */
+
+import { gt as semverGt, valid as semverValid } from "semver";
+
+type Env = {
+    GH_REPO: string;
+    GH_TAG_PREFIX: string;
+    CHANNEL: string;
+    GH_TOKEN?: string;
+};
+
+type GhAsset = {
+    name: string;
+    browser_download_url: string;
+    size: number;
+};
+
+type GhRelease = {
+    tag_name: string;
+    name: string;
+    published_at: string;
+    prerelease: boolean;
+    body: string;
+    assets: GhAsset[];
+};
+
+type TauriManifest = {
+    version: string;
+    notes: string;
+    pub_date: string;
+    platforms: Record<string, { signature: string; url: string }>;
+};
+
+const CACHE_TTL_SECONDS = 60;
+
+export default {
+    async fetch(request: Request, env: Env): Promise<Response> {
+        const url = new URL(request.url);
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString());
+        const cached = await cache.match(cacheKey);
+        if (cached) return cached;
+
+        const path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
+        let response: Response;
+
+        if (path.length === 1 && path[0] === "versions") {
+            response = await listVersions(env);
+        } else if (path.length === 2) {
+            response = await latestManifest(path[0], path[1], env);
+        } else if (path.length === 3 && path[1] === "at") {
+            response = await manifestAtVersion(path[0], path[2], env);
+        } else {
+            response = new Response("not found", { status: 404 });
+        }
+
+        if (response.ok || response.status === 204) {
+            const cacheable = response.clone();
+            cacheable.headers.set(
+                "cache-control",
+                `public, max-age=${CACHE_TTL_SECONDS}`,
+            );
+            await cache.put(cacheKey, cacheable);
+        }
+        return response;
+    },
+} satisfies ExportedHandler<Env>;
+
+async function listVersions(env: Env): Promise<Response> {
+    const releases = await fetchReleases(env);
+    const versions = releases.map((r) => ({
+        version: stripTagPrefix(r.tag_name, env.GH_TAG_PREFIX),
+        tag: r.tag_name,
+        published_at: r.published_at,
+        prerelease: r.prerelease,
+    }));
+    return json(versions);
+}
+
+async function latestManifest(
+    target: string,
+    currentVersion: string,
+    env: Env,
+): Promise<Response> {
+    const releases = await fetchReleases(env);
+    const latest = releases[0];
+    if (!latest) return new Response("no releases", { status: 404 });
+
+    const latestVersion = stripTagPrefix(latest.tag_name, env.GH_TAG_PREFIX);
+    if (!isNewer(latestVersion, currentVersion)) {
+        return new Response(null, { status: 204 });
+    }
+
+    const manifest = await buildManifest(target, latest, env);
+    if (!manifest) {
+        return new Response(`no asset for target ${target}`, { status: 404 });
+    }
+    return json(manifest);
+}
+
+async function manifestAtVersion(
+    target: string,
+    version: string,
+    env: Env,
+): Promise<Response> {
+    const tag = `${env.GH_TAG_PREFIX}${version}`;
+    const release = await fetchRelease(tag, env);
+    if (!release) return new Response(`no release ${tag}`, { status: 404 });
+
+    const manifest = await buildManifest(target, release, env);
+    if (!manifest) {
+        return new Response(`no asset for target ${target}`, { status: 404 });
+    }
+    return json(manifest);
+}
+
+/**
+ * Build the Tauri updater manifest for a target/release pair.
+ *
+ * The `signature` field MUST be the raw text contents of the .sig file (as a
+ * base64-encoded minisign signature string). The Tauri plugin parses this
+ * string and verifies the downloaded binary against it; a URL in the
+ * `signature` field causes verification to fail. We fetch the .sig file here
+ * and inline its contents.
+ *
+ * The `version` field is the *stripped* semver (no "v" prefix) for stable.
+ * For nightly we still strip the prefix even though the result is not semver;
+ * the Tauri plugin's default comparator will reject and the auto-check will
+ * 204 from `latestManifest`. Settings → Switch version routes around this.
+ */
+async function buildManifest(
+    target: string,
+    release: GhRelease,
+    env: Env,
+): Promise<TauriManifest | null> {
+    const platformAsset = findPlatformAsset(target, release.assets);
+    if (!platformAsset) return null;
+
+    const sigAsset = release.assets.find(
+        (a) => a.name === `${platformAsset.name}.sig`,
+    );
+    if (!sigAsset) return null;
+
+    const sigContents = await fetchSignatureText(sigAsset.browser_download_url);
+    if (sigContents === null) return null;
+
+    return {
+        version: stripTagPrefix(release.tag_name, env.GH_TAG_PREFIX),
+        notes: release.body || release.name,
+        pub_date: release.published_at,
+        platforms: {
+            [target]: {
+                signature: sigContents,
+                url: platformAsset.browser_download_url,
+            },
+        },
+    };
+}
+
+async function fetchSignatureText(url: string): Promise<string | null> {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return (await res.text()).trim();
+}
+
+function findPlatformAsset(
+    target: string,
+    assets: GhAsset[],
+): GhAsset | undefined {
+    const patterns: Record<string, RegExp[]> = {
+        "darwin-aarch64": [/\.app\.tar\.gz$/, /aarch64.*\.dmg$/],
+        "darwin-x86_64": [/\.app\.tar\.gz$/, /x64.*\.dmg$/, /x86_64.*\.dmg$/],
+        "linux-x86_64": [/\.AppImage\.tar\.gz$/, /amd64\.AppImage$/],
+        "windows-x86_64": [/x64.*\.msi\.zip$/, /\.msi$/, /\.nsis\.zip$/],
+    };
+    const candidates = patterns[target];
+    if (!candidates) return undefined;
+    for (const pattern of candidates) {
+        const match = assets.find((a) => pattern.test(a.name));
+        if (match) return match;
+    }
+    return undefined;
+}
+
+function stripTagPrefix(tag: string, prefix: string): string {
+    return tag.startsWith(prefix) ? tag.slice(prefix.length) : tag;
+}
+
+/**
+ * Decide if `latest` is newer than `current` and worth offering as an update.
+ *
+ * Real semver comparison via the `semver` package — critical that 0.10.0
+ * reads as newer than 0.9.0 (string sort gets that wrong).
+ *
+ * Works for both channels: stable manifests carry e.g. "0.1.5", nightly
+ * manifests carry "0.1.4-20260521-abc1234" (semver with a single
+ * alphanumeric pre-release identifier). Two consecutive nightlies compare
+ * correctly because pre-release identifiers are ASCII-compared; "20260521"
+ * > "20260520" at the relevant position. release.yml's patch step bakes
+ * the same version into the binary so the client's reported `current`
+ * matches the manifest format.
+ */
+function isNewer(latest: string, current: string): boolean {
+    if (latest === current) return false;
+    const latestSemver = semverValid(latest) ?? semverValid(latest.replace(/^v/, ""));
+    const currentSemver =
+        semverValid(current) ?? semverValid(current.replace(/^v/, ""));
+    if (!latestSemver || !currentSemver) return false;
+    return semverGt(latestSemver, currentSemver);
+}
+
+async function fetchReleases(env: Env): Promise<GhRelease[]> {
+    const res = await ghFetch(
+        `https://api.github.com/repos/${env.GH_REPO}/releases?per_page=30`,
+        env,
+    );
+    if (!res.ok) return [];
+    const all = (await res.json()) as GhRelease[];
+    return all.filter((r) => r.tag_name.startsWith(env.GH_TAG_PREFIX));
+}
+
+async function fetchRelease(tag: string, env: Env): Promise<GhRelease | null> {
+    const res = await ghFetch(
+        `https://api.github.com/repos/${env.GH_REPO}/releases/tags/${encodeURIComponent(tag)}`,
+        env,
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as GhRelease;
+}
+
+function ghFetch(url: string, env: Env): Promise<Response> {
+    const headers: Record<string, string> = {
+        accept: "application/vnd.github+json",
+        "user-agent": `zephyr-updater-worker/${env.CHANNEL}`,
+    };
+    if (env.GH_TOKEN) headers.authorization = `Bearer ${env.GH_TOKEN}`;
+    return fetch(url, { headers });
+}
+
+function json(body: unknown): Response {
+    return new Response(JSON.stringify(body), {
+        headers: { "content-type": "application/json" },
+    });
+}

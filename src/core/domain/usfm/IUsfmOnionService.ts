@@ -1,5 +1,4 @@
 import type {
-    BatchExecutionOptions,
     BuildSidBlocksOptions,
     Diff,
     DiffScopeItem,
@@ -22,13 +21,6 @@ import type {
  *
  * Keep this interface async even when a specific implementation is synchronous
  * so web/wasm and Tauri/native callers can share one contract.
- *
- * This first integration slice covers:
- * - lexical token projection
- * - the current Dovetail parse tree shape used by the editor
- *
- * Future slices should expand this same interface with lint/format/diff and
- * conversion methods instead of introducing parallel service contracts.
  */
 export interface IUsfmOnionService {
     readonly supportsPathIo: boolean;
@@ -43,13 +35,11 @@ export interface IUsfmOnionService {
     parseUsfmBatchFromPaths(
         paths: string[],
         options?: ProjectUsfmOptions,
-        batchOptions?: BatchExecutionOptions,
     ): Promise<ProjectedUsfmDocument[]>;
 
     parseUsfmBatchFromContents(
         sources: string[],
         options?: ProjectUsfmOptions,
-        batchOptions?: BatchExecutionOptions,
     ): Promise<ProjectedUsfmDocument[]>;
 
     lintExisting(

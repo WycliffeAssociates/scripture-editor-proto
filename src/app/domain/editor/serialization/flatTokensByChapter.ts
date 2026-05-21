@@ -32,7 +32,7 @@ export function groupFlatTokensByChapter(
                         (candidate.span?.start ?? -1) >=
                             (token.span?.end ?? Number.MAX_SAFE_INTEGER) &&
                         candidate.kind === "number",
-                )?.text ?? "",
+                )?.source ?? "",
                 10,
             );
             if (Number.isFinite(nextChapter) && nextChapter > 0) {

@@ -55,5 +55,10 @@ tests/mockData/en_tn_condensed/*
 !tests/mockData/en_tn_condensed/README.md
 !tests/mockData/en_tn_condensed/manifest.yaml
 
+tests/mockData/berean-standard-bible
+
+
 # bv (beads viewer) local config and caches
 .bv/
+.repomix/
+.claude/scheduled_tasks.lock

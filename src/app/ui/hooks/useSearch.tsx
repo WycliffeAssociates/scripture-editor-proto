@@ -1,5 +1,7 @@
+import { Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
-import { type RefObject, useEffect, useMemo } from "react";
+import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { makeSearchRerunPipeline } from "@/app/domain/editor/pipelines/searchRerunPipeline.ts";
 import type {
     SearchContentProvider,
     SearchResult,
@@ -9,6 +11,8 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSearchExecution } from "@/app/ui/hooks/search/useSearchExecution.ts";
 import { useSearchNavigation } from "@/app/ui/hooks/search/useSearchNavigation.ts";
 import { useSearchReplace } from "@/app/ui/hooks/search/useSearchReplace.ts";
@@ -16,9 +20,9 @@ import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { makeSid } from "@/core/data/bible/bible.ts";
 
 type Props = {
-    workingFiles: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
+    searchHighlightStore: SearchHighlightStore;
     referenceFiles?: ScriptureBookState[];
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     contentProvider?: SearchContentProvider;
     switchBookOrChapter: (
         file: string,
@@ -50,9 +54,9 @@ export type UseSearchReturn = ReturnType<typeof useProjectSearch> & {
  * search source so the route-level editor shell can consume one cohesive search API.
  */
 export function useProjectSearch({
-    workingFiles,
+    workingFilesStore,
+    searchHighlightStore,
     referenceFiles,
-    saveCurrentDirtyLexical,
     contentProvider,
     switchBookOrChapter,
     editorRef,
@@ -64,17 +68,14 @@ export function useProjectSearch({
     const resolvedContentProvider: SearchContentProvider = useMemo(
         () =>
             contentProvider ?? {
-                getTargetFiles: () => workingFiles,
-                saveDirtyAndGetTargetFiles: () =>
-                    saveCurrentDirtyLexical() || workingFiles,
+                // Push-based read: the bridge plugin keeps the store fresh on
+                // every editor commit, so a one-shot read returns the same shape
+                // the legacy saveCurrentDirtyLexical() flush-then-read path used
+                // to produce.
+                getTargetFiles: () => workingFilesStore.read(),
                 getReferenceFiles: () => referenceFiles ?? [],
             },
-        [
-            contentProvider,
-            referenceFiles,
-            saveCurrentDirtyLexical,
-            workingFiles,
-        ],
+        [contentProvider, referenceFiles, workingFilesStore],
     );
 
     const currentChapterSid = makeSid({
@@ -86,6 +87,7 @@ export function useProjectSearch({
         editorRef,
         referenceEditorRef,
         switchBookOrChapter,
+        searchHighlightStore,
     });
 
     const execution = useSearchExecution({
@@ -94,6 +96,7 @@ export function useProjectSearch({
         pickedChapter,
         currentChapterSid,
         editorRef,
+        searchHighlightStore,
         collectMatchesInCurrentEditor: navigation.collectMatchesInCurrentEditor,
         pick: navigation.pick,
         currentMatchesControls: {
@@ -108,35 +111,47 @@ export function useProjectSearch({
     const replace = useSearchReplace({
         history,
         editorRef,
+        searchHighlightStore,
         searchReference: execution.searchReference,
         pickedResult: navigation.pickedResult,
         currentMatches: navigation.currentMatches,
         currentMatchIndex: navigation.currentMatchIndex,
         setCurrentMatchIndex: navigation.setCurrentMatchIndex,
         setPickedResult: navigation.setPickedResult,
-        setCurrentMatches: navigation.setCurrentMatches,
         searchTerm: execution.searchTerm,
         runSearchLogic: execution.runSearchLogic,
         matchCase: execution.matchCase,
         matchWholeWord: execution.matchWholeWord,
         pickedFile,
         pickedChapter,
-        setTargetResults: execution.setTargetResults,
-        setReferenceResults: execution.setReferenceResults,
         preparePickedResult: navigation.preparePickedResult,
     });
 
     const pickedResultIdx = navigation.getPickedResultIdx(execution.results);
 
+    // Auto-rerun on programmatic working-files changes (undo/redo,
+    // programmaticFix, import). Pipeline + policy live in
+    // `makeSearchRerunPipeline`; this hook just wires it. The
+    // `executionRef` lets the pipeline read the latest search term and
+    // rerun callback through getters without re-forking per render.
+    const executionRef = useRef(execution);
+    executionRef.current = execution;
     useEffect(() => {
-        return history.registerPostUndoRedoAction(() => {
-            if (!execution.isSearchPaneOpen) return;
-            if (!execution.searchTerm.trim()) return;
-            void execution.runSearchLogic(execution.searchTerm, {
-                autoPick: false,
-            });
-        });
-    }, [history, execution]);
+        const fiber = Effect.runFork(
+            makeSearchRerunPipeline({
+                workingFilesStore,
+                getSearchTerm: () => executionRef.current.searchTerm,
+                rerunSearch: (term) => {
+                    void executionRef.current.runSearchLogic(term, {
+                        autoPick: false,
+                    });
+                },
+            }),
+        );
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [workingFilesStore]);
 
     return {
         searchTerm: execution.searchTerm,
@@ -172,7 +187,6 @@ export function useProjectSearch({
                 matchWholeWord: execution.matchWholeWord,
             }),
         replaceCurrentMatch: replace.replaceCurrentMatch,
-        replaceAllInChapter: replace.replaceAllInChapter,
         replaceSearchResult: replace.replaceSearchResult,
         replaceMatch: replace.replaceMatch,
         rerunForCurrentChapter: execution.rerunForCurrentChapter,

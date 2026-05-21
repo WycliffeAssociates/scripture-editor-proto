@@ -4,6 +4,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
+import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -54,8 +55,8 @@ function makeChapter(text: string, chapterNumber = 1): ScriptureChapterState {
     return {
         chapterNumber,
         dirty: text !== "source",
-        sourceTokens: [{ kind: "text", text: "source", id: `src-${chapterNumber}` }],
-        currentTokens: [{ kind: "text", text, id: `cur-${chapterNumber}` }],
+        sourceTokens: [{ kind: "text", source: "source", id: `src-${chapterNumber}` }],
+        currentTokens: [{ kind: "text", source: text, id: `cur-${chapterNumber}` }],
         loadedLexicalState: { root: { children: [], direction: "ltr" } },
         lexicalState: { root: { children: [], direction: "ltr" } },
     } as unknown as ScriptureChapterState;
@@ -154,9 +155,9 @@ function createAuthProvider(): AuthSessionProvider {
 
 function buildDiffMap(currentFiles: ScriptureBookState[], sourceFiles: ScriptureBookState[]) {
     const currentText =
-        currentFiles[0]?.chapters[0]?.currentTokens[0]?.text ?? "";
+        currentFiles[0]?.chapters[0]?.currentTokens[0]?.source ?? "";
     const sourceText =
-        sourceFiles[0]?.chapters[0]?.currentTokens[0]?.text ?? "";
+        sourceFiles[0]?.chapters[0]?.currentTokens[0]?.source ?? "";
     return {
         GEN: {
             1:
@@ -201,7 +202,9 @@ function hasDiffs(
 }
 
 function HookHarness(props: {
-    workingFiles: ScriptureBookState[];
+    store: WorkingFilesStore;
+    pickedFile: ScriptureBookState | null;
+    pickedChapter: ScriptureChapterState | null;
     editorRef: React.RefObject<{
         parseEditorState: ReturnType<typeof vi.fn>;
         setEditorState: ReturnType<typeof vi.fn>;
@@ -214,7 +217,7 @@ function HookHarness(props: {
     onState: (state: ReturnType<typeof useExternalCompare>) => void;
 }) {
     const state = useExternalCompare({
-        mutWorkingFilesRef: props.workingFiles,
+        workingFilesStore: props.store,
         loadedProject: makeProject(),
         projectsService: {
             openProject: vi.fn(),
@@ -233,8 +236,8 @@ function HookHarness(props: {
         usfmOnionService: {
             diffTokens: vi.fn(),
             diffScope: vi.fn(async (scope) =>
-                scope.map((entry: { baselineTokens: { text: string }[]; currentTokens: { text: string }[] }) =>
-                    entry.baselineTokens[0]?.text === entry.currentTokens[0]?.text
+                scope.map((entry: { baselineTokens: { source: string }[]; currentTokens: { source: string }[] }) =>
+                    entry.baselineTokens[0]?.source === entry.currentTokens[0]?.source
                         ? []
                         : [
                               {
@@ -248,8 +251,8 @@ function HookHarness(props: {
         } as never,
         allProjects: [],
         currentProjectRoute: "demo",
-        pickedFile: props.workingFiles[0] ?? null,
-        pickedChapter: props.workingFiles[0]?.chapters[0] ?? null,
+        pickedFile: props.pickedFile,
+        pickedChapter: props.pickedChapter,
         editorRef: props.editorRef as never,
         history: createHistory(),
         gitProvider: props.gitProvider ?? createGitProvider(),
@@ -328,14 +331,19 @@ function renderHarness(args: {
     autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     gitProvider?: GitProvider;
-}) {
+}): WorkingFilesStore {
+    const store = new WorkingFilesStore(args.workingFiles);
+    const pickedFile = args.workingFiles[0] ?? null;
+    const pickedChapter = args.workingFiles[0]?.chapters[0] ?? null;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
     act(() => {
         root?.render(
             <HookHarness
-                workingFiles={args.workingFiles}
+                store={store}
+                pickedFile={pickedFile}
+                pickedChapter={pickedChapter}
                 editorRef={args.editorRef}
                 refreshUnsavedChapters={args.refreshUnsavedChapters}
                 bumpDirtyVersion={args.bumpDirtyVersion}
@@ -348,6 +356,7 @@ function renderHarness(args: {
             />,
         );
     });
+    return store;
 }
 
 describe("useExternalCompare", () => {
@@ -362,7 +371,7 @@ describe("useExternalCompare", () => {
         const refreshUnsavedChapters = vi.fn(async () => {});
         const bumpDirtyVersion = vi.fn();
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef,
             refreshUnsavedChapters,
@@ -386,7 +395,7 @@ describe("useExternalCompare", () => {
             { bookCode: "GEN", chapterNum: 1 },
         ]);
         expect(bumpDirtyVersion).not.toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
@@ -403,7 +412,7 @@ describe("useExternalCompare", () => {
         };
         const refreshUnsavedChapters = vi.fn(async () => {});
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef,
             refreshUnsavedChapters,
@@ -429,7 +438,7 @@ describe("useExternalCompare", () => {
         expect(refreshUnsavedChapters).toHaveBeenCalledWith([
             { bookCode: "GEN", chapterNum: 1 },
         ]);
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
@@ -455,7 +464,7 @@ describe("useExternalCompare", () => {
         const refreshUnsavedChapters = vi.fn(async () => {});
         const onGitRemoteStatusChanged = vi.fn();
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef: {
                 current: {
@@ -501,7 +510,7 @@ describe("useExternalCompare", () => {
         expect(compareServiceMock.buildCompareResultAsync).toHaveBeenCalledTimes(
             1,
         );
-        expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
+        expect(store.read()[0]?.chapters[0]?.dirty).toBe(false);
     });
 
     it("auto-accepts safe incoming cloud changes when configured", async () => {
@@ -515,7 +524,7 @@ describe("useExternalCompare", () => {
             },
         };
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef,
             refreshUnsavedChapters,
@@ -526,7 +535,6 @@ describe("useExternalCompare", () => {
 
         await act(async () => {
             await latestState?.actions.openRemoteLatestReview(
-                vi.fn(),
                 vi.fn(async () => {}),
                 false,
             );
@@ -534,10 +542,10 @@ describe("useExternalCompare", () => {
             await flush();
         });
 
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
-        expect(workingFiles[0]?.chapters[0]?.dirty).toBe(false);
+        expect(store.read()[0]?.chapters[0]?.dirty).toBe(false);
         expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalled();
         expect(onGitRemoteStatusChanged).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -573,7 +581,6 @@ describe("useExternalCompare", () => {
 
         await act(async () => {
             await latestState?.actions.openRemoteLatestReview(
-                vi.fn(),
                 openDiffModal,
                 false,
             );
@@ -612,7 +619,6 @@ describe("useExternalCompare", () => {
 
         await act(async () => {
             await latestState?.actions.openRemoteLatestReview(
-                vi.fn(),
                 openDiffModal,
                 false,
                 { openModalOnRequiresReview: false },
@@ -672,7 +678,7 @@ describe("useExternalCompare", () => {
         });
         const openDiffModal = vi.fn(async () => {});
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef: {
                 current: {
@@ -693,7 +699,6 @@ describe("useExternalCompare", () => {
             | undefined;
         await act(async () => {
             result = await latestState?.actions.openRemoteLatestReview(
-                vi.fn(),
                 openDiffModal,
                 false,
             );
@@ -701,9 +706,9 @@ describe("useExternalCompare", () => {
         });
 
         expect(openDiffModal).not.toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe("incoming-gen");
-        expect(workingFiles[1]?.chapters[0]?.currentTokens[0]?.text).toBe("local-exo");
-        expect(workingFiles[1]?.chapters[0]?.dirty).toBe(true);
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe("incoming-gen");
+        expect(store.read()[1]?.chapters[0]?.currentTokens[0]?.source).toBe("local-exo");
+        expect(store.read()[1]?.chapters[0]?.dirty).toBe(true);
         expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).not.toHaveBeenCalled();
         expect(result?.requiresReconciliationSave).toEqual(
             expect.objectContaining({
@@ -748,7 +753,7 @@ describe("useExternalCompare", () => {
 
         const openDiffModal = vi.fn(async () => {});
 
-        renderHarness({
+        const store = renderHarness({
             workingFiles,
             editorRef: {
                 current: {
@@ -764,7 +769,6 @@ describe("useExternalCompare", () => {
 
         await act(async () => {
             await latestState?.actions.openRemoteLatestReview(
-                vi.fn(),
                 openDiffModal,
                 false,
             );
@@ -772,7 +776,7 @@ describe("useExternalCompare", () => {
         });
 
         expect(openDiffModal).toHaveBeenCalled();
-        expect(workingFiles[0]?.chapters[0]?.currentTokens[0]?.text).toBe(
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "local-gen",
         );
         expect(

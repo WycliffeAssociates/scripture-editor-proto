@@ -1,0 +1,49 @@
+# Zephyr updater — pure-logic Worker that serves the Tauri auto-updater
+# manifest. Backed by GitHub Releases (read via API, filtered by tag prefix).
+#
+# Two envs:
+# - production: updater.zephyr.bibletranslationtools.org (Stable, v* tags)
+# - nightly:    updater.zephyr.bttdev.org                (Nightly, nightly-* tags)
+
+name = "zephyr-updater"
+main = "src/index.ts"
+compatibility_date = "2026-05-20"
+
+[observability]
+enabled = true
+
+# GH_TOKEN is a Cloudflare Worker secret (set via `wrangler secret put`).
+# Not stored in this file; referenced by name in src/index.ts. Raises the
+# GitHub Releases API rate limit from 60/hr (unauth) to 5000/hr.
+
+# -----------------------------------------------------------------------------
+# Production (Stable channel)
+# -----------------------------------------------------------------------------
+[env.production]
+name = "zephyr-updater-production"
+
+[env.production.vars]
+GH_REPO = "bibletranslationtools/zephyr"
+GH_TAG_PREFIX = "v"
+CHANNEL = "stable"
+
+[[env.production.routes]]
+pattern = "updater.zephyr.bibletranslationtools.org"
+custom_domain = true
+zone_name = "bibletranslationtools.org"
+
+# -----------------------------------------------------------------------------
+# Nightly
+# -----------------------------------------------------------------------------
+[env.nightly]
+name = "zephyr-updater-nightly"
+
+[env.nightly.vars]
+GH_REPO = "bibletranslationtools/zephyr"
+GH_TAG_PREFIX = "nightly-"
+CHANNEL = "nightly"
+
+[[env.nightly.routes]]
+pattern = "updater.zephyr.bttdev.org"
+custom_domain = true
+zone_name = "bttdev.org"

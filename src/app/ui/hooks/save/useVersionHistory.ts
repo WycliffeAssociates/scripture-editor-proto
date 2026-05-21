@@ -7,6 +7,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type {
@@ -34,7 +35,7 @@ type PendingVersionAction =
 export function useVersionHistory(args: {
     loadedProject: Project;
     gitProvider: GitProvider;
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -72,22 +73,37 @@ export function useVersionHistory(args: {
                 editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
             });
+            // applyVersionSnapshotToWorkingFiles mutates every chapter of
+            // every book (applyIncomingChapterAll + markFilesAsSaved both
+            // walk all chapters). Draft every chapter writable so those
+            // mutations land on the structural-shared draft, not the store.
+            const workingFiles = args.workingFilesStore.read();
+            const allRefs = workingFiles.flatMap((file) =>
+                file.chapters.map((chapter) => ({
+                    bookCode: file.bookCode,
+                    chapterNum: chapter.chapterNumber,
+                })),
+            );
+            const draft = args.workingFilesStore.draftWithChapters(allRefs);
             await args.history.runTransaction({
                 label: "Load Previous Version",
-                candidates: args.mutWorkingFilesRef.flatMap((file) =>
-                    file.chapters.map((chapter) => ({
-                        bookCode: file.bookCode,
-                        chapterNum: chapter.chapterNumber,
-                    })),
-                ),
+                candidates: allRefs,
                 run: async () => {
                     applyVersionSnapshotToWorkingFiles({
-                        workingFiles: args.mutWorkingFilesRef,
+                        workingFiles: draft,
                         sourceFiles: preview.parsedFiles,
                     });
+                    args.workingFilesStore.commit(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "import",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
                     syncEditorToPickedChapter({
                         editorRef: args.editorRef,
-                        workingFiles: args.mutWorkingFilesRef,
+                        workingFiles: draft,
                         pickedFile: args.pickedFile,
                         pickedChapter: args.pickedChapter,
                     });
@@ -154,11 +170,7 @@ export function useVersionHistory(args: {
         setIsOpen(false);
     }
 
-    async function open(args2: {
-        saveCurrentDirtyLexical: () => void;
-        hasUnsavedChanges: boolean;
-    }) {
-        args2.saveCurrentDirtyLexical();
+    async function open(args2: { hasUnsavedChanges: boolean }) {
         if (args2.hasUnsavedChanges) {
             setPendingAction({ type: "open" });
             setIsDirtyPromptOpen(true);
@@ -168,13 +180,8 @@ export function useVersionHistory(args: {
         setIsOpen(true);
     }
 
-    async function select(args2: {
-        hash: string;
-        saveCurrentDirtyLexical: () => void;
-        hasUnsavedChanges: boolean;
-    }) {
+    async function select(args2: { hash: string; hasUnsavedChanges: boolean }) {
         if (!args2.hash || args2.hash === selectedHash) return;
-        args2.saveCurrentDirtyLexical();
         if (args2.hasUnsavedChanges) {
             setPendingAction({ type: "switch", hash: args2.hash });
             setIsDirtyPromptOpen(true);
@@ -183,12 +190,8 @@ export function useVersionHistory(args: {
         await applyHash(args2.hash);
     }
 
-    async function backToLatest(args2: {
-        saveCurrentDirtyLexical: () => void;
-        hasUnsavedChanges: boolean;
-    }) {
+    async function backToLatest(args2: { hasUnsavedChanges: boolean }) {
         if (!latestHash || selectedHash === latestHash) return;
-        args2.saveCurrentDirtyLexical();
         if (args2.hasUnsavedChanges) {
             setPendingAction({ type: "latest" });
             setIsDirtyPromptOpen(true);

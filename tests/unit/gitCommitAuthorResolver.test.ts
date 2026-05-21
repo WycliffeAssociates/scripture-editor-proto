@@ -58,7 +58,7 @@ describe("resolveGitCommitAuthorForProject", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
             }),
         ).resolves.toEqual(GIT_COMMIT_AUTHOR);
@@ -78,7 +78,7 @@ describe("resolveGitCommitAuthorForProject", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
             }),
         ).resolves.toEqual(GIT_COMMIT_AUTHOR);
@@ -98,7 +98,7 @@ describe("resolveGitCommitAuthorForProject", () => {
                     username: "alice",
                     token: "token",
                     tokenId: "1",
-                    tokenName: "dovetail-web",
+                    tokenName: "zephyr-web",
                 }),
             }),
         ).resolves.toEqual({

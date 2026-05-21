@@ -11,6 +11,7 @@
 export const zLayer = {
     // --- DOM overlay hosts mounted as siblings to the editor ---
     lintDomOverlay: 1,
+    formInsertMarkerMenu: 1,
     usfmPeekOverlay: 2,
 
     // --- Lightweight positioned overlays ---
@@ -55,4 +56,7 @@ export const zLayer = {
 
     /** Toolbar overflow menu — must clear everything */
     toolbarMenu: 15,
+
+    /** Toolbar tooltip — sits above the toolbar menu */
+    toolbarTooltip: 16,
 } as const;

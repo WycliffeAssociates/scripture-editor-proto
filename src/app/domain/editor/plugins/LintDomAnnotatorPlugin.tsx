@@ -6,11 +6,13 @@
  * and keeps those badges positioned while the document scrolls or reflows.
  */
 import type { LexicalEditor } from "lexical";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
 import { getLintIssueKey } from "@/app/ui/hooks/lintState.ts";
+import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import {
     formatLintIssueMessage,
@@ -104,27 +106,6 @@ function buildDomLookup(root: HTMLElement): DomLookup {
     return { byDataId, bySid, renderedState };
 }
 
-function findScrollContainer(start: HTMLElement): HTMLElement {
-    let current: HTMLElement | null = start;
-    while (current) {
-        const computed = window.getComputedStyle(current);
-        const canScrollY =
-            /(auto|scroll|overlay)/.test(computed.overflowY) &&
-            current.scrollHeight > current.clientHeight;
-        const canScrollX =
-            /(auto|scroll|overlay)/.test(computed.overflowX) &&
-            current.scrollWidth > current.clientWidth;
-        if (canScrollY || canScrollX) return current;
-        current = current.parentElement;
-    }
-    return start;
-}
-
-function getDocumentScrollElement(element: HTMLElement): HTMLElement {
-    return (element.ownerDocument.scrollingElement ??
-        element.ownerDocument.documentElement) as HTMLElement;
-}
-
 function findVisibleSiblingTarget(
     direct: HTMLElement,
     renderedState: WeakMap<HTMLElement, boolean>,
@@ -172,10 +153,41 @@ function findVisibleSiblingTarget(
     return direct;
 }
 
+// In usfm/plain mode, if we landed on the verse numberRange span, walk back to
+// the \v marker so the badge sits left of the marker instead of the number.
+function adjustAnchorForMode(
+    el: HTMLElement,
+    isRawMode: boolean,
+    renderedState: WeakMap<HTMLElement, boolean>,
+): HTMLElement {
+    if (!isRawMode || el.getAttribute("data-token-type") !== "numberRange")
+        return el;
+    let probe = el.previousElementSibling as HTMLElement | null;
+    while (probe) {
+        if (probe.tagName === "BR") {
+            probe = probe.previousElementSibling as HTMLElement | null;
+            continue;
+        }
+        if (
+            probe.getAttribute("data-token-type") === "marker" &&
+            probe.getAttribute("data-marker") === "v" &&
+            isRenderedElementCached(renderedState, probe)
+        ) {
+            return probe;
+        }
+        break;
+    }
+    return el;
+}
+
 function findBestVisibleTarget(
     lookup: DomLookup,
     issue: LintIssue,
+    editorMode: string,
 ): HTMLElement | null {
+    const isRawMode =
+        editorMode === EDITOR_MODES.usfm || editorMode === EDITOR_MODES.plain;
+
     for (const candidate of getIssueCandidates(issue)) {
         const directMatches = lookup.byDataId.get(candidate) ?? [];
         for (const match of directMatches) {
@@ -186,23 +198,39 @@ function findBestVisibleTarget(
                 visible &&
                 isRenderedElementCached(lookup.renderedState, visible)
             ) {
-                return visible;
+                return adjustAnchorForMode(
+                    visible,
+                    isRawMode,
+                    lookup.renderedState,
+                );
             }
         }
 
         const sidMatches = lookup.bySid.get(candidate) ?? [];
         if (sidMatches.length > 0) {
-            const preferred = sidMatches.find(
-                (el) =>
-                    isRenderedElementCached(lookup.renderedState, el) &&
-                    el.getAttribute("data-token-type") === "numberRange",
-            );
+            const preferred = isRawMode
+                ? sidMatches.find(
+                      (el) =>
+                          isRenderedElementCached(lookup.renderedState, el) &&
+                          el.getAttribute("data-token-type") === "marker" &&
+                          el.getAttribute("data-marker") === "v",
+                  )
+                : sidMatches.find(
+                      (el) =>
+                          isRenderedElementCached(lookup.renderedState, el) &&
+                          el.getAttribute("data-token-type") === "numberRange",
+                  );
             if (preferred) return preferred;
 
             const visible = sidMatches.find((el) =>
                 isRenderedElementCached(lookup.renderedState, el),
             );
-            if (visible) return visible;
+            if (visible)
+                return adjustAnchorForMode(
+                    visible,
+                    isRawMode,
+                    lookup.renderedState,
+                );
         }
     }
 
@@ -286,20 +314,22 @@ type LintDomAnnotatorPluginProps = {
 export function LintDomAnnotatorPlugin({
     editor,
 }: LintDomAnnotatorPluginProps) {
-    const { actions, lint } = useWorkspaceContext();
+    const { actions, lint, project, layoutTickStore } = useWorkspaceContext();
+    const editorMode = project.appSettings.editorMode;
+    const tick = useLayoutTick(layoutTickStore);
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
+    const editorModeRef = useRef(editorMode);
+    editorModeRef.current = editorMode;
     const recordsRef = useRef<Map<string, AnchorRecord>>(new Map());
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
-    const resolveAnchorsRef = useRef<((retryCount?: number) => void) | null>(
-        null,
-    );
+    const resolveAnchorsRef = useRef<(() => void) | null>(null);
     const {
         hoveredErrors,
         tooltipPosition,
         onTooltipMouseEnter,
         onTooltipMouseLeave,
-    } = useEditorLintTooltip(lint.visibleIssues);
+    } = useEditorLintTooltip(lint.filteredVisibleIssues);
 
     useEffect(() => {
         const editorRoot = editor.getRootElement();
@@ -314,132 +344,76 @@ export function LintDomAnnotatorPlugin({
         setRootEl(nextRoot);
     }, [editor]);
 
-    useEffect(() => {
-        if (!rootEl) return;
+    // Install resolveAnchors against the current root. Teardown clears
+    // overlay state only when the root changes (project switch / unmount),
+    // not on every tick.
+    useLayoutEffect(() => {
+        if (!rootEl) {
+            resolveAnchorsRef.current = null;
+            return;
+        }
 
-        let rafId = 0;
+        const resolveAnchors = () => {
+            // Form mode renders verses inside decorator-node cards on the
+            // right; the underlying USFMTextNode DOM may be off-screen or
+            // unrendered, so anchor resolution produces stale or
+            // 0,0-clamped rects and badges pile up at the left edge. Hide
+            // the overlay entirely in form mode — form mode has its own
+            // per-card lint affordance.
+            if (editorModeRef.current === EDITOR_MODES.form) {
+                if (hitpointsRef.current.size > 0) {
+                    syncHitpointAttributes(hitpointsRef.current, new Set());
+                    hitpointsRef.current = new Set();
+                }
+                setEntries((prev) => (prev.length === 0 ? prev : []));
+                return;
+            }
 
-        const resolveAnchors = (retryCount = 0) => {
-            window.cancelAnimationFrame(rafId);
-            rafId = window.requestAnimationFrame(() => {
-                const lookup = buildDomLookup(rootEl);
-                let unresolved = 0;
+            const lookup = buildDomLookup(rootEl);
 
-                for (const record of recordsRef.current.values()) {
-                    // Prefer reusing a live element so normal scroll/resize work
-                    // stays cheap. Only fall back to a fresh lookup when the
-                    // prior anchor disappeared during DOM reshaping.
-                    const hasConnectedElement = Boolean(
-                        record.element?.isConnected,
-                    );
-                    const element =
-                        hasConnectedElement &&
-                        record.element &&
-                        isRenderedElement(record.element)
-                            ? record.element
-                            : findBestVisibleTarget(lookup, record.issue);
+            for (const record of recordsRef.current.values()) {
+                const hasConnectedElement = Boolean(
+                    record.element?.isConnected,
+                );
+                const isRawMode =
+                    editorModeRef.current === EDITOR_MODES.usfm ||
+                    editorModeRef.current === EDITOR_MODES.plain;
+                const cachedIsWrongType =
+                    hasConnectedElement &&
+                    record.element?.getAttribute("data-token-type") ===
+                        "numberRange" &&
+                    isRawMode;
+                const element =
+                    hasConnectedElement &&
+                    record.element &&
+                    isRenderedElement(record.element) &&
+                    !cachedIsWrongType
+                        ? record.element
+                        : findBestVisibleTarget(
+                              lookup,
+                              record.issue,
+                              editorModeRef.current,
+                          );
 
-                    if (!element) {
-                        record.element = null;
-                        record.stale = true;
-                        unresolved += 1;
-                        continue;
-                    }
-
-                    record.element = element;
-                    record.rect =
-                        measureAnchorRect(rootEl, element) ?? record.rect;
-                    record.stale = false;
+                if (!element) {
+                    record.element = null;
+                    record.stale = true;
+                    continue;
                 }
 
-                publishEntries(recordsRef.current, setEntries, hitpointsRef);
+                record.element = element;
+                record.rect = measureAnchorRect(rootEl, element) ?? record.rect;
+                record.stale = false;
+            }
 
-                if (unresolved > 0 && retryCount > 0) {
-                    resolveAnchors(retryCount - 1);
-                }
-            });
-        };
-
-        const remeasureEntries = () => {
-            window.cancelAnimationFrame(rafId);
-            rafId = window.requestAnimationFrame(() => {
-                for (const record of recordsRef.current.values()) {
-                    if (!record.element || !record.element.isConnected)
-                        continue;
-                    record.rect =
-                        measureAnchorRect(rootEl, record.element) ??
-                        record.rect;
-                }
-                publishEntries(recordsRef.current, setEntries, hitpointsRef);
-            });
+            publishEntries(recordsRef.current, setEntries, hitpointsRef);
         };
 
         resolveAnchorsRef.current = resolveAnchors;
-        resolveAnchors(2);
-
-        const mutationObserver = new MutationObserver((mutations) => {
-            const hasStructuralMutation = mutations.some(
-                (mutation) =>
-                    mutation.type === "childList" ||
-                    mutation.type === "attributes",
-            );
-            if (!hasStructuralMutation || recordsRef.current.size === 0) return;
-            for (const record of recordsRef.current.values()) {
-                if (record.element && !record.element.isConnected) {
-                    record.element = null;
-                    record.stale = true;
-                }
-            }
-            resolveAnchors(2);
-        });
-
-        mutationObserver.observe(rootEl, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                "data-id",
-                "data-sid",
-                "data-token-type",
-                "class",
-                "style",
-            ],
-        });
-
-        const resizeObserver = new ResizeObserver(remeasureEntries);
-        resizeObserver.observe(rootEl);
-        const scrollParent = findScrollContainer(
-            rootEl.parentElement ?? rootEl,
-        );
-        if (scrollParent !== rootEl) {
-            resizeObserver.observe(scrollParent);
-        }
-
-        rootEl.addEventListener("scroll", remeasureEntries, { passive: true });
-        scrollParent?.addEventListener("scroll", remeasureEntries, {
-            passive: true,
-        });
-        const documentScroll = getDocumentScrollElement(rootEl);
-        if (documentScroll !== rootEl && documentScroll !== scrollParent) {
-            documentScroll.addEventListener("scroll", remeasureEntries, {
-                passive: true,
-            });
-        }
-        window.addEventListener("resize", remeasureEntries);
-        window.addEventListener("scroll", remeasureEntries, { passive: true });
+        resolveAnchors();
 
         return () => {
-            window.cancelAnimationFrame(rafId);
-            mutationObserver.disconnect();
-            resizeObserver.disconnect();
             resolveAnchorsRef.current = null;
-            rootEl.removeEventListener("scroll", remeasureEntries);
-            scrollParent?.removeEventListener("scroll", remeasureEntries);
-            if (documentScroll !== rootEl && documentScroll !== scrollParent) {
-                documentScroll.removeEventListener("scroll", remeasureEntries);
-            }
-            window.removeEventListener("resize", remeasureEntries);
-            window.removeEventListener("scroll", remeasureEntries);
             syncHitpointAttributes(hitpointsRef.current, new Set());
             hitpointsRef.current = new Set();
             recordsRef.current = new Map();
@@ -447,9 +421,17 @@ export function LintDomAnnotatorPlugin({
         };
     }, [rootEl]);
 
+    // Tick-driven remeasure: commit-settle pulses, window resize, and
+    // scroll bumps all flow through `useLayoutTick`. No MutationObserver —
+    // editor DOM changes ride the bridge → commit → overlay-tick pipeline.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the trigger; body reads via ref.
+    useLayoutEffect(() => {
+        resolveAnchorsRef.current?.();
+    }, [tick]);
+
     useEffect(() => {
         const nextRecords = new Map<string, AnchorRecord>();
-        for (const issue of lint.visibleIssues) {
+        for (const issue of lint.filteredVisibleIssues) {
             const issueKey = getLintIssueKey(issue);
             const previous = recordsRef.current.get(issueKey);
             nextRecords.set(issueKey, {
@@ -463,11 +445,24 @@ export function LintDomAnnotatorPlugin({
         }
 
         recordsRef.current = nextRecords;
-        resolveAnchorsRef.current?.(2);
-    }, [lint.visibleIssues]);
+        resolveAnchorsRef.current?.();
+    }, [lint.filteredVisibleIssues]);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <We intentionally want this to run when editorMode changes>
+    useEffect(() => {
+        for (const record of recordsRef.current.values()) {
+            record.element = null;
+            record.stale = true;
+        }
+        resolveAnchorsRef.current?.();
+    }, [editorMode]);
 
     const rendered = useMemo(() => {
         if (!rootEl || entries.length === 0) return null;
+        // Belt-and-suspenders: resolveAnchors above clears entries on
+        // form-mode entry, but a transition can leave a frame of stale
+        // entries painted. Skip rendering entirely in form mode.
+        if (editorMode === EDITOR_MODES.form) return null;
         return (
             <div className={styles.host} aria-hidden="true">
                 {entries.map((entry) => (
@@ -485,7 +480,7 @@ export function LintDomAnnotatorPlugin({
                 ))}
             </div>
         );
-    }, [entries, rootEl]);
+    }, [entries, rootEl, editorMode]);
 
     const tooltip =
         hoveredErrors && tooltipPosition

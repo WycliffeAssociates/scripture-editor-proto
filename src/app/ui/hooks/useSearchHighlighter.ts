@@ -20,17 +20,14 @@ export function clearHighlights(): void {
 }
 
 /**
- * Paint the current search result set for one editor instance using CSS
- * Highlights, keeping the active result visually distinct from the rest.
+ * Repaint the CSS Highlight registry to match `inputs`. Pure paint — no
+ * scroll. The active-match scroll is the user-navigation concern; call
+ * `scrollToActiveMatchInEditor` from the navigation site instead.
+ *
+ * Safe to call repeatedly: idempotent given the same input. `HighlightSink`
+ * calls this on every layout tick so highlights stay aligned with the live
+ * editor DOM after structure fixes, chapter swaps, or any reflow.
  */
-export function highlightMatches(
-    matches: MatchInNode[],
-    editor: LexicalEditor,
-    activeMatch?: MatchInNode,
-): void {
-    highlightMatchesAcrossEditors([{ editor, matches, activeMatch }]);
-}
-
 export function highlightMatchesAcrossEditors(
     inputs: EditorHighlightInput[],
 ): void {
@@ -85,12 +82,6 @@ export function highlightMatchesAcrossEditors(
                         hasActiveMatchRange = true;
                     }
                 }
-
-                // Scroll the active match into view.
-                activeDomEl.scrollIntoView({
-                    block: "center",
-                    behavior: "smooth",
-                });
             }
         }
     }
@@ -106,4 +97,18 @@ export function highlightMatchesAcrossEditors(
     } else {
         CSS.highlights.delete("matched-search-current");
     }
+}
+
+/**
+ * Scroll the active match into view. Separated from painting so the sink
+ * can repaint on every layout tick without re-triggering smooth-scroll —
+ * which would fight the user's own scroll position.
+ */
+export function scrollToActiveMatchInEditor(
+    editor: LexicalEditor,
+    activeMatch: MatchInNode,
+): void {
+    const activeDomEl = editor.getElementByKey(activeMatch.node.getKey());
+    if (!activeDomEl) return;
+    activeDomEl.scrollIntoView({ block: "center", behavior: "smooth" });
 }

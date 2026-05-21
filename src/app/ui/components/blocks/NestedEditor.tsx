@@ -114,6 +114,10 @@ function NestedEditorContent({
     const { project, projectLanguageDirection } = useWorkspaceContext();
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
+    const resolvedDataMode =
+        editorModeSetting === EDITOR_MODES.view
+            ? EDITOR_MODES.regular
+            : editorModeSetting;
     const [hasOpened, setHasOpened] = useState(false);
 
     const nestedConfig = {
@@ -233,6 +237,7 @@ function NestedEditorContent({
                         <ContentEditable
                             data-id={id}
                             data-js={DATA_JS.editorContainer}
+                            data-mode={resolvedDataMode}
                             className={nestedStyles.contentEditable}
                         />
                     }

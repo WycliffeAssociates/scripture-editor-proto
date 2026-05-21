@@ -308,6 +308,7 @@ export function UsfmPeekOverlayPlugin() {
 
         recompute();
         const unregister = editor.registerUpdateListener(() => {
+            console.count("UsfmPeekOverlayPlugin");
             scheduleRecompute();
         });
 

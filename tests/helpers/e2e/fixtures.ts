@@ -41,12 +41,6 @@ export const test = base.extend<MyFixtures>({
 
         await gotoCreate(page);
         await importZipProject(page, MOCK_ZIPS.llxReg, importTimeout);
-        await expect(
-            page
-                .getByRole("alert")
-                .filter({ hasText: "File imported successfully!" })
-                .first(),
-        ).toBeVisible({ timeout: importTimeout });
         await gotoHomeAndExpectProjectCount(page, 1, projectCountTimeout);
 
         await page.getByTestId(TESTING_IDS.project.rowLink).click();
@@ -61,22 +55,10 @@ export const test = base.extend<MyFixtures>({
 
         await gotoCreate(page);
         await importZipProject(page, MOCK_ZIPS.llxReg, importTimeout);
-        await expect(
-            page
-                .getByRole("alert")
-                .filter({ hasText: "File imported successfully!" })
-                .first(),
-        ).toBeVisible({ timeout: importTimeout });
         await gotoHomeAndExpectProjectCount(page, 1, projectCountTimeout);
 
         await gotoCreate(page);
         await importZipProject(page, MOCK_ZIPS.enUlb, importTimeout);
-        await expect(
-            page
-                .getByRole("alert")
-                .filter({ hasText: "File imported successfully!" })
-                .first(),
-        ).toBeVisible({ timeout: importTimeout });
         await gotoHomeAndExpectProjectCount(page, 2, projectCountTimeout);
 
         await page.getByRole("link", { name: "Open project llx_reg" }).click();

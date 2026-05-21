@@ -9,23 +9,8 @@ export async function openActionPalette(page: Page) {
     ).toBeVisible();
 }
 
-export async function openReferencePicker(page: Page) {
-    const referencePicker = page.getByTestId(TESTING_IDS.referencePicker);
-    await referencePicker.click();
-    return referencePicker;
-}
-
-export async function getReferencePickerState(page: Page) {
-    const referencePicker = page.getByTestId(TESTING_IDS.referencePicker);
-    const bookCode = await referencePicker.getAttribute("data-test-book-code");
-    const chapter = await referencePicker.getAttribute(
-        "data-test-current-chapter",
-    );
-    return { referencePicker, bookCode, chapter };
-}
-
 export async function openSearchPanel(page: Page) {
-    await page.getByTestId(TESTING_IDS.searchTrigger).click();
+    await page.getByRole("button", { name: "Open search" }).click();
 }
 
 export async function fillSearchQuery(page: Page, query: string) {

@@ -15,10 +15,10 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "org.bibletranslationtools.bttrefinerproto"
+    namespace = "org.bibletranslationtools.zephyr"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "org.bibletranslationtools.bttrefinerproto"
+        applicationId = "org.bibletranslationtools.zephyr"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

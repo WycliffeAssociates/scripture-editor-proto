@@ -156,6 +156,17 @@ export function NodeContextMenuPlugin() {
 
     useEffect(() => {
         function onContextMenu(e: MouseEvent) {
+            // Form mode renders its own cursor-anchored insert-marker
+            // menu via FormBlockCard. Skip the global action palette
+            // when the right-click originates inside a form-block-node
+            // — otherwise both menus open at once.
+            const target = e.target;
+            if (
+                target instanceof Element &&
+                target.closest(".form-block-node")
+            ) {
+                return;
+            }
             e.preventDefault();
             handleOpen(e.clientX, e.clientY);
         }

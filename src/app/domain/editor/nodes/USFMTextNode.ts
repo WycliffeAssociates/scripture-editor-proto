@@ -24,6 +24,7 @@ import {
     ALL_CHAR_MARKERS,
     isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
+import type { AttributeItem } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 // make more similar to core domina, or map betwee, but I think more similar, except "content"; attribute we've nto currently used;
 export type SerializedUSFMTextNode = SerializedTextNode & {
@@ -43,6 +44,14 @@ export type SerializedUSFMTextNode = SerializedTextNode & {
     inPara?: string;
     inChars?: string[];
     id: string;
+    /**
+     * USFM 3.1 character-marker attribute list — the `|key="value"`
+     * slice on `\w`/`\rb`/`\wl`/`\jmp`/etc. opener tokens. Carried
+     * through the node so the round-trip can re-emit it via
+     * `tokensToUsfm` upstream. Empty/absent on tokens that don't
+     * carry attributes.
+     */
+    attributes?: AttributeItem[];
     [key: string]: unknown;
 };
 
@@ -298,6 +307,12 @@ type CreateSerializedUSFMTextNodeParams = {
     inPara?: string;
     inChars?: string[];
     marker?: string;
+    /**
+     * USFM 3.1 attribute list captured by the parser for opener
+     * marker tokens (`\w`/`\rb`/`\wl`/`\jmp`/...). Pass through
+     * unmodified so the round-trip serializer can re-emit it.
+     */
+    attributes?: AttributeItem[];
     [key: string]: unknown;
 };
 export function createSerializedUSFMTextNode(
@@ -313,6 +328,7 @@ export function createSerializedUSFMTextNode(
         tokenType: params.tokenType,
         inChars: params.inChars,
         marker: params.marker,
+        attributes: params.attributes,
         version: 1,
         text: params.text,
         detail: 0,

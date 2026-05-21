@@ -25,7 +25,7 @@ function makeTokens(text: string, sid: string, id: string): Token[] {
             kind: "text",
             span: { start: 0, end: text.length },
             sid,
-            text,
+            source: text,
         },
     ];
 }
@@ -121,8 +121,8 @@ function config(): CompareSessionConfig {
 }
 
 function makeDiffs(baselineTokens: Token[], currentTokens: Token[]): Diff[] {
-    const originalText = baselineTokens.map((token) => token.text).join("");
-    const currentText = currentTokens.map((token) => token.text).join("");
+    const originalText = baselineTokens.map((token) => token.source).join("");
+    const currentText = currentTokens.map((token) => token.source).join("");
     if (originalText === currentText) {
         return [];
     }
@@ -187,14 +187,14 @@ describe("compareService.buildCompareResult", () => {
                     kind: "marker",
                     sid: "",
                     marker: "id",
-                    text: "\\id",
+                    source: "\\id",
                     span: { start: 0, end: 3 },
                 },
                 {
                     id: "GEN-1",
                     kind: "bookCode",
                     sid: "GEN 0:0",
-                    text: " GEN",
+                    source: " GEN",
                     span: { start: 3, end: 7 },
                 },
             ],

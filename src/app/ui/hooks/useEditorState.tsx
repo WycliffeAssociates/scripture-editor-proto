@@ -1,76 +1,17 @@
-import type { LexicalEditor, SerializedEditorState } from "lexical";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
-import type {
-    ScriptureBookState,
-    ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { LexicalEditor } from "lexical";
+import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { setEditorContent } from "./utils/editorUtils.ts";
 
 /**
- * Local editor-state mutators for the currently open scripture workspace.
- *
- * This hook owns the bridge between live Lexical state and the mutable
- * `ScriptureBookState[]` workspace model that save, diff, compare, and
- * navigation all share.
+ * Editor-side helper that pushes chapter content into the visible Lexical
+ * instance. Reads from the store when callers don't pre-resolve a chapter.
  */
 export function useEditorState({
-    mutWorkingFilesRef,
-    currentFileBibleIdentifier,
-    currentChapter,
-    updateDiffMapForChapter,
+    workingFilesStore,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
-    currentFileBibleIdentifier: string;
-    currentChapter: number;
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
+    workingFilesStore: WorkingFilesStore;
 }) {
-    function getCurrentChapterState() {
-        return mutWorkingFilesRef
-            .find((file) => file.bookCode === currentFileBibleIdentifier)
-            ?.chapters.find(
-                (chapter) => chapter.chapterNumber === currentChapter,
-            );
-    }
-
-    /**
-     * Persist the latest serialized Lexical state back into the mutable
-     * workspace chapter record and refresh diff bookkeeping for that chapter.
-     */
-    function updateChapterLexical({
-        fileBibleIdentifier,
-        chap,
-        newLexical,
-        isDirty,
-    }: {
-        fileBibleIdentifier: string;
-        chap: number;
-        newLexical: SerializedEditorState;
-        isDirty?: boolean;
-    }) {
-        const file = mutWorkingFilesRef.find(
-            (file) => file.bookCode === fileBibleIdentifier,
-        );
-        if (!file) return;
-        const chapToUpdate = file.chapters.find(
-            (c) => c.chapterNumber === chap,
-        );
-        if (!chapToUpdate) return;
-        chapToUpdate.lexicalState = newLexical;
-        chapToUpdate.currentTokens = lexicalToTokens(newLexical, {
-            bookCode: file.bookCode,
-        });
-        chapToUpdate.dirty =
-            isDirty ??
-            chapToUpdate.currentTokens.map((token) => token.text).join("") !==
-                chapToUpdate.sourceTokens.map((token) => token.text).join("");
-        updateDiffMapForChapter(file.bookCode, chap);
-        return mutWorkingFilesRef;
-    }
-
-    /**
-     * Set editor content while preserving access to the shared mutable
-     * workspace-array reference.
-     */
     function setEditorContentWithDependencies(
         editor: LexicalEditor,
         fileBibleIdentifier: string,
@@ -82,43 +23,12 @@ export function useEditorState({
             fileBibleIdentifier,
             chapter,
             chapterContent,
-            mutWorkingFilesRef,
+            workingFilesStore,
         );
     }
 
-    /**
-     * Snapshot the currently mounted editor back into workspace state if there
-     * is a live editor instance.
-     */
-    function saveCurrentDirtyLexical(
-        editor: LexicalEditor,
-    ): ScriptureBookState[] | undefined {
-        if (!editor) return;
-        const currentChapterState = getCurrentChapterState();
-        if (
-            shouldSkipEmptyEditorSnapshot({
-                isEditorStateEmpty: editor.getEditorState().isEmpty(),
-                currentChapterState,
-            })
-        ) {
-            return mutWorkingFilesRef;
-        }
-
-        const currentJson = editor.getEditorState().toJSON();
-
-        if (currentJson) {
-            return updateChapterLexical({
-                fileBibleIdentifier: currentFileBibleIdentifier,
-                chap: currentChapter,
-                newLexical: currentJson,
-            });
-        }
-    }
-
     return {
-        updateChapterLexical,
         setEditorContent: setEditorContentWithDependencies,
-        saveCurrentDirtyLexical,
     };
 }
 

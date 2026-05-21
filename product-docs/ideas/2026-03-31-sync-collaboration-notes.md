@@ -21,7 +21,7 @@ These are rough future notes, not a committed product spec.
 
 - On join, the client sends its current workspace baseline to the websocket server.
 - Likely transport shape:
-  - current `mutWorkingFilesRef` normalized to USFM
+  - current `workingFilesStore.read()` snapshot normalized to USFM
   - compressed over the wire
 - Possible optimization:
   - client sends chapter/content hashes first

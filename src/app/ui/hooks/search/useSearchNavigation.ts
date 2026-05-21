@@ -7,20 +7,20 @@ import type {
 } from "@/app/domain/search/SearchService.ts";
 import { escapeRegex } from "@/app/domain/search/search.utils.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type {
     SearchMatch,
     SearchRunOptionOverrides,
 } from "@/app/ui/hooks/search/searchTypes.ts";
 import {
-    clearHighlights,
-    highlightMatches,
-    highlightMatchesAcrossEditors,
     type MatchInNode,
+    scrollToActiveMatchInEditor,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 
 type Params = {
     editorRef: RefObject<LexicalEditor | null>;
     referenceEditorRef: RefObject<LexicalEditor | null>;
+    searchHighlightStore: SearchHighlightStore;
     switchBookOrChapter: (
         file: string,
         chapter: number,
@@ -37,6 +37,7 @@ type Params = {
 export function useSearchNavigation({
     editorRef,
     referenceEditorRef,
+    searchHighlightStore,
     switchBookOrChapter,
 }: Params) {
     const [currentMatches, setCurrentMatches] = useState<SearchMatch[]>([]);
@@ -170,7 +171,7 @@ export function useSearchNavigation({
                 matches: SearchMatch[];
                 activeMatch?: SearchMatch;
             } | null>((resolve) => {
-                clearHighlights();
+                searchHighlightStore.clear();
                 setPickedResult(result);
 
                 const newChapterState = switchBookOrChapter(
@@ -238,7 +239,7 @@ export function useSearchNavigation({
                             activeMatch ? nextMatches.indexOf(activeMatch) : 0,
                         );
 
-                        highlightMatchesAcrossEditors([
+                        searchHighlightStore.set([
                             {
                                 editor: targetEditor,
                                 matches: targetMatches,
@@ -254,6 +255,17 @@ export function useSearchNavigation({
                                   ]
                                 : []),
                         ]);
+                        if (activeTargetMatch) {
+                            scrollToActiveMatchInEditor(
+                                targetEditor,
+                                activeTargetMatch,
+                            );
+                        } else if (activeReferenceMatch && referenceEditor) {
+                            scrollToActiveMatchInEditor(
+                                referenceEditor,
+                                activeReferenceMatch,
+                            );
+                        }
 
                         resolve({
                             matches: nextMatches,
@@ -288,7 +300,16 @@ export function useSearchNavigation({
                         }
                     }
 
-                    highlightMatches(searchMatches, targetEditor, activeMatch);
+                    searchHighlightStore.set([
+                        {
+                            editor: targetEditor,
+                            matches: searchMatches,
+                            activeMatch,
+                        },
+                    ]);
+                    if (activeMatch) {
+                        scrollToActiveMatchInEditor(targetEditor, activeMatch);
+                    }
                     resolve({
                         matches: searchMatches,
                         activeMatch,
@@ -300,6 +321,7 @@ export function useSearchNavigation({
             collectMatchesInEditor,
             editorRef,
             referenceEditorRef,
+            searchHighlightStore,
             switchBookOrChapter,
         ],
     );

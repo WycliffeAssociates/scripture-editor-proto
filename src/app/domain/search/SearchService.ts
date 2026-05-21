@@ -35,7 +35,6 @@ export type SearchResult = {
 
 export type SearchContentProvider = {
     getTargetFiles: () => ScriptureBookState[];
-    saveDirtyAndGetTargetFiles: () => ScriptureBookState[];
     getReferenceFiles: () => ScriptureBookState[];
 };
 

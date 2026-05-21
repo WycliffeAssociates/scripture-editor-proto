@@ -12,6 +12,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
 
 /**
@@ -22,7 +23,7 @@ import { makeSid, parseReference } from "@/core/data/bible/bible.ts";
  * state before leaving the chapter" behavior.
  */
 export function useNavigation({
-    mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     setCurrentFileBibleIdentifier,
@@ -30,9 +31,8 @@ export function useNavigation({
     updateAppSettings,
     pickedFile,
     setEditorContent,
-    saveCurrentDirtyLexical,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setCurrentFileBibleIdentifier: (file: string) => void;
@@ -44,7 +44,6 @@ export function useNavigation({
         chapter: number,
         chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
 }) {
     const { t } = useLingui();
 
@@ -53,8 +52,7 @@ export function useNavigation({
      * the current chapter first.
      */
     function switchBookOrChapter(fileBibleIdentifier: string, chapter: number) {
-        const dirtySaved = saveCurrentDirtyLexical();
-        const filesToUse = dirtySaved || mutWorkingFilesRef;
+        const filesToUse = workingFilesStore.read();
         const targetFile = filesToUse?.find(
             (f) => f.bookCode === fileBibleIdentifier,
         );
@@ -139,9 +137,9 @@ export function useNavigation({
                     hasNext: false,
                     go: () => {},
                 };
-            const nextBook = mutWorkingFilesRef.find(
-                (file) => file.bookCode === nextBookId,
-            );
+            const nextBook = workingFilesStore
+                .read()
+                .find((file) => file.bookCode === nextBookId);
             if (!nextBook || !nextBook.chapters?.length)
                 return {
                     hasNext: false,
@@ -189,9 +187,9 @@ export function useNavigation({
                     hasPrev: false,
                     go: () => {},
                 };
-            const prevBook = mutWorkingFilesRef.find(
-                (file) => file.bookCode === prevBookId,
-            );
+            const prevBook = workingFilesStore
+                .read()
+                .find((file) => file.bookCode === prevBookId);
             if (!prevBook || !prevBook.chapters?.length)
                 return {
                     hasPrev: false,
@@ -230,23 +228,27 @@ export function useNavigation({
         if (!ref) return false;
 
         let file = ref.knownBookId
-            ? mutWorkingFilesRef.find(
-                  (f) =>
-                      f.bookCode?.toLowerCase() ===
-                      ref.knownBookId?.toLowerCase(),
-              )
+            ? workingFilesStore
+                  .read()
+                  .find(
+                      (f) =>
+                          f.bookCode?.toLowerCase() ===
+                          ref.knownBookId?.toLowerCase(),
+                  )
             : undefined;
 
         if (!file) {
-            const uniqueStartsWith = mutWorkingFilesRef.filter(
-                (f) =>
-                    f.title
-                        ?.toLocaleLowerCase()
-                        .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
-                    f.bookCode
-                        ?.toLocaleLowerCase()
-                        .startsWith(ref.bookMatch.toLocaleLowerCase()),
-            );
+            const uniqueStartsWith = workingFilesStore
+                .read()
+                .filter(
+                    (f) =>
+                        f.title
+                            ?.toLocaleLowerCase()
+                            .startsWith(ref.bookMatch.toLocaleLowerCase()) ||
+                        f.bookCode
+                            ?.toLocaleLowerCase()
+                            .startsWith(ref.bookMatch.toLocaleLowerCase()),
+                );
             if (uniqueStartsWith.length === 1) {
                 file = uniqueStartsWith[0];
             }

@@ -1,12 +1,13 @@
+import { Deferred, Effect } from "effect";
 import type { LexicalEditor, SerializedEditorState } from "lexical";
 import type { Dispatch, SetStateAction } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
@@ -18,7 +19,6 @@ import { useFormatOperations } from "@/app/ui/hooks/usePrettifyOperations.tsx";
 import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
-import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -28,7 +28,8 @@ export type UseActionsHook = ReturnType<typeof useWorkspaceActions>;
 
 type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
-    mutWorkingFilesRef: ScriptureBookState[];
+    mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
+    workingFilesStore: WorkingFilesStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -37,7 +38,7 @@ type Props = {
     appSettings: Settings;
     updateAppSettings: (newSettings: Partial<Settings>) => void;
     pickedFile: ScriptureBookState | null;
-    toggleDiffModal: (saveCurrentDirtyLexical: () => void) => void;
+    toggleDiffModal: () => void;
     updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     referenceResource: ReferenceItemHook;
@@ -45,9 +46,7 @@ type Props = {
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
-    autoOpenFormatMatchSuggestions: boolean;
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
-    projectLanguageDirection: LanguageDirection;
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
     history: CustomHistoryHook;
 };
@@ -62,8 +61,9 @@ type Props = {
  * verbs instead of manually stitching those concerns together.
  */
 export const useWorkspaceActions = ({
-    mutWorkingFilesRef,
+    workingFilesStore,
     editorRef,
+    mainEditorDeferred,
     currentFileBibleIdentifier,
     currentChapter,
     setCurrentFileBibleIdentifier,
@@ -77,29 +77,13 @@ export const useWorkspaceActions = ({
     referenceResource,
     setIsProcessing,
     setFormatMatchReport,
-    autoOpenFormatMatchSuggestions,
     setIsFormatMatchSuggestionsOpen,
-    projectLanguageDirection,
     targetMarkerPreservationMode,
     history,
 }: Props) => {
     const setColorScheme = (value: "light" | "dark") => {
         updateAppSettings({ colorScheme: value });
         applyColorSchemeToDocument(value);
-    };
-
-    /**
-     * Guard editor-dependent operations so callers do not have to repeat
-     * null-checks for the mounted Lexical instance.
-     */
-    const saveCurrentDirtyLexicalWrapper = () => {
-        if (editorRef.current) {
-            if (!modeSwitching.canPersistVisibleEditorState()) {
-                return mutWorkingFilesRef;
-            }
-            return editorState.saveCurrentDirtyLexical(editorRef.current);
-        }
-        return undefined;
     };
 
     const setEditorContentWrapper = (
@@ -117,27 +101,37 @@ export const useWorkspaceActions = ({
                 chapterContent,
             );
         }
+        // Editor not mounted yet — schedule the write for first mount instead
+        // of silently dropping it. Previously a navigation that fired before
+        // mount left the editor blank until the next interaction.
+        Effect.runFork(
+            Effect.gen(function* () {
+                const readyEditor = yield* Deferred.await(mainEditorDeferred);
+                editorState.setEditorContent(
+                    readyEditor,
+                    fileBibleIdentifier,
+                    chapter,
+                    chapterContent,
+                );
+            }),
+        );
     };
 
     const editorState = useEditorState({
-        mutWorkingFilesRef,
-        currentFileBibleIdentifier,
-        currentChapter,
-        updateDiffMapForChapter,
+        workingFilesStore,
     });
 
     const modeSwitching = useModeSwitching({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         appSettings,
         updateAppSettings,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
 
     const navigation = useNavigation({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         setCurrentFileBibleIdentifier,
@@ -145,48 +139,42 @@ export const useWorkspaceActions = ({
         updateAppSettings,
         pickedFile,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
     });
 
     const prettifyOperations = useFormatOperations({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
         updateDiffMapForChapter,
         commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
     });
 
     const formatMatching = useFormatMatching({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         referenceResource,
         updateDiffMapForChapter,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         setFormatMatchReport,
-        autoOpenFormatMatchSuggestions,
         setIsFormatMatchSuggestionsOpen,
-        editorRef,
-        editorMode: appSettings.editorMode ?? EDITOR_MODES.regular,
-        languageDirection: projectLanguageDirection,
+        setEditorMode: (next) =>
+            modeSwitching.setEditorMode(next, editorRef.current ?? undefined),
         targetMarkerPreservationMode,
         history,
     });
 
     const lintFixing = useLintFixing({
-        mutWorkingFilesRef,
+        workingFilesStore,
         currentFileBibleIdentifier,
         currentChapter,
         editorRef,
         updateDiffMapForChapter,
         commitBookLintResults,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
         history,
     });
 
@@ -199,12 +187,12 @@ export const useWorkspaceActions = ({
         _currentEditorState: SerializedEditorState,
         opts?: { bookCode?: string; chapter?: number },
     ): Token[] {
-        saveCurrentDirtyLexicalWrapper();
-
         const targetBookCode = opts?.bookCode;
         const fileForLint =
             (targetBookCode
-                ? mutWorkingFilesRef.find((f) => f.bookCode === targetBookCode)
+                ? workingFilesStore
+                      .read()
+                      .find((f) => f.bookCode === targetBookCode)
                 : null) ?? pickedFile;
 
         if (!fileForLint) return [];
@@ -220,9 +208,7 @@ export const useWorkspaceActions = ({
 
     return {
         // Editor state management
-        updateChapterLexical: editorState.updateChapterLexical,
         setEditorContent: setEditorContentWrapper,
-        saveCurrentDirtyLexical: saveCurrentDirtyLexicalWrapper,
 
         // Navigation
         switchBookOrChapter: navigation.switchBookOrChapter,
@@ -252,16 +238,13 @@ export const useWorkspaceActions = ({
         matchFormattingChapter: formatMatching.matchFormattingChapter,
         matchFormattingBook: formatMatching.matchFormattingBook,
         matchFormattingProject: formatMatching.matchFormattingProject,
-        applyMatchFormattingSuggestion:
-            formatMatching.applyMatchFormattingSuggestion,
 
         // Lint fixing
         fixLintError: lintFixing.fixLintError,
 
         // Utility functions
         getFlatFileTokens,
-        toggleDiffModal: () =>
-            toggleDiffModalCallback(() => saveCurrentDirtyLexicalWrapper()),
+        toggleDiffModal: toggleDiffModalCallback,
         setColorScheme,
     };
 };

@@ -9,6 +9,7 @@ import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
+import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
@@ -17,10 +18,11 @@ import {
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
-import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
+import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
+import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -58,7 +60,12 @@ export function MainEditor() {
                                         : ""
                                 }`}
                                 aria-label="USFM Editor"
-                                data-mode={project?.appSettings.editorMode}
+                                data-mode={
+                                    project?.appSettings.editorMode === "view"
+                                        ? "regular"
+                                        : project?.appSettings.editorMode
+                                }
+                                data-form-pane="source"
                                 spellCheck={false}
                             />
                         }
@@ -72,6 +79,7 @@ export function MainEditor() {
                     </div>
                 ) : null}
                 <EditorRefPlugin editorRef={editorRef} />
+                {/* TODO: KILL THE DEAD CODE AT SOME POINT */}
                 {/* <DecoratorFocusPlugin /> */}
                 {/* <UseLineBreaks /> */}
                 <CustomHistoryPlugin />
@@ -108,8 +116,9 @@ export function MainEditor() {
                 <USFMPlugin />
                 <UsfmStylesPlugin />
                 <NodeContextMenuPlugin />
-                <StructuralEmptyMarkerChipsPlugin />
                 <UsfmPeekOverlayPlugin />
+                <HighlightSink />
+                <WorkingFilesBridgePlugin />
             </LexicalComposer>
         </div>
     );
@@ -142,6 +151,7 @@ function getIntialConfig(): InitialConfigType {
             ParagraphNode,
             LineBreakNode,
             BookFrontmatterFormNode,
+            FormBlockNode,
             // footnoes and x-notes
             USFMNestedEditorNode,
         ],

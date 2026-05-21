@@ -47,6 +47,12 @@ importers:
       '@tauri-apps/plugin-os':
         specifier: ~2.3.2
         version: 2.3.2
+      '@tauri-apps/plugin-process':
+        specifier: ~2
+        version: 2.3.1
+      '@tauri-apps/plugin-updater':
+        specifier: ~2
+        version: 2.10.1
       '@vanilla-extract/css':
         specifier: ^1.19.1
         version: 1.19.1
@@ -62,6 +68,9 @@ importers:
       diff:
         specifier: 8.0.2
         version: 8.0.2
+      effect:
+        specifier: 4.0.0-beta.67
+        version: 4.0.0-beta.67
       fflate:
         specifier: 0.8.2
         version: 0.8.2
@@ -84,8 +93,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.2)(react@19.2.0)
       usfm-onion-web:
-        specifier: github:WycliffeAssociates/usfm-onion#4e3759370d0cc7510c49d096749751c31c55614d
-        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d
+        specifier: github:WycliffeAssociates/usfm-onion#v0.0.4
+        version: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f702dcd170a2b2136d4489c94fe90263669406c9
       valibot:
         specifier: ^1.3.0
         version: 1.3.0(typescript@5.9.3)
@@ -1266,6 +1275,36 @@ packages:
   '@messageformat/parser@5.1.1':
     resolution: {integrity: sha512-3p0YRGCcTUCYvBKLIxtDDyrJ0YijGIwrTRu1DT8gIviIDZru8H23+FkY6MJBzM1n9n20CiM4VeDYuBsrrwnLjg==}
 
+  '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
+    resolution: {integrity: sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.3':
+    resolution: {integrity: sha512-mdzd3AVzYKuUmiWOQ8GNhl64/IoFGol569zNRdkLReh6LRLHOXxU4U8eq0JwaD8iFHdVGqSy4IjFL4reoWCDFw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@msgpackr-extract/msgpackr-extract-linux-arm64@3.0.3':
+    resolution: {integrity: sha512-YxQL+ax0XqBJDZiKimS2XQaf+2wDGVa1enVRGzEvLLVFeqa5kx2bWbtcSXgsxjQB7nRqqIGFIcLteF/sHeVtQg==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@msgpackr-extract/msgpackr-extract-linux-arm@3.0.3':
+    resolution: {integrity: sha512-fg0uy/dG/nZEXfYilKoRe7yALaNmHoYeIoJuJ7KJ+YyU2bvY8vPv27f7UKhGRpY6euFYqEVhxCFZgAUNQBM3nw==}
+    cpu: [arm]
+    os: [linux]
+
+  '@msgpackr-extract/msgpackr-extract-linux-x64@3.0.3':
+    resolution: {integrity: sha512-cvwNfbP07pKUfq1uH+S6KJ7dT9K8WOE4ZiAcsrSes+UY55E/0jLYc+vq+DO7jlmqRb5zAggExKm0H7O/CBaesg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.3':
+    resolution: {integrity: sha512-x0fWaQtYp4E6sktbsdAqnehxDgEc/VwM7uLsRCYWaiGu0ykYdZPiS8zCWdnjHwyiumousxfBm4SO31eXqwEZhQ==}
+    cpu: [x64]
+    os: [win32]
+
   '@napi-rs/wasm-runtime@1.1.1':
     resolution: {integrity: sha512-p64ah1M1ld8xjWv3qbvFwHiFVWrq1yFvV4f7w+mzaqiR4IlSgkqhcRdHwsGgomwzBH51sRY4NEowLxnaBjcW/A==}
 
@@ -1709,6 +1748,9 @@ packages:
     resolution: {integrity: sha512-IKwZENsK7owmW1Lm5FhuHegY/SyQ8KqtL/7mTSnzoKJgfzhrrf9qwKB1rmkKkt+svUuy/Zw3uVEpZtUzQruWtA==}
     engines: {node: '>=12'}
 
+  '@tauri-apps/api@2.11.0':
+    resolution: {integrity: sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==}
+
   '@tauri-apps/api@2.9.0':
     resolution: {integrity: sha512-qD5tMjh7utwBk9/5PrTA/aGr3i5QaJ/Mlt7p8NilQ45WgbifUNPyKWsA63iQ8YfQq6R8ajMapU+/Q8nMcPRLNw==}
 
@@ -1795,6 +1837,12 @@ packages:
   '@tauri-apps/plugin-os@2.3.2':
     resolution: {integrity: sha512-n+nXWeuSeF9wcEsSPmRnBEGrRgOy6jjkSU+UVCOV8YUGKb2erhDOxis7IqRXiRVHhY8XMKks00BJ0OAdkpf6+A==}
 
+  '@tauri-apps/plugin-process@2.3.1':
+    resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
+
+  '@tauri-apps/plugin-updater@2.10.1':
+    resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
+
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
 
@@ -1846,8 +1894,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@20.19.37':
-    resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
+  '@types/node@20.19.41':
+    resolution: {integrity: sha512-ECymXOukMnOoVkC2bb1Vc/w/836DXncOg5m8Xj1RH7xSHZJWNYY6Zh7EH477vcnD5egKNNfy2RpNOmuChhFPgQ==}
 
   '@types/node@24.10.0':
     resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
@@ -2283,6 +2331,9 @@ packages:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
+  effect@4.0.0-beta.67:
+    resolution: {integrity: sha512-cQ1pVkbmB45VnFffQcmXuIuAT6b+t74JPKeJRqv6qT6MhilYQbLccrBu//jrxtlWpILfIzz09+s1QQrhOFmFKQ==}
+
   electron-to-chromium@1.5.321:
     resolution: {integrity: sha512-L2C7Q279W2D/J4PLZLk7sebOILDSWos7bMsMNN06rK482umHUrh/3lM8G7IlHFOYip2oAg5nha1rCMxr/rs6ZQ==}
 
@@ -2375,6 +2426,10 @@ packages:
     resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
     engines: {node: '>=18'}
 
+  fast-check@4.8.0:
+    resolution: {integrity: sha512-GOJ158CUMnN6cSahsv4+ExARvIDuzzinFjkp0E9WtiBa5zcVeLozVkWaE4IzFcc+Y48Wp1EDlUZsXRyAztQcSg==}
+    engines: {node: '>=12.17.0'}
+
   fast-glob@3.3.3:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
@@ -2400,6 +2455,9 @@ packages:
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
+
+  find-my-way-ts@0.1.6:
+    resolution: {integrity: sha512-a85L9ZoXtNAey3Y6Z+eBWW658kO/MwR7zIafkIUPUMf3isZG0NCs2pjW2wtjxAKuJPxMAsHUIP4ZPGv0o5gyTA==}
 
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
@@ -2520,6 +2578,10 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
+
+  ini@7.0.0:
+    resolution: {integrity: sha512-ifK0CgjALofS5bkrcTy4RaQ9Vx2Knf/eLeIO+NaswQEpH1UblrtTSCIvN71qQDMq0PeQ/SSPojvEJp9vvvfr+w==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   inline-style-parser@0.2.7:
     resolution: {integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==}
@@ -2665,6 +2727,9 @@ packages:
     peerDependencies:
       '@types/node': '>=18'
       typescript: '>=5.0.4 <7'
+
+  kubernetes-types@1.30.0:
+    resolution: {integrity: sha512-Dew1okvhM/SQcIa2rcgujNndZwU8VnSapDgdxlYoB84ZlpAD43U6KLAFqYo17ykSFGHNPrg0qry0bP+GJd9v7Q==}
 
   lefthook-darwin-arm64@2.0.3:
     resolution: {integrity: sha512-AyPYYDcvcsaIi/YiSFVfgzQY6f6u8AHSD5WBFiKVsvMmGaSq3zJs77bEEDvbq7JqbNpLuBIAPkxnQMQ21xo01g==}
@@ -2986,9 +3051,23 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
+  msgpackr-extract@3.0.3:
+    resolution: {integrity: sha512-P0efT1C9jIdVRefqjzOQ9Xml57zpOXnIuS+csaB4MdZbTdmGDLo8XhzBG1N7aO11gKDDkJvBLULeFTo46wwreA==}
+    hasBin: true
+
+  msgpackr@2.0.1:
+    resolution: {integrity: sha512-9J+tqTEsbHqY8YohazYgty7LgerFIWxvMLpUjqETSmjHojtJm2WnX2kK/2a1fLI7CO7ERP1YSEUXMucz4j+yBA==}
+
+  multipasta@0.2.7:
+    resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
+
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  node-gyp-build-optional-packages@5.2.2:
+    resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
     hasBin: true
 
   node-releases@2.0.36:
@@ -3175,6 +3254,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@8.4.0:
+    resolution: {integrity: sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A==}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -3456,6 +3538,10 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
+  toml@4.1.1:
+    resolution: {integrity: sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw==}
+    engines: {node: '>=20'}
+
   tough-cookie@6.0.1:
     resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==}
     engines: {node: '>=16'}
@@ -3543,12 +3629,16 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d:
-    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d}
-    version: 0.1.0
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f702dcd170a2b2136d4489c94fe90263669406c9:
+    resolution: {tarball: https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f702dcd170a2b2136d4489c94fe90263669406c9}
+    version: 0.0.4
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+    hasBin: true
 
   valibot@1.3.0:
     resolution: {integrity: sha512-SItIaOFnWYho/AcRU5gOtyfkTsuDTC3tRv+jy4/py8xERPnvHdM+ybD1iIqWTATVWG1nZetOfwZKq5upBjSqzw==}
@@ -3787,6 +3877,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
@@ -3804,6 +3906,11 @@ packages:
 
   yaml@2.8.2:
     resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
+  yaml@2.9.0:
+    resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
     engines: {node: '>= 14.6'}
     hasBin: true
 
@@ -4806,6 +4913,24 @@ snapshots:
     dependencies:
       moo: 0.5.2
 
+  '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
+    optional: true
+
+  '@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.3':
+    optional: true
+
+  '@msgpackr-extract/msgpackr-extract-linux-arm64@3.0.3':
+    optional: true
+
+  '@msgpackr-extract/msgpackr-extract-linux-arm@3.0.3':
+    optional: true
+
+  '@msgpackr-extract/msgpackr-extract-linux-x64@3.0.3':
+    optional: true
+
+  '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.3':
+    optional: true
+
   '@napi-rs/wasm-runtime@1.1.1':
     dependencies:
       '@emnapi/core': 1.9.0
@@ -5138,6 +5263,8 @@ snapshots:
 
   '@tanstack/virtual-file-routes@1.133.19': {}
 
+  '@tauri-apps/api@2.11.0': {}
+
   '@tauri-apps/api@2.9.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.9.4':
@@ -5202,6 +5329,14 @@ snapshots:
   '@tauri-apps/plugin-os@2.3.2':
     dependencies:
       '@tauri-apps/api': 2.9.0
+
+  '@tauri-apps/plugin-process@2.3.1':
+    dependencies:
+      '@tauri-apps/api': 2.9.0
+
+  '@tauri-apps/plugin-updater@2.10.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.0
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -5272,7 +5407,7 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@20.19.37':
+  '@types/node@20.19.41':
     dependencies:
       undici-types: 6.21.0
     optional: true
@@ -5752,6 +5887,19 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
+  effect@4.0.0-beta.67:
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      fast-check: 4.8.0
+      find-my-way-ts: 0.1.6
+      ini: 7.0.0
+      kubernetes-types: 1.30.0
+      msgpackr: 2.0.1
+      multipasta: 0.2.7
+      toml: 4.1.1
+      uuid: 14.0.0
+      yaml: 2.9.0
+
   electron-to-chromium@1.5.321: {}
 
   entities@6.0.1: {}
@@ -5890,6 +6038,10 @@ snapshots:
 
   fake-indexeddb@6.2.5: {}
 
+  fast-check@4.8.0:
+    dependencies:
+      pure-rand: 8.4.0
+
   fast-glob@3.3.3:
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -5915,6 +6067,8 @@ snapshots:
   fill-range@7.1.1:
     dependencies:
       to-regex-range: 5.0.1
+
+  find-my-way-ts@0.1.6: {}
 
   find-up@5.0.0:
     dependencies:
@@ -5985,11 +6139,11 @@ snapshots:
 
   happy-dom@20.1.0:
     dependencies:
-      '@types/node': 20.19.37
+      '@types/node': 20.19.41
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       whatwg-mimetype: 3.0.0
-      ws: 8.19.0
+      ws: 8.20.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -6067,6 +6221,8 @@ snapshots:
       resolve-from: 4.0.0
 
   inherits@2.0.4: {}
+
+  ini@7.0.0: {}
 
   inline-style-parser@0.2.7: {}
 
@@ -6215,6 +6371,8 @@ snapshots:
       unbash: 2.2.0
       yaml: 2.8.2
       zod: 4.3.6
+
+  kubernetes-types@1.30.0: {}
 
   lefthook-darwin-arm64@2.0.3:
     optional: true
@@ -6633,7 +6791,30 @@ snapshots:
 
   ms@2.1.3: {}
 
+  msgpackr-extract@3.0.3:
+    dependencies:
+      node-gyp-build-optional-packages: 5.2.2
+    optionalDependencies:
+      '@msgpackr-extract/msgpackr-extract-darwin-arm64': 3.0.3
+      '@msgpackr-extract/msgpackr-extract-darwin-x64': 3.0.3
+      '@msgpackr-extract/msgpackr-extract-linux-arm': 3.0.3
+      '@msgpackr-extract/msgpackr-extract-linux-arm64': 3.0.3
+      '@msgpackr-extract/msgpackr-extract-linux-x64': 3.0.3
+      '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.3
+    optional: true
+
+  msgpackr@2.0.1:
+    optionalDependencies:
+      msgpackr-extract: 3.0.3
+
+  multipasta@0.2.7: {}
+
   nanoid@3.3.11: {}
+
+  node-gyp-build-optional-packages@5.2.2:
+    dependencies:
+      detect-libc: 2.1.2
+    optional: true
 
   node-releases@2.0.36: {}
 
@@ -6832,6 +7013,8 @@ snapshots:
       commander: 10.0.1
 
   punycode@2.3.1: {}
+
+  pure-rand@8.4.0: {}
 
   queue-microtask@1.2.3: {}
 
@@ -7176,6 +7359,8 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
+  toml@4.1.1: {}
+
   tough-cookie@6.0.1:
     dependencies:
       tldts: 7.0.26
@@ -7274,9 +7459,11 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/4e3759370d0cc7510c49d096749751c31c55614d: {}
+  usfm-onion-web@https://codeload.github.com/WycliffeAssociates/usfm-onion/tar.gz/f702dcd170a2b2136d4489c94fe90263669406c9: {}
 
   util-deprecate@1.0.2: {}
+
+  uuid@14.0.0: {}
 
   valibot@1.3.0(typescript@5.9.3):
     optionalDependencies:
@@ -7473,6 +7660,9 @@ snapshots:
 
   ws@8.19.0: {}
 
+  ws@8.20.1:
+    optional: true
+
   xml-name-validator@5.0.0: {}
 
   xmlchars@2.2.0: {}
@@ -7482,6 +7672,8 @@ snapshots:
   yaml@2.8.1: {}
 
   yaml@2.8.2: {}
+
+  yaml@2.9.0: {}
 
   yjs@13.6.27:
     dependencies:

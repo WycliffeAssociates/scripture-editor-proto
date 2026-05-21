@@ -7,6 +7,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -127,7 +128,7 @@ export async function applyLintFixToFile(args: {
 
     if (!result.appliedChanges.length) return false;
 
-    const nextUsfm = result.tokens.map((token) => token.text).join("");
+    const nextUsfm = result.tokens.map((token) => token.source).join("");
     await rebuildParsedFileFromUsfm({
         targetFile: args.file,
         sourceUsfm: nextUsfm,
@@ -174,17 +175,16 @@ export async function applyLintFixToFile(args: {
  * affected book, and record the change as one history transaction.
  */
 export function useLintFixing({
-    mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     editorRef,
     updateDiffMapForChapter,
     commitBookLintResults,
     setEditorContent,
-    saveCurrentDirtyLexical,
     history,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -196,7 +196,6 @@ export function useLintFixing({
         chapterContent: ScriptureChapterState | undefined,
         editor?: LexicalEditor,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -211,14 +210,28 @@ export function useLintFixing({
         const sidParsed = parseSid(err.sid);
         if (!sidParsed) return;
 
-        // Sync any unsaved changes from the editor to mutWorkingFilesRef
-        const syncedFiles = saveCurrentDirtyLexical() ?? mutWorkingFilesRef;
-
-        const file = syncedFiles.find((f) => f.bookCode === sidParsed.book);
-        if (!file) {
+        // applyLintFixToFile mutates whatever ScriptureBookState we hand
+        // it — rebuildParsedFileFromUsfm replaces `targetFile.chapters`
+        // wholesale and may rebuild multiple chapters of the file. Draft
+        // the entire affected book (every chapter ref) so the helper
+        // can reassign `book.chapters` safely on the draft's shallow-
+        // copied book object without leaking into the store.
+        const workingFiles = workingFilesStore.read();
+        const originalFile = workingFiles.find(
+            (f) => f.bookCode === sidParsed.book,
+        );
+        if (!originalFile) {
             console.error(`File not found for book: ${sidParsed.book}`);
             return;
         }
+        const draft = workingFilesStore.draftWithChapters(
+            originalFile.chapters.map((c) => ({
+                bookCode: originalFile.bookCode,
+                chapterNum: c.chapterNumber,
+            })),
+        );
+        const file = draft.find((f) => f.bookCode === sidParsed.book);
+        if (!file) return;
 
         const chapter = file.chapters.find(
             (c) => c.chapterNumber === sidParsed.chapter,
@@ -237,7 +250,7 @@ export function useLintFixing({
                 },
             ],
             run: async () => {
-                return applyLintFixToFile({
+                const applied = await applyLintFixToFile({
                     err,
                     issueFix,
                     file,
@@ -259,6 +272,17 @@ export function useLintFixing({
                         });
                     },
                 });
+                if (applied) {
+                    workingFilesStore.commit(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
+                }
+                return applied;
             },
         });
 

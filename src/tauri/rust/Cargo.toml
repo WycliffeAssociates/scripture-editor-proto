@@ -1,7 +1,7 @@
 [package]
-name = "dovetail"
-version = "0.1.4"
-description = "A Tauri App"
+name = "zephyr"
+version = "0.1.4" # x-release-please-version
+description = "A scripture editor"
 authors = ["you"]
 edition = "2021"
 
@@ -28,13 +28,15 @@ git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", features = ["rayon"] }
+usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", tag = "v0.0.1" }
 rayon = "1.10.0"
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = ["blocking", "rustls-tls"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2.4.1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [profile.dev]
 incremental = true

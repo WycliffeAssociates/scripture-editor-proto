@@ -1,8 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import type { LexicalEditor, SerializedLexicalNode } from "lexical";
-import type { Dispatch, RefObject, SetStateAction } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
-import { insertParagraphMarkerAtCursor } from "@/app/domain/editor/utils/insertParagraphMarkerAtCursor.ts";
+import type { SerializedLexicalNode } from "lexical";
+import type { Dispatch, SetStateAction } from "react";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     lexicalRootChildrenToUsfmTokenStream,
     lexicalToTokens,
@@ -12,11 +11,14 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import {
+    findChapterInDraft,
+    type WorkingFilesStore,
+} from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
-import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
     type MatchFormattingScope,
     matchFormattingByVerseAnchors,
@@ -24,6 +26,100 @@ import {
     type TargetMarkerPreservationMode,
     type VerseAnchorMatchStats,
 } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
+import {
+    formatMarkerSkeleton,
+    injectSkeletonMarkersFromSource,
+    injectSkeletonVersesFromSource,
+    stripDeprecatedMarkers,
+} from "@/core/domain/usfm/skeletonInjection.ts";
+import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
+
+// Skeleton-injection / verse-grouping helpers moved to
+// `@/core/domain/usfm/skeletonInjection.ts` so they can be unit-tested
+// without importing this React orchestration. The hook itself imports
+// what it needs from there.
+
+function uniqueMarkerTags(tokens: TokenEnvelope[]): string[] {
+    const seen = new Set<string>();
+    for (const token of tokens) {
+        if (token.tokenType !== "marker" && token.tokenType !== "endMarker") {
+            continue;
+        }
+        const marker = token.marker;
+        if (!marker) continue;
+        seen.add(marker);
+    }
+    return [...seen].sort();
+}
+// @AI -> PROBABLY SHOULD JUST KILL THIS DEBUG LOGGING HERE.
+function logMatchFormattingRun(args: {
+    bookCode: string;
+    chapterNumber: number;
+    scope: MatchFormattingScope;
+    targetMarkerPreservation: TargetMarkerPreservationMode;
+    sourceTokens: TokenEnvelope[];
+    targetTokensBefore: TokenEnvelope[];
+    targetTokensAfter: TokenEnvelope[];
+    suggestions: SkippedMarkerSuggestion[];
+    stats: VerseAnchorMatchStats;
+}) {
+    const referenceMarkers = uniqueMarkerTags(args.sourceTokens);
+    const targetBeforeMarkers = uniqueMarkerTags(args.targetTokensBefore);
+    const targetAfterMarkers = uniqueMarkerTags(args.targetTokensAfter);
+    const transferred = targetAfterMarkers.filter(
+        (marker) => !targetBeforeMarkers.includes(marker),
+    );
+    const stillMissing = referenceMarkers.filter(
+        (marker) => !targetAfterMarkers.includes(marker),
+    );
+
+    /* eslint-disable no-console */
+    console.groupCollapsed(
+        `[match-formatting] ${args.bookCode} ${args.chapterNumber} ` +
+            `(${args.scope}, ${args.targetMarkerPreservation})`,
+    );
+    console.log("reference markers:", referenceMarkers.join(" ") || "(none)");
+    console.log(
+        "target markers before:",
+        targetBeforeMarkers.join(" ") || "(none)",
+    );
+    console.log(
+        "target markers after :",
+        targetAfterMarkers.join(" ") || "(none)",
+    );
+    console.log("newly transferred  :", transferred.join(" ") || "(none)");
+    console.log(
+        "in reference, missing from target after run:",
+        stillMissing.join(" ") || "(none)",
+    );
+    console.log("stats:", args.stats);
+    if (args.suggestions.length > 0) {
+        console.log(
+            `intra-verse suggestions (${args.suggestions.length}):`,
+            args.suggestions.map((suggestion) => ({
+                verse: suggestion.verse,
+                marker: suggestion.marker,
+                reason: suggestion.reason,
+            })),
+        );
+    }
+    console.groupCollapsed("reference skeleton");
+    console.log(formatMarkerSkeleton(args.sourceTokens));
+    console.groupEnd();
+    console.groupCollapsed("target skeleton (before)");
+    console.log(formatMarkerSkeleton(args.targetTokensBefore));
+    console.groupEnd();
+    console.groupCollapsed("target skeleton (after)");
+    console.log(formatMarkerSkeleton(args.targetTokensAfter));
+    console.groupEnd();
+    console.groupCollapsed("raw token streams");
+    console.log("reference:", args.sourceTokens);
+    console.log("target before:", args.targetTokensBefore);
+    console.log("target after :", args.targetTokensAfter);
+    console.groupEnd();
+    console.groupEnd();
+    /* eslint-enable no-console */
+}
 
 const ZERO_STATS: VerseAnchorMatchStats = {
     matchedVerses: 0,
@@ -62,23 +158,19 @@ function sumStats(
  * publishes a UI report for skipped suggestions.
  */
 export function useFormatMatching({
-    mutWorkingFilesRef,
+    workingFilesStore,
     currentFileBibleIdentifier,
     currentChapter,
     referenceResource,
     updateDiffMapForChapter,
     setEditorContent,
-    saveCurrentDirtyLexical,
     setFormatMatchReport,
-    autoOpenFormatMatchSuggestions,
     setIsFormatMatchSuggestionsOpen,
-    editorRef,
-    editorMode,
-    languageDirection,
+    setEditorMode,
     targetMarkerPreservationMode,
     history,
 }: {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     referenceResource: ReferenceItemHook;
@@ -88,15 +180,11 @@ export function useFormatMatching({
         chapter: number,
         chapterContent: ScriptureChapterState | undefined,
     ) => void;
-    saveCurrentDirtyLexical: () => ScriptureBookState[] | undefined;
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
-    autoOpenFormatMatchSuggestions: boolean;
     setIsFormatMatchSuggestionsOpen: (open: boolean) => void;
-    editorRef: RefObject<LexicalEditor | null>;
-    editorMode: EditorModeSetting;
-    languageDirection: LanguageDirection;
+    setEditorMode: (next: typeof EDITOR_MODES.form) => void;
     targetMarkerPreservationMode: TargetMarkerPreservationMode;
     history: CustomHistoryHook;
 }) {
@@ -104,12 +192,9 @@ export function useFormatMatching({
 
     const publishReport = (report: FormatMatchingRunReport) => {
         setFormatMatchReport(report);
-        if (report.suggestions.length > 0 && autoOpenFormatMatchSuggestions) {
-            setIsFormatMatchSuggestionsOpen(true);
-            return;
-        }
-        if (report.suggestions.length === 0) {
-            setIsFormatMatchSuggestionsOpen(false);
+        setIsFormatMatchSuggestionsOpen(false);
+        if (report.suggestions.length > 0) {
+            setEditorMode(EDITOR_MODES.form);
         }
     };
 
@@ -141,19 +226,42 @@ export function useFormatMatching({
             lexicalRootChildrenToUsfmTokenStream(targetRootChildren);
         const sourceEnvelope =
             lexicalRootChildrenToUsfmTokenStream(sourceRootChildren);
+        const sourceTokensClean = stripDeprecatedMarkers(sourceEnvelope.tokens);
 
         const matchResult = matchFormattingByVerseAnchors({
             targetTokens: targetEnvelope.tokens,
-            sourceTokens: sourceEnvelope.tokens,
+            sourceTokens: sourceTokensClean,
             scope,
             targetMarkerPreservation,
         });
 
-        const nextRootChildren = usfmTokenStreamToLexicalRootChildren(
+        const versesEnriched = injectSkeletonVersesFromSource(
             matchResult.tokens,
+            sourceTokensClean,
+        );
+        const enrichedTokens = injectSkeletonMarkersFromSource(
+            versesEnriched,
+            sourceTokensClean,
+        );
+
+        const nextRootChildren = usfmTokenStreamToLexicalRootChildren(
+            enrichedTokens,
             targetEnvelope,
         );
 
+        logMatchFormattingRun({
+            bookCode,
+            chapterNumber: chapter.chapterNumber,
+            scope,
+            targetMarkerPreservation,
+            sourceTokens: sourceTokensClean,
+            targetTokensBefore: targetEnvelope.tokens,
+            targetTokensAfter: enrichedTokens,
+            suggestions: matchResult.suggestions,
+            stats: matchResult.stats,
+        });
+
+        // @AI -> SHOULD PROBABLY PUT IN A PILE OF TODO FOR A TOAST LIKE, "YOU'RE FORMATTING ALREADY MATCHES, NO CHANGES NEEDED"
         if (
             JSON.stringify(targetRootChildren) ===
             JSON.stringify(nextRootChildren)
@@ -174,8 +282,8 @@ export function useFormatMatching({
             bookCode,
         });
         chapter.dirty =
-            chapter.currentTokens.map((token) => token.text).join("") !==
-            chapter.sourceTokens.map((token) => token.text).join("");
+            chapter.currentTokens.map((token) => token.source).join("") !==
+            chapter.sourceTokens.map((token) => token.source).join("");
         updateDiffMapForChapter(bookCode, chapter.chapterNumber);
 
         return {
@@ -187,9 +295,9 @@ export function useFormatMatching({
 
     async function matchFormattingChapter() {
         if (!referenceResource.referenceChapter) return;
-        saveCurrentDirtyLexical();
 
-        const file = mutWorkingFilesRef.find(
+        const workingFiles = workingFilesStore.read();
+        const file = workingFiles.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
@@ -203,9 +311,19 @@ export function useFormatMatching({
                 },
             ],
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
-                const chapter = file.chapters.find(
-                    (c) => c.chapterNumber === currentChapter,
+                // Rollback baseline aliases the pre-draft snapshot; safe
+                // because drafts mutate only their shallow-copied chapters.
+                const previous = workingFiles;
+                const draft = workingFilesStore.draftWithChapters([
+                    {
+                        bookCode: currentFileBibleIdentifier,
+                        chapterNum: currentChapter,
+                    },
+                ]);
+                const chapter = findChapterInDraft(
+                    draft,
+                    currentFileBibleIdentifier,
+                    currentChapter,
                 );
                 const sourceChapter =
                     referenceResource.referenceFile?.chapters.find(
@@ -222,7 +340,31 @@ export function useFormatMatching({
                     targetMarkerPreservation: targetMarkerPreservationMode,
                 });
 
-                publishReport({
+                if (result.changed) {
+                    workingFilesStore.commit(
+                        {
+                            kind: "chapter",
+                            bookCode: currentFileBibleIdentifier,
+                            chapter: currentChapter,
+                            lexicalState: chapter.lexicalState,
+                        },
+                        {
+                            kind: "programmaticFix",
+                            scope: {
+                                bookCode: currentFileBibleIdentifier,
+                                chapter: currentChapter,
+                            },
+                            dirtyTextContent: true,
+                        },
+                    );
+                    setEditorContent(
+                        currentFileBibleIdentifier,
+                        currentChapter,
+                        chapter,
+                    );
+                }
+
+                const report: FormatMatchingRunReport = {
                     generatedAt: new Date().toISOString(),
                     scope: "chapter",
                     chaptersScanned: 1,
@@ -230,14 +372,14 @@ export function useFormatMatching({
                     booksModified: result.changed ? 1 : 0,
                     stats: result.stats,
                     suggestions: result.suggestions,
-                });
+                };
+                publishReport(report);
+
+                if (result.changed || result.suggestions.length > 0) {
+                    setEditorMode(EDITOR_MODES.form);
+                }
 
                 if (result.changed) {
-                    setEditorContent(
-                        currentFileBibleIdentifier,
-                        currentChapter,
-                        chapter,
-                    );
                     ShowNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
@@ -255,25 +397,39 @@ export function useFormatMatching({
 
     async function matchFormattingBook() {
         if (!referenceResource.referenceFile) return;
-        saveCurrentDirtyLexical();
-
-        const file = mutWorkingFilesRef.find(
+        const workingFiles = workingFilesStore.read();
+        const file = workingFiles.find(
             (f) => f.bookCode === currentFileBibleIdentifier,
         );
         if (!file) return;
+        // Draft with every chapter of the touched book writable —
+        // applyChapterMatchInPlace decides per chapter whether to mutate.
+        const draft = workingFilesStore.draftWithChapters(
+            file.chapters.map((c) => ({
+                bookCode: file.bookCode,
+                chapterNum: c.chapterNumber,
+            })),
+        );
+        const draftFile = draft.find(
+            (f) => f.bookCode === currentFileBibleIdentifier,
+        );
+        if (!draftFile) return;
 
         const backup = await history.runTransaction({
             label: t`Match Formatting (Book ${currentFileBibleIdentifier})`,
-            candidates: toChapterRefs(file),
+            candidates: toChapterRefs(draftFile),
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
+                // The store snapshot is immutable from our side (we mutate
+                // the draft, never the read() result), so the rollback
+                // baseline can be the snapshot itself — no deep clone needed.
+                const previous = workingFiles;
                 let currentChapterModified = false;
                 let modifiedChaptersCount = 0;
                 let aggregateStats = ZERO_STATS;
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                file.chapters.forEach((chapter) => {
+                draftFile.chapters.forEach((chapter) => {
                     const refChapter =
                         referenceResource.referenceFile?.chapters.find(
                             (rc) => rc.chapterNumber === chapter.chapterNumber,
@@ -285,7 +441,7 @@ export function useFormatMatching({
                         chapter,
                         sourceChapter: refChapter,
                         scope: "book",
-                        bookCode: file.bookCode,
+                        bookCode: draftFile.bookCode,
                         targetMarkerPreservation: targetMarkerPreservationMode,
                     });
                     aggregateStats = sumStats(aggregateStats, result.stats);
@@ -298,6 +454,17 @@ export function useFormatMatching({
                     }
                 });
 
+                if (modifiedChaptersCount > 0) {
+                    workingFilesStore.commit(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
+                }
+
                 publishReport({
                     generatedAt: new Date().toISOString(),
                     scope: "book",
@@ -309,7 +476,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentChap = file.chapters.find(
+                    const currentChap = draftFile.chapters.find(
                         (c) => c.chapterNumber === currentChapter,
                     );
                     if (currentChap) {
@@ -325,7 +492,7 @@ export function useFormatMatching({
                     ShowNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
-                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${file.title || file.bookCode}`,
+                            message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${draftFile.title || draftFile.bookCode}`,
                         },
                     });
                 }
@@ -340,15 +507,28 @@ export function useFormatMatching({
     async function matchFormattingProject() {
         const referenceData = referenceResource.referenceQuery.data;
         if (!referenceData) return;
-        saveCurrentDirtyLexical();
+
+        const workingFiles = workingFilesStore.read();
 
         const backup = await history.runTransaction({
             label: t`Match Formatting (Project)`,
-            candidates: mutWorkingFilesRef.flatMap((file) =>
-                toChapterRefs(file),
-            ),
+            candidates: workingFiles.flatMap((file) => toChapterRefs(file)),
             run: async () => {
-                const previous = structuredClone(mutWorkingFilesRef);
+                // The store snapshot is immutable from our side (we mutate
+                // the draft, never the read() result), so the rollback
+                // baseline can be the snapshot itself — no deep clone needed.
+                const previous = workingFiles;
+                // Discovery flow: applyChapterMatchInPlace decides per
+                // chapter whether to mutate. Draft every chapter writable
+                // (shallow object spreads — O(N), still vastly cheaper than
+                // structuredClone's deep walk).
+                const allRefs = workingFiles.flatMap((file) =>
+                    file.chapters.map((c) => ({
+                        bookCode: file.bookCode,
+                        chapterNum: c.chapterNumber,
+                    })),
+                );
+                const draft = workingFilesStore.draftWithChapters(allRefs);
                 let currentChapterModified = false;
                 let modifiedBooksCount = 0;
                 let modifiedChaptersCount = 0;
@@ -356,7 +536,7 @@ export function useFormatMatching({
                 const aggregateSuggestions: SkippedMarkerSuggestion[] = [];
                 let chaptersScanned = 0;
 
-                for (const targetFile of mutWorkingFilesRef) {
+                for (const targetFile of draft) {
                     const refFile = referenceData.parsedFiles.find(
                         (rf) => rf.bookCode === targetFile.bookCode,
                     );
@@ -398,6 +578,17 @@ export function useFormatMatching({
                     }
                 }
 
+                if (modifiedChaptersCount > 0) {
+                    workingFilesStore.commit(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    );
+                }
+
                 publishReport({
                     generatedAt: new Date().toISOString(),
                     scope: "project",
@@ -409,7 +600,7 @@ export function useFormatMatching({
                 });
 
                 if (currentChapterModified) {
-                    const currentFile = mutWorkingFilesRef.find(
+                    const currentFile = draft.find(
                         (f) => f.bookCode === currentFileBibleIdentifier,
                     );
                     const currentChap = currentFile?.chapters.find(
@@ -440,51 +631,9 @@ export function useFormatMatching({
         return backup;
     }
 
-    async function applyMatchFormattingSuggestion(
-        suggestion: SkippedMarkerSuggestion,
-    ) {
-        const editor = editorRef.current;
-        if (!editor) return false;
-        history.setNextTypingLabel("Apply Formatting Suggestion");
-        const inserted = insertParagraphMarkerAtCursor({
-            editor,
-            marker: suggestion.marker,
-            languageDirection,
-            editorMode,
-        });
-        if (!inserted) {
-            return false;
-        }
-        saveCurrentDirtyLexical();
-
-        setFormatMatchReport((prev) => {
-            if (!prev) return prev;
-            const nextSuggestions = prev.suggestions.filter(
-                (candidate) =>
-                    candidate.id !== suggestion.id ||
-                    candidate.marker !== suggestion.marker ||
-                    candidate.verse !== suggestion.verse ||
-                    candidate.chapter !== suggestion.chapter ||
-                    candidate.bookCode !== suggestion.bookCode,
-            );
-            return {
-                ...prev,
-                generatedAt: new Date().toISOString(),
-                suggestions: nextSuggestions,
-                stats: {
-                    ...prev.stats,
-                    skippedSuggestions: nextSuggestions.length,
-                },
-            };
-        });
-
-        return true;
-    }
-
     return {
         matchFormattingChapter,
         matchFormattingBook,
         matchFormattingProject,
-        applyMatchFormattingSuggestion,
     };
 }

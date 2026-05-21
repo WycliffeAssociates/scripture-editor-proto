@@ -1,8 +1,37 @@
+// Zephyr SPA — static-assets-only Worker. Serves the web build out of
+// `dist-web/`. No fetch handler, no env vars, no secrets — Cloudflare treats
+// static-only workers as a separate deployment class.
+//
+// The updater manifest (dynamic, GH-API-backed, needs secrets) lives in its
+// own worker at `workers/zephyr-updater/`. The two run under different
+// hostnames so they can be deployed independently.
 {
-  "name": "usfm-reviser-prototype",
+  "name": "zephyr-spa",
   "compatibility_date": "2025-11-10",
   "assets": {
     "directory": "./dist-web",
-      "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application"
+  },
+  "env": {
+    "production": {
+      "name": "zephyr-spa-production",
+      "routes": [
+        {
+          "pattern": "zephyr.bibletranslationtools.org",
+          "custom_domain": true,
+          "zone_name": "bibletranslationtools.org"
+        }
+      ]
+    },
+    "nightly": {
+      "name": "zephyr-spa-nightly",
+      "routes": [
+        {
+          "pattern": "zephyr-nightly.bttdev.org",
+          "custom_domain": true,
+          "zone_name": "bttdev.org"
+        }
+      ]
+    }
   }
 }

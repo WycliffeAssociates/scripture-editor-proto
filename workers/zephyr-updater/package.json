@@ -1,0 +1,21 @@
+{
+  "name": "@zephyr/updater-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy:production": "wrangler deploy --env production",
+    "deploy:nightly": "wrangler deploy --env nightly",
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "semver": "7.7.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "@types/semver": "7.5.8",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.46.0"
+  }
+}

@@ -118,7 +118,7 @@ function makeTranslationNotesItem(
 
 describe("DexieProjectIndex", () => {
     beforeEach(() => {
-        dbName = `dovetail-editor:dexie-project-index-${Date.now()}-${Math.random()
+        dbName = `zephyr-editor:dexie-project-index-${Date.now()}-${Math.random()
             .toString(16)
             .slice(2)}`;
     });
@@ -128,8 +128,8 @@ describe("DexieProjectIndex", () => {
     });
 
     it("buildProjectIndexDbName scopes the database name by namespace", () => {
-        expect(buildProjectIndexDbName()).toBe("dovetail-editor");
-        expect(buildProjectIndexDbName("web")).toBe("dovetail-editor:web");
+        expect(buildProjectIndexDbName()).toBe("zephyr-editor");
+        expect(buildProjectIndexDbName("web")).toBe("zephyr-editor:web");
     });
 
     it("indexes and reads back an editable scripture item", async () => {

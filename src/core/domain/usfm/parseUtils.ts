@@ -18,6 +18,7 @@ export type TokenForSidCalculation = {
     text: string;
     marker?: string;
     sid?: string;
+    numberInfo?: { start: number; end?: number };
 };
 
 /**
@@ -60,7 +61,11 @@ function getNumRangeAfterMarker<T extends TokenForSidCalculation>(
     }
     const t = tokens[idx];
     if (t?.tokenType !== "numberRange") return null;
-    const value = t.text.trim();
+    if (t.numberInfo) {
+        const { start, end } = t.numberInfo;
+        return end != null && end !== start ? `${start}-${end}` : `${start}`;
+    }
+    const value = t.text?.trim();
     if (!value) return null;
     return value;
 }
@@ -76,7 +81,7 @@ function makeVerseSid(bookCode: string, chapter: number, verse: string) {
  * Add SIDs in-place across a token stream using chapter/verse marker context.
  *
  * This is a core bridge from raw tokenization into the anchor-addressable model the
- * rest of Dovetail uses for navigation, diffing, lint, and reference sync.
+ * rest of Zephyr uses for navigation, diffing, lint, and reference sync.
  */
 export function mutAddSids<T extends TokenForSidCalculation>(
     tokens: T[],

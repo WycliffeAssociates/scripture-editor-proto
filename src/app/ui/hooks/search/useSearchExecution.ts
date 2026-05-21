@@ -1,5 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import {
+    // @ai -> MutableRefObject = deprecated warngin
     type MutableRefObject,
     type RefObject,
     useCallback,
@@ -30,6 +31,7 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import { useDebouncedCallback } from "@/app/ui/hooks/general/useDebouncedCallback.ts";
 import type {
     SearchMatch,
@@ -37,10 +39,6 @@ import type {
     SearchRunResult,
     SearchRunScope,
 } from "@/app/ui/hooks/search/searchTypes.ts";
-import {
-    clearHighlights,
-    highlightMatches,
-} from "@/app/ui/hooks/useSearchHighlighter.ts";
 import type { SearchQuery } from "@/core/domain/search/types.ts";
 
 type Params = {
@@ -49,6 +47,7 @@ type Params = {
     pickedChapter?: ScriptureChapterState;
     currentChapterSid: string;
     editorRef: RefObject<LexicalEditor | null>;
+    searchHighlightStore: SearchHighlightStore;
     collectMatchesInCurrentEditor: (
         activeSearchTerm: string,
         options: SearchRunOptionOverrides & {
@@ -83,6 +82,7 @@ type Params = {
  */
 function resetSearchUiState(args: {
     searchAbortController: MutableRefObject<AbortController | null>;
+    searchHighlightStore: SearchHighlightStore;
     setTargetResults: (value: SearchResult[]) => void;
     setReferenceResults: (value: SearchResult[]) => void;
     setCurrentMatches: (value: SearchMatch[]) => void;
@@ -93,7 +93,7 @@ function resetSearchUiState(args: {
     if (args.searchAbortController.current) {
         args.searchAbortController.current.abort();
     }
-    clearHighlights();
+    args.searchHighlightStore.clear();
     args.setTargetResults([]);
     args.setReferenceResults([]);
     args.setCurrentMatches([]);
@@ -115,6 +115,7 @@ export function useSearchExecution({
     pickedChapter,
     currentChapterSid,
     editorRef,
+    searchHighlightStore,
     collectMatchesInCurrentEditor,
     pick,
     currentMatchesControls,
@@ -247,10 +248,10 @@ export function useSearchExecution({
 
             if (signal.aborted) return null;
 
-            clearHighlights();
+            searchHighlightStore.clear();
 
             const targetFilesToSearch =
-                resolvedContentProvider.saveDirtyAndGetTargetFiles();
+                resolvedContentProvider.getTargetFiles();
             const targetChapterKeySet = listChapterKeys(targetFilesToSearch);
             const queryOptions: SearchQuery = {
                 term: query,
@@ -392,7 +393,9 @@ export function useSearchExecution({
                 currentMatchesControls.setPickedResult(null);
                 const editor = editorRef.current;
                 if (editor && !effectiveSearchReference) {
-                    highlightMatches(searchMatches, editor);
+                    searchHighlightStore.set([
+                        { editor, matches: searchMatches },
+                    ]);
                 }
                 setIsSearching(false);
                 return {
@@ -436,6 +439,7 @@ export function useSearchExecution({
             pickedFile.bookCode,
             referenceResults,
             resolvedContentProvider,
+            searchHighlightStore,
             searchReference,
             searchUSFM,
             targetResults,
@@ -453,6 +457,7 @@ export function useSearchExecution({
             if (!value.trim()) {
                 resetSearchUiState({
                     searchAbortController,
+                    searchHighlightStore,
                     setTargetResults,
                     setReferenceResults,
                     setCurrentMatches: currentMatchesControls.setCurrentMatches,
@@ -473,7 +478,7 @@ export function useSearchExecution({
 
             handleSearchDebounced(value);
         },
-        [currentMatchesControls, handleSearchDebounced],
+        [currentMatchesControls, handleSearchDebounced, searchHighlightStore],
     );
 
     const submitSearchNow = useCallback(() => {
@@ -481,6 +486,7 @@ export function useSearchExecution({
         if (!query) {
             resetSearchUiState({
                 searchAbortController,
+                searchHighlightStore,
                 setTargetResults,
                 setReferenceResults,
                 setCurrentMatches: currentMatchesControls.setCurrentMatches,
@@ -492,7 +498,12 @@ export function useSearchExecution({
             return;
         }
         void runSearchLogic(searchTerm);
-    }, [currentMatchesControls, runSearchLogic, searchTerm]);
+    }, [
+        currentMatchesControls,
+        runSearchLogic,
+        searchHighlightStore,
+        searchTerm,
+    ]);
 
     const rerunForCurrentChapter = useCallback(() => {
         if (!isSearchPaneOpen) return;

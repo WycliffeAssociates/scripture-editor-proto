@@ -1,12 +1,24 @@
+import { $dfsIterator } from "@lexical/utils";
 import { useLingui } from "@lingui/react/macro";
-import type {
-    EditorState,
-    LexicalEditor,
-    SerializedEditorState,
-    SerializedLexicalNode,
+import { Duration, Effect, Fiber } from "effect";
+import {
+    $createRangeSelection,
+    $getRoot,
+    $getSelection,
+    $isRangeSelection,
+    $setSelection,
+    type EditorState,
+    type LexicalEditor,
+    type NodeKey,
+    type SerializedEditorState,
+    type SerializedLexicalNode,
 } from "lexical";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import {
+    $isUSFMTextNode,
+    type USFMTextNode,
+} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
@@ -24,14 +36,15 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 
 type CaptureEditorUpdateArgs = {
     editorState: EditorState;
     prevEditorState: EditorState;
-    dirtyElements: Map<string, unknown>;
-    dirtyLeaves: Set<string>;
+    dirtyElements: Map<NodeKey, boolean>;
+    dirtyLeaves: Set<NodeKey>;
     tags: Set<string>;
 };
 
@@ -48,7 +61,7 @@ export type UndoRedoEvent = {
 };
 
 type UseCustomHistoryArgs = {
-    mutWorkingFilesRef: ScriptureBookState[];
+    workingFilesStore: WorkingFilesStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -64,10 +77,34 @@ type SerializedEditorStateLike =
     SerializedEditorState<SerializedLexicalNode> & {
         selection?: unknown | null;
     };
-type SerializedSelectionState = SerializedEditorStateLike["selection"];
+
+/**
+ * Selection state keyed by USFMTextNode `data-id` instead of by Lexical
+ * key. Lexical keys regenerate on every `parseEditorState`, so
+ * key-based selection serializations (what `editorState.toJSON().selection`
+ * produces) can't survive undo/redo replays. `data-id` is preserved
+ * across re-serialization, so a CapturedSelection always re-resolves
+ * if the anchor and focus nodes still exist in the target tree.
+ *
+ * Used everywhere in this hook in place of the legacy serialized
+ * selection: baseline tracking, recorded history entries (selectionBefore
+ * / selectionAfter), and the undo/redo replay restore path.
+ */
+type CapturedSelection = {
+    anchorId: string;
+    anchorOffset: number;
+    focusId: string;
+    focusOffset: number;
+};
+
+type ChapterCursor = CapturedSelection | null;
 
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_COALESCE_WINDOW_MS = 2500;
+// Long enough to land past Lexical's reconcile + flush of the replay's
+// queued tagged update; short enough that one-off undo feels immediate.
+// Tune down toward 30ms if a single undo feels laggy in practice.
+const POST_REPLAY_RESTORE_DELAY_MS = 50;
 
 function chapterKey(chapter: HistoryChapterRef) {
     return `${chapter.bookCode}:${chapter.chapterNum}`;
@@ -83,11 +120,119 @@ function dedupeChapterRefs(candidates: HistoryChapterRef[]) {
     });
 }
 
-function cloneSelection(
-    selection: SerializedSelectionState,
-): SerializedSelectionState {
-    if (selection === undefined || selection === null) return selection;
-    return structuredClone(selection);
+function cloneCursor(cursor: ChapterCursor): ChapterCursor {
+    return cursor ? { ...cursor } : null;
+}
+
+function findChapterRecordIn(
+    files: ScriptureBookState[],
+    chapterRef: HistoryChapterRef,
+): HistoryChapterRecord | null {
+    const file = files.find(
+        (candidate) => candidate.bookCode === chapterRef.bookCode,
+    );
+    if (!file) return null;
+    const chapter = file.chapters.find(
+        (candidate) => candidate.chapterNumber === chapterRef.chapterNum,
+    );
+    if (!chapter) return null;
+    return { file, chapter };
+}
+
+/**
+ * Walk up from the contenteditable to find the nearest scrolling ancestor.
+ * Used so undo/redo can snapshot + restore scroll position across an editor
+ * state swap.
+ */
+function findScrollAncestor(start: HTMLElement | null): HTMLElement | null {
+    let current: HTMLElement | null = start;
+    while (current) {
+        const cs = window.getComputedStyle(current);
+        const canScrollY =
+            /(auto|scroll|overlay)/.test(cs.overflowY) &&
+            current.scrollHeight > current.clientHeight;
+        if (canScrollY) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+/**
+ * Read the current Lexical selection (range selections only) and capture
+ * its anchor/focus by USFMTextNode `data-id`. Returns null when there's
+ * nothing to preserve (non-range selection, selection sits on a non-USFM
+ * node, or nodes lack ids). MUST be called from inside `editor.read` or
+ * `editor.update`.
+ */
+function $captureCurrentSelection(): CapturedSelection | null {
+    const sel = $getSelection();
+    if (!$isRangeSelection(sel)) return null;
+    const anchorNode = sel.anchor.getNode();
+    const focusNode = sel.focus.getNode();
+    if (!$isUSFMTextNode(anchorNode) || !$isUSFMTextNode(focusNode)) {
+        return null;
+    }
+    const anchorId = anchorNode.getId();
+    const focusId = focusNode.getId();
+    if (!anchorId || !focusId) return null;
+    return {
+        anchorId,
+        anchorOffset: sel.anchor.offset,
+        focusId,
+        focusOffset: sel.focus.offset,
+    };
+}
+
+/**
+ * Find USFMTextNodes in the current editor state by `data-id`. Single
+ * DFS walk, returns both anchor and focus nodes (which may be the same).
+ * MUST be called from inside `editor.read` or `editor.update`.
+ */
+function $findUsfmTextNodesById(
+    anchorId: string,
+    focusId: string,
+): { anchorNode: USFMTextNode | null; focusNode: USFMTextNode | null } {
+    let anchorNode: USFMTextNode | null = null;
+    let focusNode: USFMTextNode | null = null;
+    for (const dfsNode of $dfsIterator($getRoot())) {
+        const node = dfsNode.node;
+        if (!$isUSFMTextNode(node)) continue;
+        const id = node.getId();
+        if (anchorNode === null && id === anchorId) anchorNode = node;
+        if (focusNode === null && id === focusId) focusNode = node;
+        if (anchorNode && focusNode) break;
+    }
+    return { anchorNode, focusNode };
+}
+
+/**
+ * Restore selection by `data-id` after a state replay. If both anchor
+ * and focus nodes are found in the new tree, set a RangeSelection at the
+ * same (clamped) offsets. If either is missing (the change deleted the
+ * node the cursor was sitting on), leave the selection cleared. MUST be
+ * called from inside `editor.update`.
+ */
+function $restoreSelectionById(captured: CapturedSelection): boolean {
+    const { anchorNode, focusNode } = $findUsfmTextNodesById(
+        captured.anchorId,
+        captured.focusId,
+    );
+    if (!anchorNode || !focusNode) return false;
+    const sel = $createRangeSelection();
+    const anchorTextLen = anchorNode.getTextContentSize();
+    const focusTextLen = focusNode.getTextContentSize();
+    sel.anchor.set(
+        anchorNode.getKey(),
+        Math.min(captured.anchorOffset, anchorTextLen),
+        "text",
+    );
+    sel.focus.set(
+        focusNode.getKey(),
+        Math.min(captured.focusOffset, focusTextLen),
+        "text",
+    );
+    $setSelection(sel);
+    return true;
 }
 
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
@@ -101,7 +246,7 @@ export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
  * and reapplies snapshots back onto the working scripture noun.
  */
 export function useCustomHistory({
-    mutWorkingFilesRef,
+    workingFilesStore,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -115,11 +260,41 @@ export function useCustomHistory({
             coalesceWindowMs,
         }),
     );
+
+    // Post-undo/redo cursor + scroll restore is deferred so it lands after
+    // Lexical's reconcile flushes the queued tagged update from
+    // `setEditorContent`. A scheduled restore is held in a ref; back-to-back
+    // undo presses interrupt the in-flight fiber and reschedule, coalescing
+    // rapid replay into one restore.
+    const pendingRestoreRef = useRef<Fiber.Fiber<void> | null>(null);
+    const cancelPendingRestore = useCallback(() => {
+        const inflight = pendingRestoreRef.current;
+        if (inflight) Effect.runFork(Fiber.interrupt(inflight));
+        pendingRestoreRef.current = null;
+    }, []);
+    // Interrupt the in-flight restore when the visible chapter changes — a
+    // user who undoes and immediately navigates should not have the prior
+    // restore land in the new chapter's editor. The fiber's in-body guard
+    // is a second line of defense; this avoids the wait entirely. The
+    // chapter/editor deps are intentional — their identity change triggers
+    // cleanup → cancelPendingRestore. The effect body doesn't reference
+    // them directly; that's the point.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above.
+    useEffect(() => {
+        return () => {
+            cancelPendingRestore();
+        };
+    }, [
+        cancelPendingRestore,
+        currentFileBibleIdentifier,
+        currentChapter,
+        editorRef,
+    ]);
     const baselineByChapterRef = useRef(
         new Map<string, CanonicalChapterSnapshot>(),
     );
     const baselineSelectionByChapterRef = useRef(
-        new Map<string, SerializedSelectionState>(),
+        new Map<string, CapturedSelection>(),
     );
     const nextTypingLabelRef = useRef<{
         label: string;
@@ -135,19 +310,9 @@ export function useCustomHistory({
     }, []);
 
     const findChapterRecord = useCallback(
-        (chapterRef: HistoryChapterRef): HistoryChapterRecord | null => {
-            const file = mutWorkingFilesRef.find(
-                (candidate) => candidate.bookCode === chapterRef.bookCode,
-            );
-            if (!file) return null;
-            const chapter = file.chapters.find(
-                (candidate) =>
-                    candidate.chapterNumber === chapterRef.chapterNum,
-            );
-            if (!chapter) return null;
-            return { file, chapter };
-        },
-        [mutWorkingFilesRef],
+        (chapterRef: HistoryChapterRef): HistoryChapterRecord | null =>
+            findChapterRecordIn(workingFilesStore.read(), chapterRef),
+        [workingFilesStore],
     );
 
     const readSnapshotFromChapter = useCallback(
@@ -155,17 +320,6 @@ export function useCustomHistory({
             const record = findChapterRecord(chapterRef);
             if (!record) return null;
             return chapterStateToCanonicalSnapshot(record.chapter.lexicalState);
-        },
-        [findChapterRecord],
-    );
-
-    const readSelectionFromChapter = useCallback(
-        (chapterRef: HistoryChapterRef): SerializedSelectionState => {
-            const record = findChapterRecord(chapterRef);
-            if (!record) return undefined;
-            const state = record.chapter
-                .lexicalState as SerializedEditorStateLike;
-            return cloneSelection(state.selection);
         },
         [findChapterRecord],
     );
@@ -189,34 +343,24 @@ export function useCustomHistory({
     );
 
     const setBaselineSelection = useCallback(
-        (
-            chapterRef: HistoryChapterRef,
-            selection: SerializedSelectionState,
-        ) => {
+        (chapterRef: HistoryChapterRef, cursor: ChapterCursor) => {
             const key = chapterKey(chapterRef);
-            if (selection === undefined) {
+            if (cursor === null) {
                 baselineSelectionByChapterRef.current.delete(key);
                 return;
             }
-            baselineSelectionByChapterRef.current.set(
-                key,
-                cloneSelection(selection),
-            );
+            baselineSelectionByChapterRef.current.set(key, { ...cursor });
         },
         [],
     );
 
     const getBaselineSelection = useCallback(
-        (chapterRef: HistoryChapterRef): SerializedSelectionState => {
+        (chapterRef: HistoryChapterRef): ChapterCursor => {
             const key = chapterKey(chapterRef);
-            if (baselineSelectionByChapterRef.current.has(key)) {
-                return cloneSelection(
-                    baselineSelectionByChapterRef.current.get(key),
-                );
-            }
-            return readSelectionFromChapter(chapterRef);
+            const existing = baselineSelectionByChapterRef.current.get(key);
+            return existing ? cloneCursor(existing) : null;
         },
-        [readSelectionFromChapter],
+        [],
     );
 
     const markChapterDirty = useCallback(
@@ -225,17 +369,22 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
             });
             chapter.dirty =
-                chapter.currentTokens.map((token) => token.text).join("") !==
-                chapter.sourceTokens.map((token) => token.text).join("");
+                chapter.currentTokens.map((token) => token.source).join("") !==
+                chapter.sourceTokens.map((token) => token.source).join("");
         },
         [currentFileBibleIdentifier],
     );
 
+    // Undo/redo replay swaps chapter content; this hook then restores
+    // focus, cursor (by USFMTextNode `data-id`, which survives
+    // `parseEditorState`), and scroll position. The restore is deferred so
+    // it lands after Lexical reconciles the queued tagged update from
+    // `setEditorContent` — running focus/selection synchronously fights
+    // reconcile and loses the contenteditable. Historical cursor wins;
+    // current cursor in the old tree is a fallback when the historical
+    // anchor's data-id no longer exists.
     const refreshVisibleEditorIfTouched = useCallback(
-        (
-            touched: Set<string>,
-            selectionOverride?: SerializedSelectionState,
-        ) => {
+        (touched: Set<string>, historicalCursor: ChapterCursor) => {
             const currentRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -245,13 +394,89 @@ export function useCustomHistory({
             if (!editor) return;
             const currentRecord = findChapterRecord(currentRef);
             if (!currentRecord) return;
+
+            const scrollAncestor = findScrollAncestor(editor.getRootElement());
+            const savedScrollTop = scrollAncestor?.scrollTop ?? null;
+
+            const liveCursor: ChapterCursor = editor
+                .getEditorState()
+                .read($captureCurrentSelection);
+
+            const rootEl = editor.getRootElement();
+            const editorHadFocus =
+                rootEl !== null &&
+                (rootEl === document.activeElement ||
+                    rootEl.contains(document.activeElement));
+
             setEditorContent(
                 editor,
                 currentRef.bookCode,
                 currentRef.chapterNum,
                 currentRecord.chapter,
-                mutWorkingFilesRef,
-                selectionOverride,
+                workingFilesStore,
+            );
+
+            // Cancel any in-flight restore; the newest replay supersedes.
+            // Coalesces rapid Cmd-Z bursts into one restore. Sleep duration
+            // lets reconcile flush before we touch focus/selection.
+            cancelPendingRestore();
+
+            // Snapshot the visible chapter so the deferred body can verify
+            // the user hasn't navigated away during the 50ms wait. The
+            // chapter-change `useEffect` interrupts in that case too, but
+            // this guard covers paths that don't trigger React updates.
+            const restoreTargetRef = {
+                bookCode: currentRef.bookCode,
+                chapterNum: currentRef.chapterNum,
+            };
+
+            // Order inside the restore matters: focus first (contenteditable
+            // owns selection target), set selection (Lexical syncs DOM
+            // selection into the focused host), then restore scroll last so
+            // focus/selection can't re-trigger a scrollIntoView that fights
+            // us.
+            const restore = Effect.sync(() => {
+                // Bail if the user navigated, the editor was swapped, or
+                // the visible chapter changed before the sleep elapsed.
+                if (editorRef.current !== editor) {
+                    pendingRestoreRef.current = null;
+                    return;
+                }
+                if (
+                    restoreTargetRef.bookCode !== currentFileBibleIdentifier ||
+                    restoreTargetRef.chapterNum !== currentChapter
+                ) {
+                    pendingRestoreRef.current = null;
+                    return;
+                }
+                if (editorHadFocus) {
+                    editor.focus(undefined, { defaultSelection: "rootStart" });
+                }
+                const targets: ChapterCursor[] = [];
+                if (historicalCursor) targets.push(historicalCursor);
+                if (liveCursor) targets.push(liveCursor);
+                if (targets.length > 0) {
+                    editor.update(
+                        () => {
+                            for (const target of targets) {
+                                if (target && $restoreSelectionById(target)) {
+                                    return;
+                                }
+                            }
+                        },
+                        { tag: EDITOR_TAGS_USED.programaticIgnore },
+                    );
+                }
+                if (scrollAncestor && savedScrollTop !== null) {
+                    scrollAncestor.scrollTop = savedScrollTop;
+                }
+                pendingRestoreRef.current = null;
+            });
+
+            pendingRestoreRef.current = Effect.runFork(
+                Effect.sleep(
+                    Duration.millis(POST_REPLAY_RESTORE_DELAY_MS),
+                ).pipe(Effect.andThen(restore)),
             );
         },
         [
@@ -259,19 +484,16 @@ export function useCustomHistory({
             currentChapter,
             editorRef,
             findChapterRecord,
-            mutWorkingFilesRef,
+            workingFilesStore,
+            cancelPendingRestore,
         ],
     );
 
-    const getCurrentEditorSelection =
-        useCallback((): SerializedSelectionState => {
-            const editor = editorRef.current;
-            if (!editor) return undefined;
-            const state = editor
-                .getEditorState()
-                .toJSON() as SerializedEditorStateLike;
-            return cloneSelection(state.selection);
-        }, [editorRef]);
+    const getCurrentEditorSelection = useCallback((): ChapterCursor => {
+        const editor = editorRef.current;
+        if (!editor) return null;
+        return editor.getEditorState().read($captureCurrentSelection);
+    }, [editorRef]);
 
     const captureEditorSelection = useCallback(
         (editorState: EditorState) => {
@@ -279,9 +501,10 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
-            const serializedState =
-                editorState.toJSON() as SerializedEditorStateLike;
-            setBaselineSelection(chapterRef, serializedState.selection);
+            setBaselineSelection(
+                chapterRef,
+                editorState.read($captureCurrentSelection),
+            );
         },
         [currentFileBibleIdentifier, currentChapter, setBaselineSelection],
     );
@@ -322,17 +545,28 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
-            let currentChapterSelectionOverride: SerializedSelectionState;
+            // Historical cursor for the visible chapter (if any of the
+            // changes touch it). Used by refreshVisibleEditorIfTouched as
+            // the primary restore target — for typing entries, this is
+            // the cursor at the moment typing started (undo) or ended
+            // (redo), matching what the user expects.
+            let historicalCursorForVisible: ChapterCursor = null;
 
+            const draft = workingFilesStore.draftWithChapters(
+                chapterChanges.map((c) => c.chapter),
+            );
+
+            let draftMutated = false;
             for (const change of chapterChanges) {
-                const record = findChapterRecord(change.chapter);
+                const record = findChapterRecordIn(draft, change.chapter);
                 if (!record) continue;
                 const targetSnapshot =
                     direction === "before" ? change.before : change.after;
-                const targetSelection =
+                const targetSelection = (
                     direction === "before"
                         ? change.selectionBefore
-                        : change.selectionAfter;
+                        : change.selectionAfter
+                ) as ChapterCursor | undefined;
                 const targetMode = inferChapterModeFromState(
                     record.chapter.lexicalState,
                 );
@@ -342,23 +576,35 @@ export function useCustomHistory({
                     targetMode,
                 });
                 markChapterDirty(record.chapter);
+
                 setBaselineSnapshot(change.chapter, targetSnapshot);
-                setBaselineSelection(
-                    change.chapter,
-                    targetSelection as SerializedSelectionState,
-                );
+                setBaselineSelection(change.chapter, targetSelection ?? null);
+                if (
+                    chapterKey(change.chapter) === chapterKey(currentRef) &&
+                    targetSelection
+                ) {
+                    historicalCursorForVisible = targetSelection;
+                }
                 touchedChapters.add(chapterKey(change.chapter));
                 touchedChapterRefs.push(change.chapter);
-                if (chapterKey(change.chapter) === chapterKey(currentRef)) {
-                    currentChapterSelectionOverride =
-                        targetSelection as SerializedSelectionState;
-                }
+                draftMutated = true;
+            }
+
+            if (draftMutated) {
+                workingFilesStore.commit(
+                    { kind: "bulk", files: draft },
+                    {
+                        kind: action,
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                );
             }
 
             if (touchedChapters.size) {
                 refreshVisibleEditorIfTouched(
                     touchedChapters,
-                    currentChapterSelectionOverride,
+                    historicalCursorForVisible,
                 );
                 const notificationTarget = getUndoRedoNotificationTarget({
                     currentChapter: currentRef,
@@ -403,6 +649,7 @@ export function useCustomHistory({
         [
             currentFileBibleIdentifier,
             currentChapter,
+            workingFilesStore,
             findChapterRecord,
             markChapterDirty,
             setBaselineSnapshot,
@@ -417,7 +664,7 @@ export function useCustomHistory({
     const captureEditorUpdate = useCallback(
         ({
             editorState,
-            prevEditorState: _prevEditorState,
+            prevEditorState,
             dirtyElements,
             dirtyLeaves,
             tags,
@@ -426,13 +673,33 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
             };
-            const serializedState =
-                editorState.toJSON() as SerializedEditorStateLike;
-            const nextSelection = cloneSelection(serializedState.selection);
+
+            // Selection-only commit: cheap path. Fires on every cursor
+            // move (arrow keys, clicks, focus changes), so the cost has
+            // to be O(selection-size), not O(tree-size). $captureCurrentSelection
+            // reads the live $getSelection and returns a data-id-keyed
+            // snapshot — no full toJSON walk.
             if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
-                setBaselineSelection(chapterRef, nextSelection);
+                setBaselineSelection(
+                    chapterRef,
+                    editorState.read($captureCurrentSelection),
+                );
                 return;
             }
+
+            // Content-changing commit. Capture the data-id-keyed cursor
+            // BEFORE and AFTER the change: nextSelection from the new
+            // state is "where the cursor is now," prevSelection from the
+            // prior state is "where the cursor was right before this
+            // edit." prevSelection is what undo wants — landing at the
+            // start of the just-undone change instead of clamping the
+            // post-change offset into the now-shorter text.
+            const nextSelection = editorState.read($captureCurrentSelection);
+            const prevSelection = prevEditorState.read(
+                $captureCurrentSelection,
+            );
+            const serializedState =
+                editorState.toJSON() as SerializedEditorStateLike;
             const nextSnapshot =
                 chapterStateToCanonicalSnapshot(serializedState);
 
@@ -474,6 +741,14 @@ export function useCustomHistory({
             const queuedTypingLabel = nextTypingLabelRef.current;
             const label = queuedTypingLabel?.label ?? t`Edit`;
             nextTypingLabelRef.current = null;
+            // selectionBefore on a NEW typing entry = where the cursor was
+            // right before this edit (prevSelection). When this entry is
+            // merged with subsequent typing in the same coalesce window,
+            // HistoryManager keeps the original selectionBefore and only
+            // updates selectionAfter — so the entry's selectionBefore
+            // stays pinned to "where the user started typing this run."
+            // Fall back to the baseline (last known cursor) if prev wasn't
+            // readable.
             managerRef.current.recordTypingChange({
                 label,
                 forceNewEntry: queuedTypingLabel?.forceNewEntry,
@@ -481,7 +756,7 @@ export function useCustomHistory({
                     chapter: chapterRef,
                     before: beforeSnapshot,
                     after: nextSnapshot,
-                    selectionBefore: nextSelection ?? beforeSelection,
+                    selectionBefore: prevSelection ?? beforeSelection,
                     selectionAfter: nextSelection,
                 },
             });
@@ -509,10 +784,7 @@ export function useCustomHistory({
         }: TransactionArgs<T>): Promise<T> => {
             const uniqueCandidates = dedupeChapterRefs(candidates);
             const beforeByChapter = new Map<string, CanonicalChapterSnapshot>();
-            const beforeSelectionByChapter = new Map<
-                string,
-                SerializedSelectionState
-            >();
+            const beforeSelectionByChapter = new Map<string, ChapterCursor>();
             const currentRef: HistoryChapterRef = {
                 bookCode: currentFileBibleIdentifier,
                 chapterNum: currentChapter,
@@ -542,10 +814,10 @@ export function useCustomHistory({
                     if (!before || !after) return null;
                     if (chapterSnapshotsAreEqual(before, after)) return null;
                     setBaselineSnapshot(chapterRef, after);
-                    const selectionAfter =
+                    const selectionAfter: ChapterCursor =
                         key === chapterKey(currentRef)
                             ? getCurrentEditorSelection()
-                            : undefined;
+                            : null;
                     if (key === chapterKey(currentRef)) {
                         setBaselineSelection(chapterRef, selectionAfter);
                     }
@@ -553,7 +825,8 @@ export function useCustomHistory({
                         chapter: chapterRef,
                         before,
                         after,
-                        selectionBefore: beforeSelectionByChapter.get(key),
+                        selectionBefore:
+                            beforeSelectionByChapter.get(key) ?? null,
                         selectionAfter,
                     };
                 })

@@ -10,6 +10,7 @@ import {
     ClipboardPaste,
     Copy,
     Hash,
+    Loader2,
     MessageSquare,
     Pilcrow,
     Quote,
@@ -19,7 +20,9 @@ import {
     Search,
     Undo2,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import { createPortal } from "react-dom";
+import { TESTING_IDS } from "@/app/data/constants.ts";
 import { insertUsfmMarkerAtCursor } from "@/app/domain/editor/utils/insertUsfmMarkerAtCursor.ts";
 import {
     isUsfmLikePaste,
@@ -28,10 +31,16 @@ import {
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
 import { LintIssuesPopover } from "@/app/ui/components/blocks/LintIssuesPopover.tsx";
+import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
+import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
+import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
+import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
+import * as dialogStyles from "@/app/ui/styles/modules/ProjectRow.css.ts";
+import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
@@ -51,11 +60,11 @@ function joinClassNames(...classNames: Array<string | undefined>) {
 type EditorToolbarProps = {
     isReferencePaneOpen: boolean;
     onToggleReferencePane: () => void;
-    onOpenVersionsDock: () => void;
     isSearchPaneOpen?: boolean;
     onToggleSearchPane?: () => void;
 };
 
+// @AI -> This is probably rye for decomposition. There's a mixture of state, a good number of dependent and dependency injection of the workspace context. especially the stuff like handle cut, handle copy, handle paste. Just kind of distracts from seeing the return body and feels like a lot of logic before and most of these functions feel like we could probably, you know, extract some of this out, move some of it to some other spots potentially. I'm open to your suggestions on it ON HOW YOU'D DEOMCPOSE HERE.
 export function EditorToolbar(props: EditorToolbarProps) {
     const { t } = useLingui();
     const {
@@ -64,6 +73,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         history,
         remote,
         project,
+        referenceResource,
         projectLanguageDirection,
         bookCodeToProjectLocalizedTitle,
     } = useWorkspaceContext();
@@ -167,8 +177,37 @@ export function EditorToolbar(props: EditorToolbarProps) {
         await navigator.clipboard.writeText(json);
     };
 
-    const handleOpenPreviousVersions = () => {
-        props.onOpenVersionsDock();
+    const [pickReferenceDialogOpen, setPickReferenceDialogOpen] =
+        useState(false);
+    const handleMatchFormattingToSource = async () => {
+        if (!referenceResource.activeReferenceResourcePath) {
+            setPickReferenceDialogOpen(true);
+            return;
+        }
+        if (!referenceResource.referenceChapter) {
+            ShowNotificationInfo({
+                notification: {
+                    title: t`Reference is loading`,
+                    message: t`Try matching formatting again once the reference chapter is visible.`,
+                },
+            });
+            return;
+        }
+        await actions.matchFormattingChapter();
+    };
+    const dialogReferenceReady =
+        Boolean(referenceResource.activeReferenceResourcePath) &&
+        Boolean(referenceResource.referenceChapter);
+    const dialogReferenceLoading =
+        Boolean(referenceResource.activeReferenceResourcePath) &&
+        !referenceResource.referenceChapter;
+    const handleConfirmMatchFormatting = async () => {
+        if (!dialogReferenceReady) return;
+        setPickReferenceDialogOpen(false);
+        if (!props.isReferencePaneOpen) {
+            props.onToggleReferencePane();
+        }
+        await actions.matchFormattingChapter();
     };
 
     const handleOpenSaveReview = () => {
@@ -214,10 +253,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         aria-hidden="true"
                     />
 
-                    <div className={styles.currentLocation}>
+                    <div
+                        className={styles.currentLocation}
+                        data-testid={TESTING_IDS.currentLocation}
+                    >
                         <span className={styles.currentLocationBook}>
                             {currentBookLabel}
                         </span>
+                        <span>{project.pickedChapter?.chapterNumber}</span>
                     </div>
 
                     <div
@@ -339,9 +382,12 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isSearchPaneOpen}
                             icon={<Search size={16} />}
                         />
+                        <VersionsPopover />
                         <ToolbarOverflowMenu
                             onCopyEditorJson={() => void handleCopyEditorJson()}
-                            onOpenVersions={handleOpenPreviousVersions}
+                            onMatchFormattingToSource={
+                                handleMatchFormattingToSource
+                            }
                         />
                         <CloudStatusPopover
                             buttonState={cloudStatus.state}
@@ -352,6 +398,64 @@ export function EditorToolbar(props: EditorToolbarProps) {
                     </div>
                 </div>
             </div>
+            {pickReferenceDialogOpen && typeof document !== "undefined"
+                ? createPortal(
+                      // biome-ignore lint/a11y/noStaticElementInteractions: dialog overlay
+                      <div
+                          className={dialogStyles.dialogOverlay}
+                          onMouseDown={() => setPickReferenceDialogOpen(false)}
+                      >
+                          <div
+                              className={dialogStyles.dialog}
+                              role="alertdialog"
+                              aria-modal="true"
+                              onMouseDown={(event) => event.stopPropagation()}
+                          >
+                              <h3
+                                  className={dialogStyles.dialogTitle}
+                              >{t`Pick a reference text`}</h3>
+                              <p className={dialogStyles.dialogBody}>
+                                  {t`Choose a scripture reference before matching formatting.`}
+                                  <span className={dialogStyles.dialogHint}>
+                                      {t`Match formatting can replace paragraph and poetry markers in the current chapter.`}
+                                  </span>
+                              </p>
+                              <ReferencePicker />
+                              <div className={dialogStyles.dialogActions}>
+                                  <Button
+                                      variant="secondary"
+                                      onClick={() =>
+                                          setPickReferenceDialogOpen(false)
+                                      }
+                                  >
+                                      {t`Cancel`}
+                                  </Button>
+                                  <Button
+                                      variant="primary"
+                                      onClick={handleConfirmMatchFormatting}
+                                      disabled={!dialogReferenceReady}
+                                  >
+                                      <span
+                                          className={styles.dialogButtonContent}
+                                      >
+                                          {dialogReferenceLoading ? (
+                                              <span
+                                                  className={
+                                                      styles.dialogSpinner
+                                                  }
+                                              >
+                                                  <Loader2 size={14} />
+                                              </span>
+                                          ) : null}
+                                          {t`Match formatting`}
+                                      </span>
+                                  </Button>
+                              </div>
+                          </div>
+                      </div>,
+                      document.body,
+                  )
+                : null}
         </div>
     );
 }
@@ -474,7 +578,12 @@ function ToolbarTooltipButton(props: {
                 }
             />
             <Tooltip.Portal>
-                <Tooltip.Positioner side="top" align="center">
+                <Tooltip.Positioner
+                    side="top"
+                    align="center"
+                    sideOffset={6}
+                    style={{ zIndex: zLayer.toolbarTooltip }}
+                >
                     <Tooltip.Popup className={styles.tooltipPopup}>
                         {props.label}
                     </Tooltip.Popup>

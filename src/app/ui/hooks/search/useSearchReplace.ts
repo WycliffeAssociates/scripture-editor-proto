@@ -1,33 +1,33 @@
-import type { LexicalEditor, LexicalNode } from "lexical";
+import type { LexicalEditor } from "lexical";
 import { type RefObject, useCallback, useState } from "react";
 import { $isUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { SearchResult } from "@/app/domain/search/SearchService.ts";
-import { replaceMatchesInText } from "@/app/domain/search/search.utils.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type {
     SearchMatch,
     SearchRunResult,
 } from "@/app/ui/hooks/search/searchTypes.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import {
-    highlightMatches,
     type MatchInNode,
+    scrollToActiveMatchInEditor,
 } from "@/app/ui/hooks/useSearchHighlighter.ts";
 import { replaceInNodeText } from "@/core/domain/search/replaceEngine.ts";
 
 type Params = {
     history: CustomHistoryHook;
     editorRef: RefObject<LexicalEditor | null>;
+    searchHighlightStore: SearchHighlightStore;
     searchReference: boolean;
     pickedResult: SearchResult | null;
     currentMatches: SearchMatch[];
     currentMatchIndex: number;
     setCurrentMatchIndex: (value: number) => void;
     setPickedResult: (value: SearchResult | null) => void;
-    setCurrentMatches: (value: SearchMatch[]) => void;
     searchTerm: string;
     runSearchLogic: (
         query: string,
@@ -46,8 +46,6 @@ type Params = {
     matchWholeWord: boolean;
     pickedFile: ScriptureBookState;
     pickedChapter?: ScriptureChapterState;
-    setTargetResults: (value: SearchResult[]) => void;
-    setReferenceResults: (value: SearchResult[]) => void;
     preparePickedResult: (
         result: SearchResult,
         args: {
@@ -72,21 +70,19 @@ type Params = {
 export function useSearchReplace({
     history,
     editorRef,
+    searchHighlightStore,
     searchReference,
     pickedResult,
     currentMatches,
     currentMatchIndex,
     setCurrentMatchIndex,
     setPickedResult,
-    setCurrentMatches,
     searchTerm,
     runSearchLogic,
     matchCase,
     matchWholeWord,
     pickedFile,
     pickedChapter,
-    setTargetResults,
-    setReferenceResults,
     preparePickedResult,
 }: Params) {
     const [replaceTerm, setReplaceTerm] = useState<string>("");
@@ -156,11 +152,14 @@ export function useSearchReplace({
             setCurrentMatchIndex(nextIndex);
 
             if (editorRef.current) {
-                highlightMatches(
-                    searchMatches,
-                    editorRef.current,
-                    nextActiveMatch,
-                );
+                searchHighlightStore.set([
+                    {
+                        editor: editorRef.current,
+                        matches: searchMatches,
+                        activeMatch: nextActiveMatch,
+                    },
+                ]);
+                scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
             }
 
             const nextResult = sortedResults.find(
@@ -184,6 +183,7 @@ export function useSearchReplace({
             pickedResult?.source,
             replaceTerm,
             runSearchLogic,
+            searchHighlightStore,
             searchReference,
             searchTerm,
             setCurrentMatchIndex,
@@ -243,7 +243,14 @@ export function useSearchReplace({
         setCurrentMatchIndex(nextIndex);
 
         if (editorRef.current) {
-            highlightMatches(searchMatches, editorRef.current, nextActiveMatch);
+            searchHighlightStore.set([
+                {
+                    editor: editorRef.current,
+                    matches: searchMatches,
+                    activeMatch: nextActiveMatch,
+                },
+            ]);
+            scrollToActiveMatchInEditor(editorRef.current, nextActiveMatch);
         }
 
         const nextResult = sortedResults.find(
@@ -265,86 +272,11 @@ export function useSearchReplace({
         pickedResult,
         replaceTerm,
         runSearchLogic,
+        searchHighlightStore,
         searchReference,
         searchTerm,
         setCurrentMatchIndex,
         setPickedResult,
-    ]);
-
-    const replaceAllInChapter = useCallback(async () => {
-        if (searchReference) return;
-        if (!pickedResult || !replaceTerm) return;
-        if (pickedResult.source === "reference") return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        history.setNextTypingLabel(
-            `Replace All (${pickedResult.bibleIdentifier} ${pickedResult.chapNum})`,
-        );
-        editor.update(
-            () => {
-                const uniqueNodes = currentMatches.reduce(
-                    (
-                        acc: { seen: Set<string>; nodes: LexicalNode[] },
-                        curr,
-                    ) => {
-                        const nodeId = curr.node.getKey();
-                        if (!acc.seen.has(nodeId)) {
-                            acc.seen.add(nodeId);
-                            acc.nodes.push(curr.node);
-                        }
-                        return acc;
-                    },
-                    {
-                        seen: new Set<string>(),
-                        nodes: [] as LexicalNode[],
-                    },
-                );
-
-                uniqueNodes.nodes.forEach((node: LexicalNode) => {
-                    if (!$isUSFMTextNode(node)) return;
-                    const text = node.getTextContent();
-                    const newText = replaceMatchesInText({
-                        text,
-                        searchTerm,
-                        replaceTerm,
-                        matchCase,
-                        matchWholeWord,
-                    });
-                    node.setTextContent(newText);
-                });
-            },
-            { discrete: true },
-        );
-
-        if (searchTerm.trim()) {
-            await runSearchLogic(searchTerm, {
-                autoPick: false,
-                scope: "currentChapter",
-            });
-        } else {
-            setTargetResults([]);
-            setReferenceResults([]);
-            setCurrentMatches([]);
-            setCurrentMatchIndex(0);
-            setPickedResult(null);
-        }
-    }, [
-        currentMatches,
-        editorRef,
-        history,
-        matchCase,
-        matchWholeWord,
-        pickedResult,
-        replaceTerm,
-        runSearchLogic,
-        searchReference,
-        searchTerm,
-        setCurrentMatches,
-        setCurrentMatchIndex,
-        setPickedResult,
-        setReferenceResults,
-        setTargetResults,
     ]);
 
     const replaceSearchResult = useCallback(
@@ -431,7 +363,6 @@ export function useSearchReplace({
         setReplaceTerm,
         replaceMatch,
         replaceCurrentMatch,
-        replaceAllInChapter,
         replaceSearchResult,
     };
 }

@@ -1,4 +1,4 @@
-# Dovetail Tech Stack
+# Zephyr Tech Stack
 
 ## Platform Targets
 - Desktop: Rust/Tauri with native file system access.
@@ -74,6 +74,36 @@ Current model (with planned rework): editor modes operate over flat token stream
   - Presentation, editor interaction, mode toggles, lint display, and user workflows.
   - Must consume abstractions above rather than redefining parsing semantics.
 
+### 5) Workspace State: Push-Based Store + Effect Pipelines
+Live workspace state (loaded chapters, dirty flags, lint, save status, layout
+ticks, search highlights) is held in a small set of stores under
+`src/app/state/`. Mutations flow through a single seam — every Lexical
+update and every programmatic edit results in one `CommitEvent` published
+by `WorkingFilesStore`. Subscribers react on two channels:
+
+- React reads via `useSyncExternalStore(store.subscribe, store.getSnapshot)`
+  for components that just need the current value (e.g. `hasUnsavedChanges`).
+- Effect-side `Stream<CommitEvent>` for pipelines that need debouncing,
+  cancellation, or async work (lint, save-status, structure-maintenance,
+  overlay-tick).
+
+Programmatic mutations use Copy-on-Write drafting via
+`workingFilesStore.draftWithChapters(refs)` — touched chapters become
+shallow copies, every other chapter still aliases the store. Callers mutate
+the draft synchronously, then `commit({ kind: "bulk", files: draft }, …)`.
+This replaces the legacy `structuredClone` rollback baseline (~1.5 s per
+project on Psalm 119) and keeps React memoization quiet on untouched paths.
+
+Effect is opt-in per-pipeline today: pipelines are forked individually in
+`WorkspaceContext` and there is no app-wide service container yet. We
+adopted PubSub + scheduling first because that's what the editor pipelines
+needed; broader Effect integration (`Context.Tag`, `Layer`,
+`Effect.Service`, `Ref`) is a reasonable next step but was out of scope
+for this refactor.
+
+See `product-docs/specs/state-architecture.md` and
+`product-docs/specs/editor-data-flow.md` for the full contract.
+
 ## Editor Stack (USFM)
 - Editor engine: Lexical.
 - Custom Lexical nodes:
@@ -86,13 +116,25 @@ Current model (with planned rework): editor modes operate over flat token stream
 - Large chapter performance requires careful optimization of Lexical listeners.
 
 ## UI and Styling
-- Mantine v7: UI primitives (modals, buttons, inputs, etc.).
+- Base UI (`@base-ui/react`): unstyled headless primitives (Combobox, Select, Tabs, Toast, ScrollArea, etc.). We wrap these in app-local primitives under `src/app/ui/components/primitives/` so the rest of the app talks to project-shaped components.
 - Vanilla Extract: Primary custom styling approach (`*.css.ts`, static CSS generation, type-safe theming).
-- No Tailwind: Layout and styling should be implemented via Vanilla Extract (and Mantine primitives) for consistency and maintainability.
+- No Tailwind: Layout and styling should be implemented via Vanilla Extract (and Base UI primitives) for consistency and maintainability.
 
 ### Styling Constraints
 - Prefer component-adjacent `*.css.ts` styles.
 - Avoid runtime CSS-in-JS approaches (for example, Emotion, Styled Components) to reduce editor runtime overhead.
+
+## Concurrency / Effects
+- `effect` (the Effect-TS library) is used for the per-pipeline async
+  primitives only: `Stream`, `PubSub`, `Deferred`, `Fiber`, `Duration`.
+- Pipelines are forked once in `WorkspaceContext` via `Effect.runFork`
+  and interrupted on cleanup.
+- We have not yet adopted the Effect service / `Layer` / `Context.Tag`
+  model — the current scope was PubSub + scheduling for the editor
+  pipelines, and broader DI was a larger refactor we didn't take on
+  here. New flows should reach for plain TypeScript first; escalate to
+  Effect when interruption, debouncing, or async coordination are the
+  actual problem. Deeper Effect integration is open, not ruled out.
 
 ## Local Data and Persistence
 - Source of truth: USFM files on disk.
@@ -106,3 +148,8 @@ Current model (with planned rework): editor modes operate over flat token stream
 ### Data Integrity Constraints
 - Keep IndexedDB metadata in sync with file system state.
 - Run startup reconciliation/sanity checks to repair drift when needed.
+
+## Release Pipeline & Auto-Updater
+Two release channels (Stable from `v*` tags, Nightly from every push to `master`) flow through a single channel-aware workflow. Desktop builds are signed with a Tauri minisign keypair so the in-app updater can verify them; a Cloudflare Worker serves the updater manifest by reading GitHub Releases at request time.
+
+See `product-docs/specs/release-pipeline.md` for the full topology, workflow shapes, manifest format, signing, and how Settings → Advanced exposes the manual switch flow.
