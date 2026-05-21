@@ -116,7 +116,6 @@ export function MainEditor() {
                 <USFMPlugin />
                 <UsfmStylesPlugin />
                 <NodeContextMenuPlugin />
-                {/* <StructuralEmptyMarkerChipsPlugin /> */}
                 <UsfmPeekOverlayPlugin />
                 <HighlightSink />
                 <WorkingFilesBridgePlugin />

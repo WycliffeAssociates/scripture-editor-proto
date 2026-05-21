@@ -9,7 +9,7 @@
     "!src/tauri/rust/**",
     "!src/app/ui/i18n/locales/**"
   ],
-  "ignoreDependencies": ["wrangler", "buffer"],
+  "ignoreDependencies": ["buffer"],
   "tanstack-router": {
     "entry": ["src/app/generated/routeTree.gen.ts"]
   },

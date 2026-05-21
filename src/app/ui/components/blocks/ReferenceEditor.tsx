@@ -282,8 +282,6 @@ function ScriptureReferencePane() {
                             ErrorBoundary={LexicalErrorBoundary}
                         />
                     </div>
-                    {/* TODO: GET RID OF I THINK. CONFUSING AND OBTUSE VIEW OF HIDDNE MARKUP */}
-                    {/* <StructuralEmptyMarkerChipsPlugin /> */}
                     <UsfmStylesPlugin />
                 </LexicalComposer>
             </div>
