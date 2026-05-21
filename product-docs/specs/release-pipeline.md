@@ -69,11 +69,10 @@ Quality gates (typecheck/knip/unit/Playwright) live in `verify.yml` and only run
 
 Stable's `app_version` is the tag minus the leading `v` (release-please bumps `package.json`, `Cargo.toml`, and `tauri.conf.json` together inside the Release PR, so the in-tree value already matches).
 
-Nightly's `app_version` is `<base>-<YYYYMMDD>.<github.run_number>.sha<sha7>`, e.g. `0.1.4-20260521.42.shaabc1234`. Three dot-separated pre-release identifiers give the Tauri updater plugin's semver comparator a monotonic ordering:
+Nightly's `app_version` is `<base>-<github.run_number>.<YYYYMMDD>-sha<sha7>`, e.g. `0.1.4-42.20260521-shaabc1234`. Two pre-release identifiers, ordered for MSI compatibility:
 
-1. `YYYYMMDD` — numeric, monotonic per day.
-2. `github.run_number` — numeric, monotonic per `release.yml` dispatch.
-3. `sha<sha7>` — alphanumeric tail. The `sha` prefix avoids the semver-invalid case of an all-digit short SHA being parsed as a numeric identifier with a leading zero.
+1. `github.run_number` — numeric, monotonic per `release.yml` dispatch. Tauri's MSI bundler uses the first numeric pre-release identifier as the 16-bit MSI revision field (max 65535); `run_number` is a small integer that fits forever. Putting `YYYYMMDD` first would break MSI bundling because the date exceeds 65535.
+2. `<YYYYMMDD>-sha<sha7>` — alphanumeric tail, ignored by MSI. Kept for human readability and as a semver tiebreaker (alphanumeric identifiers ASCII-compared).
 
 `scripts/patchAppVersion.mjs` rewrites `package.json`, `Cargo.toml` (preserving the `# x-release-please-version` marker comment), and `tauri.conf.json` to that value before each build job's frontend/Tauri compile. Without this, every Nightly between two Stable releases would carry the same Cargo.toml version and the updater plugin's `gt` check would never offer an update.
 
