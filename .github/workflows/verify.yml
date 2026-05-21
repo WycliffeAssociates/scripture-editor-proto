@@ -104,14 +104,11 @@ jobs:
         # Three shards across runners. Playwright distributes test files
         # deterministically by `--shard N/3` so retries hit the same shard.
         shard: [1, 2, 3]
-    env:
-      VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
-      VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
-      VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
-      VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
-      VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
-      VITE_VERSION_TAG: ${{ github.ref_name }}
-      VITE_GITHUB_SHA: ${{ github.sha }}
+    # Deliberately no VITE_* env vars here. The old standalone playwright.yml
+    # ran a bare web build with everything undefined and that's the proven
+    # baseline; injecting real Gitea / language-API hosts can cause the app
+    # to hang on init network calls inside the CI sandbox where those hosts
+    # are unreachable, leaving every test failing on a blank page.
     steps:
       - uses: actions/checkout@v4
 
