@@ -19,14 +19,13 @@
  *
  * Versioning notes:
  *   - Stable manifests carry stripped semver, e.g. "0.1.5" (not "v0.1.5").
- *   - Nightly manifests carry "<base>-<YYYYMMDD>.<run_number>.sha<sha7>",
- *     e.g. "0.1.4-20260521.42.shaabc1234". Three dot-separated pre-release
- *     identifiers give a monotonic ordering: date (numeric per day),
- *     github.run_number (numeric, monotonic per release.yml dispatch),
- *     and a short SHA prefixed with "sha" so it's always parsed as
- *     alphanumeric (a raw 7-char hex SHA could be all digits with a leading
- *     zero, which is invalid as a numeric semver identifier). release.yml
- *     bakes the same string into the binary so the client's reported
+ *   - Nightly manifests carry "<base>-<run_number>.<YYYYMMDD>-sha<sha7>",
+ *     e.g. "0.1.4-42.20260521-shaabc1234". Two pre-release identifiers,
+ *     ordered for MSI compatibility: run_number first (numeric, monotonic
+ *     per release.yml dispatch, fits MSI's 16-bit version revision field),
+ *     then date+sha as an alphanumeric tail (ignored by MSI but kept for
+ *     human readability and as a semver tiebreaker). release.yml bakes
+ *     the same string into the binary so the client's reported
  *     `current_version` is in the same form.
  *   - isNewer relies on `semver.gt` so 0.10.0 > 0.9.0 (string sort fails this).
  */
