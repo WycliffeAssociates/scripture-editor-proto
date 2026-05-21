@@ -4,11 +4,18 @@ name: verify
 # what release.yml's `verify` job and the standalone playwright.yml used
 # to do separately. release.yml trusts this passed before allowing any
 # code to reach master.
+#
+# Two parallel jobs:
+#   suite — typecheck/knip/unit/cargo/build (single runner)
+#   e2e   — Playwright sharded across 3 runners
+# Both must pass for branch protection.
 
 on:
+  # Post-merge sanity on master only — feature branches are covered by the
+  # PR trigger below, so we don't double-fire on every push that has an
+  # open PR.
   push:
-    branches-ignore:
-      - "gh-pages"
+    branches: [master]
   pull_request:
     branches: [master, main]
 
@@ -17,9 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  suite:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     permissions:
       contents: read
     env:
@@ -86,19 +93,58 @@ jobs:
       - name: Build tauri frontend
         run: pnpm run build.tauri
 
+  e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Three shards across runners. Playwright distributes test files
+        # deterministically by `--shard N/3` so retries hit the same shard.
+        shard: [1, 2, 3]
+    env:
+      VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+      VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+      VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+      VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+      VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+      VITE_VERSION_TAG: ${{ github.ref_name }}
+      VITE_GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Build web SPA
         run: pnpm run build.web
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps
 
-      - name: Playwright tests
-        run: BASE_URL=http://localhost:4173 pnpm exec playwright test
+      - name: Playwright tests (shard ${{ matrix.shard }}/3)
+        env:
+          BASE_URL: http://localhost:4173
+          PLAYWRIGHT_WORKERS: "4"
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 30
