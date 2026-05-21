@@ -116,9 +116,9 @@ See `product-docs/specs/state-architecture.md` and
 - Large chapter performance requires careful optimization of Lexical listeners.
 
 ## UI and Styling
-- Mantine v7: UI primitives (modals, buttons, inputs, etc.).
+- Base UI (`@base-ui/react`): unstyled headless primitives (Combobox, Select, Tabs, Toast, ScrollArea, etc.). We wrap these in app-local primitives under `src/app/ui/components/primitives/` so the rest of the app talks to project-shaped components.
 - Vanilla Extract: Primary custom styling approach (`*.css.ts`, static CSS generation, type-safe theming).
-- No Tailwind: Layout and styling should be implemented via Vanilla Extract (and Mantine primitives) for consistency and maintainability.
+- No Tailwind: Layout and styling should be implemented via Vanilla Extract (and Base UI primitives) for consistency and maintainability.
 
 ### Styling Constraints
 - Prefer component-adjacent `*.css.ts` styles.
@@ -148,3 +148,8 @@ See `product-docs/specs/state-architecture.md` and
 ### Data Integrity Constraints
 - Keep IndexedDB metadata in sync with file system state.
 - Run startup reconciliation/sanity checks to repair drift when needed.
+
+## Release Pipeline & Auto-Updater
+Two release channels (Stable from `v*` tags, Nightly from every push to `master`) flow through a single channel-aware workflow. Desktop builds are signed with a Tauri minisign keypair so the in-app updater can verify them; a Cloudflare Worker serves the updater manifest by reading GitHub Releases at request time.
+
+See `product-docs/specs/release-pipeline.md` for the full topology, workflow shapes, manifest format, signing, and how Settings → Advanced exposes the manual switch flow.

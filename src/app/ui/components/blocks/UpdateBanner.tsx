@@ -31,10 +31,7 @@ export function UpdateBanner({
     if (!update || dismissed) return null;
 
     return (
-        // biome-ignore lint/a11y/useSemanticElements: <div role="status"> is the
-        // correct ARIA pattern for a polite live region announcing app-level
-        // status. <output> semantically represents a calculation result, which
-        // doesn't fit an update-available banner.
+        // biome-ignore lint/a11y/useSemanticElements: <div role="status"> is the correct ARIA pattern for a polite live region announcing app-level status; <output> semantically represents a calculation result and doesn't fit an update-available banner.
         <div className={styles.root} role="status" aria-live="polite">
             <div className={styles.message}>
                 <span className={styles.version}>v{update.version}</span>
