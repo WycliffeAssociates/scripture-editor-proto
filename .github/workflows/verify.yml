@@ -136,6 +136,12 @@ jobs:
         env:
           BASE_URL: http://localhost:4173
           PLAYWRIGHT_WORKERS: "4"
+          # HTML reporter generates a navigable report at playwright-report/
+          # and embeds the on-first-retry trace, screenshots, and per-test
+          # console capture so we can see what the page actually rendered.
+          # The default `list` reporter writes nothing to playwright-report/,
+          # which is why the artifact upload was empty on earlier failures.
+          PLAYWRIGHT_REPORTER: html
         run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
@@ -145,3 +151,15 @@ jobs:
           name: playwright-report-shard-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 30
+
+      # Traces, screenshots, and failure artifacts live under test-results/
+      # regardless of reporter. Upload these too so we can inspect failures
+      # even if the HTML report ever falls through.
+      - name: Upload Playwright test-results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-shard-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 30
+          if-no-files-found: ignore
