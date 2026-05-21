@@ -1,0 +1,535 @@
+name: release
+
+# Channel-aware release workflow. Triggers:
+#   push to master           -> Nightly (prerelease, tagged nightly-YYYYMMDD-<sha>)
+#   push to a v* tag         -> Stable (release-please cuts these)
+#   workflow_dispatch        -> manual rerun
+#
+# Quality gates live in verify.yml and are enforced via branch protection.
+# This workflow trusts that — it does NOT re-run typecheck / knip / unit / e2e.
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Compute channel-dependent values once and share via outputs so every
+  # downstream job picks the same tag/prerelease/config overlay.
+  compute-channel:
+    runs-on: ubuntu-22.04
+    outputs:
+      channel: ${{ steps.resolve.outputs.channel }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      # Semver string that gets baked into package.json/Cargo.toml/tauri.conf.json
+      # before each build. For stable, matches the tag minus the "v" prefix.
+      #
+      # For nightly: `<base>-<YYYYMMDD>.<run_number>.sha<sha7>`. The three
+      # dot-separated pre-release identifiers give the Tauri updater plugin's
+      # semver comparator a monotonic ordering:
+      #   1. YYYYMMDD — numeric, monotonic per day
+      #   2. github.run_number — numeric, monotonic per release.yml workflow
+      #      (increments on every dispatch; rerunning an old run keeps the
+      #      same number, so identical code yields identical version).
+      #   3. sha<sha7> — alphanumeric identifier (the "sha" prefix avoids the
+      #      semver-invalid case of an all-digit short SHA being parsed as a
+      #      numeric identifier with potential leading zero).
+      app_version: ${{ steps.resolve.outputs.app_version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      config_args: ${{ steps.resolve.outputs.config_args }}
+      wrangler_env: ${{ steps.resolve.outputs.wrangler_env }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_version=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            channel=stable
+            tag="${GITHUB_REF_NAME}"
+            app_version="${GITHUB_REF_NAME#v}"
+            prerelease=false
+            config_args="--config ./src/tauri/rust/tauri.conf.ci_cache.json"
+            wrangler_env=production
+          else
+            channel=nightly
+            app_version="${base_version}-$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}.sha${GITHUB_SHA::7}"
+            tag="nightly-${app_version}"
+            prerelease=true
+            config_args="--config ./src/tauri/rust/tauri.conf.ci_cache.json --config ./src/tauri/rust/tauri.conf.nightly.json"
+            wrangler_env=nightly
+          fi
+          {
+            echo "channel=${channel}"
+            echo "tag=${tag}"
+            echo "app_version=${app_version}"
+            echo "prerelease=${prerelease}"
+            echo "config_args=${config_args}"
+            echo "wrangler_env=${wrangler_env}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved channel=${channel}, tag=${tag}, app_version=${app_version}"
+
+  # Build the frontend once and share it with desktop + android builds.
+  # Previously this lived inside the verify job; with verify in its own
+  # workflow we keep release self-contained rather than chasing cross-workflow
+  # artifact downloads.
+  build-frontend:
+    needs: compute-channel
+    runs-on: ubuntu-22.04
+    env:
+      VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+      VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+      VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+      VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+      VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+      VITE_VERSION_TAG: ${{ needs.compute-channel.outputs.tag }}
+      VITE_GITHUB_SHA: ${{ github.sha }}
+      VITE_UPDATER_HOST: ${{ needs.compute-channel.outputs.channel == 'stable' && 'https://updater.zephyr.bibletranslationtools.org' || 'https://updater.zephyr.bttdev.org' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+      - run: pnpm install
+      # Bake the channel-specific semver into the in-tree manifests so the
+      # binary reports a version the Tauri updater can compare. Stable's tag
+      # already matches the in-tree value; nightly gets a date+sha pre-release.
+      - name: Patch app version
+        run: node scripts/patchAppVersion.mjs "${{ needs.compute-channel.outputs.app_version }}"
+      - name: Build tauri frontend
+        run: pnpm run build.tauri
+      - name: Build web SPA
+        run: pnpm run build.web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist-web
+
+  build-desktops:
+    needs: [compute-channel, build-frontend]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: "--target universal-apple-darwin"
+            artifact_paths: |
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.dmg
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.app
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+              src/tauri/rust/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+          - os: windows-latest
+            args: ""
+            artifact_paths: |
+              src/tauri/rust/target/release/bundle/nsis/*.exe
+              src/tauri/rust/target/release/bundle/msi/*.msi
+              src/tauri/rust/target/release/bundle/msi/*.msi.zip
+              src/tauri/rust/target/release/bundle/msi/*.msi.zip.sig
+              src/tauri/rust/target/release/bundle/nsis/*.nsis.zip
+              src/tauri/rust/target/release/bundle/nsis/*.nsis.zip.sig
+          - os: ubuntu-22.04
+            args: ""
+            artifact_paths: |
+              src/tauri/rust/target/release/bundle/appimage/*.AppImage
+              src/tauri/rust/target/release/bundle/appimage/*.AppImage.tar.gz
+              src/tauri/rust/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+              src/tauri/rust/target/release/bundle/deb/*.deb
+              src/tauri/rust/target/release/bundle/rpm/*.rpm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Source secrets
+        id: secrets
+        uses: 1password/load-secrets-action@v3
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          APPLE_CERTIFICATE: "op://DevOps/Scripture-Editor/p12-b64"
+          APPLE_CERTIFICATE_PASSWORD: "op://DevOps/Scripture-Editor/apple-p12-cert-password"
+          KEYCHAIN_PASSWORD: "op://DevOps/Scripture-Editor/keychain-password"
+          APP_STORE_CONNECT_KEY: "op://DevOps/Scripture-Editor/app-store-connect-p8-b64"
+          APP_STORE_API_ISSUER: "op://DevOps/Scripture-Editor/app-store-connect-api-issuer"
+          APP_STORE_API_KEY_ID: "op://DevOps/Scripture-Editor/app-store-connect-api-key-id"
+          TAURI_SIGNING_PRIVATE_KEY: "op://DevOps/Scripture-Editor/tauri-updater-private-key"
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "op://DevOps/Scripture-Editor/tauri-updater-private-key-password"
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist-artifact
+
+      - name: Restore frontend dist
+        shell: bash
+        run: |
+          rm -rf dist
+          if [ -d frontend-dist-artifact/dist ]; then
+            mv frontend-dist-artifact/dist dist
+          else
+            mv frontend-dist-artifact dist
+          fi
+          test -f dist/index.html
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - run: pnpm install
+
+      - name: Patch app version
+        run: node scripts/patchAppVersion.mjs "${{ needs.compute-channel.outputs.app_version }}"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src/tauri/rust -> target"
+
+      - name: Install Linux deps
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libglib2.0-dev \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Decode App Store Connect Key
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APP_STORE_CONNECT_KEY: ${{ steps.secrets.outputs.APP_STORE_CONNECT_KEY }}
+        run: |
+          echo "$APP_STORE_CONNECT_KEY" | base64 --decode > app-store-connect.p8
+          echo "APPLE_API_KEY_PATH=$(pwd)/app-store-connect.p8" >> "$GITHUB_ENV"
+
+      - name: Decode Apple Certificate
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ steps.secrets.outputs.APPLE_CERTIFICATE }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+
+      - name: Create and unlock keychain
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+      - name: Import certificate
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_PASSWORD: ${{ steps.secrets.outputs.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+      - name: Set key partition list
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.KEYCHAIN_PASSWORD }}
+        run: |
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Resolve signing identity
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -n 1)
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> "$GITHUB_ENV"
+
+      - name: Build and publish desktop release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_API_ISSUER: ${{ steps.secrets.outputs.APP_STORE_API_ISSUER }}
+          APPLE_API_KEY: ${{ steps.secrets.outputs.APP_STORE_API_KEY_ID }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.secrets.outputs.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.secrets.outputs.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ needs.compute-channel.outputs.tag }}
+          releaseName: ${{ needs.compute-channel.outputs.tag }}
+          releaseDraft: false
+          prerelease: ${{ needs.compute-channel.outputs.prerelease == 'true' }}
+          args: ${{ matrix.args }} ${{ needs.compute-channel.outputs.config_args }} --verbose --ci
+
+      - name: Upload desktop artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-build
+          path: ${{ matrix.artifact_paths }}
+
+  build-android:
+    needs: [compute-channel, build-frontend]
+    if: ${{ needs.compute-channel.outputs.channel == 'stable' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist-artifact
+
+      - name: Restore frontend dist
+        shell: bash
+        run: |
+          rm -rf dist
+          if [ -d frontend-dist-artifact/dist ]; then
+            mv frontend-dist-artifact/dist dist
+          else
+            mv frontend-dist-artifact dist
+          fi
+          test -f dist/index.html
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - run: pnpm install
+
+      - name: Patch app version
+        run: node scripts/patchAppVersion.mjs "${{ needs.compute-channel.outputs.app_version }}"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Linux deps for tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libglib2.0-dev \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "tools platform-tools build-tools;34.0.0"
+
+      - name: Install SDK / Build-tools / NDK
+        run: |
+          sdkmanager --install "platforms;android-34" "ndk;25.2.9519653"
+          echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> "$GITHUB_PATH"
+          echo "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_PATH"
+          echo "NDK_HOME=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Build Android APK and AAB
+        run: pnpm tauri android build --ci ${{ needs.compute-channel.outputs.config_args }}
+
+      - name: Rename Android files
+        shell: bash
+        env:
+          TAG: ${{ needs.compute-channel.outputs.tag }}
+        run: |
+          APK_DIR="./src/tauri/rust/gen/android/app/build/outputs/apk/universal/release"
+          AAB_DIR="./src/tauri/rust/gen/android/app/build/outputs/bundle/universalRelease"
+
+          if [ -f "$APK_DIR/app-universal-release.apk" ]; then
+            mv "$APK_DIR/app-universal-release.apk" "$APK_DIR/zephyr-${TAG}-android-universal.apk"
+          fi
+
+          if [ -f "$AAB_DIR/app-universal-release.aab" ]; then
+            mv "$AAB_DIR/app-universal-release.aab" "$AAB_DIR/zephyr-${TAG}-android-universal.aab"
+          fi
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-builds
+          path: |
+            ./src/tauri/rust/gen/android/app/build/outputs/apk/universal/release/*.apk
+            ./src/tauri/rust/gen/android/app/build/outputs/bundle/universalRelease/*.aab
+
+      - name: Attach Android assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.compute-channel.outputs.tag }}
+          files: |
+            ./src/tauri/rust/gen/android/app/build/outputs/apk/universal/release/*.apk
+            ./src/tauri/rust/gen/android/app/build/outputs/bundle/universalRelease/*.aab
+
+  deploy-web:
+    needs: [compute-channel, build-frontend]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Source secrets
+        id: secrets
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CLOUDFLARE_API_TOKEN: "op://DevOps/Scripture-Editor/cloudflare-api-token"
+          CLOUDFLARE_ACCOUNT_ID: "op://DevOps/Scripture-Editor/cloudflare-account-id"
+          UPDATER_GH_TOKEN: "op://DevOps/Scripture-Editor/updater-gh-token"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - name: Download web dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist-web
+
+      # SPA worker (static-assets only). Config lives at the repo root because
+      # Cloudflare treats static-only workers as a separate deployment class.
+      - name: Install root deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy SPA worker
+        run: pnpm exec wrangler deploy --env ${{ needs.compute-channel.outputs.wrangler_env }}
+
+      # Updater worker (logic + secrets + env vars). Lives in workers/zephyr-updater
+      # and ships independently from the SPA so the static-only restriction
+      # doesn't apply.
+      - name: Install updater worker deps
+        working-directory: workers/zephyr-updater
+        run: pnpm install --ignore-workspace
+
+      - name: Deploy updater worker
+        working-directory: workers/zephyr-updater
+        run: pnpm wrangler deploy --env ${{ needs.compute-channel.outputs.wrangler_env }}
+
+      # Refresh GH_TOKEN as a Worker secret on every deploy. Sourced from
+      # 1Password so the deploy pipeline is the single rotation point — no
+      # manual `wrangler secret put` step. The token only needs public_repo
+      # read scope; it raises the GH API rate limit from 60/hr to 5000/hr.
+      - name: Refresh updater GH_TOKEN secret
+        working-directory: workers/zephyr-updater
+        env:
+          UPDATER_GH_TOKEN: ${{ steps.secrets.outputs.UPDATER_GH_TOKEN }}
+        run: |
+          echo -n "$UPDATER_GH_TOKEN" | pnpm wrangler secret put GH_TOKEN --env ${{ needs.compute-channel.outputs.wrangler_env }}
+
+  mirror-r2:
+    # build-android is included so Stable runs (which produce APK/AAB) finish
+    # before mirroring; the artifact download step pulls everything that
+    # exists, so a Nightly run with build-android skipped still mirrors the
+    # desktop matrix outputs.
+    needs: [compute-channel, build-desktops, build-android, deploy-web]
+    if: |
+      always()
+      && needs.build-desktops.result == 'success'
+      && needs.deploy-web.result == 'success'
+      && (needs.build-android.result == 'success' || needs.build-android.result == 'skipped')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Source secrets
+        id: secrets
+        uses: 1password/load-secrets-action@v3
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "op://DevOps/Scripture-Editor/cloudflare-account-id"
+          R2_ACCESS_KEY_ID: "op://DevOps/cloudflare-r2-token/access-key-id"
+          R2_SECRET_ACCESS_KEY: "op://DevOps/cloudflare-r2-token/secret-access-key"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone for R2
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.secrets.outputs.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ steps.secrets.outputs.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ steps.secrets.outputs.R2_SECRET_ACCESS_KEY }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${R2_ACCESS_KEY_ID}
+          secret_access_key = ${R2_SECRET_ACCESS_KEY}
+          endpoint = https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+      - name: Mirror to R2
+        env:
+          CHANNEL: ${{ needs.compute-channel.outputs.channel }}
+          TAG: ${{ needs.compute-channel.outputs.tag }}
+        run: |
+          rclone copy --progress release-artifacts "r2:zephyr-releases/${CHANNEL}/${TAG}/"

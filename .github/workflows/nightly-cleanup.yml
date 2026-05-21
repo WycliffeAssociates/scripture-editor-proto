@@ -1,0 +1,48 @@
+name: nightly-cleanup
+
+# Deletes GitHub Releases tagged `nightly-*` older than the retention window.
+# R2 keeps Nightly objects 30 days longer than GH as the audit-tail buffer
+# (R2 lifecycle rule, configured outside this repo).
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 05:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Override retention (days)"
+        required: false
+        default: "30"
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete old Nightly releases + tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RETENTION_DAYS: ${{ inputs.retention_days || '30' }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "${RETENTION_DAYS} days ago" +%s)
+
+          # List up to 100 most-recent releases tagged nightly-*; delete those
+          # whose published_at is older than the cutoff. Each delete also
+          # removes the underlying git tag.
+          gh api --paginate \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases \
+            --jq '.[] | select(.tag_name | startswith("nightly-")) | [.tag_name, .published_at] | @tsv' \
+          | while IFS=$'\t' read -r tag published; do
+              published_ts=$(date -u -d "${published}" +%s)
+              if [ "${published_ts}" -lt "${cutoff}" ]; then
+                echo "deleting ${tag} (published ${published})"
+                gh release delete "${tag}" --cleanup-tag --yes \
+                  --repo ${{ github.repository }} || true
+              fi
+            done

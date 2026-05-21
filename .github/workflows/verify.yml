@@ -1,0 +1,104 @@
+name: verify
+
+# The required check enforced by branch protection on master. Folds in
+# what release.yml's `verify` job and the standalone playwright.yml used
+# to do separately. release.yml trusts this passed before allowing any
+# code to reach master.
+
+on:
+  push:
+    branches-ignore:
+      - "gh-pages"
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VITE_LANGUAGE_API_URL: ${{ secrets.VITE_LANGUAGE_API_URL }}
+      VITE_GITEA_WEB_HOST: ${{ secrets.VITE_GITEA_WEB_HOST }}
+      VITE_GIT_CORS_PROXY_URL: ${{ secrets.VITE_GIT_CORS_PROXY_URL }}
+      VITE_GITEA_DESKTOP_HOST: ${{ secrets.VITE_GITEA_DESKTOP_HOST }}
+      VITE_GIT_PROXY_X_REQUESTED_WITH: ${{ secrets.VITE_GIT_PROXY_X_REQUESTED_WITH }}
+      VITE_VERSION_TAG: ${{ github.ref_name }}
+      VITE_GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.4.1
+          cache: "pnpm"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libglib2.0-dev \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Architecture boundaries
+        run: pnpm check:architecture
+
+      - name: Validate version parity
+        run: |
+          set -euo pipefail
+          node scripts/syncVersions.js
+          git diff --exit-code -- src/tauri/rust/Cargo.toml src/tauri/rust/tauri.conf.json
+
+      - name: Typecheck
+        run: pnpm run check
+
+      - name: Knip
+        run: pnpm run knip
+
+      - name: Unit tests
+        run: pnpm run test:unit
+
+      - name: Cargo check
+        run: cargo check --manifest-path src/tauri/rust/Cargo.toml
+
+      - name: Build tauri frontend
+        run: pnpm run build.tauri
+
+      - name: Build web SPA
+        run: pnpm run build.web
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps
+
+      - name: Playwright tests
+        run: BASE_URL=http://localhost:4173 pnpm exec playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
