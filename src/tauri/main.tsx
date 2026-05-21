@@ -16,6 +16,7 @@ import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
+import { TauriUpdaterService } from "@/tauri/domain/updater/TauriUpdaterService.ts";
 import { TauriUsfmOnionService } from "@/tauri/domain/usfm/TauriUsfmOnionService.ts";
 import { TauriFileSystem } from "@/tauri/persistence/TauriFileSystem.ts";
 import { TauriImportService } from "@/tauri/persistence/TauriImportService.ts";
@@ -69,6 +70,8 @@ const importService = new TauriImportService(
     import.meta.env.VITE_GIT_PROXY_X_REQUESTED_WITH ?? null,
 );
 initializeUsfmMarkerCatalog(await usfmOnionService.getMarkerCatalog());
+const updaterService = new TauriUpdaterService();
+await updaterService.initialize();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
@@ -89,6 +92,7 @@ root.render(
             gitProvider={gitProvider}
             opener={opener}
             platform={currentPlatform}
+            updaterService={updaterService}
         />
     </StrictMode>,
 );

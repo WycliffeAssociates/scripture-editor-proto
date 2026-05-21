@@ -26,7 +26,6 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { StructuralEmptyMarkerChipsPlugin } from "@/app/domain/editor/plugins/StructuralEmptyMarkerChipsPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
@@ -283,7 +282,8 @@ function ScriptureReferencePane() {
                             ErrorBoundary={LexicalErrorBoundary}
                         />
                     </div>
-                    <StructuralEmptyMarkerChipsPlugin />
+                    {/* TODO: GET RID OF I THINK. CONFUSING AND OBTUSE VIEW OF HIDDNE MARKUP */}
+                    {/* <StructuralEmptyMarkerChipsPlugin /> */}
                     <UsfmStylesPlugin />
                 </LexicalComposer>
             </div>

@@ -100,6 +100,7 @@ root.render(
             projectsService={projectsService}
             libraryService={libraryService}
             importService={importService}
+            updaterService={null}
         />
     </StrictMode>,
 );

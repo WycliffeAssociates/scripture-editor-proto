@@ -14,12 +14,12 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:87
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:89
 msgid "Failed to save settings"
 msgstr "Failed to save settings"
 
 #. js-lingui-explicit-id
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:91
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:93
 msgid "Settings could not be applied."
 msgstr "Settings could not be applied."
 
@@ -227,7 +227,7 @@ msgid "Accept change in {localizedSid} to current"
 msgstr "Accept change in {localizedSid} to current"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:855
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:510
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:516
 msgid "Accept incoming cloud changes automatically unless the same verse already has unresolved local edits."
 msgstr "Accept incoming cloud changes automatically unless the same verse already has unresolved local edits."
 
@@ -252,15 +252,15 @@ msgstr "Add line below"
 #~ msgid "Add project"
 #~ msgstr "Add project"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:368
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:371
 msgid "Adjust the overall application zoom when supported."
 msgstr "Adjust the overall application zoom when supported."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:354
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:357
 msgid "Adjust the reading size used for editor text."
 msgstr "Adjust the reading size used for editor text."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:154
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:156
 msgid "Advanced"
 msgstr "Advanced"
 
@@ -303,9 +303,13 @@ msgstr "Already at left edge"
 #~ msgid "An unknown error occurred"
 #~ msgstr "An unknown error occurred"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:142
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:144
 msgid "App Appearance"
 msgstr "App Appearance"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:129
+msgid "App updates"
+msgstr "App updates"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:412
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1044
@@ -334,17 +338,17 @@ msgid "Are you sure you want to delete the project:"
 msgstr "Are you sure you want to delete the project:"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:717
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:822
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:828
 msgid "Attach"
 msgstr "Attach"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:594
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:651
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:657
 msgid "Attach existing cloud project"
 msgstr "Attach existing cloud project"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:715
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:822
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:828
 msgid "Attaching..."
 msgstr "Attaching..."
 
@@ -353,12 +357,12 @@ msgstr "Attaching..."
 #~ msgstr "Author"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:854
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:509
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:515
 msgid "Auto Accept Incoming Work"
 msgstr "Auto Accept Incoming Work"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:849
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:500
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:506
 msgid "Auto Accept My Work on Save"
 msgstr "Auto Accept My Work on Save"
 
@@ -367,7 +371,7 @@ msgstr "Auto Accept My Work on Save"
 #~ msgstr "Auto publish on save"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:844
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:491
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:497
 msgid "Auto Publish on Save"
 msgstr "Auto Publish on Save"
 
@@ -376,7 +380,7 @@ msgstr "Auto Publish on Save"
 #~ msgstr "Auto sync on open"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:839
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:482
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:488
 msgid "Auto Sync on Open"
 msgstr "Auto Sync on Open"
 
@@ -446,12 +450,12 @@ msgid "Branch"
 msgstr "Branch"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:261
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:563
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:569
 msgid "By chapter"
 msgstr "By chapter"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:260
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:562
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:568
 msgid "By verse"
 msgstr "By verse"
 
@@ -560,9 +564,13 @@ msgstr "Character marker"
 #~ msgstr "Character marker {marker} was not closed."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:840
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:483
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:489
 msgid "Check for cloud updates automatically when opening a linked project."
 msgstr "Check for cloud updates automatically when opening a linked project."
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:143
+msgid "Check for updates"
+msgstr "Check for updates"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:218
 #~ msgid "Check now"
@@ -576,6 +584,10 @@ msgstr "Check for cloud updates automatically when opening a linked project."
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:62
 msgid "Checking cloud updates for this project."
 msgstr "Checking cloud updates for this project."
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:143
+msgid "Checking…"
+msgstr "Checking…"
 
 #: src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx:82
 msgid "Choose a chapter"
@@ -594,7 +606,7 @@ msgstr "Choose a source"
 msgid "Choose chapter"
 msgstr "Choose chapter"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:555
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:561
 msgid "Choose how change review opens by default."
 msgstr "Choose how change review opens by default."
 
@@ -602,11 +614,11 @@ msgstr "Choose how change review opens by default."
 #~ msgid "Choose the display language for Dovetail."
 #~ msgstr "Choose the display language for Dovetail."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:281
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:284
 msgid "Choose the display language for Zephyr."
 msgstr "Choose the display language for Zephyr."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:310
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:313
 msgid "Choose the theme used throughout the application."
 msgstr "Choose the theme used throughout the application."
 
@@ -664,7 +676,7 @@ msgstr "Close"
 msgid "Close search"
 msgstr "Close search"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:223
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:226
 msgid "Close without Saving"
 msgstr "Close without Saving"
 
@@ -887,6 +899,11 @@ msgstr "Could not connect your cloud account."
 msgid "Could not disconnect cloud account"
 msgstr "Could not disconnect cloud account"
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:105
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:116
+msgid "Could not install v{selectedVersion}."
+msgstr "Could not install v{selectedVersion}."
+
 #: src/app/ui/i18n/usfmOnionLocalization.ts:100
 msgid "Couldn't recognize \"{text}\"."
 msgstr "Couldn't recognize \"{text}\"."
@@ -903,11 +920,11 @@ msgstr "Couldn't recognize this token."
 #~ msgid "Create a project by searching for a repository, uploading a folder, or selecting a ZIP file."
 #~ msgstr "Create a project by searching for a repository, uploading a folder, or selecting a ZIP file."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:614
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:620
 msgid "Create and link a new cloud repository from this local project."
 msgstr "Create and link a new cloud repository from this local project."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:613
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:619
 msgid "Create cloud project"
 msgstr "Create cloud project"
 
@@ -916,7 +933,7 @@ msgid "Create your first project"
 msgstr "Create your first project"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:586
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:630
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:636
 msgid "Creating..."
 msgstr "Creating..."
 
@@ -962,11 +979,15 @@ msgstr "Current Projects"
 #~ msgid "Current text"
 #~ msgstr "Current text"
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:132
+msgid "Current version: v{currentVersion} ({currentChannel})"
+msgstr "Current version: v{currentVersion} ({currentChannel})"
+
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:319
 msgid "Cut"
 msgstr "Cut"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:328
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:331
 msgid "Dark"
 msgstr "Dark"
 
@@ -974,7 +995,7 @@ msgstr "Dark"
 msgid "Default replace term"
 msgstr "Default replace term"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:554
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:560
 msgid "Default review view"
 msgstr "Default review view"
 
@@ -1044,7 +1065,7 @@ msgstr "Disable USFM markers"
 msgid "Disable whole word"
 msgstr "Disable whole word"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:595
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:601
 msgid "Disabled"
 msgstr "Disabled"
 
@@ -1056,7 +1077,7 @@ msgstr "Disabled"
 #~ msgid "Display"
 #~ msgstr "Display"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:309
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:312
 msgid "Display Mode"
 msgstr "Display Mode"
 
@@ -1122,7 +1143,7 @@ msgstr "Edit"
 #~ msgid "Edit mode (click for view-only)"
 #~ msgstr "Edit mode (click for view-only)"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:339
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:342
 msgid "Editor Mode"
 msgstr "Editor Mode"
 
@@ -1130,7 +1151,7 @@ msgstr "Editor Mode"
 msgid "Empty {label}. Type to add text, or press Enter to insert below."
 msgstr "Empty {label}. Type to add text, or press Enter to insert below."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:595
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:601
 msgid "Enabled"
 msgstr "Enabled"
 
@@ -1201,11 +1222,11 @@ msgstr "Failed to import directory"
 msgid "Failed to import file"
 msgstr "Failed to import file"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:467
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:472
 msgid "Failed to load cloud projects"
 msgstr "Failed to load cloud projects"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:92
 msgid "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 msgstr "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 
@@ -1405,6 +1426,20 @@ msgstr "Insert separator after {marker}"
 #~ msgid "Insert USFM"
 #~ msgstr "Insert USFM"
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:166
+#: src/app/ui/components/blocks/UpdateBanner.tsx:52
+msgid "Install"
+msgstr "Install"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:178
+msgid "Install a specific release for this channel. Older picks will downgrade the app."
+msgstr "Install a specific release for this channel. Older picks will downgrade the app."
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:166
+#: src/app/ui/components/blocks/UpdateBanner.tsx:52
+msgid "Installing…"
+msgstr "Installing…"
+
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:38
 msgid "Intentional line break"
 msgstr "Intentional line break"
@@ -1413,7 +1448,7 @@ msgstr "Intentional line break"
 #~ msgid "Intentional Line Break"
 #~ msgstr "Intentional Line Break"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:280
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:283
 msgid "Interface Language"
 msgstr "Interface Language"
 
@@ -1431,6 +1466,10 @@ msgstr "Intro"
 #: src/app/ui/hooks/useNavigation.tsx:151
 msgid "Introduction"
 msgstr "Introduction"
+
+#: src/app/ui/components/blocks/UpdateBanner.tsx:37
+msgid "is ready to install."
+msgstr "is ready to install."
 
 #: src/app/ui/components/blocks/Toolbar.tsx:248
 #~ msgid "Keep all target paragraph markers"
@@ -1452,11 +1491,15 @@ msgstr "Last local commit"
 msgid "Last remote commit"
 msgstr "Last remote commit"
 
+#: src/app/ui/components/blocks/UpdateBanner.tsx:45
+msgid "Later"
+msgstr "Later"
+
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:327
 #~ msgid "Latest changes are from {latestIncomingAuthorName}. {fallback}"
 #~ msgstr "Latest changes are from {latestIncomingAuthorName}. {fallback}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:323
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:326
 msgid "Light"
 msgstr "Light"
 
@@ -1464,7 +1507,7 @@ msgstr "Light"
 #~ msgid "Link this local project to a repository you already own in cloud."
 #~ msgstr "Link this local project to a repository you already own in cloud."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:652
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:658
 msgid "Link this local project to any cloud repository you can edit."
 msgstr "Link this local project to any cloud repository you can edit."
 
@@ -1514,7 +1557,7 @@ msgstr "Loading downloadable projects..."
 msgid "Loading remote projects..."
 msgstr "Loading remote projects..."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:105
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:88
 msgid "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 msgstr "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 
@@ -1522,6 +1565,10 @@ msgstr "Loading translation notes for {referenceBookCode} {referenceChapterNumbe
 #: src/app/ui/components/blocks/ReferencePicker.tsx:57
 msgid "Loading..."
 msgstr "Loading..."
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:191
+msgid "Loading…"
+msgstr "Loading…"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:125
 msgid "Local and cloud are aligned."
@@ -1751,8 +1798,8 @@ msgstr "New Project"
 #~ msgstr "Next"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:427
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:240
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:241
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:203
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:204
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:244
 msgid "Next chapter"
 msgstr "Next chapter"
@@ -1778,7 +1825,7 @@ msgid "No cloud projects are available for this account yet."
 msgstr "No cloud projects are available for this account yet."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:677
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:770
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:776
 msgid "No cloud projects found."
 msgstr "No cloud projects found."
 
@@ -1804,6 +1851,14 @@ msgstr "No linked cloud projects matched this search."
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:750
 msgid "No matching projects"
 msgstr "No matching projects"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:76
+msgid "No newer release is available on the {currentChannel} channel."
+msgstr "No newer release is available on the {currentChannel} channel."
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:193
+msgid "No other versions available"
+msgstr "No other versions available"
 
 #: src/app/routes/index.tsx:78
 msgid "No projects yet"
@@ -1834,7 +1889,7 @@ msgstr "No results found for <0>{0}</0>"
 msgid "No source selected"
 msgstr "No source selected"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:113
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:96
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 msgstr "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 
@@ -2062,8 +2117,8 @@ msgstr "Preparing..."
 #~ msgstr "Prev"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:403
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:226
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:227
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:192
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:193
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:238
 msgid "Previous chapter"
 msgstr "Previous chapter"
@@ -2136,7 +2191,7 @@ msgid "Projects"
 msgstr "Projects"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:845
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:492
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:498
 msgid "Publish local saves automatically for linked cloud projects."
 msgstr "Publish local saves automatically for linked cloud projects."
 
@@ -2198,11 +2253,11 @@ msgstr "Redo — {redoLabel}"
 msgid "Reference is loading"
 msgstr "Reference is loading"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:148
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:150
 msgid "Reference Panel"
 msgstr "Reference Panel"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:388
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:391
 msgid "Reference panel settings"
 msgstr "Reference panel settings"
 
@@ -2212,7 +2267,7 @@ msgstr "Reference project"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:702
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:429
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:812
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:818
 #: src/app/ui/components/import/CloudProjectImporter.tsx:100
 msgid "Refresh"
 msgstr "Refresh"
@@ -2226,7 +2281,7 @@ msgid "Refreshing linked cloud projects..."
 msgstr "Refreshing linked cloud projects..."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:700
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:812
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:818
 msgid "Refreshing..."
 msgstr "Refreshing..."
 
@@ -2408,12 +2463,12 @@ msgstr "Save"
 msgid "Save all changes"
 msgstr "Save all changes"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:211
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:214
 msgid "Save and Close"
 msgstr "Save and Close"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:588
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:631
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:637
 msgid "Save as new cloud project"
 msgstr "Save as new cloud project"
 
@@ -2490,8 +2545,8 @@ msgstr "Search chapters"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:628
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:629
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:721
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:722
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:727
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:728
 msgid "Search cloud projects"
 msgstr "Search cloud projects"
 
@@ -2583,6 +2638,10 @@ msgstr "Section title 4"
 msgid "Select a source to continue."
 msgstr "Select a source to continue."
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:194
+msgid "Select a version"
+msgstr "Select a version"
+
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:503
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:965
 #~ msgid "Select chapter"
@@ -2590,8 +2649,8 @@ msgstr "Select a source to continue."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:609
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:613
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:700
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:704
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:706
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:710
 msgid "Select cloud project"
 msgstr "Select cloud project"
 
@@ -2603,8 +2662,8 @@ msgstr "Select encoding"
 msgid "Select folder"
 msgstr "Select folder"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:256
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:302
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:259
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:305
 msgid "Select language"
 msgstr "Select language"
 
@@ -2650,7 +2709,7 @@ msgstr "Select reference..."
 msgid "Select version"
 msgstr "Select version"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:340
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:343
 msgid "Select which editing mode you want to use."
 msgstr "Select which editing mode you want to use."
 
@@ -2670,11 +2729,11 @@ msgstr "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 msgid "Set number to {number}"
 msgstr "Set number to {number}"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:122
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:124
 msgid "Settings"
 msgstr "Settings"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:844
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:850
 msgid "SHA"
 msgstr "SHA"
 
@@ -2711,7 +2770,7 @@ msgstr "Show USFM markers"
 
 #. placeholder {0}: props.gitea.visiblePageSize
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:723
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:664
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:670
 msgid "Showing {0} projects to start. Search to find additional repositories."
 msgstr "Showing {0} projects to start. Search to find additional repositories."
 
@@ -2721,7 +2780,7 @@ msgid "Showing initial {0} linked cloud projects. More results available via sea
 msgstr "Showing initial {0} linked cloud projects. More results available via search."
 
 #. placeholder {0}: props.gitea.visiblePageSize
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:783
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:789
 msgid "Showing initial {0}. Search to find more."
 msgstr "Showing initial {0}. Search to find more."
 
@@ -2739,7 +2798,7 @@ msgstr "Signed in as {0}."
 #~ msgstr "Skip removes this suggestion from this session. Next keeps it and moves forward."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:850
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:501
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:507
 msgid "Skip review for your own local edits and commit them directly when you save."
 msgstr "Skip review for your own local edits and commit them directly when you save."
 
@@ -2789,10 +2848,31 @@ msgstr "Standard 3-character scripture book identifier plus optional description
 msgid "Success"
 msgstr "Success"
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:207
+msgid "Switch"
+msgstr "Switch"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:104
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:112
+msgid "Switch failed"
+msgstr "Switch failed"
+
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:254
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:255
 msgid "Switch to this chapter"
 msgstr "Switch to this chapter"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:175
+msgid "Switch version"
+msgstr "Switch version"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:92
+msgid "Switching to v{selectedVersion} will downgrade from v{currentVersion}. The app will restart. Continue?"
+msgstr "Switching to v{selectedVersion} will downgrade from v{currentVersion}. The app will restart. Continue?"
+
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:207
+msgid "Switching…"
+msgstr "Switching…"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:73
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:456
@@ -2865,7 +2945,7 @@ msgstr "Take all changes in this chapter"
 #~ msgid "Text size"
 #~ msgstr "Text size"
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:353
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:356
 msgid "Text Size"
 msgstr "Text Size"
 
@@ -2884,6 +2964,10 @@ msgstr "Text Size"
 #: src/app/ui/i18n/usfmOnionLocalization.ts:77
 #~ msgid "The file is missing a \\id marker."
 #~ msgstr "The file is missing a \\id marker."
+
+#: src/app/ui/hooks/useUpdateCheck.ts:78
+msgid "The update could not be installed."
+msgstr "The update could not be installed."
 
 #: src/app/ui/hooks/usePrettifyOperations.tsx:298
 msgid "This book is already formatted"
@@ -2951,7 +3035,7 @@ msgstr "This project is now linked and published to cloud."
 msgid "This project is now linked to the selected cloud repository."
 msgstr "This project is now linked to the selected cloud repository."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:391
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:394
 msgid "This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it."
 msgstr "This tab shell is in place. The remaining reference-specific persisted settings still need to be defined before we wire real controls into it."
 
@@ -3056,6 +3140,14 @@ msgstr "Undo Change"
 msgid "Unsaved changes in {unsavedBooksCount} book(s)"
 msgstr "Unsaved changes in {unsavedBooksCount} book(s)"
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:152
+msgid "Update available"
+msgstr "Update available"
+
+#: src/app/ui/hooks/useUpdateCheck.ts:74
+msgid "Update install failed"
+msgstr "Update install failed"
+
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:128
 msgid "Updates available"
 msgstr "Updates available"
@@ -3084,7 +3176,7 @@ msgstr "USFM"
 #~ msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 #~ msgstr "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:278
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:234
 msgid "USFM Editor"
 msgstr "USFM Editor"
 
@@ -3096,6 +3188,11 @@ msgstr "USFM Editor"
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:308
 msgid "USFM Structure Only"
 msgstr "USFM Structure Only"
+
+#. placeholder {0}: update.version
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:155
+msgid "v{0} is ready to install."
+msgstr "v{0} is ready to install."
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:341
 msgid "Value"
@@ -3110,7 +3207,7 @@ msgstr "Verse"
 #. placeholder {0}: note.verseNumber
 #. placeholder {0}: props.number
 #: src/app/ui/components/blocks/FormBlockCard.tsx:395
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:129
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
 msgid "Verse {0}"
 msgstr "Verse {0}"
 
@@ -3174,7 +3271,7 @@ msgstr "Verses must appear inside a paragraph, list, or table."
 msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
 msgstr "Verses should count up by one: expected verse {expected}, found verse {found}."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:837
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:843
 msgid "Version"
 msgstr "Version"
 
@@ -3268,6 +3365,10 @@ msgstr "You currently have work saved locally that is not saved remotely."
 #~ msgid "You have unsaved changes. Review and save first, or discard them before switching versions."
 #~ msgstr "You have unsaved changes. Review and save first, or discard them before switching versions."
 
+#: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:75
+msgid "You're up to date"
+msgstr "You're up to date"
+
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:137
 msgid "Your changes are saved, but they conflict with edits from the remote project. You can continue working and saving locally, but you can't save to the cloud until you review these edits."
 msgstr "Your changes are saved, but they conflict with edits from the remote project. You can continue working and saving locally, but you can't save to the cloud until you review these edits."
@@ -3315,6 +3416,6 @@ msgstr "ZIP file"
 #~ msgid "ZIP..."
 #~ msgstr "ZIP..."
 
-#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:367
+#: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:370
 msgid "Zoom"
 msgstr "Zoom"
