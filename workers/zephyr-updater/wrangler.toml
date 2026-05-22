@@ -23,7 +23,7 @@ enabled = true
 name = "zephyr-updater-production"
 
 [env.production.vars]
-GH_REPO = "bibletranslationtools/zephyr"
+GH_REPO = "WycliffeAssociates/scripture-editor-proto"
 GH_TAG_PREFIX = "v"
 CHANNEL = "stable"
 
@@ -39,7 +39,7 @@ zone_name = "bibletranslationtools.org"
 name = "zephyr-updater-nightly"
 
 [env.nightly.vars]
-GH_REPO = "bibletranslationtools/zephyr"
+GH_REPO = "WycliffeAssociates/scripture-editor-proto"
 GH_TAG_PREFIX = "nightly-"
 CHANNEL = "nightly"
 
