@@ -5128,7 +5128,7 @@ dependencies = [
 [[package]]
 name = "usfm_onion"
 version = "0.1.0"
-source = "git+https://github.com/WycliffeAssociates/usfm-onion?tag=v0.0.1#aaf77701ad8653524619189a8b7b0f31f220f70e"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion?tag=v0.0.4#52d263f0c5d4b290ceac31ff4cfed55820c4937b"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",
