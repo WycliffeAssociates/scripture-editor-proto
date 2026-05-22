@@ -19,14 +19,13 @@
  *
  * Versioning notes:
  *   - Stable manifests carry stripped semver, e.g. "0.1.5" (not "v0.1.5").
- *   - Nightly manifests carry "<base>-<run_number>.<YYYYMMDD>-sha<sha7>",
- *     e.g. "0.1.4-42.20260521-shaabc1234". Two pre-release identifiers,
- *     ordered for MSI compatibility: run_number first (numeric, monotonic
- *     per release.yml dispatch, fits MSI's 16-bit version revision field),
- *     then date+sha as an alphanumeric tail (ignored by MSI but kept for
- *     human readability and as a semver tiebreaker). release.yml bakes
- *     the same string into the binary so the client's reported
- *     `current_version` is in the same form.
+ *   - Nightly manifests carry "<base>-<run_number>", e.g. "0.1.4-42".
+ *     A single numeric pre-release identifier — Tauri's MSI bundler only
+ *     accepts a single-identifier pre-release (numeric-only, <= 65535),
+ *     so multi-identifier forms with date/sha break the Windows build.
+ *     `run_number` is monotonic per release.yml dispatch and fits forever.
+ *     Date + SHA aren't in the version string itself; they live on the
+ *     underlying commit (`git show <tag>`) and the GH Release metadata.
  *   - isNewer relies on `semver.gt` so 0.10.0 > 0.9.0 (string sort fails this).
  */
 

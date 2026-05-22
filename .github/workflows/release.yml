@@ -32,18 +32,17 @@ jobs:
       # Semver string that gets baked into package.json/Cargo.toml/tauri.conf.json
       # before each build. For stable, matches the tag minus the "v" prefix.
       #
-      # For nightly: `<base>-<run_number>.<YYYYMMDD>-sha<sha7>`. Two
-      # pre-release identifiers, deliberately ordered for MSI compatibility:
-      #   1. github.run_number — numeric, monotonic per release.yml dispatch.
-      #      Tauri's MSI bundler takes the FIRST numeric pre-release
-      #      identifier as the 16-bit MSI version revision field, which has
-      #      to be <= 65535. run_number is a small integer that fits forever.
-      #   2. "<YYYYMMDD>-sha<sha7>" — alphanumeric identifier, ignored by
-      #      MSI but kept for human readability and as a tiebreaker in
-      #      semver comparison (alphanumeric identifiers ASCII-compared).
-      # Putting the date first instead breaks MSI bundling because YYYYMMDD
-      # exceeds 65535. The semver ordering still works either way because
-      # run_number is strictly monotonic per dispatch.
+      # For nightly: `<base>-<run_number>`. A SINGLE numeric pre-release
+      # identifier — Tauri's MSI bundler only accepts a single-identifier
+      # pre-release (numeric-only, <= 65535). Multi-identifier forms like
+      # `<base>-<run>.<date>-sha<sha>` get rejected even when the first
+      # identifier is small + numeric. github.run_number is monotonic per
+      # release.yml dispatch and fits forever in 16 bits.
+      #
+      # Date + commit SHA are NOT in the version string. They are still
+      # available via: the GH Release publish date, the underlying commit
+      # the tag points at (`git show <tag>`), and the VITE_VERSION_TAG /
+      # VITE_GITHUB_SHA env vars baked into the binary for Settings → About.
       app_version: ${{ steps.resolve.outputs.app_version }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
       config_args: ${{ steps.resolve.outputs.config_args }}
@@ -64,7 +63,7 @@ jobs:
             wrangler_env=production
           else
             channel=nightly
-            app_version="${base_version}-${GITHUB_RUN_NUMBER}.$(date -u +%Y%m%d)-sha${GITHUB_SHA::7}"
+            app_version="${base_version}-${GITHUB_RUN_NUMBER}"
             tag="nightly-${app_version}"
             prerelease=true
             config_args="--config ./src/tauri/rust/tauri.conf.ci_cache.json --config ./src/tauri/rust/tauri.conf.nightly.json"
