@@ -185,34 +185,32 @@ globalStyle(`${regularMode} .usfm-para-container[data-marker="b"]`, {
 });
 
 // Show subtle chips for structural-empty paragraph marker lines
-globalStyle(
-    `${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
-    {
-        position: "relative",
-        minHeight: "1.25em",
-        color: vars.color.brandBase,
-    },
-);
-
-globalStyle(
-    `${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]::before`,
-    {
-        content: "attr(data-marker-label)",
-        position: "absolute",
-        insetInlineStart: 0,
-        top: "50%",
-        transform: "translateY(-50%)",
-        fontSize: "0.72em",
-        fontWeight: 700,
-        letterSpacing: "0.02em",
-        color: "color-mix(in srgb, currentColor 55%, transparent)",
-        background: "color-mix(in srgb, currentColor 10%, transparent)",
-        border: "2px solid color-mix(in srgb, currentColor 14%, transparent)",
-        padding: `1px ${vars.spacing.sm}`,
-        borderRadius: vars.border.radius.full,
-        pointerEvents: "none",
-    },
-);
+// TODO: GET RID OF NOTION OF STRUCTURAL EMPTINESS WITH CHIPS. CHIPS ARE CONFUSING I THINK
+// globalStyle(
+//     `${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
+//     {
+//         position: "relative",
+//         minHeight: "1.25em",
+//         color: vars.color.brandBase,
+//     },
+// );
+// TODO: GET RID OF NOTION OF STRUCTURAL EMPTINESS WITH CHIPS. CHIPS ARE CONFUSING I THINK
+// globalStyle(`${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]::before`, {
+//   content: "attr(data-marker-label)",
+//   position: "absolute",
+//   insetInlineStart: 0,
+//   top: "50%",
+//   transform: "translateY(-50%)",
+//   fontSize: "0.72em",
+//   fontWeight: 700,
+//   letterSpacing: "0.02em",
+//   color: "color-mix(in srgb, currentColor 55%, transparent)",
+//   background: "color-mix(in srgb, currentColor 10%, transparent)",
+//   border: "2px solid color-mix(in srgb, currentColor 14%, transparent)",
+//   padding: `1px ${vars.spacing.sm}`,
+//   borderRadius: vars.border.radius.full,
+//   pointerEvents: "none",
+// });
 
 globalStyle(
     `:where(${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]:hover, ${regularMode} .usfm-para-container${dataIsStructuralEmpty}[data-marker]:focus-within)::before`,
@@ -229,12 +227,13 @@ globalStyle('[data-editor-mode="regular"] br:has(+ .isParaMarker)', {
 });
 
 // View-only: keep the structural spacing but hide the "empty marker" chips
-globalStyle(
-    `#root[data-editor-read-only="true"] .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
-    {
-        display: "none",
-    },
-);
+// TODO: GET RID OF NOTION OF STRUCTURAL EMPTINESS WITH CHIPS. CHIPS ARE CONFUSING I THINK
+// globalStyle(
+//   `#root[data-editor-read-only="true"] .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
+//   {
+//     display: "none",
+//   },
+// );
 
 // ============================================
 // USFM Mode: Full USFM with Visual Focus

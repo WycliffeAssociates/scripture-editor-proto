@@ -42,6 +42,7 @@ pub struct FlatTokenDto {
     pub span: SpanDto,
     pub sid: Option<String>,
     pub marker: Option<String>,
+    #[serde(rename = "source")]
     pub text: String,
 }
 

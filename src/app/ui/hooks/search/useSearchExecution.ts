@@ -1,7 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import {
-    // @ai -> MutableRefObject = deprecated warngin
-    type MutableRefObject,
+    // @ai -> MutableRefObject = deprecated warng
     type RefObject,
     useCallback,
     useMemo,
@@ -81,7 +80,7 @@ type Params = {
  * teardown step.
  */
 function resetSearchUiState(args: {
-    searchAbortController: MutableRefObject<AbortController | null>;
+    searchAbortController: RefObject<AbortController | null>;
     searchHighlightStore: SearchHighlightStore;
     setTargetResults: (value: SearchResult[]) => void;
     setReferenceResults: (value: SearchResult[]) => void;
