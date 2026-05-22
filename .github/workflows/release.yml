@@ -457,24 +457,28 @@ jobs:
       # Updater worker (logic + secrets + env vars). Lives in workers/zephyr-updater
       # and ships independently from the SPA so the static-only restriction
       # doesn't apply.
+      #
+      # We pass --config explicitly because wrangler invoked via pnpm from a
+      # subdirectory was falling back to the repo-root wrangler.jsonc and
+      # re-deploying the SPA worker a second time instead of the updater.
+      # The explicit path forces wrangler to read the right config regardless
+      # of CWD resolution quirks.
       - name: Install updater worker deps
         working-directory: workers/zephyr-updater
         run: pnpm install --ignore-workspace
 
       - name: Deploy updater worker
-        working-directory: workers/zephyr-updater
-        run: pnpm wrangler deploy --env ${{ needs.compute-channel.outputs.wrangler_env }}
+        run: pnpm exec wrangler deploy --config workers/zephyr-updater/wrangler.toml --env ${{ needs.compute-channel.outputs.wrangler_env }}
 
       # Refresh GH_TOKEN as a Worker secret on every deploy. Sourced from
       # 1Password so the deploy pipeline is the single rotation point — no
       # manual `wrangler secret put` step. The token only needs public_repo
       # read scope; it raises the GH API rate limit from 60/hr to 5000/hr.
       - name: Refresh updater GH_TOKEN secret
-        working-directory: workers/zephyr-updater
         env:
           UPDATER_GH_TOKEN: ${{ steps.secrets.outputs.UPDATER_GH_TOKEN }}
         run: |
-          echo -n "$UPDATER_GH_TOKEN" | pnpm wrangler secret put GH_TOKEN --env ${{ needs.compute-channel.outputs.wrangler_env }}
+          echo -n "$UPDATER_GH_TOKEN" | pnpm exec wrangler secret put GH_TOKEN --config workers/zephyr-updater/wrangler.toml --env ${{ needs.compute-channel.outputs.wrangler_env }}
 
   mirror-r2:
     # build-android is included so Stable runs (which produce APK/AAB) finish
