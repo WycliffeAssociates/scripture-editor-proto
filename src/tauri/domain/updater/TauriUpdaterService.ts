@@ -1,10 +1,10 @@
 import { getIdentifier, getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
-import { arch, platform } from "@tauri-apps/plugin-os";
+import { platform } from "@tauri-apps/plugin-os";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import type {
-    AvailableUpdate,
+    CheckResult,
     IUpdaterService,
     ReleaseListing,
 } from "@/core/domain/updater/IUpdaterService.ts";
@@ -28,17 +28,22 @@ const updaterHost =
     (import.meta.env.VITE_UPDATER_HOST as string | undefined) ?? "";
 
 /**
- * Tauri's updater target identifiers differ from `@tauri-apps/plugin-os`'s
- * `platform()` for macOS: the plugin returns "macos", but Tauri's updater
- * (and the asset-name conventions our worker matches against) expect
- * "darwin". Mirror that mapping here so manual-switch manifest URLs hit
- * the right per-platform asset.
+ * Resolve the updater target string used by both the auto-check (handled by
+ * the Tauri plugin) and the manual-switch URL we construct ourselves.
+ *
+ * The Tauri updater plugin uses bare-OS targets (`darwin`, `linux`,
+ * `windows`) when substituting `{{target}}` in the configured endpoint URL.
+ * We mirror that here so the worker's asset-lookup logic gets a consistent
+ * target shape across both paths. `@tauri-apps/plugin-os`'s `platform()`
+ * returns "macos" for darwin, so we map it.
+ *
+ * `arch()` is intentionally unused: the macOS binary is a universal build,
+ * and Linux/Windows we currently only ship x86_64, so a bare-OS target is
+ * unambiguous.
  */
 function resolveUpdaterTarget(): string {
     const p = platform();
-    const a = arch();
-    const updaterPlatform = p === "macos" ? "darwin" : p;
-    return `${updaterPlatform}-${a}`;
+    return p === "macos" ? "darwin" : p;
 }
 
 export class TauriUpdaterService implements IUpdaterService {
@@ -69,18 +74,23 @@ export class TauriUpdaterService implements IUpdaterService {
             : "stable";
     }
 
-    async check(): Promise<AvailableUpdate | null> {
+    async check(): Promise<CheckResult> {
         try {
             const update = await check();
-            if (!update) return null;
+            if (!update) return { kind: "up-to-date" };
             return {
-                version: update.version,
-                notes: update.body ?? "",
-                date: update.date ?? null,
+                kind: "update",
+                update: {
+                    version: update.version,
+                    notes: update.body ?? "",
+                    date: update.date ?? null,
+                },
             };
         } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
             console.warn("[updater] check failed", error);
-            return null;
+            return { kind: "error", message };
         }
     }
 

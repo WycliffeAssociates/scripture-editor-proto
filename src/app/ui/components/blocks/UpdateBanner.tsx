@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import { useState } from "react";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import {
+    availableUpdateFrom,
     useAvailableUpdate,
     useInstallUpdate,
 } from "@/app/ui/hooks/useUpdateCheck.ts";
@@ -24,7 +25,8 @@ export function UpdateBanner({
 }: {
     updaterService: IUpdaterService | null;
 }) {
-    const { data: update } = useAvailableUpdate(updaterService);
+    const { data: result } = useAvailableUpdate(updaterService);
+    const update = availableUpdateFrom(result);
     const { install, installing } = useInstallUpdate(updaterService);
     const [dismissed, setDismissed] = useState(false);
 

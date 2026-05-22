@@ -62,3 +62,6 @@ tests/mockData/berean-standard-bible
 .bv/
 .repomix/
 .claude/scheduled_tasks.lock
+
+# Wrangler dev cache + state
+.wrangler/

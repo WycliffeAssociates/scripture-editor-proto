@@ -13,6 +13,17 @@ export type AvailableUpdate = {
     date: string | null;
 };
 
+/**
+ * Three-state result of a check: a newer update exists, no update is
+ * available (the check succeeded but we're already current), or the
+ * check failed for some network/parse/server reason and the caller
+ * should surface that rather than silently report "up to date".
+ */
+export type CheckResult =
+    | { kind: "update"; update: AvailableUpdate }
+    | { kind: "up-to-date" }
+    | { kind: "error"; message: string };
+
 export type ReleaseListing = {
     version: string;
     tag: string;
@@ -29,12 +40,14 @@ export type IUpdaterService = {
 
     /**
      * Check the configured updater endpoint for a newer release.
-     * Returns null if no update is available or if the check failed.
-     * Implementations should swallow network errors (logged, not thrown) —
-     * an updater that throws on launch is worse than one that quietly
-     * doesn't notify.
+     * Returns a discriminated result so the UI can distinguish
+     * "no update" from "the check itself failed" — the latter shouldn't
+     * be reported to the user as "up to date".
+     *
+     * Still does not throw: the launch-time banner needs to be a fire-
+     * and-forget call. UI surfaces (Settings) inspect the result.
      */
-    check(): Promise<AvailableUpdate | null>;
+    check(): Promise<CheckResult>;
 
     /**
      * Download + install the latest update for this channel, then relaunch.

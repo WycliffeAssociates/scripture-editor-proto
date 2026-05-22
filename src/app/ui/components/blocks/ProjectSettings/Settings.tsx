@@ -477,7 +477,10 @@ function AdvancedTab({
 
     return (
         <div className={styles.section}>
-            <UpdateSettingsSection updaterService={updaterService} />
+            <UpdateSettingsSection
+                updaterService={updaterService}
+                portalContainer={portalContainer}
+            />
             <DiffViewModeRow
                 value={settings.diffViewModeDefault}
                 onChange={(value) =>

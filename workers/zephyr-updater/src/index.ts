@@ -152,10 +152,14 @@ async function manifestAtVersion(
  * `signature` field causes verification to fail. We fetch the .sig file here
  * and inline its contents.
  *
- * The `version` field is the *stripped* semver (no "v" prefix) for stable.
- * For nightly we still strip the prefix even though the result is not semver;
- * the Tauri plugin's default comparator will reject and the auto-check will
- * 204 from `latestManifest`. Settings → Switch version routes around this.
+ * Platforms-object keys: the Tauri plugin uses a "short" target for URL
+ * substitution (`darwin`, `linux`, `windows`) but does the response
+ * `platforms[host_target]` lookup using rustc-style host triple — e.g.
+ * `darwin-aarch64` on Apple Silicon. So the URL target rarely matches the
+ * lookup target. To cover both: we include every reasonable alias for the
+ * incoming target, all pointing at the same asset URL (our macOS builds are
+ * universal; linux/windows we only ship x86_64). This lets any plugin
+ * version find a match.
  */
 async function buildManifest(
     target: string,
@@ -173,17 +177,37 @@ async function buildManifest(
     const sigContents = await fetchSignatureText(sigAsset.browser_download_url);
     if (sigContents === null) return null;
 
+    const payload = {
+        signature: sigContents,
+        url: platformAsset.browser_download_url,
+    };
+
     return {
         version: stripTagPrefix(release.tag_name, env.GH_TAG_PREFIX),
         notes: release.body || release.name,
         pub_date: release.published_at,
-        platforms: {
-            [target]: {
-                signature: sigContents,
-                url: platformAsset.browser_download_url,
-            },
-        },
+        platforms: aliasedPlatforms(target, payload),
     };
+}
+
+/**
+ * Return every alias the Tauri plugin might use for `platforms[…]` lookup
+ * for a given URL target. Universal macOS + single-arch linux/windows means
+ * one asset URL serves all aliases.
+ */
+function aliasedPlatforms(
+    target: string,
+    payload: { signature: string; url: string },
+): Record<string, { signature: string; url: string }> {
+    const aliasGroups: string[][] = [
+        ["darwin", "darwin-aarch64", "darwin-x86_64"],
+        ["linux", "linux-x86_64"],
+        ["windows", "windows-x86_64"],
+    ];
+    const aliases = aliasGroups.find((group) => group.includes(target)) ?? [
+        target,
+    ];
+    return Object.fromEntries(aliases.map((alias) => [alias, payload]));
 }
 
 async function fetchSignatureText(url: string): Promise<string | null> {
@@ -192,15 +216,33 @@ async function fetchSignatureText(url: string): Promise<string | null> {
     return (await res.text()).trim();
 }
 
+/**
+ * Match a release asset by target. Tauri's updater plugin sends bare-OS
+ * targets by default (`darwin`, `linux`, `windows`), and the updater
+ * download path expects the archive-wrapped formats that Tauri itself
+ * produces (.app.tar.gz, .AppImage.tar.gz, .msi.zip / .nsis.zip) — the
+ * raw .dmg / .exe installers require user interaction and aren't valid
+ * updater payloads.
+ *
+ * Arch-suffixed targets (`darwin-aarch64`, etc.) are kept as aliases so
+ * the manual-switch flow in Settings, which constructs the URL itself,
+ * continues to work if someone calls with the more specific name.
+ */
 function findPlatformAsset(
     target: string,
     assets: GhAsset[],
 ): GhAsset | undefined {
+    const darwinPatterns = [/\.app\.tar\.gz$/];
+    const linuxPatterns = [/\.AppImage\.tar\.gz$/];
+    const windowsPatterns = [/\.msi\.zip$/, /\.nsis\.zip$/];
     const patterns: Record<string, RegExp[]> = {
-        "darwin-aarch64": [/\.app\.tar\.gz$/, /aarch64.*\.dmg$/],
-        "darwin-x86_64": [/\.app\.tar\.gz$/, /x64.*\.dmg$/, /x86_64.*\.dmg$/],
-        "linux-x86_64": [/\.AppImage\.tar\.gz$/, /amd64\.AppImage$/],
-        "windows-x86_64": [/x64.*\.msi\.zip$/, /\.msi$/, /\.nsis\.zip$/],
+        darwin: darwinPatterns,
+        "darwin-aarch64": darwinPatterns,
+        "darwin-x86_64": darwinPatterns,
+        linux: linuxPatterns,
+        "linux-x86_64": linuxPatterns,
+        windows: windowsPatterns,
+        "windows-x86_64": windowsPatterns,
     };
     const candidates = patterns[target];
     if (!candidates) return undefined;
@@ -268,6 +310,16 @@ function ghFetch(url: string, env: Env): Promise<Response> {
 
 function json(body: unknown): Response {
     return new Response(JSON.stringify(body), {
-        headers: { "content-type": "application/json" },
+        headers: {
+            "content-type": "application/json",
+            // Tauri webviews enforce browser CORS for JS fetch() calls. The
+            // Settings version picker and any future webview-side caller
+            // need `Access-Control-Allow-Origin: *` so the response body is
+            // visible to JS. The Rust-side plugin path (auto-check, install)
+            // doesn't go through CORS, but we set this here for the JS path.
+            "access-control-allow-origin": "*",
+            "access-control-allow-methods": "GET",
+            "cache-control": "no-store",
+        },
     });
 }

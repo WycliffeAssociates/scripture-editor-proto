@@ -1,11 +1,12 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import {
+    availableUpdateFrom,
     useAvailableUpdate,
     useInstallUpdate,
     useRecheckForUpdate,
@@ -31,24 +32,34 @@ import * as styles from "./settings.css.ts";
  */
 export function UpdateSettingsSection({
     updaterService,
+    portalContainer,
 }: {
     updaterService: IUpdaterService | null;
+    portalContainer: RefObject<HTMLElement | null>;
 }) {
     if (!updaterService) return null;
-    return <UpdateSettingsBody updaterService={updaterService} />;
+    return (
+        <UpdateSettingsBody
+            updaterService={updaterService}
+            portalContainer={portalContainer}
+        />
+    );
 }
 
 function UpdateSettingsBody({
     updaterService,
+    portalContainer,
 }: {
     updaterService: IUpdaterService;
+    portalContainer: RefObject<HTMLElement | null>;
 }) {
     const currentVersion = updaterService.currentVersion();
     const currentChannel = updaterService.currentChannel();
     const [switching, setSwitching] = useState(false);
     const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
 
-    const { data: update } = useAvailableUpdate(updaterService);
+    const { data: result } = useAvailableUpdate(updaterService);
+    const update = availableUpdateFrom(result);
     const { install, installing } = useInstallUpdate(updaterService);
     const recheck = useRecheckForUpdate(updaterService);
 
@@ -68,18 +79,11 @@ function UpdateSettingsBody({
 
     const handleCheck = async () => {
         if (recheck.isPending) return;
-        const result = await recheck.mutateAsync();
-        if (!result) {
-            ShowErrorNotification({
-                notification: {
-                    title: t`You're up to date`,
-                    message: t`No newer release is available on the ${currentChannel} channel.`,
-                },
-            });
-        }
-        // When an update is found it lands in the shared cache; the status
-        // row below renders inline and the launch banner also reappears
-        // (unless the user dismissed it earlier this session).
+        await recheck.mutateAsync();
+        // Result lands in the shared React Query cache via the mutation. The
+        // inline status block below reads it directly; no toast — toasts
+        // render in a portal beneath the settings overlay and aren't visible
+        // while this panel is open.
     };
 
     const handleSwitch = async () => {
@@ -121,6 +125,15 @@ function UpdateSettingsBody({
         }
     };
 
+    // Inline status replaces the previous toast-based "up to date" message.
+    // The toast portal renders beneath the settings overlay, so the toast
+    // was effectively invisible while the panel was open.
+    const checkStatus = renderCheckStatus({
+        result,
+        update,
+        isChecking: recheck.isPending,
+    });
+
     return (
         <div className={styles.section}>
             <div className={styles.sectionRow}>
@@ -134,6 +147,11 @@ function UpdateSettingsBody({
                             )
                         </Trans>
                     </div>
+                    {checkStatus ? (
+                        <div className={styles.rowDescription}>
+                            {checkStatus}
+                        </div>
+                    ) : null}
                 </div>
                 <div className={styles.rowControl}>
                     <Button
@@ -201,6 +219,9 @@ function UpdateSettingsBody({
                             versionsQuery.isLoading ||
                             selectItems.length === 0
                         }
+                        portalContainer={portalContainer}
+                        popupClassName={styles.versionSelectPopup}
+                        listClassName={styles.versionSelectList}
                     />
                     <Button
                         variant="primary"
@@ -222,6 +243,44 @@ function formatVersionLabel(
     if (!publishedAt) return `v${version}`;
     const date = publishedAt.slice(0, 10);
     return `v${version} — ${date}`;
+}
+
+/**
+ * Inline status string for the App-updates row, replacing the previous
+ * toast-based "up to date" message. Returns null before the user has run
+ * a check (initial state — we don't want to assume anything).
+ *
+ * Three states from the shared `CheckResult`:
+ *   - `update`     — the "Update available" row below renders, so this
+ *                    short line stays empty to avoid duplication.
+ *   - `up-to-date` — user is on the newest release for this channel.
+ *   - `error`      — surface the underlying message so the user can see
+ *                    why the check failed (network, DNS, parse, etc.)
+ *                    instead of getting a false "you're up to date".
+ */
+function renderCheckStatus({
+    result,
+    update,
+    isChecking,
+}: {
+    result:
+        | import("@/core/domain/updater/IUpdaterService.ts").CheckResult
+        | undefined;
+    update:
+        | import("@/core/domain/updater/IUpdaterService.ts").AvailableUpdate
+        | null;
+    isChecking: boolean;
+}): React.ReactNode | null {
+    if (isChecking) return <Trans>Checking the update server…</Trans>;
+    if (!result) return null;
+    if (update) return null;
+    if (result.kind === "up-to-date") {
+        return <Trans>You're on the latest release for this channel.</Trans>;
+    }
+    if (result.kind === "error") {
+        return <Trans>Update check failed: {result.message}</Trans>;
+    }
+    return null;
 }
 
 /**

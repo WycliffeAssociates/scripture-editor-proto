@@ -4,15 +4,17 @@ import { useCallback } from "react";
 import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
 import type {
     AvailableUpdate,
+    CheckResult,
     IUpdaterService,
 } from "@/core/domain/updater/IUpdaterService.ts";
 
-const UPDATE_QUERY_KEY = ["updater", "available"] as const;
+const UPDATE_QUERY_KEY = ["updater", "check"] as const;
 
 /**
- * Shared "is there an update?" query. Both the launch banner and the
- * Settings → Advanced panel read this, so a manual "Check for updates"
- * from Settings refreshes whatever the banner was showing (and vice versa).
+ * Shared "is there an update?" query, holding the full CheckResult so
+ * the banner and Settings can distinguish "update available" from
+ * "the check itself failed" — important because the launch-time banner
+ * stays silent on errors, but Settings should surface them.
  *
  * Runs once on first mount (after the platform-specific service is wired in)
  * and stays cached indefinitely until something invalidates it. Manual
@@ -21,8 +23,8 @@ const UPDATE_QUERY_KEY = ["updater", "available"] as const;
 export function useAvailableUpdate(service: IUpdaterService | null) {
     return useQuery({
         queryKey: UPDATE_QUERY_KEY,
-        queryFn: async (): Promise<AvailableUpdate | null> => {
-            if (!service) return null;
+        queryFn: async (): Promise<CheckResult> => {
+            if (!service) return { kind: "up-to-date" };
             return service.check();
         },
         enabled: service !== null,
@@ -31,6 +33,14 @@ export function useAvailableUpdate(service: IUpdaterService | null) {
         refetchOnWindowFocus: false,
         refetchOnMount: false,
     });
+}
+
+/** Narrowing helper for callers that only care about the "update found" case. */
+export function availableUpdateFrom(
+    result: CheckResult | undefined,
+): AvailableUpdate | null {
+    if (!result || result.kind !== "update") return null;
+    return result.update;
 }
 
 /**
@@ -42,8 +52,8 @@ export function useAvailableUpdate(service: IUpdaterService | null) {
 export function useRecheckForUpdate(service: IUpdaterService | null) {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (): Promise<AvailableUpdate | null> => {
-            if (!service) return null;
+        mutationFn: async (): Promise<CheckResult> => {
+            if (!service) return { kind: "up-to-date" };
             const result = await service.check();
             queryClient.setQueryData(UPDATE_QUERY_KEY, result);
             return result;

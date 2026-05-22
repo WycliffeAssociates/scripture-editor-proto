@@ -438,3 +438,18 @@ export const buildInfoLabel = style({
 export const buildInfoValue = style({
     fontFamily: "monospace",
 });
+
+// Compact popup for the Settings → Advanced version-switch dropdown.
+// Mirrors ReferencePicker's combobox popup proportions: fixed width,
+// capped height with internal scroll, smaller text. The default Select
+// popup grows to fit all items, which makes the version list (7+
+// nightly tags with long sha suffixes) overwhelmingly large.
+export const versionSelectPopup = style({
+    width: "min(22rem, calc(100vw - 2rem))",
+});
+
+export const versionSelectList = style({
+    maxHeight: "16rem",
+    overflowY: "auto",
+    fontSize: vars.typography.bodySmallest.fontSize,
+});
