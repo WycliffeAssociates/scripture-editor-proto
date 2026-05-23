@@ -1,6 +1,6 @@
 [package]
 name = "zephyr"
-version = "0.3.0" # x-release-please-version
+version = "0.3.1" # x-release-please-version
 description = "A scripture editor"
 authors = ["you"]
 edition = "2021"
