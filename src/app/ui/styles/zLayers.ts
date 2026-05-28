@@ -12,7 +12,6 @@ export const zLayer = {
     // --- DOM overlay hosts mounted as siblings to the editor ---
     lintDomOverlay: 1,
     formInsertMarkerMenu: 1,
-    usfmPeekOverlay: 2,
 
     // --- Lightweight positioned overlays ---
     /** Search/replace suggest overlay host; project row dialog backdrop */

@@ -192,7 +192,6 @@ export const DATA_JS = {
     lintTooltipOverlay: "lint-tooltip-overlay",
     searchReplaceSuggestOverlay: "search-replace-suggest-overlay",
     verseMarkerSuggestOverlay: "verse-marker-suggest-overlay",
-    usfmPeekOverlay: "usfm-peek-overlay",
 } as const;
 
 /**

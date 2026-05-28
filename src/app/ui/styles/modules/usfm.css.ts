@@ -70,21 +70,6 @@ globalStyle(`${anyModeButPlain} ${textToken}`, {
     color: vars.color.onSurfacePrimary,
 });
 
-// Peek mode: hide structural empty markers
-globalStyle(
-    `${anyModeButPlain} .usfm-peek-active .usfm-para-container${dataIsStructuralEmpty}[data-marker]`,
-    {
-        opacity: 0,
-    },
-);
-
-globalStyle(
-    `${anyModeButPlain} .usfm-peek-active .usfm-para-container${dataIsStructuralEmpty}[data-marker]::before`,
-    {
-        opacity: 0,
-    },
-);
-
 // ============================================
 // Regular Mode: Clean WYSIWYG
 // ============================================

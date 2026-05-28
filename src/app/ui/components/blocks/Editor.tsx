@@ -23,7 +23,6 @@ import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPl
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
 import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
-import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
 import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
@@ -144,7 +143,6 @@ export function MainEditor() {
                 <USFMPlugin />
                 <UsfmStylesPlugin />
                 <NodeContextMenuPlugin />
-                <UsfmPeekOverlayPlugin />
                 <HighlightSink />
                 <WorkingFilesBridgePlugin />
             </LexicalComposer>
