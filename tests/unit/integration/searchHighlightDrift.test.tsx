@@ -34,10 +34,8 @@ import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
 import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
 import type { SearchHighlightInput } from "@/app/state/SearchHighlightStore.ts";
-import {
-    WorkspaceContext,
-    type WorkSpaceContextType,
-} from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
+import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
 
 const highlightMatchesAcrossEditorsMock = vi.hoisted(() => vi.fn());
 const clearHighlightsMock = vi.hoisted(() => vi.fn());

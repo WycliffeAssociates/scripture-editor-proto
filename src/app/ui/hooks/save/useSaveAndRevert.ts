@@ -35,9 +35,9 @@ import {
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
 import {
-    ShowErrorNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+    showErrorNotification,
+    showNotificationSuccess,
+} from "@/app/ui/components/primitives/notifications.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
@@ -247,7 +247,7 @@ export function useSaveAndRevert(args: {
                 console.error(saveError);
                 args.saveStatusStore.setFailed(saveError);
             } else if (Object.keys(toSave).length > 0) {
-                ShowNotificationSuccess({
+                showNotificationSuccess({
                     notification: {
                         message: `Saved ${Object.keys(toSave).length} book(s) successfully`,
                         title: "Project Saved",
@@ -277,7 +277,7 @@ export function useSaveAndRevert(args: {
                         "Version checkpoint creation failed:",
                         commitErr,
                     );
-                    ShowErrorNotification({
+                    showErrorNotification({
                         notification: {
                             title: "Version History Warning",
                             message:
@@ -301,7 +301,7 @@ export function useSaveAndRevert(args: {
                             "Remote publish after save failed:",
                             publishErr,
                         );
-                        ShowErrorNotification({
+                        showErrorNotification({
                             notification: {
                                 title: "Cloud Publish Warning",
                                 message:

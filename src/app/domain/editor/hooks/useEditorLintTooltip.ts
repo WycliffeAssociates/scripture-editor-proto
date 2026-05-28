@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
@@ -73,6 +73,30 @@ export function useEditorLintTooltip(
     const onTooltipMouseEnterRef = useRef<() => void>(() => undefined);
     const onTooltipMouseLeaveRef = useRef<() => void>(() => undefined);
 
+    const findErrorsForTarget = useEffectEvent((target: HTMLElement) => {
+        const tokenId = target.getAttribute("data-id");
+        const sid = target.getAttribute("data-sid");
+
+        if (tokenId) {
+            const tokenMatches = allLintMessages.filter(
+                (error) =>
+                    error.tokenId === tokenId ||
+                    error.relatedTokenId === tokenId,
+            );
+            if (tokenMatches.length > 0) return tokenMatches;
+        }
+
+        if (sid) {
+            const sidMatches = allLintMessages.filter(
+                (error) => error.sid === sid,
+            );
+            if (sidMatches.length > 0) return sidMatches;
+        }
+
+        return [];
+    });
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `findErrorsForTarget` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
     useEffect(() => {
         const isWithinOverlay = (target: EventTarget | null) => {
             if (!(target instanceof HTMLElement)) return false;
@@ -104,29 +128,6 @@ export function useEditorLintTooltip(
             hideTimeoutRef.current = window.setTimeout(() => {
                 hideTooltip();
             }, 180);
-        };
-
-        const findErrorsForTarget = (target: HTMLElement) => {
-            const tokenId = target.getAttribute("data-id");
-            const sid = target.getAttribute("data-sid");
-
-            if (tokenId) {
-                const tokenMatches = allLintMessages.filter(
-                    (error) =>
-                        error.tokenId === tokenId ||
-                        error.relatedTokenId === tokenId,
-                );
-                if (tokenMatches.length > 0) return tokenMatches;
-            }
-
-            if (sid) {
-                const sidMatches = allLintMessages.filter(
-                    (error) => error.sid === sid,
-                );
-                if (sidMatches.length > 0) return sidMatches;
-            }
-
-            return [];
         };
 
         const handleMouseOver = (e: MouseEvent) => {
@@ -249,7 +250,7 @@ export function useEditorLintTooltip(
             });
             window.removeEventListener("scroll", handleScroll);
         };
-    }, [allLintMessages]);
+    }, []);
 
     return {
         hoveredErrors,

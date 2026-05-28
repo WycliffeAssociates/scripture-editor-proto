@@ -47,9 +47,10 @@ export function createReferenceDocumentReference(
         id: createReferenceDocumentId(document.id),
         name: document.name.trim(),
         browsePath:
-            document.browsePath
-                ?.map((segment) => segment.trim())
-                .filter(Boolean) ?? undefined,
+            document.browsePath?.flatMap((segment) => {
+                const trimmed = segment.trim();
+                return trimmed ? [trimmed] : [];
+            }) ?? undefined,
     };
 }
 

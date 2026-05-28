@@ -143,9 +143,9 @@ export function usfmTokenStreamToLexicalRootChildren(
     const direction = meta.direction;
     const shape = meta.shape;
 
-    const serializedFlat = tokens
-        .map(prettifyTokenToLexicalNode)
-        .filter(Boolean) as SerializedLexicalNode[];
+    const serializedFlat = tokens.flatMap(
+        (token) => prettifyTokenToLexicalNode(token) ?? [],
+    ) as SerializedLexicalNode[];
 
     if (shape === "regularTree" || shape === "formTree") {
         return transformToMode(
@@ -351,8 +351,8 @@ export function serializeChaptersToUsfm<C extends { chapterNumber: number }>(
     chapters: readonly C[],
     selectTokens: (chapter: C) => Token[],
 ): string {
-    return [...chapters]
-        .sort((a, b) => a.chapterNumber - b.chapterNumber)
+    return chapters
+        .toSorted((a, b) => a.chapterNumber - b.chapterNumber)
         .map((chapter) => tokensToUsfm(selectTokens(chapter)))
         .join("");
 }
@@ -521,9 +521,9 @@ function prettifyTokenToLexicalNode(
                 | "ltr"
                 | "rtl") || "ltr";
         const nestedContentTokens = token.content ?? [];
-        const nestedSerializedChildren = nestedContentTokens
-            .map(prettifyTokenToLexicalNode)
-            .filter(Boolean);
+        const nestedSerializedChildren = nestedContentTokens.flatMap(
+            (token) => prettifyTokenToLexicalNode(token) ?? [],
+        );
 
         const existingRootChildren =
             (original.editorState?.root?.children as SerializedLexicalNode[]) ??

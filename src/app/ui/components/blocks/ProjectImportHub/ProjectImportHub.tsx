@@ -202,29 +202,31 @@ export function ProjectImportHub(props: ProjectImportHubProps) {
     }, [catalogRepos, gitea.scope, normalizedSearch]);
 
     const cloudRows = useMemo<CloudRow[]>(() => {
-        return gitea.repos
-            .filter((repo) => {
-                if (sourceFilter === "catalog") return false;
-                return matchesVisibleRowText({
+        const out: CloudRow[] = [];
+        for (const repo of gitea.repos) {
+            if (sourceFilter === "catalog") continue;
+            if (
+                !matchesVisibleRowText({
                     title: repo.name,
                     subtitle: repo.owner,
                     meta: repo.defaultBranch,
                     term: normalizedSearch,
-                });
-            })
-            .map((repo) => ({
+                })
+            )
+                continue;
+            out.push({
                 kind: "cloud" as const,
                 id: String(repo.id),
                 title: repo.name,
                 subtitle: repo.owner,
                 meta: repo.defaultBranch,
                 repo,
-            }));
+            });
+        }
+        return out;
     }, [gitea.repos, normalizedSearch, sourceFilter]);
 
-    const rows = useMemo(() => {
-        return sourceFilter === "cloud" ? cloudRows : catalogRows;
-    }, [catalogRows, cloudRows, sourceFilter]);
+    const rows = sourceFilter === "cloud" ? cloudRows : catalogRows;
 
     const downloadCatalogRepo = useCallback(
         async (repo: ConsolidatedRepo) => {

@@ -54,8 +54,8 @@ import { AutoTextarea } from "@/app/ui/components/primitives/AutoTextarea/AutoTe
 import {
     FORM_ROW_KEY_ATTR,
     FORM_ROW_SID_ATTR,
-    useFormFocus,
 } from "@/app/ui/contexts/FormFocusContext.tsx";
+import { useFormFocus } from "@/app/ui/contexts/useFormFocus.ts";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
@@ -453,7 +453,9 @@ type FragmentRowProps = {
 };
 
 function FragmentRow(props: FragmentRowProps) {
-    const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const handleFragmentTextChange = (
+        event: ChangeEvent<HTMLTextAreaElement>,
+    ) => {
         if (props.readOnly) return;
         props.onChange(props.fragment, event.target.value);
     };
@@ -693,7 +695,7 @@ function FragmentRow(props: FragmentRowProps) {
                         ref={textareaRef}
                         className={styles.textarea}
                         value={props.fragment.text}
-                        onChange={handleChange}
+                        onChange={handleFragmentTextChange}
                         onFocus={handleFocusTextarea}
                         onContextMenu={handleContextMenu}
                         placeholder={

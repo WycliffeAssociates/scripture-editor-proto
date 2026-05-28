@@ -24,17 +24,21 @@ export function groupFlatTokensByChapter(
     const chapters: Record<number, Token[]> = {};
     let currentChapter = 0;
 
-    for (const token of tokens) {
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
         if (token.marker === "c" && token.kind === "marker") {
-            const nextChapter = Number.parseInt(
-                tokens.find(
-                    (candidate) =>
-                        (candidate.span?.start ?? -1) >=
-                            (token.span?.end ?? Number.MAX_SAFE_INTEGER) &&
-                        candidate.kind === "number",
-                )?.source ?? "",
-                10,
-            );
+            const markerEnd = token.span?.end ?? Number.MAX_SAFE_INTEGER;
+            let nextChapter = Number.NaN;
+            for (let j = i + 1; j < tokens.length; j++) {
+                const candidate = tokens[j];
+                if (
+                    candidate.kind === "number" &&
+                    (candidate.span?.start ?? -1) >= markerEnd
+                ) {
+                    nextChapter = Number.parseInt(candidate.source ?? "", 10);
+                    break;
+                }
+            }
             if (Number.isFinite(nextChapter) && nextChapter > 0) {
                 currentChapter = nextChapter;
             } else {

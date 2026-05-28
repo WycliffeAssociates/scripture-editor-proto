@@ -341,13 +341,16 @@ async function importBrowserDirectory(
     args: BrowserImportArgs,
 ): Promise<ImportProjectResult> {
     const uploadedEntries = collectUploadedDirectoryEntries(source.files);
-    const uploadedResourceMetadata =
-        await resolveUploadedResourceMetadata(uploadedEntries);
-    const finalProjectDir = await resolveUploadedProjectDirectory({
-        fileSystem: args.fileSystem,
-        storageRoots: args.storageRoots,
-        initialName: basenameStoragePath(source.folderName),
-    });
+    // resolveUploadedProjectDirectory is read-only (probes via fs.exists) so it
+    // can race with resolveUploadedResourceMetadata.
+    const [uploadedResourceMetadata, finalProjectDir] = await Promise.all([
+        resolveUploadedResourceMetadata(uploadedEntries),
+        resolveUploadedProjectDirectory({
+            fileSystem: args.fileSystem,
+            storageRoots: args.storageRoots,
+            initialName: basenameStoragePath(source.folderName),
+        }),
+    ]);
     await args.fileSystem.mkdir(finalProjectDir, { recursive: true });
     const shouldPackTranslationNotes = isTranslationNotesUpload(
         uploadedResourceMetadata,

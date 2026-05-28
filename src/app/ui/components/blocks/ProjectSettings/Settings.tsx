@@ -22,7 +22,7 @@ import {
     sortReposByOwnerPriority,
 } from "@/app/domain/project/cloudProjectActions.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import { Switch } from "@/app/ui/components/primitives/Switch/Switch.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
@@ -84,7 +84,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 diffViewModeDefault: nextSettings.diffViewModeDefault,
             });
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: i18n._("Failed to save settings"),
                     message:
@@ -467,7 +467,7 @@ function AdvancedTab({
 
     useEffect(() => {
         if (!gitea.error) return;
-        ShowErrorNotification({
+        showErrorNotification({
             notification: {
                 title: t`Failed to load cloud projects`,
                 message: gitea.error,

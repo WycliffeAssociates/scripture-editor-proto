@@ -416,6 +416,7 @@ export function DiffViewerModal({
                         !showingChapterView &&
                         hasVisibleDiffs && (
                             <VirtualizedDiffList
+                                key={isOpen ? "open" : "closed"}
                                 diffs={visibleDiffs ?? []}
                                 actionMode={actionMode}
                                 onRevertDiff={onRevertDiff}
@@ -431,7 +432,6 @@ export function DiffViewerModal({
                                         : t`Current`
                                 }
                                 showUsfmMarkers={showUsfmMarkers}
-                                isOpen={isOpen}
                             />
                         )}
 

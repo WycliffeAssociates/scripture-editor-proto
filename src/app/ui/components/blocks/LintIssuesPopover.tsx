@@ -14,15 +14,15 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { LintFilterMenu } from "@/app/ui/components/blocks/lintFilters.tsx";
 import {
     buildLintBookOptions,
     buildLintCodeOptions,
     getLintIssueBookCode,
     type LintFilterLabels,
-    LintFilterMenu,
     summarizeSelection,
     toggleSelection,
-} from "@/app/ui/components/blocks/lintFilters.tsx";
+} from "@/app/ui/components/blocks/lintFilters.utils.ts";
 import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/LintIssuesPopover.css.ts";
@@ -692,7 +692,7 @@ function sortIssuesForDisplay(issues: LintIssue[]): LintIssue[] {
         order.set(code, idx);
     });
 
-    return [...issues].sort((a, b) => {
+    return issues.toSorted((a, b) => {
         const aBook = order.get(getLintIssueBookCode(a)) ?? 9999;
         const bBook = order.get(getLintIssueBookCode(b)) ?? 9999;
         if (aBook !== bBook) return aBook - bBook;

@@ -3,7 +3,8 @@ import {
     type ComponentProps,
     createContext,
     type ReactNode,
-    useContext,
+    use,
+    useMemo,
 } from "react";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import * as styles from "./popover.css.ts";
@@ -54,7 +55,7 @@ function parsePosition(position: string): { side: Side; align: Align } {
 }
 
 function usePopoverContext() {
-    const context = useContext(PopoverContext);
+    const context = use(PopoverContext);
     if (!context) {
         throw new Error(
             "Popover compound components must be used inside <Popover />",
@@ -73,9 +74,13 @@ export function Popover({
     offset = 8,
 }: PopoverProps) {
     const { side, align } = parsePosition(position);
+    const contextValue = useMemo(
+        () => ({ side, align, offset }),
+        [side, align, offset],
+    );
 
     return (
-        <PopoverContext.Provider value={{ side, align, offset }}>
+        <PopoverContext.Provider value={contextValue}>
             <BasePopover.Root
                 open={opened}
                 defaultOpen={defaultOpened}

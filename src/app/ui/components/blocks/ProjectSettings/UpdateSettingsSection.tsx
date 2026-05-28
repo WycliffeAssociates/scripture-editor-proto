@@ -3,7 +3,7 @@ import { Trans } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/Select.tsx";
 import {
     availableUpdateFrom,
@@ -70,12 +70,14 @@ function UpdateSettingsBody({
     });
 
     const versions = versionsQuery.data ?? [];
-    const selectItems = versions
-        .filter((release) => release.version !== currentVersion)
-        .map((release) => ({
+    const selectItems: { value: string; label: string }[] = [];
+    for (const release of versions) {
+        if (release.version === currentVersion) continue;
+        selectItems.push({
             value: release.version,
             label: formatVersionLabel(release.version, release.publishedAt),
-        }));
+        });
+    }
 
     const handleCheck = async () => {
         if (recheck.isPending) return;
@@ -103,7 +105,7 @@ function UpdateSettingsBody({
             await updaterService.installVersion(selectedVersion);
             // installVersion relaunches on success; this line only runs on
             // unrecoverable failure.
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Switch failed`,
                     message: t`Could not install v${selectedVersion}.`,
@@ -111,7 +113,7 @@ function UpdateSettingsBody({
             });
         } catch (error) {
             console.error("[updater] installVersion failed", error);
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Switch failed`,
                     message:

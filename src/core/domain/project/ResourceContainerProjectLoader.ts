@@ -274,21 +274,21 @@ export class ResourceContainerProjectLoader {
     }): Promise<PathProject | null> {
         const resource = await this.openResource(args);
         if (!resource) return null;
+        if (
+            resource.descriptor.type !== "usfmScripture" &&
+            resource.descriptor.type !== "unknown"
+        ) {
+            console.debug(
+                `[ResourceContainerProjectLoader] Refusing to open non-scripture resource ${resource.descriptor.id} as a Project.`,
+            );
+            return null;
+        }
         const manifestPath = `${args.projectRootPath}/${ResourceContainerProjectLoader.MANIFEST_FILENAME}`;
 
         try {
             const contents = await args.fs.readText(manifestPath);
             const parsedManifest: Partial<ResourceContainer> =
                 parseResourceContainer(contents);
-            if (
-                resource.descriptor.type !== "usfmScripture" &&
-                resource.descriptor.type !== "unknown"
-            ) {
-                console.debug(
-                    `[ResourceContainerProjectLoader] Refusing to open non-scripture resource ${resource.descriptor.id} as a Project.`,
-                );
-                return null;
-            }
             const projectId = parsedManifest.dublin_core?.identifier;
             const language = parsedManifest.dublin_core?.language;
             if (!projectId || !language) return null;

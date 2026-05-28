@@ -91,17 +91,17 @@ async function listFilesRecursive(
     rootPath: string,
 ): Promise<string[]> {
     const entries = await fs.list(rootPath);
-    const files: string[] = [];
 
-    for (const entry of entries) {
-        if (entry.kind === "directory") {
-            files.push(...(await listFilesRecursive(fs, entry.path)));
-            continue;
-        }
-        files.push(entry.path);
-    }
+    const results = await Promise.all(
+        entries.map(async (entry) => {
+            if (entry.kind === "directory") {
+                return listFilesRecursive(fs, entry.path);
+            }
+            return [entry.path];
+        }),
+    );
 
-    return files;
+    return results.flat();
 }
 
 function toProjectRelativePath(
@@ -200,32 +200,40 @@ async function buildRcIssues(args: {
     projectRootPath: string;
     manifest: Partial<ResourceContainer>;
 }): Promise<MetadataIssue[]> {
-    const issues: MetadataIssue[] = [];
     const files = await listFilesRecursive(args.fs, args.projectRootPath);
     const usfmFiles = files.filter(isUsfmFile);
 
-    for (const [index, project] of (args.manifest.projects ?? []).entries()) {
-        const relativePath = removeLeadingDirSlashes(project.path ?? "");
-        const fullPath = `${args.projectRootPath}/${relativePath}`;
-        if (relativePath && (await args.fs.exists(fullPath))) continue;
+    const maybeIssues = await Promise.all(
+        (args.manifest.projects ?? []).map(
+            async (project, index): Promise<MetadataIssue | null> => {
+                const relativePath = removeLeadingDirSlashes(
+                    project.path ?? "",
+                );
+                const fullPath = `${args.projectRootPath}/${relativePath}`;
+                if (relativePath && (await args.fs.exists(fullPath)))
+                    return null;
 
-        const suggested = findRcProjectSuggestion({
-            projectRootPath: args.projectRootPath,
-            project,
-            usfmFiles,
-        });
+                const suggested = findRcProjectSuggestion({
+                    projectRootPath: args.projectRootPath,
+                    project,
+                    usfmFiles,
+                });
 
-        issues.push({
-            code: "missing-project-file",
-            message: `Manifest entry "${project.title || project.identifier || index + 1}" points to a file that does not exist.`,
-            fieldPath: `projects[${index}].path`,
-            bookCode: project.identifier?.toUpperCase(),
-            currentValue: project.path ?? "",
-            suggestedValue: suggested?.path,
-        });
-    }
+                return {
+                    code: "missing-project-file",
+                    message: `Manifest entry "${project.title || project.identifier || index + 1}" points to a file that does not exist.`,
+                    fieldPath: `projects[${index}].path`,
+                    bookCode: project.identifier?.toUpperCase(),
+                    currentValue: project.path ?? "",
+                    suggestedValue: suggested?.path,
+                };
+            },
+        ),
+    );
 
-    return issues;
+    return maybeIssues.filter(
+        (issue): issue is MetadataIssue => issue !== null,
+    );
 }
 
 async function buildRcDraftProjects(args: {
@@ -354,20 +362,26 @@ async function buildSbIssues(args: {
     managedPath: string;
     metadata: ScriptureBurritoMetadata;
 }): Promise<MetadataIssue[]> {
-    const issues: MetadataIssue[] = [];
-    for (const path of Object.keys(args.metadata.ingredients ?? {})) {
-        const relativePath = removeLeadingDirSlashes(path);
-        const fullPath = `${args.managedPath}/${relativePath}`;
-        if (await args.fs.exists(fullPath)) continue;
+    const maybeIssues = await Promise.all(
+        Object.keys(args.metadata.ingredients ?? {}).map(
+            async (path): Promise<MetadataIssue | null> => {
+                const relativePath = removeLeadingDirSlashes(path);
+                const fullPath = `${args.managedPath}/${relativePath}`;
+                if (await args.fs.exists(fullPath)) return null;
 
-        issues.push({
-            code: "missing-ingredient-file",
-            message: `Ingredient "${path}" points to a file that does not exist.`,
-            fieldPath: `ingredients.${path}`,
-            currentValue: path,
-        });
-    }
-    return issues;
+                return {
+                    code: "missing-ingredient-file",
+                    message: `Ingredient "${path}" points to a file that does not exist.`,
+                    fieldPath: `ingredients.${path}`,
+                    currentValue: path,
+                };
+            },
+        ),
+    );
+
+    return maybeIssues.filter(
+        (issue): issue is MetadataIssue => issue !== null,
+    );
 }
 
 async function loadScriptureBurritoEditor(args: {
@@ -569,24 +583,35 @@ async function normalizeSbDraft(args: {
 }): Promise<ScriptureBurritoMetadata> {
     const localeTag =
         args.draft.language.localNameLocale || args.draft.language.tag;
-    const ingredients: Record<string, Ingredient> = {};
+    const ingredientPairs = await Promise.all(
+        args.draft.ingredients.map(async (ingredientRow) => {
+            const relativePath = removeLeadingDirSlashes(ingredientRow.path);
+            if (!relativePath) return null;
+            const fullPath = `${args.managedPath}/${relativePath}`;
+            const { text, size } = await readFileStatPayload(args.fs, fullPath);
+            const checksum = await args.md5Service.calculateMd5(text);
+            const bookCode =
+                ingredientRow.bookCode || guessBookCodeFromPath(relativePath);
+            return [
+                relativePath,
+                {
+                    checksum: { md5: checksum },
+                    size,
+                    mimeType: "text/x-usfm",
+                    scope: bookCode
+                        ? deriveScopeFromBookCode(bookCode)
+                        : undefined,
+                    title: ingredientRow.title || bookCode || relativePath,
+                } as Ingredient,
+            ] as const;
+        }),
+    );
 
-    for (const ingredientRow of args.draft.ingredients) {
-        const relativePath = removeLeadingDirSlashes(ingredientRow.path);
-        if (!relativePath) continue;
-        const fullPath = `${args.managedPath}/${relativePath}`;
-        const { text, size } = await readFileStatPayload(args.fs, fullPath);
-        const checksum = await args.md5Service.calculateMd5(text);
-        const bookCode =
-            ingredientRow.bookCode || guessBookCodeFromPath(relativePath);
-        ingredients[relativePath] = {
-            checksum: { md5: checksum },
-            size,
-            mimeType: "text/x-usfm",
-            scope: bookCode ? deriveScopeFromBookCode(bookCode) : undefined,
-            title: ingredientRow.title || bookCode || relativePath,
-        } as Ingredient;
-    }
+    const ingredients: Record<string, Ingredient> = Object.fromEntries(
+        ingredientPairs.filter(
+            (pair): pair is [string, Ingredient] => pair !== null,
+        ),
+    );
 
     return {
         format: "scripture burrito",

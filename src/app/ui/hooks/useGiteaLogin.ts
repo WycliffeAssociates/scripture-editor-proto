@@ -5,9 +5,9 @@
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import {
-    ShowErrorNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+    showErrorNotification,
+    showNotificationSuccess,
+} from "@/app/ui/components/primitives/notifications.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 
 type UseGiteaLoginArgs = {
@@ -29,7 +29,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
 
     const handleConnect = useCallback(async () => {
         if (!giteaHostBaseUrl) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Enter your credentials`,
                     message: t`Username and password are required to connect your cloud account.`,
@@ -38,7 +38,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             return;
         }
         if (!loginUsername.trim() || !loginPassword.trim()) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Enter your credentials`,
                     message: t`Username and password are required to connect your cloud account.`,
@@ -56,7 +56,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             });
             setLoginPassword("");
             setLoginOtp("");
-            ShowNotificationSuccess({
+            showNotificationSuccess({
                 notification: {
                     title: t`Cloud account connected`,
                     message: t`You can now browse your writable cloud projects.`,
@@ -64,7 +64,7 @@ export function useGiteaLogin(args: UseGiteaLoginArgs) {
             });
             await onSuccess?.(session.username);
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Cloud login failed`,
                     message:

@@ -283,14 +283,20 @@ export class DexieProjectIndex implements ProjectIndex {
     }
 
     async listProjects(): Promise<ProjectListItem[]> {
-        return (await this.listLibraryItems())
-            .filter(isEditableScriptureProjectLibraryItem)
-            .map(libraryItemToProjectListItem);
+        const out: ProjectListItem[] = [];
+        for (const item of await this.listLibraryItems()) {
+            if (isEditableScriptureProjectLibraryItem(item)) {
+                out.push(libraryItemToProjectListItem(item));
+            }
+        }
+        return out;
     }
 
     async listLibraryItems(): Promise<ResourceLibraryItem[]> {
-        const projects = await this.db.projects.toArray();
-        const languages = await this.db.languages.toArray();
+        const [projects, languages] = await Promise.all([
+            this.db.projects.toArray(),
+            this.db.languages.toArray(),
+        ]);
 
         return projects.map((project) =>
             dbProjectToLibraryItem({
@@ -310,15 +316,6 @@ export class DexieProjectIndex implements ProjectIndex {
             .equals(projectPath)
             .first();
         if (!project) return null;
-
-        const language =
-            project.languageId == null
-                ? undefined
-                : await this.db.languages
-                      .where("id")
-                      .equals(project.languageId)
-                      .first();
-
         if (
             !isEditableScriptureProjectLibraryItem({
                 type: project.itemType,
@@ -327,6 +324,14 @@ export class DexieProjectIndex implements ProjectIndex {
         ) {
             return null;
         }
+
+        const language =
+            project.languageId == null
+                ? undefined
+                : await this.db.languages
+                      .where("id")
+                      .equals(project.languageId)
+                      .first();
 
         return dbProjectToProjectListItem({ project, language });
     }

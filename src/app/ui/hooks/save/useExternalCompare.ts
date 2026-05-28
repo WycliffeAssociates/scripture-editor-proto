@@ -74,6 +74,13 @@ import {
 const DIFF_CHUNK_SIZE = 8;
 type DirtySemanticSidMap = Map<string, Set<string>>;
 
+// Hoisted so version-list mapping doesn't allocate a new formatter per row.
+// Locale-undefined falls back to navigator.language.
+const VERSION_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+});
+
 function buildExternalCompareSource(args: {
     sourceProjectId: string;
     sourceKind: CompareSourceKind;
@@ -239,12 +246,12 @@ function buildBookTextByCodeFromSnapshot(snapshot: Map<string, string>) {
 function buildBookTextByCodeFromScriptureFiles(files: ScriptureBookState[]) {
     const byBook = new Map<string, string>();
     for (const file of files) {
-        const usfmText = file.chapters
-            .flatMap((chapter) => chapter.currentTokens)
-            .map((token) =>
-                "source" in token ? String(token.source ?? "") : "",
-            )
-            .join("");
+        let usfmText = "";
+        for (const chapter of file.chapters) {
+            for (const token of chapter.currentTokens) {
+                usfmText += "source" in token ? String(token.source ?? "") : "";
+            }
+        }
         byBook.set(file.bookCode.toUpperCase(), usfmText);
     }
     return byBook;
@@ -379,32 +386,27 @@ export function useExternalCompare(args: {
     async function buildDirtySemanticSidsByChapter(
         chapterRefs: ChapterRef[],
     ): Promise<DirtySemanticSidMap> {
-        const dirtyScope = chapterRefs
-            .map(({ bookCode, chapterNum }) => {
-                const currentChapter = args.workingFilesStore
-                    .read()
-                    .find((file) => file.bookCode === bookCode)
-                    ?.chapters.find(
-                        (chapter) => chapter.chapterNumber === chapterNum,
-                    );
-                if (!currentChapter?.dirty) return null;
-                return {
-                    bookCode,
-                    chapterNum,
-                    baselineTokens: currentChapter.sourceTokens,
-                    currentTokens: currentChapter.currentTokens,
-                };
-            })
-            .filter(
-                (
-                    entry,
-                ): entry is {
-                    bookCode: string;
-                    chapterNum: number;
-                    baselineTokens: ScriptureChapterState["sourceTokens"];
-                    currentTokens: ScriptureChapterState["currentTokens"];
-                } => Boolean(entry),
-            );
+        const dirtyScope: {
+            bookCode: string;
+            chapterNum: number;
+            baselineTokens: ScriptureChapterState["sourceTokens"];
+            currentTokens: ScriptureChapterState["currentTokens"];
+        }[] = [];
+        for (const { bookCode, chapterNum } of chapterRefs) {
+            const currentChapter = args.workingFilesStore
+                .read()
+                .find((file) => file.bookCode === bookCode)
+                ?.chapters.find(
+                    (chapter) => chapter.chapterNumber === chapterNum,
+                );
+            if (!currentChapter?.dirty) continue;
+            dirtyScope.push({
+                bookCode,
+                chapterNum,
+                baselineTokens: currentChapter.sourceTokens,
+                currentTokens: currentChapter.currentTokens,
+            });
+        }
 
         if (!dirtyScope.length) {
             return new Map();
@@ -419,11 +421,12 @@ export function useExternalCompare(args: {
 
         const dirtySemanticSidsByChapter = new Map<string, Set<string>>();
         for (const [index, scopeEntry] of dirtyScope.entries()) {
-            const dirtySemanticSids = new Set(
-                (diffsByScope[index] ?? [])
-                    .filter((diff) => diff.status !== "unchanged")
-                    .map((diff) => diff.semanticSid),
-            );
+            const dirtySemanticSids = new Set<string>();
+            for (const diff of diffsByScope[index] ?? []) {
+                if (diff.status !== "unchanged") {
+                    dirtySemanticSids.add(diff.semanticSid);
+                }
+            }
             if (!dirtySemanticSids.size) continue;
             dirtySemanticSidsByChapter.set(
                 buildChapterKey(scopeEntry.bookCode, scopeEntry.chapterNum),
@@ -545,17 +548,18 @@ export function useExternalCompare(args: {
             // touched draft entries below, and we need writable chapters
             // because the loop further down sets dirty = true on them.
             const original = args.workingFilesStore.read();
-            const preservedByBook = new Map(
-                original
-                    .filter((file) => locallyProtectedBooks.has(file.bookCode))
-                    .map((file) => [
-                        file.bookCode,
-                        {
-                            ...file,
-                            chapters: file.chapters.map((c) => ({ ...c })),
-                        },
-                    ]),
-            );
+            const preservedByBook = new Map<
+                string,
+                (typeof original)[number]
+            >();
+            for (const file of original) {
+                if (locallyProtectedBooks.has(file.bookCode)) {
+                    preservedByBook.set(file.bookCode, {
+                        ...file,
+                        chapters: file.chapters.map((c) => ({ ...c })),
+                    });
+                }
+            }
             const allRefs = original.flatMap((file) =>
                 file.chapters.map((chapter) => ({
                     bookCode: file.bookCode,
@@ -568,6 +572,8 @@ export function useExternalCompare(args: {
                 workingFiles: workingDraft,
                 sourceFiles: argsForAuto.sourceFiles,
             });
+            // workingDraft is mutated below (book entries replaced in place),
+            // so any future bookCode→book index must be rebuilt AFTER this loop.
             for (const bookCode of locallyProtectedBooks) {
                 const preserved = preservedByBook.get(bookCode);
                 if (!preserved) continue;
@@ -816,26 +822,22 @@ export function useExternalCompare(args: {
             };
         }
 
-        const touchedChapters = Array.from(
-            new Set([
-                ...fullChapterApplies.map((chapter) =>
-                    buildChapterKey(chapter.bookCode, chapter.chapterNum),
-                ),
-                ...hunkApplies.map((diff) =>
-                    buildChapterKey(diff.bookCode, diff.chapterNum),
-                ),
-            ]),
-            (key) => {
-                const [bookCode, chapterPart] = key.split(":");
-                return {
-                    bookCode: bookCode ?? "",
-                    chapterNum: Number(chapterPart),
-                };
-            },
-        ).filter(
-            (chapter): chapter is ChapterRef =>
-                Boolean(chapter.bookCode) && !Number.isNaN(chapter.chapterNum),
-        );
+        const touchedChapterKeys = new Set([
+            ...fullChapterApplies.map((chapter) =>
+                buildChapterKey(chapter.bookCode, chapter.chapterNum),
+            ),
+            ...hunkApplies.map((diff) =>
+                buildChapterKey(diff.bookCode, diff.chapterNum),
+            ),
+        ]);
+        const touchedChapters: ChapterRef[] = [];
+        for (const key of touchedChapterKeys) {
+            const [bookCode, chapterPart] = key.split(":");
+            const chapterNum = Number(chapterPart);
+            if (bookCode && !Number.isNaN(chapterNum)) {
+                touchedChapters.push({ bookCode, chapterNum });
+            }
+        }
 
         let autoAcceptApplied = false;
         await args.history.runTransaction({
@@ -1024,16 +1026,15 @@ export function useExternalCompare(args: {
             }
         }
 
-        return Array.from(keys, (key) => {
+        const out: ChapterRef[] = [];
+        for (const key of keys) {
             const [bookCode, chapterPart] = key.split(":");
-            return {
-                bookCode: bookCode ?? "",
-                chapterNum: Number(chapterPart),
-            };
-        }).filter(
-            (chapter): chapter is ChapterRef =>
-                Boolean(chapter.bookCode) && !Number.isNaN(chapter.chapterNum),
-        );
+            const chapterNum = Number(chapterPart);
+            if (bookCode && !Number.isNaN(chapterNum)) {
+                out.push({ bookCode, chapterNum });
+            }
+        }
+        return out;
     }
 
     const reset = () => {
@@ -1434,10 +1435,9 @@ export function useExternalCompare(args: {
         () =>
             args.versions.map((version) => ({
                 value: version.hash,
-                label: new Intl.DateTimeFormat(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                }).format(new Date(version.authoredAtIso)),
+                label: VERSION_LABEL_FORMATTER.format(
+                    new Date(version.authoredAtIso),
+                ),
             })),
         [args.versions],
     );

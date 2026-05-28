@@ -9,10 +9,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { ReferenceEditor } from "@/app/ui/components/blocks/ReferenceEditor.tsx";
-import {
-  WorkspaceContext,
-  type WorkSpaceContextType,
-} from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
+import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { useReferenceItem } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { ResourceContainerProjectLoader } from "@/core/domain/project/ResourceContainerProjectLoader.ts";
 import { isRemoteSyncCapable } from "@/core/library/ReferenceItemSupport.ts";

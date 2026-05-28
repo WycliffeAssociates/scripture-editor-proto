@@ -36,10 +36,10 @@ async function ensureProjectGitIgnore(
         .readText(gitIgnorePath)
         .catch(() => "");
     const existingLines = new Set(
-        currentContents
-            .split(/\r?\n/u)
-            .map((line) => line.trim())
-            .filter(Boolean),
+        currentContents.split(/\r?\n/u).flatMap((line) => {
+            const trimmed = line.trim();
+            return trimmed ? [trimmed] : [];
+        }),
     );
 
     let changed = false;

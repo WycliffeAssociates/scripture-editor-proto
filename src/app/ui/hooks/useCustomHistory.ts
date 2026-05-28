@@ -44,7 +44,7 @@ import {
     requireGateOpen,
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
-import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showNotificationInfo } from "@/app/ui/components/primitives/notifications.ts";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 
 type CaptureEditorUpdateArgs = {
@@ -626,7 +626,7 @@ export function useCustomHistory({
                     const bookName =
                         remoteRecord?.file.title ??
                         notificationTarget.chapter.bookCode;
-                    ShowNotificationInfo({
+                    showNotificationInfo({
                         notification: {
                             title:
                                 labelPrefix === "Undid"
@@ -636,7 +636,7 @@ export function useCustomHistory({
                         },
                     });
                 } else if (notificationTarget.kind === "multiple") {
-                    ShowNotificationInfo({
+                    showNotificationInfo({
                         notification: {
                             title:
                                 labelPrefix === "Undid"

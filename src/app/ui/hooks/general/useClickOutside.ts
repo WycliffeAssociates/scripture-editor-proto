@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef } from "react";
 
 type EventType = MouseEvent | TouchEvent;
 
@@ -10,7 +10,7 @@ export function useClickOutside<T extends HTMLElement = HTMLElement>(
     nodes?: (HTMLElement | null)[],
 ) {
     const ref = useRef<T>(null);
-    const eventsList = events || DEFAULT_EVENTS;
+    const eventsList = useMemo(() => events || DEFAULT_EVENTS, [events]);
 
     const listener = useEffectEvent((event: Event) => {
         const { target } = event ?? {};
@@ -29,17 +29,19 @@ export function useClickOutside<T extends HTMLElement = HTMLElement>(
         }
     });
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `listener` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
     useEffect(() => {
+        const handler = (event: Event) => listener(event);
         eventsList.forEach((fn) => {
-            document.addEventListener(fn, listener);
+            document.addEventListener(fn, handler);
         });
 
         return () => {
             eventsList.forEach((fn) => {
-                document.removeEventListener(fn, listener);
+                document.removeEventListener(fn, handler);
             });
         };
-    }, [eventsList, listener]);
+    }, [eventsList]);
 
     return ref;
 }

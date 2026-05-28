@@ -49,10 +49,8 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
-import {
-    WorkspaceContext,
-    type WorkSpaceContextType,
-} from "@/app/ui/contexts/WorkspaceContext.tsx";
+import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
+import type { WorkSpaceContextType } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";

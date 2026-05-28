@@ -457,12 +457,15 @@ export function LintDomAnnotatorPlugin({
         resolveAnchorsRef.current?.();
     }, [editorMode]);
 
+    // Belt-and-suspenders: resolveAnchors clears entries on form-mode entry,
+    // but a transition can leave a frame of stale entries painted. Skip
+    // rendering entirely in form mode.
+    const shouldRender =
+        rootEl !== null &&
+        entries.length > 0 &&
+        editorMode !== EDITOR_MODES.form;
     const rendered = useMemo(() => {
-        if (!rootEl || entries.length === 0) return null;
-        // Belt-and-suspenders: resolveAnchors above clears entries on
-        // form-mode entry, but a transition can leave a frame of stale
-        // entries painted. Skip rendering entirely in form mode.
-        if (editorMode === EDITOR_MODES.form) return null;
+        if (!shouldRender) return null;
         return (
             <div className={styles.host} aria-hidden="true">
                 {entries.map((entry) => (
@@ -480,7 +483,7 @@ export function LintDomAnnotatorPlugin({
                 ))}
             </div>
         );
-    }, [entries, rootEl, editorMode]);
+    }, [entries, shouldRender]);
 
     const tooltip =
         hoveredErrors && tooltipPosition

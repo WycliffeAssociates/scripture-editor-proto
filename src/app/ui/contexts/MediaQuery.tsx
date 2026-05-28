@@ -1,11 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { MediaQueryContext } from "@/app/ui/contexts/_mediaQueryContext.ts";
 import { runtimeMediaQuery } from "@/app/ui/styles/breakpoints.ts";
 
 type Breakpoint = "xs" | "sm" | "md" | "lg" | "xl";
 type MobileTab = "main" | "ref";
 type AppColorScheme = "light" | "dark";
 
-interface MediaQueryContextType {
+export interface MediaQueryContextType {
     breakpoint: Breakpoint;
     isXs: boolean;
     isSm: boolean;
@@ -17,10 +18,6 @@ interface MediaQueryContextType {
     mobileTab: MobileTab;
     setMobileTab: (tab: MobileTab) => void;
 }
-
-const MediaQueryContext = createContext<MediaQueryContextType | undefined>(
-    undefined,
-);
 
 export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
@@ -61,16 +58,6 @@ export const ThemeQueryProvider: React.FC<{ children: React.ReactNode }> = ({
             {children}
         </MediaQueryContext.Provider>
     );
-};
-
-export const useWorkspaceMediaQuery = (): MediaQueryContextType => {
-    const context = useContext(MediaQueryContext);
-    if (context === undefined) {
-        throw new Error(
-            "useWorkspaceMediaQuery must be used within a MediaQueryProvider",
-        );
-    }
-    return context;
 };
 
 function useMediaQuery(query: string) {

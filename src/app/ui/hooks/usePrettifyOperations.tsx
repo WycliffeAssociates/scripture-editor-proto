@@ -14,11 +14,11 @@ import type {
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     hideNotification,
-    ShowNotificationInfo,
-    ShowNotificationSuccess,
+    showNotificationInfo,
+    showNotificationSuccess,
     showProgressNotification,
     updateProgressNotification,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+} from "@/app/ui/components/primitives/notifications.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { MatchFormattingScope } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
@@ -204,7 +204,7 @@ export function useFormatOperations({
                         );
 
                         if (!result.changed) {
-                            ShowNotificationInfo({
+                            showNotificationInfo({
                                 notification: {
                                     title: t`Nothing changed`,
                                     message: t`This chapter is already formatted`,
@@ -251,7 +251,7 @@ export function useFormatOperations({
                             );
                         }
 
-                        ShowNotificationSuccess({
+                        showNotificationSuccess({
                             notification: {
                                 title: t`Chapter Formatted`,
                                 message: t`Formatted ${draftFile.title || draftFile.bookCode} ${targetChapterNumber}`,
@@ -290,7 +290,7 @@ export function useFormatOperations({
                     run: async () => {
                         const result = await formatBookInPlace(draftFile);
                         if (!result.changed) {
-                            ShowNotificationInfo({
+                            showNotificationInfo({
                                 notification: {
                                     title: t`Nothing changed`,
                                     message: t`This book is already formatted`,
@@ -328,7 +328,7 @@ export function useFormatOperations({
                             }
                         }
 
-                        ShowNotificationSuccess({
+                        showNotificationSuccess({
                             notification: {
                                 title: t`Book Formatted`,
                                 message: t`Formatted ${draftFile.title || draftFile.bookCode}`,
@@ -425,7 +425,7 @@ export function useFormatOperations({
                     } else {
                         hideNotification(progressNotificationId);
                         notificationId = null;
-                        ShowNotificationInfo({
+                        showNotificationInfo({
                             notification: {
                                 title: t`Nothing changed`,
                                 message: t`This project is already formatted`,
@@ -456,7 +456,7 @@ export function useFormatOperations({
 
                     hideNotification(progressNotificationId);
                     notificationId = null;
-                    ShowNotificationSuccess({
+                    showNotificationSuccess({
                         notification: {
                             title: t`Project Formatted`,
                             message: t`Formatted ${modifiedBooksCount} book(s)`,

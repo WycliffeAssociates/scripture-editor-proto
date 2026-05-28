@@ -1,5 +1,5 @@
 import type { LexicalEditor } from "lexical";
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import {
     alignTargetResultsToReferenceOrder,
@@ -131,10 +131,7 @@ export function useSearchExecution({
         resolvedContentProvider.getReferenceFiles().length,
     );
 
-    const results = useMemo(
-        () => (searchReference ? referenceResults : targetResults),
-        [referenceResults, searchReference, targetResults],
-    );
+    const results = searchReference ? referenceResults : targetResults;
 
     const sortBy = useCallback(
         (option: SortOption) => {

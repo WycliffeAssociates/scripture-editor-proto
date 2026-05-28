@@ -41,18 +41,17 @@ type LoadedBookEntry = {
 async function loadForWeb(args: {
     loadedProject: Project;
 }): Promise<LoadedBookEntry[]> {
-    const entries: LoadedBookEntry[] = [];
-
-    for (const entry of args.loadedProject.books) {
-        const book = await args.loadedProject.getBook(entry.storageKey);
-
-        entries.push({
-            code: entry.bookCode,
-            name: entry.title,
-            text: book.contents,
-            path: entry.path,
-        });
-    }
+    const entries = await Promise.all(
+        args.loadedProject.books.map(async (entry) => {
+            const book = await args.loadedProject.getBook(entry.storageKey);
+            return {
+                code: entry.bookCode,
+                name: entry.title,
+                text: book.contents,
+                path: entry.path,
+            };
+        }),
+    );
 
     return entries;
 }

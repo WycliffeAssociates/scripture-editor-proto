@@ -37,7 +37,7 @@ export function BookChapterPickerSidebar() {
             }),
             bookCode: file.bookCode,
             chapters: file.chapters,
-            sortedChapters: [...file.chapters].sort(
+            sortedChapters: file.chapters.toSorted(
                 (a, b) => a.chapterNumber - b.chapterNumber,
             ),
         }));
@@ -127,12 +127,12 @@ function BookRow(props: {
         props.isActive ? styles.bookRowActive : undefined,
     );
 
-    function handleClick() {
+    function handleBookSelect() {
         props.onSelect(props.book.bookCode);
     }
 
     return (
-        <button type="button" className={className} onClick={handleClick}>
+        <button type="button" className={className} onClick={handleBookSelect}>
             <span className={styles.bookRowLead}>
                 <span className={styles.bookIcon}>
                     <BookIcon size={16} />
@@ -232,12 +232,16 @@ function ChapterRow(props: {
             ? props.introLabel
             : props.chapter.chapterNumber;
 
-    function handleClick() {
+    function handleChapterSelect() {
         props.onSelect(props.chapter.chapterNumber);
     }
 
     return (
-        <button type="button" className={className} onClick={handleClick}>
+        <button
+            type="button"
+            className={className}
+            onClick={handleChapterSelect}
+        >
             <span className={styles.chapterRowBook}>{props.title}</span>
             <span className={styles.chapterRowNumber}>{chapterLabel}</span>
         </button>

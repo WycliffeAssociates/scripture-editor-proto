@@ -101,7 +101,7 @@ export function MainEditor() {
                     <div className={shellStyles.switchingOverlay}>
                         <span className={shellStyles.switchingOverlaySpinner} />
                         {/* todo: should be localized */}
-                        <span>Switching version...</span>
+                        <span>Switching version…</span>
                     </div>
                 ) : null}
                 <EditorRefPlugin editorRef={editorRef} />

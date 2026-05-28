@@ -170,7 +170,7 @@ export function sortUsfmFilesByCanonicalOrder<T, K extends keyof T>(
     files: T[],
     keyField: K,
 ): T[] {
-    return [...files].sort((a, b) => {
+    return files.toSorted((a, b) => {
         const fieldA = a[keyField];
         const fieldB = b[keyField];
         if (!fieldA || !fieldB) return 0;
@@ -439,7 +439,7 @@ export function sortListByBookCanonical<T>(
     list: T[],
     getBookCode: (item: T) => string,
 ) {
-    return [...list].sort((a, b) => {
+    return list.toSorted((a, b) => {
         const aBookIdx = BIBLE_ORDER_MAP.get(getBookSlug(getBookCode(a)));
         const bBookIdx = BIBLE_ORDER_MAP.get(getBookSlug(getBookCode(b)));
         if (aBookIdx === undefined || bBookIdx === undefined) {

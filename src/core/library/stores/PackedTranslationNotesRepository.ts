@@ -8,6 +8,7 @@ import {
     joinStoragePath,
     stripFileExtension,
 } from "@/core/persistence/pathUtils.ts";
+import { boundedConcurrent } from "@/core/utils/boundedConcurrent.ts";
 
 /**
  * Repository for the packed Translation Notes runtime/disk shape.
@@ -227,21 +228,23 @@ export async function listPackedTranslationNotesBookCodes(args: {
     resourcePath: string;
 }): Promise<string[]> {
     const entries = await args.fs.list(args.resourcePath);
-    return entries
-        .filter(
-            (entry) =>
-                entry.kind === "file" &&
-                entry.name.toLowerCase().endsWith(".json"),
-        )
-        .map((entry) =>
-            normalizeTranslationNotesBookCode(stripFileExtension(entry.name)),
-        )
-        .filter((bookCode) => Boolean(canonicalBookMap[bookCode]))
-        .sort((left, right) => {
-            const leftOrder = getCanonicalPackedBookOrder(left);
-            const rightOrder = getCanonicalPackedBookOrder(right);
-            return leftOrder - rightOrder || left.localeCompare(right);
-        });
+    const bookCodes: string[] = [];
+    for (const entry of entries) {
+        if (
+            entry.kind === "file" &&
+            entry.name.toLowerCase().endsWith(".json")
+        ) {
+            const bookCode = normalizeTranslationNotesBookCode(
+                stripFileExtension(entry.name),
+            );
+            if (canonicalBookMap[bookCode]) bookCodes.push(bookCode);
+        }
+    }
+    return bookCodes.sort((left, right) => {
+        const leftOrder = getCanonicalPackedBookOrder(left);
+        const rightOrder = getCanonicalPackedBookOrder(right);
+        return leftOrder - rightOrder || left.localeCompare(right);
+    });
 }
 
 /**
@@ -346,12 +349,12 @@ export async function packTranslationNotesDirectory(args: {
                 ),
             );
         }
-        for (const supportFile of collected.supportFiles) {
+        await boundedConcurrent(collected.supportFiles, async (supportFile) => {
             await args.fs.writeBytes(
                 joinStoragePath(packedTempPath, supportFile.outputName),
                 await args.fs.readBytes(supportFile.sourcePath),
             );
-        }
+        });
         const bookCodes = [
             ...new Set(collected.map((entry) => entry.bookCode)),
         ].sort(
@@ -369,7 +372,7 @@ export async function packTranslationNotesDirectory(args: {
         });
 
         let writtenBooks = 0;
-        for (const bookCode of bookCodes) {
+        await boundedConcurrent(bookCodes, async (bookCode) => {
             const bookEntries = collected.filter(
                 (entry) => entry.bookCode === bookCode,
             );
@@ -407,7 +410,7 @@ export async function packTranslationNotesDirectory(args: {
                 current: writtenBooks,
                 total: bookCodes.length,
             });
-        }
+        });
 
         await args.fs.move(args.resourcePath, rawBackupPath);
         await args.fs.move(packedTempPath, args.resourcePath);
@@ -474,35 +477,40 @@ async function collectRawTranslationNotesArtifacts(
     async function walk(currentPath: string, relativePath = ""): Promise<void> {
         const directoryEntries = await fs.list(currentPath);
 
-        for (const entry of directoryEntries) {
-            const entryRelativePath = relativePath
-                ? `${relativePath}/${entry.name}`
-                : entry.name;
+        await Promise.all(
+            directoryEntries.map(async (entry) => {
+                const entryRelativePath = relativePath
+                    ? `${relativePath}/${entry.name}`
+                    : entry.name;
 
-            if (entry.kind === "directory") {
-                await walk(entry.path, entryRelativePath);
-                continue;
-            }
+                if (entry.kind === "directory") {
+                    await walk(entry.path, entryRelativePath);
+                    return;
+                }
 
-            if (entry.name === createPackedTranslationNotesMetadataFileName()) {
-                continue;
-            }
+                if (
+                    entry.name ===
+                    createPackedTranslationNotesMetadataFileName()
+                ) {
+                    return;
+                }
 
-            const parsedPath = parseTranslationNotePath(entryRelativePath);
-            if (!parsedPath) {
-                entries.supportFiles.push({
+                const parsedPath = parseTranslationNotePath(entryRelativePath);
+                if (!parsedPath) {
+                    entries.supportFiles.push({
+                        sourcePath: entry.path,
+                        outputName: entry.name,
+                    });
+                    return;
+                }
+
+                entries.push({
+                    ...parsedPath,
                     sourcePath: entry.path,
-                    outputName: entry.name,
+                    body: await fs.readText(entry.path),
                 });
-                continue;
-            }
-
-            entries.push({
-                ...parsedPath,
-                sourcePath: entry.path,
-                body: await fs.readText(entry.path),
-            });
-        }
+            }),
+        );
     }
 
     await walk(resourcePath);

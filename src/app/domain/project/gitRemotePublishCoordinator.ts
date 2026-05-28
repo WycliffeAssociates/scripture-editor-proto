@@ -245,16 +245,18 @@ async function publishWithCurrentSession(args: {
     });
     const localHead = publishResult.localHead ?? args.localHead;
     const remoteHead = publishResult.remoteHead ?? localHead;
-    const localHeadAuthoredAt = await readHeadAuthoredAt({
-        gitProvider: args.gitProvider,
-        projectPath: args.projectPath,
-        head: localHead,
-    });
-    const remoteHeadAuthoredAt = await readHeadAuthoredAt({
-        gitProvider: args.gitProvider,
-        projectPath: args.projectPath,
-        head: remoteHead,
-    });
+    const [localHeadAuthoredAt, remoteHeadAuthoredAt] = await Promise.all([
+        readHeadAuthoredAt({
+            gitProvider: args.gitProvider,
+            projectPath: args.projectPath,
+            head: localHead,
+        }),
+        readHeadAuthoredAt({
+            gitProvider: args.gitProvider,
+            projectPath: args.projectPath,
+            head: remoteHead,
+        }),
+    ]);
 
     switch (publishResult.outcome) {
         case GIT_REMOTE_PUBLISH_PUBLISHED:

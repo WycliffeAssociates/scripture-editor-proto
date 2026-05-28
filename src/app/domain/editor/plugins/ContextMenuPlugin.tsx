@@ -8,10 +8,16 @@ import {
     KEY_DOWN_COMMAND,
     type LexicalEditor,
 } from "lexical";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useEffectEvent,
+    useRef,
+    useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useClickOutside } from "@/app/ui/hooks/general/useClickOutside.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import type { EditorContext } from "../actions/types.ts";
@@ -154,6 +160,11 @@ export function NodeContextMenuPlugin() {
         [handleOpen],
     );
 
+    const openContextMenuAt = useEffectEvent((x: number, y: number) => {
+        handleOpen(x, y);
+    });
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `openContextMenuAt` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
     useEffect(() => {
         function onContextMenu(e: MouseEvent) {
             // Form mode renders its own cursor-anchored insert-marker
@@ -168,14 +179,14 @@ export function NodeContextMenuPlugin() {
                 return;
             }
             e.preventDefault();
-            handleOpen(e.clientX, e.clientY);
+            openContextMenuAt(e.clientX, e.clientY);
         }
 
         return editor.registerRootListener((root, prev) => {
             prev?.removeEventListener("contextmenu", onContextMenu);
             root?.addEventListener("contextmenu", onContextMenu);
         });
-    }, [editor, handleOpen]);
+    }, [editor]);
 
     useEffect(() => {
         return editor.registerCommand(

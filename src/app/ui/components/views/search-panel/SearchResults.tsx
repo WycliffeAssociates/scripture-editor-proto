@@ -26,8 +26,10 @@ export function SearchResults() {
         bookCodeToProjectLocalizedTitle,
     } = useWorkspaceContext();
     const parentRef = useRef<HTMLDivElement>(null);
-    const referenceParsedFiles =
-        referenceResource.referenceScriptureQuery.data?.parsedFiles ?? [];
+    const referenceParsedFiles = useMemo(
+        () => referenceResource.referenceScriptureQuery.data?.parsedFiles ?? [],
+        [referenceResource.referenceScriptureQuery.data],
+    );
     const hasDisplayReference =
         !search.searchReference &&
         Boolean(referenceResource.activeReferenceResourcePath) &&

@@ -8,12 +8,12 @@ import { ProjectImportHub } from "@/app/ui/components/blocks/ProjectImportHub/Pr
 import { LanguageSelector } from "@/app/ui/components/blocks/ProjectSettings/Settings.tsx";
 import {
     hideNotification,
-    ShowErrorNotification,
-    ShowNotificationInfo,
-    ShowNotificationSuccess,
+    showErrorNotification,
+    showNotificationInfo,
+    showNotificationSuccess,
     showProgressNotification,
     updateProgressNotification,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+} from "@/app/ui/components/primitives/notifications.ts";
 import { useGiteaLogin } from "@/app/ui/hooks/useGiteaLogin.ts";
 import { loadLocale } from "@/app/ui/i18n/loadLocale.tsx";
 import * as styles from "@/app/ui/styles/modules/createRoute.css.ts";
@@ -59,7 +59,7 @@ export function CreateProject() {
     const directoryInputRef = useRef<HTMLInputElement | null>(null);
     const zipInputRef = useRef<HTMLInputElement | null>(null);
 
-    const [currentLanguage, setCurrentLanguage] = useState<string | null>(
+    const [currentLanguage, setCurrentLanguage] = useState<string | null>(() =>
         settingsManager.get("appLanguage"),
     );
     const [isImporting, setIsImporting] = useState(false);
@@ -84,7 +84,7 @@ export function CreateProject() {
 
     const showImportGitWarningToast = (warning: string | undefined) => {
         if (!warning) return;
-        ShowNotificationInfo({
+        showNotificationInfo({
             notification: {
                 title: t`Version history unavailable`,
                 message: warning,
@@ -105,7 +105,7 @@ export function CreateProject() {
         requiresMetadataReview?: boolean;
     }) => {
         if (!isEditableProject) {
-            ShowNotificationSuccess({
+            showNotificationSuccess({
                 notification: buildPersistentImportSuccessNotification(
                     t`Success`,
                     message,
@@ -118,7 +118,7 @@ export function CreateProject() {
         const projectParam = getProjectParamFromImportedPath(importedPath);
         if (!projectParam) return;
 
-        ShowNotificationSuccess({
+        showNotificationSuccess({
             notification: {
                 ...buildPersistentImportSuccessNotification(
                     t`Success`,
@@ -201,7 +201,7 @@ export function CreateProject() {
             setCloudSessionUsername(null);
             resetCloudRepoState();
             setCloudError(null);
-            ShowNotificationInfo({
+            showNotificationInfo({
                 notification: {
                     title: t`Cloud account logged out`,
                     message: t`This device no longer has access to your cloud session.`,
@@ -209,7 +209,7 @@ export function CreateProject() {
                 },
             });
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Could not disconnect cloud account`,
                     message:
@@ -261,7 +261,7 @@ export function CreateProject() {
             });
             showImportGitWarningToast(importedProject.warning);
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     message: resolveImportErrorMessage({
                         error,
@@ -297,7 +297,7 @@ export function CreateProject() {
             });
             showImportGitWarningToast(importedProject.warning);
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     message: resolveImportErrorMessage({
                         error,
@@ -335,7 +335,7 @@ export function CreateProject() {
             });
             showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     message: resolveImportErrorMessage({
                         error,
@@ -371,7 +371,7 @@ export function CreateProject() {
             });
             showImportGitWarningToast(importedProject?.warning);
         } catch (error) {
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     message: resolveImportErrorMessage({
                         error,
@@ -414,7 +414,7 @@ export function CreateProject() {
                   });
                   showImportGitWarningToast(importedProject.warning);
               } catch (error) {
-                  ShowErrorNotification({
+                  showErrorNotification({
                       notification: {
                           message: resolveImportErrorMessage({
                               error,
@@ -457,7 +457,7 @@ export function CreateProject() {
                   });
                   showImportGitWarningToast(importedProject.warning);
               } catch (error) {
-                  ShowErrorNotification({
+                  showErrorNotification({
                       notification: {
                           message: resolveImportErrorMessage({
                               error,

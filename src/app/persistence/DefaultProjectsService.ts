@@ -161,46 +161,50 @@ export class DefaultProjectsService implements ProjectsService {
         document: MetadataEditorDocument;
     }): ScriptureWorkspace {
         const folderName = basenameStoragePath(args.projectPath);
-        const books: BookRef[] =
-            args.document.draft.kind === "resource-container"
-                ? args.document.draft.projects
-                      .filter(
-                          (project) =>
-                              project.identifier.trim().length > 0 &&
-                              project.path.trim().length > 0,
-                      )
-                      .map((project) => ({
-                          bookCode: project.identifier.toUpperCase(),
-                          title: project.title,
-                          fileName:
-                              removeLeadingDirSlashes(project.path)
-                                  .split("/")
-                                  .at(-1) ?? project.path,
-                          storageKey:
-                              removeLeadingDirSlashes(project.path)
-                                  .split("/")
-                                  .at(-1) ?? project.path,
-                          path: `${args.projectPath}/${removeLeadingDirSlashes(project.path)}`,
-                      }))
-                : args.document.draft.ingredients
-                      .filter(
-                          (ingredient) =>
-                              ingredient.bookCode.trim().length > 0 &&
-                              ingredient.path.trim().length > 0,
-                      )
-                      .map((ingredient) => ({
-                          bookCode: ingredient.bookCode.toUpperCase(),
-                          title: ingredient.title || ingredient.bookCode,
-                          fileName:
-                              removeLeadingDirSlashes(ingredient.path)
-                                  .split("/")
-                                  .at(-1) ?? ingredient.path,
-                          storageKey:
-                              removeLeadingDirSlashes(ingredient.path)
-                                  .split("/")
-                                  .at(-1) ?? ingredient.path,
-                          path: `${args.projectPath}/${removeLeadingDirSlashes(ingredient.path)}`,
-                      }));
+        const books: BookRef[] = [];
+        if (args.document.draft.kind === "resource-container") {
+            for (const project of args.document.draft.projects) {
+                if (
+                    project.identifier.trim().length > 0 &&
+                    project.path.trim().length > 0
+                ) {
+                    books.push({
+                        bookCode: project.identifier.toUpperCase(),
+                        title: project.title,
+                        fileName:
+                            removeLeadingDirSlashes(project.path)
+                                .split("/")
+                                .at(-1) ?? project.path,
+                        storageKey:
+                            removeLeadingDirSlashes(project.path)
+                                .split("/")
+                                .at(-1) ?? project.path,
+                        path: `${args.projectPath}/${removeLeadingDirSlashes(project.path)}`,
+                    });
+                }
+            }
+        } else {
+            for (const ingredient of args.document.draft.ingredients) {
+                if (
+                    ingredient.bookCode.trim().length > 0 &&
+                    ingredient.path.trim().length > 0
+                ) {
+                    books.push({
+                        bookCode: ingredient.bookCode.toUpperCase(),
+                        title: ingredient.title || ingredient.bookCode,
+                        fileName:
+                            removeLeadingDirSlashes(ingredient.path)
+                                .split("/")
+                                .at(-1) ?? ingredient.path,
+                        storageKey:
+                            removeLeadingDirSlashes(ingredient.path)
+                                .split("/")
+                                .at(-1) ?? ingredient.path,
+                        path: `${args.projectPath}/${removeLeadingDirSlashes(ingredient.path)}`,
+                    });
+                }
+            }
+        }
 
         const language =
             args.document.draft.kind === "resource-container"

@@ -57,8 +57,10 @@ function isTranslationNotesMetadata(
     ...candidates: Array<string | undefined>
 ): boolean {
     const normalized = candidates
-        .map(normalizeMetadataToken)
-        .filter(Boolean)
+        .flatMap((candidate) => {
+            const token = normalizeMetadataToken(candidate);
+            return token ? [token] : [];
+        })
         .join(" ");
     return (
         /\btranslation notes\b/u.test(normalized) ||
@@ -72,8 +74,10 @@ function isTranslationWordsMetadata(
     ...candidates: Array<string | undefined>
 ): boolean {
     const normalized = candidates
-        .map(normalizeMetadataToken)
-        .filter(Boolean)
+        .flatMap((candidate) => {
+            const token = normalizeMetadataToken(candidate);
+            return token ? [token] : [];
+        })
         .join(" ");
     return (
         /\btranslation words\b/u.test(normalized) ||

@@ -20,7 +20,7 @@ import {
     useSyncExternalStore,
 } from "react";
 import type { LintStore } from "@/app/state/LintStore.ts";
-import { getLintIssueBookCode } from "@/app/ui/components/blocks/lintFilters.tsx";
+import { getLintIssueBookCode } from "@/app/ui/components/blocks/lintFilters.utils.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import {
     buildLintMessagesByBookFromSnapshots,

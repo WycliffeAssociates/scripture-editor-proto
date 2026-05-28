@@ -1,7 +1,7 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { Deferred, Effect, Fiber } from "effect";
 import type { LexicalEditor } from "lexical";
-import { createContext, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
@@ -37,6 +37,7 @@ import {
     requireGateOpen,
     WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
+import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import { syncEditorToPickedChapter } from "@/app/ui/hooks/save/shared.ts";
@@ -196,11 +197,6 @@ type ProjectProviderProps = {
 
 const DIRTY_BUFFER_APP_VERSION =
     (import.meta.env.VITE_APP_VERSION as string | undefined) ?? "unknown";
-const WorkspaceContext = createContext<WorkSpaceContextType | undefined>(
-    undefined,
-);
-
-export { WorkspaceContext };
 
 /**
  * Provider that assembles the live scripture workspace view model.
@@ -541,7 +537,6 @@ export const ProjectProvider = ({
             authSessionProvider,
             fileSystem,
             gitProvider,
-            loadedProject.projectPath,
             settingsManager,
             storageRoots,
             loadedProject,
@@ -566,15 +561,13 @@ export const ProjectProvider = ({
                     event.touchedChapters.map((chapter) => chapter.bookCode),
                 );
                 const currentFiles = workingFilesStore.read();
-                const touchedFiles = [...touchedBooks]
-                    .map((bookCode) =>
-                        currentFiles.find(
-                            (candidate) => candidate.bookCode === bookCode,
-                        ),
-                    )
-                    .filter((file): file is ScriptureBookState =>
-                        Boolean(file),
+                const touchedFiles: ScriptureBookState[] = [];
+                for (const bookCode of touchedBooks) {
+                    const file = currentFiles.find(
+                        (candidate) => candidate.bookCode === bookCode,
                     );
+                    if (file) touchedFiles.push(file);
+                }
 
                 if (!touchedFiles.length) return;
 
@@ -746,17 +739,18 @@ export const ProjectProvider = ({
     }, [save.compare]);
 
     const discardRecoveredWork = useCallback(async () => {
-        const refs = workingFilesStore
-            .read()
-            .filter((file) => restoredBookCodes.includes(file.bookCode))
-            .flatMap((file) =>
-                file.chapters
-                    .filter((chapter) => chapter.dirty)
-                    .map((chapter) => ({
+        const refs: { bookCode: string; chapterNum: number }[] = [];
+        for (const file of workingFilesStore.read()) {
+            if (!restoredBookCodes.includes(file.bookCode)) continue;
+            for (const chapter of file.chapters) {
+                if (chapter.dirty) {
+                    refs.push({
                         bookCode: file.bookCode,
                         chapterNum: chapter.chapterNumber,
-                    })),
-            );
+                    });
+                }
+            }
+        }
         await history.runTransaction({
             label: "Discard recovered work",
             candidates: refs,

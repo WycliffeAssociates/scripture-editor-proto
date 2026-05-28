@@ -61,10 +61,10 @@ export function parseAppCommitMetadata(
     }
 
     const chapterSummary =
-        chapterSummaryRaw
-            ?.split("|")
-            .map((item) => item.trim())
-            .filter(Boolean) ?? [];
+        chapterSummaryRaw?.split("|").flatMap((item) => {
+            const trimmed = item.trim();
+            return trimmed ? [trimmed] : [];
+        }) ?? [];
 
     return {
         isAppCommit: true,

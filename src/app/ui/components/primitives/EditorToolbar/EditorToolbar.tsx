@@ -35,7 +35,7 @@ import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx"
 import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
-import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showNotificationInfo } from "@/app/ui/components/primitives/notifications.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { getLocalizedUsfmMarkerLabel } from "@/app/ui/i18n/usfmMarkerLocalization.ts";
@@ -185,7 +185,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
             return;
         }
         if (!referenceResource.referenceChapter) {
-            ShowNotificationInfo({
+            showNotificationInfo({
                 notification: {
                     title: t`Reference is loading`,
                     message: t`Try matching formatting again once the reference chapter is visible.`,

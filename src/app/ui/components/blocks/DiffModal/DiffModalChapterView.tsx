@@ -16,7 +16,7 @@ import { shouldHideStructuralLineBreak } from "@/app/ui/components/blocks/DiffMo
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 

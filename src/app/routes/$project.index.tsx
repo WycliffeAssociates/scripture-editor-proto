@@ -156,7 +156,7 @@ export const Route = createFileRoute("/$project/")({
     },
 });
 
-function RouteComponent() {
+export function RouteComponent() {
     const {
         projectFiles,
         initialLintErrorsByBook,

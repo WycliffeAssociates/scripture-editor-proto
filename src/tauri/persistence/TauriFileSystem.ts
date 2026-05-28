@@ -107,8 +107,10 @@ export class TauriFileSystem implements FileSystem {
     }
 
     async move(from: string, to: string): Promise<void> {
-        const source = await this.resolvePath(from);
-        const destination = await this.resolvePath(to);
+        const [source, destination] = await Promise.all([
+            this.resolvePath(from),
+            this.resolvePath(to),
+        ]);
         await mkdir(await dirname(destination), { recursive: true });
         await rename(source, destination);
     }
@@ -119,8 +121,10 @@ export class TauriFileSystem implements FileSystem {
         return publicPath;
     }
     async copy(from: string, to: string): Promise<void> {
-        const source = await this.resolvePath(from);
-        const destination = await this.resolvePath(to);
+        const [source, destination] = await Promise.all([
+            this.resolvePath(from),
+            this.resolvePath(to),
+        ]);
         await mkdir(await dirname(destination), { recursive: true });
         await copyFile(source, destination);
     }

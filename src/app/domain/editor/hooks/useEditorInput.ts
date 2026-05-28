@@ -46,7 +46,7 @@ import {
     parseClipboardUsfmToTokens,
     parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
-import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
@@ -419,7 +419,7 @@ export function useEditorInput(editor: LexicalEditor) {
                         usfmOnionService,
                     });
                     if (!parsed.ok) {
-                        ShowErrorNotification({
+                        showErrorNotification({
                             notification: {
                                 title: "Paste Failed",
                                 message:

@@ -38,6 +38,13 @@
                     "level": "error",
                     "fix": "none",
                     "options": {}
+                },
+                "useComponentExportOnlyModules": {
+                    "level": "warn",
+                    "options": {
+                        "allowConstantExport": true,
+                        "allowExportNames": ["Route"]
+                    }
                 }
             },
             "correctness": {

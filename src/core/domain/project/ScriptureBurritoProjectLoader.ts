@@ -191,30 +191,37 @@ export class ScriptureBurritoProjectLoader {
             const defaultLanguageTag = lang.tag;
             const defaultLanguageName =
                 lang.name[lang.tag] || lang.name[defaultLocale] || lang.tag;
-            const documentEntries = Object.entries(metadata.ingredients ?? {})
-                .map(([filePath, ingredient]) => {
-                    const relativePath = removeLeadingDirSlashes(filePath);
-                    const bookCode = extractBookCodeFromIngredient(
-                        relativePath,
-                        ingredient,
-                    );
-                    const name = bookCode
-                        ? getBookTitle(bookCode, metadata, defaultLanguageTag)
-                        : (relativePath.split("/").at(-1) ?? relativePath);
-
-                    return {
-                        relativePath,
-                        ingredient,
-                        bookCode,
-                        document: toReferenceDocumentReference({
-                            relativePath,
-                            name,
-                        }),
-                    };
-                })
-                .filter(({ ingredient, bookCode }) =>
-                    isBibleBookIngredient(bookCode ?? "", ingredient),
+            type DocumentEntry = {
+                relativePath: string;
+                ingredient: (typeof metadata.ingredients)[string];
+                bookCode: string | null | undefined;
+                document: ReturnType<typeof toReferenceDocumentReference>;
+            };
+            const documentEntries: DocumentEntry[] = [];
+            for (const [filePath, ingredient] of Object.entries(
+                metadata.ingredients ?? {},
+            )) {
+                const relativePath = removeLeadingDirSlashes(filePath);
+                const bookCode = extractBookCodeFromIngredient(
+                    relativePath,
+                    ingredient,
                 );
+                if (!isBibleBookIngredient(bookCode ?? "", ingredient)) {
+                    continue;
+                }
+                const name = bookCode
+                    ? getBookTitle(bookCode, metadata, defaultLanguageTag)
+                    : (relativePath.split("/").at(-1) ?? relativePath);
+                documentEntries.push({
+                    relativePath,
+                    ingredient,
+                    bookCode,
+                    document: toReferenceDocumentReference({
+                        relativePath,
+                        name,
+                    }),
+                });
+            }
 
             const metadataItemType = classifyResourceKindFromScriptureBurrito({
                 abbreviation:

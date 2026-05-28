@@ -367,16 +367,19 @@ function filterSearchableReferenceResources(
     resources: ResourceLibraryItem[],
     currentProjectPath: string,
 ) {
-    return resources
-        .filter(
-            (resource) =>
-                resource.type === "usfmScripture" &&
-                resource.projectPath !== currentProjectPath,
-        )
-        .map((resource) => ({
-            projectPath: resource.projectPath,
-            displayName: resource.displayName,
-        }));
+    const out: { projectPath: string; displayName: string }[] = [];
+    for (const resource of resources) {
+        if (
+            resource.type === "usfmScripture" &&
+            resource.projectPath !== currentProjectPath
+        ) {
+            out.push({
+                projectPath: resource.projectPath,
+                displayName: resource.displayName,
+            });
+        }
+    }
+    return out;
 }
 
 function ToggleButton(props: {

@@ -21,6 +21,13 @@ import { zLayer } from "@/app/ui/styles/zLayers.ts";
 const HOVER_PREFETCH_DELAY_MS = 25;
 const INITIAL_PREFETCH_COUNT = 3;
 
+// Hoisted so VersionRow rows in the virtualizer don't reallocate the formatter
+// on every render. Locale-undefined falls back to navigator.language.
+const VERSION_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+});
+
 function joinClassNames(...names: Array<string | false | undefined>) {
     return names.filter(Boolean).join(" ");
 }
@@ -286,10 +293,9 @@ function VersionRow(props: {
     onPrefetch: () => Promise<void>;
 }) {
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const authoredAtLabel = new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(new Date(props.authoredAtIso));
+    const authoredAtLabel = VERSION_TIMESTAMP_FORMATTER.format(
+        new Date(props.authoredAtIso),
+    );
 
     function cancelPrefetchTimer() {
         if (!timerRef.current) return;

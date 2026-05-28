@@ -11,6 +11,6 @@ export const Route = createFileRoute("/$project")({
     component: ProjectRouteLayout,
 });
 
-function ProjectRouteLayout() {
+export function ProjectRouteLayout() {
     return <Outlet />;
 }

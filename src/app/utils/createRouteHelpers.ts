@@ -1,4 +1,4 @@
-import type { NotificationData } from "@/app/ui/components/primitives/Notifications.tsx";
+import type { NotificationData } from "@/app/ui/components/primitives/notifications.ts";
 import { basenameStoragePath } from "@/core/persistence/pathUtils.ts";
 
 export function getProjectParamFromImportedPath(

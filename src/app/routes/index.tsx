@@ -21,11 +21,11 @@ export const Route = createFileRoute("/")({
     component: IndexRoute,
 });
 
-function IndexRoute() {
+export function IndexRoute() {
     const router = useRouter();
     const { projects } = useLoaderData({ from: "__root__" });
     const { settingsManager } = router.options.context;
-    const [currentLanguage, setCurrentLanguage] = useState<string | null>(
+    const [currentLanguage, setCurrentLanguage] = useState<string | null>(() =>
         settingsManager.get("appLanguage"),
     );
     const byLanguage = projects.reduce(

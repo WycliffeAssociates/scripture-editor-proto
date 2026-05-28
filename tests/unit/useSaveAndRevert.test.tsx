@@ -28,9 +28,9 @@ const notificationMocks = vi.hoisted(() => ({
     showSuccessNotification: vi.fn(),
 }));
 
-vi.mock("@/app/ui/components/primitives/Notifications.tsx", () => ({
-    ShowErrorNotification: notificationMocks.showErrorNotification,
-    ShowNotificationSuccess: notificationMocks.showSuccessNotification,
+vi.mock("@/app/ui/components/primitives/notifications.ts", () => ({
+    showErrorNotification: notificationMocks.showErrorNotification,
+    showNotificationSuccess: notificationMocks.showSuccessNotification,
 }));
 
 const storageRoots: StorageRoots = {

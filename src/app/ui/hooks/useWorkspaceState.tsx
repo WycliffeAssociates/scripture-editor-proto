@@ -35,7 +35,7 @@ export const useWorkspaceState = (
         }
         return settingsManager.get(key) as Settings[K] | undefined;
     }
-    const [appSettings, setAppSettings] = useState<Settings>(
+    const [appSettings, setAppSettings] = useState<Settings>(() =>
         settingsManager.getSettings(),
     );
     const [currentFileBibleIdentifier, setCurrentFileBibleIdentifier] =
@@ -95,7 +95,7 @@ export const useWorkspaceState = (
              * book, snap back to the nearest sensible chapter and persist that
              * correction so downstream UI state stays aligned.
              */
-            const sortedChaps = [...pickedFile.chapters].sort(
+            const sortedChaps = pickedFile.chapters.toSorted(
                 (a, b) => a.chapterNumber - b.chapterNumber,
             );
             const lastChap = sortedChaps[sortedChaps.length - 1];

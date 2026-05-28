@@ -66,7 +66,7 @@ export function useNavigation({
         if (!chapterState) {
             // Fallback: If chapter not found, use first or last chapter
             if (targetFile.chapters.length > 0) {
-                const sortedChaps = [...targetFile.chapters].sort(
+                const sortedChaps = targetFile.chapters.toSorted(
                     (a, b) => a.chapterNumber - b.chapterNumber,
                 );
                 if (

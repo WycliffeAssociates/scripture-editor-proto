@@ -16,7 +16,7 @@ import {
     findChapterInDraft,
     type WorkingFilesStore,
 } from "@/app/state/WorkingFilesStore.ts";
-import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showNotificationSuccess } from "@/app/ui/components/primitives/notifications.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
@@ -285,7 +285,7 @@ export function useFormatMatching({
                 }
 
                 if (result.changed) {
-                    ShowNotificationSuccess({
+                    showNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
                             message: t`Matched formatting for Chapter ${currentChapter}`,
@@ -394,7 +394,7 @@ export function useFormatMatching({
                 }
 
                 if (modifiedChaptersCount > 0) {
-                    ShowNotificationSuccess({
+                    showNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
                             message: t`Matched formatting for ${modifiedChaptersCount} chapters in ${draftFile.title || draftFile.bookCode}`,
@@ -521,7 +521,7 @@ export function useFormatMatching({
                 }
 
                 if (modifiedBooksCount > 0) {
-                    ShowNotificationSuccess({
+                    showNotificationSuccess({
                         notification: {
                             title: t`Formatting Matched`,
                             message: t`Matched formatting across ${modifiedBooksCount} books`,

@@ -21,16 +21,26 @@ export class TauriStorageRoots implements StorageRoots {
     static async create(): Promise<TauriStorageRoots> {
         // Keep user-visible project data separate from app-private temp/cache/db
         // directories while preserving the shared root names used by core code.
-        const publicRoot = await appDataDir();
-        const privateRoot = await appLocalDataDir();
+        const [publicRoot, privateRoot] = await Promise.all([
+            appDataDir(),
+            appLocalDataDir(),
+        ]);
+        const [projectsRoot, tempRoot, cacheRoot, logsRoot, databaseRoot] =
+            await Promise.all([
+                join(publicRoot, "projects"),
+                join(privateRoot, "temp"),
+                join(privateRoot, "cache"),
+                join(privateRoot, "logs"),
+                join(privateRoot, "database"),
+            ]);
 
         return new TauriStorageRoots(
             privateRoot,
-            await join(publicRoot, "projects"),
-            await join(privateRoot, "temp"),
-            await join(privateRoot, "cache"),
-            await join(privateRoot, "logs"),
-            await join(privateRoot, "database"),
+            projectsRoot,
+            tempRoot,
+            cacheRoot,
+            logsRoot,
+            databaseRoot,
         );
     }
 }

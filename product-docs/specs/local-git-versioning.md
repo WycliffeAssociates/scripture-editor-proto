@@ -103,7 +103,7 @@
 ## Platform implementation
 - Web:
   - `isomorphic-git`
-  - ZenFS-backed filesystem runtime
+  - OPFS-backed filesystem runtime (`OpfsGitFs`)
 - Tauri:
   - Rust `git2` / libgit2 bridge exposed through Tauri commands
 - Shared logic:

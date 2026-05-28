@@ -11,7 +11,7 @@ import type {
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
-import { ShowNotificationSuccess } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showNotificationSuccess } from "@/app/ui/components/primitives/notifications.ts";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { formatTokenFixLabel } from "@/app/ui/i18n/usfmOnionLocalization.ts";
@@ -267,7 +267,7 @@ export function useLintFixing({
                     commitBookLintResults,
                     setEditorContent,
                     notifySuccess: () => {
-                        ShowNotificationSuccess({
+                        showNotificationSuccess({
                             notification: {
                                 title: t`Fix Applied`,
                                 message: t`Autofix applied for ${localizedFixLabel}`,

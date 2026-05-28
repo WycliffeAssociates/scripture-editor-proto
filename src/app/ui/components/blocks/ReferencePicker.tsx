@@ -29,7 +29,10 @@ export function ReferencePicker() {
         activeReferenceResourceDisplayName,
     } = referenceResource;
 
-    const availableResources = referenceResourcesQuery.data ?? [];
+    const availableResources = useMemo(
+        () => referenceResourcesQuery.data ?? [],
+        [referenceResourcesQuery.data],
+    );
     const isLoading = referenceResourcesQuery.isLoading;
 
     const items: ReferenceItem[] = useMemo(

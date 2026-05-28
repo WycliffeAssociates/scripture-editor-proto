@@ -782,13 +782,16 @@ const mergeAdjacentTextNodesOfSameType = ({
         UsfmTokenTypes.error,
     ];
 
-    const allTextNodes: Array<USFMTextNode> = allNodes
-        .map((dfsNode) => dfsNode.node)
-        .filter(
-            (n) =>
-                $isUSFMTextNode(n) &&
-                tokenTypesToMerge.includes(n.getTokenType()),
-        ) as Array<USFMTextNode>;
+    const allTextNodes: Array<USFMTextNode> = [];
+    for (const dfsNode of allNodes) {
+        const n = dfsNode.node;
+        if (
+            $isUSFMTextNode(n) &&
+            tokenTypesToMerge.includes(n.getTokenType())
+        ) {
+            allTextNodes.push(n);
+        }
+    }
     // Group consecutive nodes with same sid + tokenType
     const groups: USFMTextNode[][] = [];
     let currentGroup: USFMTextNode[] = [];

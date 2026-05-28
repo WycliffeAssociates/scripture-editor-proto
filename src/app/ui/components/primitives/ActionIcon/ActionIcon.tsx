@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import * as styles from "./actionIcon.css.ts";
 
 function joinClassNames(...classNames: Array<string | undefined>) {
@@ -9,6 +9,7 @@ export interface ActionIconSimpleProps
     extends ButtonHTMLAttributes<HTMLButtonElement> {
     children: ReactNode;
     variant?: "subtle" | "filled";
+    ref?: Ref<HTMLButtonElement>;
 }
 
 /**
@@ -17,13 +18,13 @@ export interface ActionIconSimpleProps
  * This keeps small icon affordances visually consistent across editor, search,
  * history, diff, and reference surfaces.
  */
-export const ActionIconSimple = forwardRef<
-    HTMLButtonElement,
-    ActionIconSimpleProps
->(function ActionIconSimple(
-    { children, className, variant = "subtle", ...props },
+export function ActionIconSimple({
+    children,
+    className,
+    variant = "subtle",
     ref,
-) {
+    ...props
+}: ActionIconSimpleProps) {
     return (
         <button
             ref={ref}
@@ -38,4 +39,4 @@ export const ActionIconSimple = forwardRef<
             <span className={styles.icon}>{children}</span>
         </button>
     );
-});
+}

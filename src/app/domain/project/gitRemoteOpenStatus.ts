@@ -449,22 +449,27 @@ async function projectContentMatchesRemoteLatest(args: {
     );
     const allBookPaths = new Set([...localBookPaths, ...remoteBookPaths]);
 
+    // Check remote-only paths synchronously before fanning out local reads
     for (const storageKey of allBookPaths) {
-        const remoteText = remoteSnapshot.get(storageKey);
-        const hasLocalBook = localBookPaths.has(storageKey);
-        if (!hasLocalBook) {
-            if (remoteText != null) {
-                return false;
-            }
-            continue;
-        }
-        const localBook = await args.loadedProject.getBook(storageKey);
-        if ((remoteText ?? null) !== localBook.contents) {
+        if (
+            !localBookPaths.has(storageKey) &&
+            remoteSnapshot.get(storageKey) != null
+        ) {
             return false;
         }
     }
 
-    return true;
+    const matches = await Promise.all(
+        Array.from(allBookPaths)
+            .filter((storageKey) => localBookPaths.has(storageKey))
+            .map(async (storageKey) => {
+                const remoteText = remoteSnapshot.get(storageKey);
+                const localBook = await args.loadedProject.getBook(storageKey);
+                return (remoteText ?? null) === localBook.contents;
+            }),
+    );
+
+    return matches.every(Boolean);
 }
 
 function buildStatus(args: {

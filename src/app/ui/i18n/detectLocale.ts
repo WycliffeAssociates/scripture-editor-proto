@@ -1,5 +1,7 @@
 import { SUPPORTED_LOCALES } from "@/app/data/settings.ts";
 
+const SUPPORTED_LOCALE_SET = new Set<string>(SUPPORTED_LOCALES);
+
 /**
  * Pick the best supported locale from the browser environment.
  *
@@ -13,24 +15,24 @@ export function detectLocale(): string {
 
     if (navigator.languages && navigator.languages.length > 0) {
         for (const locale of navigator.languages) {
-            if (SUPPORTED_LOCALES.includes(locale)) {
+            if (SUPPORTED_LOCALE_SET.has(locale)) {
                 return locale;
             }
 
             const languageCode = locale.split("-")[0];
-            if (SUPPORTED_LOCALES.includes(languageCode)) {
+            if (SUPPORTED_LOCALE_SET.has(languageCode)) {
                 return languageCode;
             }
         }
     }
 
     if (navigator.language) {
-        if (SUPPORTED_LOCALES.includes(navigator.language)) {
+        if (SUPPORTED_LOCALE_SET.has(navigator.language)) {
             return navigator.language;
         }
 
         const languageCode = navigator.language.split("-")[0];
-        if (SUPPORTED_LOCALES.includes(languageCode)) {
+        if (SUPPORTED_LOCALE_SET.has(languageCode)) {
             return languageCode;
         }
     }

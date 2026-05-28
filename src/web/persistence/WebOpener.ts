@@ -64,25 +64,32 @@ async function collectFiles(
      * Export should mirror the current managed storage tree regardless of whether
      * the item came from scripture source files or packed translation notes.
      */
-    const files: { fullPath: string; data: Uint8Array }[] = [];
-    for (const entry of await fileSystem.list(directoryPath)) {
-        if (shouldStripPortableProjectPath(entry.name)) {
-            continue;
-        }
-        const fullPath = relPath ? `${relPath}/${entry.name}` : entry.name;
-        if (entry.kind === "directory") {
-            files.push(
-                ...(await collectFiles(fileSystem, entry.path, fullPath)),
-            );
-            continue;
-        }
+    const directoryEntries = await fileSystem.list(directoryPath);
+    const results = await Promise.all(
+        directoryEntries.map(
+            async (
+                entry,
+            ): Promise<{ fullPath: string; data: Uint8Array }[]> => {
+                if (shouldStripPortableProjectPath(entry.name)) {
+                    return [];
+                }
+                const fullPath = relPath
+                    ? `${relPath}/${entry.name}`
+                    : entry.name;
+                if (entry.kind === "directory") {
+                    return collectFiles(fileSystem, entry.path, fullPath);
+                }
 
-        files.push({
-            fullPath,
-            data: await fileSystem.readBytes(
-                joinStoragePath(directoryPath, entry.name),
-            ),
-        });
-    }
-    return files;
+                return [
+                    {
+                        fullPath,
+                        data: await fileSystem.readBytes(
+                            joinStoragePath(directoryPath, entry.name),
+                        ),
+                    },
+                ];
+            },
+        ),
+    );
+    return results.flat();
 }

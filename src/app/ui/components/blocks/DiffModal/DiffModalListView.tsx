@@ -4,12 +4,12 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Change } from "diff";
 import { diffWordsWithSpace } from "diff";
 import { BookIcon, Clipboard, Code2, RotateCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { TEST_ID_GENERATORS, TESTING_IDS } from "@/app/data/constants.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import { toRegularModeDisplayTextPreservingWhitespace } from "@/app/ui/components/blocks/DiffModal/diffDisplayUtils.ts";
 import { ActionIconSimple } from "@/app/ui/components/primitives/ActionIcon/index.ts";
-import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
+import { useWorkspaceMediaQuery } from "@/app/ui/contexts/useWorkspaceMediaQuery.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 import {
@@ -451,7 +451,6 @@ export function VirtualizedDiffList({
     originalLabel,
     currentLabel,
     showUsfmMarkers,
-    isOpen,
 }: {
     diffs: ProjectDiff[];
     actionMode: "unsaved" | "external";
@@ -460,23 +459,12 @@ export function VirtualizedDiffList({
     originalLabel: string;
     currentLabel: string;
     showUsfmMarkers: boolean;
-    isOpen?: boolean;
 }) {
     const { actions } = useWorkspaceContext();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [rowUsfmOverrides, setRowUsfmOverrides] = useState<RowUsfmOverrides>(
         {},
     );
-
-    useEffect(() => {
-        setRowUsfmOverrides({});
-    }, []);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setRowUsfmOverrides({});
-        }
-    }, [isOpen]);
 
     const virtualizer = useVirtualizer({
         count: diffs.length,

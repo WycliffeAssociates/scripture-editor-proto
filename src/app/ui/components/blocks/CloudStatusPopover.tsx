@@ -88,16 +88,18 @@ interface ConnectedStatusData {
 
 const unknownTimestampToken = "—";
 
+// Locale-undefined falls back to navigator.language; intentional for now until
+// the rest of the app threads i18n.locale through formatters.
+const COMMIT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+});
+
 function formatCommitTimestamp(value: string | null | undefined) {
     if (!value) return unknownTimestampToken;
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return unknownTimestampToken;
-    // Locale-undefined falls back to navigator.language; intentional for now
-    // until the rest of the app threads i18n.locale through formatters.
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(parsed);
+    return COMMIT_TIMESTAMP_FORMATTER.format(parsed);
 }
 
 function isReauthState(status: GitRemoteProjectStatus | null) {

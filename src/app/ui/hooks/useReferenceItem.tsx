@@ -395,7 +395,7 @@ export const useReferenceItem = ({
             return null;
         }
 
-        const sortedChapters = [...referenceFile.chapters].sort(
+        const sortedChapters = referenceFile.chapters.toSorted(
             (a, b) => a.chapterNumber - b.chapterNumber,
         );
         const currentIndex = sortedChapters.findIndex(
@@ -416,10 +416,10 @@ export const useReferenceItem = ({
         );
         if (!nextBook || nextBook.chapters.length === 0) return null;
 
-        const firstChapter = [...nextBook.chapters].sort(
-            (a, b) => a.chapterNumber - b.chapterNumber,
-        )[0]?.chapterNumber;
-        if (firstChapter === undefined) return null;
+        const firstChapter = Math.min(
+            ...nextBook.chapters.map((chapter) => chapter.chapterNumber),
+        );
+        if (!Number.isFinite(firstChapter)) return null;
         return { bookCode: nextBook.bookCode, chapterNumber: firstChapter };
     }, [
         effectiveReferenceChapterNumber,
@@ -437,7 +437,7 @@ export const useReferenceItem = ({
             return null;
         }
 
-        const sortedChapters = [...referenceFile.chapters].sort(
+        const sortedChapters = referenceFile.chapters.toSorted(
             (a, b) => a.chapterNumber - b.chapterNumber,
         );
         const currentIndex = sortedChapters.findIndex(
@@ -458,10 +458,10 @@ export const useReferenceItem = ({
         );
         if (!prevBook || prevBook.chapters.length === 0) return null;
 
-        const lastChapter = [...prevBook.chapters].sort(
-            (a, b) => b.chapterNumber - a.chapterNumber,
-        )[0]?.chapterNumber;
-        if (lastChapter === undefined) return null;
+        const lastChapter = Math.max(
+            ...prevBook.chapters.map((chapter) => chapter.chapterNumber),
+        );
+        if (!Number.isFinite(lastChapter)) return null;
         return { bookCode: prevBook.bookCode, chapterNumber: lastChapter };
     }, [
         effectiveReferenceChapterNumber,

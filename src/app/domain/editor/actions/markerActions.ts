@@ -102,9 +102,10 @@ function parseVerseNumberSelection(
  * instead of forcing them to type the verse number manually for common cases.
  */
 function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
-    const textNodes = [...$dfsIterator()]
-        .map((n) => n.node)
-        .filter($isUSFMTextNode);
+    const textNodes: USFMTextNode[] = [];
+    for (const n of $dfsIterator()) {
+        if ($isUSFMTextNode(n.node)) textNodes.push(n.node);
+    }
     const anchorIndex = textNodes.findIndex(
         (n) => n.getKey() === anchorNode.getKey(),
     );

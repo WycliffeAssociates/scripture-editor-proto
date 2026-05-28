@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { ShowErrorNotification } from "@/app/ui/components/primitives/Notifications.tsx";
+import { showErrorNotification } from "@/app/ui/components/primitives/notifications.ts";
 import type {
     AvailableUpdate,
     CheckResult,
@@ -79,7 +79,7 @@ export function useInstallUpdate(service: IUpdaterService | null) {
         },
         onError: (error) => {
             console.error("[updater] install failed", error);
-            ShowErrorNotification({
+            showErrorNotification({
                 notification: {
                     title: t`Update install failed`,
                     message:

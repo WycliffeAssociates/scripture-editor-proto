@@ -427,8 +427,11 @@ export class OpfsGitFs {
         if (normalized === "/") {
             throw createFsError("EPERM", normalized, "Operation not permitted");
         }
-        const entry = await this.resolveEntry(normalized);
-        const { dir, name } = await this.resolveParent(normalized, false);
+        const [entry, parent] = await Promise.all([
+            this.resolveEntry(normalized),
+            this.resolveParent(normalized, false),
+        ]);
+        const { dir, name } = parent;
         await dir.removeEntry(name, {
             recursive: entry.kind === "directory" || isRecursiveOption(options),
         });

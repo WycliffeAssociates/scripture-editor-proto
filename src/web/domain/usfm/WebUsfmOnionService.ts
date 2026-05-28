@@ -85,27 +85,27 @@ function buildMarkerCatalog(raw: onion.UsfmMarkerCatalog): UsfmMarkerCatalog {
             (info) => [info.marker, info] satisfies [string, MarkerInfo],
         ),
     );
-    const allMarkers = allInfo.map((info) => info.marker);
-    const paragraphMarkers = allInfo
-        .filter((info) => info.category === "paragraph")
-        .map((info) => info.marker);
-    const noteMarkers = allInfo
-        .filter((info) => info.category === "noteContainer")
-        .map((info) => info.marker);
-    const noteSubmarkers = allInfo
-        .filter((info) => info.category === "noteSubmarker")
-        .map((info) => info.marker);
-    const regularCharacterMarkers = allInfo
-        .filter((info) => info.category === "character")
-        .map((info) => info.marker);
-    const documentMarkers = allInfo
-        .filter((info) => info.category === "document")
-        .map((info) => info.marker);
-    const chapterVerseMarkers = allInfo
-        .filter(
-            (info) => info.category === "chapter" || info.category === "verse",
-        )
-        .map((info) => info.marker);
+    const allMarkers: string[] = [];
+    const paragraphMarkers: string[] = [];
+    const noteMarkers: string[] = [];
+    const noteSubmarkers: string[] = [];
+    const regularCharacterMarkers: string[] = [];
+    const documentMarkers: string[] = [];
+    const chapterVerseMarkers: string[] = [];
+    for (const info of allInfo) {
+        allMarkers.push(info.marker);
+        if (info.category === "paragraph") paragraphMarkers.push(info.marker);
+        else if (info.category === "noteContainer")
+            noteMarkers.push(info.marker);
+        else if (info.category === "noteSubmarker")
+            noteSubmarkers.push(info.marker);
+        else if (info.category === "character")
+            regularCharacterMarkers.push(info.marker);
+        else if (info.category === "document")
+            documentMarkers.push(info.marker);
+        else if (info.category === "chapter" || info.category === "verse")
+            chapterVerseMarkers.push(info.marker);
+    }
 
     return {
         raw,

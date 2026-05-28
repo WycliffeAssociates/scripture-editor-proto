@@ -1,9 +1,9 @@
 import type { I18n } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import {
-    ShowErrorNotification,
-    ShowNotificationSuccess,
-} from "@/app/ui/components/primitives/Notifications.tsx";
+    showErrorNotification,
+    showNotificationSuccess,
+} from "@/app/ui/components/primitives/notifications.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
@@ -56,7 +56,7 @@ export async function createRemoteProject(args: {
     try {
         await projectsService.createRemoteForProject(loadedProjectPath);
         await refresh();
-        ShowNotificationSuccess({
+        showNotificationSuccess({
             notification: {
                 title: i18n._(messages.createSuccessTitle),
                 message: i18n._(messages.createSuccessBody),
@@ -66,7 +66,7 @@ export async function createRemoteProject(args: {
     } catch (error) {
         const message = errorMessage(error, i18n);
         const isDuplicateName = /already exists/i.test(message);
-        ShowErrorNotification({
+        showErrorNotification({
             notification: {
                 title: i18n._(messages.createFailureTitle),
                 message: isDuplicateName
@@ -99,7 +99,7 @@ export async function attachRemoteProject(args: {
             },
         });
         await refresh();
-        ShowNotificationSuccess({
+        showNotificationSuccess({
             notification: {
                 title: i18n._(messages.attachSuccessTitle),
                 message: i18n._(messages.attachSuccessBody),
@@ -107,7 +107,7 @@ export async function attachRemoteProject(args: {
         });
         return { ok: true };
     } catch (error) {
-        ShowErrorNotification({
+        showErrorNotification({
             notification: {
                 title: i18n._(messages.attachFailureTitle),
                 message: errorMessage(error, i18n),
@@ -136,7 +136,7 @@ export function sortReposByOwnerPriority(
 ): RemoteRepoSummary[] {
     const normalized = username?.toLowerCase() ?? "";
     if (!normalized) return repos;
-    return [...repos].sort((a, b) => {
+    return repos.toSorted((a, b) => {
         const aMine = a.owner.toLowerCase() === normalized;
         const bMine = b.owner.toLowerCase() === normalized;
         if (aMine !== bMine) return aMine ? -1 : 1;

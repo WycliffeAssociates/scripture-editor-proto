@@ -20,9 +20,10 @@ import { deriveVerseNumberForInsertionFromTokens } from "@/app/domain/editor/uti
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 
 function deriveVerseNumberForInsertion(anchorNode: USFMTextNode): string {
-    const textNodes = [...$dfsIterator()]
-        .map((entry) => entry.node)
-        .filter($isUSFMTextNode);
+    const textNodes: USFMTextNode[] = [];
+    for (const entry of $dfsIterator()) {
+        if ($isUSFMTextNode(entry.node)) textNodes.push(entry.node);
+    }
     const anchorIndex = textNodes.findIndex(
         (node) => node.getKey() === anchorNode.getKey(),
     );

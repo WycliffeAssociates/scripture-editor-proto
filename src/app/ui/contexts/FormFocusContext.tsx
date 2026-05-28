@@ -11,13 +11,8 @@
 // keeps source and reference aligned with parallel block sequences, so
 // matching rowKeys map to matching positions across panes.
 
-import {
-    createContext,
-    type ReactNode,
-    useContext,
-    useEffect,
-    useState,
-} from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { FormFocusContext } from "@/app/ui/contexts/_formFocusContext.ts";
 
 export type FormFocusKey = {
     sid: string;
@@ -28,11 +23,6 @@ export type FormFocusContextValue = {
     focused: FormFocusKey | null;
     setFocused: (key: FormFocusKey | null) => void;
 };
-
-const FormFocusContext = createContext<FormFocusContextValue>({
-    focused: null,
-    setFocused: () => {},
-});
 
 export const FORM_ROW_SID_ATTR = "data-form-row-sid";
 export const FORM_ROW_KEY_ATTR = "data-form-row-key";
@@ -73,15 +63,13 @@ export function FormFocusProvider(props: { children: ReactNode }) {
         }
     }, [focused]);
 
+    const contextValue = useMemo(() => ({ focused, setFocused }), [focused]);
+
     return (
-        <FormFocusContext.Provider value={{ focused, setFocused }}>
+        <FormFocusContext.Provider value={contextValue}>
             {props.children}
         </FormFocusContext.Provider>
     );
-}
-
-export function useFormFocus(): FormFocusContextValue {
-    return useContext(FormFocusContext);
 }
 
 function cssEscape(value: string): string {

@@ -321,16 +321,13 @@ export function buildChapterRenderParagraphs(args: {
         return fallback;
     };
 
-    args.diffs
-        .flatMap((diff) =>
-            buildEntryRenderTokens({
-                diff,
-                viewType: args.viewType,
-                hideWhitespaceOnly: args.hideWhitespaceOnly,
-                showUsfmMarkers: args.showUsfmMarkers,
-            }),
-        )
-        .forEach((tokenWithOwner) => {
+    for (const diff of args.diffs) {
+        for (const tokenWithOwner of buildEntryRenderTokens({
+            diff,
+            viewType: args.viewType,
+            hideWhitespaceOnly: args.hideWhitespaceOnly,
+            showUsfmMarkers: args.showUsfmMarkers,
+        })) {
             const token = tokenWithOwner.token;
             let paragraph: ChapterRenderParagraph;
             if (
@@ -354,7 +351,8 @@ export function buildChapterRenderParagraphs(args: {
             }
 
             paragraph.tokens.push(tokenWithOwner);
-        });
+        }
+    }
 
     return paragraphs;
 }
