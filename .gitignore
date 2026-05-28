@@ -65,3 +65,6 @@ tests/mockData/berean-standard-bible
 
 # Wrangler dev cache + state
 .wrangler/
+
+# Local pnpm store cache
+.pnpm-store/

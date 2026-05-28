@@ -1,3 +1,9 @@
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  msgpackr-extract: true
+  sharp: true
+  workerd: true
 onlyBuiltDependencies:
   - '@ast-grep/cli'
   - electron
