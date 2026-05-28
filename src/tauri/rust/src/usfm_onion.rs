@@ -73,6 +73,8 @@ pub struct ProjectUsfmOptionsDto {
     pub token_options: IntoTokensOptionsDto,
     #[serde(default)]
     pub lint_options: Option<LintOptionsDto>,
+    #[serde(default)]
+    pub include_source_md5: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,6 +143,11 @@ pub struct TokenTemplateDto {
 pub struct ProjectedUsfmDocumentDto {
     pub tokens: Vec<FlatTokenDto>,
     pub lint_issues: Option<Vec<LintIssueDto>>,
+    // md5 of the parsed source bytes; only populated when
+    // `include_source_md5` is set. `skip_serializing_if` keeps it off the wire
+    // (and absent on the JS side) for the common case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_md5: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -570,6 +577,9 @@ fn map_projected_document(
                 })
                 .collect()
         }),
+        // Filled in by the commands that hold the raw source (they know the
+        // bytes); the parsed `usfm` here intentionally doesn't carry them.
+        source_md5: None,
     }
 }
 
@@ -775,8 +785,14 @@ pub fn usfm_onion_project_usfm(
     source: String,
     options: Option<ProjectUsfmOptionsDto>,
 ) -> Result<ProjectedUsfmDocumentDto, String> {
+    let project_options = options.unwrap_or_default();
+    let include_source_md5 = project_options.include_source_md5;
     let usfm = onion::Usfm::from_str(&source);
-    Ok(map_projected_document(&usfm, options.unwrap_or_default()))
+    let mut doc = map_projected_document(&usfm, project_options);
+    if include_source_md5 {
+        doc.source_md5 = Some(crate::md5::md5_hex(&source));
+    }
+    Ok(doc)
 }
 
 #[tauri::command]
@@ -786,11 +802,18 @@ pub fn usfm_onion_project_paths(
 ) -> Result<Vec<ProjectedUsfmDocumentDto>, String> {
     let sources = read_sources_from_paths(paths)?;
     let project_options = options.unwrap_or_default();
+    let include_source_md5 = project_options.include_source_md5;
     Ok(sources
         .into_par_iter()
         .map(|source| {
             let usfm = onion::Usfm::from_str(&source);
-            map_projected_document(&usfm, project_options.clone())
+            let mut doc = map_projected_document(&usfm, project_options.clone());
+            // Hash the bytes we already read here, on the desktop side — the
+            // source never has to cross the IPC boundary just to be checksummed.
+            if include_source_md5 {
+                doc.source_md5 = Some(crate::md5::md5_hex(&source));
+            }
+            doc
         })
         .collect())
 }

@@ -7,8 +7,11 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useDiffModalState } from "@/app/ui/hooks/save/useDiffModalState.ts";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
@@ -28,8 +31,12 @@ import type {
     ReadOnlyOpenProjectService,
 } from "@/core/persistence/WorkspaceService.ts";
 
+// todo: a lot of props. Wonder if fine or opportunities to either encapsulate or compose or break apart one? That said, there is already a a comment how we've extract quite a bit of the lower level logic into smaller hooks, so idk.
 type UseSaveProps = {
     workingFilesStore: WorkingFilesStore;
+    workspaceBaselineStore: WorkspaceBaselineStore;
+    recoveredConflictTracker: RecoveredConflictTracker;
+    interactionGate: WorkspaceGateStore;
     saveStatusStore: SaveStatusStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
@@ -59,6 +66,9 @@ export type UseSaveReturn = ReturnType<typeof useSave>;
  */
 export function useSave({
     workingFilesStore,
+    workspaceBaselineStore,
+    recoveredConflictTracker,
+    interactionGate,
     saveStatusStore,
     editorRef,
     pickedFile,
@@ -94,6 +104,7 @@ export function useSave({
         loadedProject,
         gitProvider,
         workingFilesStore,
+        interactionGate,
         pickedFile,
         pickedChapter,
         editorRef,
@@ -105,6 +116,8 @@ export function useSave({
 
     const compare = useExternalCompare({
         workingFilesStore,
+        recoveredConflictTracker,
+        interactionGate,
         loadedProject,
         projectsService,
         fileSystem,
@@ -139,6 +152,9 @@ export function useSave({
 
     const saveAndRevert = useSaveAndRevert({
         workingFilesStore,
+        workspaceBaselineStore,
+        recoveredConflictTracker,
+        interactionGate,
         saveStatusStore,
         editorRef,
         pickedFile,
@@ -223,13 +239,32 @@ export function useSave({
      */
     const saveReview = {
         open: async () => {
-            if (settingsManager.get("autoAcceptOwnWorkOnSave")) {
-                await saveAndRevert.actions.saveProjectToDisk();
+            // Force the review modal when recovered conflicts are unresolved,
+            // even with auto-accept on — the user must review their recovered
+            // work before it persists. Otherwise auto-accept saves directly.
+            if (
+                settingsManager.get("autoAcceptOwnWorkOnSave") &&
+                recoveredConflictTracker.isEmpty()
+            ) {
+                await saveAndRevert.actions.saveProjectToDisk({
+                    reviewedRecoveredWork: true,
+                });
                 return;
             }
             await diff.actions.open();
         },
     };
+
+    // The local-unsaved-review modal's Save action. This — and only this — path
+    // attests that the user reviewed their recovered work. External-compare's
+    // save (reachable only when the tracker is empty) uses the un-attested
+    // `saveProjectToDisk` so a generic attestation can't leak through the shared
+    // modal.
+
+    const saveReviewedWork = () =>
+        saveAndRevert.actions.saveProjectToDisk({
+            reviewedRecoveredWork: true,
+        });
 
     const versionHistory = {
         isOpen: versions.state.isOpen,
@@ -297,6 +332,7 @@ export function useSave({
         },
         save: {
             saveProjectToDisk: saveAndRevert.actions.saveProjectToDisk,
+            saveReviewedWork,
             hasUnsavedChanges: saveAndRevert.state.hasUnsavedChanges,
         },
         revert: {

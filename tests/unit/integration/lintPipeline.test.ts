@@ -140,6 +140,50 @@ describe("lintPipeline (integration)", () => {
         );
     });
 
+    it("re-lints on an import commit (recovery Discard shape) but NOT on a replay undo commit", async () => {
+        // Recovery Discard commits kind:"import" precisely so lint refreshes;
+        // had it stayed kind:"undo", lint would filter it (replay is re-linted
+        // via the post-undo/redo listener, which runTransaction does not fire),
+        // leaving recovered-content diagnostics stale.
+        const { lintExisting, service } = stubService();
+        const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
+        const lintStore = new LintStore({});
+
+        await runWithTestClock(
+            Effect.gen(function* () {
+                yield* Effect.forkChild(
+                    makeLintPipeline({
+                        workingFilesStore: wf,
+                        lintStore,
+                        usfmOnionService: service,
+                        debounceMs: DEBOUNCE_MS,
+                    }),
+                );
+                yield* drainYields();
+
+                // Replay-shaped commit: filtered out (not lint-relevant).
+                wf.commit(
+                    makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "x" }),
+                    makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
+                );
+                yield* passTime(DEBOUNCE_MS + 20);
+                expect(lintExisting).not.toHaveBeenCalled();
+
+                // Discard-shaped commit: ordinary content mutation → re-lints.
+                wf.commit(
+                    makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "y" }),
+                    makeCommitMeta({
+                        kind: "import",
+                        bookCode: "GEN",
+                        chapter: 1,
+                    }),
+                );
+                yield* passTime(DEBOUNCE_MS + 20);
+                expect(lintExisting).toHaveBeenCalledTimes(1);
+            }),
+        );
+    });
+
     it("switchMap interrupts in-flight lint when a newer commit lands", async () => {
         // First call hangs until we release it; second resolves immediately.
         // The pipeline's `switchMap` should interrupt the first fiber when

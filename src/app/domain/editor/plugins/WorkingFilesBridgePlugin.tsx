@@ -4,6 +4,7 @@ import { HISTORIC_TAG, HISTORY_MERGE_TAG } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
 import type { CommitKind } from "@/app/state/types.ts";
+import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
@@ -31,7 +32,7 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  */
 export function WorkingFilesBridgePlugin() {
     const [editor] = useLexicalComposerContext();
-    const { workingFilesStore, project, mainEditorDeferred } =
+    const { workingFilesStore, project, mainEditorDeferred, interactionGate } =
         useWorkspaceContext();
 
     // Resolve the workspace-scoped Deferred<LexicalEditor> as soon as the
@@ -64,6 +65,9 @@ export function WorkingFilesBridgePlugin() {
         const unregisterUpdate = editor.registerUpdateListener(
             ({ editorState, dirtyElements, dirtyLeaves, tags }) => {
                 if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
+                // Don't push commits into the store while the workspace is
+                // gated (save in flight or a recovery decision pending).
+                if (!requireGateOpen(interactionGate.get())) return;
                 // structuralFixup classifies before HISTORY_MERGE_TAG so the
                 // structure pipeline's writebacks still publish — the
                 // historyMerge tag is also present to keep them out of undo.
@@ -108,7 +112,7 @@ export function WorkingFilesBridgePlugin() {
             unregisterUpdate();
             if (loggerFiber) Effect.runFork(Fiber.interrupt(loggerFiber));
         };
-    }, [editor, workingFilesStore, project]);
+    }, [editor, workingFilesStore, project, interactionGate]);
 
     return null;
 }

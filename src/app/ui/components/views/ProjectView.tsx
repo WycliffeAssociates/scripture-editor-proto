@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RecoveryBanners } from "@/app/ui/components/blocks/RecoveryBanners.tsx";
 import { useWorkspaceMediaQuery } from "@/app/ui/contexts/MediaQuery.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -65,6 +66,7 @@ export function ProjectView() {
 
     return (
         <div className={layoutClassName}>
+            <RecoveryBanners />
             {isSm ? (
                 <MobileLayout {...layoutProps} />
             ) : (

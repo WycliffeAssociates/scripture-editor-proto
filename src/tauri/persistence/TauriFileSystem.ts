@@ -64,6 +64,19 @@ export class TauriFileSystem implements FileSystem {
         await writeFile(resolved, content);
     }
 
+    async atomicWriteText(path: string, content: string): Promise<void> {
+        // Write to a sibling temp file then rename over the target. `rename` is
+        // atomic for same-directory same-volume moves on the platforms we ship
+        // (POSIX `rename(2)`, Windows `MoveFileExW` with replace-existing), so a
+        // crashed write leaves the previous backup intact rather than truncated.
+        const resolved = await this.resolvePath(path);
+        const tempPublicPath = `${path}.tmp`;
+        const resolvedTemp = await this.resolvePath(tempPublicPath);
+        await mkdir(await dirname(resolved), { recursive: true });
+        await writeTextFile(resolvedTemp, content);
+        await rename(resolvedTemp, resolved);
+    }
+
     async exists(path: string): Promise<boolean> {
         return exists(await this.resolvePath(path));
     }

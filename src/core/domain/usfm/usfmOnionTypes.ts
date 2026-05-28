@@ -86,11 +86,21 @@ export type LintOptions = OnionLintOptions & {
 export type ProjectUsfmOptions = {
     tokenOptions?: IntoTokensOptions;
     lintOptions?: LintOptions | null;
+    /**
+     * When true, each parse result carries `sourceMd5` — the md5 of the source
+     * bytes the parser read. Computed where the bytes already are (Rust for path
+     * IO, JS for content IO), so crash-recovery can baseline a book without a
+     * second read or an extra IPC round-trip. Off by default; only the editable
+     * workspace load requests it.
+     */
+    includeSourceMd5?: boolean;
 };
 
 export type ProjectedUsfmDocument = {
     tokens: Token[];
     lintIssues: LintIssue[] | null;
+    /** md5 of the parsed source bytes; present only when `includeSourceMd5` was set. */
+    sourceMd5?: string;
 };
 
 export type UsfmMarkerCatalog = {

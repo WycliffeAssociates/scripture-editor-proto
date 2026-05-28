@@ -58,6 +58,7 @@ function toTauriProjectOptions(options?: ProjectUsfmOptions | null) {
                 options?.tokenOptions?.mergeHorizontalWhitespace ?? false,
         },
         lintOptions: toTauriLintOptions(options?.lintOptions ?? null),
+        includeSourceMd5: options?.includeSourceMd5 ?? false,
     };
 }
 

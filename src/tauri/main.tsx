@@ -82,6 +82,7 @@ root.render(
         <App
             settingsManager={settingsManager}
             fileSystem={fileSystem}
+            md5Service={md5Service}
             authSessionProvider={authSessionProvider}
             giteaHostBaseUrl={giteaHostBaseUrl}
             storageRoots={storageRoots}

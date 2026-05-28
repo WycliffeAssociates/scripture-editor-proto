@@ -54,16 +54,17 @@ import {
     type WorkSpaceContextType,
 } from "@/app/ui/contexts/WorkspaceContext.tsx";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { CommitEvent } from "@/app/state/types.ts";
 import { makeBook } from "@tests/helpers/workspaceFixtures.ts";
 
 // We provide only the WorkspaceContext fields the bridge actually
-// uses (`workingFilesStore`, `project`, `mainEditorDeferred`); the
-// rest of the 30+ field interface stays `undefined`. Cast through
-// `unknown` and document the choice rather than fabricate stubs for
-// every collaborator — that's exactly the "test the mock harness"
-// anti-pattern the audit flagged.
+// uses (`workingFilesStore`, `project`, `mainEditorDeferred`,
+// `interactionGate`); the rest of the 30+ field interface stays
+// `undefined`. Cast through `unknown` and document the choice rather
+// than fabricate stubs for every collaborator — that's exactly the
+// "test the mock harness" anti-pattern the audit flagged.
 function makeWorkspaceContextValue(args: {
     workingFilesStore: WorkingFilesStore;
     mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
@@ -71,6 +72,8 @@ function makeWorkspaceContextValue(args: {
     return {
         workingFilesStore: args.workingFilesStore,
         mainEditorDeferred: args.mainEditorDeferred,
+        // Open gate: the bridge consults it before publishing commits.
+        interactionGate: new WorkspaceGateStore(),
         project: {
             pickedFile: { bookCode: "GEN" },
             pickedChapter: { chapterNumber: 1 },

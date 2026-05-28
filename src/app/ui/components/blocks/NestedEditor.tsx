@@ -14,7 +14,13 @@ import {
     TextNode,
 } from "lexical";
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
@@ -26,6 +32,7 @@ import {
     $createUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import {
     Popover,
@@ -111,9 +118,19 @@ function NestedEditorContent({
 }: Props) {
     const nestedEditorRef = useRef<LexicalEditor>(null);
     const editorWrapperDomElRef = useRef<HTMLDivElement>(null);
-    const { project, projectLanguageDirection } = useWorkspaceContext();
+    const { project, projectLanguageDirection, interactionGate } =
+        useWorkspaceContext();
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode ?? EDITOR_MODES.regular;
+    // Form-mode field editors must respect the same interaction gate as the
+    // main editor — no typing while a save is in flight or a recovery decision
+    // is pending.
+    const gate = useSyncExternalStore(
+        interactionGate.subscribe.bind(interactionGate),
+        interactionGate.getSnapshot.bind(interactionGate),
+    );
+    const isEditableMode =
+        editorModeSetting !== EDITOR_MODES.view && requireGateOpen(gate);
     const resolvedDataMode =
         editorModeSetting === EDITOR_MODES.view
             ? EDITOR_MODES.regular
@@ -122,7 +139,7 @@ function NestedEditorContent({
 
     const nestedConfig = {
         namespace: `nested-${outerMarker}-${id}`,
-        editable: editorModeSetting !== EDITOR_MODES.view,
+        editable: isEditableMode,
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
@@ -148,8 +165,8 @@ function NestedEditorContent({
     useEffect(() => {
         const editor = nestedEditorRef.current;
         if (!editor) return;
-        editor.setEditable(editorModeSetting !== EDITOR_MODES.view);
-    }, [editorModeSetting]);
+        editor.setEditable(isEditableMode);
+    }, [isEditableMode]);
 
     const handleSave = useCallback(() => {
         const editor = nestedEditorRef.current;

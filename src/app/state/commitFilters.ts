@@ -42,3 +42,27 @@ export function isSaveStatusRelevant(event: CommitEvent): boolean {
 export function isStructureMaintenanceRelevant(event: CommitEvent): boolean {
     return event.meta.kind === "userEdit" && event.meta.dirtyTextContent;
 }
+
+/**
+ * Which commits the crash-recovery dirty-buffer pipeline reconciles against.
+ *
+ * Widest policy of the four: the pipeline must react to anything that could make
+ * a book dirty (so it writes a backup) OR clean (so it clears one). That means
+ * it cannot filter on `dirtyTextContent` — the save flow's clean-marking commit
+ * is `metadataOnly` with `dirtyTextContent: false`, and that is exactly the
+ * event that should clear a book's backup.
+ *
+ * Only two exclusions:
+ *  - `load` — initial project/chapter population. Any backup that should exist is
+ *    already on disk; the loader handles restoration, not the pipeline.
+ *  - `selectionOnly` *patches* — pure cursor/selection moves change no state
+ *    (`applyPatch` returns the same array), so there is nothing to reconcile.
+ *    (Note this keys off the patch kind, not `meta.kind`: a `metadataOnly` meta
+ *    carrying a `bulk`/`metadata` patch — e.g. the save clean-mark — DOES flip
+ *    dirty flags and must be reconciled.)
+ */
+export function isDirtyBufferRelevant(event: CommitEvent): boolean {
+    if (event.meta.kind === "load") return false;
+    if (event.patch.kind === "selectionOnly") return false;
+    return true;
+}

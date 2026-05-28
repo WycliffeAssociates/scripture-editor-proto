@@ -2,12 +2,15 @@ import {
     type InitialConfigType,
     LexicalComposer,
 } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
+import { useEffect, useSyncExternalStore } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
+import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -23,6 +26,7 @@ import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmPeekOverlayPlugin } from "@/app/domain/editor/plugins/UsfmPeekOverlayPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
+import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as shellStyles from "@/app/ui/styles/modules/EditorShell.css.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
@@ -35,6 +39,28 @@ import { guidGenerator } from "@/core/data/utils/generic.ts";
  * component stay focused on mounting the Lexical editor shell and the plugins
  * that keep it aligned with USFM semantics.
  */
+/**
+ * Single authority for the main editor's `editable` flag. The editor is
+ * editable only when BOTH hold: the workspace interaction gate is open (no save
+ * in flight, no crash-recovery decision pending) AND the mode is an editing
+ * mode (not read-only view). Owning both signals in one place avoids the race
+ * where a mode-driven `setEditable(true)` clobbers the gate's read-only lock
+ * (e.g. typing underneath the recovery banner).
+ */
+function GateEditablePlugin() {
+    const [editor] = useLexicalComposerContext();
+    const { interactionGate, project } = useWorkspaceContext();
+    const gate = useSyncExternalStore(
+        interactionGate.subscribe.bind(interactionGate),
+        interactionGate.getSnapshot.bind(interactionGate),
+    );
+    const mode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
+    useEffect(() => {
+        editor.setEditable(requireGateOpen(gate) && mode !== EDITOR_MODES.view);
+    }, [editor, gate, mode]);
+    return null;
+}
+
 export function MainEditor() {
     const { editorRef, project, save, search } = useWorkspaceContext();
     const isSwitchingVersion = save.versions.isSwitching;
@@ -75,10 +101,12 @@ export function MainEditor() {
                 {isSwitchingVersion ? (
                     <div className={shellStyles.switchingOverlay}>
                         <span className={shellStyles.switchingOverlaySpinner} />
+                        {/* todo: should be localized */}
                         <span>Switching version...</span>
                     </div>
                 ) : null}
                 <EditorRefPlugin editorRef={editorRef} />
+                <GateEditablePlugin />
                 {/* TODO: KILL THE DEAD CODE AT SOME POINT */}
                 {/* <DecoratorFocusPlugin /> */}
                 {/* <UseLineBreaks /> */}

@@ -12,11 +12,16 @@
 
 import { describe, expect, it } from "vitest";
 import {
+    isDirtyBufferRelevant,
     isLintRelevant,
     isSaveStatusRelevant,
     isStructureMaintenanceRelevant,
 } from "@/app/state/commitFilters.ts";
-import type { CommitEvent, CommitKind } from "@/app/state/types.ts";
+import type {
+    CommitEvent,
+    CommitKind,
+    WorkingFilesPatch,
+} from "@/app/state/types.ts";
 
 const ALL_KINDS: ReadonlyArray<CommitKind> = [
     "userEdit",
@@ -107,4 +112,60 @@ describe("commitFilters policy matrix", () => {
             );
         },
     );
+});
+
+// isDirtyBufferRelevant keys off BOTH meta.kind (drop `load`) and patch.kind
+// (drop pure `selectionOnly`) — unlike the others it cannot use the shared
+// matrix, whose events all carry a `selectionOnly` patch.
+describe("isDirtyBufferRelevant", () => {
+    function makeEvent(
+        kind: CommitKind,
+        patch: WorkingFilesPatch,
+        dirtyTextContent: boolean,
+    ): CommitEvent {
+        return {
+            meta: {
+                kind,
+                scope: { bookCode: "GEN", chapter: 1 },
+                dirtyTextContent,
+                generation: 1,
+            },
+            patch,
+            snapshot: [],
+        };
+    }
+
+    const chapterPatch: WorkingFilesPatch = {
+        kind: "chapter",
+        bookCode: "GEN",
+        chapter: 1,
+        lexicalState: { root: {} } as never,
+    };
+    const bulkPatch: WorkingFilesPatch = { kind: "bulk", files: [] };
+    const selectionPatch: WorkingFilesPatch = {
+        kind: "selectionOnly",
+        bookCode: "GEN",
+        chapter: 1,
+    };
+
+    it("reacts to a user edit (could make a book dirty)", () => {
+        expect(isDirtyBufferRelevant(makeEvent("userEdit", chapterPatch, true))).toBe(true);
+    });
+
+    it("reacts to the save clean-mark (metadataOnly + bulk patch, dirtyTextContent false) so it can CLEAR a backup", () => {
+        expect(isDirtyBufferRelevant(makeEvent("metadataOnly", bulkPatch, false))).toBe(true);
+    });
+
+    it("ignores pure selection-only commits (no state change)", () => {
+        expect(isDirtyBufferRelevant(makeEvent("metadataOnly", selectionPatch, false))).toBe(false);
+    });
+
+    it("ignores initial load population", () => {
+        expect(isDirtyBufferRelevant(makeEvent("load", bulkPatch, true))).toBe(false);
+    });
+
+    it("reacts to imports and structural fixups (content may change dirty state)", () => {
+        expect(isDirtyBufferRelevant(makeEvent("import", chapterPatch, true))).toBe(true);
+        expect(isDirtyBufferRelevant(makeEvent("structuralFixup", chapterPatch, true))).toBe(true);
+    });
 });

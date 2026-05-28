@@ -64,7 +64,7 @@ type EditorToolbarProps = {
     onToggleSearchPane?: () => void;
 };
 
-// @AI -> This is probably rye for decomposition. There's a mixture of state, a good number of dependent and dependency injection of the workspace context. especially the stuff like handle cut, handle copy, handle paste. Just kind of distracts from seeing the return body and feels like a lot of logic before and most of these functions feel like we could probably, you know, extract some of this out, move some of it to some other spots potentially. I'm open to your suggestions on it ON HOW YOU'D DEOMCPOSE HERE.
+//todo: This is probably rye for decomposition. There's a mixture of state, a good number of dependent and dependency injection of the workspace context. especially the stuff like handle cut, handle copy, handle paste. Just kind of distracts from seeing the return body and feels like a lot of logic before and most of these functions feel like we could probably, you know, extract some of this out, move some of it to some other spots potentially. I'm open to your suggestions on it ON HOW YOU'D DEOMCPOSE HERE.
 export function EditorToolbar(props: EditorToolbarProps) {
     const { t } = useLingui();
     const {

@@ -5,6 +5,7 @@ import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     lexicalRootChildrenToUsfmTokenStream,
     lexicalToTokens,
+    tokensToUsfm,
     usfmTokenStreamToLexicalRootChildren,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
@@ -27,99 +28,15 @@ import {
     type VerseAnchorMatchStats,
 } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
 import {
-    formatMarkerSkeleton,
     injectSkeletonMarkersFromSource,
     injectSkeletonVersesFromSource,
     stripDeprecatedMarkers,
 } from "@/core/domain/usfm/skeletonInjection.ts";
-import type { TokenEnvelope } from "@/core/domain/usfm/tokenEnvelope.ts";
 
 // Skeleton-injection / verse-grouping helpers moved to
 // `@/core/domain/usfm/skeletonInjection.ts` so they can be unit-tested
 // without importing this React orchestration. The hook itself imports
 // what it needs from there.
-
-function uniqueMarkerTags(tokens: TokenEnvelope[]): string[] {
-    const seen = new Set<string>();
-    for (const token of tokens) {
-        if (token.tokenType !== "marker" && token.tokenType !== "endMarker") {
-            continue;
-        }
-        const marker = token.marker;
-        if (!marker) continue;
-        seen.add(marker);
-    }
-    return [...seen].sort();
-}
-// @AI -> PROBABLY SHOULD JUST KILL THIS DEBUG LOGGING HERE.
-function logMatchFormattingRun(args: {
-    bookCode: string;
-    chapterNumber: number;
-    scope: MatchFormattingScope;
-    targetMarkerPreservation: TargetMarkerPreservationMode;
-    sourceTokens: TokenEnvelope[];
-    targetTokensBefore: TokenEnvelope[];
-    targetTokensAfter: TokenEnvelope[];
-    suggestions: SkippedMarkerSuggestion[];
-    stats: VerseAnchorMatchStats;
-}) {
-    const referenceMarkers = uniqueMarkerTags(args.sourceTokens);
-    const targetBeforeMarkers = uniqueMarkerTags(args.targetTokensBefore);
-    const targetAfterMarkers = uniqueMarkerTags(args.targetTokensAfter);
-    const transferred = targetAfterMarkers.filter(
-        (marker) => !targetBeforeMarkers.includes(marker),
-    );
-    const stillMissing = referenceMarkers.filter(
-        (marker) => !targetAfterMarkers.includes(marker),
-    );
-
-    /* eslint-disable no-console */
-    console.groupCollapsed(
-        `[match-formatting] ${args.bookCode} ${args.chapterNumber} ` +
-            `(${args.scope}, ${args.targetMarkerPreservation})`,
-    );
-    console.log("reference markers:", referenceMarkers.join(" ") || "(none)");
-    console.log(
-        "target markers before:",
-        targetBeforeMarkers.join(" ") || "(none)",
-    );
-    console.log(
-        "target markers after :",
-        targetAfterMarkers.join(" ") || "(none)",
-    );
-    console.log("newly transferred  :", transferred.join(" ") || "(none)");
-    console.log(
-        "in reference, missing from target after run:",
-        stillMissing.join(" ") || "(none)",
-    );
-    console.log("stats:", args.stats);
-    if (args.suggestions.length > 0) {
-        console.log(
-            `intra-verse suggestions (${args.suggestions.length}):`,
-            args.suggestions.map((suggestion) => ({
-                verse: suggestion.verse,
-                marker: suggestion.marker,
-                reason: suggestion.reason,
-            })),
-        );
-    }
-    console.groupCollapsed("reference skeleton");
-    console.log(formatMarkerSkeleton(args.sourceTokens));
-    console.groupEnd();
-    console.groupCollapsed("target skeleton (before)");
-    console.log(formatMarkerSkeleton(args.targetTokensBefore));
-    console.groupEnd();
-    console.groupCollapsed("target skeleton (after)");
-    console.log(formatMarkerSkeleton(args.targetTokensAfter));
-    console.groupEnd();
-    console.groupCollapsed("raw token streams");
-    console.log("reference:", args.sourceTokens);
-    console.log("target before:", args.targetTokensBefore);
-    console.log("target after :", args.targetTokensAfter);
-    console.groupEnd();
-    console.groupEnd();
-    /* eslint-enable no-console */
-}
 
 const ZERO_STATS: VerseAnchorMatchStats = {
     matchedVerses: 0,
@@ -249,19 +166,7 @@ export function useFormatMatching({
             targetEnvelope,
         );
 
-        logMatchFormattingRun({
-            bookCode,
-            chapterNumber: chapter.chapterNumber,
-            scope,
-            targetMarkerPreservation,
-            sourceTokens: sourceTokensClean,
-            targetTokensBefore: targetEnvelope.tokens,
-            targetTokensAfter: enrichedTokens,
-            suggestions: matchResult.suggestions,
-            stats: matchResult.stats,
-        });
-
-        // @AI -> SHOULD PROBABLY PUT IN A PILE OF TODO FOR A TOAST LIKE, "YOU'RE FORMATTING ALREADY MATCHES, NO CHANGES NEEDED"
+        // todo -> SHOULD PROBABLY PUT IN A PILE OF TODO FOR A TOAST LIKE, "YOU'RE FORMATTING ALREADY MATCHES, NO CHANGES NEEDED"
         if (
             JSON.stringify(targetRootChildren) ===
             JSON.stringify(nextRootChildren)
@@ -282,8 +187,8 @@ export function useFormatMatching({
             bookCode,
         });
         chapter.dirty =
-            chapter.currentTokens.map((token) => token.source).join("") !==
-            chapter.sourceTokens.map((token) => token.source).join("");
+            tokensToUsfm(chapter.currentTokens) !==
+            tokensToUsfm(chapter.sourceTokens);
         updateDiffMapForChapter(bookCode, chapter.chapterNumber);
 
         return {

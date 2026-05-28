@@ -14,6 +14,7 @@ import { UpdateBanner } from "@/app/ui/components/blocks/UpdateBanner.tsx";
 import { NotificationViewport } from "@/app/ui/components/primitives/Notifications.tsx";
 import { ThemeQueryProvider } from "@/app/ui/contexts/MediaQuery.tsx";
 import { I18nEntry } from "@/app/ui/i18n/i18nEntry.tsx";
+import type { IMd5Service } from "@/core/domain/md5/IMd5Service.ts";
 import type { IUpdaterService } from "@/core/domain/updater/IUpdaterService.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { ImportService } from "@/core/library/ImportService.ts";
@@ -34,6 +35,7 @@ import type { ProjectsService } from "@/core/persistence/WorkspaceService.ts";
 type EntryPointProps = {
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
+    md5Service: IMd5Service;
     authSessionProvider: AuthSessionProvider;
     giteaHostBaseUrl: string | null;
     storageRoots: StorageRoots;
@@ -61,6 +63,7 @@ export interface RouterContext {
     queryClient: QueryClient;
     settingsManager: SettingsManager;
     fileSystem: FileSystem;
+    md5Service: IMd5Service;
     authSessionProvider: AuthSessionProvider;
     giteaHostBaseUrl: string | null;
     storageRoots: StorageRoots;
@@ -77,6 +80,7 @@ export interface RouterContext {
 const wrapCreateRouter = (
     settingsManager: SettingsManager,
     fileSystem: FileSystem,
+    md5Service: IMd5Service,
     authSessionProvider: AuthSessionProvider,
     giteaHostBaseUrl: string | null,
     storageRoots: StorageRoots,
@@ -95,6 +99,7 @@ const wrapCreateRouter = (
             settingsManager,
             queryClient,
             fileSystem,
+            md5Service,
             authSessionProvider,
             giteaHostBaseUrl,
             storageRoots,
@@ -127,6 +132,7 @@ declare module "@tanstack/react-router" {
 export function App({
     settingsManager,
     fileSystem,
+    md5Service,
     authSessionProvider,
     giteaHostBaseUrl,
     storageRoots,
@@ -142,6 +148,7 @@ export function App({
     const router = wrapCreateRouter(
         settingsManager,
         fileSystem,
+        md5Service,
         authSessionProvider,
         giteaHostBaseUrl,
         storageRoots,

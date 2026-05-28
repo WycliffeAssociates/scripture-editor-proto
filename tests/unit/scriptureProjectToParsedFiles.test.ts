@@ -126,6 +126,7 @@ describe("scriptureProjectToParsedFiles", () => {
         expect(parseBatchFromPaths).toHaveBeenCalledWith(["/tmp/GEN.usfm"], {
             tokenOptions: { mergeHorizontalWhitespace: false },
             lintOptions: {},
+            includeSourceMd5: false,
         });
         expect(parseFromText).not.toHaveBeenCalled();
         expect(getBookMock).not.toHaveBeenCalled();
@@ -156,6 +157,7 @@ describe("scriptureProjectToParsedFiles", () => {
             {
                 tokenOptions: { mergeHorizontalWhitespace: false },
                 lintOptions: {},
+                includeSourceMd5: false,
             },
         );
         expect(parseFromText).not.toHaveBeenCalled();

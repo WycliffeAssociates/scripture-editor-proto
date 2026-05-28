@@ -119,9 +119,17 @@ export async function scriptureProjectToParsedFiles(args: {
     loadedProject: Project;
     editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
+    /**
+     * When true, the parser also returns each book's source md5 (hashed where
+     * the bytes are read — Rust for path IO, JS for content IO), surfaced as
+     * `diskMd5ByBook`. Only the editable workspace load needs it (crash-recovery
+     * baselines); other callers leave it off and get an empty map.
+     */
+    includeSourceMd5?: boolean;
 }): Promise<{
     parsedFiles: ScriptureBookState[];
     initialLintErrorsByBook: LintMessagesByBook;
+    diskMd5ByBook: Map<string, string>;
 }> {
     const entries = args.usfmOnionService.supportsPathIo
         ? await loadForApp({
@@ -137,6 +145,7 @@ export async function scriptureProjectToParsedFiles(args: {
             mergeHorizontalWhitespace: false,
         },
         lintOptions: {},
+        includeSourceMd5: args.includeSourceMd5 ?? false,
     };
     const projections = args.usfmOnionService.supportsPathIo
         ? await projectEntriesForApp({
@@ -151,6 +160,7 @@ export async function scriptureProjectToParsedFiles(args: {
           });
     const allInitialLintErrors: LintIssue[] = [];
     const parsed: ScriptureBookState[] = [];
+    const diskMd5ByBook = new Map<string, string>();
     for (let i = 0; i < sorted.length; i++) {
         const book = sorted[i];
         const projection = projections[i] ?? null;
@@ -159,6 +169,9 @@ export async function scriptureProjectToParsedFiles(args: {
         const lintIssues = projection.lintIssues ?? [];
         const initialLoadMode: EditorShape = editorModeToShape(args.editorMode);
         const bookCode = getBookSlug(book.code);
+        if (projection.sourceMd5 !== undefined) {
+            diskMd5ByBook.set(bookCode, projection.sourceMd5);
+        }
         const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
         const sourceTokensByChapter =
             groupFlatTokensByChapter(normalizedTokens);
@@ -205,5 +218,6 @@ export async function scriptureProjectToParsedFiles(args: {
     return {
         parsedFiles: parsed,
         initialLintErrorsByBook: buildLintMessagesByBook(allInitialLintErrors),
+        diskMd5ByBook,
     };
 }

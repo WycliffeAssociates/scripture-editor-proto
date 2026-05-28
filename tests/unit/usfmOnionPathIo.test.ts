@@ -48,6 +48,7 @@ describe("TauriUsfmOnionService path I/O", () => {
                 options: {
                     tokenOptions: { mergeHorizontalWhitespace: false },
                     lintOptions: null,
+                    includeSourceMd5: false,
                 },
             },
         );

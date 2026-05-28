@@ -2,7 +2,10 @@ import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import {
+    lexicalToTokens,
+    tokensToUsfm,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -128,7 +131,7 @@ export async function applyLintFixToFile(args: {
 
     if (!result.appliedChanges.length) return false;
 
-    const nextUsfm = result.tokens.map((token) => token.source).join("");
+    const nextUsfm = tokensToUsfm(result.tokens);
     await rebuildParsedFileFromUsfm({
         targetFile: args.file,
         sourceUsfm: nextUsfm,

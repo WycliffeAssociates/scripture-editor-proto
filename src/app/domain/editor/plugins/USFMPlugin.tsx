@@ -1,6 +1,5 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useEffect } from "react";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useEditorInput } from "@/app/domain/editor/hooks/useEditorInput.ts";
 import { useEditorView } from "@/app/domain/editor/hooks/useEditorView.ts";
 import { LintDomAnnotatorPlugin } from "@/app/domain/editor/plugins/LintDomAnnotatorPlugin.tsx";
@@ -17,14 +16,13 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  */
 export function USFMPlugin() {
     const [editor] = useLexicalComposerContext();
-    const { actions, project } = useWorkspaceContext();
+    const { actions } = useWorkspaceContext();
     useEditorInput(editor);
     useEditorView(editor);
 
-    useEffect(() => {
-        const mode = project.appSettings.editorMode ?? EDITOR_MODES.regular;
-        editor.setEditable(mode !== EDITOR_MODES.view);
-    }, [editor, project.appSettings.editorMode]);
+    // NOTE: the editor's `editable` flag (mode + interaction gate) is owned
+    // solely by GateEditablePlugin in Editor.tsx. Setting it here too would race
+    // and could re-enable typing while the gate is meant to be read-only.
 
     useEffect(() => {
         actions.syncEditorToVisibleChapter(editor);

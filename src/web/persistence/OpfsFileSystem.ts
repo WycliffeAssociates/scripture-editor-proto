@@ -70,6 +70,14 @@ export class OpfsFileSystem implements FileSystem {
         await this.writeBytes(path, new TextEncoder().encode(content));
     }
 
+    async atomicWriteText(path: string, content: string): Promise<void> {
+        // OPFS `FileSystemWritableFileStream` buffers writes and commits them
+        // on `close()`, so a single `writeText` already gives us atomic
+        // replace-on-close semantics. No separate temp-file + rename dance is
+        // needed (and `move()` here is copy+delete, which is NOT atomic).
+        await this.writeText(path, content);
+    }
+
     async writeBytes(path: string, content: Uint8Array): Promise<void> {
         const normalized = this.assertManagedPath(path);
         const fileHandle = await this.resolveFileHandle(normalized, true);

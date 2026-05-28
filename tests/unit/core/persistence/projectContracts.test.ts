@@ -38,6 +38,7 @@ describe("path-based persistence contracts", () => {
             readText: async () => "",
             readBytes: async () => new Uint8Array(),
             writeText: async () => {},
+            atomicWriteText: async () => {},
             writeBytes: async () => {},
             exists: async () => true,
             list: async () => entries,

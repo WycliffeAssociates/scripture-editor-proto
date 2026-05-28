@@ -3,6 +3,7 @@ import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flat
 import {
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
+    tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
@@ -74,8 +75,8 @@ export async function rebuildParsedFileFromUsfm(args: {
                 currentTokens: structuredClone(nextCurrentTokens),
                 chapterNumber,
                 dirty:
-                    nextCurrentTokens.map((token) => token.source).join("") !==
-                    nextSourceTokens.map((token) => token.source).join(""),
+                    tokensToUsfm(nextCurrentTokens) !==
+                    tokensToUsfm(nextSourceTokens),
             };
         })
         .sort((a, b) => a.chapterNumber - b.chapterNumber);

@@ -8,7 +8,10 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
+import { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
+import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { useSaveAndRevert } from "@/app/ui/hooks/save/useSaveAndRevert.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -296,6 +299,11 @@ describe("useSaveAndRevert", () => {
 
         const save = renderSaveHook({
             workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore(),
             saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },
             pickedFile: null,
@@ -327,7 +335,9 @@ describe("useSaveAndRevert", () => {
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 
-        await save.actions.saveProjectToDisk();
+        await act(async () => {
+            await save.actions.saveProjectToDisk();
+        });
 
         expect(saveBook).toHaveBeenCalledWith(
             "41-MAT.usfm",
@@ -394,6 +404,11 @@ describe("useSaveAndRevert", () => {
 
         const save = renderSaveHook({
             workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore(),
             saveStatusStore: new SaveStatusStore(),
             editorRef: { current: null },
             pickedFile: null,
@@ -426,9 +441,116 @@ describe("useSaveAndRevert", () => {
             prepareRemoteBaseForSave,
         });
 
-        await save.actions.saveProjectToDisk();
+        await act(async () => {
+            await save.actions.saveProjectToDisk();
+        });
 
         expect(prepareRemoteBaseForSave).toHaveBeenCalledTimes(1);
         expect(callOrder).toEqual(["prepare", "saveBook", "commitAll"]);
+    });
+
+    it("partial save honesty (0a): a mid-loop write failure leaves only persisted books clean", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const makeDirtyBookFor = (
+            code: string,
+            fileName: string,
+        ): ScriptureBookState => ({
+            path: `/userData/projects/foo/${fileName}`,
+            title: code,
+            bookCode: code,
+            nextBookId: null,
+            prevBookId: null,
+            chapters: [
+                {
+                    chapterNumber: 1,
+                    dirty: true,
+                    sourceTokens: makeTokens(`old ${code}`, `${code} 1:1`, "loaded"),
+                    currentTokens: makeTokens(`new ${code}`, `${code} 1:1`, "current"),
+                    loadedLexicalState: makeEditorState(`old ${code}`, `${code} 1:1`, "loaded"),
+                    lexicalState: makeEditorState(`new ${code}`, `${code} 1:1`, "current"),
+                },
+            ],
+        });
+        const store = new WorkingFilesStore([
+            makeDirtyBookFor("GEN", "01-GEN.usfm"),
+            makeDirtyBookFor("EXO", "02-EXO.usfm"),
+            makeDirtyBookFor("LEV", "03-LEV.usfm"),
+        ]);
+
+        // Stop-on-first-failure: the 2nd book's write throws.
+        let writeCount = 0;
+        const saveBook: Project["saveBook"] = vi.fn<Project["saveBook"]>(
+            async () => {
+                writeCount += 1;
+                if (writeCount === 2) throw new Error("disk full");
+            },
+        );
+        const addBook: Project["addBook"] = vi.fn();
+        const baseProject = createProject({ saveBook, addBook });
+        const loadedProject: Project = {
+            ...baseProject,
+            books: ["GEN", "EXO", "LEV"].map((code, i) => ({
+                bookCode: code,
+                title: code,
+                fileName: `0${i + 1}-${code}.usfm`,
+                storageKey: `0${i + 1}-${code}.usfm`,
+                path: `/userData/projects/foo/0${i + 1}-${code}.usfm`,
+            })),
+        };
+
+        const save = renderSaveHook({
+            workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore(),
+            saveStatusStore: new SaveStatusStore(),
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject,
+            history: createHistory(),
+            gitProvider: createGitProvider({
+                commitAll: vi.fn<GitProvider["commitAll"]>(),
+                pushCurrentBranch: vi.fn<GitProvider["pushCurrentBranch"]>(),
+            }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockReturnValue(undefined),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem,
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+        });
+
+        let result: Awaited<
+            ReturnType<typeof save.actions.saveProjectToDisk>
+        >;
+        await act(async () => {
+            result = await save.actions.saveProjectToDisk();
+        });
+
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously inside act above
+        expect(result!.kind).toBe("partial");
+        const dirtyByBook = Object.fromEntries(
+            store.read().map((book) => [book.bookCode, book.chapters[0].dirty]),
+        );
+        // GEN persisted before the failure → clean. EXO failed, LEV never
+        // attempted → both stay dirty (honest per-book state).
+        expect(dirtyByBook).toEqual({ GEN: false, EXO: true, LEV: true });
     });
 });

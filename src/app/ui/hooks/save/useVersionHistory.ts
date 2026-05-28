@@ -8,6 +8,10 @@ import type {
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    requireGateOpen,
+    type WorkspaceGateStore,
+} from "@/app/state/WorkspaceInteractionGate.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type {
@@ -36,6 +40,7 @@ export function useVersionHistory(args: {
     loadedProject: Project;
     gitProvider: GitProvider;
     workingFilesStore: WorkingFilesStore;
+    interactionGate: WorkspaceGateStore;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -61,6 +66,9 @@ export function useVersionHistory(args: {
     );
 
     async function applyHash(hash: string) {
+        // Version switching commits incoming snapshot state directly; refuse
+        // while the workspace is gated (recovery decision pending / saving).
+        if (!requireGateOpen(args.interactionGate.get())) return;
         if (isSwitchingVersion) return;
         setIsSwitchingVersion(true);
         try {
@@ -73,6 +81,11 @@ export function useVersionHistory(args: {
                 editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
             });
+            // Mutation-boundary recheck: the entry gate-check passed, but the
+            // preview fetch above awaits the network and a save can flip the gate
+            // to `saving` in that window. Bail before any commit/state update so
+            // version content can't land during a save.
+            if (!requireGateOpen(args.interactionGate.get())) return;
             // applyVersionSnapshotToWorkingFiles mutates every chapter of
             // every book (applyIncomingChapterAll + markFilesAsSaved both
             // walk all chapters). Draft every chapter writable so those

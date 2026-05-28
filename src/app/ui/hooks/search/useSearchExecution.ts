@@ -1,12 +1,5 @@
 import type { LexicalEditor } from "lexical";
-import {
-    // @ai -> MutableRefObject = deprecated warng
-    type RefObject,
-    useCallback,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import {
     alignTargetResultsToReferenceOrder,

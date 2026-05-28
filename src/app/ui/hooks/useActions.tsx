@@ -8,6 +8,10 @@ import type {
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    requireGateOpen,
+    type WorkspaceGateStore,
+} from "@/app/state/WorkspaceInteractionGate.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
@@ -30,6 +34,7 @@ type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
     mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
     workingFilesStore: WorkingFilesStore;
+    interactionGate: WorkspaceGateStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -62,6 +67,7 @@ type Props = {
  */
 export const useWorkspaceActions = ({
     workingFilesStore,
+    interactionGate,
     editorRef,
     mainEditorDeferred,
     currentFileBibleIdentifier,
@@ -206,6 +212,19 @@ export const useWorkspaceActions = ({
         return navigation.goToReference(input, editorRef);
     }
 
+    // Crash-recovery gate: suppress programmatic working-state mutations while a
+    // save is in flight or a recovery decision is pending. These actions commit
+    // directly to the store (bypassing the editor bridge), so they need their
+    // own check. Signature-preserving; a gated call is a no-op.
+    function gated<A extends unknown[], R>(
+        fn: (...callArgs: A) => R,
+    ): (...callArgs: A) => R {
+        return (...callArgs: A) =>
+            requireGateOpen(interactionGate.get())
+                ? fn(...callArgs)
+                : (undefined as R);
+    }
+
     return {
         // Editor state management
         setEditorContent: setEditorContentWrapper,
@@ -217,30 +236,29 @@ export const useWorkspaceActions = ({
         goToReference,
 
         // Mode switching
-        setEditorMode: (
-            next: EditorModeSetting,
-            options?: SetEditorModeOptions,
-        ) =>
-            modeSwitching.setEditorMode(
-                next,
-                editorRef.current ?? undefined,
-                options,
-            ),
+        setEditorMode: gated(
+            (next: EditorModeSetting, options?: SetEditorModeOptions) =>
+                modeSwitching.setEditorMode(
+                    next,
+                    editorRef.current ?? undefined,
+                    options,
+                ),
+        ),
         syncEditorToVisibleChapter: modeSwitching.syncEditorToVisibleChapter,
 
         // Prettify operations
-        prettifyChapter: prettifyOperations.prettifyChapter,
-        prettifyBook: prettifyOperations.prettifyBook,
-        prettifyProject: prettifyOperations.prettifyProject,
-        revertPrettify: prettifyOperations.revertFormat,
+        prettifyChapter: gated(prettifyOperations.prettifyChapter),
+        prettifyBook: gated(prettifyOperations.prettifyBook),
+        prettifyProject: gated(prettifyOperations.prettifyProject),
+        revertPrettify: gated(prettifyOperations.revertFormat),
 
         // Format matching
-        matchFormattingChapter: formatMatching.matchFormattingChapter,
-        matchFormattingBook: formatMatching.matchFormattingBook,
-        matchFormattingProject: formatMatching.matchFormattingProject,
+        matchFormattingChapter: gated(formatMatching.matchFormattingChapter),
+        matchFormattingBook: gated(formatMatching.matchFormattingBook),
+        matchFormattingProject: gated(formatMatching.matchFormattingProject),
 
         // Lint fixing
-        fixLintError: lintFixing.fixLintError,
+        fixLintError: gated(lintFixing.fixLintError),
 
         // Utility functions
         getFlatFileTokens,

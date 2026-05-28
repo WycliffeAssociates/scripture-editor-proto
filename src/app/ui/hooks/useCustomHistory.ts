@@ -19,7 +19,10 @@ import {
     $isUSFMTextNode,
     type USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import {
+    lexicalToTokens,
+    tokensToUsfm,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import {
     type CanonicalChapterSnapshot,
     canonicalSnapshotToChapterState,
@@ -37,6 +40,10 @@ import type {
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    requireGateOpen,
+    type WorkspaceGateStore,
+} from "@/app/state/WorkspaceInteractionGate.ts";
 import { ShowNotificationInfo } from "@/app/ui/components/primitives/Notifications.tsx";
 import { setEditorContent } from "@/app/ui/hooks/utils/editorUtils.ts";
 
@@ -62,6 +69,7 @@ export type UndoRedoEvent = {
 
 type UseCustomHistoryArgs = {
     workingFilesStore: WorkingFilesStore;
+    interactionGate: WorkspaceGateStore;
     editorRef: React.RefObject<LexicalEditor | null>;
     currentFileBibleIdentifier: string;
     currentChapter: number;
@@ -247,6 +255,7 @@ export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
  */
 export function useCustomHistory({
     workingFilesStore,
+    interactionGate,
     editorRef,
     currentFileBibleIdentifier,
     currentChapter,
@@ -369,8 +378,8 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
             });
             chapter.dirty =
-                chapter.currentTokens.map((token) => token.source).join("") !==
-                chapter.sourceTokens.map((token) => token.source).join("");
+                tokensToUsfm(chapter.currentTokens) !==
+                tokensToUsfm(chapter.sourceTokens);
         },
         [currentFileBibleIdentifier],
     );
@@ -868,16 +877,18 @@ export function useCustomHistory({
     );
 
     const undo = useCallback(() => {
+        if (!requireGateOpen(interactionGate.get())) return;
         const entry = managerRef.current.undo();
         if (!entry) return;
         applyEntry("undo", "before", "Undid", entry.changes, entry.label);
-    }, [applyEntry]);
+    }, [applyEntry, interactionGate]);
 
     const redo = useCallback(() => {
+        if (!requireGateOpen(interactionGate.get())) return;
         const entry = managerRef.current.redo();
         if (!entry) return;
         applyEntry("redo", "after", "Redid", entry.changes, entry.label);
-    }, [applyEntry]);
+    }, [applyEntry, interactionGate]);
 
     const clearHistory = useCallback(() => {
         managerRef.current.reset();

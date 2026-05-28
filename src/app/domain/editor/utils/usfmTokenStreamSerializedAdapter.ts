@@ -327,6 +327,36 @@ export function lexicalToTokens(
         : tokens;
 }
 
+/**
+ * Serialize a token stream back to USFM. Each token carries its own `.source`
+ * text, so concatenation IS the serialization — this is the one canonical home
+ * for the `tokens.map((t) => t.source).join("")` idiom that the save payload,
+ * dirty-buffer backups, and recovery baseline all depend on agreeing byte-for
+ * -byte (the `TODO(usfm-onion)` callers and the "tokensToUsfm upstream" comments
+ * referred to this operation before it had a name).
+ */
+export function tokensToUsfm(tokens: Token[]): string {
+    return tokens.map((token) => token.source).join("");
+}
+
+/**
+ * Serialize a book's chapters to the exact bytes a save would persist: chapters
+ * in ascending number order, each token stream joined, books concatenated.
+ * `selectTokens` picks the field — `currentTokens` for the working/save bytes,
+ * `sourceTokens` for the on-disk baseline. Shared so the save path, the backup
+ * pipeline, and the reopen baseline can't drift in ordering/joining (a drift
+ * would turn every clean restore into a false "disk moved" forced review).
+ */
+export function serializeChaptersToUsfm<C extends { chapterNumber: number }>(
+    chapters: readonly C[],
+    selectTokens: (chapter: C) => Token[],
+): string {
+    return [...chapters]
+        .sort((a, b) => a.chapterNumber - b.chapterNumber)
+        .map((chapter) => tokensToUsfm(selectTokens(chapter)))
+        .join("");
+}
+
 export function tokensToRenderTokens(tokens: Token[]): LexicalRenderToken[] {
     return tokens.map((token) => {
         const node =

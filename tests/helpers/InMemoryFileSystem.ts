@@ -69,6 +69,11 @@ export class InMemoryFileSystem implements FileSystem {
         this.files.set(normalized, content);
     }
 
+    async atomicWriteText(path: string, content: string): Promise<void> {
+        // In-memory writes are already a single map set — atomic by nature.
+        await this.writeText(path, content);
+    }
+
     async writeBytes(path: string, content: Uint8Array): Promise<void> {
         const normalized = normalizePath(path);
         ensureParentDirectories(this.directories, normalized);

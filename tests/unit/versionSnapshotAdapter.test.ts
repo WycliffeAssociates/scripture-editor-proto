@@ -102,6 +102,7 @@ describe("snapshotToScriptureBookStates", () => {
             {
                 tokenOptions: { mergeHorizontalWhitespace: false },
                 lintOptions: {},
+                includeSourceMd5: false,
             },
         );
         expect(usfmOnionService.parseUsfmBatchFromPaths).not.toHaveBeenCalled();

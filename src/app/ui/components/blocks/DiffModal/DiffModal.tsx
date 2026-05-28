@@ -22,7 +22,11 @@ export function SaveAndReviewChangesOverlay() {
             onRevertChapter={save.revert.chapter}
             onApplyDiffToCurrent={save.compare.applyIncomingHunk}
             onApplyChapterToCurrent={save.compare.applyIncomingChapter}
-            saveAllChanges={save.save.saveProjectToDisk}
+            saveAllChanges={
+                isExternalCompare
+                    ? save.save.saveProjectToDisk
+                    : save.save.saveReviewedWork
+            }
             revertAllChanges={save.revert.all}
             compareMode={save.compare.mode}
             setCompareMode={save.compare.setMode}

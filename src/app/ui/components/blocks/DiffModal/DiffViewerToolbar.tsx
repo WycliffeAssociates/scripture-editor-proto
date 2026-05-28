@@ -14,7 +14,13 @@ import {
     Pilcrow,
     X,
 } from "lucide-react";
-import { type ReactNode, type RefObject, useMemo, useState } from "react";
+import {
+    type ReactNode,
+    type RefObject,
+    useMemo,
+    useState,
+    useSyncExternalStore,
+} from "react";
 import type {
     CompareMode,
     CompareSourceKind,
@@ -24,6 +30,7 @@ import { COMPARE_SOURCE_KIND } from "@/app/domain/project/compare/types.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { SelectPrimitive } from "@/app/ui/components/primitives/Select/index.ts";
 import { ToggleGroup } from "@/app/ui/components/primitives/ToggleGroup/ToggleGroup.tsx";
+import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/DiffModal.css.ts";
 
 type DiffViewerToolbarProps = {
@@ -110,6 +117,24 @@ export function DiffViewerToolbar({
     compareWarnings,
     copyDiffsJson,
 }: DiffViewerToolbarProps) {
+    // External compare is the user-facing boundary for incoming-source flows.
+    // Block entry while recovered conflicts are unresolved OR the workspace is
+    // gated (a recovery decision is pending / a save is in flight) — a
+    // baseline-matched restore leaves the tracker empty but the gate closed, so
+    // both signals matter. The public loader actions also refuse, as the safety
+    // net below this control.
+    const { recoveredConflictTracker, interactionGate } = useWorkspaceContext();
+    const recoveredChapters = useSyncExternalStore(
+        recoveredConflictTracker.subscribe.bind(recoveredConflictTracker),
+        recoveredConflictTracker.getSnapshot.bind(recoveredConflictTracker),
+    );
+    const gate = useSyncExternalStore(
+        interactionGate.subscribe.bind(interactionGate),
+        interactionGate.getSnapshot.bind(interactionGate),
+    );
+    const externalCompareBlocked =
+        recoveredChapters.length > 0 || gate.kind !== "open";
+
     const selectedChapterOption =
         chapterOptions.find((option) => option.value === selectedChapter) ??
         null;
@@ -139,6 +164,10 @@ export function DiffViewerToolbar({
         const next = value ?? COMPARE_TARGET_UNSAVED;
         if (next === COMPARE_TARGET_UNSAVED) {
             setCompareMode("unsaved");
+            return;
+        }
+        // Refuse entry into external compare while recovered conflicts remain.
+        if (externalCompareBlocked) {
             return;
         }
 
@@ -201,6 +230,7 @@ export function DiffViewerToolbar({
                         className={styles.ribbonSelect}
                         icon={<FileDiff size={14} />}
                         portalContainer={popupPortalContainer}
+                        disabled={externalCompareBlocked}
                     />
                     {compareMode === "external" &&
                     compareSourceKind ===

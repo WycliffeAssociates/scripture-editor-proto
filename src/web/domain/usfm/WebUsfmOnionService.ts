@@ -1,6 +1,7 @@
 import * as onion from "usfm-onion-web";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
 import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
+import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -237,9 +238,19 @@ export class WebUsfmOnionService implements IUsfmOnionService {
     ): Promise<ProjectedUsfmDocument[]> {
         return timeInDevAsync(async () => {
             return Promise.all(
-                sources.map(async (source) =>
-                    parsedToProjectedDocument(onion.parse(source), options),
-                ),
+                sources.map(async (source) => {
+                    const doc = parsedToProjectedDocument(
+                        onion.parse(source),
+                        options,
+                    );
+                    // Hash the source string we already hold in JS — the single
+                    // read happened upstream (loadForWeb), so no extra IO.
+                    if (options.includeSourceMd5) {
+                        doc.sourceMd5 =
+                            await webMd5Service.calculateMd5(source);
+                    }
+                    return doc;
+                }),
             );
         }, "web:parseUsfmBatchFromContents");
     }

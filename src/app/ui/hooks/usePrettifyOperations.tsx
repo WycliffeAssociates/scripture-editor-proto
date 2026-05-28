@@ -5,6 +5,7 @@ import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildP
 import {
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
+    tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
     ScriptureBookState,
@@ -117,8 +118,7 @@ export function useFormatOperations({
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =
-            result.tokens.map((token) => token.source).join("") !==
-            chapter.sourceTokens.map((token) => token.source).join("");
+            tokensToUsfm(result.tokens) !== tokensToUsfm(chapter.sourceTokens);
         return { changed: true as const };
     };
 
@@ -131,9 +131,7 @@ export function useFormatOperations({
         ]);
         if (!result.appliedChanges.length) return { changed: false as const };
 
-        const nextBookUsfm = result.tokens
-            .map((token) => token.source)
-            .join("");
+        const nextBookUsfm = tokensToUsfm(result.tokens);
         await rebuildParsedFileFromUsfm({
             targetFile: file,
             sourceUsfm: nextBookUsfm,
@@ -394,9 +392,7 @@ export function useFormatOperations({
                             message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
                         });
 
-                        const nextBookUsfm = result.tokens
-                            .map((token) => token.source)
-                            .join("");
+                        const nextBookUsfm = tokensToUsfm(result.tokens);
                         await rebuildParsedFileFromUsfm({
                             targetFile: file,
                             sourceUsfm: nextBookUsfm,

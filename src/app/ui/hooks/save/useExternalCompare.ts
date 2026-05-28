@@ -3,9 +3,12 @@ import { useMemo, useRef, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import {
+    applyIncomingToStore,
+    runIncomingMutation,
+} from "@/app/domain/project/compare/applyIncomingToStore.ts";
+import {
     applyIncomingChapter,
     applyIncomingChapterAll,
-    applyIncomingHunk,
 } from "@/app/domain/project/compare/compareMutations.ts";
 import {
     buildCompareResultAsync,
@@ -28,7 +31,12 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import {
+    requireGateOpen,
+    type WorkspaceGateStore,
+} from "@/app/state/WorkspaceInteractionGate.ts";
 import {
     createDiffCalculationRunner,
     yieldToMainThread,
@@ -268,8 +276,11 @@ function collectChangedBookCodes(args: {
  * directory), runs chapter-aware diffs against the current in-memory workspace,
  * and exposes apply/refresh helpers for the compare UI.
  */
+// todo: also quite large file? decompose or encapsulate or what to do for best arch here? Pretty beefy list of args.
 export function useExternalCompare(args: {
     workingFilesStore: WorkingFilesStore;
+    recoveredConflictTracker: RecoveredConflictTracker;
+    interactionGate: WorkspaceGateStore;
     loadedProject: Project;
     projectsService: OpenProjectService & ReadOnlyOpenProjectService;
     fileSystem: FileSystem;
@@ -422,7 +433,7 @@ export function useExternalCompare(args: {
 
         return dirtySemanticSidsByChapter;
     }
-
+    // todo: this function is like 500+ lines with a nested fucntion. Maybe worth extracting even if all the logic stays so it can read a little more narratively.
     async function maybeAutoAcceptRemoteLatest(argsForAuto: {
         sourceFiles: ScriptureBookState[];
         metadata: CompareMetadataSummary;
@@ -447,6 +458,15 @@ export function useExternalCompare(args: {
           }
         | undefined
     > {
+        // Mutation-boundary recheck: the source load that precedes this call
+        // awaits the network, and a save can flip the gate to `saving` in that
+        // window. The entry checks on the public actions only guard at action
+        // start, so recheck here before the auto-accept mutation phase begins.
+        // (`commitIncoming` below is the deeper net for the internal awaits.)
+        if (incomingFlowsBlocked()) {
+            return { requiresReview: false };
+        }
+
         async function maybeAutoAcceptDivergedDisjoint() {
             if (
                 argsForAuto.remoteSync.relationship !==
@@ -578,14 +598,19 @@ export function useExternalCompare(args: {
                 if (!chapter) continue;
                 chapter.dirty = true;
             }
-            args.workingFilesStore.commit(
-                { kind: "bulk", files: workingDraft },
-                {
-                    kind: "import",
-                    scope: { project: true },
-                    dirtyTextContent: true,
-                },
-            );
+            // Gate closed mid-flight → don't apply; fall through to manual review.
+            if (
+                !commitIncoming(
+                    { kind: "bulk", files: workingDraft },
+                    {
+                        kind: "import",
+                        scope: { project: true },
+                        dirtyTextContent: true,
+                    },
+                )
+            ) {
+                return null;
+            }
 
             const refreshed = await buildCompareResultAsync({
                 currentFiles: args.workingFilesStore.read(),
@@ -666,6 +691,15 @@ export function useExternalCompare(args: {
             };
         }
 
+        // Capture WORKSPACE state identity BEFORE the dirty-sid await: the
+        // behind-only branch below applies a whole-workspace version snapshot
+        // (touches every chapter, incl. any created during the await), so its
+        // validation scope must be the workspace, not a fixed ref set. The
+        // store's structural sharing replaces the read() array on any
+        // state-changing commit; selectionOnly preserves it. Same contract as
+        // runIncomingMutation's `workspace` scope, but the governing await is
+        // here, upstream of the branch.
+        const preReconcileState = args.workingFilesStore.read();
         const dirtySemanticSidsByChapter =
             await buildDirtySemanticSidsByChapter(listCompareChapterRefs());
         const { blockedDiffsByChapter, autoAcceptedDiffs } =
@@ -686,6 +720,17 @@ export function useExternalCompare(args: {
             !hasDiffsByChapter(blockedDiffsByChapter)
         ) {
             const touchedChapters = listCompareChapterRefs();
+            // Any state-changing commit during the dirty-sid await (a content
+            // edit OR a newly added chapter/book) or a closed gate → abort
+            // before the workspace snapshot apply + accept; don't clobber that
+            // work or mark synced. Validation + draft + apply + commit are
+            // synchronous from here, so no further await can sneak in.
+            if (
+                args.workingFilesStore.read() !== preReconcileState ||
+                !requireGateOpen(args.interactionGate.get())
+            ) {
+                return { requiresReview: false };
+            }
             // Discovery flow: applyVersionSnapshotToWorkingFiles walks every
             // chapter of every book. Draft every existing chapter writable.
             const behindRefs = args.workingFilesStore.read().flatMap((file) =>
@@ -792,49 +837,30 @@ export function useExternalCompare(args: {
                 Boolean(chapter.bookCode) && !Number.isNaN(chapter.chapterNum),
         );
 
+        let autoAcceptApplied = false;
         await args.history.runTransaction({
             label: "Auto Accept Incoming Changes",
             candidates: touchedChapters,
             run: async () => {
-                // applyIncomingHunk / applyIncomingChapter may also push
-                // new chapters onto a book that doesn't have them yet
-                // (via ensureWorkingChapterFromSource), so draft every
-                // existing chapter to guarantee every existing book is a
-                // shallow copy with a writable .chapters array. New books
-                // pushed at the top level land on our new array — safe.
-                const allRefs = args.workingFilesStore.read().flatMap((file) =>
-                    file.chapters.map((chapter) => ({
-                        bookCode: file.bookCode,
-                        chapterNum: chapter.chapterNumber,
-                    })),
-                );
-                const draft = args.workingFilesStore.draftWithChapters(allRefs);
-                for (const chapter of fullChapterApplies) {
-                    applyIncomingChapter({
-                        workingFiles: draft,
-                        sourceFiles: argsForAuto.sourceFiles,
-                        bookCode: chapter.bookCode,
-                        chapterNum: chapter.chapterNum,
-                    });
-                }
-                for (const diff of hunkApplies) {
-                    await applyIncomingHunk({
-                        workingFiles: draft,
-                        sourceFiles: argsForAuto.sourceFiles,
-                        diff,
-                        usfmOnionService: args.usfmOnionService,
-                    });
-                }
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                );
+                // Scratch-apply then synchronous overlay-from-latest commit:
+                // no commit landing during the hunk awaits can be clobbered, and
+                // the gate is rechecked at the synchronous commit boundary.
+                autoAcceptApplied = await applyIncomingToStore({
+                    workingFilesStore: args.workingFilesStore,
+                    interactionGate: args.interactionGate,
+                    usfmOnionService: args.usfmOnionService,
+                    fullChapterApplies,
+                    hunkApplies,
+                    sourceFiles: argsForAuto.sourceFiles,
+                });
             },
         });
+
+        // Gate closed during the apply awaits → nothing committed; bail before
+        // the remote-accept side effect so we don't mark synced without applying.
+        if (!autoAcceptApplied) {
+            return { requiresReview: false };
+        }
 
         await invalidateWorkingScriptureChanges({
             chapters: touchedChapters,
@@ -846,47 +872,67 @@ export function useExternalCompare(args: {
             pickedChapter: args.pickedChapter,
         });
 
-        const refreshed = await buildCompareResultAsync({
-            currentFiles: args.workingFilesStore.read(),
-            usfmOnionService: args.usfmOnionService,
-            config: buildExternalCompareConfig(),
-            sourceFiles: argsForAuto.sourceFiles,
-            currentMetadata: buildCurrentProjectCompareMetadata(
-                args.loadedProject,
-            ),
-            sourceMetadata: argsForAuto.metadata,
-            batchSize: DIFF_CHUNK_SIZE,
-            onBatchComplete: yieldToMainThread,
-        });
+        // Post-apply refreshed diff + behind-only clean normalization, through
+        // the validated boundary: a user edit during the refreshed-diff await
+        // must not be reverted by the snapshot apply, and remote-accept must not
+        // proceed on a stale decision. The snapshot write happens only inside
+        // `commit` (after identity validation); accept runs only if it committed.
+        const { committed: normalized, computed: refreshed } =
+            await runIncomingMutation({
+                workingFilesStore: args.workingFilesStore,
+                interactionGate: args.interactionGate,
+                // Whole-workspace snapshot replacement → workspace scope (catches
+                // chapters created during the refreshed-diff await, not just a
+                // fixed ref set).
+                scope: { kind: "workspace" },
+                compute: () =>
+                    buildCompareResultAsync({
+                        currentFiles: args.workingFilesStore.read(),
+                        usfmOnionService: args.usfmOnionService,
+                        config: buildExternalCompareConfig(),
+                        sourceFiles: argsForAuto.sourceFiles,
+                        currentMetadata: buildCurrentProjectCompareMetadata(
+                            args.loadedProject,
+                        ),
+                        sourceMetadata: argsForAuto.metadata,
+                        batchSize: DIFF_CHUNK_SIZE,
+                        onBatchComplete: yieldToMainThread,
+                    }),
+                commit: (refreshedResult, latest) => {
+                    if (
+                        argsForAuto.remoteSync.relationship ===
+                            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
+                        !hasDiffsByChapter(refreshedResult.diffsByChapter)
+                    ) {
+                        const cleanRefs = latest.flatMap((file) =>
+                            file.chapters.map((chapter) => ({
+                                bookCode: file.bookCode,
+                                chapterNum: chapter.chapterNumber,
+                            })),
+                        );
+                        const cleanDraft =
+                            args.workingFilesStore.draftWithChapters(cleanRefs);
+                        applyVersionSnapshotToWorkingFiles({
+                            workingFiles: cleanDraft,
+                            sourceFiles: argsForAuto.sourceFiles,
+                        });
+                        args.workingFilesStore.commit(
+                            { kind: "bulk", files: cleanDraft },
+                            {
+                                kind: "import",
+                                scope: { project: true },
+                                dirtyTextContent: true,
+                            },
+                        );
+                    }
+                },
+            });
 
         if (
             argsForAuto.remoteSync.relationship ===
-            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY
+                GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
+            normalized
         ) {
-            if (!hasDiffsByChapter(refreshed.diffsByChapter)) {
-                const cleanRefs = args.workingFilesStore
-                    .read()
-                    .flatMap((file) =>
-                        file.chapters.map((chapter) => ({
-                            bookCode: file.bookCode,
-                            chapterNum: chapter.chapterNumber,
-                        })),
-                    );
-                const cleanDraft =
-                    args.workingFilesStore.draftWithChapters(cleanRefs);
-                applyVersionSnapshotToWorkingFiles({
-                    workingFiles: cleanDraft,
-                    sourceFiles: argsForAuto.sourceFiles,
-                });
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: cleanDraft },
-                    {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                );
-            }
             const nextStatus = await acceptRemoteLatestReview({
                 projectPath: args.loadedProject.projectPath,
                 trackedBranch: argsForAuto.remoteSync.trackedBranch,
@@ -1000,7 +1046,40 @@ export function useExternalCompare(args: {
         setSourceKind(COMPARE_SOURCE_KIND.EXISTING_PROJECT);
     };
 
+    // Incoming-source flows are deferred while EITHER:
+    //  - the workspace is gated (a recovery Keep/Discard decision is pending, or
+    //    a save is in flight), or
+    //  - recovered conflicts remain unresolved.
+    // Both matter: a baseline-matched restore leaves the tracker EMPTY while the
+    // gate is still recovery-decision-pending, and importing then would clobber
+    // correctly-recovered work before the user has acknowledged the banner. Gate
+    // every public source-loading action at entry; the toolbar mode-entry
+    // control is the visible boundary above this net.
+    function incomingFlowsBlocked(): boolean {
+        return (
+            !requireGateOpen(args.interactionGate.get()) ||
+            !args.recoveredConflictTracker.isEmpty()
+        );
+    }
+
+    // Commit imported working state only if the gate is still open at the
+    // mutation boundary. Incoming auto-accept awaits network/diff work between
+    // its entry check and these commits; a save can flip the gate to `saving`
+    // in that window, and committing then would violate the "blocked during
+    // save" contract. Returns whether the commit was applied so callers can
+    // abort the rest of the reconciliation (and skip remote-accept side effects)
+    // rather than mark a remote synced without applying it.
+    function commitIncoming(
+        patch: Parameters<WorkingFilesStore["commit"]>[0],
+        meta: Parameters<WorkingFilesStore["commit"]>[1],
+    ): boolean {
+        if (!requireGateOpen(args.interactionGate.get())) return false;
+        args.workingFilesStore.commit(patch, meta);
+        return true;
+    }
+
     async function loadFromProject(projectId: string) {
+        if (incomingFlowsBlocked()) return;
         if (!projectId) return;
         await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
@@ -1019,6 +1098,7 @@ export function useExternalCompare(args: {
     }
 
     async function loadFromZip(file: File) {
+        if (incomingFlowsBlocked()) return;
         await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
                 await compareResult.cleanup();
@@ -1035,6 +1115,7 @@ export function useExternalCompare(args: {
     }
 
     async function loadFromDirectory(files: FileList) {
+        if (incomingFlowsBlocked()) return;
         await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
                 await compareResult.cleanup();
@@ -1052,6 +1133,7 @@ export function useExternalCompare(args: {
     }
 
     async function loadFromVersion(commitHash: string) {
+        if (incomingFlowsBlocked()) return;
         if (!commitHash) return;
         await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
@@ -1077,6 +1159,7 @@ export function useExternalCompare(args: {
     }
 
     async function loadFromRemoteLatest() {
+        if (incomingFlowsBlocked()) return undefined;
         return await calculationRunnerRef.current.run(async () => {
             if (compareResult?.cleanup) {
                 await compareResult.cleanup();
@@ -1144,6 +1227,9 @@ export function useExternalCompare(args: {
             openModalOnRequiresReview?: boolean;
         },
     ) {
+        // Guard before entering external mode: recovered conflicts must be
+        // resolved before any incoming-source review can mutate working state.
+        if (incomingFlowsBlocked()) return undefined;
         setMode("external");
         setSourceKind(COMPARE_SOURCE_KIND.REMOTE_LATEST);
         const result = await loadFromRemoteLatest();
@@ -1158,6 +1244,7 @@ export function useExternalCompare(args: {
     }
 
     function applyIncomingHunkToCurrent(diff: ProjectDiff) {
+        if (!requireGateOpen(args.interactionGate.get())) return;
         if (!compareResult?.sourceFiles) return;
         void args.history.runTransaction({
             label: `Take Incoming (${diff.semanticSid})`,
@@ -1165,30 +1252,17 @@ export function useExternalCompare(args: {
                 { bookCode: diff.bookCode, chapterNum: diff.chapterNum },
             ],
             run: async () => {
-                // Draft every existing chapter so applyIncomingHunk's
-                // ensureWorkingChapterFromSource can safely push new
-                // chapters into any book without leaking into the store.
-                const allRefs = args.workingFilesStore.read().flatMap((file) =>
-                    file.chapters.map((chapter) => ({
-                        bookCode: file.bookCode,
-                        chapterNum: chapter.chapterNumber,
-                    })),
-                );
-                const draft = args.workingFilesStore.draftWithChapters(allRefs);
-                await applyIncomingHunk({
-                    workingFiles: draft,
-                    sourceFiles: compareResult.sourceFiles ?? [],
-                    diff,
+                // Scratch-apply then synchronous overlay-from-latest commit
+                // (lost-update-safe) through the gate. Bail if the gate closed.
+                const applied = await applyIncomingToStore({
+                    workingFilesStore: args.workingFilesStore,
+                    interactionGate: args.interactionGate,
                     usfmOnionService: args.usfmOnionService,
+                    fullChapterApplies: [],
+                    hunkApplies: [diff],
+                    sourceFiles: compareResult.sourceFiles ?? [],
                 });
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                );
+                if (!applied) return;
                 await invalidateWorkingScriptureChanges({
                     chapters: [
                         {
@@ -1217,6 +1291,7 @@ export function useExternalCompare(args: {
         bookCode: string,
         chapterNum: number,
     ) {
+        if (!requireGateOpen(args.interactionGate.get())) return;
         if (!compareResult?.sourceFiles) return;
         void args.history.runTransaction({
             label: `Take Incoming Chapter (${bookCode} ${chapterNum})`,
@@ -1235,14 +1310,20 @@ export function useExternalCompare(args: {
                     bookCode,
                     chapterNum,
                 });
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                );
+                // Sync applier (no await between draft and commit), so only the
+                // gate recheck is needed at the commit boundary.
+                if (
+                    !commitIncoming(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "import",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    )
+                ) {
+                    return;
+                }
                 await invalidateWorkingScriptureChanges({
                     chapters: [{ bookCode, chapterNum }],
                     bumpDirtyVersion: args.bumpDirtyVersion,
@@ -1258,6 +1339,7 @@ export function useExternalCompare(args: {
     }
 
     function applyIncomingAllToCurrent() {
+        if (!requireGateOpen(args.interactionGate.get())) return;
         if (!compareResult?.sourceFiles) return;
         void args.history.runTransaction({
             label: "Take All Incoming Chapters",
@@ -1288,14 +1370,20 @@ export function useExternalCompare(args: {
                         sourceFiles: compareResult.sourceFiles ?? [],
                     });
                 }
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
-                        kind: "import",
-                        scope: { project: true },
-                        dirtyTextContent: true,
-                    },
-                );
+                // Sync appliers (no await between draft and commit); gate-recheck
+                // at the commit boundary and bail before the remote-accept below.
+                if (
+                    !commitIncoming(
+                        { kind: "bulk", files: draft },
+                        {
+                            kind: "import",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                    )
+                ) {
+                    return;
+                }
                 await invalidateWorkingScriptureChanges({
                     chapters: listCompareChapterRefs(),
                     bumpDirtyVersion: args.bumpDirtyVersion,

@@ -30,6 +30,22 @@ export interface FileSystem {
     readText(path: string): Promise<string>;
     readBytes(path: string): Promise<Uint8Array>;
     writeText(path: string, content: string): Promise<void>;
+    /**
+     * Atomically replace `path` with `content`. Documented platform behavior:
+     * OPFS commits on writable `close()`; Tauri writes a sibling `.tmp` then
+     * renames over the target (POSIX `rename(2)` / Windows NTFS `MoveFileExW`
+     * with `MOVEFILE_REPLACE_EXISTING`) for same-directory same-volume renames.
+     *
+     * Why this exists separately from `writeText`/`move`: crash-recovery
+     * backups must never be observed half-written. A reader that catches a torn
+     * write should see either the old file or the new one, never a truncated
+     * mix. (`bodyMd5` in the dirty-buffer wrapper is the second line of defense:
+     * if a platform ever violates atomicity, the mismatch surfaces the file as
+     * unreadable rather than silently restoring corruption.)
+     *
+     * Generic `move()` is NOT atomic on `OpfsFileSystem` (it is copy+delete).
+     */
+    atomicWriteText(path: string, content: string): Promise<void>;
     writeBytes(path: string, content: Uint8Array): Promise<void>;
     exists(path: string): Promise<boolean>;
     list(path: string): Promise<FileSystemEntry[]>;

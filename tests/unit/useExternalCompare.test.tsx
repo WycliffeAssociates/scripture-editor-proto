@@ -4,7 +4,12 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useExternalCompare } from "@/app/ui/hooks/save/useExternalCompare.ts";
-import { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
+import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
+import {
+    findChapterInDraft,
+    WorkingFilesStore,
+} from "@/app/state/WorkingFilesStore.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -214,10 +219,14 @@ function HookHarness(props: {
     autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     gitProvider?: GitProvider;
+    interactionGate?: WorkspaceGateStore;
+    revertDiffBlock?: (...revertArgs: unknown[]) => Promise<unknown>;
     onState: (state: ReturnType<typeof useExternalCompare>) => void;
 }) {
     const state = useExternalCompare({
         workingFilesStore: props.store,
+        recoveredConflictTracker: new RecoveredConflictTracker(),
+        interactionGate: props.interactionGate ?? new WorkspaceGateStore(),
         loadedProject: makeProject(),
         projectsService: {
             openProject: vi.fn(),
@@ -247,7 +256,9 @@ function HookHarness(props: {
                           ],
                 ),
             ),
-            revertDiffBlock: vi.fn(async (sourceTokens) => sourceTokens),
+            revertDiffBlock:
+                props.revertDiffBlock ??
+                vi.fn(async (sourceTokens) => sourceTokens),
         } as never,
         allProjects: [],
         currentProjectRoute: "demo",
@@ -331,6 +342,8 @@ function renderHarness(args: {
     autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     gitProvider?: GitProvider;
+    interactionGate?: WorkspaceGateStore;
+    revertDiffBlock?: (...revertArgs: unknown[]) => Promise<unknown>;
 }): WorkingFilesStore {
     const store = new WorkingFilesStore(args.workingFiles);
     const pickedFile = args.workingFiles[0] ?? null;
@@ -350,6 +363,8 @@ function renderHarness(args: {
                 autoAcceptIncomingWork={args.autoAcceptIncomingWork}
                 onGitRemoteStatusChanged={args.onGitRemoteStatusChanged}
                 gitProvider={args.gitProvider}
+                interactionGate={args.interactionGate}
+                revertDiffBlock={args.revertDiffBlock}
                 onState={(state) => {
                     latestState = state;
                 }}
@@ -360,6 +375,101 @@ function renderHarness(args: {
 }
 
 describe("useExternalCompare", () => {
+    it("refuses an incoming load while the workspace gate is recovery-decision-pending, even with an empty conflict tracker", async () => {
+        // Baseline-matched recovery: real work restored, tracker empty, but the
+        // Keep/Discard banner is still up (gate recovery-decision-pending). An
+        // auto-accept incoming load here would clobber unacknowledged work.
+        const workingFiles = [makeBook("local")];
+        const editorRef = {
+            current: {
+                parseEditorState: vi.fn((state) => state),
+                setEditorState: vi.fn(),
+            },
+        };
+        const store = renderHarness({
+            workingFiles,
+            editorRef,
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            interactionGate: new WorkspaceGateStore({
+                kind: "recovery-decision-pending",
+            }),
+        });
+
+        await act(async () => {
+            await latestState?.actions.loadFromRemoteLatest();
+            await flush();
+        });
+
+        // Refused: nothing computed, nothing imported.
+        expect(latestState?.state.hasComputed).toBe(false);
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "local",
+        );
+    });
+
+    it("aborts an in-flight incoming auto-accept if a save begins before it commits (gate rechecked at the mutation boundary)", async () => {
+        // Gate is open when loadFromRemoteLatest starts; a save flips it to
+        // `saving` while the source load is still pending. The auto-accept must
+        // NOT commit imported state after the load resolves.
+        const gate = new WorkspaceGateStore(); // open at start
+        let resolveLoad!: (value: unknown) => void;
+        const pendingLoad = new Promise((resolve) => {
+            resolveLoad = resolve;
+        });
+        compareSourceLoaderMock.loadRemoteLatest.mockReturnValueOnce(
+            pendingLoad,
+        );
+
+        const editorRef = {
+            current: {
+                parseEditorState: vi.fn((state) => state),
+                setEditorState: vi.fn(),
+            },
+        };
+        const store = renderHarness({
+            workingFiles: [makeBook("local")],
+            editorRef,
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            autoAcceptIncomingWork: true,
+            interactionGate: gate,
+        });
+
+        let done: Promise<unknown> | undefined;
+        act(() => {
+            done = latestState?.actions.loadFromRemoteLatest();
+        });
+        // A save begins while the remote load is still in flight.
+        gate.set({ kind: "saving" });
+
+        await act(async () => {
+            resolveLoad({
+                parsedFiles: [makeBook("incoming")],
+                metadataSummary: {
+                    projectId: "demo",
+                    languageId: "en",
+                    languageDirection: "ltr",
+                },
+                remoteSync: {
+                    remoteHead: "remote-head",
+                    localHead: "local-head",
+                    mergeBase: "merge-base",
+                    trackedBranch: "master",
+                    relationship: "behindOnly",
+                },
+            });
+            await done;
+            await flush();
+        });
+
+        // Incoming state was NOT committed while the gate was `saving`.
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "local",
+        );
+    });
+
     it("invalidates workspace state and clears chapter diffs after taking an incoming chapter", async () => {
         const workingFiles = [makeBook("local")];
         const editorRef = {
@@ -442,6 +552,204 @@ describe("useExternalCompare", () => {
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
+    });
+
+    it("does not clobber a concurrent commit landing during the hunk's revertDiffBlock await (no-await-between-draft-and-commit)", async () => {
+        // GEN is the hunk target; EXO is edited concurrently while
+        // revertDiffBlock is pending. The incoming apply must overlay only GEN
+        // onto the LATEST state, preserving EXO's concurrent edit.
+        let releaseRevert!: () => void;
+        const store = renderHarness({
+            workingFiles: [
+                makeBookForCode("GEN", "gen-local", 1),
+                makeBookForCode("EXO", "exo-local", 1),
+            ],
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            // Deferred revertDiffBlock: resolve to the source tokens ("incoming").
+            revertDiffBlock: () =>
+                new Promise((resolve) => {
+                    releaseRevert = () =>
+                        resolve([
+                            { kind: "text", source: "incoming", id: "in" },
+                        ]);
+                }),
+        });
+
+        await act(async () => {
+            await latestState?.actions.loadFromRemoteLatest();
+            await flush();
+        });
+        const diff = latestState?.state.diffsByChapter?.GEN?.[1]?.[0];
+        expect(diff).toBeTruthy();
+
+        // Start the hunk apply; flush so it reaches (and suspends on) the
+        // deferred revertDiffBlock.
+        await act(async () => {
+            if (diff) latestState?.actions.applyIncomingHunk(diff);
+            await flush();
+        });
+
+        // A concurrent edit to EXO lands while the hunk is still computing.
+        act(() => {
+            const draft = store.draftWithChapters([
+                { bookCode: "EXO", chapterNum: 1 },
+            ]);
+            const exo = findChapterInDraft(draft, "EXO", 1);
+            if (exo) {
+                exo.currentTokens = [
+                    { kind: "text", source: "exo-edited", id: "exo-edited" },
+                ] as never;
+            }
+            store.commit(
+                { kind: "bulk", files: draft },
+                {
+                    kind: "userEdit",
+                    scope: { bookCode: "EXO", chapter: 1 },
+                    dirtyTextContent: true,
+                },
+            );
+        });
+
+        await act(async () => {
+            releaseRevert();
+            await flush();
+            await flush();
+        });
+
+        const byCode = new Map(store.read().map((b) => [b.bookCode, b]));
+        // EXO's concurrent edit preserved; GEN got the incoming hunk.
+        expect(byCode.get("EXO")?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "exo-edited",
+        );
+        expect(byCode.get("GEN")?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "incoming",
+        );
+    });
+
+    it("does not clobber a concurrent edit to the hunk's OWN target chapter (stale result is aborted)", async () => {
+        // GEN 1 is edited while the GEN 1 incoming hunk is still computing. The
+        // hunk result is relative to the pre-edit tokens, so it's stale —
+        // applying it would silently discard the edit. The apply must abort.
+        let releaseRevert!: () => void;
+        const store = renderHarness({
+            workingFiles: [makeBookForCode("GEN", "gen-local", 1)],
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            revertDiffBlock: () =>
+                new Promise((resolve) => {
+                    releaseRevert = () =>
+                        resolve([
+                            { kind: "text", source: "incoming", id: "in" },
+                        ]);
+                }),
+        });
+
+        await act(async () => {
+            await latestState?.actions.loadFromRemoteLatest();
+            await flush();
+        });
+        const diff = latestState?.state.diffsByChapter?.GEN?.[1]?.[0];
+        expect(diff).toBeTruthy();
+
+        await act(async () => {
+            if (diff) latestState?.actions.applyIncomingHunk(diff);
+            await flush();
+        });
+
+        // Concurrent edit to GEN 1 — the hunk's own target — while pending.
+        act(() => {
+            const draft = store.draftWithChapters([
+                { bookCode: "GEN", chapterNum: 1 },
+            ]);
+            const gen = findChapterInDraft(draft, "GEN", 1);
+            if (gen) {
+                gen.currentTokens = [
+                    { kind: "text", source: "gen-edited", id: "gen-edited" },
+                ] as never;
+            }
+            store.commit(
+                { kind: "bulk", files: draft },
+                {
+                    kind: "userEdit",
+                    scope: { bookCode: "GEN", chapter: 1 },
+                    dirtyTextContent: true,
+                },
+            );
+        });
+
+        await act(async () => {
+            releaseRevert();
+            await flush();
+            await flush();
+        });
+
+        // The concurrent edit survives; the stale "incoming" result was NOT
+        // applied.
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "gen-edited",
+        );
+    });
+
+    it("does not commit an incoming hunk if a save begins before revertDiffBlock resolves", async () => {
+        const gate = new WorkspaceGateStore(); // open at start
+        let releaseRevert!: () => void;
+        const store = renderHarness({
+            workingFiles: [makeBookForCode("GEN", "gen-local", 1)],
+            editorRef: {
+                current: {
+                    parseEditorState: vi.fn((state) => state),
+                    setEditorState: vi.fn(),
+                },
+            },
+            refreshUnsavedChapters: vi.fn(async () => {}),
+            bumpDirtyVersion: vi.fn(),
+            interactionGate: gate,
+            revertDiffBlock: () =>
+                new Promise((resolve) => {
+                    releaseRevert = () =>
+                        resolve([
+                            { kind: "text", source: "incoming", id: "in" },
+                        ]);
+                }),
+        });
+
+        await act(async () => {
+            await latestState?.actions.loadFromRemoteLatest();
+            await flush();
+        });
+        const diff = latestState?.state.diffsByChapter?.GEN?.[1]?.[0];
+        expect(diff).toBeTruthy();
+
+        await act(async () => {
+            if (diff) latestState?.actions.applyIncomingHunk(diff);
+            await flush();
+        });
+        // A save begins while revertDiffBlock is still pending.
+        gate.set({ kind: "saving" });
+
+        await act(async () => {
+            releaseRevert();
+            await flush();
+            await flush();
+        });
+
+        // Refused at the commit boundary: GEN unchanged.
+        expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
+            "gen-local",
+        );
     });
 
     it("invalidates all touched chapters before refreshing after take-all", async () => {

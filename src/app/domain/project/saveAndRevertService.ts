@@ -2,7 +2,9 @@ import type { SerializedLexicalNode } from "lexical";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import {
     inferContentEditorModeFromRootChildren,
+    serializeChaptersToUsfm,
     tokensToLexical,
+    tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
     ScriptureBookState,
@@ -10,6 +12,7 @@ import type {
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
 
 /**
@@ -22,8 +25,8 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
     // TODO(usfm-onion): this token-based dirty check is pure USFM logic and is a
     // candidate to move behind the crate boundary in a later pass.
     return (
-        chapter.currentTokens.map((token) => token.source).join("") !==
-        chapter.sourceTokens.map((token) => token.source).join("")
+        tokensToUsfm(chapter.currentTokens) !==
+        tokensToUsfm(chapter.sourceTokens)
     );
 }
 
@@ -77,22 +80,17 @@ export async function revertChapterDiffByBlockId(args: {
 export function buildBooksSavePayload(
     files: ScriptureBookState[],
 ): Record<string, string> {
-    // TODO(usfm-onion): token-to-USFM serialization here is another future
-    // crate candidate once the app/UI orchestration is fully separated.
+    // TODO(usfm-onion): `serializeChaptersToUsfm` is a future crate candidate
+    // once the app/UI orchestration is fully separated.
     const toSave: Record<string, string> = {};
     for (const file of files) {
         const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);
         if (!shouldSaveBook) continue;
 
-        const orderedChapters = [...file.chapters].sort(
-            (a, b) => a.chapterNumber - b.chapterNumber,
+        toSave[file.bookCode] = serializeChaptersToUsfm(
+            file.chapters,
+            (chapter) => chapter.currentTokens,
         );
-
-        toSave[file.bookCode] = orderedChapters
-            .map((chapter) =>
-                chapter.currentTokens.map((token) => token.source).join(""),
-            )
-            .join("");
     }
     return toSave;
 }
@@ -142,6 +140,38 @@ export function buildBookPersistencePlan(args: {
             contents,
         };
     });
+}
+
+/**
+ * Rebase a chapter's saved baseline to the EXACT tokens persisted to disk for
+ * this save, captured at the save snapshot — deliberately NOT the chapter's live
+ * `currentTokens`.
+ *
+ * Why this matters: the save flow awaits git commit + remote publish between
+ * taking the snapshot and marking chapters clean. A programmatic mutation
+ * (toolbar action, lint fix, remote sync) or a stray editor edit can change
+ * `currentTokens` in that window. `markFilesAsSaved` rebases to `currentTokens`,
+ * which would mark the chapter clean against bytes that were never written —
+ * silent divergence between the in-memory "saved" state and disk. Rebasing to
+ * the captured tokens keeps `sourceTokens` == disk, then re-derives `dirty` so a
+ * post-snapshot edit correctly stays dirty for the next save. This holds
+ * regardless of which subsystem caused the mutation, with no UI involved.
+ */
+export function rebaseChapterToCapturedSave(
+    chapter: ScriptureChapterState,
+    captured: { tokens: Token[] },
+    direction: "ltr" | "rtl",
+): ScriptureChapterState {
+    const rebased: ScriptureChapterState = {
+        ...chapter,
+        sourceTokens: captured.tokens,
+        loadedLexicalState: tokensToLexical({
+            tokens: captured.tokens,
+            direction,
+            mode: "flat",
+        }),
+    };
+    return { ...rebased, dirty: isChapterDirtyUsfm(rebased) };
 }
 
 export function markFilesAsSaved(files: ScriptureBookState[]) {

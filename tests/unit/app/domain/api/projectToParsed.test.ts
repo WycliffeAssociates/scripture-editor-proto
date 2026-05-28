@@ -13,6 +13,7 @@ vi.mock("@/app/domain/api/scriptureProjectToParsedFiles.ts", () => ({
     scriptureProjectToParsedFiles: vi.fn(async () => ({
         parsedFiles: [],
         initialLintErrorsByBook: {},
+        diskMd5ByBook: new Map<string, string>(),
     })),
 }));
 
@@ -24,6 +25,7 @@ const mockFileSystem: FileSystem = {
     readText: vi.fn(),
     readBytes: vi.fn(),
     writeText: vi.fn(),
+    atomicWriteText: vi.fn(),
     writeBytes: vi.fn(),
     exists: vi.fn(),
     list: vi.fn(),
@@ -117,6 +119,7 @@ describe("projectParamToParsedFiles", () => {
             initialLintErrorsByBook: {},
             loadedProject: mockProject,
             rejectionReason: null,
+            diskMd5ByBook: new Map<string, string>(),
         });
     });
 
@@ -164,6 +167,7 @@ describe("projectParamToParsedFiles", () => {
             initialLintErrorsByBook: {},
             loadedProject: null,
             rejectionReason: "not-found",
+            diskMd5ByBook: new Map<string, string>(),
         });
     });
 });

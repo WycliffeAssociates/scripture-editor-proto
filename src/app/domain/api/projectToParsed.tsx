@@ -33,6 +33,12 @@ export async function projectParamToParsedScripture(args: {
     gitProvider: GitProvider;
     editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
+    /**
+     * Request per-book source md5s (`diskMd5ByBook`) for crash-recovery
+     * baselines. Only the editable workspace load sets this; reference loading
+     * leaves it off so it doesn't hash resources it never recovers.
+     */
+    includeSourceMd5?: boolean;
 }) {
     if (args.project === "undefined") return;
     if (!args.project) return;
@@ -57,6 +63,7 @@ export async function projectParamToParsedScripture(args: {
             initialLintErrorsByBook: {},
             loadedProject: null,
             rejectionReason: editableResult?.rejectionReason ?? "not-found",
+            diskMd5ByBook: new Map<string, string>(),
         };
     }
 
@@ -67,16 +74,18 @@ export async function projectParamToParsedScripture(args: {
             loadedProject,
         });
     }
-    const { parsedFiles, initialLintErrorsByBook } =
+    const { parsedFiles, initialLintErrorsByBook, diskMd5ByBook } =
         await scriptureProjectToParsedFiles({
             loadedProject,
             editorMode: args.editorMode,
             usfmOnionService: args.usfmOnionService,
+            includeSourceMd5: args.includeSourceMd5,
         });
     return {
         parsedFiles,
         initialLintErrorsByBook,
         loadedProject,
         rejectionReason: null,
+        diskMd5ByBook,
     };
 }

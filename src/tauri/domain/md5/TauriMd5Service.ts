@@ -14,6 +14,9 @@ export class TauriMd5Service implements IMd5Service {
      * app-facing checksum contract.
      */
     async calculateMd5(text: string): Promise<string> {
-        return invoke("calculate_md5", { text });
+        // Arg key must match the Rust command parameter name (`input`), not the
+        // local `text` — Tauri rejects the call otherwise ("missing required
+        // key input").
+        return invoke("calculate_md5", { input: text });
     }
 }
