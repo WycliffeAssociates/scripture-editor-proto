@@ -86,9 +86,39 @@
   - the app does not replay diverged local-only commits one by one during this reconciliation path
 - The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
 
+## Crash-recovery integration
+
+The save flow cooperates with the crash-recovery autosave feature
+(`crash-recovery-autosave.md`) in three places:
+
+- **Forced review by attestation.** `saveProjectToDisk` takes a
+  `reviewedRecoveredWork?: boolean` option. If `RecoveredConflictTracker`
+  is non-empty and the option isn't `true`, the save returns
+  `{ kind: "review-required" }` without touching disk. `useSave.saveReview.open`
+  forces the diff modal (bypassing `Auto Accept My Work on Save`) while the
+  tracker holds entries; the modal's local-review Save action passes the
+  attestation. The attestation is **only** issued from the local-unsaved-review
+  modal path — never from external-compare-review — which is enforced by
+  blocking external-compare entry while the tracker is non-empty.
+- **Per-book persistence honesty (Section 0a).** The save loop tracks a
+  `Set<bookCode> persistedBooks` instead of a boolean `saveError` flag, so
+  a failure in book 2 of 3 leaves books 2 and 3 honestly dirty.
+- **Captured-content rebase per chapter (Section 0b).** At save snapshot
+  the loop captures `{ tokens: Token[] }` per chapter and, after successful
+  per-book persistence, `rebaseChapterToCapturedSave` updates `sourceTokens`
+  and reconstructs `loadedLexicalState` from the captured tokens. This is
+  what makes the per-chapter `dirty` flag honest under concurrent
+  programmatic mutations during a save — and what lets the
+  `recoveredConflictTrackerSubscriber` clear tracker entries by observing
+  the chapter clean.
+
+`WorkspaceBaselineStore.setPresent(bookCode, newMd5)` runs alongside each
+successful book write so the dirty-buffer pipeline's next backup wrapper
+records the freshly-saved disk content as the new baseline.
+
 ## Current limits and non-goals
 - Saving writes changed books as full USFM book content assembled from chapter state.
-- No background autosave; explicit save is required.
+- The project file itself is never autosaved; explicit save is the only thing that changes disk. Background dirty-buffer backups are a separate safety-net file (`crash-recovery-autosave.md`).
 - Diff UI only shows chapters currently marked dirty.
 - Chapter view is read-only review UI; edits still happen in the editor surface.
 - `Hide whitespace-only diffs` only filters what is shown in the modal.

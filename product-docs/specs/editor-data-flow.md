@@ -55,9 +55,13 @@ Stream<CommitEvent>
   ├── saveStatusPipeline     filter(isSaveStatusRelevant)      → tap → SaveStatusStore
   ├── structurePipeline      filter(userEdit)                  → debounce(75)  → mapEffect → editor writeback
   ├── overlayTickPipeline    filter(kind ≠ metadataOnly)       → debounce(16)  → LayoutTickStore.bump
-  └── searchRerunPipeline    filter(isSearchRerunRelevant)     → debounce(250) → tap → rerunSearch(currentTerm)
-                             // undo/redo/programmaticFix/import only — userEdit excluded
-                             // (replace already re-runs synchronously)
+  ├── searchRerunPipeline    filter(isSearchRerunRelevant)     → debounce(250) → tap → rerunSearch(currentTerm)
+  │                          // undo/redo/programmaticFix/import only — userEdit excluded
+  │                          // (replace already re-runs synchronously)
+  ├── dirtyBufferPipeline    filter(isDirtyBufferRelevant)     → groupByKey(book) → debounce(2000)/ceiling(30000)
+  │                          → atomicWriteText|clear (DirtyBufferStore) — crash-recovery; see crash-recovery-autosave.md
+  └── recoveredConflictTrackerSubscriber
+                             → for each tracked chapter still in tracker, clear if post-commit `dirty === false`
 ```
 
 Latency budget (typical chapter):
@@ -132,6 +136,44 @@ steps 3 and 5:
 
 Gather async results first, then synchronously draft from the latest
 `read()` and commit.
+
+### Validated incoming-mutation boundary
+
+When the source of a commit is an **awaited** computation against incoming
+remote / external-compare content (i.e. you can't keep `draft → mutate →
+commit` synchronous because the data has to come back from the network or
+a file pick), the commit goes through `runIncomingMutation` in
+`src/app/domain/project/compare/applyIncomingToStore.ts`:
+
+1. Capture the affected chapters' **object identities** from `read()`
+   before the await.
+2. Compute on a private scratch — no writable store draft held across
+   the await.
+3. Re-read latest after the await.
+4. Abort if any affected chapter was **replaced** (identity, not text —
+   catches a text edit AND a save-rebase that changes
+   `sourceTokens`/`dirty` but not `currentTokens`).
+5. Recheck the workspace gate.
+6. Commit synchronously from latest, with `draftWithChapters` aliasing
+   untouched chapters (so concurrent commits to other chapters survive).
+7. Remote-accept / status side effects fire only after a validated commit.
+
+The `IncomingMutationScope` argument tells the boundary what to validate:
+
+- `chapters` scope (hunk / full-chapter overlay) validates the named
+  chapters' identities only — concurrent edits to other chapters must
+  not abort the apply.
+- `workspace` scope (`applyVersionSnapshotToWorkingFiles`, which marks
+  every chapter clean against an incoming snapshot) validates the
+  `read()` **array identity**. The store replaces the array on any
+  state-changing commit and preserves it on `selectionOnly` — array
+  identity is the exact "did anything change during my await" signal,
+  and it catches a chapter added during the await that chapter scope
+  would miss.
+
+Full discussion of why and the failure modes this replaces is in
+`crash-recovery-autosave.md` (the recovery feature is what surfaced the
+need to formalize this boundary).
 
 ## Path 3: History replay
 

@@ -149,6 +149,12 @@ See `product-docs/specs/state-architecture.md` and
 - Keep IndexedDB metadata in sync with file system state.
 - Run startup reconciliation/sanity checks to repair drift when needed.
 
+### Crash-Recovery Autosave
+- Per-book USFM backup wrappers under `${appDataRoot}/dirty-buffers/${workspaceKey}/${bookCode}.json`, written via the `FileSystem.atomicWriteText` adapter (OPFS / Tauri).
+- Disk-baseline MD5 attached to every backup wrapper. Computed via `IMd5Service` (`crypto-es` MD5 on web, the Rust `md5` crate on desktop) and returned from the parse interface itself (one IPC on Tauri) via the `includeSourceMd5` flag.
+- Project files are never autosaved — explicit save remains the only thing that changes disk. The backup is a safety net only.
+- See `product-docs/specs/crash-recovery-autosave.md` for the full contract (classification matrix, gate + tracker safety surfaces, banners, forced-review attestation, validated incoming-mutation boundary).
+
 ## Release Pipeline & Auto-Updater
 Two release channels (Stable from `v*` tags, Nightly from every push to `master`) flow through a single channel-aware workflow. Desktop builds are signed with a Tauri minisign keypair so the in-app updater can verify them; a Cloudflare Worker serves the updater manifest by reading GitHub Releases at request time.
 

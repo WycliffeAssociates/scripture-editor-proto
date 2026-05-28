@@ -13,19 +13,19 @@
 | Stable  | push of `v*` tag     | `v0.1.5`                                     | Public users.  |
 | Nightly | push to `master`     | `nightly-0.1.4-<YYYYMMDD>.<run>.sha<sha7>`   | Internal only. |
 
-Tags for Stable are cut by **release-please** when its Release PR is merged. Tags for Nightly are derived inside `release.yml`'s `compute-channel` job and pushed by `tauri-action`.
+Tags for Stable are cut via the **`cut-release` skill** (`.claude/skills/cut-release/SKILL.md`): branch off `origin/master`, run `scripts/patchAppVersion.mjs ${NEW_VERSION}` to patch the three in-tree manifests, open a release-prep PR, merge it, and tag the merge commit. The tag push fires `release.yml`. Tags for Nightly are derived inside `release.yml`'s `compute-channel` job and pushed by `tauri-action`.
+
+Release-please was set up early and then removed (`1a5c5a21`) once the cost of maintaining its config + Release PRs outweighed its benefit for a small repo where the human-readable release notes were getting hand-edited anyway. The repo deliberately **does not** enforce Conventional Commits or PR-title formats — both are fine in practice but not required.
 
 ## Workflows
 
-| File                            | Purpose                                                                                              |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `.github/workflows/verify.yml`  | Required check on `master`. Architecture, typecheck, knip, unit, cargo check, frontend + web build, Playwright. |
-| `.github/workflows/release.yml` | Channel-aware build + publish. See "Job graph" below.                                                |
-| `.github/workflows/release-please.yml` | Maintains the Stable Release PR (versions + CHANGELOG) from Conventional Commit PR titles.    |
-| `.github/workflows/pr-title.yml`       | Conventional Commits lint on PR titles only.                                                  |
-| `.github/workflows/nightly-cleanup.yml` | Daily cron that deletes Nightly GH Releases older than 30 days (R2 retains an extra 30 days). |
+| File                                    | Purpose                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `.github/workflows/verify.yml`          | Required check on `master`. Architecture, typecheck, knip, unit, cargo check, frontend + web build, Playwright. |
+| `.github/workflows/release.yml`         | Channel-aware build + publish. See "Job graph" below.                                                         |
+| `.github/workflows/nightly-cleanup.yml` | Daily cron that deletes Nightly GH Releases older than 30 days (R2 retains an extra 30 days).                 |
 
-Branch protection on `master` requires the `verify` check; tag pushes are exempt so release-please can land a tag without re-running PR review.
+Branch protection on `master` requires the `verify` check; tag pushes are exempt so a freshly-merged release-prep PR can be tagged without re-running PR review.
 
 ## release.yml job graph
 
@@ -67,7 +67,7 @@ Quality gates (typecheck/knip/unit/Playwright) live in `verify.yml` and only run
 
 ## Versioning and the patch script
 
-Stable's `app_version` is the tag minus the leading `v` (release-please bumps `package.json`, `Cargo.toml`, and `tauri.conf.json` together inside the Release PR, so the in-tree value already matches).
+Stable's `app_version` is the tag minus the leading `v`. The `cut-release` skill runs `scripts/patchAppVersion.mjs ${NEW_VERSION}` on the release-prep branch to rewrite `package.json`, `src/tauri/rust/Cargo.toml`, and `src/tauri/rust/tauri.conf.json` together; once that PR is merged and the tag is pushed, the in-tree value at the tagged commit already matches the tag.
 
 Nightly's `app_version` is `<base>-<github.run_number>`, e.g. `0.1.4-42`. A single numeric pre-release identifier — Tauri's MSI bundler only accepts a single-identifier pre-release that is numeric-only and ≤ 65535, so multi-identifier forms with date/sha break the Windows build. `github.run_number` is monotonic per `release.yml` dispatch and fits forever.
 
@@ -133,11 +133,11 @@ Install failures surface via `useInstallUpdate`'s `onError` toast (localized via
 
 ## Operator runbook (terse)
 
-| Task                                  | How                                                                                          |
-| ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Cut a Stable release                  | Merge the open release-please PR. Tag pushes automatically; `release.yml` runs Stable.       |
-| Trigger a Nightly                     | Push (or merge) to `master`. `release.yml` runs Nightly automatically.                       |
-| Rotate `GH_TOKEN`                     | Update `updater-gh-token` in 1Password. Next `release.yml` run refreshes the worker secret.  |
-| Manually deploy a worker              | `cd workers/zephyr-updater && pnpm wrangler deploy --env <env>` (or root for `zephyr-spa`).  |
-| Force a nightly cleanup               | `workflow_dispatch` on `nightly-cleanup.yml` with the `retention_days` input.                |
-| Switch a desktop user to old version  | They open Settings → Advanced → Switch version → pick the older tag → confirm downgrade.     |
+| Task                                  | How                                                                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Cut a Stable release                  | Invoke the `cut-release` skill ("cut 0.X.Y" or "cut a patch") — it branches, patches versions, opens the PR, and after merge tags + pushes. `release.yml` then runs Stable. |
+| Trigger a Nightly                     | Push (or merge) to `master`. `release.yml` runs Nightly automatically.                                                       |
+| Rotate `GH_TOKEN`                     | Update `updater-gh-token` in 1Password. Next `release.yml` run refreshes the worker secret.                                  |
+| Manually deploy a worker              | `cd workers/zephyr-updater && pnpm wrangler deploy --env <env>` (or root for `zephyr-spa`).                                  |
+| Force a nightly cleanup               | `workflow_dispatch` on `nightly-cleanup.yml` with the `retention_days` input.                                                |
+| Switch a desktop user to old version  | They open Settings → Advanced → Switch version → pick the older tag → confirm downgrade.                                     |

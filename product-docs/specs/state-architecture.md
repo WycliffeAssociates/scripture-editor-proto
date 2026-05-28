@@ -232,9 +232,12 @@ its siblings on the third consumer (rule of three).
 
 ## Pipelines
 
-All five pipelines live under `src/app/domain/editor/pipelines/`. Each is a
+All pipelines live under `src/app/domain/editor/pipelines/`. Each is a
 factory returning `Effect.Effect<void>` that `WorkspaceContext` forks once
-via `Effect.runFork(pipeline)` and interrupts on unmount.
+via `Effect.runFork(pipeline)` and interrupts on unmount. Five drive the
+in-session editor; two drive crash-recovery
+(`dirtyBufferPipeline` + `recoveredConflictTrackerSubscriber`, documented
+in `crash-recovery-autosave.md`).
 
 ### `makeLintPipeline`
 
@@ -322,12 +325,16 @@ Each satellite store is single-purpose, single-writer (per writer rule
 documented inline), and exposes `subscribe` + `getSnapshot` for
 `useSyncExternalStore`.
 
-| Store                    | Writers                                                   | Readers                                         |
-| ------------------------ | --------------------------------------------------------- | ----------------------------------------------- |
-| `LintStore`              | `makeLintPipeline`, post-undo/redo relint effect          | `useLint` + lint UI                             |
-| `SaveStatusStore`        | `makeSaveStatusPipeline`, save command                    | `useSave`, toolbar                              |
-| `LayoutTickStore`        | `makeOverlayTickPipeline`, workspace `ResizeObserver`     | `LintDomAnnotatorPlugin`, `HighlightSink`       |
-| `SearchHighlightStore`   | Search hooks (execution / navigation / replace)           | `HighlightSink` (paints in `useLayoutEffect`)   |
+| Store                          | Writers                                                                                            | Readers                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `LintStore`                    | `makeLintPipeline`, post-undo/redo relint effect                                                   | `useLint` + lint UI                                                |
+| `SaveStatusStore`              | `makeSaveStatusPipeline`, save command                                                             | `useSave`, toolbar                                                 |
+| `LayoutTickStore`              | `makeOverlayTickPipeline`, workspace `ResizeObserver`                                              | `LintDomAnnotatorPlugin`, `HighlightSink`                          |
+| `SearchHighlightStore`         | Search hooks (execution / navigation / replace)                                                    | `HighlightSink` (paints in `useLayoutEffect`)                      |
+| `WorkspaceInteractionGate`     | Save command (`open`↔`saving`), recovery decision (`recovery-decision-pending`↔`open`)             | Editor `GateEditablePlugin`, every mutation hook, button surfaces  |
+| `RecoveredConflictTracker`     | Route loader (seed on baseline mismatch), `recoveredConflictTrackerSubscriber` (clear on observed clean), Discard banner (`clearAll`) | `useSave` (modal routing), external-compare entry control, save command (`reviewedRecoveredWork` check) |
+| `WorkspaceBaselineStore`       | Route loader (initial seed from `diskMd5ByBook`), save command (`setPresent` after each successful book write) | `dirtyBufferPipeline` (wrapper's `diskBaseline`), recovery classifier |
+| `DirtyBufferStore`             | `dirtyBufferPipeline` (`put` / `clear`)                                                            | Route loader at reopen (`list` + classify against current disk)    |
 
 Two design points worth calling out:
 
@@ -340,6 +347,35 @@ Two design points worth calling out:
 - **`LintStore.commitBookLintResults` wipes prior results per book.** Pipeline
   cancellation upstream guarantees only the newest pass writes, so there's no
   in-store staleness check; `requestCounter` exists for downstream UI ordering.
+
+### Crash-recovery state primitives
+
+Four stores cooperate to give the editor a Word-style safety net for
+unsaved work; full contract in `crash-recovery-autosave.md`.
+
+- **`WorkspaceInteractionGate`** — three states (`open` | `saving` |
+  `recovery-decision-pending`). A coarse mutex. While non-open, every
+  programmatic mutation entry returns a no-op and the editor's
+  `setEditable` is `false`. Single-authority pattern: `GateEditablePlugin`
+  in `Editor.tsx` is the only place that calls `editor.setEditable` —
+  USFMPlugin used to compete on it and produced an editable-during-banner
+  race.
+- **`RecoveredConflictTracker`** — a `Set<"${bookCode}:${chapter}">`
+  exposed via `subscribe` + `getSnapshot` for `useSyncExternalStore`.
+  Made observable (not a plain Set) because UI surfaces — the
+  external-compare entry control, the modal-routing decision in
+  `useSave` — must re-render when the subscriber clears the last entry.
+  Cleared by a small fiber that observes tracked chapters now clean,
+  not by enumerating every revert site.
+- **`WorkspaceBaselineStore`** — owns the `IMd5Service`. The route
+  loader seeds it from `diskMd5ByBook` (hashed by the parser; one IPC
+  on Tauri, one in-process hash on web). Save flips entries to the
+  newly-persisted MD5 after each successful book write. The dirty-buffer
+  pipeline reads these to stamp each backup's `diskBaseline` wrapper.
+- **`DirtyBufferStore`** — adapter over `FileSystem.atomicWriteText`
+  for per-book USFM backup wrappers at
+  `${appDataRoot}/dirty-buffers/${workspaceKey}/${bookCode}.json`. Owns
+  the `bodyMd5` torn-write check and the `ReadUnreadableReason` taxonomy.
 
 ## Wiring in WorkspaceContext
 

@@ -48,6 +48,86 @@ When building new USFM actions (formatting, matching, lint autofix, etc), do **n
 If a new feature needs flat tokens, plug into the current conversion boundary and core pass.  
 Prefer improving one shared adapter over creating another parallel adapter.
 
+# Editor scheduling (Lexical)
+
+## Single-authority `editor.setEditable`
+
+Only **one** plugin should drive `editor.setEditable()`. Multiple plugins
+each running their own `useEffect` that flips editability — even if they
+happen to agree most of the time — produce races where which call landed
+last decides the on-screen state. The shipping pattern:
+`GateEditablePlugin` in `Editor.tsx` ANDs the workspace
+gate (`requireGateOpen(gate)`) with the mode (`mode !== view`) and is the
+sole caller of `setEditable`. `NestedEditor` mirrors the same gate-AND-mode
+read locally so nested forms don't escape the gate.
+
+Smell to watch for: two plugins both `useEffect`-ing on overlapping
+conditions and both calling `editor.setEditable`. Pick one as the
+authority, route everything through it.
+
+# Validated incoming-mutation boundary
+
+When a working-state commit derives from an **awaited** computation
+(remote fetch, file pick, external-compare load, post-apply diff
+recompute), normal "draft → mutate → commit in one stack frame" can't
+hold. The boundary is `runIncomingMutation` in
+`src/app/domain/project/compare/applyIncomingToStore.ts`:
+
+1. Capture **object identities** of affected chapters (or the `read()`
+   array identity for workspace-scope writes) before the await.
+2. Compute on a private scratch — no draft held across the await.
+3. After the await: re-read, abort if identities have been replaced
+   (catches text edits AND save-rebases that change
+   `sourceTokens`/`dirty` but not `currentTokens`; `selectionOnly`
+   doesn't replace the object so it doesn't false-abort).
+4. Recheck the workspace gate.
+5. Commit synchronously from latest with `draftWithChapters` aliasing
+   the untouched paths.
+
+The `IncomingMutationScope` must match the write's scope: hunk / chapter
+overlays validate chapter identities; whole-workspace writes
+(`applyVersionSnapshotToWorkingFiles`) validate the array identity
+instead, because a chapter added during the await would slip past a
+chapter-scope check and get clobbered.
+
+Rule of thumb: every `workingFilesStore.commit` in an incoming flow
+either has no intervening `await` since its `read()`, or passes
+through this boundary.
+
+# Observable trackers (useSyncExternalStore + Effect subscriber)
+
+A `Set<key>` or simple state primitive that drives **UI** reactivity
+(disabling controls, changing routing) AND is mutated by an **Effect-side
+subscriber** must be observable, not a plain class. The asymmetry trips
+people: `WorkingFilesStore.commit()` notifies React synchronously and
+publishes to the PubSub asynchronously. A naive Set the subscriber clears
+won't notify React — the gating UI stays stale.
+
+Pattern that works: the tracker exposes `subscribe(listener)` +
+`getSnapshot()`, replaces a `snapshotCache` reference on every mutation,
+and notifies listeners. UI reads via
+`useSyncExternalStore(tracker.subscribe, tracker.getSnapshot)`. The
+Effect-side subscriber's `clear()` notifies, React renders the
+now-empty state, and the disabled controls re-enable.
+
+`RecoveredConflictTracker` is the canonical example.
+
+# Observe state, don't enumerate actions
+
+When you find yourself adding `tracker.clear(...)` (or any equivalent
+"this state is now stale, fix it") at every callsite of every revert /
+save / programmatic-clean path, swap to a small subscriber that watches
+the underlying truth and clears on observed match.
+`recoveredConflictTrackerSubscriber` is `Stream.runForEach` over
+`WorkingFilesStore.changes` that asks "is this tracked chapter clean
+now?" on each commit. Catches every revert path uniformly, including
+ones added later, without each path remembering the clear.
+
+The reverse is also true: if your subscriber needs to distinguish "now
+clean" from "transitioned to clean on this commit", you probably don't —
+idempotent `clear()` + populate-only-on-initial-state means
+post-state observation is sufficient.
+
 # Cloud Publishing And Reconciliation
 ## State ownership split
 - Cloud session is app-local and install-global.
