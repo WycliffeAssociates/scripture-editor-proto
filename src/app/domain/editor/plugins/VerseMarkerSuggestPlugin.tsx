@@ -12,6 +12,7 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
+import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/VerseMarkerSuggestOverlay.css.ts";
@@ -99,7 +100,6 @@ export function VerseMarkerSuggestPlugin() {
 
     useEffect(() => {
         return editor.registerUpdateListener(() => {
-            console.count("VerseMarkerSuggestPlugin");
             recomputeSuggestions();
         });
     }, [editor, recomputeSuggestions]);
@@ -170,18 +170,33 @@ export function VerseMarkerSuggestPlugin() {
             editor.update(() => {
                 const node = $getNodeByKey(item.nodeKey);
                 if (!$isUSFMTextNode(node)) return;
-                const parsed = canPromoteLeadingVerseNumber(node);
-                if (!parsed) return;
 
-                node.setTextContent(
-                    `${parsed.leadingWhitespace}${parsed.rest}`,
-                );
+                const text = node.getTextContent();
+                // Prefer the captured offsets (which point at the number wherever
+                // it sits — leading or trailing). If the node has been reshuffled
+                // since detection and they no longer span the number, fall back
+                // to re-deriving a leading number; bail if neither holds.
+                let startOffset = item.startOffset;
+                let endOffset = item.endOffset;
+                if (text.slice(startOffset, endOffset) !== item.verseNumber) {
+                    const parsed = canPromoteLeadingVerseNumber(node);
+                    if (!parsed) return;
+                    startOffset = parsed.leadingWhitespace.length;
+                    endOffset = startOffset + parsed.verseNumber.length;
+                }
+
+                // Remove the number from the text; `$insertVerse` splits at the
+                // boundary and inserts `\v` + the number there.
+                const before = text.slice(0, startOffset);
+                let after = text.slice(endOffset);
+                if (after.startsWith(" ")) after = after.slice(1);
+                node.setTextContent(before + after);
 
                 const {
                     isStartOfLine: isStartOfLineCalculated,
                     actualAnchorNode,
                     actualAnchorOffset,
-                } = calculateIsStartOfLine(node, 0, {
+                } = calculateIsStartOfLine(node, startOffset, {
                     editor,
                     editorMode: "regular",
                 });
@@ -198,7 +213,7 @@ export function VerseMarkerSuggestPlugin() {
                         project.appSettings.editorMode ?? EDITOR_MODES.regular,
                 };
 
-                $insertVerse(args, parsed.verseNumber);
+                $insertVerse(args, item.verseNumber);
             });
             setActiveKey(null);
         },
@@ -224,50 +239,82 @@ export function VerseMarkerSuggestPlugin() {
 
     const rendered = useMemo(() => {
         return positioned.map((item) => (
-            <div
+            <VerseSuggestItem
                 key={item.key}
-                className={styles.suggestion}
-                style={{ left: item.x, top: item.y }}
-            >
-                <button
-                    type="button"
-                    className={styles.underline}
-                    style={{ width: item.width, height: item.height }}
-                    aria-label={`Open verse marker suggestion for verse ${item.verseNumber}`}
-                    aria-expanded={activeKey === item.key}
-                    onMouseEnter={() => {
-                        clearCloseTimer();
-                        setActiveKey(item.key);
-                    }}
-                    onMouseLeave={() => {
-                        scheduleClose(item.key);
-                    }}
-                    onClick={() => {
-                        clearCloseTimer();
-                        setActiveKey((key) =>
-                            key === item.key ? null : item.key,
-                        );
-                    }}
-                />
-                {activeKey === item.key ? (
-                    <div className={styles.bubble}>
-                        <Button
-                            size="sm"
-                            onMouseEnter={() => clearCloseTimer()}
-                            onMouseLeave={() => scheduleClose(item.key)}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                handleConvert(item);
-                            }}
-                        >
-                            {`Make ${item.verseNumber} a verse marker?`}
-                        </Button>
-                    </div>
-                ) : null}
-            </div>
+                item={item}
+                isActive={activeKey === item.key}
+                onActivate={() => {
+                    clearCloseTimer();
+                    setActiveKey(item.key);
+                }}
+                onToggle={() => {
+                    clearCloseTimer();
+                    setActiveKey((key) => (key === item.key ? null : item.key));
+                }}
+                onKeepOpen={clearCloseTimer}
+                onScheduleClose={() => scheduleClose(item.key)}
+                onConvert={() => handleConvert(item)}
+            />
         ));
     }, [activeKey, handleConvert, positioned, clearCloseTimer, scheduleClose]);
 
     if (!overlayHostEl) return null;
     return createPortal(rendered, overlayHostEl);
+}
+
+/**
+ * One verse-marker suggestion: a brand-blue annotation over the candidate
+ * number that, when active, opens the shared lint popover (so placement and
+ * styling match the rest of the editor's affordances) with a convert action.
+ */
+function VerseSuggestItem(props: {
+    item: PositionedSuggestion;
+    isActive: boolean;
+    onActivate: () => void;
+    onToggle: () => void;
+    onKeepOpen: () => void;
+    onScheduleClose: () => void;
+    onConvert: () => void;
+}) {
+    const { item } = props;
+    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+    return (
+        <div
+            className={styles.suggestion}
+            style={{ left: item.x, top: item.y }}
+        >
+            <button
+                type="button"
+                ref={setAnchorEl}
+                className={styles.annotation}
+                style={{ width: item.width, height: item.height }}
+                aria-label={`Open verse marker suggestion for verse ${item.verseNumber}`}
+                aria-expanded={props.isActive}
+                onMouseEnter={props.onActivate}
+                onMouseLeave={props.onScheduleClose}
+                onClick={props.onToggle}
+            />
+            <LintFixPopover
+                anchor={anchorEl}
+                open={props.isActive}
+                side="top"
+                onMouseEnter={props.onKeepOpen}
+                onMouseLeave={props.onScheduleClose}
+            >
+                <div className={styles.popoverContent}>
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            props.onConvert();
+                        }}
+                    >
+                        {`Make ${item.verseNumber} a verse marker?`}
+                    </Button>
+                </div>
+            </LintFixPopover>
+        </div>
+    );
 }

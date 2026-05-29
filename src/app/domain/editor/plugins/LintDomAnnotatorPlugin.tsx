@@ -3,7 +3,18 @@
  *
  * This plugin no longer decides which issues exist. It only takes the already-
  * committed visible lint snapshot, finds the best DOM anchor for each issue,
- * and keeps those badges positioned while the document scrolls or reflows.
+ * and keeps those affordances positioned while the document scrolls or reflows.
+ *
+ * Two affordances, chosen per issue by whether the flagged token is currently
+ * rendered as visible text:
+ *  - HIGHLIGHT — when the token's own element is on screen (text runs always;
+ *    markers too, in USFM/plain mode). We draw a translucent highlight over its
+ *    client rects (multi-line aware).
+ *  - BADGE — when it isn't (e.g. a USFM marker hidden in regular/view mode). We
+ *    fall back to the `!` badge at the next-best visible anchor (the verse
+ *    number), exactly as before.
+ *
+ * Both open the same fix popover on hover.
  */
 import type { LexicalEditor } from "lexical";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -11,18 +22,25 @@ import { createPortal } from "react-dom";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
+import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
 import { getLintIssueKey } from "@/app/ui/hooks/lintState.ts";
 import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import {
-    formatLintIssueMessage,
-    formatTokenFixLabel,
-} from "@/app/ui/i18n/usfmOnionLocalization.ts";
 import * as styles from "@/app/ui/styles/modules/LintDomOverlay.css.ts";
-import * as tooltipStyles from "@/app/ui/styles/modules/LintTooltipOverlay.css.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-type OverlayEntry = {
+type Rect = { left: number; top: number; width: number; height: number };
+
+type HighlightEntry = {
+    kind: "highlight";
+    key: string;
+    dataId: string | null;
+    dataSid: string | null;
+    rects: Rect[];
+};
+
+type BadgeEntry = {
+    kind: "badge";
     key: string;
     dataId: string | null;
     dataSid: string | null;
@@ -30,12 +48,17 @@ type OverlayEntry = {
     top: number;
 };
 
+type OverlayEntry = HighlightEntry | BadgeEntry;
+
 type AnchorRecord = {
     issueKey: string;
     anchorKey: string;
     issue: LintIssue;
     element: HTMLElement | null;
-    rect: DOMRect | null;
+    kind: "highlight" | "badge" | "none";
+    rects: Rect[];
+    left: number;
+    top: number;
     stale: boolean;
 };
 
@@ -104,6 +127,21 @@ function buildDomLookup(root: HTMLElement): DomLookup {
     }
 
     return { byDataId, bySid, renderedState };
+}
+
+// The flagged token's OWN rendered element, if it is currently visible text.
+// Presence of this is what decides highlight (here) vs badge (fallback).
+function findDirectTokenElement(
+    lookup: DomLookup,
+    issue: LintIssue,
+): HTMLElement | null {
+    for (const id of [issue.tokenId, issue.relatedTokenId]) {
+        if (!id) continue;
+        for (const el of lookup.byDataId.get(id) ?? []) {
+            if (isRenderedElementCached(lookup.renderedState, el)) return el;
+        }
+    }
+    return null;
 }
 
 function findVisibleSiblingTarget(
@@ -180,6 +218,8 @@ function adjustAnchorForMode(
     return el;
 }
 
+// Best visible anchor for the BADGE fallback — used only when the flagged token
+// itself isn't rendered. Walks markers → siblings → sid matches.
 function findBestVisibleTarget(
     lookup: DomLookup,
     issue: LintIssue,
@@ -255,6 +295,37 @@ function measureAnchorRect(
     );
 }
 
+// Root-relative highlight boxes for a token element. Prose text uses
+// getClientRects() so a multi-line run highlights per line; short single tokens
+// (verse/chapter numbers, visible markers) use one bounding box to avoid stray
+// per-fragment rects (e.g. a separate sliver over leading whitespace). Rects
+// with no real area are dropped — an empty/hidden element yields none, which is
+// the signal to fall back to the badge.
+function measureHighlightRects(
+    rootEl: HTMLElement,
+    element: HTMLElement,
+    perLine: boolean,
+): Rect[] {
+    const rootRect = rootEl.getBoundingClientRect();
+    const rootOffsetLeft = rootEl.clientLeft;
+    const rootOffsetTop = rootEl.clientTop;
+    const domRects = perLine
+        ? Array.from(element.getClientRects())
+        : [element.getBoundingClientRect()];
+    const out: Rect[] = [];
+    for (const rect of domRects) {
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        out.push({
+            left:
+                rect.left - rootRect.left + rootEl.scrollLeft - rootOffsetLeft,
+            top: rect.top - rootRect.top + rootEl.scrollTop - rootOffsetTop,
+            width: rect.width,
+            height: rect.height,
+        });
+    }
+    return out;
+}
+
 function syncHitpointAttributes(
     previous: Set<HTMLElement>,
     next: Set<HTMLElement>,
@@ -280,26 +351,39 @@ function publishEntries(
     const nextHitpoints = new Set<HTMLElement>();
 
     for (const record of records.values()) {
-        if (record.element && record.rect && !record.stale) {
+        if (record.stale || !record.element || record.kind === "none") continue;
+
+        const dataId =
+            record.element.getAttribute("data-id") ??
+            record.issue.tokenId ??
+            null;
+        const dataSid =
+            record.element.getAttribute("data-sid") ?? record.issue.sid ?? null;
+
+        if (record.kind === "highlight" && record.rects.length > 0) {
+            // The highlight box is click-through, so the underlying token is
+            // the hover target — mark it with data-lint-hitpoint.
             nextHitpoints.add(record.element);
+            entries.push({
+                kind: "highlight",
+                key: record.issueKey,
+                dataId,
+                dataSid,
+                rects: record.rects,
+            });
+        } else if (record.kind === "badge") {
+            // The badge overlay itself is the hover target (data-js); we do NOT
+            // mark the fallback anchor (e.g. a valid verse number) as a
+            // hitpoint, so hovering it doesn't open an unrelated issue.
+            entries.push({
+                kind: "badge",
+                key: record.issueKey,
+                dataId,
+                dataSid,
+                left: record.left,
+                top: record.top,
+            });
         }
-        if (!record.rect) continue;
-        entries.push({
-            key: record.issueKey,
-            dataId:
-                record.element?.getAttribute("data-id") ??
-                record.issue.tokenId ??
-                null,
-            dataSid:
-                record.element?.getAttribute("data-sid") ??
-                record.issue.sid ??
-                null,
-            left: Math.max(record.rect.left - 18, 0),
-            top: Math.max(
-                record.rect.top + Math.min(record.rect.height / 2 - 8, 4),
-                0,
-            ),
-        });
     }
 
     syncHitpointAttributes(activeHitpointsRef.current, nextHitpoints);
@@ -326,7 +410,7 @@ export function LintDomAnnotatorPlugin({
     const resolveAnchorsRef = useRef<(() => void) | null>(null);
     const {
         hoveredErrors,
-        tooltipPosition,
+        hoveredAnchorEl,
         onTooltipMouseEnter,
         onTooltipMouseLeave,
     } = useEditorLintTooltip(lint.filteredVisibleIssues);
@@ -357,9 +441,8 @@ export function LintDomAnnotatorPlugin({
             // Form mode renders verses inside decorator-node cards on the
             // right; the underlying USFMTextNode DOM may be off-screen or
             // unrendered, so anchor resolution produces stale or
-            // 0,0-clamped rects and badges pile up at the left edge. Hide
-            // the overlay entirely in form mode — form mode has its own
-            // per-card lint affordance.
+            // 0,0-clamped rects. Hide the overlay entirely in form mode —
+            // form mode has its own per-card lint affordance.
             if (editorModeRef.current === EDITOR_MODES.form) {
                 if (hitpointsRef.current.size > 0) {
                     syncHitpointAttributes(hitpointsRef.current, new Set());
@@ -372,38 +455,53 @@ export function LintDomAnnotatorPlugin({
             const lookup = buildDomLookup(rootEl);
 
             for (const record of recordsRef.current.values()) {
-                const hasConnectedElement = Boolean(
-                    record.element?.isConnected,
-                );
-                const isRawMode =
-                    editorModeRef.current === EDITOR_MODES.usfm ||
-                    editorModeRef.current === EDITOR_MODES.plain;
-                const cachedIsWrongType =
-                    hasConnectedElement &&
-                    record.element?.getAttribute("data-token-type") ===
-                        "numberRange" &&
-                    isRawMode;
-                const element =
-                    hasConnectedElement &&
-                    record.element &&
-                    isRenderedElement(record.element) &&
-                    !cachedIsWrongType
-                        ? record.element
-                        : findBestVisibleTarget(
-                              lookup,
-                              record.issue,
-                              editorModeRef.current,
-                          );
-
-                if (!element) {
-                    record.element = null;
-                    record.stale = true;
+                // Preferred path: the flagged token is visible text → highlight
+                // it. Prose (text tokens) highlights per line; numbers/markers
+                // use one bounding box. An empty/hidden element (e.g. a \m
+                // empty-paragraph marker in regular mode) yields no usable
+                // rects, so we let it fall through to the badge.
+                const direct = findDirectTokenElement(lookup, record.issue);
+                const perLine =
+                    direct?.getAttribute("data-token-type") === "text";
+                const rects = direct
+                    ? measureHighlightRects(rootEl, direct, perLine)
+                    : [];
+                if (direct && rects.length > 0) {
+                    record.element = direct;
+                    record.kind = "highlight";
+                    record.rects = rects;
+                    record.left = 0;
+                    record.top = 0;
+                    record.stale = false;
                     continue;
                 }
 
-                record.element = element;
-                record.rect = measureAnchorRect(rootEl, element) ?? record.rect;
-                record.stale = false;
+                // Fallback path: token isn't rendered as usable text (hidden or
+                // empty marker) → badge at the next-best visible anchor.
+                const fallback = findBestVisibleTarget(
+                    lookup,
+                    record.issue,
+                    editorModeRef.current,
+                );
+                const rect = fallback
+                    ? measureAnchorRect(rootEl, fallback)
+                    : null;
+                if (fallback && rect) {
+                    record.element = fallback;
+                    record.kind = "badge";
+                    record.rects = [];
+                    record.left = Math.max(rect.left - 18, 0);
+                    record.top = Math.max(
+                        rect.top + Math.min(rect.height / 2 - 8, 4),
+                        0,
+                    );
+                    record.stale = false;
+                } else {
+                    record.element = null;
+                    record.kind = "none";
+                    record.rects = [];
+                    record.stale = true;
+                }
             }
 
             publishEntries(recordsRef.current, setEntries, hitpointsRef);
@@ -439,7 +537,10 @@ export function LintDomAnnotatorPlugin({
                 anchorKey: getAnchorKey(issue),
                 issue,
                 element: previous?.element ?? null,
-                rect: previous?.rect ?? null,
+                kind: previous?.kind ?? "none",
+                rects: previous?.rects ?? [],
+                left: previous?.left ?? 0,
+                top: previous?.top ?? 0,
                 stale: previous?.stale ?? false,
             });
         }
@@ -452,6 +553,8 @@ export function LintDomAnnotatorPlugin({
     useEffect(() => {
         for (const record of recordsRef.current.values()) {
             record.element = null;
+            record.kind = "none";
+            record.rects = [];
             record.stale = true;
         }
         resolveAnchorsRef.current?.();
@@ -468,72 +571,57 @@ export function LintDomAnnotatorPlugin({
         if (!shouldRender) return null;
         return (
             <div className={styles.host} aria-hidden="true">
-                {entries.map((entry) => (
-                    <span
-                        key={entry.key}
-                        className={styles.item}
-                        data-js={DATA_JS.lintDomOverlayHitpoint}
-                        data-id={entry.dataId ?? undefined}
-                        data-sid={entry.dataSid ?? undefined}
-                        style={{
-                            left: `${entry.left}px`,
-                            top: `${entry.top}px`,
-                        }}
-                    />
-                ))}
+                {entries.map((entry) =>
+                    entry.kind === "highlight" ? (
+                        // Click-through visual only; the underlying token is the
+                        // hover target (data-lint-hitpoint), so no data-* here.
+                        entry.rects.map((rect, i) => (
+                            <span
+                                key={`${entry.key}:${i}`}
+                                className={styles.highlight}
+                                style={{
+                                    left: `${rect.left}px`,
+                                    top: `${rect.top}px`,
+                                    width: `${rect.width}px`,
+                                    height: `${rect.height}px`,
+                                }}
+                            />
+                        ))
+                    ) : (
+                        <span
+                            key={entry.key}
+                            className={styles.item}
+                            data-js={DATA_JS.lintDomOverlayHitpoint}
+                            data-id={entry.dataId ?? undefined}
+                            data-sid={entry.dataSid ?? undefined}
+                            style={{
+                                left: `${entry.left}px`,
+                                top: `${entry.top}px`,
+                            }}
+                        />
+                    ),
+                )}
             </div>
         );
     }, [entries, shouldRender]);
 
-    const tooltip =
-        hoveredErrors && tooltipPosition
-            ? createPortal(
-                  <div
-                      className={tooltipStyles.host}
-                      data-js={DATA_JS.lintTooltipOverlay}
-                      style={{
-                          top: tooltipPosition.y,
-                          left: tooltipPosition.x,
-                      }}
-                  >
-                      {/** biome-ignore lint/a11y/noStaticElementInteractions: tooltip card holds hover state */}
-                      <div
-                          className={tooltipStyles.card}
-                          onMouseEnter={onTooltipMouseEnter}
-                          onMouseLeave={onTooltipMouseLeave}
-                      >
-                          {hoveredErrors.map((error) => (
-                              <div
-                                  key={`${error.tokenId ?? error.relatedTokenId}:${error.code}:${error.sid}`}
-                                  className={tooltipStyles.row}
-                              >
-                                  <span className={tooltipStyles.message}>
-                                      {formatLintIssueMessage(error)}
-                                  </span>
-                                  {error.fix ? (
-                                      <button
-                                          type="button"
-                                          className={tooltipStyles.fixButton}
-                                          onClick={() =>
-                                              actions.fixLintError(error)
-                                          }
-                                      >
-                                          {formatTokenFixLabel(error.fix)}
-                                      </button>
-                                  ) : null}
-                              </div>
-                          ))}
-                      </div>
-                  </div>,
-                  document.body,
-              )
-            : null;
+    const popover = (
+        <LintFixPopover
+            anchor={hoveredAnchorEl}
+            errors={hoveredErrors}
+            onApplyFix={actions.fixLintError}
+            onMouseEnter={onTooltipMouseEnter}
+            onMouseLeave={onTooltipMouseLeave}
+            side="top"
+            popupDataJs={DATA_JS.lintTooltipOverlay}
+        />
+    );
 
-    if (!rootEl || !rendered) return tooltip;
+    if (!rootEl || !rendered) return popover;
     return (
         <>
             {createPortal(rendered, rootEl)}
-            {tooltip}
+            {popover}
         </>
     );
 }

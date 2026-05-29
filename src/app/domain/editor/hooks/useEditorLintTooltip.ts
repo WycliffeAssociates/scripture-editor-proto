@@ -2,7 +2,6 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
-type TooltipPosition = { x: number; y: number };
 type ScrollSnapshot = {
     left: number;
     top: number;
@@ -11,12 +10,18 @@ type ScrollSnapshot = {
 
 export type UseEditorLintTooltipReturn = {
     hoveredErrors: LintIssue[] | null;
-    tooltipPosition: TooltipPosition | null;
+    /** The hovered overlay element (badge or highlight box) to anchor against. */
+    hoveredAnchorEl: HTMLElement | null;
     onTooltipMouseEnter: () => void;
     onTooltipMouseLeave: () => void;
 };
 
-const LINT_HITPOINT_SELECTOR = `[data-js="${DATA_JS.lintDomOverlayHitpoint}"]`;
+// Hover targets are EITHER an interactive overlay element (the `!` badge, which
+// carries `data-js`) OR the underlying flagged token itself (which carries
+// `data-lint-hitpoint`). The highlight box is click-through and is NOT a hover
+// target — hovering the token text under it is what opens the popover, so the
+// text stays selectable/editable.
+const LINT_HITPOINT_SELECTOR = `[data-js="${DATA_JS.lintDomOverlayHitpoint}"], [data-lint-hitpoint]`;
 
 function asHtmlElement(target: EventTarget | null): HTMLElement | null {
     if (target instanceof HTMLElement) return target;
@@ -64,9 +69,14 @@ export function useEditorLintTooltip(
     const [hoveredErrors, setHoveredErrors] = useState<LintIssue[] | null>(
         null,
     );
-    const [tooltipPosition, setTooltipPosition] =
-        useState<TooltipPosition | null>(null);
+    const [hoveredAnchorEl, setHoveredAnchorEl] = useState<HTMLElement | null>(
+        null,
+    );
     const hoverErrorsRef = useRef<LintIssue[] | null>(null);
+    // Identity of the issue currently shown or pending (data-id / sid). Lets us
+    // ignore repeat mouseovers across the same issue's boxes so the popover
+    // anchors once and stays put instead of jittering as the pointer moves.
+    const activeKeyRef = useRef<string | null>(null);
     const hideTimeoutRef = useRef<number | null>(null);
     const showTimeoutRef = useRef<number | null>(null);
     const scrollSnapshotRef = useRef<ScrollSnapshot | null>(null);
@@ -118,8 +128,9 @@ export function useEditorLintTooltip(
             }
             clearHideTimeout();
             hoverErrorsRef.current = null;
+            activeKeyRef.current = null;
             setHoveredErrors(null);
-            setTooltipPosition(null);
+            setHoveredAnchorEl(null);
             scrollSnapshotRef.current = null;
         };
 
@@ -143,22 +154,26 @@ export function useEditorLintTooltip(
             if (!targetForErrors) return;
             clearHideTimeout();
 
+            // Same issue we're already showing (or about to)? Keep it anchored
+            // where it is — don't re-time or re-anchor on intra-box movement.
+            const key =
+                targetForErrors.getAttribute("data-id") ??
+                targetForErrors.getAttribute("data-sid");
+            if (key && activeKeyRef.current === key) return;
+
             const errorsForNode = findErrorsForTarget(targetForErrors);
             if (errorsForNode.length === 0) return;
-
-            const rect = targetForErrors.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top;
 
             if (showTimeoutRef.current) {
                 window.clearTimeout(showTimeoutRef.current);
                 showTimeoutRef.current = null;
             }
 
+            activeKeyRef.current = key;
             showTimeoutRef.current = window.setTimeout(() => {
                 hoverErrorsRef.current = errorsForNode;
                 setHoveredErrors(errorsForNode);
-                setTooltipPosition({ x, y });
+                setHoveredAnchorEl(targetForErrors);
                 const scrollContainer = findScrollContainer(
                     targetForErrors.parentElement ?? targetForErrors,
                 );
@@ -254,7 +269,7 @@ export function useEditorLintTooltip(
 
     return {
         hoveredErrors,
-        tooltipPosition,
+        hoveredAnchorEl,
         onTooltipMouseEnter: () => onTooltipMouseEnterRef.current(),
         onTooltipMouseLeave: () => onTooltipMouseLeaveRef.current(),
     };

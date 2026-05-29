@@ -280,7 +280,15 @@ export function useLintFixing({
                         { kind: "bulk", files: draft },
                         {
                             kind: "programmaticFix",
-                            scope: { project: true },
+                            // Scope to the affected book, not the whole project:
+                            // the fix only touches this book, and the lint
+                            // pipeline re-lints one book per commit. Project
+                            // scope made a single fix re-lint every loaded book
+                            // (one lintExisting call each).
+                            scope: {
+                                bookCode: file.bookCode,
+                                chapter: chapter.chapterNumber,
+                            },
                             dirtyTextContent: true,
                         },
                     );

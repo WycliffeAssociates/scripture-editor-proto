@@ -32,6 +32,7 @@ export const TESTING_IDS = {
         importerClear: "language-importer-clear",
     },
     mainEditorContainer: "main-editor-container",
+    editorGateOverlay: "editor-gate-overlay",
     currentLocation: "current-location",
     referenceProjectPanel: "reference-project-panel",
     referenceProjectTrigger: "reference-project-trigger",

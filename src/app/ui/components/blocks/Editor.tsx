@@ -8,6 +8,7 @@ import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
+import { Lock } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
@@ -61,8 +62,17 @@ function GateEditablePlugin() {
 }
 
 export function MainEditor() {
-    const { editorRef, project, save, search } = useWorkspaceContext();
+    const { editorRef, project, save, search, interactionGate } =
+        useWorkspaceContext();
     const isSwitchingVersion = save.versions.isSwitching;
+    const gate = useSyncExternalStore(
+        interactionGate.subscribe.bind(interactionGate),
+        interactionGate.getSnapshot.bind(interactionGate),
+    );
+    // Block (and visually quiet) the editor while a crash-recovery decision is
+    // pending — the Keep/Discard banner above must be resolved first. `saving`
+    // is sub-second, so it doesn't get a scrim.
+    const isRecoveryPending = gate.kind === "recovery-decision-pending";
 
     return (
         <div className={shellStyles.editorOuter}>
@@ -102,6 +112,20 @@ export function MainEditor() {
                         <span className={shellStyles.switchingOverlaySpinner} />
                         {/* todo: should be localized */}
                         <span>Switching version…</span>
+                    </div>
+                ) : null}
+                {isRecoveryPending ? (
+                    <div
+                        className={shellStyles.gateOverlay}
+                        data-testid={TESTING_IDS.editorGateOverlay}
+                    >
+                        <span className={shellStyles.gateOverlayNote}>
+                            <Lock size={14} />
+                            {/* todo: should be localized */}
+                            <span>
+                                Resolve the banner above to keep editing
+                            </span>
+                        </span>
                     </div>
                 ) : null}
                 <EditorRefPlugin editorRef={editorRef} />
