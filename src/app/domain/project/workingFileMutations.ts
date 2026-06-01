@@ -11,6 +11,17 @@ import type {
  */
 export type ChapterRef = { bookCode: string; chapterNum: number };
 
+export function chapterRefsForBook(file: ScriptureBookState): ChapterRef[] {
+    return file.chapters.map((chapter) => ({
+        bookCode: file.bookCode,
+        chapterNum: chapter.chapterNumber,
+    }));
+}
+
+export function allChapterRefs(files: ScriptureBookState[]): ChapterRef[] {
+    return files.flatMap(chapterRefsForBook);
+}
+
 export function findChapter(
     files: ScriptureBookState[],
     bookCode: string,

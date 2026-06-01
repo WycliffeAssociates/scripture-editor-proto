@@ -35,6 +35,7 @@ import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx"
 import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
+import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { showNotificationInfo } from "@/app/ui/components/primitives/notifications.ts";
 import { ToolbarOverflowMenu } from "@/app/ui/components/primitives/ToolbarOverflowMenu/index.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -48,14 +49,9 @@ import {
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    GIT_REMOTE_PROJECT_STATUS_SYNCING,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import * as styles from "./editorToolbar.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 type EditorToolbarProps = {
     isReferencePaneOpen: boolean;
@@ -497,13 +493,6 @@ function getCloudStatusPresentation(
                 label: t`Connected`,
                 description: t`Cloud is connected.`,
                 ariaLabel: t`Open cloud status`,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_SYNCING:
-            return {
-                state: "syncing",
-                label: t`Syncing`,
-                description: t`Cloud status is refreshing.`,
-                ariaLabel: t`Syncing cloud status`,
             };
         case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
             return {

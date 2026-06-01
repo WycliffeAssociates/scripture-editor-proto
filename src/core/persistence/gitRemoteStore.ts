@@ -26,8 +26,7 @@ import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 /**
  * Shared JSON persistence helpers for cloud publishing state.
  *
- * Later beads can wrap these primitives with richer services, but this bead
- * keeps the storage rules small: one canonical path family, one JSON read/write
+ * The storage rules stay small: one canonical path family, one JSON read/write
  * shape, and no direct knowledge of transport or UI.
  */
 export async function readGitRemoteProjectInfo(args: {
@@ -106,6 +105,54 @@ export async function writeGitRemoteProjectStatus(args: {
         getGitRemoteProjectStatusPath(args.storageRoots, status.projectPath),
         JSON.stringify(status, null, 2),
     );
+}
+
+const projectStatusQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Serialize read-modify-write updates for a project's durable cloud status.
+ *
+ * Open hydration, save publish, explicit sync, and remote-accept can overlap in
+ * the UI. Callers that need to merge a lifecycle patch into the current durable
+ * record should use this boundary instead of separately reading and writing,
+ * otherwise the last writer can clobber heads/timestamps from an earlier writer.
+ */
+export async function applyGitRemoteProjectStatus(args: {
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+    projectPath: string;
+    update: (
+        existing: GitRemoteProjectStatus | null,
+    ) => GitRemoteProjectStatus | Promise<GitRemoteProjectStatus>;
+}): Promise<GitRemoteProjectStatus> {
+    const projectPath = normalizeGitRemoteProjectPath(args.projectPath);
+    const previous = projectStatusQueues.get(projectPath) ?? Promise.resolve();
+    const next = previous
+        .catch(() => {
+            // Preserve queue progress after a failed prior transition.
+        })
+        .then(async () => {
+            const existing = await readGitRemoteProjectStatus({
+                fileSystem: args.fileSystem,
+                storageRoots: args.storageRoots,
+                projectPath,
+            });
+            const status = await args.update(existing);
+            await writeGitRemoteProjectStatus({
+                fileSystem: args.fileSystem,
+                storageRoots: args.storageRoots,
+                status,
+            });
+            return status;
+        });
+    projectStatusQueues.set(projectPath, next);
+    try {
+        return await next;
+    } finally {
+        if (projectStatusQueues.get(projectPath) === next) {
+            projectStatusQueues.delete(projectPath);
+        }
+    }
 }
 
 export async function deleteGitRemoteProjectStatus(args: {

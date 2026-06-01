@@ -1,15 +1,10 @@
 import type { I18n } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import type { RemoteSyncActionMode } from "@/app/domain/project/remoteSync/gitRemoteLifecycle.ts";
 import {
     showErrorNotification,
     showNotificationSuccess,
 } from "@/app/ui/components/primitives/notifications.ts";
-import {
-    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
-    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    type GitRemoteProjectStatus,
-} from "@/core/persistence/gitRemoteModels.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
 
 const messages = {
@@ -39,7 +34,7 @@ export type RemoteSyncTarget = {
     reviewIncoming: () => Promise<void>;
 };
 
-export type SyncActionMode = "none" | "sync" | "review";
+export type SyncActionMode = RemoteSyncActionMode;
 
 function errorMessage(error: unknown, i18n: I18n): string {
     if (error instanceof Error) return error.message;
@@ -142,21 +137,4 @@ export function sortReposByOwnerPriority(
         if (aMine !== bMine) return aMine ? -1 : 1;
         return a.fullName.localeCompare(b.fullName);
     });
-}
-
-export function getSyncActionMode(
-    status: GitRemoteProjectStatus | null,
-    autoAcceptIncomingWork: boolean,
-): SyncActionMode {
-    if (!status) return "none";
-    if (status.kind === GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH) {
-        return "sync";
-    }
-    if (
-        status.kind === GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE ||
-        status.kind === GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW
-    ) {
-        return autoAcceptIncomingWork ? "sync" : "review";
-    }
-    return "none";
 }

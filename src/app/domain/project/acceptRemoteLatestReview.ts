@@ -6,10 +6,7 @@ import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
-import {
-    readGitRemoteProjectStatus,
-    writeGitRemoteProjectStatus,
-} from "@/core/persistence/gitRemoteStore.ts";
+import { applyGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
 /**
@@ -34,23 +31,18 @@ export async function acceptRemoteLatestReview(args: {
         remoteHead: args.remoteHead,
         gitProvider: args.gitProvider,
     });
-    const existingStatus =
-        (await readGitRemoteProjectStatus({
-            fileSystem: args.fileSystem,
-            storageRoots: args.storageRoots,
-            projectPath: args.projectPath,
-        })) ?? createDefaultGitRemoteProjectStatus(args.projectPath);
-    const nextStatus: GitRemoteProjectStatus = {
-        ...existingStatus,
-        kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-        lastCheckedAt: args.now?.() ?? new Date().toISOString(),
-        lastKnownLocalHead: replay.head ?? args.remoteHead,
-        lastKnownRemoteHead: args.remoteHead,
-    };
-    await writeGitRemoteProjectStatus({
+    const nextStatus = await applyGitRemoteProjectStatus({
         fileSystem: args.fileSystem,
         storageRoots: args.storageRoots,
-        status: nextStatus,
+        projectPath: args.projectPath,
+        update: (existing) => ({
+            ...(existing ??
+                createDefaultGitRemoteProjectStatus(args.projectPath)),
+            kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+            lastCheckedAt: args.now?.() ?? new Date().toISOString(),
+            lastKnownLocalHead: replay.head ?? args.remoteHead,
+            lastKnownRemoteHead: args.remoteHead,
+        }),
     });
     return nextStatus;
 }

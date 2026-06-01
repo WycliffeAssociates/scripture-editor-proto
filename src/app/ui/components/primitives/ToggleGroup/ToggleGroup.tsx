@@ -1,6 +1,7 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup as BaseToggleGroup } from "@base-ui/react/toggle-group";
 import type { CSSProperties, ReactNode } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./toggleGroup.css.ts";
 
 export interface ToggleGroupItem {
@@ -17,10 +18,6 @@ export interface ToggleGroupProps {
     variant?: "default" | "outlinePill";
     className?: string;
     itemClassName?: string;
-}
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
 }
 
 function assignInlineVars(

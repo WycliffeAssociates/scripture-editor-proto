@@ -1,9 +1,9 @@
 // dirtyBufferPipeline.ts
 //
-// Stage-2 pipeline that keeps per-book crash-recovery backups in sync with the
-// live working-files state. While a book has any dirty chapter, it writes the
-// whole book's current USFM to a backup; once the book goes clean (saved or
-// reverted), it clears the backup.
+// Keeps per-book crash-recovery backups in sync with the live working-files
+// state. While a book has any dirty chapter, it writes the whole book's current
+// USFM to a backup; once the book goes clean (saved or reverted), it clears the
+// backup.
 //
 // Per-book substreams (`groupByKey`) so a busy book never starves a quiet one.
 // Each book's writes are paced by a debounce (flush ~idleMs after typing pauses)
@@ -55,11 +55,9 @@ function debounceWithMaxWait(idleMs: number, ceilingMs: number) {
         Stream.unwrap(
             Stream.broadcast(self, { capacity: "unbounded", replay: 1 }).pipe(
                 Effect.map((shared) =>
-                    // @ai? I'm still learning more advanced effect. Can you walk me through this stream primitives and hwo this all works in this function?
                     Stream.merge(
                         shared.pipe(
                             Stream.debounce(Duration.millis(idleMs)),
-                            //   @ai? why this line and same one below?   Stream.map(() => undefined),
                             Stream.map(() => undefined),
                         ),
                         shared.pipe(
@@ -95,7 +93,6 @@ export function makeDirtyBufferPipeline(args: {
     // Idempotent reconcile, re-reading latest state. Any dirty chapter → write
     // the whole book; all clean → clear the backup.
     const reconcileBook = (bookCode: string): Effect.Effect<void, unknown> =>
-        // @ai? -> still learning effect. why suspend here?
         Effect.suspend(() => {
             const book = args.workingFilesStore
                 .read()
@@ -111,7 +108,6 @@ export function makeDirtyBufferPipeline(args: {
                 return Effect.tryPromise(() =>
                     args.dirtyBufferStore.clear(args.workspaceKey, bookCode),
                 ).pipe(
-                    // @ai? -> still learning. maybe just explain most of the effect in this file actually
                     Effect.tap((removed) =>
                         removed
                             ? Effect.sync(() =>

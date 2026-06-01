@@ -15,6 +15,7 @@ import {
   toProjectStorageKey,
 } from "@/core/persistence/gitRemotePaths.ts";
 import {
+  applyGitRemoteProjectStatus,
   deleteGitRemoteProjectInfo,
   deleteGitRemoteProjectStatus,
   deleteGitRemoteSession,
@@ -86,6 +87,32 @@ describe("git remote model parsing", () => {
         lastKnownRemoteHead: null,
       }),
     ).toThrow(/Unsupported git remote project status/u);
+  });
+
+  it("coerces legacy syncing status to connected", () => {
+    expect(
+      parseGitRemoteProjectStatus({
+        projectPath: "/userData/projects/foo",
+        kind: "syncing",
+        lastCheckedAt: "2026-03-27T00:00:00.000Z",
+        lastPublishedAt: null,
+        lastKnownLocalHead: "abc123",
+        lastKnownRemoteHead: "def456",
+        latestIncomingAuthorName: "Alice",
+        lastKnownLocalHeadAuthoredAt: null,
+        lastKnownRemoteHeadAuthoredAt: null,
+      }),
+    ).toEqual({
+      projectPath: "/userData/projects/foo",
+      kind: "connected",
+      lastCheckedAt: "2026-03-27T00:00:00.000Z",
+      lastPublishedAt: null,
+      lastKnownLocalHead: "abc123",
+      lastKnownRemoteHead: "def456",
+      latestIncomingAuthorName: "Alice",
+      lastKnownLocalHeadAuthoredAt: null,
+      lastKnownRemoteHeadAuthoredAt: null,
+    });
   });
 
   it("creates an empty per-project status record with null timestamps and heads", () => {
@@ -284,5 +311,64 @@ describe("git remote json persistence", () => {
         storageRoots,
       }),
     ).resolves.toBeNull();
+  });
+
+  it("serializes per-project status read-modify-write updates", async () => {
+    const fileSystem = new InMemoryFileSystem();
+    await writeGitRemoteProjectStatus({
+      fileSystem,
+      storageRoots,
+      status: {
+        projectPath: "/userData/projects/foo",
+        kind: "connected",
+        lastCheckedAt: null,
+        lastPublishedAt: null,
+        lastKnownLocalHead: null,
+        lastKnownRemoteHead: null,
+      },
+    });
+
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const first = applyGitRemoteProjectStatus({
+      fileSystem,
+      storageRoots,
+      projectPath: "/userData/projects/foo",
+      update: async (existing) => {
+        await firstCanFinish;
+        return {
+          ...(existing ?? createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
+          kind: "pendingPublish",
+          lastKnownLocalHead: "local-1",
+        };
+      },
+    });
+    const second = applyGitRemoteProjectStatus({
+      fileSystem,
+      storageRoots,
+      projectPath: "/userData/projects/foo",
+      update: (existing) => ({
+        ...(existing ?? createDefaultGitRemoteProjectStatus("/userData/projects/foo")),
+        kind: "needsReview",
+        lastKnownRemoteHead: "remote-2",
+      }),
+    });
+
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    await expect(
+      readGitRemoteProjectStatus({
+        fileSystem,
+        storageRoots,
+        projectPath: "/userData/projects/foo",
+      }),
+    ).resolves.toMatchObject({
+      kind: "needsReview",
+      lastKnownLocalHead: "local-1",
+      lastKnownRemoteHead: "remote-2",
+    });
   });
 });

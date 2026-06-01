@@ -24,6 +24,7 @@ import {
     toggleSelection,
 } from "@/app/ui/components/blocks/lintFilters.utils.ts";
 import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
+import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/LintIssuesPopover.css.ts";
 import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -33,10 +34,6 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Scope = "local" | "all";
 type IssueTypeFilter = "all" | "usfm" | "content";
-
-function joinClassNames(...names: Array<string | false | undefined>) {
-    return names.filter(Boolean).join(" ");
-}
 
 export function LintIssuesPopover() {
     const { t } = useLingui();

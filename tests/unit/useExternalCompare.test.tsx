@@ -899,12 +899,18 @@ describe("useExternalCompare", () => {
         expect(
             latestState?.state.diffsByChapter?.GEN?.[1]?.[0]?.semanticSid,
         ).toBe("GEN 1:1");
-        expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalled();
-        expect(onGitRemoteStatusChanged).toHaveBeenCalledWith(
-            expect.objectContaining({
-                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-            }),
-        );
+        // The blocked diff still requires review, so we must NOT fast-forward
+        // the remote: marking it accepted while review is open was the P1 bug.
+        expect(
+            acceptRemoteLatestReviewMock.acceptRemoteLatestReview,
+        ).not.toHaveBeenCalled();
+        expect(onGitRemoteStatusChanged).not.toHaveBeenCalled();
+        // remoteSync stays attached (partial behind-only acceptance), which the
+        // hook surfaces as a pending partial reconciliation — the next save
+        // adopts remote latest. The old bug cleared remoteSync, nulling this.
+        expect(
+            latestState?.state.pendingRemotePartialReconciliation,
+        ).toMatchObject({ relationship: "behindOnly" });
     });
 
     it("does not auto-open diff modal when configured to suppress review modal", async () => {

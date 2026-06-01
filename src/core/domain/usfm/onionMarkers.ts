@@ -1,4 +1,7 @@
-import type { UsfmMarkerCatalog } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type {
+    ParagraphCategory,
+    UsfmMarkerCatalog,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Marker registry used by editor/import/prettify code that needs fast membership
@@ -31,6 +34,7 @@ type MarkerRegistry = {
     allUsfmMarkers: Set<string>;
     chapterVerseMarkers: Set<string>;
     documentMarkers: Set<string>;
+    paragraphCategoryByMarker: Map<string, ParagraphCategory>;
 };
 
 let registry: MarkerRegistry | null = null;
@@ -91,6 +95,13 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         ...LOCAL_ONLY_MARKERS,
     ]);
 
+    const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
+    for (const [marker, info] of Object.entries(catalog.infoByMarker)) {
+        if (info.paragraphCategory) {
+            paragraphCategoryByMarker.set(marker, info.paragraphCategory);
+        }
+    }
+
     return {
         validNoteMarkers,
         validCharMarkers,
@@ -99,6 +110,7 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         allUsfmMarkers,
         chapterVerseMarkers: new Set(catalog.chapterVerseMarkers),
         documentMarkers: new Set(catalog.documentMarkers),
+        paragraphCategoryByMarker,
     };
 }
 
@@ -132,6 +144,20 @@ export const CHAPTER_VERSE_MARKERS = createReadonlySet(
 
 export function isDocumentMarker(marker: string) {
     return requireRegistry().documentMarkers.has(marker);
+}
+
+/**
+ * The marker's semantic paragraph category from the USFM Onion catalog
+ * (`"section"` / `"poetry"` / `"list"` / `"body"` / …), or `undefined` for a
+ * non-paragraph marker, a marker the catalog does not enumerate, OR before the
+ * catalog is initialized. Unlike the other helpers this does NOT throw when
+ * uninitialized: it is read on the per-token render path, where a graceful
+ * `undefined` (caller falls back to its local allow-list) is safer than a throw.
+ */
+export function getParagraphCategory(
+    marker: string,
+): ParagraphCategory | undefined {
+    return registry?.paragraphCategoryByMarker.get(marker);
 }
 
 export function isValidParaMarker(marker: string) {

@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./button.css.ts";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -8,10 +9,6 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     leftIcon?: ReactNode;
     rightIcon?: ReactNode;
     ref?: Ref<HTMLButtonElement>;
-}
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
 }
 
 export function Button({

@@ -125,7 +125,7 @@ describe("applyIncomingToStore concurrency", () => {
         releaseRevert();
         const committed = await promise;
 
-        expect(committed).toBe(false);
+        expect(committed).toMatchObject({ kind: "aborted" });
         // Neither chapter committed; the concurrent MAT edit survives.
         expect(contentOf(store, "MAT")).toBe("mat-edited");
         expect(contentOf(store, "GEN")).toBe("gen-local");
@@ -151,7 +151,7 @@ describe("applyIncomingToStore concurrency", () => {
             sourceFiles: [book("GEN", "gen-incoming"), book("MAT", "mat-incoming")],
         });
 
-        expect(committed).toBe(true);
+        expect(committed).toMatchObject({ kind: "committed" });
         expect(contentOf(store, "GEN")).toBe("gen-incoming");
         expect(contentOf(store, "MAT")).toBe("mat-incoming");
     });
@@ -185,7 +185,7 @@ describe("applyIncomingToStore concurrency", () => {
         releaseRevert();
         const committed = await promise;
 
-        expect(committed).toBe(true);
+        expect(committed).toMatchObject({ kind: "committed" });
         expect(contentOf(store, "EXO")).toBe("exo-edited"); // preserved
         expect(contentOf(store, "GEN")).toBe("gen-incoming"); // hunk applied
     });
@@ -244,7 +244,7 @@ describe("applyIncomingToStore concurrency", () => {
         releaseRevert();
         const committed = await promise;
 
-        expect(committed).toBe(false);
+        expect(committed).toMatchObject({ kind: "aborted" });
         const gen = store.read()[0]?.chapters[0];
         // Saved baseline intact (clean), NOT reverted to the stale dirty scratch;
         // incoming text not applied.
@@ -270,7 +270,7 @@ describe("applyIncomingToStore concurrency", () => {
             sourceFiles: [book("GEN", "gen-incoming")],
         });
 
-        expect(committed).toBe(false);
+        expect(committed).toMatchObject({ kind: "aborted" });
         expect(contentOf(store, "GEN")).toBe("gen-local");
     });
 });
@@ -303,7 +303,7 @@ describe("runIncomingMutation", () => {
         releaseCompute();
         const result = await promise;
 
-        expect(result.committed).toBe(false);
+        expect(result).toMatchObject({ kind: "aborted" });
         expect(commit).not.toHaveBeenCalled(); // no snapshot write
         expect(result.computed).toBe("refreshed-diff"); // still returned for display
         expect(contentOf(store, "GEN")).toBe("user-typed"); // edit preserved
@@ -321,7 +321,7 @@ describe("runIncomingMutation", () => {
             commit,
         });
 
-        expect(result.committed).toBe(true);
+        expect(result).toMatchObject({ kind: "committed" });
         expect(result.computed).toBe("refreshed-diff");
         expect(commit).toHaveBeenCalledTimes(1);
     });
@@ -354,7 +354,7 @@ describe("runIncomingMutation", () => {
         releaseCompute();
         const result = await promise;
 
-        expect(result.committed).toBe(false); // → caller skips remote acceptance
+        expect(result).toMatchObject({ kind: "aborted" }); // → caller skips remote acceptance
         expect(commit).not.toHaveBeenCalled(); // no snapshot write
         expect(contentOf(store, "MAT")).toBe("new-book"); // new work survives
     });
@@ -388,7 +388,7 @@ describe("runIncomingMutation", () => {
         releaseCompute();
         const result = await promise;
 
-        expect(result.committed).toBe(true);
+        expect(result).toMatchObject({ kind: "committed" });
         expect(commit).toHaveBeenCalledTimes(1);
     });
 
@@ -414,7 +414,7 @@ describe("runIncomingMutation", () => {
         releaseCompute();
         const result = await promise;
 
-        expect(result.committed).toBe(false);
+        expect(result).toMatchObject({ kind: "aborted" });
         expect(commit).not.toHaveBeenCalled();
     });
 });

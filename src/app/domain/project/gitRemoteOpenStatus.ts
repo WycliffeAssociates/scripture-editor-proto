@@ -1,5 +1,11 @@
 import type { SettingsManager } from "@/app/data/settings.ts";
 import { adoptRemoteLatestAsLocalBase } from "@/app/domain/project/adoptRemoteLatestAsLocalBase.ts";
+import { isGitAuthLikeError } from "@/app/domain/project/remoteSync/gitErrorTaxonomy.ts";
+import {
+    buildGitRemoteProjectStatus,
+    buildStatusFromRemoteRelationship,
+    type GitRemoteHeadMetadata,
+} from "@/app/domain/project/remoteSync/gitRemoteLifecycle.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import type {
@@ -10,26 +16,19 @@ import { GIT_REMOTE_DEFAULT_NAME } from "@/core/persistence/gitConstants.ts";
 import {
     createDefaultGitRemoteProjectStatus,
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
     GIT_REMOTE_PROJECT_STATUS_OFFLINE,
-    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    GIT_REMOTE_PROJECT_STATUS_SYNCING,
     type GitRemoteProjectInfo,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import {
-    GIT_REMOTE_RELATIONSHIP_AHEAD_ONLY,
     GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY,
     GIT_REMOTE_RELATIONSHIP_DIVERGED,
-    GIT_REMOTE_RELATIONSHIP_UNTRACKED,
-    GIT_REMOTE_RELATIONSHIP_UP_TO_DATE,
 } from "@/core/persistence/gitRemoteRelationship.ts";
 import {
+    applyGitRemoteProjectStatus,
     readGitRemoteProjectInfo,
     readGitRemoteProjectStatus,
-    writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
@@ -110,12 +109,15 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
             linkedHost: remoteInfo.hostBaseUrl,
             sessionHost: session?.hostBaseUrl ?? null,
         });
-        const status = buildStatus({
-            existingStatus,
-            kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-            checkedAt,
+        const status = await applyStatusPatch({
+            fileSystem: args.fileSystem,
+            storageRoots: args.storageRoots,
+            projectPath: args.projectPath,
+            patch: {
+                kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
+                checkedAt,
+            },
         });
-        await persistStatus(args.fileSystem, args.storageRoots, status);
         return {
             kind: GIT_REMOTE_OPEN_STATUS_REAUTH_REQUIRED,
             status,
@@ -135,12 +137,15 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
             existingStatus.lastCheckedAt ||
             existingStatus.kind !== GIT_REMOTE_PROJECT_STATUS_CONNECTED
                 ? existingStatus
-                : buildStatus({
-                      existingStatus,
-                      kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-                      checkedAt,
+                : await applyStatusPatch({
+                      fileSystem: args.fileSystem,
+                      storageRoots: args.storageRoots,
+                      projectPath: args.projectPath,
+                      patch: {
+                          kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+                          checkedAt,
+                      },
                   });
-        await persistStatus(args.fileSystem, args.storageRoots, status);
         return {
             kind: GIT_REMOTE_OPEN_STATUS_SKIPPED_AUTO_SYNC,
             status,
@@ -171,12 +176,12 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
                 error: error instanceof Error ? error.message : String(error),
             },
         );
-        const status = buildStatus({
-            existingStatus,
-            kind,
-            checkedAt,
+        const status = await applyStatusPatch({
+            fileSystem: args.fileSystem,
+            storageRoots: args.storageRoots,
+            projectPath: args.projectPath,
+            patch: { kind, checkedAt },
         });
-        await persistStatus(args.fileSystem, args.storageRoots, status);
         return {
             kind:
                 kind === GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED
@@ -187,14 +192,22 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         };
     }
 
-    const status = await buildStatusFromInspection({
-        existingStatus,
-        inspection,
-        checkedAt,
+    const status = await applyGitRemoteProjectStatus({
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
         projectPath: args.projectPath,
-        loadedProject: args.loadedProject,
-        trackedBranch: remoteInfo.trackedBranch,
-        gitProvider: args.gitProvider,
+        update: (latestStatus) =>
+            buildStatusFromInspection({
+                existingStatus:
+                    latestStatus ??
+                    createDefaultGitRemoteProjectStatus(args.projectPath),
+                inspection,
+                checkedAt,
+                projectPath: args.projectPath,
+                loadedProject: args.loadedProject,
+                trackedBranch: remoteInfo.trackedBranch,
+                gitProvider: args.gitProvider,
+            }),
     });
     console.debug("[gitRemoteOpenStatus] Classified remote status on open.", {
         projectPath: args.projectPath,
@@ -203,9 +216,8 @@ export async function hydrateGitRemoteStatusOnOpen(args: {
         remoteHead: inspection.remoteHead,
         statusKind: status.kind,
     });
-    await persistStatus(args.fileSystem, args.storageRoots, status);
     return {
-        kind: mapProjectStatusToOpenResult(status.kind),
+        kind: status.kind,
         status,
         remoteInfo,
     };
@@ -230,13 +242,6 @@ async function buildStatusFromInspection(args: {
         projectPath: args.projectPath,
         gitProvider: args.gitProvider,
     });
-    const latestIncomingAuthorName =
-        args.inspection.relationship.kind ===
-            GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY ||
-        args.inspection.relationship.kind === GIT_REMOTE_RELATIONSHIP_DIVERGED
-            ? headMetadata.remoteAuthorName
-            : null;
-
     const adoptRemoteResult = await shouldAdoptRemoteLatest({
         inspection: args.inspection,
         loadedProject: args.loadedProject,
@@ -246,8 +251,7 @@ async function buildStatusFromInspection(args: {
     });
 
     if (adoptRemoteResult.shouldAdopt) {
-        return buildStatus({
-            existingStatus: args.existingStatus,
+        return buildGitRemoteProjectStatus(args.existingStatus, {
             kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
             checkedAt: args.checkedAt,
             localHead: args.inspection.remoteHead,
@@ -258,12 +262,13 @@ async function buildStatusFromInspection(args: {
         });
     }
 
-    return buildStatusFromRelationship({
+    return buildStatusFromRemoteRelationship({
         existingStatus: args.existingStatus,
-        inspection: args.inspection,
+        relationship: args.inspection.relationship,
+        localHead: args.inspection.localHead,
+        remoteHead: args.inspection.remoteHead,
         checkedAt: args.checkedAt,
         headMetadata,
-        latestIncomingAuthorName,
     });
 }
 
@@ -306,75 +311,11 @@ async function shouldAdoptRemoteLatest(args: {
     return { shouldAdopt: false };
 }
 
-function buildStatusFromRelationship(args: {
-    existingStatus: GitRemoteProjectStatus;
-    inspection: GitRemoteInspection;
-    checkedAt: string;
-    headMetadata: {
-        localAuthoredAt: string | null;
-        remoteAuthoredAt: string | null;
-        remoteAuthorName: string | null;
-    };
-    latestIncomingAuthorName: string | null;
-}): GitRemoteProjectStatus {
-    switch (args.inspection.relationship.kind) {
-        case GIT_REMOTE_RELATIONSHIP_UP_TO_DATE:
-            return buildStatus({
-                existingStatus: args.existingStatus,
-                kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-                checkedAt: args.checkedAt,
-                localHead: args.inspection.localHead,
-                remoteHead: args.inspection.remoteHead,
-                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
-                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
-                latestIncomingAuthorName: null,
-            });
-        case GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY:
-            return buildStatus({
-                existingStatus: args.existingStatus,
-                kind: GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-                checkedAt: args.checkedAt,
-                localHead: args.inspection.localHead,
-                remoteHead: args.inspection.remoteHead,
-                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
-                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
-                latestIncomingAuthorName: args.latestIncomingAuthorName,
-            });
-        case GIT_REMOTE_RELATIONSHIP_DIVERGED:
-            return buildStatus({
-                existingStatus: args.existingStatus,
-                kind: GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-                checkedAt: args.checkedAt,
-                localHead: args.inspection.localHead,
-                remoteHead: args.inspection.remoteHead,
-                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
-                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
-                latestIncomingAuthorName: args.latestIncomingAuthorName,
-            });
-        case GIT_REMOTE_RELATIONSHIP_AHEAD_ONLY:
-        case GIT_REMOTE_RELATIONSHIP_UNTRACKED:
-            return buildStatus({
-                existingStatus: args.existingStatus,
-                kind: GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
-                checkedAt: args.checkedAt,
-                localHead: args.inspection.localHead,
-                remoteHead: args.inspection.remoteHead,
-                localHeadAuthoredAt: args.headMetadata.localAuthoredAt,
-                remoteHeadAuthoredAt: args.headMetadata.remoteAuthoredAt,
-                latestIncomingAuthorName: null,
-            });
-    }
-}
-
 async function readHeadCommitMetadata(args: {
     inspection: GitRemoteInspection;
     projectPath: string;
     gitProvider: Pick<GitProvider, "readCommitDetails">;
-}): Promise<{
-    localAuthoredAt: string | null;
-    remoteAuthoredAt: string | null;
-    remoteAuthorName: string | null;
-}> {
+}): Promise<GitRemoteHeadMetadata> {
     const uniqueHeads = [
         args.inspection.localHead,
         args.inspection.remoteHead,
@@ -472,71 +413,21 @@ async function projectContentMatchesRemoteLatest(args: {
     return matches.every(Boolean);
 }
 
-function buildStatus(args: {
-    existingStatus: GitRemoteProjectStatus;
-    kind: GitRemoteProjectStatus["kind"];
-    checkedAt: string;
-    localHead?: string | null;
-    remoteHead?: string | null;
-    localHeadAuthoredAt?: string | null;
-    remoteHeadAuthoredAt?: string | null;
-    latestIncomingAuthorName?: string | null;
-}): GitRemoteProjectStatus {
-    return {
-        ...args.existingStatus,
-        kind: args.kind,
-        lastCheckedAt: args.checkedAt,
-        lastKnownLocalHead:
-            args.localHead ?? args.existingStatus.lastKnownLocalHead,
-        lastKnownRemoteHead:
-            args.remoteHead ?? args.existingStatus.lastKnownRemoteHead,
-        lastKnownLocalHeadAuthoredAt:
-            args.localHeadAuthoredAt ??
-            args.existingStatus.lastKnownLocalHeadAuthoredAt,
-        lastKnownRemoteHeadAuthoredAt:
-            args.remoteHeadAuthoredAt ??
-            args.existingStatus.lastKnownRemoteHeadAuthoredAt,
-        latestIncomingAuthorName: args.latestIncomingAuthorName ?? null,
-    };
-}
-
-function mapProjectStatusToOpenResult(
-    kind: GitRemoteProjectStatus["kind"],
-): GitRemoteOpenStatusResult["kind"] {
-    switch (kind) {
-        case GIT_REMOTE_PROJECT_STATUS_CONNECTED:
-            return GIT_REMOTE_OPEN_STATUS_CONNECTED;
-        case GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH:
-            return GIT_REMOTE_OPEN_STATUS_PENDING_PUBLISH;
-        case GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE:
-            return GIT_REMOTE_OPEN_STATUS_REMOTE_UPDATES_AVAILABLE;
-        case GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW:
-            return GIT_REMOTE_OPEN_STATUS_NEEDS_REVIEW;
-        case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
-            return GIT_REMOTE_OPEN_STATUS_OFFLINE;
-        case GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED:
-            return GIT_REMOTE_OPEN_STATUS_REAUTH_REQUIRED;
-        case GIT_REMOTE_PROJECT_STATUS_SYNCING:
-            return GIT_REMOTE_OPEN_STATUS_CONNECTED;
-    }
-}
-
-async function persistStatus(
-    fileSystem: FileSystem,
-    storageRoots: StorageRoots,
-    status: GitRemoteProjectStatus,
-) {
-    await writeGitRemoteProjectStatus({
-        fileSystem,
-        storageRoots,
-        status,
+async function applyStatusPatch(args: {
+    fileSystem: FileSystem;
+    storageRoots: StorageRoots;
+    projectPath: string;
+    patch: Parameters<typeof buildGitRemoteProjectStatus>[1];
+}): Promise<GitRemoteProjectStatus> {
+    return await applyGitRemoteProjectStatus({
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
+        projectPath: args.projectPath,
+        update: (existing) =>
+            buildGitRemoteProjectStatus(
+                existing ??
+                    createDefaultGitRemoteProjectStatus(args.projectPath),
+                args.patch,
+            ),
     });
-}
-
-function isGitAuthLikeError(error: unknown): boolean {
-    const message =
-        error instanceof Error ? error.message : String(error ?? "");
-    return /401|403|authentication|authorization|access denied|forbidden/i.test(
-        message,
-    );
 }

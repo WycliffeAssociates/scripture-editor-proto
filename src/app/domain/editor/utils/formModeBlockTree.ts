@@ -5,12 +5,9 @@
 // USFM is a flat token stream where paragraph-class markers (\p, \q1, \s,
 // etc.) and verse markers (\v) are orthogonal axes — a single verse can
 // span many paragraph-class markers, and a single paragraph can hold
-// multiple verses.
-
-// Even though paragraph and verse axes are orthogonal, most parsers (including
-// ours) return data grouped by paragraph, so this view follows the same shape
-// for display. Paragraph-class markers form the top-level blocks; each block
-// contains the verse fragments that fall within it.
+// multiple verses. Most parsers (including ours) group data by paragraph, so
+// this view follows the same shape: paragraph-class markers form the top-level
+// blocks; each block contains the verse fragments that fall within it.
 //
 // The transformation is purely presentational: `block.tokens` is a SLICE of
 // the original flat token list, not a reconstruction from kind metadata.
@@ -23,6 +20,7 @@
 
 import type { SerializedLexicalNode } from "lexical";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { classifyParagraphMarker } from "@/app/domain/editor/markerTaxonomy.ts";
 import {
     createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
@@ -90,93 +88,6 @@ export type FormBlock = {
     fragments: FormVerseFragment[];
 };
 
-// USFM 3.x paragraph-class markers, grouped by visual role. Anything not
-// listed here is treated as inline (kept inside the current block) so
-// unknown markers degrade gracefully and round-trip stays exact.
-const POETRY_MARKERS = new Set([
-    "q",
-    "q1",
-    "q2",
-    "q3",
-    "q4",
-    "qa",
-    "qc",
-    "qm",
-    "qm1",
-    "qm2",
-    "qm3",
-    "qr",
-    "qd",
-]);
-
-const HEADING_MARKERS = new Set([
-    "s",
-    "s1",
-    "s2",
-    "s3",
-    "s4",
-    "sr",
-    "sd",
-    "sd1",
-    "sd2",
-    "sd3",
-    "sd4",
-    "sp",
-    "ms",
-    "ms1",
-    "ms2",
-    "ms3",
-    "ms4",
-    "mr",
-    "r",
-    "d",
-    "sb",
-    "sts",
-]);
-
-const RULE_MARKERS = new Set(["b", "pb"]);
-
-const LIST_MARKERS = new Set([
-    "li",
-    "li1",
-    "li2",
-    "li3",
-    "li4",
-    "litl",
-    "lim",
-    "lim1",
-    "lim2",
-    "lim3",
-    "lim4",
-]);
-
-const PARAGRAPH_MARKERS = new Set([
-    "p",
-    "m",
-    "mi",
-    "nb",
-    "cls",
-    "lh",
-    "lf",
-    "lit",
-    "pi",
-    "pi1",
-    "pi2",
-    "pi3",
-    "pc",
-    "pmo",
-    "pm",
-    "pmc",
-    "pmr",
-    "pr",
-    "ph",
-    "ph1",
-    "ph2",
-    "ph3",
-    "hl",
-    "no",
-]);
-
 /**
  * Derive a block's `kind` from its head token. Used by renderers that
  * receive raw `block.tokens` and need to apply per-kind styling without
@@ -199,15 +110,13 @@ export function deriveBlockKind(
 
 /**
  * Maps a marker name to its block kind, or null when the marker is not
- * paragraph-class (and therefore should not start a new block).
+ * paragraph-class (and therefore should not start a new block). The category
+ * comes from the canonical `markerTaxonomy`; this only attaches the marker to
+ * the resulting FormBlockKind variant.
  */
 function classifyMarker(marker: string): FormBlockKind | null {
-    if (POETRY_MARKERS.has(marker)) return { variant: "poetry", marker };
-    if (HEADING_MARKERS.has(marker)) return { variant: "heading", marker };
-    if (RULE_MARKERS.has(marker)) return { variant: "rule", marker };
-    if (LIST_MARKERS.has(marker)) return { variant: "list", marker };
-    if (PARAGRAPH_MARKERS.has(marker)) return { variant: "paragraph", marker };
-    return null;
+    const category = classifyParagraphMarker(marker);
+    return category === null ? null : { variant: category, marker };
 }
 
 /**
@@ -874,17 +783,6 @@ export function nextVerseSidFrom(
     };
 }
 
-/**
- * Split a block's tokens at the given fragment. Caller uses this to
- * turn one block into two when the user inserts a new paragraph-class
- * marker between two existing fragments. The new block's tokens lead
- * with `newBlockMarker`'s framing then continue with the remainder of
- * the original tokens from the fragment forward.
- *
- * Returns null when the fragment doesn't carry any tokens to split on
- * (defensive — shouldn't happen for fragments produced by
- * `extractFragmentsFromBlock`).
- */
 /**
  * Insert a verse-fragment (`\v N \n`) into a block immediately *before*
  * the given fragment. Used when the user clicks a within-block `+` and

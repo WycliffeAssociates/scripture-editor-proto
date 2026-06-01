@@ -143,55 +143,46 @@ function makeService(args?: {
     } as unknown as IUsfmOnionService;
 }
 
-describe("applyLintFixToFile", () => {
+// applyLintFixToFile is now SCRATCH-ONLY + COMPUTE per the withWorkingFilesDraft
+// contract: it mutates only the file it's handed and returns data. The diff/lint
+// refresh, editor sync, and success toast moved to the hook's post-commit
+// `invalidate` (so a stale/gate abort can't publish "fix applied" for a write
+// that didn't land). These tests pin the compute contract; the post-commit
+// ordering is guaranteed by workingFileCommand.test.ts (invalidate runs only on
+// a real commit).
+describe("applyLintFixToFile (scratch compute)", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it("applies an off-screen fix in one click without refreshing the current editor", async () => {
+    it("applies a fix to the scratch file and reports applied:true", async () => {
         const file = makeScriptureBookState();
         rebuildParsedFileFromUsfmMock.mockImplementation(
             async ({ targetFile }) => {
                 targetFile.chapters = file.chapters;
             },
         );
-        const service = makeService({
-            lintScope: vi.fn(async () => [[]]),
-        });
-        const updateDiffMapForChapter = vi.fn();
-        const commitBookLintResults = vi.fn();
-        const setEditorContent = vi.fn();
-        const notifySuccess = vi.fn();
+        const service = makeService({ lintScope: vi.fn(async () => [[]]) });
         const fix = makeIssue().fix;
-        if (!fix) {
-            throw new Error("Fix is required");
-        }
+        if (!fix) throw new Error("Fix is required");
 
-        const didApply = await applyLintFixToFile({
+        const result = await applyLintFixToFile({
             err: makeIssue(),
             issueFix: fix,
             file,
             targetBookCode: "GEN",
             targetChapterNumber: 2,
-            currentFileBibleIdentifier: "GEN",
-            currentChapter: 1,
             usfmOnionService: service,
-            updateDiffMapForChapter,
-            commitBookLintResults,
-            setEditorContent,
-            notifySuccess,
         });
 
-        expect(didApply).toBe(true);
+        expect(result.applied).toBe(true);
+        // No fallback relint needed when the fix anchors on the first try.
+        expect(result.fallbackIssues).toBeUndefined();
         expect(service.applyTokenFixes).toHaveBeenCalledTimes(1);
-        expect(updateDiffMapForChapter).toHaveBeenCalledWith("GEN", 1);
-        expect(updateDiffMapForChapter).toHaveBeenCalledWith("GEN", 2);
-        expect(setEditorContent).not.toHaveBeenCalled();
-        expect(commitBookLintResults).toHaveBeenCalledWith({ GEN: [] });
-        expect(notifySuccess).toHaveBeenCalledWith("missing-space");
+        expect(rebuildParsedFileFromUsfmMock).toHaveBeenCalledTimes(1);
     });
 
-    it("re-lints once and retries when the original fix no longer anchors", async () => {
+    it("re-lints once and retries when the original fix no longer anchors, surfacing fallbackIssues", async () => {
         const file = makeScriptureBookState();
         rebuildParsedFileFromUsfmMock.mockImplementation(
             async ({ targetFile }) => {
@@ -246,147 +237,56 @@ describe("applyLintFixToFile", () => {
                 ],
             },
         });
-        const lintScope = vi
-            .fn()
-            .mockResolvedValueOnce([[normalizedIssue]])
-            .mockResolvedValueOnce([[normalizedIssue]]);
+        const lintScope = vi.fn().mockResolvedValueOnce([[normalizedIssue]]);
         const service = makeService({ applyTokenFixes, lintScope });
-        const commitBookLintResults = vi.fn();
 
         const fix = makeIssue().fix;
-        if (!fix) {
-            throw new Error("Fix is required");
-        }
+        if (!fix) throw new Error("Fix is required");
 
-        const didApply = await applyLintFixToFile({
+        const result = await applyLintFixToFile({
             err: makeIssue(),
             issueFix: fix,
             file,
             targetBookCode: "GEN",
             targetChapterNumber: 2,
-            currentFileBibleIdentifier: "GEN",
-            currentChapter: 1,
             usfmOnionService: service,
-            updateDiffMapForChapter: vi.fn(),
-            commitBookLintResults,
-            setEditorContent: vi.fn(),
-            notifySuccess: vi.fn(),
         });
 
-        expect(didApply).toBe(true);
+        expect(result.applied).toBe(true);
         expect(applyTokenFixes).toHaveBeenCalledTimes(2);
-        expect(commitBookLintResults).toHaveBeenCalledWith({
-            GEN: [normalizedIssue],
-        });
+        // The fallback relint is surfaced (compute only) so the hook can refresh
+        // the lint panel — it is NOT committed inside this function.
+        expect(result.fallbackIssues).toEqual([normalizedIssue]);
     });
 
-    it("returns false and does not notify when retry still cannot apply", async () => {
+    it("reports applied:false and does not rebuild when retry still cannot apply", async () => {
         const file = makeScriptureBookState();
         const applyTokenFixes = vi.fn().mockResolvedValue({
             tokens: [],
             appliedChanges: [],
             skippedChanges: [],
         });
+        const fallback = [makeIssue({ fix: undefined })];
         const service = makeService({
             applyTokenFixes,
-            lintScope: vi.fn(async () => [[makeIssue({ fix: undefined })]]),
+            lintScope: vi.fn(async () => [fallback]),
         });
-        const notifySuccess = vi.fn();
         const fix = makeIssue().fix;
-        if (!fix) {
-            throw new Error("Fix is required");
-        }
+        if (!fix) throw new Error("Fix is required");
 
-        const didApply = await applyLintFixToFile({
+        const result = await applyLintFixToFile({
             err: makeIssue(),
             issueFix: fix,
             file,
             targetBookCode: "GEN",
             targetChapterNumber: 2,
-            currentFileBibleIdentifier: "GEN",
-            currentChapter: 1,
             usfmOnionService: service,
-            updateDiffMapForChapter: vi.fn(),
-            commitBookLintResults: vi.fn(),
-            setEditorContent: vi.fn(),
-            notifySuccess,
         });
 
-        expect(didApply).toBe(false);
-        expect(notifySuccess).not.toHaveBeenCalled();
+        expect(result.applied).toBe(false);
+        // The fallback relint is still surfaced so the no-op path can refresh
+        // the lint panel post-transaction.
+        expect(result.fallbackIssues).toEqual(fallback);
         expect(rebuildParsedFileFromUsfmMock).not.toHaveBeenCalled();
-    });
-
-    it("clears stale off-screen lint in one click by relinting the rebuilt file", async () => {
-        const file = makeScriptureBookState();
-        rebuildParsedFileFromUsfmMock.mockImplementation(
-            async ({ targetFile }) => {
-                targetFile.chapters = [
-                    {
-                        chapterNumber: 1,
-                        dirty: false,
-                        sourceTokens: [],
-                        currentTokens: [],
-                        loadedLexicalState: makeEditorState(
-                            "one",
-                            "GEN 1:1",
-                            "tok-1",
-                        ),
-                        lexicalState: makeEditorState(
-                            "one",
-                            "GEN 1:1",
-                            "tok-1",
-                        ),
-                    },
-                    {
-                        chapterNumber: 2,
-                        dirty: true,
-                        sourceTokens: [],
-                        currentTokens: [],
-                        loadedLexicalState: makeEditorState(
-                            "two",
-                            "GEN 2:1",
-                            "tok-2",
-                        ),
-                        lexicalState: makeEditorState(
-                            "rebuilt",
-                            "GEN 2:1",
-                            "tok-2-new",
-                        ),
-                    },
-                ];
-            },
-        );
-
-        const lintScope = vi.fn(async ([scope]) => {
-            const texts = scope.tokens.map(
-                (token: { source: string }) => token.source,
-            );
-            return [texts.includes("rebuilt") ? [] : [makeIssue()]];
-        });
-        const service = makeService({ lintScope });
-        const commitBookLintResults = vi.fn();
-        const fix = makeIssue().fix;
-        if (!fix) {
-            throw new Error("Fix is required");
-        }
-
-        const didApply = await applyLintFixToFile({
-            err: makeIssue(),
-            issueFix: fix,
-            file,
-            targetBookCode: "GEN",
-            targetChapterNumber: 2,
-            currentFileBibleIdentifier: "EXO",
-            currentChapter: 1,
-            usfmOnionService: service,
-            updateDiffMapForChapter: vi.fn(),
-            commitBookLintResults,
-            setEditorContent: vi.fn(),
-            notifySuccess: vi.fn(),
-        });
-
-        expect(didApply).toBe(true);
-        expect(commitBookLintResults).toHaveBeenCalledWith({ GEN: [] });
     });
 });

@@ -4,7 +4,7 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
-    buildCompareResult,
+    buildCompareResultAsync,
     type CompareMetadataSummary,
 } from "@/app/domain/project/compare/compareService.ts";
 import { normalizeTokenSids } from "@/core/domain/usfm/tokenSidNormalization.ts";
@@ -13,7 +13,6 @@ import {
     applyIncomingChapterAll,
     applyIncomingHunk,
 } from "@/app/domain/project/compare/compareMutations.ts";
-import type { CompareSessionConfig } from "@/app/domain/project/compare/types.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Diff, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
@@ -110,16 +109,6 @@ function makeFiles(args: {
     ];
 }
 
-function config(): CompareSessionConfig {
-    return {
-        mode: "external",
-        source: {
-            kind: "existingProject",
-            projectId: "source",
-        },
-    };
-}
-
 function makeDiffs(baselineTokens: Token[], currentTokens: Token[]): Diff[] {
     const originalText = baselineTokens.map((token) => token.source).join("");
     const currentText = currentTokens.map((token) => token.source).join("");
@@ -178,7 +167,7 @@ function createStubUsfmOnionService(): IUsfmOnionService {
 
 const usfmOnionService = createStubUsfmOnionService();
 
-describe("compareService.buildCompareResult", () => {
+describe("compareService.buildCompareResultAsync", () => {
     it("normalizes chapter-0 document markers onto the intro sid", () => {
         const normalized = normalizeTokenSids(
             [
@@ -215,9 +204,8 @@ describe("compareService.buildCompareResult", () => {
             currentText: "gamma",
         });
 
-        const result = await buildCompareResult({
+        const result = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -241,9 +229,8 @@ describe("compareService.buildCompareResult", () => {
             bookCode: "EXO",
         });
 
-        const result = await buildCompareResult({
+        const result = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -276,9 +263,8 @@ describe("compareService.buildCompareResult", () => {
             languageDirection: "rtl",
         };
 
-        const result = await buildCompareResult({
+        const result = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: currentMeta,
             sourceMetadata: sourceMeta,
@@ -305,9 +291,8 @@ describe("compareService apply incoming", () => {
             loadedText: "gamma",
             currentText: "gamma",
         });
-        const result = await buildCompareResult({
+        const result = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -325,9 +310,8 @@ describe("compareService apply incoming", () => {
             usfmOnionService,
         });
 
-        const after = await buildCompareResult({
+        const after = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -355,9 +339,8 @@ describe("compareService apply incoming", () => {
             chapterNum: 1,
         });
 
-        const after = await buildCompareResult({
+        const after = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,
@@ -393,9 +376,8 @@ describe("compareService apply incoming", () => {
             sourceFiles: source,
         });
 
-        const after = await buildCompareResult({
+        const after = await buildCompareResultAsync({
             currentFiles: current,
-            config: config(),
             sourceFiles: source,
             currentMetadata: undefined,
             sourceMetadata: undefined,

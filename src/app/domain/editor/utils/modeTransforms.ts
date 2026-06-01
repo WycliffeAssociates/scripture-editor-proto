@@ -10,6 +10,7 @@ import {
     type EditorShape,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
+import { isSectionMarker } from "@/app/domain/editor/markerTaxonomy.ts";
 import {
     createSerializedBookFrontmatterFormNode,
     isSerializedBookFrontmatterFormNode,
@@ -103,8 +104,6 @@ function isSerializedEndMarkerToken(
     );
 }
 
-const isSectionMarker = (marker: string) =>
-    marker === "s" || /^s\d+$/u.test(marker);
 const isContainerStartMarker = (marker: string) =>
     isValidParaMarker(marker) ||
     isDocumentMarker(marker) ||

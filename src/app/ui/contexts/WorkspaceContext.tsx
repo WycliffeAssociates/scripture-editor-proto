@@ -1,5 +1,5 @@
 import { useLoaderData, useRouter } from "@tanstack/react-router";
-import { Deferred, Effect, Fiber } from "effect";
+import { Deferred, Effect } from "effect";
 import type { LexicalEditor } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
@@ -10,16 +10,7 @@ import { makeOverlayTickPipeline } from "@/app/domain/editor/pipelines/overlayTi
 import { makeRecoveredConflictTrackerSubscriber } from "@/app/domain/editor/pipelines/recoveredConflictTrackerSubscriber.ts";
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
-import {
-    GIT_REMOTE_OPEN_STATUS_NOT_LINKED,
-    type GitRemoteOpenStatusResult,
-    hydrateGitRemoteStatusOnOpen,
-} from "@/app/domain/project/gitRemoteOpenStatus.ts";
-import {
-    PUBLISH_AFTER_SAVE_PUBLISHED,
-    publishLinkedProjectNow,
-} from "@/app/domain/project/gitRemotePublishCoordinator.ts";
-import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
+import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
@@ -33,10 +24,7 @@ import {
     WorkingFilesStore,
 } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
-import {
-    requireGateOpen,
-    WorkspaceGateStore,
-} from "@/app/state/WorkspaceInteractionGate.ts";
+import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
@@ -53,11 +41,13 @@ import {
     type UseDynamicStylesheetHook,
     useDynamicStylesheet,
 } from "@/app/ui/hooks/useDynamicStyles.tsx";
+import { useForkedPipeline } from "@/app/ui/hooks/useForkedPipeline.ts";
 import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint.tsx";
 import {
     type ReferenceItemHook,
     useReferenceItem,
 } from "@/app/ui/hooks/useReferenceItem.tsx";
+import { useRemoteSync } from "@/app/ui/hooks/useRemoteSync.ts";
 import { type UseSaveReturn, useSave } from "@/app/ui/hooks/useSave.tsx";
 import {
     type UseSearchReturn,
@@ -69,14 +59,10 @@ import {
     type WorkspaceState,
 } from "@/app/ui/hooks/useWorkspaceState.tsx";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
-import {
-    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
-    GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
-    GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    type GitRemoteProjectInfo,
-    type GitRemoteProjectStatus,
+import type {
+    GitRemoteProjectInfo,
+    GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
-import { readGitRemoteProjectStatus } from "@/core/persistence/gitRemoteStore.ts";
 import type {
     Project,
     ProjectListItem,
@@ -265,9 +251,8 @@ export const ProjectProvider = ({
     const searchHighlightStore = useStableInstance(
         () => new SearchHighlightStore(),
     );
-    // Resolves once the bridge plugin mounts. The structure pipeline and
-    // future Effect.gen commands (chapter-swap) await this to avoid racing
-    // the editor reference.
+    // Resolves once the bridge plugin mounts. Effect-side commands and
+    // pipelines await this instead of racing the editor reference.
     const mainEditorDeferred = useStableInstance(() =>
         Effect.runSync(Deferred.make<LexicalEditor>()),
     );
@@ -282,84 +267,68 @@ export const ProjectProvider = ({
         usfmOnionService,
         gitProvider,
     } = useRouter().options.context;
-    // Fork the lint pipeline as a workspace-scoped fiber. Subscribes to
-    // `workingFilesStore.changes`, debounces, switchMaps to `lintExisting`,
-    // writes results into LintStore. See `makeLintPipeline` for the filter.
-    useEffect(() => {
-        const pipeline = makeLintPipeline({
-            workingFilesStore,
-            lintStore,
-            usfmOnionService,
-        });
-        const fiber = Effect.runFork(pipeline);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [workingFilesStore, lintStore, usfmOnionService]);
+    // Workspace-scoped reactive pipelines. These are *effects* the workspace
+    // owns for lifecycle, but the kernel doesn't hand-roll each fork/interrupt —
+    // `useForkedPipeline` codifies that. (Not every effect has to live inline in
+    // the kernel; this keeps the wiring declarative.)
+    //
+    // Lint: subscribes to `workingFilesStore.changes`, debounces, switchMaps to
+    // `lintExisting`, writes into LintStore. See `makeLintPipeline` for the filter.
+    useForkedPipeline(
+        () =>
+            makeLintPipeline({
+                workingFilesStore,
+                lintStore,
+                usfmOnionService,
+            }),
+        [workingFilesStore, lintStore, usfmOnionService],
+    );
 
-    // Fork the save-status pipeline as a workspace-scoped fiber. Flips
-    // SaveStatusStore to `dirty` on every text-changing commit. See
-    // `makeSaveStatusPipeline` for the filter.
-    useEffect(() => {
-        const pipeline = makeSaveStatusPipeline({
-            workingFilesStore,
-            saveStatusStore,
-        });
-        const fiber = Effect.runFork(pipeline);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [workingFilesStore, saveStatusStore]);
+    // Save-status: flips SaveStatusStore to `dirty` on every text-changing commit.
+    useForkedPipeline(
+        () => makeSaveStatusPipeline({ workingFilesStore, saveStatusStore }),
+        [workingFilesStore, saveStatusStore],
+    );
 
-    // Fork the overlay-tick pipeline. Bumps `LayoutTickStore` once per quiet
-    // 16ms after commits settle so overlay sinks can re-measure without each
-    // wiring its own MutationObserver. Window-level resize/scroll bumps below
-    // cover the non-commit layout signals.
-    useEffect(() => {
-        const pipeline = makeOverlayTickPipeline({
-            workingFilesStore,
-            layoutTickStore,
-        });
-        const fiber = Effect.runFork(pipeline);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [workingFilesStore, layoutTickStore]);
+    // Overlay-tick: bumps `LayoutTickStore` once per quiet 16ms after commits
+    // settle so overlay sinks can re-measure without each wiring its own
+    // MutationObserver. Window-level resize/scroll bumps below cover non-commit
+    // layout signals.
+    useForkedPipeline(
+        () => makeOverlayTickPipeline({ workingFilesStore, layoutTickStore }),
+        [workingFilesStore, layoutTickStore],
+    );
 
-    // Fork the crash-recovery dirty-buffer pipeline: writes per-book USFM
-    // backups while books are dirty, clears them when saved/reverted. See
-    // `makeDirtyBufferPipeline` for the per-book debounce + ceiling + retry.
-    useEffect(() => {
-        const pipeline = makeDirtyBufferPipeline({
+    // Crash-recovery dirty-buffer: writes per-book USFM backups while books are
+    // dirty, clears them when saved/reverted. See `makeDirtyBufferPipeline` for
+    // the per-book debounce + ceiling + retry.
+    useForkedPipeline(
+        () =>
+            makeDirtyBufferPipeline({
+                workingFilesStore,
+                workspaceBaselineStore,
+                dirtyBufferStore,
+                workspaceKey,
+                appVersion: DIRTY_BUFFER_APP_VERSION,
+            }),
+        [
             workingFilesStore,
             workspaceBaselineStore,
             dirtyBufferStore,
             workspaceKey,
-            appVersion: DIRTY_BUFFER_APP_VERSION,
-        });
-        const fiber = Effect.runFork(pipeline);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [
-        workingFilesStore,
-        workspaceBaselineStore,
-        dirtyBufferStore,
-        workspaceKey,
-    ]);
+        ],
+    );
 
-    // Fork the recovered-conflict tracker subscriber: clears tracker entries as
-    // their chapters are observed clean (save success, revert, etc.).
-    useEffect(() => {
-        const subscriber = makeRecoveredConflictTrackerSubscriber({
-            workingFilesStore,
-            tracker: recoveredConflictTracker,
-        });
-        const fiber = Effect.runFork(subscriber);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [workingFilesStore, recoveredConflictTracker]);
+    // Recovered-conflict tracker subscriber: clears tracker entries as their
+    // chapters are observed clean (save success, revert, etc.).
+    useForkedPipeline(
+        () =>
+            makeRecoveredConflictTrackerSubscriber({
+                workingFilesStore,
+                tracker: recoveredConflictTracker,
+            }),
+        [workingFilesStore, recoveredConflictTracker],
+    );
 
     // Window-level resize/scroll → layout tick. Plain DOM listeners; the
     // store coalesces (consumers debounce via rAF if they want).
@@ -396,18 +365,16 @@ export const ProjectProvider = ({
     // Deferred, then runs structure + metadata passes. Writebacks publish as
     // `kind: "structuralFixup"` (filtered by every other pipeline, including
     // this one) which breaks the feedback loop.
-    useEffect(() => {
-        const pipeline = makeStructureMaintenancePipeline({
-            workingFilesStore,
-            mainEditorDeferred,
-            getAppSettings: () => appSettingsRef.current,
-            getVisibleBookCode: () => visibleBookCodeRef.current,
-        });
-        const fiber = Effect.runFork(pipeline);
-        return () => {
-            Effect.runFork(Fiber.interrupt(fiber));
-        };
-    }, [workingFilesStore, mainEditorDeferred]);
+    useForkedPipeline(
+        () =>
+            makeStructureMaintenancePipeline({
+                workingFilesStore,
+                mainEditorDeferred,
+                getAppSettings: () => appSettingsRef.current,
+                getVisibleBookCode: () => visibleBookCodeRef.current,
+            }),
+        [workingFilesStore, mainEditorDeferred],
+    );
     const history = useCustomHistory({
         workingFilesStore,
         interactionGate,
@@ -416,12 +383,9 @@ export const ProjectProvider = ({
         currentChapter:
             project.pickedChapter?.chapterNumber || project.currentChapter,
     });
-    const [remoteStatus, setRemoteStatus] =
-        useState<GitRemoteProjectStatus | null>(null);
-    const [remoteProjectInfo, setRemoteProjectInfo] =
-        useState<GitRemoteProjectInfo | null>(null);
-    const [isRefreshingRemoteStatus, setIsRefreshingRemoteStatus] =
-        useState(false);
+    const remoteStatusSetterRef = useRef<
+        (status: GitRemoteProjectStatus | null) => void
+    >(() => {});
     const save = useSave({
         workingFilesStore,
         workspaceBaselineStore,
@@ -440,8 +404,21 @@ export const ProjectProvider = ({
         editorMode: settingsManager.get("editorMode"),
         allProjects: projects,
         currentProjectRoute,
-        onGitRemoteStatusChanged: setRemoteStatus,
+        onGitRemoteStatusChanged: (status) =>
+            remoteStatusSetterRef.current(status),
     });
+    const remote = useRemoteSync({
+        loadedProject,
+        fileSystem,
+        storageRoots,
+        settingsManager,
+        authSessionProvider,
+        gitProvider,
+        interactionGate,
+        recoveredConflictTracker,
+        save,
+    });
+    remoteStatusSetterRef.current = remote.setStatus;
 
     const lint = useLint({
         lintStore,
@@ -497,61 +474,6 @@ export const ProjectProvider = ({
         history,
     });
 
-    const applyHydratedRemoteResult = useCallback(
-        (result: GitRemoteOpenStatusResult) => {
-            if (result.kind === GIT_REMOTE_OPEN_STATUS_NOT_LINKED) {
-                setRemoteStatus(null);
-                setRemoteProjectInfo(null);
-                return;
-            }
-            setRemoteStatus(result.status);
-            setRemoteProjectInfo(
-                "remoteInfo" in result ? result.remoteInfo : null,
-            );
-        },
-        [],
-    );
-
-    const syncRemoteStatus = useCallback(
-        async (forceSync = false) => {
-            setIsRefreshingRemoteStatus(true);
-            try {
-                const result = await hydrateGitRemoteStatusOnOpen({
-                    projectPath: loadedProject.projectPath,
-                    loadedProject,
-                    fileSystem,
-                    storageRoots,
-                    settingsManager,
-                    authSessionProvider,
-                    gitProvider,
-                    forceSync,
-                });
-                applyHydratedRemoteResult(result);
-                return result;
-            } finally {
-                setIsRefreshingRemoteStatus(false);
-            }
-        },
-        [
-            applyHydratedRemoteResult,
-            authSessionProvider,
-            fileSystem,
-            gitProvider,
-            settingsManager,
-            storageRoots,
-            loadedProject,
-        ],
-    );
-
-    useEffect(() => {
-        void syncRemoteStatus().catch((error) => {
-            console.error(
-                "Failed to hydrate remote project status on open",
-                error,
-            );
-        });
-    }, [syncRemoteStatus]);
-
     // Keep lint state in sync after history replay (undo/redo), including
     // entries that touch chapters outside the currently visible editor.
     useEffect(() => {
@@ -585,21 +507,14 @@ export const ProjectProvider = ({
         });
     }, [history, lint, usfmOnionService, workingFilesStore]);
 
-    function bookCodeToProjectLocalizedTitle({
-        bookCode,
-        replaceCodeInString,
-    }: {
+    // Thin wrapper binding the pure `bookCodeToTitle` (see ./bookTitle.ts) to this
+    // project's book list — the only thing the context actually adds is scope to
+    // `loadedProject`.
+    function bookCodeToProjectLocalizedTitle(args: {
         bookCode: string;
         replaceCodeInString?: string;
     }) {
-        const file = loadedProject.books.find(
-            (file) => file.bookCode === bookCode,
-        );
-        if (!file) return bookCode;
-        if (replaceCodeInString) {
-            return replaceCodeInString.replace(bookCode, file.title);
-        }
-        return file.title;
+        return bookCodeToTitle(loadedProject.books, args);
     }
 
     // Replace store state wholesale when the route swaps in a fresh project.
@@ -638,105 +553,6 @@ export const ProjectProvider = ({
     const dismissRecoveryReport = useCallback(() => {
         setIsRecoveryReportOpen(false);
     }, []);
-
-    // Remote sync. Two outbound branches (pending-publish, auto-accept incoming)
-    // plus a gated incoming-reconciliation branch — described inline below.
-    const syncNow = useCallback(async () => {
-        if (remoteStatus?.kind === GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH) {
-            setIsRefreshingRemoteStatus(true);
-            try {
-                const publishResult = await publishLinkedProjectNow({
-                    projectPath: loadedProject.projectPath,
-                    fileSystem,
-                    storageRoots,
-                    authSessionProvider,
-                    gitProvider,
-                });
-                if (publishResult.kind !== PUBLISH_AFTER_SAVE_PUBLISHED) {
-                    await syncRemoteStatus(true);
-                    return;
-                }
-
-                const persistedStatus = await readGitRemoteProjectStatus({
-                    fileSystem,
-                    storageRoots,
-                    projectPath: loadedProject.projectPath,
-                });
-                setRemoteStatus(persistedStatus);
-                return;
-            } finally {
-                setIsRefreshingRemoteStatus(false);
-            }
-        }
-        // Defer ONLY the incoming-reconciliation branch while the workspace is
-        // gated (a recovery Keep/Discard decision is pending, or a save is in
-        // flight) OR while recovered conflicts are unresolved — either state
-        // means incoming source could clobber recovered/unsaved work the user
-        // hasn't acknowledged. (A baseline-matched restore leaves the tracker
-        // empty but the gate recovery-decision-pending, so the gate check is
-        // load-bearing here, not redundant.) Outbound publish (handled above)
-        // and the status refresh (below) proceed.
-        if (
-            !requireGateOpen(interactionGate.get()) ||
-            !recoveredConflictTracker.isEmpty()
-        ) {
-            console.info(
-                "[syncNow] incoming reconciliation deferred — workspace gated or recovered conflicts pending review",
-            );
-            await syncRemoteStatus(true);
-            return;
-        }
-        if (
-            (remoteStatus?.kind ===
-                GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE ||
-                remoteStatus?.kind ===
-                    GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW) &&
-            settingsManager.get("autoAcceptIncomingWork")
-        ) {
-            const suppressReviewModal =
-                remoteStatus?.kind ===
-                GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE;
-            const reviewResult = suppressReviewModal
-                ? await save.compare.openRemoteLatestReview({
-                      openModalOnRequiresReview: false,
-                  })
-                : await save.compare.openRemoteLatestReview();
-            const reconciliation = reviewResult?.requiresReconciliationSave;
-            if (reconciliation) {
-                await save.save.saveProjectToDisk({
-                    prepareRemoteBaseForSave: async () => {
-                        await prepareRemoteBaseForReconciliation({
-                            projectPath: loadedProject.projectPath,
-                            trackedBranch: reconciliation.trackedBranch,
-                            remoteHead: reconciliation.remoteHead,
-                            relationship: reconciliation.relationship,
-                            gitProvider,
-                        });
-                    },
-                });
-            }
-            await syncRemoteStatus(true);
-            return;
-        }
-        await syncRemoteStatus(true);
-    }, [
-        authSessionProvider,
-        fileSystem,
-        gitProvider,
-        interactionGate,
-        loadedProject.projectPath,
-        recoveredConflictTracker,
-        remoteStatus,
-        save.compare,
-        save.save,
-        settingsManager,
-        storageRoots,
-        syncRemoteStatus,
-    ]);
-
-    const reviewIncoming = useCallback(async () => {
-        await save.compare.openRemoteLatestReview();
-    }, [save.compare]);
 
     const discardRecoveredWork = useCallback(async () => {
         const refs: { bookCode: string; chapterNum: number }[] = [];
@@ -816,11 +632,11 @@ export const ProjectProvider = ({
                 save,
                 history,
                 remote: {
-                    status: remoteStatus,
-                    projectInfo: remoteProjectInfo,
-                    isRefreshing: isRefreshingRemoteStatus,
-                    syncNow,
-                    reviewIncoming,
+                    status: remote.status,
+                    projectInfo: remote.projectInfo,
+                    isRefreshing: remote.isRefreshing,
+                    syncNow: remote.syncNow,
+                    reviewIncoming: remote.reviewIncoming,
                 },
                 recovery: {
                     restoredBookCodes,

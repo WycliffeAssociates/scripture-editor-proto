@@ -7,6 +7,7 @@ import type {
     LintIssue as OnionLintIssue,
     LintOptions as OnionLintOptions,
     MarkerInfo as OnionMarkerInfo,
+    ParagraphCategory as OnionParagraphCategory,
     ParsedUsfm as OnionParsedUsfm,
     Token as OnionToken,
     TokenAlignment as OnionTokenAlignment,
@@ -26,6 +27,12 @@ export type AttributeItem = OnionAttributeItem;
 export type BuildSidBlocksOptions = OnionBuildSidBlocksOptions;
 export type ParsedUsfm = OnionParsedUsfm;
 export type MarkerInfo = OnionMarkerInfo;
+/**
+ * Semantic/presentation class of a paragraph-kind marker, straight from
+ * usfm-onion (v0.0.5+). This is the axis the app's form-mode taxonomy derives
+ * from — `"poetry"` distinguishes poetic lines (which `family` does not).
+ */
+export type ParagraphCategory = OnionParagraphCategory;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
 export type DiffUndoSide = OnionDiffUndoSide;
 export type DiffTokenAlignment = OnionTokenAlignment;

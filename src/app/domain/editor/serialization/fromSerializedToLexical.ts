@@ -5,6 +5,7 @@ import {
     type USFMNodeJSON,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
+import { isSectionMarker } from "@/app/domain/editor/markerTaxonomy.ts";
 import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
@@ -93,9 +94,6 @@ function serializeLeafToken(
     return serializeToken(token, languageDirection);
 }
 
-// TODO: move this into the shared onion marker registry once `s5` is modeled there.
-const isSectionMarker = (marker: string) =>
-    marker === "s" || /^s\d+$/u.test(marker);
 const isContainerStartMarker = (marker: string) =>
     isValidParaMarker(marker) ||
     isDocumentMarker(marker) ||
@@ -245,7 +243,6 @@ function serializeToken(
     token: LexicalHydrationToken,
     languageDirection: LanguageDirection,
 ): USFMNodeJSON {
-    //
     if (
         nestedEditorMarkers.has(token.marker ?? "") &&
         token.tokenType !== UsfmTokenTypes.endMarker
@@ -311,6 +308,5 @@ function serializeToken(
         marker: token.marker,
         inPara: token.inPara,
         inChars: token.inChars,
-        // maybe set isMutable and show from parse if remembering settings? Right now we just adjust once we've rendered the stuff. NOt sure
     });
 }
