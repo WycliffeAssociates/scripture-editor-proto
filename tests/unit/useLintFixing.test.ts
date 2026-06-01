@@ -60,6 +60,7 @@ function makeScriptureBookState(): ScriptureBookState {
             {
                 chapterNumber: 1,
                 dirty: false,
+                eol: "\n",
                 sourceTokens: [],
                 currentTokens: [],
                 loadedLexicalState: makeEditorState("one", "GEN 1:1", "tok-1"),
@@ -68,6 +69,7 @@ function makeScriptureBookState(): ScriptureBookState {
             {
                 chapterNumber: 2,
                 dirty: false,
+                eol: "\n",
                 sourceTokens: [],
                 currentTokens: [],
                 loadedLexicalState: makeEditorState("two", "GEN 2:1", "tok-2"),

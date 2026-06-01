@@ -73,6 +73,7 @@ function makeFiles(args: {
                 {
                     chapterNumber: chapterNum,
                     dirty: args.loadedText !== args.currentText,
+                    eol: "\n" as const,
                     sourceTokens: makeTokens(
                         args.loadedText,
                         `${bookCode} ${chapterNum}:1`,

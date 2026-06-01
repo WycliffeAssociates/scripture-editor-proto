@@ -226,8 +226,8 @@ export function useCustomHistory({
                 bookCode: currentFileBibleIdentifier,
             });
             chapter.dirty =
-                tokensToUsfm(chapter.currentTokens) !==
-                tokensToUsfm(chapter.sourceTokens);
+                tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+                tokensToUsfm(chapter.sourceTokens, chapter.eol);
         },
         [currentFileBibleIdentifier],
     );

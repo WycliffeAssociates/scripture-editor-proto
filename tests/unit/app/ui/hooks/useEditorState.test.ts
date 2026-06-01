@@ -8,6 +8,7 @@ function makeChapterState(
     return {
         chapterNumber: 1,
         dirty: false,
+        eol: "\n",
         sourceTokens: [],
         currentTokens: [],
         lexicalState: {

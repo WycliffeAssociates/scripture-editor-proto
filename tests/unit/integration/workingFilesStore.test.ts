@@ -47,6 +47,7 @@ function makeChapterPinnedToSource(text: string): ScriptureChapterState {
     return {
         chapterNumber: 1,
         dirty: false,
+        eol: "\n",
         sourceTokens: tokens,
         currentTokens: tokens,
         loadedLexicalState: lexicalState,

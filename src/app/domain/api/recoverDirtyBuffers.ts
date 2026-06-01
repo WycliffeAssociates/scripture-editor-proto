@@ -23,6 +23,7 @@
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
 import {
+    detectLineEnding,
     tokensToLexical,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -207,9 +208,13 @@ export async function recoverDirtyBuffers(args: {
         }> = [];
         for (const [chapterNum, restored] of restoredChapters) {
             const diskChapter = diskChaptersByNum.get(chapterNum);
-            const restoredSource = tokensToUsfm(restored.tokens);
+            // Compare both sides under one EOL convention (disk's if known, else
+            // the restored buffer's) so a pure CRLF/LF difference never reads as
+            // real content drift in the stale-residue check.
+            const eol = diskChapter?.eol ?? detectLineEnding(restored.tokens);
+            const restoredSource = tokensToUsfm(restored.tokens, eol);
             const diskSource = diskChapter
-                ? tokensToUsfm(diskChapter.sourceTokens)
+                ? tokensToUsfm(diskChapter.sourceTokens, eol)
                 : null;
             if (diskSource !== null && restoredSource === diskSource) {
                 continue; // matches disk — nothing to restore for this chapter
@@ -234,6 +239,7 @@ export async function recoverDirtyBuffers(args: {
                           mode: "flat",
                       }),
                       dirty: true,
+                      eol,
                   };
             differingChapters.push({ chapterNum, chapter: layered });
         }

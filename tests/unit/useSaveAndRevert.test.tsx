@@ -89,6 +89,7 @@ function makeDirtyChapter(): ScriptureChapterState {
     return {
         chapterNumber: 1,
         dirty: true,
+        eol: "\n",
         sourceTokens: makeTokens("\\c 1\n\\p\nOld text.\n", "MAT 1:1", "loaded"),
         currentTokens: makeTokens(
             "\\c 1\n\\p\nNew text.\n",
@@ -629,6 +630,7 @@ describe("useSaveAndRevert", () => {
                 {
                     chapterNumber: 1,
                     dirty: true,
+                    eol: "\n" as const,
                     sourceTokens: makeTokens(`old ${code}`, `${code} 1:1`, "loaded"),
                     currentTokens: makeTokens(`new ${code}`, `${code} 1:1`, "current"),
                     loadedLexicalState: makeEditorState(`old ${code}`, `${code} 1:1`, "loaded"),

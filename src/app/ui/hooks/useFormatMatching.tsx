@@ -182,8 +182,8 @@ export function useFormatMatching({
             bookCode,
         });
         chapter.dirty =
-            tokensToUsfm(chapter.currentTokens) !==
-            tokensToUsfm(chapter.sourceTokens);
+            tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+            tokensToUsfm(chapter.sourceTokens, chapter.eol);
 
         return {
             changed: true,

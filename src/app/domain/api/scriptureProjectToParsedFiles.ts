@@ -4,7 +4,10 @@ import {
     editorModeToShape,
 } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
-import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import {
+    detectLineEnding,
+    tokensToLexical,
+} from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
     buildLintMessagesByBook,
@@ -209,6 +212,7 @@ export async function scriptureProjectToParsedFiles(args: {
                         currentTokens: structuredClone(sourceTokens),
                         chapterNumber: chapterNum,
                         dirty: false,
+                        eol: detectLineEnding(sourceTokens),
                     };
                 },
             ),

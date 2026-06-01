@@ -25,8 +25,8 @@ export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
     // TODO(usfm-onion): this token-based dirty check is pure USFM logic and
     // belongs behind the crate boundary.
     return (
-        tokensToUsfm(chapter.currentTokens) !==
-        tokensToUsfm(chapter.sourceTokens)
+        tokensToUsfm(chapter.currentTokens, chapter.eol) !==
+        tokensToUsfm(chapter.sourceTokens, chapter.eol)
     );
 }
 

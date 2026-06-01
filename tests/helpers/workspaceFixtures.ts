@@ -132,6 +132,7 @@ export function makeChapter(
     return {
         chapterNumber,
         dirty,
+        eol: "\n",
         sourceTokens: makeTokens(sourceText, { sid, id: `${sid}-source` }),
         currentTokens: makeTokens(text, { sid, id: `${sid}-current` }),
         loadedLexicalState: makeFlatRegularState(sourceText, {

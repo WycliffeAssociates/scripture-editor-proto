@@ -24,6 +24,10 @@ vi.mock(
     "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts",
     () => ({
         tokensToLexical: tokensToLexicalMock,
+        detectLineEnding: (tokens: { kind: string; source: string }[]) =>
+            tokens.find((t) => t.kind === "newline")?.source.includes("\r")
+                ? "\r\n"
+                : "\n",
     }),
 );
 

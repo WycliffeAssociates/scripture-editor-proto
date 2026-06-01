@@ -69,6 +69,7 @@ function ensureWorkingChapterFromSource(args: {
             sourceTokens: structuredClone(sourceChapter.sourceTokens),
             currentTokens: structuredClone(sourceChapter.currentTokens),
             dirty: false,
+            eol: sourceChapter.eol,
         };
         existing.file.chapters.push(newChapter);
         existing.chapter = newChapter;

@@ -1,6 +1,7 @@
 import { EDITOR_MODES, editorModeToShape } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
+    detectLineEnding,
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
     tokensToUsfm,
@@ -68,6 +69,8 @@ export async function rebuildParsedFileFromUsfm(args: {
                 direction,
                 mode: editorModeToShape(currentMode),
             });
+            const eol =
+                existingChapter?.eol ?? detectLineEnding(nextSourceTokens);
             return {
                 lexicalState: nextLexicalState,
                 loadedLexicalState: nextLoadedState,
@@ -75,8 +78,9 @@ export async function rebuildParsedFileFromUsfm(args: {
                 currentTokens: structuredClone(nextCurrentTokens),
                 chapterNumber,
                 dirty:
-                    tokensToUsfm(nextCurrentTokens) !==
-                    tokensToUsfm(nextSourceTokens),
+                    tokensToUsfm(nextCurrentTokens, eol) !==
+                    tokensToUsfm(nextSourceTokens, eol),
+                eol,
             };
         })
         .sort((a, b) => a.chapterNumber - b.chapterNumber);

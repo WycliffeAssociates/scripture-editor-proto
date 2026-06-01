@@ -37,6 +37,7 @@ const createChapter = async (
     const lexicalState = await createSerializedState(usfmContent);
     return {
         chapterNumber,
+        eol: "\n",
         lexicalState,
         loadedLexicalState: structuredClone(lexicalState),
         sourceTokens: [] as Token[],

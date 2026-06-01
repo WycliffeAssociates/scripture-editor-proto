@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
+    bookLineEnding,
     lexicalToTokens,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -144,7 +145,9 @@ export async function applyLintFixToFile(args: {
     if (!result.appliedChanges.length)
         return { applied: false, fallbackIssues };
 
-    const nextUsfm = tokensToUsfm(result.tokens);
+    // `baselineTokens` came through `lexicalToTokens` (LF-stamped newlines), so
+    // the file's own EOL — not the token sources — is the source of truth here.
+    const nextUsfm = tokensToUsfm(result.tokens, bookLineEnding(args.file));
     await rebuildParsedFileFromUsfm({
         targetFile: args.file,
         sourceUsfm: nextUsfm,

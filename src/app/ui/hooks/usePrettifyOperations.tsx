@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
+    bookLineEnding,
     inferContentEditorModeFromRootChildren,
     tokensToLexical,
     tokensToUsfm,
@@ -117,7 +118,8 @@ export function useFormatOperations({
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =
-            tokensToUsfm(result.tokens) !== tokensToUsfm(chapter.sourceTokens);
+            tokensToUsfm(result.tokens, chapter.eol) !==
+            tokensToUsfm(chapter.sourceTokens, chapter.eol);
         return { changed: true as const };
     };
 
@@ -130,7 +132,7 @@ export function useFormatOperations({
         ]);
         if (!result.appliedChanges.length) return { changed: false as const };
 
-        const nextBookUsfm = tokensToUsfm(result.tokens);
+        const nextBookUsfm = tokensToUsfm(result.tokens, bookLineEnding(file));
         await rebuildParsedFileFromUsfm({
             targetFile: file,
             sourceUsfm: nextBookUsfm,
@@ -432,7 +434,10 @@ export function useFormatOperations({
                                 );
                                 await rebuildParsedFileFromUsfm({
                                     targetFile: file,
-                                    sourceUsfm: tokensToUsfm(result.tokens),
+                                    sourceUsfm: tokensToUsfm(
+                                        result.tokens,
+                                        bookLineEnding(file),
+                                    ),
                                     usfmOnionService,
                                 });
                                 modifiedFiles.push(file);
