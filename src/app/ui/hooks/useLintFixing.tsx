@@ -6,11 +6,14 @@ import {
     lexicalToTokens,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
+import { chapterRefsForBook } from "@/app/domain/project/workingFileMutations.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { showNotificationSuccess } from "@/app/ui/components/primitives/notifications.ts";
 import { relintBookFile } from "@/app/ui/hooks/linting.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
@@ -78,26 +81,31 @@ function findEquivalentIssue(
     return null;
 }
 
+/**
+ * Result of computing a lint fix on the SCRATCH. Pure compute (per the
+ * withWorkingFilesDraft contract): it mutates only the scratch file and returns
+ * data. All UI/lint/editor side effects run post-commit in the hook's
+ * `invalidate`, so a stale/gate abort can never publish a "fix applied" effect
+ * for a write that didn't land.
+ *
+ * `fallbackIssues` is the relint computed when the first fix didn't apply (used
+ * to re-find the issue whose id/span shifted). It's surfaced so the hook can
+ * still refresh the lint panel even on the no-op path — without committing
+ * anything mid-mutation.
+ */
+type LintFixComputeResult = {
+    applied: boolean;
+    fallbackIssues?: LintIssue[];
+};
+
 export async function applyLintFixToFile(args: {
     err: LintIssue;
     issueFix: TokenFix;
     file: ScriptureBookState;
     targetBookCode: string;
     targetChapterNumber: number;
-    currentFileBibleIdentifier: string;
-    currentChapter: number;
-    editor?: LexicalEditor;
     usfmOnionService: IUsfmOnionService;
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
-    setEditorContent: (
-        fileBibleIdentifier: string,
-        chapter: number,
-        chapterContent: ScriptureChapterState | undefined,
-        editor?: LexicalEditor,
-    ) => void;
-    notifySuccess: (code: string) => void;
-}): Promise<boolean> {
+}): Promise<LintFixComputeResult> {
     const baselineTokens = args.file.chapters.flatMap((c) =>
         lexicalToTokens(c.lexicalState, {
             bookCode: args.file.bookCode,
@@ -108,20 +116,24 @@ export async function applyLintFixToFile(args: {
         activeFix,
     ]);
 
+    // The fix targets the token the lint panel pinned earlier. If anything shifted
+    // token ids/spans since then — e.g. an earlier fix in this same book
+    // renumbered tokens — the click no longer anchors and this first attempt
+    // changes nothing. That's the only way in here: recover ONCE by relinting to
+    // re-find the same logical issue, then retry with its refreshed fix. The happy
+    // path applies on the first call and never enters this block.
+    let fallbackIssues: LintIssue[] | undefined;
     if (!result.appliedChanges.length) {
-        const relintedIssues = await relintBookFile(
-            args.file,
-            args.usfmOnionService,
-        );
-        args.commitBookLintResults({ [args.file.bookCode]: relintedIssues });
-
+        // Compute-only relint — NOT committed here; publishing lint results is the
+        // post-commit invalidate's job.
+        fallbackIssues = await relintBookFile(args.file, args.usfmOnionService);
         const normalizedIssue = findEquivalentIssue(
-            relintedIssues,
+            fallbackIssues,
             args.err,
             args.targetBookCode,
             args.targetChapterNumber,
         );
-        if (!normalizedIssue?.fix) return false;
+        if (!normalizedIssue?.fix) return { applied: false, fallbackIssues };
 
         activeFix = normalizedIssue.fix;
         result = await args.usfmOnionService.applyTokenFixes(baselineTokens, [
@@ -129,7 +141,8 @@ export async function applyLintFixToFile(args: {
         ]);
     }
 
-    if (!result.appliedChanges.length) return false;
+    if (!result.appliedChanges.length)
+        return { applied: false, fallbackIssues };
 
     const nextUsfm = tokensToUsfm(result.tokens);
     await rebuildParsedFileFromUsfm({
@@ -138,36 +151,7 @@ export async function applyLintFixToFile(args: {
         usfmOnionService: args.usfmOnionService,
     });
 
-    args.file.chapters.forEach((updatedChapter) => {
-        args.updateDiffMapForChapter(
-            args.file.bookCode,
-            updatedChapter.chapterNumber,
-        );
-    });
-
-    const relintedIssues = await relintBookFile(
-        args.file,
-        args.usfmOnionService,
-    );
-    args.commitBookLintResults({ [args.file.bookCode]: relintedIssues });
-
-    if (
-        args.currentFileBibleIdentifier === args.targetBookCode &&
-        args.currentChapter === args.targetChapterNumber
-    ) {
-        const nextChapter = args.file.chapters.find(
-            (candidate) => candidate.chapterNumber === args.targetChapterNumber,
-        );
-        args.setEditorContent(
-            args.targetBookCode,
-            args.targetChapterNumber,
-            nextChapter,
-            args.editor,
-        );
-    }
-
-    args.notifySuccess(args.err.code);
-    return true;
+    return { applied: true, fallbackIssues };
 }
 
 /**
@@ -179,6 +163,7 @@ export async function applyLintFixToFile(args: {
  */
 export function useLintFixing({
     workingFilesStore,
+    interactionGate,
     currentFileBibleIdentifier,
     currentChapter,
     editorRef,
@@ -188,6 +173,7 @@ export function useLintFixing({
     history,
 }: {
     workingFilesStore: WorkingFilesStore;
+    interactionGate: WorkspaceGateStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     editorRef: React.RefObject<LexicalEditor | null>;
@@ -213,60 +199,117 @@ export function useLintFixing({
         const sidParsed = parseSid(err.sid);
         if (!sidParsed) return;
 
-        // applyLintFixToFile mutates whatever ScriptureBookState we hand
-        // it — rebuildParsedFileFromUsfm replaces `targetFile.chapters`
-        // wholesale and may rebuild multiple chapters of the file. Draft
-        // the entire affected book (every chapter ref) so the helper
-        // can reassign `book.chapters` safely on the draft's shallow-
-        // copied book object without leaking into the store.
-        const workingFiles = workingFilesStore.read();
-        const originalFile = workingFiles.find(
-            (f) => f.bookCode === sidParsed.book,
-        );
+        // applyLintFixToFile mutates whatever ScriptureBookState we hand it —
+        // rebuildParsedFileFromUsfm replaces `targetFile.chapters` wholesale and
+        // may rebuild multiple chapters. That whole-file replacement is why this
+        // is a workspace-scope (validate-then-bulk) commit through the seam, not
+        // a per-chapter overlay. Per the seam contract, the mutator only mutates
+        // the scratch + computes a value; the diff/lint/editor refresh + success
+        // toast run POST-COMMIT in `invalidate`, so a save racing this op (which
+        // aborts the commit at the gate recheck) can't leave the UI claiming the
+        // fix landed.
+        const originalFile = workingFilesStore
+            .read()
+            .find((f) => f.bookCode === sidParsed.book);
         if (!originalFile) {
             console.error(`File not found for book: ${sidParsed.book}`);
             return;
         }
-        const draft = workingFilesStore.draftWithChapters(
-            originalFile.chapters.map((c) => ({
-                bookCode: originalFile.bookCode,
-                chapterNum: c.chapterNumber,
-            })),
-        );
-        const file = draft.find((f) => f.bookCode === sidParsed.book);
-        if (!file) return;
-
-        const chapter = file.chapters.find(
-            (c) => c.chapterNumber === sidParsed.chapter,
-        );
-        if (!chapter) {
-            console.error(`Chapter not found: ${sidParsed.chapter}`);
+        const targetChapterNumber = sidParsed.chapter;
+        if (
+            !originalFile.chapters.some(
+                (c) => c.chapterNumber === targetChapterNumber,
+            )
+        ) {
+            console.error(`Chapter not found: ${targetChapterNumber}`);
             return;
         }
 
-        const didApply = await history.runTransaction({
+        await history.runTransaction({
             label: t`Apply Autofix (${localizedFixLabel})`,
             candidates: [
                 {
-                    bookCode: file.bookCode,
-                    chapterNum: chapter.chapterNumber,
+                    bookCode: originalFile.bookCode,
+                    chapterNum: targetChapterNumber,
                 },
             ],
             run: async () => {
-                const applied = await applyLintFixToFile({
-                    err,
-                    issueFix,
-                    file,
-                    targetBookCode: file.bookCode,
-                    targetChapterNumber: chapter.chapterNumber,
-                    currentFileBibleIdentifier,
-                    currentChapter,
-                    editor: editorRef.current || undefined,
-                    usfmOnionService,
-                    updateDiffMapForChapter,
-                    commitBookLintResults,
-                    setEditorContent,
-                    notifySuccess: () => {
+                const outcome = await withWorkingFilesDraft({
+                    workingFilesStore,
+                    interactionGate,
+                    scope: "workspace",
+                    draftRefs: chapterRefsForBook(originalFile),
+                    commitMeta: {
+                        kind: "programmaticFix",
+                        // Scope to the affected book, not the whole project: the
+                        // fix only touches this book, and the lint pipeline
+                        // re-lints one book per commit.
+                        scope: {
+                            bookCode: originalFile.bookCode,
+                            chapter: targetChapterNumber,
+                        },
+                        dirtyTextContent: true,
+                    },
+                    mutate: async (scratch) => {
+                        const file = scratch.find(
+                            (f) => f.bookCode === sidParsed.book,
+                        );
+                        if (!file) {
+                            const noop: LintFixComputeResult = {
+                                applied: false,
+                            };
+                            return { affected: [], value: noop };
+                        }
+                        const computed = await applyLintFixToFile({
+                            err,
+                            issueFix,
+                            file,
+                            targetBookCode: file.bookCode,
+                            targetChapterNumber,
+                            usfmOnionService,
+                        });
+                        return {
+                            affected: computed.applied
+                                ? chapterRefsForBook(file)
+                                : [],
+                            value: computed,
+                        };
+                    },
+                    // Post-commit only: refresh diff/lint against the COMMITTED
+                    // file, sync the visible editor, then notify. None of this
+                    // runs if the commit aborted (stale/gate).
+                    invalidate: async () => {
+                        const committedFile = workingFilesStore
+                            .read()
+                            .find((f) => f.bookCode === sidParsed.book);
+                        if (!committedFile) return;
+                        committedFile.chapters.forEach((chapter) => {
+                            updateDiffMapForChapter(
+                                committedFile.bookCode,
+                                chapter.chapterNumber,
+                            );
+                        });
+                        const relintedIssues = await relintBookFile(
+                            committedFile,
+                            usfmOnionService,
+                        );
+                        commitBookLintResults({
+                            [committedFile.bookCode]: relintedIssues,
+                        });
+                        if (
+                            currentFileBibleIdentifier === sidParsed.book &&
+                            currentChapter === targetChapterNumber
+                        ) {
+                            const nextChapter = committedFile.chapters.find(
+                                (c) => c.chapterNumber === targetChapterNumber,
+                            );
+                            setEditorContent(
+                                sidParsed.book,
+                                targetChapterNumber,
+                                nextChapter,
+                                editorRef.current || undefined,
+                            );
+                        }
                         showNotificationSuccess({
                             notification: {
                                 title: t`Fix Applied`,
@@ -275,21 +318,20 @@ export function useLintFixing({
                         });
                     },
                 });
-                if (applied) {
-                    workingFilesStore.commit(
-                        { kind: "bulk", files: draft },
-                        {
-                            kind: "programmaticFix",
-                            scope: { project: true },
-                            dirtyTextContent: true,
-                        },
-                    );
+
+                // No-op path: the fix didn't apply, but a fallback relint may
+                // have refreshed the issue set. Publish it so the lint panel
+                // reflects current truth — without having committed mid-mutation.
+                if (
+                    outcome.kind === "unchanged" &&
+                    outcome.value.fallbackIssues
+                ) {
+                    commitBookLintResults({
+                        [sidParsed.book]: outcome.value.fallbackIssues,
+                    });
                 }
-                return applied;
             },
         });
-
-        if (!didApply) return;
     }
 
     return {

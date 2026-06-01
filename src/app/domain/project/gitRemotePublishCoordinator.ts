@@ -1,4 +1,23 @@
+// gitRemotePublishCoordinator.ts
+//
+// One publish, two front doors. The actual push + status mapping is the private
+// `publishWithCurrentSession`; the two exported entry points only differ in
+// their preconditions and where the head-to-publish comes from:
+//
+//   - publishLinkedProjectAfterSave — called by the save pipeline. HONORS the
+//     `autoPushOnSave` setting (off ⇒ leave the project pending-publish without
+//     pushing) and publishes the hash the save just committed.
+//   - publishLinkedProjectNow — called for an explicit "sync now" / link action.
+//     IGNORES `autoPushOnSave` (the user asked, so the save-time preference is
+//     moot) and publishes the persisted last-known local head.
+//
+// Both then funnel into `publishWithCurrentSession`, which pushes and translates
+// the push outcome (published / offline / remote-advanced / auth-failed) into
+// the durable GitRemoteProjectStatus. The split is two intent-named doors over a
+// shared core, not three separate publishes.
+
 import type { SettingsManager } from "@/app/data/settings.ts";
+import { buildGitRemoteProjectStatus } from "@/app/domain/project/remoteSync/gitRemoteLifecycle.ts";
 import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
 import {
@@ -18,9 +37,9 @@ import {
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import {
+    applyGitRemoteProjectStatus,
     readGitRemoteProjectInfo,
     readGitRemoteProjectStatus,
-    writeGitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteStore.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
 
@@ -82,12 +101,6 @@ export async function publishLinkedProjectAfterSave(args: {
     });
     if (!remoteInfo) return { kind: PUBLISH_AFTER_SAVE_NOT_LINKED };
 
-    const existingStatus =
-        (await readGitRemoteProjectStatus({
-            fileSystem: args.fileSystem,
-            storageRoots: args.storageRoots,
-            projectPath: args.projectPath,
-        })) ?? createDefaultGitRemoteProjectStatus(args.projectPath);
     const now = args.now?.() ?? new Date().toISOString();
 
     if (!args.settingsManager.get("autoPushOnSave")) {
@@ -98,15 +111,15 @@ export async function publishLinkedProjectAfterSave(args: {
                 localHead: args.localHead,
             },
         );
-        await writeStatus({
+        await applyStatusPatch({
             fileSystem: args.fileSystem,
             storageRoots: args.storageRoots,
-            status: buildNextStatus({
-                existingStatus,
+            projectPath: args.projectPath,
+            patch: {
                 kind: GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
                 localHead: args.localHead,
                 checkedAt: now,
-            }),
+            },
         });
         return {
             kind: PUBLISH_AFTER_SAVE_PENDING_PUBLISH,
@@ -125,15 +138,15 @@ export async function publishLinkedProjectAfterSave(args: {
                 localHead: args.localHead,
             },
         );
-        await writeStatus({
+        await applyStatusPatch({
             fileSystem: args.fileSystem,
             storageRoots: args.storageRoots,
-            status: buildNextStatus({
-                existingStatus,
+            projectPath: args.projectPath,
+            patch: {
                 kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
                 localHead: args.localHead,
                 checkedAt: now,
-            }),
+            },
         });
         return { kind: PUBLISH_AFTER_SAVE_REAUTH_REQUIRED };
     }
@@ -144,7 +157,6 @@ export async function publishLinkedProjectAfterSave(args: {
         gitProvider: args.gitProvider,
         projectPath: args.projectPath,
         remoteInfo,
-        existingStatus,
         session,
         localHead: args.localHead,
         now,
@@ -166,13 +178,12 @@ export async function publishLinkedProjectNow(args: {
     });
     if (!remoteInfo) return { kind: PUBLISH_AFTER_SAVE_NOT_LINKED };
 
-    const existingStatus =
-        (await readGitRemoteProjectStatus({
-            fileSystem: args.fileSystem,
-            storageRoots: args.storageRoots,
-            projectPath: args.projectPath,
-        })) ?? createDefaultGitRemoteProjectStatus(args.projectPath);
     const now = args.now?.() ?? new Date().toISOString();
+    const existingStatus = await readGitRemoteProjectStatus({
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
+        projectPath: args.projectPath,
+    });
     const session = await args.authSessionProvider.getCurrentSession();
 
     if (!session || session.hostBaseUrl !== remoteInfo.hostBaseUrl) {
@@ -182,18 +193,18 @@ export async function publishLinkedProjectNow(args: {
                 projectPath: args.projectPath,
                 linkedHost: remoteInfo.hostBaseUrl,
                 sessionHost: session?.hostBaseUrl ?? null,
-                localHead: existingStatus.lastKnownLocalHead,
+                localHead: existingStatus?.lastKnownLocalHead ?? null,
             },
         );
-        await writeStatus({
+        await applyStatusPatch({
             fileSystem: args.fileSystem,
             storageRoots: args.storageRoots,
-            status: buildNextStatus({
-                existingStatus,
+            projectPath: args.projectPath,
+            patch: {
                 kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
-                localHead: existingStatus.lastKnownLocalHead ?? null,
+                localHead: existingStatus?.lastKnownLocalHead ?? null,
                 checkedAt: now,
-            }),
+            },
         });
         return { kind: PUBLISH_AFTER_SAVE_REAUTH_REQUIRED };
     }
@@ -204,9 +215,8 @@ export async function publishLinkedProjectNow(args: {
         gitProvider: args.gitProvider,
         projectPath: args.projectPath,
         remoteInfo,
-        existingStatus,
         session,
-        localHead: existingStatus.lastKnownLocalHead ?? null,
+        localHead: existingStatus?.lastKnownLocalHead ?? null,
         now,
     });
 }
@@ -219,7 +229,6 @@ async function publishWithCurrentSession(args: {
     remoteInfo: NonNullable<
         Awaited<ReturnType<typeof readGitRemoteProjectInfo>>
     >;
-    existingStatus: GitRemoteProjectStatus;
     session: NonNullable<
         Awaited<ReturnType<AuthSessionProvider["getCurrentSession"]>>
     >;
@@ -271,11 +280,11 @@ async function publishWithCurrentSession(args: {
                         args.localHead,
                 },
             );
-            await writeStatus({
+            await applyStatusPatch({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
-                status: buildNextStatus({
-                    existingStatus: args.existingStatus,
+                projectPath: args.projectPath,
+                patch: {
                     kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
                     localHead,
                     remoteHead,
@@ -283,7 +292,7 @@ async function publishWithCurrentSession(args: {
                     remoteHeadAuthoredAt,
                     checkedAt: args.now,
                     publishedAt: args.now,
-                }),
+                },
             });
             return { kind: PUBLISH_AFTER_SAVE_PUBLISHED };
         case GIT_REMOTE_PUBLISH_OFFLINE:
@@ -295,11 +304,11 @@ async function publishWithCurrentSession(args: {
                     remoteHead: publishResult.remoteHead,
                 },
             );
-            await writeStatus({
+            await applyStatusPatch({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
-                status: buildNextStatus({
-                    existingStatus: args.existingStatus,
+                projectPath: args.projectPath,
+                patch: {
                     kind: GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
                     localHead,
                     remoteHead: publishResult.remoteHead,
@@ -309,7 +318,7 @@ async function publishWithCurrentSession(args: {
                             ? null
                             : remoteHeadAuthoredAt,
                     checkedAt: args.now,
-                }),
+                },
             });
             return {
                 kind: PUBLISH_AFTER_SAVE_PENDING_PUBLISH,
@@ -324,11 +333,11 @@ async function publishWithCurrentSession(args: {
                     remoteHead: publishResult.remoteHead,
                 },
             );
-            await writeStatus({
+            await applyStatusPatch({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
-                status: buildNextStatus({
-                    existingStatus: args.existingStatus,
+                projectPath: args.projectPath,
+                patch: {
                     kind: GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
                     localHead,
                     remoteHead: publishResult.remoteHead,
@@ -338,7 +347,7 @@ async function publishWithCurrentSession(args: {
                             ? null
                             : remoteHeadAuthoredAt,
                     checkedAt: args.now,
-                }),
+                },
             });
             return { kind: PUBLISH_AFTER_SAVE_NEEDS_REVIEW };
         case GIT_REMOTE_PUBLISH_AUTH_FAILED:
@@ -350,11 +359,11 @@ async function publishWithCurrentSession(args: {
                     remoteHead: publishResult.remoteHead,
                 },
             );
-            await writeStatus({
+            await applyStatusPatch({
                 fileSystem: args.fileSystem,
                 storageRoots: args.storageRoots,
-                status: buildNextStatus({
-                    existingStatus: args.existingStatus,
+                projectPath: args.projectPath,
+                patch: {
                     kind: GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
                     localHead,
                     remoteHead: publishResult.remoteHead,
@@ -364,47 +373,29 @@ async function publishWithCurrentSession(args: {
                             ? null
                             : remoteHeadAuthoredAt,
                     checkedAt: args.now,
-                }),
+                },
             });
             return { kind: PUBLISH_AFTER_SAVE_REAUTH_REQUIRED };
     }
 }
 
-async function writeStatus(args: {
+async function applyStatusPatch(args: {
     fileSystem: FileSystem;
     storageRoots: StorageRoots;
-    status: GitRemoteProjectStatus;
-}) {
-    await writeGitRemoteProjectStatus(args);
-}
-
-function buildNextStatus(args: {
-    existingStatus: GitRemoteProjectStatus;
-    kind: GitRemoteProjectStatus["kind"];
-    localHead: string | null;
-    remoteHead?: string | null;
-    localHeadAuthoredAt?: string | null;
-    remoteHeadAuthoredAt?: string | null;
-    checkedAt: string;
-    publishedAt?: string;
-}): GitRemoteProjectStatus {
-    return {
-        ...args.existingStatus,
-        kind: args.kind,
-        lastCheckedAt: args.checkedAt,
-        lastPublishedAt:
-            args.publishedAt ?? args.existingStatus.lastPublishedAt,
-        lastKnownLocalHead:
-            args.localHead ?? args.existingStatus.lastKnownLocalHead,
-        lastKnownRemoteHead:
-            args.remoteHead ?? args.existingStatus.lastKnownRemoteHead,
-        lastKnownLocalHeadAuthoredAt:
-            args.localHeadAuthoredAt ??
-            args.existingStatus.lastKnownLocalHeadAuthoredAt,
-        lastKnownRemoteHeadAuthoredAt:
-            args.remoteHeadAuthoredAt ??
-            args.existingStatus.lastKnownRemoteHeadAuthoredAt,
-    };
+    projectPath: string;
+    patch: Parameters<typeof buildGitRemoteProjectStatus>[1];
+}): Promise<GitRemoteProjectStatus> {
+    return await applyGitRemoteProjectStatus({
+        fileSystem: args.fileSystem,
+        storageRoots: args.storageRoots,
+        projectPath: args.projectPath,
+        update: (existing) =>
+            buildGitRemoteProjectStatus(
+                existing ??
+                    createDefaultGitRemoteProjectStatus(args.projectPath),
+                args.patch,
+            ),
+    });
 }
 
 async function readHeadAuthoredAt(args: {

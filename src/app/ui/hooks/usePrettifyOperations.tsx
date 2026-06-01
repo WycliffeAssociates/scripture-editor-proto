@@ -7,11 +7,18 @@ import {
     tokensToLexical,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
+import {
+    allChapterRefs,
+    type ChapterRef,
+    chapterRefsForBook,
+} from "@/app/domain/project/workingFileMutations.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
+import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import {
     hideNotification,
     showNotificationInfo,
@@ -33,6 +40,7 @@ import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
  */
 export function useFormatOperations({
     workingFilesStore,
+    interactionGate,
     currentFileBibleIdentifier,
     currentChapter,
     setIsProcessing,
@@ -42,6 +50,7 @@ export function useFormatOperations({
     history,
 }: {
     workingFilesStore: WorkingFilesStore;
+    interactionGate: WorkspaceGateStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
     setIsProcessing: (isProcessing: boolean) => void;
@@ -58,15 +67,6 @@ export function useFormatOperations({
     const { usfmOnionService } = useRouter().options.context;
 
     type FormatScope = MatchFormattingScope;
-    const toChapterRefs = (file: ScriptureBookState) =>
-        file.chapters.map((chapter) => ({
-            bookCode: file.bookCode,
-            chapterNum: chapter.chapterNumber,
-        }));
-
-    const allChapterRefs = (files: ScriptureBookState[]) =>
-        files.flatMap((file) => toChapterRefs(file));
-
     const refreshLintForFiles = async (files: ScriptureBookState[]) => {
         if (!files.length) return;
         const lintResultsByBook = await relintBookFiles(
@@ -101,10 +101,9 @@ export function useFormatOperations({
         const targetMode = inferContentEditorModeFromRootChildren(
             chapter.lexicalState.root.children,
         );
-        // Preserve the chapter's current presentation mode through the
-        // format pass. Previously this collapsed anything other than
-        // `regular` to `flat`, which kicked form mode into a USFM-shaped
-        // state on every Format Chapter run.
+        // Preserve the chapter's current presentation mode through the format
+        // pass; collapsing non-`regular` modes to `flat` would kick form mode
+        // into a USFM-shaped state on every Format Chapter run.
         const rebuildMode =
             targetMode === EDITOR_MODES.regular
                 ? "regular"
@@ -149,22 +148,13 @@ export function useFormatOperations({
         let notificationId: string | null = null;
         try {
             // Read the current snapshot once. The bridge plugin keeps the
-            // store fresh, so no flush is needed. Mutations below operate on
-            // structured clones; the result is published back via
-            // workingFilesStore.commit, and setEditorContent then refreshes
-            // the editor (tagged programaticIgnore, so the bridge does not
-            // republish that as a separate user-edit commit).
+            // store fresh, so no flush is needed.
             //
-            // TODO(post-stage-1C): consider extracting the read → clone →
-            // mutator → commit → setEditorContent lifecycle into a formal
-            // helper on `WorkingFilesStore` (e.g. `mutateChapter(book, chap,
-            // (clone) => bool)` returning the previous snapshot). This pattern
-            // currently repeats across ~5–6 sites in this file and
-            // useFormatMatching. Holding off until 1C lands + the Stage 3A
-            // chapter-swap Effect shape is known, so we don't extract a
-            // helper that turns out to be chapter-scope-only and doesn't fit
-            // the bulk / cancellable shapes. If after that audit the pattern
-            // still repeats unchanged, promote it.
+            // All scopes go through `withWorkingFilesDraft`: chapter scope uses
+            // the per-chapter OVERLAY commit; book and project scope use the
+            // WORKSPACE commit because `rebuildParsedFileFromUsfm` replaces a
+            // file's `chapters` array wholesale (can add/remove chapters) — a
+            // structural rebuild the overlay can't model. See that module.
             const workingFiles = workingFilesStore.read();
 
             if (scope === "chapter") {
@@ -175,19 +165,6 @@ export function useFormatOperations({
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
-                // Only the target chapter needs to be writable;
-                // formatChapterInPlace mutates just that chapter's
-                // lexicalState/currentTokens/dirty.
-                const draft = workingFilesStore.draftWithChapters([
-                    {
-                        bookCode: targetBookCode,
-                        chapterNum: targetChapterNumber,
-                    },
-                ]);
-                const draftFile = draft.find(
-                    (f) => f.bookCode === targetBookCode,
-                );
-                if (!draftFile) return;
 
                 await history.runTransaction({
                     label: t`Format Chapter (${targetBookCode} ${targetChapterNumber})`,
@@ -198,12 +175,85 @@ export function useFormatOperations({
                         },
                     ],
                     run: async () => {
-                        const result = await formatChapterInPlace(
-                            draftFile,
-                            targetChapterNumber,
-                        );
+                        // Only the target chapter needs to be writable;
+                        // formatChapterInPlace mutates just that chapter's
+                        // lexicalState/currentTokens/dirty on the scratch.
+                        const outcome = await withWorkingFilesDraft({
+                            workingFilesStore,
+                            interactionGate,
+                            draftRefs: [
+                                {
+                                    bookCode: targetBookCode,
+                                    chapterNum: targetChapterNumber,
+                                },
+                            ],
+                            commitMeta: {
+                                kind: "programmaticFix",
+                                scope: {
+                                    bookCode: targetBookCode,
+                                    chapter: targetChapterNumber,
+                                },
+                                dirtyTextContent: true,
+                            },
+                            mutate: async (scratch) => {
+                                const draftFile = scratch.find(
+                                    (f) => f.bookCode === targetBookCode,
+                                );
+                                if (!draftFile) {
+                                    return { affected: [], value: undefined };
+                                }
+                                const result = await formatChapterInPlace(
+                                    draftFile,
+                                    targetChapterNumber,
+                                );
+                                return {
+                                    affected: result.changed
+                                        ? [
+                                              {
+                                                  bookCode: targetBookCode,
+                                                  chapterNum:
+                                                      targetChapterNumber,
+                                              },
+                                          ]
+                                        : [],
+                                    value: undefined,
+                                };
+                            },
+                            invalidate: async ({ committedChapters }) => {
+                                updateDiffMapForChapter(
+                                    currentFileBibleIdentifier,
+                                    currentChapter,
+                                );
+                                const committedChapter = workingFilesStore
+                                    .read()
+                                    .find((f) => f.bookCode === targetBookCode);
+                                if (committedChapter) {
+                                    await refreshLintForFiles([
+                                        committedChapter,
+                                    ]);
+                                }
+                                if (
+                                    targetBookCode ===
+                                        currentFileBibleIdentifier &&
+                                    targetChapterNumber === currentChapter
+                                ) {
+                                    const chapter =
+                                        committedChapter?.chapters.find(
+                                            (c) =>
+                                                c.chapterNumber ===
+                                                committedChapters[0]
+                                                    ?.chapterNum,
+                                        );
+                                    setEditorContent(
+                                        currentFileBibleIdentifier,
+                                        currentChapter,
+                                        chapter,
+                                    );
+                                }
+                            },
+                        });
 
-                        if (!result.changed) {
+                        if (outcome.kind === "unchanged") {
                             showNotificationInfo({
                                 notification: {
                                     title: t`Nothing changed`,
@@ -212,51 +262,14 @@ export function useFormatOperations({
                             });
                             return;
                         }
-
-                        const chapter = draftFile.chapters.find(
-                            (c) => c.chapterNumber === targetChapterNumber,
-                        );
-                        if (!chapter) return;
-                        workingFilesStore.commit(
-                            {
-                                kind: "chapter",
-                                bookCode: targetBookCode,
-                                chapter: targetChapterNumber,
-                                lexicalState: chapter.lexicalState,
-                            },
-                            {
-                                kind: "programmaticFix",
-                                scope: {
-                                    bookCode: targetBookCode,
-                                    chapter: targetChapterNumber,
+                        if (outcome.kind === "committed") {
+                            showNotificationSuccess({
+                                notification: {
+                                    title: t`Chapter Formatted`,
+                                    message: t`Formatted ${file.title || file.bookCode} ${targetChapterNumber}`,
                                 },
-                                dirtyTextContent: true,
-                            },
-                        );
-
-                        updateDiffMapForChapter(
-                            currentFileBibleIdentifier,
-                            currentChapter,
-                        );
-                        await refreshLintForFiles([draftFile]);
-
-                        if (
-                            draftFile.bookCode === currentFileBibleIdentifier &&
-                            targetChapterNumber === currentChapter
-                        ) {
-                            setEditorContent(
-                                currentFileBibleIdentifier,
-                                currentChapter,
-                                chapter,
-                            );
+                            });
                         }
-
-                        showNotificationSuccess({
-                            notification: {
-                                title: t`Chapter Formatted`,
-                                message: t`Formatted ${draftFile.title || draftFile.bookCode} ${targetChapterNumber}`,
-                            },
-                        });
                     },
                 });
                 return;
@@ -269,27 +282,74 @@ export function useFormatOperations({
                     (f) => f.bookCode === targetBookCode,
                 );
                 if (!file) return;
-                // formatBookInPlace → rebuildParsedFileFromUsfm replaces the
-                // book's chapters array wholesale. Draft every chapter of
-                // the book writable so the reassignment lands on the
-                // shallow-copied book, not the store's book.
-                const bookDraft = workingFilesStore.draftWithChapters(
-                    file.chapters.map((c) => ({
-                        bookCode: file.bookCode,
-                        chapterNum: c.chapterNumber,
-                    })),
-                );
-                const draftFile = bookDraft.find(
-                    (f) => f.bookCode === targetBookCode,
-                );
-                if (!draftFile) return;
 
                 await history.runTransaction({
                     label: t`Format Book (${targetBookCode})`,
-                    candidates: toChapterRefs(draftFile),
+                    candidates: chapterRefsForBook(file),
                     run: async () => {
-                        const result = await formatBookInPlace(draftFile);
-                        if (!result.changed) {
+                        // formatBookInPlace → rebuildParsedFileFromUsfm replaces
+                        // the book's chapters array wholesale, so this is a
+                        // workspace-scope (validate-then-bulk) commit, not a
+                        // per-chapter overlay.
+                        const outcome = await withWorkingFilesDraft({
+                            workingFilesStore,
+                            interactionGate,
+                            scope: "workspace",
+                            draftRefs: chapterRefsForBook(file),
+                            commitMeta: {
+                                kind: "programmaticFix",
+                                scope: { project: true },
+                                dirtyTextContent: true,
+                            },
+                            mutate: async (scratch) => {
+                                const draftFile = scratch.find(
+                                    (f) => f.bookCode === targetBookCode,
+                                );
+                                if (!draftFile) {
+                                    return { affected: [], value: undefined };
+                                }
+                                const result =
+                                    await formatBookInPlace(draftFile);
+                                return {
+                                    affected: result.changed
+                                        ? chapterRefsForBook(draftFile)
+                                        : [],
+                                    value: undefined,
+                                };
+                            },
+                            invalidate: async () => {
+                                const committedFile = workingFilesStore
+                                    .read()
+                                    .find((f) => f.bookCode === targetBookCode);
+                                if (committedFile) {
+                                    await refreshLintForFiles([committedFile]);
+                                }
+                                updateDiffMapForChapter(
+                                    currentFileBibleIdentifier,
+                                    currentChapter,
+                                );
+                                if (
+                                    targetBookCode ===
+                                    currentFileBibleIdentifier
+                                ) {
+                                    const currentChap =
+                                        committedFile?.chapters.find(
+                                            (c) =>
+                                                c.chapterNumber ===
+                                                currentChapter,
+                                        );
+                                    if (currentChap) {
+                                        setEditorContent(
+                                            currentFileBibleIdentifier,
+                                            currentChapter,
+                                            currentChap,
+                                        );
+                                    }
+                                }
+                            },
+                        });
+
+                        if (outcome.kind === "unchanged") {
                             showNotificationInfo({
                                 notification: {
                                     title: t`Nothing changed`,
@@ -298,42 +358,14 @@ export function useFormatOperations({
                             });
                             return;
                         }
-
-                        workingFilesStore.commit(
-                            { kind: "bulk", files: bookDraft },
-                            {
-                                kind: "programmaticFix",
-                                scope: { project: true },
-                                dirtyTextContent: true,
-                            },
-                        );
-
-                        await refreshLintForFiles([draftFile]);
-                        updateDiffMapForChapter(
-                            currentFileBibleIdentifier,
-                            currentChapter,
-                        );
-
-                        if (draftFile.bookCode === currentFileBibleIdentifier) {
-                            const currentChap = draftFile.chapters.find(
-                                (c) => c.chapterNumber === currentChapter,
-                            );
-
-                            if (currentChap) {
-                                setEditorContent(
-                                    currentFileBibleIdentifier,
-                                    currentChapter,
-                                    currentChap,
-                                );
-                            }
+                        if (outcome.kind === "committed") {
+                            showNotificationSuccess({
+                                notification: {
+                                    title: t`Book Formatted`,
+                                    message: t`Formatted ${file.title || file.bookCode}`,
+                                },
+                            });
                         }
-
-                        showNotificationSuccess({
-                            notification: {
-                                title: t`Book Formatted`,
-                                message: t`Formatted ${draftFile.title || draftFile.bookCode}`,
-                            },
-                        });
                     },
                 });
                 return;
@@ -347,122 +379,129 @@ export function useFormatOperations({
             const progressNotificationId = notificationId;
             if (!progressNotificationId) return;
 
+            // The store snapshot is immutable from our side; it is the rollback
+            // baseline returned for revertFormat.
+            const previous = workingFilesStore.read();
+            let currentChapterModified = false;
+            let modifiedBooksCount = 0;
+
             const backup = await history.runTransaction({
                 label: t`Format Project`,
                 candidates: allChapterRefs(workingFiles),
                 run: async () => {
-                    // The store snapshot is immutable from our side; no deep
-                    // clone needed for the rollback baseline.
-                    const previous = workingFiles;
-                    // Discovery flow: formatScope returns per-book results;
-                    // we don't know which books will change until we see
-                    // appliedChanges per result. Draft every chapter of every
-                    // book writable so rebuildParsedFileFromUsfm can reassign
-                    // each touched book's `chapters` array safely. The
-                    // not-actually-modified books leave their shallow-copied
-                    // chapters untouched — wasted spread is negligible vs.
-                    // the deep-clone cost it replaces.
-                    const allRefs = workingFiles.flatMap((file) =>
-                        file.chapters.map((c) => ({
-                            bookCode: file.bookCode,
-                            chapterNum: c.chapterNumber,
-                        })),
-                    );
-                    const filesDraft =
-                        workingFilesStore.draftWithChapters(allRefs);
-                    let currentChapterModified = false;
-                    let anyModified = false;
+                    // Discovery flow: formatScope returns per-book results; we
+                    // don't know which books change until we see appliedChanges.
+                    // rebuildParsedFileFromUsfm replaces each touched book's
+                    // `chapters` array wholesale → workspace-scope commit.
+                    const outcome = await withWorkingFilesDraft({
+                        workingFilesStore,
+                        interactionGate,
+                        scope: "workspace",
+                        draftRefs: allChapterRefs(workingFiles),
+                        commitMeta: {
+                            kind: "programmaticFix",
+                            scope: { project: true },
+                            dirtyTextContent: true,
+                        },
+                        mutate: async (filesDraft) => {
+                            const affected: ChapterRef[] = [];
+                            const batchResults =
+                                await usfmOnionService.formatScope(
+                                    filesDraft.map((file) => ({
+                                        tokens: file.chapters.flatMap(
+                                            (chapter) =>
+                                                chapterTokensForFormatting(
+                                                    chapter,
+                                                ),
+                                        ),
+                                    })),
+                                );
 
-                    const batchResults = await usfmOnionService.formatScope(
-                        filesDraft.map((file) => ({
-                            tokens: file.chapters.flatMap((chapter) =>
-                                chapterTokensForFormatting(chapter),
-                            ),
-                        })),
-                    );
+                            const modifiedFiles: ScriptureBookState[] = [];
+                            for (let i = 0; i < filesDraft.length; i++) {
+                                const file = filesDraft[i];
+                                const result = batchResults[i];
+                                if (!result || !result.appliedChanges.length)
+                                    continue;
+                                updateProgressNotification(
+                                    progressNotificationId,
+                                    {
+                                        title: t`Formatting Project`,
+                                        message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
+                                    },
+                                );
+                                await rebuildParsedFileFromUsfm({
+                                    targetFile: file,
+                                    sourceUsfm: tokensToUsfm(result.tokens),
+                                    usfmOnionService,
+                                });
+                                modifiedFiles.push(file);
+                                affected.push(...chapterRefsForBook(file));
+                                if (
+                                    file.bookCode === currentFileBibleIdentifier
+                                ) {
+                                    currentChapterModified = true;
+                                }
+                            }
 
-                    const modifiedFiles: ScriptureBookState[] = [];
-                    for (let i = 0; i < filesDraft.length; i++) {
-                        const file = filesDraft[i];
-                        const result = batchResults[i];
-                        if (!result || !result.appliedChanges.length) continue;
+                            const modifiedBookCodes = new Set(
+                                modifiedFiles.map((file) => file.bookCode),
+                            );
+                            modifiedBooksCount = filesDraft.filter((f) =>
+                                f.chapters.some((c) => c.dirty),
+                            ).length;
 
-                        updateProgressNotification(progressNotificationId, {
-                            title: t`Formatting Project`,
-                            message: t`Processing ${file.title || file.bookCode} (${i + 1}/${totalBooks})...`,
-                        });
+                            return { affected, value: { modifiedBookCodes } };
+                        },
+                        invalidate: async ({ value }) => {
+                            const committedFiles = workingFilesStore
+                                .read()
+                                .filter((file) =>
+                                    value.modifiedBookCodes.has(file.bookCode),
+                                );
+                            await refreshLintForFiles(committedFiles);
+                            updateDiffMapForChapter(
+                                currentFileBibleIdentifier,
+                                currentChapter,
+                            );
+                            if (!currentChapterModified) return;
+                            const currentFile = workingFilesStore
+                                .read()
+                                .find(
+                                    (f) =>
+                                        f.bookCode ===
+                                        currentFileBibleIdentifier,
+                                );
+                            const currentChap = currentFile?.chapters.find(
+                                (c) => c.chapterNumber === currentChapter,
+                            );
+                            if (currentChap) {
+                                setEditorContent(
+                                    currentFileBibleIdentifier,
+                                    currentChapter,
+                                    currentChap,
+                                );
+                            }
+                        },
+                    });
 
-                        const nextBookUsfm = tokensToUsfm(result.tokens);
-                        await rebuildParsedFileFromUsfm({
-                            targetFile: file,
-                            sourceUsfm: nextBookUsfm,
-                            usfmOnionService,
-                        });
-                        anyModified = true;
-                        modifiedFiles.push(file);
-                        if (file.bookCode === currentFileBibleIdentifier) {
-                            currentChapterModified = true;
-                        }
-                    }
-
-                    if (modifiedFiles.length > 0) {
-                        await refreshLintForFiles(modifiedFiles);
-                    }
-
-                    if (anyModified) {
-                        workingFilesStore.commit(
-                            { kind: "bulk", files: filesDraft },
-                            {
-                                kind: "programmaticFix",
-                                scope: { project: true },
-                                dirtyTextContent: true,
+                    hideNotification(progressNotificationId);
+                    notificationId = null;
+                    if (outcome.kind === "committed") {
+                        showNotificationSuccess({
+                            notification: {
+                                title: t`Project Formatted`,
+                                message: t`Formatted ${modifiedBooksCount} book(s)`,
                             },
-                        );
-                        updateDiffMapForChapter(
-                            currentFileBibleIdentifier,
-                            currentChapter,
-                        );
-                    } else {
-                        hideNotification(progressNotificationId);
-                        notificationId = null;
+                        });
+                    } else if (outcome.kind === "unchanged") {
                         showNotificationInfo({
                             notification: {
                                 title: t`Nothing changed`,
                                 message: t`This project is already formatted`,
                             },
                         });
-                        return previous;
                     }
-
-                    const modifiedBooksCount = filesDraft.filter((f) =>
-                        f.chapters.some((c) => c.dirty),
-                    ).length;
-
-                    if (currentChapterModified) {
-                        const currentFile = filesDraft.find(
-                            (f) => f.bookCode === currentFileBibleIdentifier,
-                        );
-                        const currentChap = currentFile?.chapters.find(
-                            (c) => c.chapterNumber === currentChapter,
-                        );
-                        if (currentChap) {
-                            setEditorContent(
-                                currentFileBibleIdentifier,
-                                currentChapter,
-                                currentChap,
-                            );
-                        }
-                    }
-
-                    hideNotification(progressNotificationId);
-                    notificationId = null;
-                    showNotificationSuccess({
-                        notification: {
-                            title: t`Project Formatted`,
-                            message: t`Formatted ${modifiedBooksCount} book(s)`,
-                        },
-                    });
-
                     return previous;
                 },
             });

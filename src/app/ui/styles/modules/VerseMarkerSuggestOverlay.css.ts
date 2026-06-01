@@ -12,20 +12,32 @@ export const suggestion = style({
     pointerEvents: "auto",
 });
 
-export const underline = style({
+// Brand-blue highlight over the candidate verse number — matches the USFM
+// marker color and reads as "this could be a marker", distinct from the red
+// lint highlight. Click-through is NOT wanted here: this IS the affordance, so
+// it stays interactive (hover/click to open the suggestion popover).
+export const annotation = style({
     position: "absolute",
     left: 0,
     top: 0,
+    appearance: "none",
     border: "none",
-    borderBottom: `2px solid ${vars.color.brandBase}`,
-    background: "transparent",
     padding: 0,
     margin: 0,
+    borderRadius: vars.border.radius.xs,
+    background: `color-mix(in srgb, ${vars.color.brandBase} 18%, transparent)`,
     cursor: "pointer",
+    transition: "background 120ms ease",
+    selectors: {
+        "&:hover, &:focus-visible": {
+            background: `color-mix(in srgb, ${vars.color.brandBase} 30%, transparent)`,
+            outline: "none",
+        },
+    },
 });
 
-export const bubble = style({
-    position: "absolute",
-    left: 0,
-    top: `calc(${vars.spacing.xl} * -1)`,
+// Padding for the custom content rendered inside the shared LintFixPopover
+// shell (which is padding-less by default).
+export const popoverContent = style({
+    padding: vars.spacing.xs,
 });

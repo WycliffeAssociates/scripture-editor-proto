@@ -15,7 +15,11 @@ Anything that mutates `WorkingFilesStore` is one of these:
    into one `CommitEvent`.
 2. **Hooks running programmatic flows** (format, prettify, lint-fix,
    match-formatting, external-compare apply, save mark-clean, mode switch,
-   revert). They use the `draftWithChapters` → mutate → `commit` pattern.
+   revert). Active mutations go through the `withWorkingFilesDraft` seam
+   (draft scratch → compute → validate → re-check gate → commit →
+   invalidate); incoming-content applies go through the sibling
+   `runIncomingMutation` boundary. Both are built on `draftWithChapters` →
+   `commit`.
 3. **History replay** (`useCustomHistory.undo` / `redo`). Replays canonical
    chapter snapshots through the same draft + bulk-commit path.
 
@@ -76,74 +80,82 @@ Latency budget (typical chapter):
 Selection-only commits skip everything but the no-op patch and PubSub
 publish (no `toJSON`, no token recompute).
 
-## Path 2: A programmatic flow (Option D)
+## Path 2: A programmatic (active) flow
 
-Every hook that mutates files uses the same shape:
+Every active mutation — format, prettify, match-formatting, lint-fix — goes
+through one validated seam, `withWorkingFilesDraft` in
+`src/app/domain/project/workingFileCommand.ts`. The call site supplies the
+chapters to draft, a `mutate` that computes on a structural-sharing scratch
+(it may `await` freely — the scratch is not the store), and an `invalidate`
+post-commit hook:
 
 ```ts
-// 1. (Optional) snapshot the pre-mutation state for rollback.
-const previous = workingFilesStore.read();
-
-// 2. Discover the chapters you'll touch.
-const refs = collectRefs(...);
-
-// 3. Build a draft. Touched paths are shallow copies; everything else
-//    aliases the store.
-const draft = workingFilesStore.draftWithChapters(refs);
-
-// 4. Mutate the draft synchronously.
-for (const ref of refs) {
-    const chapter = findChapterInDraft(draft, ref.bookCode, ref.chapterNum)!;
-    chapter.lexicalState = transform(chapter.lexicalState);
-    chapter.currentTokens = recompute(chapter);
-    chapter.dirty = ...;
-}
-
-// 5. Commit. Stack frame must not have awaited since step 3.
-workingFilesStore.commit(
-    { kind: "bulk", files: draft },
-    { kind: "programmaticFix", scope: { project: true }, dirtyTextContent: true },
-);
+const result = await withWorkingFilesDraft({
+    workingFilesStore,
+    interactionGate,
+    draftRefs: refs,              // chapters to make writable in the scratch
+    commitMeta: { kind: "programmaticFix", scope: { project: true },
+                  dirtyTextContent: true },
+    // scope?: "chapters" (default, overlay only affected) | "workspace"
+    mutate: async (scratch) => {
+        // Compute ONLY — no UI/lint/editor side effects (the commit is not
+        // validated yet). Return the chapters changed + a value.
+        const affected = [];
+        for (const ref of refs) {
+            const chapter = findChapterInDraft(scratch, ref.bookCode, ref.chapterNum)!;
+            chapter.lexicalState = await transform(chapter.lexicalState);
+            chapter.currentTokens = recompute(chapter);
+            affected.push(ref);
+        }
+        return { affected, value: report };
+    },
+    invalidate: ({ committedChapters, value }) => {
+        // Runs ONLY after a validated commit: diff/lint refresh, editor sync,
+        // toast. Never runs on abort.
+    },
+});
+// result.kind: "committed" | "unchanged" | "aborted"
 ```
 
-The pattern is the same whether the scope is one chapter, one book, or the
-whole project. Discovery flows (you don't know targets up-front) walk first,
-then draft + mutate + commit in a second synchronous pass.
+Internally the seam does: draft scratch → run `mutate` (compute, awaits ok) →
+if nothing affected, `unchanged` → re-read latest and **validate** the
+affected chapters weren't replaced underneath (identity, not text) → **re-check
+the interaction gate** → **commit** by overlaying only the affected chapters
+onto the latest read (`chapters` scope) or the scratch wholesale (`workspace`
+scope, validated by array identity) → run `invalidate`. On a stale or
+gate-closed abort, neither `invalidate` nor any caller side effect fires.
 
-### Why a snapshot is a safe rollback
+The seam composes the **same** validated primitives
+(`captureChapterIdentities` / `chapterIdentitiesUnchanged` /
+`overlayAffectedChapters`) as the incoming-reconciliation boundary below, so
+there is one lost-update contract in the codebase, not two. The
+`history.runTransaction` wrapper, notifications, and per-action reports stay
+at the call site — they're genuinely per-action UX.
 
-`draftWithChapters` only shallow-copies the chapters in `refs`. Everything
-else in the draft still **aliases** the store's array. But the hook never
-mutates those aliased entries — it only mutates the shallow copies it asked
-for. The pre-draft `read()` therefore stays untouched and is a valid undo
-target.
+### The underlying primitive: `draftWithChapters`
 
-This is why we replaced `structuredClone` rollback baselines (the old
-"deep-copy before, mutate in place, restore on undo" pattern). The deep
+`draftWithChapters(refs)` only shallow-copies the chapters in `refs`;
+everything else in the draft **aliases** the store's array. The seam never
+mutates the aliased entries, so the pre-draft `read()` stays a valid rollback
+baseline. This is why we replaced `structuredClone` rollback baselines (the
+old "deep-copy before, mutate in place, restore on undo" pattern): the deep
 clone was ~1.5 s per project on Psalm 119; structural sharing is O(books) ×
 O(chapters-per-book) plus the chapters you actually touch.
 
-### Sequencing rule
-
-`draft → mutate → commit` must stay synchronous. If you `await` between
-steps 3 and 5:
-
-1. Another commit (a user keystroke, a structure-maintenance writeback, an
-   incoming external apply) may land in the store.
-2. Your draft still aliases the *old* untouched chapters. When you bulk-
-   commit, the store accepts your `files` array wholesale — the newer commit's
-   changes vanish on the paths your draft aliased.
-
-Gather async results first, then synchronously draft from the latest
-`read()` and commit.
+The reason the seam validates rather than just drafting-and-committing in one
+stack frame: `mutate` is allowed to `await`. A raw `draft → mutate → commit`
+that awaited between draft and commit would let another commit (a keystroke, a
+structure-maintenance writeback, an incoming apply) land in the store, and the
+draft — still aliasing the *old* untouched chapters — would clobber it on
+bulk-commit. The seam's identity re-check after the await is what makes the
+async mutator safe.
 
 ### Validated incoming-mutation boundary
 
-When the source of a commit is an **awaited** computation against incoming
-remote / external-compare content (i.e. you can't keep `draft → mutate →
-commit` synchronous because the data has to come back from the network or
-a file pick), the commit goes through `runIncomingMutation` in
-`src/app/domain/project/compare/applyIncomingToStore.ts`:
+Awaited computations against incoming remote / external-compare content commit
+through the sibling boundary `runIncomingMutation` in
+`src/app/domain/project/compare/applyIncomingToStore.ts`, which is the same
+shape:
 
 1. Capture the affected chapters' **object identities** from `read()`
    before the await.
@@ -296,6 +308,10 @@ and is the smell we explicitly avoid.
 - `src/app/state/types.ts` — `CommitEvent`, `CommitKind`
 - `src/app/state/commitFilters.ts`
 - `src/app/state/WorkingFilesStore.ts` — `commit`, `draftWithChapters`
+- `src/app/domain/project/workingFileCommand.ts` — `withWorkingFilesDraft`
+  (the active-mutation seam)
+- `src/app/domain/project/compare/applyIncomingToStore.ts` —
+  `runIncomingMutation` (the incoming-content boundary)
 - `src/app/domain/editor/pipelines/*.ts`
 - `src/app/ui/contexts/WorkspaceContext.tsx` — pipeline forks +
   post-undo/redo relint

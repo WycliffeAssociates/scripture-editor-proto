@@ -367,6 +367,171 @@ describe("useSaveAndRevert", () => {
         });
     });
 
+    it("reports non-published cloud outcomes instead of flattening them to published", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        await writeGitRemoteProjectInfo({
+            fileSystem,
+            storageRoots,
+            info: {
+                schemaVersion: 1,
+                projectPath: "/userData/projects/foo",
+                hostBaseUrl: "https://gitea.example.org",
+                repoId: "1",
+                repoOwner: "alice",
+                repoName: "foo",
+                repoUrl: "https://gitea.example.org/alice/foo",
+                trackedBranch: "master",
+            },
+        });
+
+        const store = new WorkingFilesStore([makeWorkingFile()]);
+        const saveBook = vi
+            .fn<Project["saveBook"]>()
+            .mockResolvedValue(undefined);
+        const commitAll = vi
+            .fn<GitProvider["commitAll"]>()
+            .mockResolvedValue({ hash: "local-save-hash" });
+        const pushCurrentBranch = vi
+            .fn<GitProvider["pushCurrentBranch"]>()
+            .mockResolvedValue({
+                outcome: "offline",
+                localHead: "local-save-hash",
+                remoteHead: null,
+            });
+
+        const save = renderSaveHook({
+            workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore(),
+            saveStatusStore: new SaveStatusStore(),
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject: createProject({ saveBook, addBook: vi.fn() }),
+            history: createHistory(),
+            gitProvider: createGitProvider({ commitAll, pushCurrentBranch }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockImplementation((key: string) =>
+                    key === "autoPushOnSave" ? true : undefined,
+                ),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem,
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+        });
+
+        let result: Awaited<ReturnType<typeof save.actions.saveProjectToDisk>>;
+        await act(async () => {
+            result = await save.actions.saveProjectToDisk();
+        });
+
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously inside act above
+        expect(result!.kind).toBe("saved");
+        // biome-ignore lint/style/noNonNullAssertion: narrowed by kind assertion above
+        expect(result!.kind === "saved" ? result!.publish : null).toEqual({
+            kind: "pendingPublish",
+            reason: "offline",
+        });
+    });
+
+    it("checkpoint failure: bytes are saved + marked clean, version warning shown, NOT failed status", async () => {
+        // Cross-cutting invariant (decision #3): "saved to disk" != "versioned".
+        // A git commit failure must NOT retain dirty or strand the save — the
+        // bytes are on disk. The savePipeline extraction must preserve this.
+        const fileSystem = new InMemoryFileSystem();
+        const store = new WorkingFilesStore([makeWorkingFile()]);
+        const saveStatusStore = new SaveStatusStore();
+        const saveBook = vi
+            .fn<Project["saveBook"]>()
+            .mockResolvedValue(undefined);
+        const commitAll = vi
+            .fn<GitProvider["commitAll"]>()
+            .mockRejectedValue(new Error("git index locked"));
+        const pushCurrentBranch = vi.fn<GitProvider["pushCurrentBranch"]>();
+
+        const save = renderSaveHook({
+            workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore(),
+            saveStatusStore,
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject: createProject({ saveBook, addBook: vi.fn() }),
+            history: createHistory(),
+            gitProvider: createGitProvider({ commitAll, pushCurrentBranch }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockReturnValue(undefined),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem,
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+        });
+
+        let result: Awaited<
+            ReturnType<typeof save.actions.saveProjectToDisk>
+        >;
+        await act(async () => {
+            result = await save.actions.saveProjectToDisk();
+        });
+
+        // Bytes landed on disk.
+        expect(saveBook).toHaveBeenCalled();
+        // Checkpoint attempt failed → publish never attempted.
+        expect(commitAll).toHaveBeenCalled();
+        expect(pushCurrentBranch).not.toHaveBeenCalled();
+        // The book is still marked CLEAN — the disk write succeeded.
+        expect(store.read()[0].chapters[0].dirty).toBe(false);
+        // Result reports a successful disk save (NOT failed/partial).
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously inside act above
+        expect(result!.kind).toBe("saved");
+        // Status is NOT stranded/failed — the save succeeded to disk.
+        expect(saveStatusStore.getSnapshot().kind).not.toBe("failed");
+        expect(saveStatusStore.getSnapshot().kind).not.toBe("saving");
+        // The user is warned that the version checkpoint could not be created.
+        expect(notificationMocks.showErrorNotification).toHaveBeenCalledWith({
+            notification: {
+                title: "Version History Warning",
+                message:
+                    "Your changes were saved, but a local version checkpoint could not be created.",
+            },
+        });
+    });
+
     it("prepares the remote base before saving when reconciliation is pending", async () => {
         const fileSystem = new InMemoryFileSystem();
         const workingFiles = [makeWorkingFile()];
@@ -552,5 +717,132 @@ describe("useSaveAndRevert", () => {
         // GEN persisted before the failure → clean. EXO failed, LEV never
         // attempted → both stay dirty (honest per-book state).
         expect(dirtyByBook).toEqual({ GEN: false, EXO: true, LEV: true });
+    });
+
+    it("fails loud (does not strand `saving`) when the save base prep throws before any write", async () => {
+        const fileSystem = new InMemoryFileSystem();
+        const store = new WorkingFilesStore([makeWorkingFile()]);
+        const saveStatusStore = new SaveStatusStore();
+        const interactionGate = new WorkspaceGateStore();
+        const saveBook = vi.fn<Project["saveBook"]>();
+        const prepareError = new Error("remote base unreachable");
+        const prepareRemoteBaseForSave = vi.fn(async () => {
+            throw prepareError;
+        });
+
+        const save = renderSaveHook({
+            workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate,
+            saveStatusStore,
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject: createProject({ saveBook, addBook: vi.fn() }),
+            history: createHistory(),
+            gitProvider: createGitProvider({
+                commitAll: vi.fn(),
+                pushCurrentBranch: vi.fn(),
+            }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockReturnValue(undefined),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem,
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+            prepareRemoteBaseForSave,
+        });
+
+        let result: Awaited<
+            ReturnType<typeof save.actions.saveProjectToDisk>
+        >;
+        await act(async () => {
+            // Must RESOLVE to a typed result, not reject to the caller.
+            result = await save.actions.saveProjectToDisk();
+        });
+
+        expect(prepareRemoteBaseForSave).toHaveBeenCalledTimes(1);
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously inside act above
+        expect(result!).toEqual({ kind: "failed", error: prepareError });
+        // Nothing written, status is failed (not stranded in `saving`), and the
+        // gate is reopened so the workspace is not permanently locked.
+        expect(saveBook).not.toHaveBeenCalled();
+        expect(saveStatusStore.getSnapshot()).toEqual({
+            kind: "failed",
+            error: prepareError,
+        });
+        expect(interactionGate.get()).toEqual({ kind: "open" });
+    });
+
+    it("returns a typed blocked reason when the gate is closed", async () => {
+        const store = new WorkingFilesStore([makeWorkingFile()]);
+        const save = renderSaveHook({
+            workingFilesStore: store,
+            workspaceBaselineStore: new WorkspaceBaselineStore({
+                calculateMd5: async (text: string) => text,
+            }),
+            recoveredConflictTracker: new RecoveredConflictTracker(),
+            interactionGate: new WorkspaceGateStore({ kind: "saving" }),
+            saveStatusStore: new SaveStatusStore(),
+            editorRef: { current: null },
+            pickedFile: null,
+            pickedChapter: null,
+            loadedProject: createProject({
+                saveBook: vi.fn(),
+                addBook: vi.fn(),
+            }),
+            history: createHistory(),
+            gitProvider: createGitProvider({
+                commitAll: vi.fn(),
+                pushCurrentBranch: vi.fn(),
+            }),
+            settingsManager: {
+                getSettings: vi.fn() as never,
+                get: vi.fn().mockReturnValue(undefined),
+                set: vi.fn(),
+                update: vi.fn(),
+                applySettings: vi.fn(),
+            },
+            authSessionProvider: createAuthSessionProvider(),
+            fileSystem: new InMemoryFileSystem(),
+            storageRoots,
+            usfmOnionService: {} as never,
+            isViewingOlderVersion: false,
+            selectedVersionHash: null,
+            refreshVersions: vi.fn().mockResolvedValue(undefined),
+            onSavedVersion: vi.fn(),
+            clearUnsavedDiffs: vi.fn(),
+            setUnsavedDiffsByChapter: vi.fn(),
+            bumpDirtyVersion: vi.fn(),
+            refreshUnsavedChapter: vi.fn(),
+            rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
+        });
+
+        let result: Awaited<
+            ReturnType<typeof save.actions.saveProjectToDisk>
+        >;
+        await act(async () => {
+            result = await save.actions.saveProjectToDisk();
+        });
+
+        // biome-ignore lint/style/noNonNullAssertion: assigned synchronously inside act above
+        expect(result!).toEqual({ kind: "blocked", reason: "gate-closed" });
     });
 });

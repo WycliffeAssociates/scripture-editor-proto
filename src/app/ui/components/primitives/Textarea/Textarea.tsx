@@ -1,9 +1,6 @@
 import { type Ref, type TextareaHTMLAttributes, useId } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./textarea.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export interface TextareaProps
     extends TextareaHTMLAttributes<HTMLTextAreaElement> {

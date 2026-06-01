@@ -1,9 +1,6 @@
 import { type InputHTMLAttributes, type Ref, useId } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./checkbox.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export interface CheckboxProps
     extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {

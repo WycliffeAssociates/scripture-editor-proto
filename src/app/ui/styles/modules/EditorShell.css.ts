@@ -101,6 +101,37 @@ export const switchingOverlaySpinner = style({
         },
     },
 });
+// Shown over the editor pane while the interaction gate is closed for a
+// pending crash-recovery decision: a calm scrim that blocks editing (and the
+// lint affordances) until the user resolves the Keep/Discard banner above. The
+// banner itself lives outside this pane, so it stays interactive.
+export const gateOverlay = style({
+    position: "absolute",
+    inset: 0,
+    zIndex: zLayer.editorSwitchingOverlay,
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingTop: "4rem",
+    backgroundColor: `color-mix(in srgb, ${dsVars.color.surfacePrimary} 60%, transparent)`,
+    cursor: "not-allowed",
+    pointerEvents: "auto",
+});
+
+export const gateOverlayNote = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars.spacing.xs,
+    padding: `0.5rem ${vars.spacing.sm}`,
+    borderRadius: vars.radius.full,
+    backgroundColor: vars.colors.gray[0],
+    border: `1px solid ${vars.colors.gray[3]}`,
+    color: vars.colors.gray[6],
+    fontSize: dsVars.typography.bodySmall.fontSize,
+    fontWeight: 600,
+    boxShadow: dsVars.shadow.medium,
+});
+
 export const loadingReference = style({
     padding: vars.spacing.md,
 });

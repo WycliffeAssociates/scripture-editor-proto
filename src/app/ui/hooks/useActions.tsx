@@ -108,8 +108,8 @@ export const useWorkspaceActions = ({
             );
         }
         // Editor not mounted yet — schedule the write for first mount instead
-        // of silently dropping it. Previously a navigation that fired before
-        // mount left the editor blank until the next interaction.
+        // of silently dropping it, otherwise a navigation that fires before
+        // mount leaves the editor blank until the next interaction.
         Effect.runFork(
             Effect.gen(function* () {
                 const readyEditor = yield* Deferred.await(mainEditorDeferred);
@@ -149,6 +149,7 @@ export const useWorkspaceActions = ({
 
     const prettifyOperations = useFormatOperations({
         workingFilesStore,
+        interactionGate,
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
@@ -160,6 +161,7 @@ export const useWorkspaceActions = ({
 
     const formatMatching = useFormatMatching({
         workingFilesStore,
+        interactionGate,
         currentFileBibleIdentifier,
         currentChapter,
         referenceResource,
@@ -175,6 +177,7 @@ export const useWorkspaceActions = ({
 
     const lintFixing = useLintFixing({
         workingFilesStore,
+        interactionGate,
         currentFileBibleIdentifier,
         currentChapter,
         editorRef,

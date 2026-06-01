@@ -22,14 +22,21 @@ import type { BookRef } from "@/core/persistence/ScriptureWorkspace.ts";
  * reverted lexical state.
  */
 export function isChapterDirtyUsfm(chapter: ScriptureChapterState): boolean {
-    // TODO(usfm-onion): this token-based dirty check is pure USFM logic and is a
-    // candidate to move behind the crate boundary in a later pass.
+    // TODO(usfm-onion): this token-based dirty check is pure USFM logic and
+    // belongs behind the crate boundary.
     return (
         tokensToUsfm(chapter.currentTokens) !==
         tokensToUsfm(chapter.sourceTokens)
     );
 }
 
+// Revert a chapter to its last-SAVED baseline. There IS a kept snapshot
+// (`loadedLexicalState`), and it stays current — every save rebases it — so you
+// might expect `lexicalState = loadedLexicalState`. We can't: that snapshot is
+// always stored in "flat" mode, while the editor may be in regular/form. So we
+// rebuild lexical state from `sourceTokens` (same content) in the CURRENT view
+// mode, which preserves what the user is looking at. ("Loaded" here means the
+// saved baseline — `sourceTokens` advances on every save, not just at file open.)
 export function revertChapterToLoadedState(chapter: ScriptureChapterState) {
     const currentMode = inferContentEditorModeFromRootChildren(
         chapter.lexicalState.root.children as SerializedLexicalNode[],
@@ -80,8 +87,8 @@ export async function revertChapterDiffByBlockId(args: {
 export function buildBooksSavePayload(
     files: ScriptureBookState[],
 ): Record<string, string> {
-    // TODO(usfm-onion): `serializeChaptersToUsfm` is a future crate candidate
-    // once the app/UI orchestration is fully separated.
+    // TODO(usfm-onion): `serializeChaptersToUsfm` belongs behind the crate
+    // boundary once app/UI orchestration is fully separated.
     const toSave: Record<string, string> = {};
     for (const file of files) {
         const shouldSaveBook = file.chapters.some((chapter) => chapter.dirty);

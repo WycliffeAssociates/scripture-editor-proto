@@ -54,9 +54,15 @@
   - `x-zephyr-op: baseline|save`
   - `x-zephyr-chapters: GEN 1|EXO 2|...`
   - `x-zephyr-version: 1`
+- The checkpoint is created inside the save command (`runSavePipeline`, see
+  `save-diff-revert-functionality.md`) as a phase after the disk write, and
+  reported back as the `checkpoint` substate of a `saved` `SaveResult`
+  (`created{hash}` / `failed`).
 - If a save writes successfully but checkpoint creation fails:
-  - The project save still succeeds
-  - The user gets a non-blocking warning
+  - The project save still succeeds (bytes are on disk, books marked clean —
+    "saved to disk" ≠ "versioned")
+  - The result carries `checkpoint: { kind: "failed" }` and the UI renders a
+    non-blocking warning
 
 ## History listing behavior
 - History is read from the current branch.
@@ -124,6 +130,7 @@
 - `src/core/persistence/gitVersionUtils.ts`
 - `src/app/domain/git/gitConstants.ts`
 - `src/app/domain/git/ensureProjectGitReady.ts`
+- `src/app/domain/project/savePipeline.ts` (checkpoint phase)
 - `src/web/adapters/git/WebGitProvider.ts`
 - `src/tauri/adapters/git/TauriGitProvider.ts`
 - `src/tauri/rust/src/git.rs`

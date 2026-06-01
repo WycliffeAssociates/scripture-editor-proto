@@ -88,8 +88,12 @@ function parseVerseNumberSelection(
         selection.focus.offset,
     );
     const endOffset = Math.max(selection.anchor.offset, selection.focus.offset);
-    const textContent = anchorNode.getTextContent();
-    if (!isWhitespaceOnly(textContent.slice(0, startOffset))) return null;
+
+    // Note: we intentionally do NOT require the number to be at the start of the
+    // text node. A user can select a number anywhere in flowing text (e.g. a
+    // verse number that the structure pass left trailing the previous verse) and
+    // promote it; the execute path removes the number and `$insertVerse` splits
+    // the node at that boundary, keeping the preceding text as the prior verse.
 
     return { anchorNode, startOffset, endOffset, verseNumber };
 }

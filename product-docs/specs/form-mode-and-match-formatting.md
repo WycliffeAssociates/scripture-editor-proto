@@ -1,30 +1,24 @@
 # Form Mode + Match-Formatting Trigger
 
-> **Note for reviewer.** This spec was retrofitted from the original "verse-hunk
-> form" plan after the implementation iterated to a *discourse-first* model.
-> What is described below reflects what was actually built; the reviewer's job
-> is to evaluate whether the code in the repo matches this plan and meets the
-> stated goals.
-
 ## Context
 
-The repository already had a working **match-formatting** engine
-(`src/core/domain/usfm/matchFormattingByVerseAnchors.ts`) and orchestration
-hook (`src/app/ui/hooks/useFormatMatching.tsx`). It aligns a target text to a
-reference text using verse anchors, places paragraph/poetry markers cleanly at
-verse boundaries, and returns `SkippedMarkerSuggestion[]` for any markers it
-cannot place because their position falls *inside* a verse (e.g., a `\q2`
-mid-verse). What was missing was:
+The **match-formatting** engine
+(`src/core/domain/usfm/matchFormattingByVerseAnchors.ts`) and its orchestration
+hook (`src/app/ui/hooks/useFormatMatching.tsx`) align a target text to a
+reference text using verse anchors, place paragraph/poetry markers cleanly at
+verse boundaries, and return `SkippedMarkerSuggestion[]` for any markers that
+cannot be placed because their position falls *inside* a verse (e.g., a `\q2`
+mid-verse). Two needs followed from that:
 
 1. A UI entry point for invoking match-formatting.
-2. A good way to disambiguate the leftover intra-verse markers — the WYSIWYG
+2. A way to disambiguate the leftover intra-verse markers — the WYSIWYG
    isn't a great surface for "this marker exists but we don't know where to
    put it inside this verse."
 
-The designer's answer is a **structured form-style editor mode** ("form
-mode"). The first iteration of the plan was *verse-first*: each `\v` hunk was
-a card and paragraph/poetry markers within that hunk were rows. Real USFM
-patterns broke that model — paragraph and verse axes are orthogonal:
+The answer is a **structured form-style editor mode** ("form mode"). It is
+*discourse-first* rather than verse-first: a verse-first model (each `\v` hunk
+as a card, paragraph/poetry markers within it as rows) breaks on real USFM
+because paragraph and verse axes are orthogonal:
 
 - A single verse can span many paragraph-class markers (Heb 1:5: one verse
   spans `\p`, `\q`, `\q2`, `\b`, `\p`, `\b`, `\q`, `\q2`).
@@ -35,7 +29,7 @@ patterns broke that model — paragraph and verse axes are orthogonal:
   of the "is this `\p` a seam or content?" ambiguity that haunted the v1
   prototype.
 
-The shipped model is **discourse-first**: paragraph-class markers (`\p`,
+In the discourse-first model, paragraph-class markers (`\p`,
 `\m`, `\q1`–`\q4`, `\s1`–`\s4`, `\b`, `\pb`, …) are top-level blocks; verse
 fragments live as cards inside. Block kind drives typesetting (indent
 staircase for `\q1`–`\q4`, italic for q-class, heading style for `\s`,
@@ -43,7 +37,7 @@ flush-left for `\p`/`\m`, thin rule for `\b`/`\pb`). Verse fragments stay the
 editable unit (one textarea each). Visual hierarchy is typesetting only — no
 nested cards.
 
-The intended workflow:
+The workflow:
 
 1. User picks a reference text and runs **Match Formatting** from the toolbar.
 2. Match-formatting auto-inserts what it can at verse boundaries.
@@ -88,10 +82,35 @@ The block-tree is purely a presentation layer over the existing flat USFM
 token stream. **Round-trip back to tokens is byte-identical**:
 `flattenFormBlockTree(buildFormBlockTree(tokens)) === tokens`.
 
+### Marker-category derivation (single source)
+
+Which marker starts a block, and what block kind it gets
+(heading / poetry / list / paragraph), is not a hand-maintained set inside
+form mode. `formModeBlockTree.classifyMarker` delegates to
+`classifyParagraphMarker` in `src/app/domain/editor/markerTaxonomy.ts`, which
+projects the usfm-onion catalog's `paragraphCategory` onto a form-mode block
+category: `section → heading`, `poetry → poetry`, `list → list`,
+`body → paragraph`. Catalog categories that aren't form-mode blocks
+(`identification` / `introduction` / `title` / `table` / `peripheral` /
+`other`) return `null`, so those markers don't start a block.
+
+Two small local maps remain in `markerTaxonomy.ts`, both labeled:
+
+- The app's **`rule`** grouping (`\b` / `\pb`) — a presentation grouping with
+  no upstream equivalent (the catalog models `b` as `body` and `pb` as
+  `other`), so it's the app's. Checked first so it wins over the catalog.
+- A handful of **uncatalogued legacy / overflow markers** the catalog doesn't
+  enumerate but WA source data uses (`\ph1`–`\ph3`, `\hl`; level-overflow
+  `\ms4`, `\sb`), each mapped to the category it should keep. Entries are
+  deleted as the catalog gains them.
+
+`isSectionMarker` derives the heading test the same way
+(`paragraphCategory === "section"`, plus the two overflow heading markers).
+
 ### Lexical decorator architecture
 
-A single `FormBlockNode` decorator replaces the originally-planned
-`FormVerseNode` + `FormPreludeNode` pair:
+A single `FormBlockNode` decorator backs every block (it superseded an earlier
+`FormVerseNode` + `FormPreludeNode` pair):
 
 - One decorator node per top-level block in the chapter.
 - Holds `tokens: SerializedLexicalNode[]` (the slice of tokens for that
@@ -232,7 +251,17 @@ continuation fragments too.
 
 ### Match-formatting integration
 
-`useFormatMatching.matchFormattingChapter()`:
+`useFormatMatching` exposes one `matchFormatting(scope)` (`scope` is
+`"chapter" | "book" | "project"`) over a shared apply loop, with
+`matchFormattingChapter` / `matchFormattingBook` / `matchFormattingProject`
+as thin wrappers. The shape mirrors `prettify(scope)` in
+`usePrettifyOperations`: `scope` resolves which chapters get drafted and which
+the reference is taken from up front, then a single apply loop runs through the
+`withWorkingFilesDraft` seam (draft scratch → compute the matched tokens →
+validate → commit), with the `history.runTransaction` wrapper and per-action
+report at the call site.
+
+Per chapter, the apply work:
 
 1. Strip deprecated markers (`\s5`) from the source token stream so
    they never propagate from reference to target.
@@ -244,7 +273,8 @@ continuation fragments too.
    poetry marker the reference has but the target lacks, append an
    empty marker row at the tail of the target's verse hunk.
 5. If the run produced any unplaced suggestions or skeleton injections,
-   call `setEditorMode(EDITOR_MODES.form)` to switch into form mode.
+   call `setEditorMode(EDITOR_MODES.form)` to switch into form mode
+   (chapter scope only; book/project scope leave the mode as-is).
 
 Notes (`\f...\f*`, `\fe...\fe*`, `\x...\x*`, `\ef`, `\ex`) and the
 inline char markers nested inside them (`\fr`, `\ft`, `\fk`, `\fq`,
@@ -295,8 +325,11 @@ the verse stamp and content show.
   `buildEmptyBlockTokens`, `computeFramingEnd`,
   `markBlockPendingFocus` / `peekPendingFocus` /
   `consumePendingFocus`, `deriveBlockKind`, `classifyMarker`.
-  Marker classification sets: `POETRY_MARKERS`, `HEADING_MARKERS`,
-  `RULE_MARKERS`, `LIST_MARKERS`, `PARAGRAPH_MARKERS`.
+  Block-kind classification (`classifyMarker`) does not hardcode marker
+  sets — it delegates to `classifyParagraphMarker` in `markerTaxonomy.ts`,
+  which derives the heading/poetry/list/paragraph categories from the
+  usfm-onion catalog's `paragraphCategory` (see "Marker-category
+  derivation" below).
 - `src/app/domain/editor/nodes/FormBlockNode.tsx` — single Lexical
   decorator. `decorate()` walks `getPreviousSibling()` to plumb
   `canOutdentPastM` and `inheritedSid` into the card. Insert /
@@ -324,6 +357,10 @@ the verse stamp and content show.
   `groupEnvelopesByVerse`, `listVerseMarkers`, `multisetDiff`,
   `injectSkeletonVersesFromSource`,
   `injectSkeletonMarkersFromSource`, `formatMarkerSkeleton`.
+- `src/app/domain/editor/markerTaxonomy.ts` — single source for form-mode
+  paragraph-marker categories + the section test, derived from the
+  usfm-onion catalog's `paragraphCategory` (see "Marker-category
+  derivation"). Public surface: `classifyParagraphMarker`, `isSectionMarker`.
 
 ### Removed
 
@@ -348,10 +385,14 @@ the verse stamp and content show.
 - `src/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts`
   — flattens `FormBlockNode.tokens` so the canonical-snapshot path
   sees real flat tokens.
-- `src/app/ui/hooks/useFormatMatching.tsx` — accepts `setEditorMode`;
-  uses the extracted skeleton-injection helpers; switches to form
-  mode when there are unresolved per-verse skeletons. Drop the
-  cursor-based `applyMatchFormattingSuggestion` flow.
+- `src/app/ui/hooks/useFormatMatching.tsx` — exposes one
+  `matchFormatting(scope)` over a shared apply loop (mirroring
+  `usePrettifyOperations`' `prettify(scope)`), with the chapter/book/project
+  entry points as thin wrappers. Commits through the `withWorkingFilesDraft`
+  seam (`src/app/domain/project/workingFileCommand.ts`). Accepts
+  `setEditorMode`; uses the extracted skeleton-injection helpers; switches to
+  form mode when there are unresolved per-verse skeletons (chapter scope).
+  The cursor-based `applyMatchFormattingSuggestion` flow is gone.
 - `src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx`
   and `ToolbarOverflowMenu/ToolbarOverflowMenu.tsx` — "Form" entry
   in the mode switcher; "Match formatting from reference" action
@@ -389,56 +430,47 @@ the verse stamp and content show.
 - The match-formatting algorithm itself — operates on flat token
   streams, unchanged.
 
-## Verification
+## Behavior contract
 
-1. `pnpm check` — `tsc --noEmit` clean.
-2. `pnpm test` — all 110 test files / 610 tests pass. Targeted
-   suites that should be exercised:
-   - `tests/unit/formModeBlockTree.test.ts` — round-trip on
-     Heb 1:5, Mt 4:5–6, prelude, blank-line breaks, section
-     heading patterns.
-   - `tests/unit/skeletonInjection.test.ts` — pipeline regressions
-     including notes-stripping.
-   - `tests/unit/app/domain/editor/utils/modeTransforms.test.ts` —
-     regular → form → regular byte-identical round-trip on
-     real chapters.
-3. Manual on Heb 1:5 — verify v5 renders as 7 cards (no card for the
-   `\b`s — those are rules) all stamped only on the first;
-   typesetting is `\p` flush-left, `\q` indent 1 italic, `\q2`
-   indent 2 italic, etc.
-4. Manual on Mt 4:5–6 — verify the leading `\p` block contains two
-   adjacent fragment cards (v5, v6) with no extra vertical gap;
-   subsequent blocks each have their own card stamped v6.
-5. Manual insertion paths:
-   a. Trailing `+ → Paragraph` after a `\p` block creates a new
-      empty `\p` block immediately after with autofocus.
-   b. Trailing `+ → Verse` after a verse appends a new verse
-      fragment **into the current block** (no new `\p` wrapper)
-      with the next verse number.
-   c. Within-block `+ → Verse` between two existing fragments
-      inserts a new verse fragment **before the chosen fragment,
-      in the same block** with focus landing on the new fragment.
-      *Specific regression to check: this used to incorrectly
-      route to split-with-marker `\v` and corrupt sibling blocks.*
-   d. Within-block `+ → Poetry 1` splits the block at the chosen
-      fragment.
-   e. `\q2` is hidden in the `+` menu unless the predecessor block
-      is `\q1`.
-6. Indent arrows on a `\p` block: ▶ → "Poetry 1" (italic, indent 1),
-   ▶ again → "Poetry 2", ▶ disabled. ◀ back through `\p` to `\m`.
-   On `\m` with an implicit predecessor (chapter framing), ◀ is
-   disabled. On `\m` with a non-implicit predecessor, ◀ strips the
-   marker and merges content into the previous block.
-7. Cross-pane focus: click a fragment on source; the matching
-   fragment on the read-only reference side gains the brand outline
-   and scrolls into view (smooth, nearest). Continuation fragments
-   (no own `\v`) also align via inheritedSid.
-8. Match formatting on a chapter where the reference has intra-verse
-   `\q1`/`\q2` the source lacks: confirm the editor switches into
-   form mode, the affected first fragments show the danger left
-   rail and "Missing: …" banner, and the synced reference shows
-   the corresponding rows.
-9. Notes (`\f...\f*`) in the reference are NOT injected as empty
-   `\fr`/`\ft` rows on the target.
-10. Round-trip: load a chapter with each example pattern, switch to
-    form mode, switch back, diff `currentTokens` — byte-identical.
+Concrete behaviors the feature holds, with the patterns they're exercised on:
+
+- **Round-trip is byte-identical.** Load a chapter, switch to form mode,
+  switch back, and `currentTokens` is unchanged. Covered by
+  `tests/unit/formModeBlockTree.test.ts` (Heb 1:5, Mt 4:5–6, prelude,
+  blank-line breaks, section-heading patterns) and
+  `tests/unit/app/domain/editor/utils/modeTransforms.test.ts` (regular → form
+  → regular on real chapters).
+- **One verse spanning many blocks** (Heb 1:5): renders as 7 cards (no card
+  for the `\b`s — those are rules), the verse chip stamped only on the first;
+  typesetting is `\p` flush-left, `\q` indent 1 italic, `\q2` indent 2 italic.
+- **One block holding many verses** (Mt 4:5–6): the leading `\p` block holds
+  two adjacent fragment cards (v5, v6) with no extra vertical gap; subsequent
+  blocks each have their own card.
+- **Insertion paths:**
+  - Trailing `+ → Paragraph` after a `\p` block creates a new empty `\p`
+    block immediately after, with autofocus.
+  - Trailing `+ → Verse` appends a new verse fragment **into the current
+    block** (no new `\p` wrapper) with the next verse number.
+  - Within-block `+ → Verse` inserts a new verse fragment **before the chosen
+    fragment, in the same block**, focus landing on the new fragment. (This is
+    a deliberate departure from split-with-marker `\v`, which corrupted
+    sibling blocks.)
+  - Within-block `+ → Poetry 1` splits the block at the chosen fragment.
+  - `\q2` is hidden in the `+` menu unless the predecessor block is `\q1`.
+- **Indent arrows** on a `\p` block: ▶ → "Poetry 1" (italic, indent 1), ▶
+  again → "Poetry 2", ▶ then disabled. ◀ back through `\p` to `\m`. On `\m`
+  with an implicit predecessor (chapter framing), ◀ is disabled; with a
+  non-implicit predecessor, ◀ strips the marker and merges content into the
+  previous block.
+- **Cross-pane focus:** focusing a fragment on the source pane gives the
+  matching read-only reference fragment a brand outline and scrolls it into
+  view (smooth, nearest). Continuation fragments (no own `\v`) align via
+  `inheritedSid`.
+- **Match formatting** where the reference has intra-verse `\q1`/`\q2` the
+  source lacks: the editor switches into form mode, the affected first
+  fragments show the danger left rail and "Missing: …" banner, and the synced
+  reference shows the corresponding rows.
+- **Notes are content, not skeleton:** `\f...\f*` in the reference are not
+  injected as empty `\fr`/`\ft` rows on the target. Covered by
+  `tests/unit/skeletonInjection.test.ts` (pipeline regressions including
+  notes-stripping).

@@ -1,9 +1,6 @@
 import { type InputHTMLAttributes, type Ref, useId } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./input.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export interface TextInputProps
     extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {

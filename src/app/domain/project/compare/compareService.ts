@@ -10,12 +10,7 @@ import {
     replaceChapterDiffsInMap,
 } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
-import type {
-    CompareDiff,
-    CompareResult,
-    CompareSessionConfig,
-    CompareWarning,
-} from "./types.ts";
+import type { CompareDiff, CompareResult, CompareWarning } from "./types.ts";
 
 export type CompareMetadataSummary = {
     projectId?: string;
@@ -42,7 +37,6 @@ type CompareDiffMapBuildArgs = {
 
 type BuildCompareResultArgs = {
     currentFiles: ScriptureBookState[];
-    config: CompareSessionConfig;
     sourceFiles: ScriptureBookState[];
     currentMetadata?: CompareMetadataSummary;
     sourceMetadata?: CompareMetadataSummary;
@@ -256,12 +250,6 @@ async function buildChapterDiffMapAsync(
             sourceOnly,
         },
     };
-}
-
-export async function buildCompareResult(
-    args: BuildCompareResultArgs,
-): Promise<CompareResult> {
-    return buildCompareResultAsync(args);
 }
 
 export async function buildCompareResultAsync(

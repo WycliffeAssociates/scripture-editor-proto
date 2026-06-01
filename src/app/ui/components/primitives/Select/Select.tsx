@@ -1,11 +1,8 @@
 import { Select } from "@base-ui/react/select";
 import { Check } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./select.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export interface SelectItem {
     value: string;

@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
+import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { prefetchVersionPreview } from "@/app/ui/hooks/save/versionQueries.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
@@ -27,10 +28,6 @@ const VERSION_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
 });
-
-function joinClassNames(...names: Array<string | false | undefined>) {
-    return names.filter(Boolean).join(" ");
-}
 
 export function VersionsPopover() {
     const [opened, setOpened] = useState(false);

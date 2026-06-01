@@ -25,6 +25,12 @@ intentionally).
 - Renders each paragraph-class block as a `FormBlockNode` decorator
   (Lexical decorator node, not a sibling render branch). All custom
   editing UI lives inside the Lexical lifecycle.
+- Which markers are paragraph-class, and the block category they get
+  (heading / poetry / list / paragraph), derive from the usfm-onion
+  catalog's `paragraphCategory` via `markerTaxonomy.classifyParagraphMarker`
+  — not hardcoded marker sets. Only the app's `rule` grouping (`\b` / `\pb`)
+  and a few uncatalogued legacy markers stay local (see
+  `form-mode-and-match-formatting.md`).
 - Visual cards span paragraph → poetry runs: paragraph-class and list
   blocks start a white card; poetry blocks that immediately follow a
   card-eligible sibling collapse into it (no top radius, predecessor
@@ -89,7 +95,8 @@ intentionally).
   - `src/app/domain/editor/nodes/FormBlockNode.tsx` — decorator node, sets `data-block-category`
   - `src/app/ui/components/blocks/FormBlockCard.tsx` — row grid, chrome, indent cycle, insert/combine/split slots
   - `src/app/ui/components/blocks/formBlock.css.ts` — merged-card surface rules (uses `:has()` for continuation collapse)
-  - `src/app/domain/editor/utils/formModeBlockTree.ts` — block classification, continuation predicates, pending-focus helpers
+  - `src/app/domain/editor/utils/formModeBlockTree.ts` — block classification (delegates to `markerTaxonomy`), continuation predicates, pending-focus helpers
+  - `src/app/domain/editor/markerTaxonomy.ts` — `classifyParagraphMarker` / `isSectionMarker`, derived from the usfm-onion catalog
   - `src/app/domain/editor/utils/formModeEntries.ts` — structural entry model the form renderer walks
   - `src/core/domain/usfm/skeletonInjection.ts` — paragraph/poetry skeleton injection for form-mode entry creation
   - `src/app/ui/components/primitives/AutoTextarea/AutoTextarea.tsx`

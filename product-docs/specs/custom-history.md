@@ -37,7 +37,7 @@
 - **Ignore path**: `programaticIgnore` changes are not pushed as new
   entries, but baselines still update so later diffs remain correct.
 
-## Replay path (Phase A/B)
+## Replay path
 
 Replay is the only path in the codebase outside the bridge that commits a
 `bulk` patch with project scope. The shape is:

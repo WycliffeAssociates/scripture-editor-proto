@@ -7,8 +7,22 @@ import { CHAPTER_VERSE_MARKERS } from "@/core/domain/usfm/onionMarkers.ts";
 
 const LEADING_VERSE_NUMBER_WITH_TEXT_PATTERN = /^(\s*)(\d+(?:-\d+)?)(\s+)(.*)$/;
 
+// Highest verse count in any Protestant chapter is Psalm 119 (176 verses), so a
+// leading number above that can't be a verse and shouldn't be suggested.
+const MAX_VERSE_NUMBER = 176;
+
 function isMarkerExpectingNumberRange(marker: string | undefined): boolean {
     return !!marker && CHAPTER_VERSE_MARKERS.has(marker);
+}
+
+// A plausible verse number (or range like "5-6") is 1..176 on every part.
+function isPlausibleVerseNumber(verseNumber: string): boolean {
+    const parts = verseNumber.split("-");
+    for (const part of parts) {
+        const n = Number.parseInt(part, 10);
+        if (!Number.isFinite(n) || n < 1 || n > MAX_VERSE_NUMBER) return false;
+    }
+    return true;
 }
 
 /**
@@ -40,14 +54,22 @@ export function canPromoteLeadingVerseNumber(anchorNode: USFMTextNode): {
     if (anchorNode.getTokenType() !== UsfmTokenTypes.text) return null;
     const match = getLeadingVerseNumberFromText(anchorNode.getTextContent());
     if (!match) return null;
+    // Out-of-range numbers (e.g. "200 …", years, list items) aren't verses.
+    if (!isPlausibleVerseNumber(match.verseNumber)) return null;
     const prevNode = anchorNode.getPreviousSibling();
-    if (
-        $isUSFMTextNode(prevNode) &&
-        prevNode.getTokenType() === UsfmTokenTypes.marker &&
-        isMarkerExpectingNumberRange(prevNode.getMarker())
-    ) {
-        // already a marker expecting a number before this possible verse number
-        return null;
+    if ($isUSFMTextNode(prevNode)) {
+        const prevType = prevNode.getTokenType();
+        // Already a marker expecting a number (`\v`/`\c`) right before.
+        if (
+            prevType === UsfmTokenTypes.marker &&
+            isMarkerExpectingNumberRange(prevNode.getMarker())
+        ) {
+            return null;
+        }
+        // Already verse content: the parsed verse number sits just before this
+        // text (e.g. `\v 5 5 …`), so the leading digit is a duplicate the
+        // structure-maintenance pass handles — not something to promote.
+        if (prevType === UsfmTokenTypes.numberRange) return null;
     }
     return match;
 }

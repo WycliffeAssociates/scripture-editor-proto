@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { BookIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "./bookChapterPickerSidebar.css.ts";
 
@@ -16,10 +17,6 @@ type SidebarBook = {
 type SidebarChapter = {
     chapterNumber: number;
 };
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export function BookChapterPickerSidebar() {
     const { t } = useLingui();

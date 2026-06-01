@@ -63,6 +63,9 @@ tests/mockData/berean-standard-bible
 .repomix/
 .claude/scheduled_tasks.lock
 
+#codegraph stuff
+.codegraph
+
 # Wrangler dev cache + state
 .wrangler/
 

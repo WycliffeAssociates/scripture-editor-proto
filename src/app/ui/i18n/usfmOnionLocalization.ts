@@ -202,6 +202,21 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     }
 }
 
+// Last-resort prettifier for fix codes we haven't given an explicit localized
+// label yet: turn an upstream enum name ("CollapseContentWhitespace" or
+// "collapse-content-whitespace") into "Collapse content whitespace" so the
+// button never shows a raw identifier. Not translated — add a `case` above for
+// anything user-facing that needs real localization.
+function humanizeFixLabel(label: string): string {
+    const spaced = label
+        .replace(/[-_]+/g, " ")
+        .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+        .trim();
+    if (!spaced) return label;
+    const lower = spaced.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 export function formatTokenFixLabel(fix: TokenFix): string {
     const marker = markerForFix(fix);
     const number = getParam(fix.labelParams, "number");
@@ -217,7 +232,19 @@ export function formatTokenFixLabel(fix: TokenFix): string {
             return t`Split unknown token`;
         case "insert-close-marker":
             return t`Insert close marker for ${marker}`;
+        case "collapse-content-whitespace":
+            return t`Collapse to a single space`;
+        case "collapse-whitespace-around-marker":
+            return marker
+                ? t`Collapse spaces around ${marker}`
+                : t`Collapse extra spaces`;
+        case "insert-whitespace-before-marker":
+            return t`Add a space before ${marker}`;
+        case "insert-whitespace-after-marker-name":
+            return t`Add a space after ${marker}`;
+        case "insert-tag-end-delimiter-after-marker":
+            return t`Add required space after ${marker}`;
         default:
-            return fix.label;
+            return humanizeFixLabel(fix.label);
     }
 }

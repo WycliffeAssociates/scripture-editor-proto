@@ -1,9 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./actionIcon.css.ts";
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
-}
 
 export interface ActionIconSimpleProps
     extends ButtonHTMLAttributes<HTMLButtonElement> {

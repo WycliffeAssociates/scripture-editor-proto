@@ -9,6 +9,7 @@ import type { DiffsByChapterMap } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
  * user should see.
  */
 export type CompareMode = "unsaved" | "external";
+
 export const COMPARE_SOURCE_KIND = {
     EXISTING_PROJECT: "existingProject",
     ZIP_FILE: "zipFile",
@@ -25,30 +26,6 @@ export type CompareWarningCode =
     | "direction_mismatch"
     | "project_id_mismatch"
     | "book_coverage_diff";
-
-export type CompareSessionConfig = {
-    mode: CompareMode;
-    source:
-        | {
-              kind: "existingProject";
-              projectId: string;
-          }
-        | {
-              kind: "zipFile";
-              fileName?: string;
-          }
-        | {
-              kind: "directory";
-              directoryName?: string;
-          }
-        | {
-              kind: "previousVersion";
-              commitHash: string;
-          }
-        | {
-              kind: "remoteLatest";
-          };
-};
 
 export type CompareWarning = {
     code: CompareWarningCode;

@@ -12,7 +12,6 @@ export const GIT_REMOTE_INFO_SCHEMA_VERSION = 1;
 
 export const GIT_REMOTE_PROJECT_STATUS_VALUES = [
     "connected",
-    "syncing",
     "offline",
     "pendingPublish",
     "remoteUpdatesAvailable",
@@ -25,13 +24,14 @@ export type GitRemoteProjectStatusKind =
 
 export const [
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    GIT_REMOTE_PROJECT_STATUS_SYNCING,
     GIT_REMOTE_PROJECT_STATUS_OFFLINE,
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
     GIT_REMOTE_PROJECT_STATUS_NEEDS_REVIEW,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
 ] = GIT_REMOTE_PROJECT_STATUS_VALUES;
+
+const LEGACY_GIT_REMOTE_PROJECT_STATUS_SYNCING = "syncing";
 
 const GIT_REMOTE_REVOCATION_STATE_VALUES = [
     "pending",
@@ -161,6 +161,48 @@ export function parseGitRemoteProjectStatus(
             typeof record?.kind === "string" &&
             !isGitRemoteProjectStatusKind(record.kind)
         ) {
+            if (record.kind === LEGACY_GIT_REMOTE_PROJECT_STATUS_SYNCING) {
+                if (
+                    typeof record.projectPath !== "string" ||
+                    record.projectPath.length === 0
+                ) {
+                    throw new Error("Invalid git remote project status record");
+                }
+                return {
+                    projectPath: normalizeGitRemoteProjectPath(
+                        record.projectPath,
+                    ),
+                    kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
+                    lastCheckedAt:
+                        typeof record.lastCheckedAt === "string"
+                            ? record.lastCheckedAt
+                            : null,
+                    lastPublishedAt:
+                        typeof record.lastPublishedAt === "string"
+                            ? record.lastPublishedAt
+                            : null,
+                    lastKnownLocalHead:
+                        typeof record.lastKnownLocalHead === "string"
+                            ? record.lastKnownLocalHead
+                            : null,
+                    lastKnownRemoteHead:
+                        typeof record.lastKnownRemoteHead === "string"
+                            ? record.lastKnownRemoteHead
+                            : null,
+                    lastKnownLocalHeadAuthoredAt:
+                        typeof record.lastKnownLocalHeadAuthoredAt === "string"
+                            ? record.lastKnownLocalHeadAuthoredAt
+                            : null,
+                    lastKnownRemoteHeadAuthoredAt:
+                        typeof record.lastKnownRemoteHeadAuthoredAt === "string"
+                            ? record.lastKnownRemoteHeadAuthoredAt
+                            : null,
+                    latestIncomingAuthorName:
+                        typeof record.latestIncomingAuthorName === "string"
+                            ? record.latestIncomingAuthorName
+                            : null,
+                };
+            }
             throw new Error(
                 `Unsupported git remote project status: ${record.kind}`,
             );

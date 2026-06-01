@@ -26,6 +26,11 @@ import {
 } from "@/app/domain/project/compare/compareMutations.ts";
 import type { ProjectDiff } from "@/app/domain/project/diffTypes.ts";
 import {
+    type IncomingMutationResult,
+    type IncomingMutationRunResult,
+    incomingMutationAborted,
+} from "@/app/domain/project/remoteSync/commandResults.ts";
+import {
     type ChapterRef,
     findChapter,
 } from "@/app/domain/project/workingFileMutations.ts";
@@ -46,7 +51,7 @@ export type ChapterIdentitySnapshot = ReadonlyMap<
 >;
 
 /** Snapshot the current object identity of each candidate chapter (or undefined). */
-function captureChapterIdentities(
+export function captureChapterIdentities(
     files: ScriptureBookState[],
     candidates: ChapterRef[],
 ): ChapterIdentitySnapshot {
@@ -61,7 +66,7 @@ function captureChapterIdentities(
 }
 
 /** True iff every candidate chapter is the SAME object as when `baseline` was captured. */
-function chapterIdentitiesUnchanged(
+export function chapterIdentitiesUnchanged(
     files: ScriptureBookState[],
     candidates: ChapterRef[],
     baseline: ChapterIdentitySnapshot,
@@ -100,7 +105,7 @@ export type IncomingMutationScope =
  * `latest`, so a concurrent commit is preserved; new chapters/books the apply
  * created are folded in.
  */
-function overlayAffectedChapters(
+export function overlayAffectedChapters(
     latest: ScriptureBookState[],
     scratch: ScriptureBookState[],
     affectedRefs: ChapterRef[],
@@ -159,7 +164,7 @@ export async function runIncomingMutation<T>(args: {
     scope: IncomingMutationScope;
     compute: () => Promise<T>;
     commit: (computed: T, latest: ScriptureBookState[]) => void;
-}): Promise<{ committed: boolean; computed: T }> {
+}): Promise<IncomingMutationRunResult<T>> {
     const scope = args.scope;
     const startState = args.workingFilesStore.read();
     // Build the staleness predicate at capture time, matched to the scope.
@@ -181,21 +186,26 @@ export async function runIncomingMutation<T>(args: {
         console.info(
             "[incoming] aborted — the workspace/affected chapter changed during the apply (edit, save, or new chapter); result is stale",
         );
-        return { committed: false, computed };
+        return {
+            kind: "aborted",
+            reason:
+                scope.kind === "workspace"
+                    ? "stale-workspace"
+                    : "stale-chapter",
+            computed,
+        };
     }
     if (!requireGateOpen(args.interactionGate.get())) {
-        return { committed: false, computed };
+        return { kind: "aborted", reason: "gate-closed", computed };
     }
     args.commit(computed, args.workingFilesStore.read());
-    return { committed: true, computed };
+    return { kind: "committed", computed };
 }
 
 /**
  * Apply incoming full-chapter replacements and/or hunks into the store through
- * the validated boundary. Returns `true` if it committed, `false` if it aborted
- * (an affected chapter changed during the apply, or the gate closed). On `false`
- * nothing is committed — callers should skip any "mark remote synced" side
- * effect and leave the diff for retry.
+ * the validated boundary. On `aborted`, nothing is committed — callers should
+ * skip any "mark remote synced" side effect and leave the diff for retry.
  */
 export async function applyIncomingToStore(args: {
     workingFilesStore: WorkingFilesStore;
@@ -204,7 +214,7 @@ export async function applyIncomingToStore(args: {
     fullChapterApplies: ChapterRef[];
     hunkApplies: ProjectDiff[];
     sourceFiles: ScriptureBookState[];
-}): Promise<boolean> {
+}): Promise<IncomingMutationResult<ScriptureBookState[]>> {
     const affectedRefs: ChapterRef[] = [
         ...args.fullChapterApplies,
         ...args.hunkApplies.map((diff) => ({
@@ -212,9 +222,11 @@ export async function applyIncomingToStore(args: {
             chapterNum: diff.chapterNum,
         })),
     ];
-    if (affectedRefs.length === 0) return false;
+    if (affectedRefs.length === 0) {
+        return incomingMutationAborted({ reason: "empty-plan" });
+    }
 
-    const { committed } = await runIncomingMutation({
+    return await runIncomingMutation({
         workingFilesStore: args.workingFilesStore,
         interactionGate: args.interactionGate,
         scope: { kind: "chapters", candidates: affectedRefs },
@@ -261,5 +273,4 @@ export async function applyIncomingToStore(args: {
             );
         },
     });
-    return committed;
 }

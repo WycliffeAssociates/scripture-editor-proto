@@ -50,6 +50,8 @@ import {
     peekPendingFocus,
     replaceFragmentText,
 } from "@/app/domain/editor/utils/formModeBlockTree.ts";
+import { emptyVerseSyntheticIssue } from "@/app/domain/editor/utils/formModeSyntheticLint.ts";
+import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
 import { AutoTextarea } from "@/app/ui/components/primitives/AutoTextarea/AutoTextarea.tsx";
 import {
     FORM_ROW_KEY_ATTR,
@@ -604,6 +606,15 @@ function FragmentRow(props: FragmentRowProps) {
 
     const isInvalid =
         props.fragment.isFirstOfVerse && !props.fragment.text.trim();
+    // Form mode doesn't run the lint pipeline; this is its own structural
+    // check (empty verse-start). Map it to a synthetic lint issue so we reuse
+    // the shared popover and its localized message. See formModeSyntheticLint.
+    const [errIconEl, setErrIconEl] = useState<HTMLElement | null>(null);
+    const [errHovered, setErrHovered] = useState(false);
+    const emptyVerseIssue = useMemo(
+        () => emptyVerseSyntheticIssue(fragmentSid || undefined),
+        [fragmentSid],
+    );
     const fieldClassName = [
         styles.field,
         isInvalid ? styles.fieldInvalid : "",
@@ -713,9 +724,26 @@ function FragmentRow(props: FragmentRowProps) {
                     />
                 )}
                 {isInvalid ? (
-                    <span className={styles.errIcon} aria-hidden="true">
-                        <AlertCircle size={18} />
-                    </span>
+                    <>
+                        <button
+                            type="button"
+                            ref={setErrIconEl}
+                            className={styles.errIcon}
+                            aria-label={t`This verse has no content`}
+                            onMouseEnter={() => setErrHovered(true)}
+                            onMouseLeave={() => setErrHovered(false)}
+                        >
+                            <AlertCircle size={16} />
+                        </button>
+                        <LintFixPopover
+                            anchor={errIconEl}
+                            errors={errHovered ? [emptyVerseIssue] : null}
+                            onApplyFix={() => undefined}
+                            onMouseEnter={() => setErrHovered(true)}
+                            onMouseLeave={() => setErrHovered(false)}
+                            side="top"
+                        />
+                    </>
                 ) : null}
                 {!props.readOnly ? (
                     <button

@@ -238,12 +238,26 @@ globalStyle(`${field}:hover ${rowDelete}, ${field}:focus-within ${rowDelete}`, {
     opacity: 1,
 });
 
-// Error icon on the right of an invalid field.
+// Error icon for an invalid field. Pinned to the block-start/inline-start
+// corner (top-left in LTR): the inline-end side is where the hover-revealed
+// delete X and the insert button live, so the start corner is the only spot
+// that stays clear on hover. The field's red background already carries the
+// "something's wrong" signal; this is just the hover target for the popover.
 export const errIcon = style({
-    alignSelf: "center",
-    paddingRight: "12px",
+    position: "absolute",
+    insetBlockStart: "3px",
+    insetInlineStart: "4px",
+    appearance: "none",
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    margin: 0,
     color: vars.color.onSurfaceError,
     display: "none",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+    cursor: "help",
 });
 globalStyle(`${fieldInvalid} ${errIcon}`, { display: "inline-flex" });
 

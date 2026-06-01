@@ -9,7 +9,6 @@ import {
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    GIT_REMOTE_PROJECT_STATUS_SYNCING,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 
@@ -51,15 +50,6 @@ function getCloudStatusPresentation(
                 color: "teal",
                 bannerTitle: null,
                 bannerMessage: null,
-                actionKind: null,
-                actionLabel: null,
-            };
-        case GIT_REMOTE_PROJECT_STATUS_SYNCING:
-            return {
-                badgeLabel: t`Syncing`,
-                color: "blue",
-                bannerTitle: t`Syncing with cloud`,
-                bannerMessage: t`Checking cloud updates for this project.`,
                 actionKind: null,
                 actionLabel: null,
             };

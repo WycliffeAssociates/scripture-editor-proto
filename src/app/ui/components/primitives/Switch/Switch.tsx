@@ -1,5 +1,6 @@
 import { Switch as BaseSwitch } from "@base-ui/react/switch";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./switch.css.ts";
 
 export interface SwitchProps
@@ -11,10 +12,6 @@ export interface SwitchProps
      * dense surfaces like the reference pane sticky nav.
      */
     compact?: boolean;
-}
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
 }
 
 export function Switch({

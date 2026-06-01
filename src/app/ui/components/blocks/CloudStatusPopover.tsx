@@ -11,10 +11,10 @@ import { Check, ChevronRight, Info } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { Settings } from "@/app/data/settings.ts";
 import {
-    getSyncActionMode,
     type SyncActionMode,
     sortReposByOwnerPriority,
 } from "@/app/domain/project/cloudProjectActions.ts";
+import { getRemoteSyncActionMode } from "@/app/domain/project/remoteSync/gitRemoteLifecycle.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import type { CloudStatusButtonState } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
 import { CloudStatusButton } from "@/app/ui/components/primitives/CloudStatusButton/index.ts";
@@ -36,7 +36,6 @@ import {
     GIT_REMOTE_PROJECT_STATUS_PENDING_PUBLISH,
     GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED,
     GIT_REMOTE_PROJECT_STATUS_REMOTE_UPDATES_AVAILABLE,
-    GIT_REMOTE_PROJECT_STATUS_SYNCING,
     type GitRemoteProjectStatus,
 } from "@/core/persistence/gitRemoteModels.ts";
 import type { RemoteRepoSummary } from "@/core/persistence/RemoteRepoProvider.ts";
@@ -106,21 +105,6 @@ function isReauthState(status: GitRemoteProjectStatus | null) {
     return status?.kind === GIT_REMOTE_PROJECT_STATUS_REAUTH_REQUIRED;
 }
 
-function normalizeCloudStatus(args: {
-    status: GitRemoteProjectStatus | null;
-    isRefreshing: boolean;
-}): GitRemoteProjectStatus | null {
-    const { status, isRefreshing } = args;
-    if (!status) return null;
-    if (status.kind !== GIT_REMOTE_PROJECT_STATUS_SYNCING || isRefreshing) {
-        return status;
-    }
-    return {
-        ...status,
-        kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
-    };
-}
-
 const cloudStatusMessages = {
     connected: {
         title: msg`Project is in sync`,
@@ -141,10 +125,6 @@ const cloudStatusMessages = {
     reauthRequired: {
         title: msg`Reconnect your account`,
         body: msg`Cloud actions are paused until you sign in to this linked account again.`,
-    },
-    syncing: {
-        title: msg`Syncing`,
-        body: msg`Syncing with the cloud...`,
     },
     offline: {
         title: msg`Offline`,
@@ -185,11 +165,6 @@ function cloudStatusCopy(args: {
             return {
                 title: i18n._(cloudStatusMessages.reauthRequired.title),
                 body: i18n._(cloudStatusMessages.reauthRequired.body),
-            };
-        case GIT_REMOTE_PROJECT_STATUS_SYNCING:
-            return {
-                title: i18n._(cloudStatusMessages.syncing.title),
-                body: i18n._(cloudStatusMessages.syncing.body),
             };
         case GIT_REMOTE_PROJECT_STATUS_OFFLINE:
             return {
@@ -264,12 +239,9 @@ export function CloudStatusPopover(props: CloudPopoverProps) {
         return [selectedRepo, ...sortedRepos];
     }, [gitea.repos, selectedRepo, sessionUsername]);
 
-    const normalizedStatus = normalizeCloudStatus({
-        status: remote.status,
-        isRefreshing: remote.isRefreshing,
-    });
+    const normalizedStatus = remote.status;
 
-    const syncActionMode = getSyncActionMode(
+    const syncActionMode = getRemoteSyncActionMode(
         normalizedStatus,
         project.appSettings.autoAcceptIncomingWork,
     );

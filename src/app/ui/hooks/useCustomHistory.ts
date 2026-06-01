@@ -1,24 +1,14 @@
-import { $dfsIterator } from "@lexical/utils";
 import { useLingui } from "@lingui/react/macro";
 import { Duration, Effect, Fiber } from "effect";
-import {
-    $createRangeSelection,
-    $getRoot,
-    $getSelection,
-    $isRangeSelection,
-    $setSelection,
-    type EditorState,
-    type LexicalEditor,
-    type NodeKey,
-    type SerializedEditorState,
-    type SerializedLexicalNode,
+import type {
+    EditorState,
+    LexicalEditor,
+    NodeKey,
+    SerializedEditorState,
+    SerializedLexicalNode,
 } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
-import {
-    $isUSFMTextNode,
-    type USFMTextNode,
-} from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
     lexicalToTokens,
     tokensToUsfm,
@@ -30,15 +20,27 @@ import {
     chapterStateToCanonicalSnapshot,
     inferChapterModeFromState,
 } from "@/app/domain/history/canonicalChapterState.ts";
+import { classifyEditorContentUpdate } from "@/app/domain/history/classifyEditorUpdate.ts";
 import {
     type HistoryChapterRef,
     HistoryManager,
 } from "@/app/domain/history/HistoryManager.ts";
+import {
+    chapterKey,
+    dedupeChapterRefs,
+    findChapterRecordIn,
+    type HistoryChapterRecord,
+} from "@/app/domain/history/historyChapterRefs.ts";
+import {
+    $captureCurrentSelection,
+    $restoreSelectionById,
+    type CapturedSelection,
+    type ChapterCursor,
+    cloneCursor,
+    findScrollAncestor,
+} from "@/app/domain/history/historySelection.ts";
 import { getUndoRedoNotificationTarget } from "@/app/domain/history/historyUndoRedoNotifications.ts";
-import type {
-    ScriptureBookState,
-    ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     requireGateOpen,
@@ -77,35 +79,10 @@ type UseCustomHistoryArgs = {
     coalesceWindowMs?: number;
 };
 
-type HistoryChapterRecord = {
-    file: ScriptureBookState;
-    chapter: ScriptureChapterState;
-};
 type SerializedEditorStateLike =
     SerializedEditorState<SerializedLexicalNode> & {
         selection?: unknown | null;
     };
-
-/**
- * Selection state keyed by USFMTextNode `data-id` instead of by Lexical
- * key. Lexical keys regenerate on every `parseEditorState`, so
- * key-based selection serializations (what `editorState.toJSON().selection`
- * produces) can't survive undo/redo replays. `data-id` is preserved
- * across re-serialization, so a CapturedSelection always re-resolves
- * if the anchor and focus nodes still exist in the target tree.
- *
- * Used everywhere in this hook in place of the legacy serialized
- * selection: baseline tracking, recorded history entries (selectionBefore
- * / selectionAfter), and the undo/redo replay restore path.
- */
-type CapturedSelection = {
-    anchorId: string;
-    anchorOffset: number;
-    focusId: string;
-    focusOffset: number;
-};
-
-type ChapterCursor = CapturedSelection | null;
 
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_COALESCE_WINDOW_MS = 2500;
@@ -113,135 +90,6 @@ const DEFAULT_COALESCE_WINDOW_MS = 2500;
 // queued tagged update; short enough that one-off undo feels immediate.
 // Tune down toward 30ms if a single undo feels laggy in practice.
 const POST_REPLAY_RESTORE_DELAY_MS = 50;
-
-function chapterKey(chapter: HistoryChapterRef) {
-    return `${chapter.bookCode}:${chapter.chapterNum}`;
-}
-
-function dedupeChapterRefs(candidates: HistoryChapterRef[]) {
-    const seen = new Set<string>();
-    return candidates.filter((candidate) => {
-        const key = chapterKey(candidate);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
-function cloneCursor(cursor: ChapterCursor): ChapterCursor {
-    return cursor ? { ...cursor } : null;
-}
-
-function findChapterRecordIn(
-    files: ScriptureBookState[],
-    chapterRef: HistoryChapterRef,
-): HistoryChapterRecord | null {
-    const file = files.find(
-        (candidate) => candidate.bookCode === chapterRef.bookCode,
-    );
-    if (!file) return null;
-    const chapter = file.chapters.find(
-        (candidate) => candidate.chapterNumber === chapterRef.chapterNum,
-    );
-    if (!chapter) return null;
-    return { file, chapter };
-}
-
-/**
- * Walk up from the contenteditable to find the nearest scrolling ancestor.
- * Used so undo/redo can snapshot + restore scroll position across an editor
- * state swap.
- */
-function findScrollAncestor(start: HTMLElement | null): HTMLElement | null {
-    let current: HTMLElement | null = start;
-    while (current) {
-        const cs = window.getComputedStyle(current);
-        const canScrollY =
-            /(auto|scroll|overlay)/.test(cs.overflowY) &&
-            current.scrollHeight > current.clientHeight;
-        if (canScrollY) return current;
-        current = current.parentElement;
-    }
-    return null;
-}
-
-/**
- * Read the current Lexical selection (range selections only) and capture
- * its anchor/focus by USFMTextNode `data-id`. Returns null when there's
- * nothing to preserve (non-range selection, selection sits on a non-USFM
- * node, or nodes lack ids). MUST be called from inside `editor.read` or
- * `editor.update`.
- */
-function $captureCurrentSelection(): CapturedSelection | null {
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel)) return null;
-    const anchorNode = sel.anchor.getNode();
-    const focusNode = sel.focus.getNode();
-    if (!$isUSFMTextNode(anchorNode) || !$isUSFMTextNode(focusNode)) {
-        return null;
-    }
-    const anchorId = anchorNode.getId();
-    const focusId = focusNode.getId();
-    if (!anchorId || !focusId) return null;
-    return {
-        anchorId,
-        anchorOffset: sel.anchor.offset,
-        focusId,
-        focusOffset: sel.focus.offset,
-    };
-}
-
-/**
- * Find USFMTextNodes in the current editor state by `data-id`. Single
- * DFS walk, returns both anchor and focus nodes (which may be the same).
- * MUST be called from inside `editor.read` or `editor.update`.
- */
-function $findUsfmTextNodesById(
-    anchorId: string,
-    focusId: string,
-): { anchorNode: USFMTextNode | null; focusNode: USFMTextNode | null } {
-    let anchorNode: USFMTextNode | null = null;
-    let focusNode: USFMTextNode | null = null;
-    for (const dfsNode of $dfsIterator($getRoot())) {
-        const node = dfsNode.node;
-        if (!$isUSFMTextNode(node)) continue;
-        const id = node.getId();
-        if (anchorNode === null && id === anchorId) anchorNode = node;
-        if (focusNode === null && id === focusId) focusNode = node;
-        if (anchorNode && focusNode) break;
-    }
-    return { anchorNode, focusNode };
-}
-
-/**
- * Restore selection by `data-id` after a state replay. If both anchor
- * and focus nodes are found in the new tree, set a RangeSelection at the
- * same (clamped) offsets. If either is missing (the change deleted the
- * node the cursor was sitting on), leave the selection cleared. MUST be
- * called from inside `editor.update`.
- */
-function $restoreSelectionById(captured: CapturedSelection): boolean {
-    const { anchorNode, focusNode } = $findUsfmTextNodesById(
-        captured.anchorId,
-        captured.focusId,
-    );
-    if (!anchorNode || !focusNode) return false;
-    const sel = $createRangeSelection();
-    const anchorTextLen = anchorNode.getTextContentSize();
-    const focusTextLen = focusNode.getTextContentSize();
-    sel.anchor.set(
-        anchorNode.getKey(),
-        Math.min(captured.anchorOffset, anchorTextLen),
-        "text",
-    );
-    sel.focus.set(
-        focusNode.getKey(),
-        Math.min(captured.focusOffset, focusTextLen),
-        "text",
-    );
-    $setSelection(sel);
-    return true;
-}
 
 export type CustomHistoryHook = ReturnType<typeof useCustomHistory>;
 
@@ -714,18 +562,29 @@ export function useCustomHistory({
 
             const beforeSnapshot = getBaselineSnapshot(chapterRef);
             const beforeSelection = getBaselineSelection(chapterRef);
-            if (!beforeSnapshot) {
-                setBaselineSnapshot(chapterRef, nextSnapshot);
+
+            const action = classifyEditorContentUpdate({
+                hasBeforeSnapshot: beforeSnapshot !== null,
+                snapshotsEqual: beforeSnapshot
+                    ? chapterSnapshotsAreEqual(beforeSnapshot, nextSnapshot)
+                    : false,
+                isHistoryMerge: tags.has(EDITOR_TAGS_USED.historyMerge),
+                isProgrammaticIgnore: tags.has(
+                    EDITOR_TAGS_USED.programaticIgnore,
+                ),
+            });
+
+            // First snapshot for this chapter / no real content change: adopt
+            // baseline (and selection) without recording an entry.
+            if (action.kind === "first-snapshot" || action.kind === "no-op") {
+                if (action.kind === "first-snapshot") {
+                    setBaselineSnapshot(chapterRef, nextSnapshot);
+                }
                 setBaselineSelection(chapterRef, nextSelection);
                 return;
             }
 
-            if (chapterSnapshotsAreEqual(beforeSnapshot, nextSnapshot)) {
-                setBaselineSelection(chapterRef, nextSelection);
-                return;
-            }
-
-            if (tags.has(EDITOR_TAGS_USED.historyMerge)) {
+            if (action.kind === "history-merge") {
                 const merged = managerRef.current.mergeLatestChapterAfter(
                     chapterRef,
                     nextSnapshot,
@@ -736,17 +595,21 @@ export function useCustomHistory({
                 if (merged) {
                     bumpVersion();
                 }
-                if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+                // historyMerge + programaticIgnore stops here; a plain
+                // historyMerge falls through to ALSO record a typing change.
+                if (!action.alsoRecordTyping) {
                     return;
                 }
-            }
-
-            if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) {
+            } else if (action.kind === "programmatic-ignore") {
                 setBaselineSnapshot(chapterRef, nextSnapshot);
                 setBaselineSelection(chapterRef, nextSelection);
                 return;
             }
 
+            // action.kind === "record-typing" (or history-merge fall-through).
+            // The classifier only reaches here with a baseline present (it
+            // returns "first-snapshot" otherwise); this narrows it for TS.
+            if (!beforeSnapshot) return;
             const queuedTypingLabel = nextTypingLabelRef.current;
             const label = queuedTypingLabel?.label ?? t`Edit`;
             nextTypingLabelRef.current = null;

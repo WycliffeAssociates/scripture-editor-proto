@@ -1,5 +1,6 @@
 import { Cloud, CloudCheck, CloudOff, RefreshCw } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { joinClassNames } from "../classNames.ts";
 import * as styles from "./cloudStatusButton.css.ts";
 
 export type CloudStatusButtonState =
@@ -15,10 +16,6 @@ export interface CloudStatusButtonProps
     tooltipDescription?: string;
     ariaLabel?: string;
     icon?: ReactNode;
-}
-
-function joinClassNames(...classNames: Array<string | undefined>) {
-    return classNames.filter(Boolean).join(" ");
 }
 
 function getDefaultTooltipLabel(state: CloudStatusButtonState) {
