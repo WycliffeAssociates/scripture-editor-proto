@@ -16,12 +16,6 @@ export type IncomingMutationRunResult<T> =
     | { kind: "committed"; computed: T }
     | { kind: "aborted"; reason: IncomingMutationAbortReason; computed: T };
 
-export function incomingMutationCommitted<T>(
-    computed: T,
-): IncomingMutationResult<T> {
-    return { kind: "committed", computed };
-}
-
 export function incomingMutationAborted<T>(args: {
     reason: IncomingMutationAbortReason;
     computed?: T;
