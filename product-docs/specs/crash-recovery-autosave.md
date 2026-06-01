@@ -129,15 +129,20 @@ User-visible behavior:
 
 ## Forced review — the command boundary
 
+The forced-review floor lives in `runSavePipeline`'s precondition phase. When
+the tracker is non-empty and the save wasn't attested, the command refuses
+*before any disk I/O* and returns a `blocked` result naming the reason:
+
 ```ts
-async function saveProjectToDisk(options?: {
-    reviewedRecoveredWork?: boolean;
-}): Promise<SaveResult> {
-    if (!tracker.isEmpty() && options?.reviewedRecoveredWork !== true) {
-        return { kind: "review-required" };   // no disk I/O attempted
+function checkSavePreconditions(args, options): WorkspaceCommandBlockReason | null {
+    if (!requireGateOpen(args.interactionGate.get())) return "gate-closed";
+    if (!args.recoveredConflictTracker.isEmpty() &&
+        options?.reviewedRecoveredWork !== true) {
+        return "recovered-review-required";
     }
-    // ...existing save flow + per-book persistence + Section 0b rebase...
+    return null;
 }
+// → runSavePipeline returns { kind: "blocked", reason } and never touches disk.
 ```
 
 Callers:
@@ -145,14 +150,15 @@ Callers:
 - **`useSave.saveReview.open`** — local-unsaved-review path. If the tracker
   is non-empty it forces the modal (bypasses `Auto Accept My Work on Save`).
   The modal's local-review Save action calls `saveProjectToDisk({
-  reviewedRecoveredWork: true })`. **The attestation is issued only from
-  this local-unsaved-review modal path**, never from external-compare-review
+  reviewedRecoveredWork: true })` (the thin `useSaveAndRevert` wrapper over
+  `runSavePipeline`). **The attestation is issued only from this
+  local-unsaved-review modal path**, never from external-compare-review
   — the diff modal is shared, so blocking external-compare entry (below)
   is what keeps the attestation issuable from the right source.
 - **Auto-accept without recovery pending** — passes `reviewedRecoveredWork:
   true` because there's nothing to gate.
 - **`syncNow`'s incoming branch** — deferred while the gate is non-open OR
-  the tracker is non-empty, so it never reaches `saveProjectToDisk` through
+  the tracker is non-empty, so it never reaches the save command through
   the incoming-reconciliation path.
 - **External-compare apply** — refused at the public action entry while
   blocked, and the toolbar mode-entry control is disabled, so the apply
@@ -205,6 +211,17 @@ This replaced a series of ad-hoc per-commit guards. The rule is now: every
 `workingFilesStore.commit` in an incoming flow either has no intervening
 `await` since its read/draft, or passes through this boundary.
 
+**Never accept the remote while review diffs remain.** Reconciliation is bound
+to the same forced-review discipline as the save command. When a behind-only
+pull splits into safe-and-blocked diffs, `runIncomingReconciliation`'s pure
+`finalizeOutcome` *drops* the fast-forward acceptance whenever any review diff
+is still pending — it keeps `remoteSync` attached so the *next* save adopts
+remote latest as its base, rather than marking the remote accepted while the
+user still has diffs to resolve. So a recovered-conflict chapter (or any
+unreviewed incoming hunk) can never silently advance the remote pointer; the
+adoption rides the next reviewed save. (Full reconciliation flow lives in the
+cloud-sync architecture; this is the recovery-relevant invariant.)
+
 ## The dirty-buffer pipeline
 
 ```
@@ -245,7 +262,7 @@ clear the entry, while reverts that bring the chapter content-equal to
 
 | Event                                                                                | Tracker outcome                                            |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Successful save of a tracked chapter (Section 0b rebases it to `dirty: false`)       | Subscriber clears it.                                      |
+| Successful save of a tracked chapter (the captured-content rebase flips it to `dirty: false`) | Subscriber clears it.                             |
 | Full-chapter revert (`DiffViewerModal`'s "Revert chapter")                           | Chapter dirty=false → cleared.                             |
 | All diff-blocks reverted such that the chapter equals `sourceTokens`                 | Chapter dirty=false → cleared.                             |
 | Partial diff-block revert that leaves the chapter still dirty                        | Subscriber does NOT fire — entry stays.                    |
@@ -302,7 +319,7 @@ outside the app may not have updated the manifest.
 | Transient FS hiccup mid-flush         | Up to ~6 s of retry; the latest state at retry time is what gets written.                  |
 | Remote sync while incoming blocked    | Incoming reconciliation deferred; `PENDING_PUBLISH` + status refresh proceed.              |
 | External compare while incoming blocked | Mode-entry control disabled; all six public source-loading actions refuse at entry.        |
-| Save invoked without attestation while tracker non-empty | `{ kind: "review-required" }`. No disk I/O attempted.                                      |
+| Save invoked without attestation while tracker non-empty | `{ kind: "blocked", reason: "recovered-review-required" }`. No disk I/O attempted.         |
 
 ## Out of scope (v2 candidates)
 
@@ -352,9 +369,11 @@ Save / persistence:
 
 - `src/core/persistence/FileSystem.ts` — `atomicWriteText` interface.
 - `src/web/persistence/OpfsFileSystem.ts` / `src/tauri/persistence/TauriFileSystem.ts`.
-- `src/app/ui/hooks/save/useSaveAndRevert.ts` — `reviewedRecoveredWork`
-  attestation + per-book persistence honesty (Section 0a) + captured-content
-  rebase (Section 0b).
+- `src/app/domain/project/savePipeline.ts` — `runSavePipeline`: the
+  `reviewedRecoveredWork` precondition, per-book persistence honesty
+  (`Set<bookCode> persistedBooks`), and the captured-content rebase.
+- `src/app/ui/hooks/save/useSaveAndRevert.ts` — the UI wrapper that calls
+  `runSavePipeline` and renders toasts from its `SaveResult`.
 - `src/tauri/rust/src/usfm_onion.rs` — `source_md5` in parse output.
 - `src/web/domain/usfm/WebUsfmOnionService.ts` — md5 of in-hand string.
 

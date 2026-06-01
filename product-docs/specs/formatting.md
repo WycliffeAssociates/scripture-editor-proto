@@ -28,25 +28,30 @@
 
 ## How edits flow through the store
 
-Format scopes (chapter / book / project) all use the Option D mutation
-pattern from `state-architecture.md`:
+Format scopes (chapter / book / project) all go through the validated
+`withWorkingFilesDraft` seam (`workingFileCommand.ts`; see
+`state-architecture.md` and `editor-data-flow.md`):
 
-1. Collect every chapter ref the scope will touch.
-2. `workingFilesStore.draftWithChapters(refs)` — shallow-copy only those
-   chapters; everything else aliases the store.
-3. For each touched chapter: convert serialized state → flat tokens, run
-   the format transforms, convert back → serialized state, recompute
-   `currentTokens` and `dirty`.
-4. Synchronously `workingFilesStore.commit({ kind: "bulk", files: draft },
-   { kind: "programmaticFix", scope, dirtyTextContent: true })`.
+1. The scope resolves which chapter refs to draft.
+2. The seam drafts them via `draftWithChapters` (shallow-copy only those
+   chapters; everything else aliases the store) into a scratch.
+3. `mutate` runs on the scratch: for each touched chapter, convert serialized
+   state → flat tokens, run the format transforms, convert back → serialized
+   state, recompute `currentTokens` and `dirty`; it returns the chapters it
+   `affected`.
+4. The seam re-reads latest, validates the affected chapters weren't replaced,
+   re-checks the interaction gate, then commits — overlaying the affected
+   chapters onto latest (`chapters` scope) or the scratch wholesale
+   (`workspace` scope).
 
-Book-scope and project-scope format additionally use
-`rebuildParsedFileFromUsfm` which reassigns `book.chapters` wholesale —
-this is safe because the book itself was shallow-copied by the draft.
+Book-scope and project-scope format use `rebuildParsedFileFromUsfm`, which
+reassigns `book.chapters` wholesale; that runs under the seam's `workspace`
+scope (validated by array identity) since it can add or remove chapters.
 
-`useFormatMatching.matchFormattingChapter` follows the same pattern and
-captures the pre-draft `read()` as its rollback baseline; because the
-draft only mutates copies, the snapshot stays a valid undo target.
+`matchFormatting` (in `useFormatMatching`) follows the same seam. The seam's
+validate-on-commit is what makes the async transforms safe — there's no need
+to keep a separate pre-draft rollback snapshot synchronous, because an abort
+never commits.
 
 ## Current limits and non-goals
 - Format is best-effort normalization, not full semantic rewriting of complex USFM.
@@ -61,4 +66,5 @@ draft only mutates copies, the snapshot stays a valid undo target.
 - `src/app/domain/editor/utils/prettifySerializedNode.ts`
 - `src/app/domain/editor/actions/prettifyActions.ts`
 - `src/app/state/WorkingFilesStore.ts` — `draftWithChapters`
+- `src/app/domain/project/workingFileCommand.ts` — `withWorkingFilesDraft` seam
 - `src/app/ui/components/blocks/Toolbar.tsx`

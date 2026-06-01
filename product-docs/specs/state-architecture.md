@@ -48,8 +48,10 @@ direction to grow into, not a closed door.
    Lexical update                              user action / programmatic flow
         │                                            │
         ▼                                            ▼
-   WorkingFilesBridgePlugin               draftWithChapters → mutate → commit
-        │                                            │
+   WorkingFilesBridgePlugin               withWorkingFilesDraft seam
+        │                                  (draft → compute → validate
+        │                                   → re-check gate → commit
+        │                                   → invalidate)
         └──────────────► WorkingFilesStore ◄─────────┘
                           │              │
               React subscribe            Effect changes: Stream<CommitEvent>
@@ -133,17 +135,33 @@ reasons:
    `useFormatMatching`: nothing the draft mutates ever leaks back into the
    store-owned snapshot.
 
-**Concurrency rule.** `draft → mutate → commit` must stay synchronous in one
-stack frame. An `await` between drafting and committing lets a newer commit
+**Concurrency rule.** A raw `draft → mutate → commit` must stay synchronous in
+one stack frame. An `await` between drafting and committing lets a newer commit
 land in between; your draft (which still aliases the old untouched paths)
 will then overwrite the newer commit on those paths — a lost update. Gather
 async results first, then synchronously draft from the latest `read()` and
 commit.
 
+**The validated seam (`withWorkingFilesDraft`).** Because most active flows
+genuinely need to `await` mid-mutation (re-tokenizing, calling the usfm-onion
+service), active mutations don't open-code the synchronous draft-and-commit —
+they go through the `withWorkingFilesDraft` seam in
+`src/app/domain/project/workingFileCommand.ts`. The seam lets `mutate` await
+freely on a structural-sharing scratch, then re-reads latest and **validates
+the affected chapters weren't replaced** (object identity), **re-checks the
+interaction gate**, and only then commits (overlaying the affected chapters
+onto the latest read, or — `workspace` scope — committing the scratch
+wholesale after an array-identity check). Side effects move to a post-commit
+`invalidate` hook that never runs on abort. It composes the same
+identity-CAS primitives as `runIncomingMutation`, so there is one lost-update
+contract. Open-coding `draftWithChapters` + `commit` directly is reserved for
+flows that are genuinely synchronous (e.g. history replay, save mark-clean).
+
 **Discovery flows** (e.g. lint fix-its that don't know which chapters they'll
-touch until they walk the data): collect refs in pass 1, then `draftWithChapters`
-+ mutate + commit in pass 2. Two cheap passes is preferable to drafting the
-whole project speculatively.
+touch until they walk the data): pass every candidate chapter as `draftRefs`
+and let the seam's `mutate` return only the `affected` ones — only those drive
+the commit and report. Drafting all candidates is cheap (structural sharing);
+only touched chapters get fresh objects.
 
 ### The four `WorkingFilesPatch` shapes
 
@@ -403,11 +421,17 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
 
 1. **The store owns the snapshot.** A `read()` is shared by reference across
    subscribers — never mutate it directly.
-2. **To mutate, draft.** `draftWithChapters(refs)` is the only sanctioned way
-   to produce a writable copy. The shallow copies are yours; the untouched
-   refs still alias the store and must stay untouched.
-3. **One stack frame, draft → mutate → commit.** No `await`s in between (see
-   the lost-update note above).
+2. **To mutate actively, use the seam.** Active mutations (format, prettify,
+   match-formatting, lint-fix) go through `withWorkingFilesDraft`; awaited
+   incoming-content applies go through `runIncomingMutation`. Both produce
+   their writable copy via `draftWithChapters(refs)` — the only sanctioned way
+   to make one. The shallow copies are yours; the untouched refs still alias
+   the store and must stay untouched.
+3. **A raw draft → commit must be one synchronous stack frame.** If a flow
+   open-codes `draftWithChapters` + `commit` (genuinely synchronous flows
+   only — history replay, save mark-clean), there must be no `await` in
+   between (see the lost-update note above). If you need to await
+   mid-mutation, that's exactly what the seam is for.
 4. **One channel per consumer.** React-side reads via `useSyncExternalStore`
    on the satellite that's relevant; Effect-side reads via the pipeline.
    Mixing channels in one consumer is a smell — derive into a satellite
@@ -426,6 +450,10 @@ File: `src/app/ui/contexts/WorkspaceContext.tsx`
   `CommitEvent`.
 - `src/app/state/WorkingFilesStore.ts` — store, `draftWithChapters`,
   `applyPatch`, `findChapterInDraft`.
+- `src/app/domain/project/workingFileCommand.ts` — `withWorkingFilesDraft`,
+  the validated active-mutation seam.
+- `src/app/domain/project/compare/applyIncomingToStore.ts` —
+  `runIncomingMutation` + the shared identity-CAS primitives the seam composes.
 - `src/app/state/commitFilters.ts` — `isLintRelevant`, `isSaveStatusRelevant`,
   `isStructureMaintenanceRelevant`. The search-rerun predicate
   (`isSearchRerunRelevant`) lives co-located with its pipeline in

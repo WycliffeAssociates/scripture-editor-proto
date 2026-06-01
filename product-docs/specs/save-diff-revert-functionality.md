@@ -86,31 +86,61 @@
   - the app does not replay diverged local-only commits one by one during this reconciliation path
 - The app does not force a modal immediately when background cloud checks finish. Remote-open notifications surface through status UI first.
 
+## The save command (`runSavePipeline`)
+
+Save is a UI-free, ordered command — `runSavePipeline` in
+`src/app/domain/project/savePipeline.ts` — that the UI calls and turns into
+toasts. It does not import any notification API; `useSaveAndRevert`
+(`saveProjectToDisk` is now a thin wrapper over `runSavePipeline`) renders the
+success toast and the checkpoint/publish warnings from the typed result.
+
+It returns one `SaveResult`:
+
+- **`saved`** — `{ persistedBookCodes, checkpoint, publish }`. The
+  `checkpoint` substate is `created{hash}` / `failed` / `null` (nothing to
+  version), and `publish` is the push outcome / `failed` / `skipped` / `null`.
+- **`partial`** — some books persisted, then a mid-loop write threw; the books
+  that landed are clean, the rest stay dirty.
+- **`failed`** — a pre-write failure (base restore / remote-base prep threw);
+  nothing on disk.
+- **`blocked`** — `{ reason }`. The command refused before any disk I/O:
+  `gate-closed` (a save is already in flight) or `recovered-review-required`
+  (unreviewed recovered conflicts without attestation).
+
+**Invariant — "saved to disk" ≠ "versioned" ≠ "published."** A git-checkpoint
+or publish failure is a *warning*, not a save failure: the bytes are on disk
+and the persisted books are marked clean regardless. That's why checkpoint and
+publish are independent substates inside the `saved` result rather than things
+that can fail the save.
+
 ## Crash-recovery integration
 
-The save flow cooperates with the crash-recovery autosave feature
+The save command cooperates with the crash-recovery autosave feature
 (`crash-recovery-autosave.md`) in three places:
 
-- **Forced review by attestation.** `saveProjectToDisk` takes a
-  `reviewedRecoveredWork?: boolean` option. If `RecoveredConflictTracker`
-  is non-empty and the option isn't `true`, the save returns
-  `{ kind: "review-required" }` without touching disk. `useSave.saveReview.open`
-  forces the diff modal (bypassing `Auto Accept My Work on Save`) while the
-  tracker holds entries; the modal's local-review Save action passes the
-  attestation. The attestation is **only** issued from the local-unsaved-review
-  modal path — never from external-compare-review — which is enforced by
-  blocking external-compare entry while the tracker is non-empty.
-- **Per-book persistence honesty (Section 0a).** The save loop tracks a
-  `Set<bookCode> persistedBooks` instead of a boolean `saveError` flag, so
-  a failure in book 2 of 3 leaves books 2 and 3 honestly dirty.
-- **Captured-content rebase per chapter (Section 0b).** At save snapshot
-  the loop captures `{ tokens: Token[] }` per chapter and, after successful
-  per-book persistence, `rebaseChapterToCapturedSave` updates `sourceTokens`
-  and reconstructs `loadedLexicalState` from the captured tokens. This is
-  what makes the per-chapter `dirty` flag honest under concurrent
-  programmatic mutations during a save — and what lets the
-  `recoveredConflictTrackerSubscriber` clear tracker entries by observing
-  the chapter clean.
+- **Forced review by attestation.** `runSavePipeline` takes a
+  `reviewedRecoveredWork?: boolean` option. If `RecoveredConflictTracker` is
+  non-empty and the option isn't `true`, the precondition check returns
+  `{ kind: "blocked", reason: "recovered-review-required" }` without touching
+  disk. `useSave.saveReview.open` forces the diff modal (bypassing `Auto
+  Accept My Work on Save`) while the tracker holds entries; the modal's
+  local-review Save action passes the attestation. The attestation is **only**
+  issued from the local-unsaved-review modal path — never from
+  external-compare-review — which is enforced by blocking external-compare
+  entry while the tracker is non-empty.
+- **Per-book persistence honesty.** The persist phase tracks a
+  `Set<bookCode> persistedBooks`, so a failure in book 2 of 3 leaves books 2
+  and 3 honestly dirty (returned as `partial`).
+- **Captured-content rebase per chapter.** The pipeline freezes
+  `{ tokens }` per chapter at the save snapshot (the same synchronous instant
+  the payload is built) and, after successful per-book persistence,
+  `rebaseChapterToCapturedSave` advances `sourceTokens` and reconstructs
+  `loadedLexicalState` from the *captured* tokens — not live `currentTokens`,
+  so a keystroke mid-save stays dirty rather than being silently swallowed.
+  This is what makes the per-chapter `dirty` flag honest under concurrent
+  mutation during a save, and what lets the
+  `recoveredConflictTrackerSubscriber` clear tracker entries by observing the
+  chapter clean.
 
 `WorkspaceBaselineStore.setPresent(bookCode, newMd5)` runs alongside each
 successful book write so the dirty-buffer pipeline's next backup wrapper
@@ -139,18 +169,25 @@ fresh snapshot from the editor each time. The relevant paths:
   disk write. The legacy bug where `hasUnsavedChanges` could go stale after
   a revert is gone — the pipeline observes the post-commit snapshot's
   per-chapter `dirty` flags and reports authoritatively.
-- **Mark-saved uses `draftWithChapters`.** `useSaveAndRevert.saveProjectToDisk`
-  computes the refs for chapters being saved, drafts those chapters,
-  flips their `dirty` flags to `false`, and bulk-commits.
-- **External-compare apply uses `draftWithChapters`.** `useExternalCompare`
-  builds a draft of every chapter the apply touches, mutates the draft via
-  `applyIncomingHunkToCurrent` / `applyIncomingChapter`, and bulk-commits.
-  This pattern (clone → mutate → bulk commit) replaces the old
-  "mutate-in-place, then call rebuild" approach across all programmatic
-  flows.
+- **Mark-saved happens inside the save command.** `runSavePipeline`'s rebase
+  phase collects the refs for the books that persisted, drafts those chapters
+  via `draftWithChapters`, rebases each to its captured-save tokens (which
+  flips `dirty` to `false`), and bulk-commits. Books that failed to persist
+  keep their dirty state.
+- **External-compare apply goes through the validated incoming boundary.**
+  A hunk apply (`applyIncomingHunkToCurrent`) has to await a token compute, so
+  it commits through `applyIncomingToStore` / `runIncomingMutation`
+  (`applyIncomingToStore.ts`): capture chapter identities before the await,
+  compute on a private scratch, re-read latest, abort on a stale chapter or a
+  closed gate, then overlay only the affected chapters onto the latest read.
+  The synchronous full-chapter / all-chapter applies build a
+  `draftWithChapters` and bulk-commit in one stack frame with a gate recheck
+  at the commit boundary. Both (compute on scratch / draft → validate →
+  commit) replace the old "mutate-in-place, then call rebuild" approach.
 - **Revert all** uses the same pattern with the original loaded source.
 
 ## Key modules (for agents)
+- `src/app/domain/project/savePipeline.ts` (`runSavePipeline`, `SaveResult`)
 - `src/app/ui/hooks/useSave.tsx`
 - `src/app/ui/hooks/save/useSaveAndRevert.ts`
 - `src/app/ui/hooks/save/useExternalCompare.ts`
