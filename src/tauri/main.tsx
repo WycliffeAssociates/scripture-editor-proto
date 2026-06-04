@@ -16,6 +16,7 @@ import { normalizeGiteaHostBaseUrl } from "@/core/persistence/giteaConfig.ts";
 import { TauriGitProvider } from "@/tauri/adapters/git/TauriGitProvider.ts";
 import { TauriMd5Service } from "@/tauri/domain/md5/TauriMd5Service.ts";
 import { createTauriSettingsManager } from "@/tauri/domain/settings/settings.ts";
+import { TauriSousService } from "@/tauri/domain/sous/TauriSousService.ts";
 import { TauriUpdaterService } from "@/tauri/domain/updater/TauriUpdaterService.ts";
 import { TauriUsfmOnionService } from "@/tauri/domain/usfm/TauriUsfmOnionService.ts";
 import { TauriFileSystem } from "@/tauri/persistence/TauriFileSystem.ts";
@@ -47,6 +48,7 @@ const authSessionProvider = new FsBackedAuthSessionProvider(
 );
 const md5Service = new TauriMd5Service();
 const usfmOnionService = new TauriUsfmOnionService();
+const sousService = new TauriSousService();
 const gitProvider = new TauriGitProvider();
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
 const opener = new TauriOpener(fileSystem);
@@ -90,6 +92,7 @@ root.render(
             libraryService={libraryService}
             importService={importService}
             usfmOnionService={usfmOnionService}
+            sousService={sousService}
             gitProvider={gitProvider}
             opener={opener}
             platform={currentPlatform}

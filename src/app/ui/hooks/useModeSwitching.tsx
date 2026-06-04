@@ -237,14 +237,15 @@ export function useModeSwitching({
             // visibly expensive. The overlay-tick pipeline doesn't filter on
             // `dirtyTextContent`, so DOM annotation reposition still fires
             // for the new layout.
-            workingFilesStore.commit(
-                { kind: "bulk", files: filesToUse },
-                {
+            workingFilesStore.commit({
+                patch: { kind: "bulk", files: filesToUse },
+                meta: {
                     kind: "programmaticFix",
+                    action: "modeSwitch",
                     scope: { project: true },
                     dirtyTextContent: false,
                 },
-            );
+            });
         }
 
         if (thisChapterUpdated) {

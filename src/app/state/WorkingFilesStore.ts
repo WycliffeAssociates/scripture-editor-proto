@@ -61,7 +61,7 @@ export class WorkingFilesStore {
      * chapterNum)` in `refs` the containing book and chapter are shallow-
      * copied; everything else aliases current state. Caller mutates the
      * named chapters in place, then commits via
-     * `commit({ kind: "bulk", files: draft }, meta)`.
+     * `commit({ patch: { kind: "bulk", files: draft }, meta })`.
      *
      * Why not `structuredClone(read())`: deep-cloning the whole project was
      * ~1.5s on Psalm 119 per undo. Structural sharing produces the exact
@@ -110,7 +110,8 @@ export class WorkingFilesStore {
      * a render). The PubSub publish is forked — non-blocking; stream
      * subscribers consume in their own fibers.
      */
-    commit(patch: WorkingFilesPatch, meta: CommitMetaInput): void {
+    commit(input: { patch: WorkingFilesPatch; meta: CommitMetaInput }): void {
+        const { patch, meta } = input;
         this.state = applyPatch(this.state, patch);
         const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
         const event: CommitEvent = {

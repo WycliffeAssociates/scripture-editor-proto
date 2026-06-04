@@ -209,7 +209,6 @@ function createHistory(): CustomHistoryHook {
             return await run();
         },
         setNextTypingLabel: vi.fn(),
-        registerPostUndoRedoAction: vi.fn(),
         undo: vi.fn(),
         redo: vi.fn(),
         clearHistory: vi.fn(),
@@ -332,7 +331,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 
@@ -434,7 +432,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 
@@ -499,7 +496,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 
@@ -602,7 +598,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
             prepareRemoteBaseForSave,
         });
@@ -700,7 +695,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 
@@ -767,7 +761,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
             prepareRemoteBaseForSave,
         });
@@ -833,7 +826,6 @@ describe("useSaveAndRevert", () => {
             clearUnsavedDiffs: vi.fn(),
             setUnsavedDiffsByChapter: vi.fn(),
             bumpDirtyVersion: vi.fn(),
-            refreshUnsavedChapter: vi.fn(),
             rerunCompareForChapters: vi.fn().mockResolvedValue(undefined),
         });
 

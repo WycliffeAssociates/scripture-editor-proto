@@ -40,6 +40,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { lintIssueToAnnotation } from "@/app/domain/editor/annotations/onionAnnotationProvider.tsx";
 import {
     consumePendingFocus,
     deriveBlockKind,
@@ -51,7 +52,7 @@ import {
     replaceFragmentText,
 } from "@/app/domain/editor/utils/formModeBlockTree.ts";
 import { emptyVerseSyntheticIssue } from "@/app/domain/editor/utils/formModeSyntheticLint.ts";
-import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
+import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
 import { AutoTextarea } from "@/app/ui/components/primitives/AutoTextarea/AutoTextarea.tsx";
 import {
     FORM_ROW_KEY_ATTR,
@@ -611,8 +612,15 @@ function FragmentRow(props: FragmentRowProps) {
     // the shared popover and its localized message. See formModeSyntheticLint.
     const [errIconEl, setErrIconEl] = useState<HTMLElement | null>(null);
     const [errHovered, setErrHovered] = useState(false);
-    const emptyVerseIssue = useMemo(
-        () => emptyVerseSyntheticIssue(fragmentSid || undefined),
+    // The synthetic issue carries no fix, so it normalizes to a message-only
+    // annotation (no action button) — same as it rendered under the old
+    // lint-mode popover.
+    const emptyVerseAnnotation = useMemo(
+        () =>
+            lintIssueToAnnotation(
+                emptyVerseSyntheticIssue(fragmentSid || undefined),
+                { applyFix: () => undefined },
+            ),
         [fragmentSid],
     );
     const fieldClassName = [
@@ -735,10 +743,11 @@ function FragmentRow(props: FragmentRowProps) {
                         >
                             <AlertCircle size={16} />
                         </button>
-                        <LintFixPopover
+                        <AnnotationPopover
                             anchor={errIconEl}
-                            errors={errHovered ? [emptyVerseIssue] : null}
-                            onApplyFix={() => undefined}
+                            annotations={
+                                errHovered ? [emptyVerseAnnotation] : null
+                            }
                             onMouseEnter={() => setErrHovered(true)}
                             onMouseLeave={() => setErrHovered(false)}
                             side="top"

@@ -1,6 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
-import type { LexicalEditor } from "lexical";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
     bookLineEnding,
@@ -9,10 +8,7 @@ import {
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { withWorkingFilesDraft } from "@/app/domain/project/workingFileCommand.ts";
 import { chapterRefsForBook } from "@/app/domain/project/workingFileMutations.ts";
-import type {
-    ScriptureBookState,
-    ScriptureChapterState,
-} from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { showNotificationSuccess } from "@/app/ui/components/primitives/notifications.ts";
@@ -85,9 +81,8 @@ function findEquivalentIssue(
 /**
  * Result of computing a lint fix on the SCRATCH. Pure compute (per the
  * withWorkingFilesDraft contract): it mutates only the scratch file and returns
- * data. All UI/lint/editor side effects run post-commit in the hook's
- * `invalidate`, so a stale/gate abort can never publish a "fix applied" effect
- * for a write that didn't land.
+ * data; the hook runs its toast on the typed result, so a stale/gate abort can
+ * never publish a "fix applied" effect for a write that didn't land.
  *
  * `fallbackIssues` is the relint computed when the first fix didn't apply (used
  * to re-find the issue whose id/span shifted). It's surfaced so the hook can
@@ -125,8 +120,8 @@ export async function applyLintFixToFile(args: {
     // path applies on the first call and never enters this block.
     let fallbackIssues: LintIssue[] | undefined;
     if (!result.appliedChanges.length) {
-        // Compute-only relint — NOT committed here; publishing lint results is the
-        // post-commit invalidate's job.
+        // Compute-only relint — NOT committed to the lint store here; the no-op
+        // path in the hook decides whether to publish it.
         fallbackIssues = await relintBookFile(args.file, args.usfmOnionService);
         const normalizedIssue = findEquivalentIssue(
             fallbackIssues,
@@ -167,27 +162,12 @@ export async function applyLintFixToFile(args: {
 export function useLintFixing({
     workingFilesStore,
     interactionGate,
-    currentFileBibleIdentifier,
-    currentChapter,
-    editorRef,
-    updateDiffMapForChapter,
     commitBookLintResults,
-    setEditorContent,
     history,
 }: {
     workingFilesStore: WorkingFilesStore;
     interactionGate: WorkspaceGateStore;
-    currentFileBibleIdentifier: string;
-    currentChapter: number;
-    editorRef: React.RefObject<LexicalEditor | null>;
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
-    setEditorContent: (
-        fileBibleIdentifier: string,
-        chapter: number,
-        chapterContent: ScriptureChapterState | undefined,
-        editor?: LexicalEditor,
-    ) => void;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -206,11 +186,10 @@ export function useLintFixing({
         // rebuildParsedFileFromUsfm replaces `targetFile.chapters` wholesale and
         // may rebuild multiple chapters. That whole-file replacement is why this
         // is a workspace-scope (validate-then-bulk) commit through the seam, not
-        // a per-chapter overlay. Per the seam contract, the mutator only mutates
-        // the scratch + computes a value; the diff/lint/editor refresh + success
-        // toast run POST-COMMIT in `invalidate`, so a save racing this op (which
-        // aborts the commit at the gate recheck) can't leave the UI claiming the
-        // fix landed.
+        // a per-chapter overlay. Lint/diff/editor sync react to the commit via
+        // their subscribers; the success toast runs on the typed result, so a
+        // save racing this op (which aborts at the gate recheck) can't leave
+        // the UI claiming the fix landed.
         const originalFile = workingFilesStore
             .read()
             .find((f) => f.bookCode === sidParsed.book);
@@ -244,13 +223,7 @@ export function useLintFixing({
                     draftRefs: chapterRefsForBook(originalFile),
                     commitMeta: {
                         kind: "programmaticFix",
-                        // Scope to the affected book, not the whole project: the
-                        // fix only touches this book, and the lint pipeline
-                        // re-lints one book per commit.
-                        scope: {
-                            bookCode: originalFile.bookCode,
-                            chapter: targetChapterNumber,
-                        },
+                        action: "lintFix",
                         dirtyTextContent: true,
                     },
                     mutate: async (scratch) => {
@@ -278,53 +251,22 @@ export function useLintFixing({
                             value: computed,
                         };
                     },
-                    // Post-commit only: refresh diff/lint against the COMMITTED
-                    // file, sync the visible editor, then notify. None of this
-                    // runs if the commit aborted (stale/gate).
-                    invalidate: async () => {
-                        const committedFile = workingFilesStore
-                            .read()
-                            .find((f) => f.bookCode === sidParsed.book);
-                        if (!committedFile) return;
-                        committedFile.chapters.forEach((chapter) => {
-                            updateDiffMapForChapter(
-                                committedFile.bookCode,
-                                chapter.chapterNumber,
-                            );
-                        });
-                        const relintedIssues = await relintBookFile(
-                            committedFile,
-                            usfmOnionService,
-                        );
-                        commitBookLintResults({
-                            [committedFile.bookCode]: relintedIssues,
-                        });
-                        if (
-                            currentFileBibleIdentifier === sidParsed.book &&
-                            currentChapter === targetChapterNumber
-                        ) {
-                            const nextChapter = committedFile.chapters.find(
-                                (c) => c.chapterNumber === targetChapterNumber,
-                            );
-                            setEditorContent(
-                                sidParsed.book,
-                                targetChapterNumber,
-                                nextChapter,
-                                editorRef.current || undefined,
-                            );
-                        }
-                        showNotificationSuccess({
-                            notification: {
-                                title: t`Fix Applied`,
-                                message: t`Autofix applied for ${localizedFixLabel}`,
-                            },
-                        });
-                    },
                 });
+
+                if (outcome.kind === "committed") {
+                    showNotificationSuccess({
+                        notification: {
+                            title: t`Fix Applied`,
+                            message: t`Autofix applied for ${localizedFixLabel}`,
+                        },
+                    });
+                }
 
                 // No-op path: the fix didn't apply, but a fallback relint may
                 // have refreshed the issue set. Publish it so the lint panel
-                // reflects current truth — without having committed mid-mutation.
+                // reflects current truth — without having committed mid-mutation
+                // (no commit ⇒ no subscriber fires; this is the one legitimate
+                // manual lint-store write).
                 if (
                     outcome.kind === "unchanged" &&
                     outcome.value.fallbackIssues

@@ -1,44 +1,42 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
-import { AlertCircle, Wand2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import type { ReactNode } from "react";
+import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
-import {
-    formatLintIssueMessage,
-    formatTokenFixLabel,
-} from "@/app/ui/i18n/usfmOnionLocalization.ts";
-import * as styles from "@/app/ui/styles/modules/LintFixPopover.css.ts";
+import * as styles from "@/app/ui/styles/modules/AnnotationPopover.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
- * Inline lint-fix popover.
+ * Inline annotation popover (formerly `LintFixPopover`).
+ *
+ * A dumb renderer for the source-agnostic annotation spine: each
+ * `EditorAnnotation` shows as an icon + message and one button per
+ * `action`. It knows nothing about onion vs sous vs app — providers normalize
+ * raw findings into `EditorAnnotation` upstream (see `onionAnnotationProvider`).
  *
  * A real Base-UI Popover so placement gets automatic flip/shift collision
  * handling (the old hand-rolled tooltip used an unconditional
  * `translateY(-110%)` that pushed the card outside its container near edges).
  *
  * Two modes:
- *  - LINT mode: pass `errors`; each issue renders as an icon + message and (if
- *    it has a fix) a full-width apply button. Open derives from `anchor` +
- *    `errors`.
+ *  - ANNOTATION mode: pass `annotations`; open derives from `anchor` +
+ *    `annotations`.
  *  - CUSTOM mode: pass `children` to render arbitrary content in the same shell
  *    (e.g. the verse-marker suggest affordance), controlling visibility via
  *    `open`.
  */
 
-export type LintFixPopoverProps = {
+export type AnnotationPopoverProps = {
     /** The element to anchor against. */
     anchor: HTMLElement | null;
-    /** Lint mode: issues to show. Ignored when `children` is provided. */
-    errors?: LintIssue[] | null;
-    /** Apply a fix — wraps `actions.fixLintError` at the real call site. */
-    onApplyFix?: (error: LintIssue) => void;
+    /** Annotation mode: items to show. Ignored when `children` is provided. */
+    annotations?: EditorAnnotation[] | null;
     /**
      * Custom-content mode: render arbitrary content in the same popover shell.
-     * When set, `errors` is ignored and you control visibility via `open`.
+     * When set, `annotations` is ignored and you control visibility via `open`.
      */
     children?: ReactNode;
-    /** Explicit open override; defaults to `anchor && errors.length > 0`. */
+    /** Explicit open override; defaults to `anchor && annotations.length > 0`. */
     open?: boolean;
     /** Keep-open / dismiss handlers driven by the hover state machine. */
     onMouseEnter?: () => void;
@@ -49,23 +47,19 @@ export type LintFixPopoverProps = {
     popupDataJs?: string;
 };
 
-function issueKey(error: LintIssue): string {
-    return `${error.tokenId ?? error.relatedTokenId ?? "?"}:${error.code}:${error.sid ?? ""}`;
-}
-
-export function LintFixPopover({
+export function AnnotationPopover({
     anchor,
-    errors,
-    onApplyFix,
+    annotations,
     children,
     open,
     onMouseEnter,
     onMouseLeave,
     side = "top",
     popupDataJs,
-}: LintFixPopoverProps) {
+}: AnnotationPopoverProps) {
     const isOpen =
-        Boolean(anchor) && (open ?? Boolean(errors && errors.length > 0));
+        Boolean(anchor) &&
+        (open ?? Boolean(annotations && annotations.length > 0));
 
     return (
         <BasePopover.Root open={isOpen}>
@@ -85,11 +79,8 @@ export function LintFixPopover({
                         onMouseLeave={onMouseLeave}
                     >
                         {children ??
-                            (errors && errors.length > 0 ? (
-                                <LintIssueList
-                                    errors={errors}
-                                    onApplyFix={onApplyFix ?? (() => undefined)}
-                                />
+                            (annotations && annotations.length > 0 ? (
+                                <AnnotationList annotations={annotations} />
                             ) : null)}
                     </BasePopover.Popup>
                 </BasePopover.Positioner>
@@ -98,38 +89,36 @@ export function LintFixPopover({
     );
 }
 
-// Icon + message per issue, then a full-width primary apply button when the
-// issue carries a fix.
-function LintIssueList({
-    errors,
-    onApplyFix,
-}: {
-    errors: LintIssue[];
-    onApplyFix: (error: LintIssue) => void;
-}) {
+// Icon + message per annotation, then one full-width button per action.
+function AnnotationList({ annotations }: { annotations: EditorAnnotation[] }) {
     return (
         <div className={styles.body}>
-            {errors.map((error) => (
-                <div key={issueKey(error)} className={styles.item}>
+            {annotations.map((annotation) => (
+                <div key={annotation.id} className={styles.item}>
                     <div className={styles.head}>
                         <span className={styles.icon} aria-hidden="true">
                             <AlertCircle size={16} />
                         </span>
                         <span className={styles.message}>
-                            {formatLintIssueMessage(error)}
+                            {annotation.message}
                         </span>
                     </div>
-                    {error.fix ? (
+                    {annotation.actions?.map((action) => (
                         <Button
-                            variant="primary"
+                            key={action.id}
+                            variant={
+                                action.kind === "default"
+                                    ? "secondary"
+                                    : "primary"
+                            }
                             size="sm"
                             className={styles.fullButton}
-                            leftIcon={<Wand2 size={14} />}
-                            onClick={() => onApplyFix(error)}
+                            leftIcon={action.icon}
+                            onClick={() => action.run()}
                         >
-                            {formatTokenFixLabel(error.fix)}
+                            {action.label}
                         </Button>
-                    ) : null}
+                    ))}
                 </div>
             ))}
         </div>

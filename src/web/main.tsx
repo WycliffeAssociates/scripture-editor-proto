@@ -19,6 +19,7 @@ import {
 import { OpfsGitFs } from "@/web/adapters/git/OpfsGitFs.ts";
 import { WebGitProvider } from "@/web/adapters/git/WebGitProvider.ts";
 import { createBrowserSettingsManager } from "@/web/domain/settings.ts";
+import { WebSousService } from "@/web/domain/sous/WebSousService.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 import { OpfsFileSystem } from "@/web/persistence/OpfsFileSystem.ts";
 import { OpfsStorageRoots } from "@/web/persistence/OpfsStorageRoots.ts";
@@ -63,6 +64,7 @@ const gitProvider = new WebGitProvider(new OpfsGitFs(), {
     requestedWithHeaderValue: gitProxyRequestedWithHeaderValue,
 });
 const remoteRepoProvider = new GiteaRemoteRepoProvider();
+const sousService = new WebSousService();
 const opener = new WebOpener(fileSystem);
 const projectIndex = new DexieProjectIndex(
     buildProjectIndexDbName(resolveWebStorageNamespace()),
@@ -95,6 +97,7 @@ root.render(
             giteaHostBaseUrl={giteaHostBaseUrl}
             storageRoots={storageRoots}
             usfmOnionService={webUsfmOnionService}
+            sousService={sousService}
             gitProvider={gitProvider}
             opener={opener}
             platform={platform}

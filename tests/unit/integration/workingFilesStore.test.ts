@@ -62,14 +62,14 @@ describe("WorkingFilesStore — applyPatch (chapter)", () => {
             makeBook({ bookCode: "GEN", chapters: [seed] }),
         ]);
 
-        wf.commit(
-            makeChapterPatch({
+        wf.commit({
+            patch: makeChapterPatch({
                 bookCode: "GEN",
                 chapter: 1,
                 text: "Hello world.",
             }),
-            makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
-        );
+            meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+        });
 
         const chapter = wf.read()[0].chapters[0];
         expect(chapter.dirty).toBe(true);
@@ -89,21 +89,21 @@ describe("WorkingFilesStore — applyPatch (chapter)", () => {
         ]);
 
         // Edit away from source...
-        wf.commit(
-            makeChapterPatch({
+        wf.commit({
+            patch: makeChapterPatch({
                 bookCode: "GEN",
                 chapter: 1,
                 text: "Hello world.",
             }),
-            makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
-        );
+            meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+        });
         expect(wf.read()[0].chapters[0].dirty).toBe(true);
 
         // ...then back to source (e.g. undo).
-        wf.commit(
-            makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Hello." }),
-            makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
-        );
+        wf.commit({
+            patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Hello." }),
+            meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
+        });
         expect(wf.read()[0].chapters[0].dirty).toBe(false);
     });
 });
@@ -167,14 +167,14 @@ describe("WorkingFilesStore — commit / selectionOnly", () => {
         await new Promise<void>((r) => setImmediate(r));
 
         for (const text of ["a", "ab", "abc"]) {
-            wf.commit(
-                makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
-                makeCommitMeta({
+            wf.commit({
+                patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
+                meta: makeCommitMeta({
                     kind: "userEdit",
                     bookCode: "GEN",
                     chapter: 1,
                 }),
-            );
+            });
         }
 
         await Effect.runPromise(Fiber.join(fiber));
@@ -185,15 +185,15 @@ describe("WorkingFilesStore — commit / selectionOnly", () => {
         const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
         const before = wf.read();
 
-        wf.commit(
-            { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-            makeCommitMeta({
+        wf.commit({
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+            meta: makeCommitMeta({
                 kind: "metadataOnly",
                 bookCode: "GEN",
                 chapter: 1,
                 dirtyTextContent: false,
             }),
-        );
+        });
 
         expect(wf.read()).toBe(before);
     });

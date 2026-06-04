@@ -1,6 +1,7 @@
 mod git;
 mod import;
 mod md5;
+mod sous; // PoC (Phase 3): vref/sous content-findings spike. Revert before merge.
 mod updater;
 mod usfm_onion;
 use tauri::Manager;
@@ -41,6 +42,7 @@ pub fn run() {
             usfm_onion::usfm_onion_diff_path_pairs,
             usfm_onion::usfm_onion_diff_tokens,
             usfm_onion::usfm_onion_revert_diff_block,
+            sous::sous_analyze, // PoC (Phase 3): vref/sous content findings.
             git::git_clone_remote_repo,
             git::git_ensure_remote,
             git::git_ensure_repo,

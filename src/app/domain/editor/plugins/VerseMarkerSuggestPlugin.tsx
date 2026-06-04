@@ -12,7 +12,7 @@ import {
 } from "@/app/domain/editor/utils/insertMarkerOperations.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import { canPromoteLeadingVerseNumber } from "@/app/domain/editor/utils/verseMarkerHeuristics.ts";
-import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
+import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 import * as styles from "@/app/ui/styles/modules/VerseMarkerSuggestOverlay.css.ts";
@@ -295,7 +295,7 @@ function VerseSuggestItem(props: {
                 onMouseLeave={props.onScheduleClose}
                 onClick={props.onToggle}
             />
-            <LintFixPopover
+            <AnnotationPopover
                 anchor={anchorEl}
                 open={props.isActive}
                 side="top"
@@ -314,7 +314,7 @@ function VerseSuggestItem(props: {
                         {`Make ${item.verseNumber} a verse marker?`}
                     </Button>
                 </div>
-            </LintFixPopover>
+            </AnnotationPopover>
         </div>
     );
 }

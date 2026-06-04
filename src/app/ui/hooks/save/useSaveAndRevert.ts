@@ -41,11 +41,7 @@ import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { GitRemoteProjectStatus } from "@/core/persistence/gitRemoteModels.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import {
-    type ChapterRef,
-    syncEditorToChapter,
-    syncEditorToPickedChapter,
-} from "./shared.ts";
+import type { ChapterRef } from "./shared.ts";
 
 // `SaveResult` is re-exported so existing importers of this hook keep working
 // while the orchestration lives in the domain layer.
@@ -84,7 +80,6 @@ export function useSaveAndRevert(args: {
     clearUnsavedDiffs: () => void;
     setUnsavedDiffsByChapter: (next: DiffsByChapter) => void;
     bumpDirtyVersion: () => void;
-    refreshUnsavedChapter: (bookCode: string, chapterNum: number) => void;
     rerunCompareForChapters: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
     prepareRemoteBaseForSave?: () => Promise<void>;
@@ -169,20 +164,15 @@ export function useSaveAndRevert(args: {
         }
         args.setUnsavedDiffsByChapter({});
         args.bumpDirtyVersion();
-        syncEditorToPickedChapter({
-            editorRef: args.editorRef,
-            workingFiles: draft,
-            pickedFile: args.pickedFile,
-            pickedChapter: args.pickedChapter,
-        });
-        args.workingFilesStore.commit(
-            { kind: "bulk", files: draft },
-            {
-                kind: "undo",
+        args.workingFilesStore.commit({
+            patch: { kind: "bulk", files: draft },
+            meta: {
+                kind: "import",
+                action: "revertAll",
                 scope: { project: true },
                 dirtyTextContent: true,
             },
-        );
+        });
     }
 
     function revertDiff(diffToRevert: ProjectDiff) {
@@ -214,33 +204,26 @@ export function useSaveAndRevert(args: {
                     diffBlockId: diffToRevert.uniqueKey,
                     usfmOnionService: args.usfmOnionService,
                 });
-                args.workingFilesStore.commit(
-                    {
+                args.workingFilesStore.commit({
+                    patch: {
                         kind: "chapter",
                         bookCode: diffToRevert.bookCode,
                         chapter: diffToRevert.chapterNum,
                         lexicalState: changedChapter.lexicalState,
                     },
-                    {
-                        kind: "undo",
+                    meta: {
+                        kind: "import",
+                        action: "revertHunk",
                         scope: {
-                            bookCode: diffToRevert.bookCode,
-                            chapter: diffToRevert.chapterNum,
+                            chapters: [
+                                {
+                                    bookCode: diffToRevert.bookCode,
+                                    chapterNum: diffToRevert.chapterNum,
+                                },
+                            ],
                         },
                         dirtyTextContent: true,
                     },
-                );
-                args.refreshUnsavedChapter(
-                    diffToRevert.bookCode,
-                    diffToRevert.chapterNum,
-                );
-                syncEditorToChapter({
-                    editorRef: args.editorRef,
-                    workingFiles: draft,
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                    bookCode: diffToRevert.bookCode,
-                    chapterNum: diffToRevert.chapterNum,
                 });
                 await args.rerunCompareForChapters([
                     {
@@ -268,27 +251,19 @@ export function useSaveAndRevert(args: {
                 );
                 if (!changedChapter) return;
                 revertChapterToLoadedState(changedChapter);
-                args.workingFilesStore.commit(
-                    {
+                args.workingFilesStore.commit({
+                    patch: {
                         kind: "chapter",
                         bookCode,
                         chapter: chapterNum,
                         lexicalState: changedChapter.lexicalState,
                     },
-                    {
-                        kind: "undo",
-                        scope: { bookCode, chapter: chapterNum },
+                    meta: {
+                        kind: "import",
+                        action: "revertChapter",
+                        scope: { chapters: [{ bookCode, chapterNum }] },
                         dirtyTextContent: true,
                     },
-                );
-                args.refreshUnsavedChapter(bookCode, chapterNum);
-                syncEditorToChapter({
-                    editorRef: args.editorRef,
-                    workingFiles: draft,
-                    pickedFile: args.pickedFile,
-                    pickedChapter: args.pickedChapter,
-                    bookCode,
-                    chapterNum,
                 });
                 await args.rerunCompareForChapters([{ bookCode, chapterNum }]);
             },

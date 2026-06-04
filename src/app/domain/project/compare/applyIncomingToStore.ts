@@ -256,8 +256,8 @@ export async function applyIncomingToStore(args: {
             return scratch;
         },
         commit: (scratch, latest) => {
-            args.workingFilesStore.commit(
-                {
+            args.workingFilesStore.commit({
+                patch: {
                     kind: "bulk",
                     files: overlayAffectedChapters(
                         latest,
@@ -265,12 +265,13 @@ export async function applyIncomingToStore(args: {
                         affectedRefs,
                     ),
                 },
-                {
+                meta: {
                     kind: "import",
+                    action: "applyIncoming",
                     scope: { project: true },
                     dirtyTextContent: true,
                 },
-            );
+            });
         },
     });
 }

@@ -35,10 +35,10 @@ function runWithTestClock<E>(
 }
 
 function userEdit(bookCode: string, chapter: number, text: string) {
-    return [
-        makeChapterPatch({ bookCode, chapter, text }),
-        makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
-    ] as const;
+    return {
+        patch: makeChapterPatch({ bookCode, chapter, text }),
+        meta: makeCommitMeta({ kind: "userEdit", bookCode, chapter }),
+    };
 }
 
 describe("overlayTickPipeline (integration)", () => {
@@ -57,7 +57,7 @@ describe("overlayTickPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(...userEdit("GEN", 1, "edit"));
+                wf.commit(userEdit("GEN", 1, "edit"));
 
                 yield* passTime(DEBOUNCE_MS - 4);
                 expect(bumpSpy).not.toHaveBeenCalled();
@@ -84,15 +84,15 @@ describe("overlayTickPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 1,
                         dirtyTextContent: false,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS * 4);
                 expect(bumpSpy).not.toHaveBeenCalled();
@@ -116,9 +116,9 @@ describe("overlayTickPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(...userEdit("GEN", 1, "a"));
-                wf.commit(...userEdit("GEN", 1, "ab"));
-                wf.commit(...userEdit("GEN", 1, "abc"));
+                wf.commit(userEdit("GEN", 1, "a"));
+                wf.commit(userEdit("GEN", 1, "ab"));
+                wf.commit(userEdit("GEN", 1, "abc"));
                 yield* passTime(DEBOUNCE_MS + 4);
                 expect(bumpSpy).toHaveBeenCalledTimes(1);
             }),

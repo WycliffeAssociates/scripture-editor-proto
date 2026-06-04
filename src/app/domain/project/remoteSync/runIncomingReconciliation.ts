@@ -58,10 +58,7 @@ import {
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
 import { yieldToMainThread } from "@/app/ui/hooks/diffCalculationRunner.ts";
-import {
-    buildCurrentProjectCompareMetadata,
-    invalidateWorkingScriptureChanges,
-} from "@/app/ui/hooks/save/shared.ts";
+import { buildCurrentProjectCompareMetadata } from "@/app/ui/hooks/save/shared.ts";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { FileSystem } from "@/core/persistence/FileSystem.ts";
@@ -107,15 +104,13 @@ export type IncomingReconciliationArgs = {
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
     bumpDirtyVersion: () => void;
-    refreshUnsavedChapters?: (chapters: ChapterRef[]) => Promise<void>;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 };
 
 export type IncomingReconciliationDeps = {
     args: IncomingReconciliationArgs;
     commitIncoming: (
-        patch: Parameters<WorkingFilesStore["commit"]>[0],
-        meta: Parameters<WorkingFilesStore["commit"]>[1],
+        input: Parameters<WorkingFilesStore["commit"]>[0],
     ) => boolean;
     incomingFlowsBlocked: () => boolean;
     listCompareChapterRefs: () => ChapterRef[];
@@ -424,14 +419,15 @@ export async function runIncomingReconciliation(
         }
         // Gate closed mid-flight → don't apply; fall through to manual review.
         if (
-            !commitIncoming(
-                { kind: "bulk", files: workingDraft },
-                {
+            !commitIncoming({
+                patch: { kind: "bulk", files: workingDraft },
+                meta: {
                     kind: "import",
+                    action: "incomingReconciliation",
                     scope: { project: true },
                     dirtyTextContent: true,
                 },
-            )
+            })
         ) {
             return null;
         }
@@ -461,15 +457,7 @@ export async function runIncomingReconciliation(
                 chapterRef,
             );
         }
-        await invalidateWorkingScriptureChanges({
-            chapters: Array.from(touchedChapterMap.values()),
-            bumpDirtyVersion: args.bumpDirtyVersion,
-            refreshUnsavedChapters: args.refreshUnsavedChapters,
-            editorRef: args.editorRef,
-            workingFiles: args.workingFilesStore.read(),
-            pickedFile: args.pickedFile,
-            pickedChapter: args.pickedChapter,
-        });
+        args.bumpDirtyVersion();
 
         // Diverged-disjoint: applied non-overlapping remote books, preserved
         // local. The reconciliation-SAVE flow (not the review modal) resolves
@@ -542,7 +530,6 @@ export async function runIncomingReconciliation(
             GIT_REMOTE_RELATIONSHIP_BEHIND_ONLY &&
         !hasDiffsByChapter(blockedDiffsByChapter)
     ) {
-        const touchedChapters = listCompareChapterRefs();
         // Any state-changing commit during the dirty-sid await (a content
         // edit OR a newly added chapter/book) or a closed gate → abort
         // before the workspace snapshot apply + accept; don't clobber that
@@ -563,23 +550,16 @@ export async function runIncomingReconciliation(
             workingFiles: behindDraft,
             sourceFiles: argsForAuto.sourceFiles,
         });
-        args.workingFilesStore.commit(
-            { kind: "bulk", files: behindDraft },
-            {
+        args.workingFilesStore.commit({
+            patch: { kind: "bulk", files: behindDraft },
+            meta: {
                 kind: "import",
+                action: "incomingReconciliation",
                 scope: { project: true },
                 dirtyTextContent: true,
             },
-        );
-        await invalidateWorkingScriptureChanges({
-            chapters: touchedChapters,
-            bumpDirtyVersion: args.bumpDirtyVersion,
-            refreshUnsavedChapters: args.refreshUnsavedChapters,
-            editorRef: args.editorRef,
-            workingFiles: args.workingFilesStore.read(),
-            pickedFile: args.pickedFile,
-            pickedChapter: args.pickedChapter,
         });
+        args.bumpDirtyVersion();
         // Behind-only with a fully clean apply (no blocked diffs): the whole-
         // workspace snapshot landed, so there is nothing left to review. Hand
         // the fast-forward to the hook; finalizeOutcome clears remoteSync since
@@ -670,15 +650,7 @@ export async function runIncomingReconciliation(
         return { requiresReview: false };
     }
 
-    await invalidateWorkingScriptureChanges({
-        chapters: touchedChapters,
-        bumpDirtyVersion: args.bumpDirtyVersion,
-        refreshUnsavedChapters: args.refreshUnsavedChapters,
-        editorRef: args.editorRef,
-        workingFiles: args.workingFilesStore.read(),
-        pickedFile: args.pickedFile,
-        pickedChapter: args.pickedChapter,
-    });
+    args.bumpDirtyVersion();
 
     // Post-apply refreshed diff + behind-only clean normalization, through
     // the validated boundary: a user edit during the refreshed-diff await
@@ -722,14 +694,15 @@ export async function runIncomingReconciliation(
                     workingFiles: cleanDraft,
                     sourceFiles: argsForAuto.sourceFiles,
                 });
-                args.workingFilesStore.commit(
-                    { kind: "bulk", files: cleanDraft },
-                    {
+                args.workingFilesStore.commit({
+                    patch: { kind: "bulk", files: cleanDraft },
+                    meta: {
                         kind: "import",
+                        action: "incomingReconciliation",
                         scope: { project: true },
                         dirtyTextContent: true,
                     },
-                );
+                });
             }
         },
     });

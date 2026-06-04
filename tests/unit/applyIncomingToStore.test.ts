@@ -80,14 +80,14 @@ function editChapterConcurrently(
             { kind: "text", source: next, id: `edit-${bookCode}` },
         ] as never;
     }
-    store.commit(
-        { kind: "bulk", files: draft },
-        {
+    store.commit({
+        patch: { kind: "bulk", files: draft },
+        meta: {
             kind: "userEdit",
-            scope: { bookCode, chapter: 1 },
+            scope: { chapters: [{ bookCode, chapterNum: 1 }] },
             dirtyTextContent: true,
         },
-    );
+    });
 }
 
 describe("applyIncomingToStore concurrency", () => {
@@ -232,14 +232,14 @@ describe("applyIncomingToStore concurrency", () => {
             ] as never;
             target.dirty = false;
         }
-        store.commit(
-            { kind: "bulk", files: draft },
-            {
+        store.commit({
+            patch: { kind: "bulk", files: draft },
+            meta: {
                 kind: "metadataOnly",
                 scope: { project: true },
                 dirtyTextContent: false,
             },
-        );
+        });
 
         releaseRevert();
         const committed = await promise;
@@ -347,10 +347,10 @@ describe("runIncomingMutation", () => {
         });
 
         // A permitted local op adds a NEW book while the compute is pending.
-        store.commit(
-            { kind: "bulk", files: [...store.read(), book("MAT", "new-book")] },
-            { kind: "import", scope: { project: true }, dirtyTextContent: true },
-        );
+        store.commit({
+            patch: { kind: "bulk", files: [...store.read(), book("MAT", "new-book")] },
+            meta: { kind: "import", scope: { project: true }, dirtyTextContent: true },
+        });
         releaseCompute();
         const result = await promise;
 
@@ -377,14 +377,14 @@ describe("runIncomingMutation", () => {
         });
 
         // selectionOnly preserves the state array → not a state change.
-        store.commit(
-            { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-            {
+        store.commit({
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+            meta: {
                 kind: "metadataOnly",
-                scope: { bookCode: "GEN", chapter: 1 },
+                scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
                 dirtyTextContent: false,
             },
-        );
+        });
         releaseCompute();
         const result = await promise;
 

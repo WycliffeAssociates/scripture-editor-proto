@@ -57,3 +57,17 @@ export const highlight = style({
     backgroundColor: `color-mix(in srgb, ${vars.color.onSurfaceError} 16%, transparent)`,
     opacity: 0.8,
 });
+
+// Content findings (sous) are addressed by an exact sub-token range, and many
+// can share one rendered token (e.g. several double-spaces in one verse). Like
+// the lint highlight it's CLICK-THROUGH (so the editor text under it stays
+// clickable); the hover is keyed to THIS range — not the whole token — by
+// geometric hit-testing on mousemove (see `useEditorLintTooltip`'s
+// `findContentHit`), with `data-annotation-id` identifying the finding.
+export const contentHighlight = style({
+    position: "absolute",
+    pointerEvents: "none",
+    borderRadius: vars.border.radius.xs,
+    backgroundColor: `color-mix(in srgb, ${vars.color.onSurfaceError} 22%, transparent)`,
+    opacity: 0.85,
+});

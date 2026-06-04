@@ -19,7 +19,6 @@ import type { AuthSessionProvider } from "@/core/persistence/AuthSessionProvider
 import type { GitProvider } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import type { StorageRoots } from "@/core/persistence/StorageRoots.ts";
-import type { ChapterRef } from "@/app/ui/hooks/save/shared.ts";
 import {
     GIT_REMOTE_PROJECT_STATUS_CONNECTED,
     type GitRemoteProjectStatus,
@@ -120,7 +119,6 @@ function createHistory(): CustomHistoryHook {
         captureEditorSelection: vi.fn(),
         runTransaction: async ({ run }) => await run(),
         setNextTypingLabel: vi.fn(),
-        registerPostUndoRedoAction: vi.fn(),
         undo: vi.fn(),
         redo: vi.fn(),
         clearHistory: vi.fn(),
@@ -214,7 +212,6 @@ function HookHarness(props: {
         parseEditorState: ReturnType<typeof vi.fn>;
         setEditorState: ReturnType<typeof vi.fn>;
     } | null>;
-    refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
     autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
@@ -271,7 +268,6 @@ function HookHarness(props: {
         authSessionProvider: createAuthProvider(),
         autoAcceptIncomingWork: props.autoAcceptIncomingWork ?? false,
         bumpDirtyVersion: props.bumpDirtyVersion,
-        refreshUnsavedChapters: props.refreshUnsavedChapters,
         onGitRemoteStatusChanged: props.onGitRemoteStatusChanged,
     });
 
@@ -337,7 +333,6 @@ function renderHarness(args: {
         parseEditorState: ReturnType<typeof vi.fn>;
         setEditorState: ReturnType<typeof vi.fn>;
     } | null>;
-    refreshUnsavedChapters: (chapters: ChapterRef[]) => Promise<void>;
     bumpDirtyVersion: () => void;
     autoAcceptIncomingWork?: boolean;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
@@ -358,7 +353,6 @@ function renderHarness(args: {
                 pickedFile={pickedFile}
                 pickedChapter={pickedChapter}
                 editorRef={args.editorRef}
-                refreshUnsavedChapters={args.refreshUnsavedChapters}
                 bumpDirtyVersion={args.bumpDirtyVersion}
                 autoAcceptIncomingWork={args.autoAcceptIncomingWork}
                 onGitRemoteStatusChanged={args.onGitRemoteStatusChanged}
@@ -389,7 +383,6 @@ describe("useExternalCompare", () => {
         const store = renderHarness({
             workingFiles,
             editorRef,
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
             interactionGate: new WorkspaceGateStore({
@@ -431,7 +424,6 @@ describe("useExternalCompare", () => {
         const store = renderHarness({
             workingFiles: [makeBook("local")],
             editorRef,
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
             interactionGate: gate,
@@ -478,13 +470,11 @@ describe("useExternalCompare", () => {
                 setEditorState: vi.fn(),
             },
         };
-        const refreshUnsavedChapters = vi.fn(async () => {});
         const bumpDirtyVersion = vi.fn();
 
         const store = renderHarness({
             workingFiles,
             editorRef,
-            refreshUnsavedChapters,
             bumpDirtyVersion,
         });
 
@@ -501,15 +491,14 @@ describe("useExternalCompare", () => {
             await flush();
         });
 
-        expect(refreshUnsavedChapters).toHaveBeenCalledWith([
-            { bookCode: "GEN", chapterNum: 1 },
-        ]);
-        expect(bumpDirtyVersion).not.toHaveBeenCalled();
+        // Diff refresh + editor sync are commit-stream subscribers now (the
+        // while-open diff subscription and the editor-sync pipeline) — this
+        // hook only bumps the render knob and commits.
+        expect(bumpDirtyVersion).toHaveBeenCalled();
         expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
-        expect(editorRef.current?.setEditorState).toHaveBeenCalledTimes(1);
     });
 
     it("invalidates workspace state and clears hunk diffs after taking one incoming hunk", async () => {
@@ -520,12 +509,9 @@ describe("useExternalCompare", () => {
                 setEditorState: vi.fn(),
             },
         };
-        const refreshUnsavedChapters = vi.fn(async () => {});
-
         const store = renderHarness({
             workingFiles,
             editorRef,
-            refreshUnsavedChapters,
             bumpDirtyVersion: vi.fn(),
         });
 
@@ -545,9 +531,6 @@ describe("useExternalCompare", () => {
             await flush();
         });
 
-        expect(refreshUnsavedChapters).toHaveBeenCalledWith([
-            { bookCode: "GEN", chapterNum: 1 },
-        ]);
         expect(store.read()[0]?.chapters[0]?.currentTokens[0]?.source).toBe(
             "incoming",
         );
@@ -570,7 +553,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             // Deferred revertDiffBlock: resolve to the source tokens ("incoming").
             revertDiffBlock: () =>
@@ -607,14 +589,14 @@ describe("useExternalCompare", () => {
                     { kind: "text", source: "exo-edited", id: "exo-edited" },
                 ] as never;
             }
-            store.commit(
-                { kind: "bulk", files: draft },
-                {
+            store.commit({
+                patch: { kind: "bulk", files: draft },
+                meta: {
                     kind: "userEdit",
-                    scope: { bookCode: "EXO", chapter: 1 },
+                    scope: { chapters: [{ bookCode: "EXO", chapterNum: 1 }] },
                     dirtyTextContent: true,
                 },
-            );
+            });
         });
 
         await act(async () => {
@@ -646,7 +628,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             revertDiffBlock: () =>
                 new Promise((resolve) => {
@@ -680,14 +661,14 @@ describe("useExternalCompare", () => {
                     { kind: "text", source: "gen-edited", id: "gen-edited" },
                 ] as never;
             }
-            store.commit(
-                { kind: "bulk", files: draft },
-                {
+            store.commit({
+                patch: { kind: "bulk", files: draft },
+                meta: {
                     kind: "userEdit",
-                    scope: { bookCode: "GEN", chapter: 1 },
+                    scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
                     dirtyTextContent: true,
                 },
-            );
+            });
         });
 
         await act(async () => {
@@ -714,7 +695,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             interactionGate: gate,
             revertDiffBlock: () =>
@@ -769,7 +749,7 @@ describe("useExternalCompare", () => {
                 relationship: "behindOnly",
             },
         });
-        const refreshUnsavedChapters = vi.fn(async () => {});
+        const bumpDirtyVersion = vi.fn();
         const onGitRemoteStatusChanged = vi.fn();
 
         const store = renderHarness({
@@ -780,8 +760,7 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters,
-            bumpDirtyVersion: vi.fn(),
+            bumpDirtyVersion,
             onGitRemoteStatusChanged,
         });
 
@@ -796,12 +775,7 @@ describe("useExternalCompare", () => {
             await flush();
         });
 
-        expect(refreshUnsavedChapters).toHaveBeenCalledWith(
-            expect.arrayContaining([
-                { bookCode: "GEN", chapterNum: 1 },
-                { bookCode: "GEN", chapterNum: 2 },
-            ]),
-        );
+        expect(bumpDirtyVersion).toHaveBeenCalled();
         expect(acceptRemoteLatestReviewMock.acceptRemoteLatestReview).toHaveBeenCalledWith(
             expect.objectContaining({
                 projectPath: "/userData/projects/demo",
@@ -823,7 +797,7 @@ describe("useExternalCompare", () => {
 
     it("auto-accepts safe incoming cloud changes when configured", async () => {
         const workingFiles = [makeBook("source")];
-        const refreshUnsavedChapters = vi.fn(async () => {});
+        const bumpDirtyVersion = vi.fn();
         const onGitRemoteStatusChanged = vi.fn();
         const editorRef = {
             current: {
@@ -835,8 +809,7 @@ describe("useExternalCompare", () => {
         const store = renderHarness({
             workingFiles,
             editorRef,
-            refreshUnsavedChapters,
-            bumpDirtyVersion: vi.fn(),
+            bumpDirtyVersion,
             autoAcceptIncomingWork: true,
             onGitRemoteStatusChanged,
         });
@@ -860,10 +833,7 @@ describe("useExternalCompare", () => {
                 kind: GIT_REMOTE_PROJECT_STATUS_CONNECTED,
             }),
         );
-        expect(refreshUnsavedChapters).toHaveBeenCalledWith(
-            expect.arrayContaining([{ bookCode: "GEN", chapterNum: 1 }]),
-        );
-        expect(editorRef.current?.setEditorState).toHaveBeenCalled();
+        expect(bumpDirtyVersion).toHaveBeenCalled();
         expect(hasDiffs(latestState?.state.diffsByChapter)).toBe(false);
     });
 
@@ -879,7 +849,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
             onGitRemoteStatusChanged,
@@ -924,7 +893,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
         });
@@ -1000,7 +968,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
             gitProvider,
@@ -1075,7 +1042,6 @@ describe("useExternalCompare", () => {
                     setEditorState: vi.fn(),
                 },
             },
-            refreshUnsavedChapters: vi.fn(async () => {}),
             bumpDirtyVersion: vi.fn(),
             autoAcceptIncomingWork: true,
             gitProvider,

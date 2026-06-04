@@ -19,7 +19,6 @@ import type {
     VersionEntry,
 } from "@/core/persistence/GitProvider.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
-import { syncEditorToPickedChapter } from "./shared.ts";
 import { fetchVersionPreview } from "./versionQueries.ts";
 
 const VERSIONS_PAGE_SIZE = 50;
@@ -106,19 +105,14 @@ export function useVersionHistory(args: {
                         workingFiles: draft,
                         sourceFiles: preview.parsedFiles,
                     });
-                    args.workingFilesStore.commit(
-                        { kind: "bulk", files: draft },
-                        {
+                    args.workingFilesStore.commit({
+                        patch: { kind: "bulk", files: draft },
+                        meta: {
                             kind: "import",
+                            action: "versionRevert",
                             scope: { project: true },
                             dirtyTextContent: true,
                         },
-                    );
-                    syncEditorToPickedChapter({
-                        editorRef: args.editorRef,
-                        workingFiles: draft,
-                        pickedFile: args.pickedFile,
-                        pickedChapter: args.pickedChapter,
                     });
                     args.bumpDirtyVersion();
                 },

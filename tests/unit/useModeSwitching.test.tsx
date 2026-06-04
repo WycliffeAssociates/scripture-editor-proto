@@ -212,14 +212,14 @@ describe("useModeSwitching clobber regression", () => {
         // NOT — the post-mode-switch state must reflect what's in the
         // store right now.
         const programmaticBooks = [makeBook("PROGRAMMATICALLY_STAGED")];
-        store.commit(
-            { kind: "bulk", files: programmaticBooks },
-            {
+        store.commit({
+            patch: { kind: "bulk", files: programmaticBooks },
+            meta: {
                 kind: "programmaticFix",
                 scope: { project: true },
                 dirtyTextContent: true,
             },
-        );
+        });
         commitSpy.mockClear();
 
         act(() => {
@@ -231,7 +231,7 @@ describe("useModeSwitching clobber regression", () => {
         });
 
         expect(commitSpy).toHaveBeenCalledTimes(1);
-        const [patch, meta] = commitSpy.mock.calls[0];
+        const { patch, meta } = commitSpy.mock.calls[0][0];
         expect(meta.kind).toBe("programmaticFix");
         expect("scope" in meta && (meta as { scope: { project?: boolean } }).scope.project).toBe(true);
         if (patch.kind !== "bulk") {

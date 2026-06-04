@@ -58,4 +58,7 @@ export const zLayer = {
 
     /** Toolbar tooltip — sits above the toolbar menu */
     toolbarTooltip: 16,
+
+    /** Modal dialogs (e.g. the chapter-label standardize picker) — clear all. */
+    dialog: 20,
 } as const;

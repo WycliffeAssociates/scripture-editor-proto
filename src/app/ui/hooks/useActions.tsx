@@ -7,12 +7,15 @@ import type {
     ScriptureBookState,
     ScriptureChapterState,
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
+import type { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     requireGateOpen,
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
+// TODO: action ids likely namespace under findings-store-unification (action-id → action map).
+import { useChapterLabelStandardize } from "@/app/ui/hooks/useChapterLabelStandardize.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
 import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
@@ -34,6 +37,7 @@ type Props = {
     editorRef: React.RefObject<LexicalEditor | null>;
     mainEditorDeferred: Deferred.Deferred<LexicalEditor>;
     workingFilesStore: WorkingFilesStore;
+    layoutTickStore: LayoutTickStore;
     interactionGate: WorkspaceGateStore;
     loadedProject: Project;
     currentFileBibleIdentifier: string;
@@ -44,7 +48,6 @@ type Props = {
     updateAppSettings: (newSettings: Partial<Settings>) => void;
     pickedFile: ScriptureBookState | null;
     toggleDiffModal: () => void;
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
     commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     referenceResource: ReferenceItemHook;
     setIsProcessing: (isProcessing: boolean) => void;
@@ -67,6 +70,7 @@ type Props = {
  */
 export const useWorkspaceActions = ({
     workingFilesStore,
+    layoutTickStore,
     interactionGate,
     editorRef,
     mainEditorDeferred,
@@ -78,7 +82,6 @@ export const useWorkspaceActions = ({
     updateAppSettings,
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
-    updateDiffMapForChapter,
     commitBookLintResults,
     referenceResource,
     setIsProcessing,
@@ -92,6 +95,16 @@ export const useWorkspaceActions = ({
         applyColorSchemeToDocument(value);
     };
 
+    // A content swap (navigation, mode switch) replaces the editor DOM WITHOUT
+    // a working-files commit, so it misses the commit→overlay-tick→resolve
+    // pipeline that re-attaches lint hover targets (`data-lint-hitpoint`).
+    // Pulse the tick once the new chapter has reconciled (next frame) so the
+    // overlay re-resolves against it — otherwise hover stays dead on the new
+    // chapter until the next commit/lint-rerun.
+    const pulseOverlayAfterContentSwap = () => {
+        requestAnimationFrame(() => layoutTickStore.bump());
+    };
+
     const setEditorContentWrapper = (
         fileBibleIdentifier: string,
         chapter: number,
@@ -100,12 +113,14 @@ export const useWorkspaceActions = ({
     ) => {
         const editorToUse = editor || editorRef.current;
         if (editorToUse) {
-            return editorState.setEditorContent(
+            const result = editorState.setEditorContent(
                 editorToUse,
                 fileBibleIdentifier,
                 chapter,
                 chapterContent,
             );
+            pulseOverlayAfterContentSwap();
+            return result;
         }
         // Editor not mounted yet — schedule the write for first mount instead
         // of silently dropping it, otherwise a navigation that fires before
@@ -119,6 +134,7 @@ export const useWorkspaceActions = ({
                     chapter,
                     chapterContent,
                 );
+                pulseOverlayAfterContentSwap();
             }),
         );
     };
@@ -153,9 +169,6 @@ export const useWorkspaceActions = ({
         currentFileBibleIdentifier,
         currentChapter,
         setIsProcessing,
-        updateDiffMapForChapter,
-        commitBookLintResults,
-        setEditorContent: setEditorContentWrapper,
         history,
     });
 
@@ -165,8 +178,6 @@ export const useWorkspaceActions = ({
         currentFileBibleIdentifier,
         currentChapter,
         referenceResource,
-        updateDiffMapForChapter,
-        setEditorContent: setEditorContentWrapper,
         setFormatMatchReport,
         setIsFormatMatchSuggestionsOpen,
         setEditorMode: (next) =>
@@ -178,12 +189,13 @@ export const useWorkspaceActions = ({
     const lintFixing = useLintFixing({
         workingFilesStore,
         interactionGate,
-        currentFileBibleIdentifier,
-        currentChapter,
-        editorRef,
-        updateDiffMapForChapter,
         commitBookLintResults,
-        setEditorContent: setEditorContentWrapper,
+        history,
+    });
+
+    const chapterLabelStandardize = useChapterLabelStandardize({
+        workingFilesStore,
+        interactionGate,
         history,
     });
 
@@ -262,6 +274,9 @@ export const useWorkspaceActions = ({
 
         // Lint fixing
         fixLintError: gated(lintFixing.fixLintError),
+        standardizeChapterLabels: gated(
+            chapterLabelStandardize.standardizeChapterLabels,
+        ),
 
         // Utility functions
         getFlatFileTokens,

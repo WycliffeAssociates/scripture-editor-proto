@@ -162,7 +162,10 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`Chapters should count up by one: expected chapter ${expected}, found chapter ${found}.`;
         case "inconsistent-chapter-label":
             if (!expected || !found) return fallbackMessage;
-            return t`Chapter label '${found}' does not match the label '${expected}' used elsewhere in this file.`;
+            // Double quotes, not '…': an apostrophe is ICU MessageFormat's
+            // escape char, so '{found}' renders the placeholder literally
+            // instead of substituting it (matches the `unknown-token` case).
+            return t`Chapter label "${found}" does not match the label "${expected}" used elsewhere in this file.`;
         case "duplicate-verse-number":
             return t`Verse ${verse} appears more than once in chapter ${chapter}.`;
         case "verse-expected-increase-by-one":

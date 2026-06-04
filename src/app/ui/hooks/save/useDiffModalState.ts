@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { Effect, Fiber, Stream } from "effect";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { tokensToRenderTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
     DiffsByChapter,
@@ -8,6 +9,7 @@ import {
     findChapter,
     listDirtyChapterRefs,
 } from "@/app/domain/project/workingFileMutations.ts";
+import { diffScopeFor } from "@/app/state/commitFilters.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import {
     createDiffCalculationRunner,
@@ -16,7 +18,6 @@ import {
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import {
     flattenDiffMap,
-    replaceChapterDiffsInMap,
     replaceManyChapterDiffsInMap,
 } from "@/core/domain/usfm/usfmOnionDiffMap.ts";
 import type { Diff as OnionDiff } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -56,9 +57,11 @@ function mapOnionDiffToProjectDiff(
 /**
  * Workspace hook that owns the unsaved-diff modal state.
  *
- * Save/review flows need a chapter-aware diff map that can be opened lazily,
- * refreshed incrementally, and chunked so the UI stays responsive. This hook
- * keeps that concern isolated from the rest of the save pipeline.
+ * Pull on open, subscribe while open: `open()` computes all dirty chapters'
+ * diffs from scratch, and a commit-stream subscription mounted for the open
+ * duration refreshes exactly the chapters each commit touches (revert-hunk,
+ * take-incoming, …). When the modal is closed there is no subscription and
+ * no diff work at all.
  */
 export function useDiffModalState(args: {
     workingFilesStore: WorkingFilesStore;
@@ -66,7 +69,6 @@ export function useDiffModalState(args: {
     ensureVersionsLoaded: () => Promise<void>;
     closeVersions: () => void;
     closeCompare: () => void;
-    bumpDirtyVersion: () => void;
 }) {
     const [unsavedDiffsByChapter, setUnsavedDiffsByChapter] =
         useState<DiffsByChapter>({});
@@ -158,28 +160,7 @@ export function useDiffModalState(args: {
         setUnsavedDiffsByChapter({});
     }
 
-    function refreshChapter(bookCode: string, chapterNum: number) {
-        args.bumpDirtyVersion();
-        if (!isOpen) return;
-        void calculationRunnerRef.current.run(async () => {
-            const chapterDiffs = await calculateDiffsForChapter(
-                bookCode,
-                chapterNum,
-            );
-            setUnsavedDiffsByChapter((prev) =>
-                replaceChapterDiffsInMap({
-                    previousMap: prev,
-                    bookCode,
-                    chapterNum,
-                    chapterDiffs,
-                }),
-            );
-        });
-    }
-
     async function refreshChapters(chapters: ChapterRef[]) {
-        args.bumpDirtyVersion();
-        if (!isOpen) return;
         await calculationRunnerRef.current.run(async () => {
             const chapterDiffs = await buildUnsavedChapterDiffEntries(chapters);
             setUnsavedDiffsByChapter((prev) =>
@@ -190,6 +171,39 @@ export function useDiffModalState(args: {
             );
         });
     }
+
+    // Subscribe-while-open: mounted with the modal lifecycle, refreshes the
+    // chapters each commit touches (per `diffScopeFor`). Closed modal = no
+    // subscription, no diff work.
+    const { workingFilesStore } = args;
+    // refreshChapters is re-created per render but only closes over stable
+    // refs/setters; keying the subscription on the modal lifecycle is the
+    // intent.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see above.
+    useEffect(() => {
+        if (!isOpen) return;
+        const fiber = Effect.runFork(
+            Stream.runForEach(workingFilesStore.changes, (event) =>
+                Effect.sync(() => {
+                    const scope = diffScopeFor(event);
+                    const chapters =
+                        scope === "all"
+                            ? listDirtyChapterRefs(workingFilesStore.read())
+                            : scope;
+                    if (chapters.length === 0) return;
+                    void refreshChapters(
+                        chapters.map((ref) => ({
+                            bookCode: ref.bookCode,
+                            chapterNum: ref.chapterNum,
+                        })),
+                    );
+                }),
+            ),
+        );
+        return () => {
+            Effect.runFork(Fiber.interrupt(fiber));
+        };
+    }, [isOpen, workingFilesStore]);
 
     const diffs = useMemo(
         () =>
@@ -210,8 +224,6 @@ export function useDiffModalState(args: {
         actions: {
             open,
             close,
-            refreshChapter,
-            refreshChapters,
             resetUnsavedDiffs,
             setUnsavedDiffsByChapter,
         },

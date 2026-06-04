@@ -28,7 +28,13 @@ git2 = { version = "0.20.2", features = ["https", "ssh"] }
 tauri-plugin-os = "2"
 md-5 = "0.10.0"
 tauri-plugin-dialog = "2"
-usfm_onion = { git = "https://github.com/WycliffeAssociates/usfm-onion", tag = "v0.0.4" }
+# Phase 3 (vref/sous content findings): local onion `master` (has the `vref`
+# module the old v0.0.4 tag lacked) + scripture-sous-chef, pointed at local
+# paths to shake out any onion/sous changes the integration needs. END STATE:
+# tag onion + sous as new latest tags, push, and repin these to those tags
+# (git tag for onion, the published crate for ssc-core) — NOT back to v0.0.4.
+usfm_onion = { path = "/Users/willkelly/Documents/Work/Code/usfm_onion" }
+ssc-core = { path = "/Users/willkelly/Documents/Work/Code/scripture-sous-chef/crates/core" }
 rayon = "1.10.0"
 zip = "2.4.2"
 reqwest = { version = "0.12.23", default-features = false, features = ["blocking", "rustls-tls"] }

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
 
 type ScrollSnapshot = {
     left: number;
@@ -9,7 +9,7 @@ type ScrollSnapshot = {
 };
 
 export type UseEditorLintTooltipReturn = {
-    hoveredErrors: LintIssue[] | null;
+    hoveredAnnotations: EditorAnnotation[] | null;
     /** The hovered overlay element (badge or highlight box) to anchor against. */
     hoveredAnchorEl: HTMLElement | null;
     onTooltipMouseEnter: () => void;
@@ -55,56 +55,54 @@ function getDocumentScrollElement(element: HTMLElement): HTMLElement {
 }
 
 /**
- * Drive the hover tooltip for lint markers rendered inside the editor DOM.
+ * Drive the hover tooltip for annotations rendered inside the editor DOM.
  *
- * Lint issues are attached to token DOM nodes after the lint pass runs. This
- * hook listens at the document level so the tooltip can stay open while the
- * pointer moves between the highlighted token and the overlay itself, without
- * each token needing its own React event wiring.
+ * Annotations are attached to token DOM nodes (`data-lint-hitpoint`) after the
+ * overlay resolves. This hook owns the hover timing + state machine and listens
+ * at the document level so the tooltip stays open while the pointer moves
+ * between the highlighted token and the overlay itself. WHICH annotations a
+ * hovered element carries is the caller's concern — it passes `lookupForTarget`
+ * (onion lint by token-id + sous content findings by their touched token-ids,
+ * the hover zip).
  */
 export function useEditorLintTooltip(
-    allLintMessages: LintIssue[],
+    lookupForTarget: (target: HTMLElement) => EditorAnnotation[],
+    // Geometric hit-test for content findings: their highlights are
+    // click-through (so the editor stays clickable underneath), so they can't be
+    // pointer hitpoints — instead we hit-test the cursor against their rects on
+    // mousemove and treat the matched highlight element (carrying
+    // `data-annotation-id`) as the hover target.
+    findContentHit?: (clientX: number, clientY: number) => HTMLElement | null,
 ): UseEditorLintTooltipReturn {
     const SCROLL_CLOSE_THRESHOLD = 7;
-    const [hoveredErrors, setHoveredErrors] = useState<LintIssue[] | null>(
-        null,
-    );
+    const [hoveredAnnotations, setHoveredAnnotations] = useState<
+        EditorAnnotation[] | null
+    >(null);
     const [hoveredAnchorEl, setHoveredAnchorEl] = useState<HTMLElement | null>(
         null,
     );
-    const hoverErrorsRef = useRef<LintIssue[] | null>(null);
+    const hoverAnnotationsRef = useRef<EditorAnnotation[] | null>(null);
     // Identity of the issue currently shown or pending (data-id / sid). Lets us
     // ignore repeat mouseovers across the same issue's boxes so the popover
     // anchors once and stays put instead of jittering as the pointer moves.
     const activeKeyRef = useRef<string | null>(null);
+    // Whether the shown popover came from a content (geometric) hover vs a lint
+    // hitpoint — content hide is driven by mousemove leaving the rect, lint hide
+    // by mouseout, so we must not cross them up.
+    const activeKindRef = useRef<"lint" | "content" | null>(null);
     const hideTimeoutRef = useRef<number | null>(null);
     const showTimeoutRef = useRef<number | null>(null);
     const scrollSnapshotRef = useRef<ScrollSnapshot | null>(null);
     const onTooltipMouseEnterRef = useRef<() => void>(() => undefined);
     const onTooltipMouseLeaveRef = useRef<() => void>(() => undefined);
 
-    const findErrorsForTarget = useEffectEvent((target: HTMLElement) => {
-        const tokenId = target.getAttribute("data-id");
-        const sid = target.getAttribute("data-sid");
-
-        if (tokenId) {
-            const tokenMatches = allLintMessages.filter(
-                (error) =>
-                    error.tokenId === tokenId ||
-                    error.relatedTokenId === tokenId,
-            );
-            if (tokenMatches.length > 0) return tokenMatches;
-        }
-
-        if (sid) {
-            const sidMatches = allLintMessages.filter(
-                (error) => error.sid === sid,
-            );
-            if (sidMatches.length > 0) return sidMatches;
-        }
-
-        return [];
-    });
+    const findAnnotationsForTarget = useEffectEvent((target: HTMLElement) =>
+        lookupForTarget(target),
+    );
+    const hitTestContent = useEffectEvent(
+        (clientX: number, clientY: number): HTMLElement | null =>
+            findContentHit ? findContentHit(clientX, clientY) : null,
+    );
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: `findErrorsForTarget` is a useEffectEvent binding with stable identity by contract; including it in deps would defeat the point.
     useEffect(() => {
@@ -127,9 +125,10 @@ export function useEditorLintTooltip(
                 showTimeoutRef.current = null;
             }
             clearHideTimeout();
-            hoverErrorsRef.current = null;
+            hoverAnnotationsRef.current = null;
             activeKeyRef.current = null;
-            setHoveredErrors(null);
+            activeKindRef.current = null;
+            setHoveredAnnotations(null);
             setHoveredAnchorEl(null);
             scrollSnapshotRef.current = null;
         };
@@ -139,6 +138,46 @@ export function useEditorLintTooltip(
             hideTimeoutRef.current = window.setTimeout(() => {
                 hideTooltip();
             }, 180);
+        };
+
+        // Show the popover for a hover target (a lint hitpoint, or a content
+        // finding's highlight rect). `data-annotation-id` keys content findings
+        // (many can share a token's data-id/sid), so switching between them
+        // re-anchors instead of being treated as the same issue.
+        const showForTarget = (
+            targetForErrors: HTMLElement,
+            kind: "lint" | "content",
+        ) => {
+            const key =
+                targetForErrors.getAttribute("data-annotation-id") ??
+                targetForErrors.getAttribute("data-id") ??
+                targetForErrors.getAttribute("data-sid");
+            if (key && activeKeyRef.current === key) return;
+
+            const annotationsForNode =
+                findAnnotationsForTarget(targetForErrors);
+            if (annotationsForNode.length === 0) return;
+
+            if (showTimeoutRef.current) {
+                window.clearTimeout(showTimeoutRef.current);
+                showTimeoutRef.current = null;
+            }
+
+            activeKeyRef.current = key;
+            activeKindRef.current = kind;
+            showTimeoutRef.current = window.setTimeout(() => {
+                hoverAnnotationsRef.current = annotationsForNode;
+                setHoveredAnnotations(annotationsForNode);
+                setHoveredAnchorEl(targetForErrors);
+                const scrollContainer = findScrollContainer(
+                    targetForErrors.parentElement ?? targetForErrors,
+                );
+                scrollSnapshotRef.current = {
+                    element: scrollContainer,
+                    left: scrollContainer.scrollLeft,
+                    top: scrollContainer.scrollTop,
+                };
+            }, 200);
         };
 
         const handleMouseOver = (e: MouseEvent) => {
@@ -153,36 +192,26 @@ export function useEditorLintTooltip(
             ) as HTMLElement | null;
             if (!targetForErrors) return;
             clearHideTimeout();
+            showForTarget(targetForErrors, "lint");
+        };
 
-            // Same issue we're already showing (or about to)? Keep it anchored
-            // where it is — don't re-time or re-anchor on intra-box movement.
-            const key =
-                targetForErrors.getAttribute("data-id") ??
-                targetForErrors.getAttribute("data-sid");
-            if (key && activeKeyRef.current === key) return;
+        // Content findings are click-through (not hitpoints), so mouseover never
+        // fires for them — hit-test the cursor against their rects on move.
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!findContentHit) return;
+            const target = asHtmlElement(e.target);
+            if (isWithinLintTooltip(target)) return; // tooltip hover keeps it open
+            // A lint hitpoint under the cursor is mouseover's job; don't fight it.
+            if (target?.closest(LINT_HITPOINT_SELECTOR)) return;
 
-            const errorsForNode = findErrorsForTarget(targetForErrors);
-            if (errorsForNode.length === 0) return;
-
-            if (showTimeoutRef.current) {
-                window.clearTimeout(showTimeoutRef.current);
-                showTimeoutRef.current = null;
+            const contentEl = hitTestContent(e.clientX, e.clientY);
+            if (contentEl) {
+                clearHideTimeout();
+                showForTarget(contentEl, "content");
+            } else if (activeKindRef.current === "content") {
+                // Left the content rect (onto plain editor text) — close it.
+                scheduleHideTooltip();
             }
-
-            activeKeyRef.current = key;
-            showTimeoutRef.current = window.setTimeout(() => {
-                hoverErrorsRef.current = errorsForNode;
-                setHoveredErrors(errorsForNode);
-                setHoveredAnchorEl(targetForErrors);
-                const scrollContainer = findScrollContainer(
-                    targetForErrors.parentElement ?? targetForErrors,
-                );
-                scrollSnapshotRef.current = {
-                    element: scrollContainer,
-                    left: scrollContainer.scrollLeft,
-                    top: scrollContainer.scrollTop,
-                };
-            }, 200);
         };
 
         const handleMouseOut = (e: MouseEvent) => {
@@ -202,7 +231,7 @@ export function useEditorLintTooltip(
 
         const handleScroll = (e: Event) => {
             const snapshot = scrollSnapshotRef.current;
-            if (!snapshot || !hoverErrorsRef.current) return;
+            if (!snapshot || !hoverAnnotationsRef.current) return;
             const target = e.currentTarget;
             if (!(target instanceof HTMLElement)) return;
             if (target !== snapshot.element) return;
@@ -235,6 +264,9 @@ export function useEditorLintTooltip(
 
         document.addEventListener("mouseover", handleMouseOver);
         document.addEventListener("mouseout", handleMouseOut);
+        if (findContentHit) {
+            document.addEventListener("mousemove", handleMouseMove);
+        }
         mergedScrollContainers.forEach((container) => {
             container.addEventListener("scroll", handleScroll, {
                 passive: true,
@@ -260,6 +292,7 @@ export function useEditorLintTooltip(
             }
             document.removeEventListener("mouseover", handleMouseOver);
             document.removeEventListener("mouseout", handleMouseOut);
+            document.removeEventListener("mousemove", handleMouseMove);
             mergedScrollContainers.forEach((container) => {
                 container.removeEventListener("scroll", handleScroll);
             });
@@ -268,7 +301,7 @@ export function useEditorLintTooltip(
     }, []);
 
     return {
-        hoveredErrors,
+        hoveredAnnotations,
         hoveredAnchorEl,
         onTooltipMouseEnter: () => onTooltipMouseEnterRef.current(),
         onTooltipMouseLeave: () => onTooltipMouseLeaveRef.current(),

@@ -53,7 +53,7 @@ function makeEvent(kind: CommitKind, dirty: boolean): CommitEvent {
     return {
         meta: {
             kind,
-            scope: { bookCode: "GEN", chapter: 1 },
+            scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },
             dirtyTextContent: dirty,
             generation: 1,
         },
@@ -151,14 +151,14 @@ describe("makeSearchRerunPipeline (integration)", () => {
 
                 // Simulate the bridge's classification of an undo: a
                 // bulk commit with `kind: "undo"` and dirtyTextContent.
-                wf.commit(
-                    { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
+                    meta: makeCommitMeta({
                         kind: "undo",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS + 20);
                 expect(rerunSearch).toHaveBeenCalledTimes(1);
@@ -178,18 +178,18 @@ describe("makeSearchRerunPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    makeChapterPatch({
+                wf.commit({
+                    patch: makeChapterPatch({
                         bookCode: "GEN",
                         chapter: 1,
                         text: "typed",
                     }),
-                    makeCommitMeta({
+                    meta: makeCommitMeta({
                         kind: "userEdit",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS * 3);
                 expect(rerunSearch).not.toHaveBeenCalled();
@@ -208,35 +208,35 @@ describe("makeSearchRerunPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+                    meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",
                         chapter: 1,
                         dirtyTextContent: false,
                     }),
-                );
-                wf.commit(
-                    makeChapterPatch({
+                });
+                wf.commit({
+                    patch: makeChapterPatch({
                         bookCode: "GEN",
                         chapter: 1,
                         text: "fixup",
                     }),
-                    makeCommitMeta({
+                    meta: makeCommitMeta({
                         kind: "structuralFixup",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
-                wf.commit(
-                    { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
-                    makeCommitMeta({
+                });
+                wf.commit({
+                    patch: { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
+                    meta: makeCommitMeta({
                         kind: "load",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS * 3);
                 expect(rerunSearch).not.toHaveBeenCalled();
@@ -256,14 +256,14 @@ describe("makeSearchRerunPipeline (integration)", () => {
                 );
                 yield* drainYields();
 
-                wf.commit(
-                    { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
+                    meta: makeCommitMeta({
                         kind: "undo",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS + 20);
                 expect(rerunSearch).not.toHaveBeenCalled();
@@ -287,17 +287,17 @@ describe("makeSearchRerunPipeline (integration)", () => {
                     "programmaticFix",
                     "import",
                 ] as const) {
-                    wf.commit(
-                        {
+                    wf.commit({
+                        patch: {
                             kind: "bulk",
                             files: [makeBook({ bookCode: "GEN" })],
                         },
-                        makeCommitMeta({
+                        meta: makeCommitMeta({
                             kind,
                             bookCode: "GEN",
                             chapter: 1,
                         }),
-                    );
+                    });
                 }
 
                 yield* passTime(DEBOUNCE_MS + 20);
@@ -323,14 +323,14 @@ describe("makeSearchRerunPipeline (integration)", () => {
                 yield* drainYields();
                 searchTerm = "fresh";
 
-                wf.commit(
-                    { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
-                    makeCommitMeta({
+                wf.commit({
+                    patch: { kind: "bulk", files: [makeBook({ bookCode: "GEN" })] },
+                    meta: makeCommitMeta({
                         kind: "undo",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
 
                 yield* passTime(DEBOUNCE_MS + 20);
                 expect(rerunSearch).toHaveBeenCalledWith("fresh");

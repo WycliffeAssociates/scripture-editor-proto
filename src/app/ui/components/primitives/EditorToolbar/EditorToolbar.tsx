@@ -380,7 +380,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         />
                         <VersionsPopover />
                         <ToolbarOverflowMenu
-                            onCopyEditorJson={() => void handleCopyEditorJson()}
+                            onCopyEditorJson={
+                                import.meta.env.DEV
+                                    ? () => void handleCopyEditorJson()
+                                    : undefined
+                            }
                             onMatchFormattingToSource={
                                 handleMatchFormattingToSource
                             }

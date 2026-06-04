@@ -105,9 +105,13 @@ export function setEditorContent(
         editor.focus();
     }
 
-    // We intentionally load with `programaticIgnore` to avoid expensive maintenance work
-    // running during hydration, then immediately trigger one tagged update so
-    // listeners can compute derived metadata (e.g. structural-empty marker lines).
+    // Post-load no-op tick. Historic purpose (trigger tag-gated maintenance
+    // listeners after a `programaticIgnore` hydration) is gone — maintenance
+    // moved to the userEdit-filtered structure pipeline, which ignores the
+    // metadataOnly commit this produces. Remaining observable effects are an
+    // overlay-tick bump (also pulsed explicitly elsewhere) and a history
+    // baseline tick. TODO: verify and delete during the structured-nodes
+    // loading rework.
     editor.update(
         () => {
             // no-op

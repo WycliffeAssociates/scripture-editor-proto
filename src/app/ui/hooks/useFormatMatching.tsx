@@ -79,8 +79,6 @@ export function useFormatMatching({
     currentFileBibleIdentifier,
     currentChapter,
     referenceResource,
-    updateDiffMapForChapter,
-    setEditorContent,
     setFormatMatchReport,
     setIsFormatMatchSuggestionsOpen,
     setEditorMode,
@@ -92,12 +90,6 @@ export function useFormatMatching({
     currentFileBibleIdentifier: string;
     currentChapter: number;
     referenceResource: ReferenceItemHook;
-    updateDiffMapForChapter: (bookCode: string, chapterNum: number) => void;
-    setEditorContent: (
-        fileBibleIdentifier: string,
-        chapter: number,
-        chapterContent: ScriptureChapterState | undefined,
-    ) => void;
     setFormatMatchReport: Dispatch<
         SetStateAction<FormatMatchingRunReport | null>
     >;
@@ -263,7 +255,6 @@ export function useFormatMatching({
                 let chaptersScanned = 0;
                 let modifiedChaptersCount = 0;
                 const modifiedBooks = new Set<string>();
-                let currentChapterModified = false;
 
                 const outcome = await withWorkingFilesDraft({
                     workingFilesStore,
@@ -271,15 +262,7 @@ export function useFormatMatching({
                     draftRefs,
                     commitMeta: {
                         kind: "programmaticFix",
-                        // Chapter scope re-lints just its book; book/project touch enough
-                        // that we scope the commit to the whole project.
-                        scope:
-                            scope === "chapter"
-                                ? {
-                                      bookCode: currentFileBibleIdentifier,
-                                      chapter: currentChapter,
-                                  }
-                                : { project: true },
+                        action: "formatMatch",
                         dirtyTextContent: true,
                     },
                     mutate: async (scratch) => {
@@ -316,36 +299,8 @@ export function useFormatMatching({
                             modifiedChaptersCount++;
                             modifiedBooks.add(ref.bookCode);
                             affected.push(ref);
-                            if (
-                                ref.bookCode === currentFileBibleIdentifier &&
-                                ref.chapterNum === currentChapter
-                            ) {
-                                currentChapterModified = true;
-                            }
                         }
                         return { affected, value: undefined };
-                    },
-                    invalidate: ({ committedChapters }) => {
-                        for (const {
-                            bookCode,
-                            chapterNum,
-                        } of committedChapters) {
-                            updateDiffMapForChapter(bookCode, chapterNum);
-                        }
-                        // Re-render the visible editor only when its own chapter changed.
-                        if (!currentChapterModified) return;
-                        const currentChap = findChapterInDraft(
-                            workingFilesStore.read(),
-                            currentFileBibleIdentifier,
-                            currentChapter,
-                        );
-                        if (currentChap) {
-                            setEditorContent(
-                                currentFileBibleIdentifier,
-                                currentChapter,
-                                currentChap,
-                            );
-                        }
                     },
                 });
 

@@ -5,10 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
+import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
 import { makeOverlayTickPipeline } from "@/app/domain/editor/pipelines/overlayTickPipeline.ts";
 import { makeRecoveredConflictTrackerSubscriber } from "@/app/domain/editor/pipelines/recoveredConflictTrackerSubscriber.ts";
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
+import { makeSousPipeline } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
@@ -19,6 +21,7 @@ import { LintStore } from "@/app/state/LintStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
+import { SousFindingsStore } from "@/app/state/SousFindingsStore.ts";
 import {
     findChapterInDraft,
     WorkingFilesStore,
@@ -26,9 +29,7 @@ import {
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
 import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
-import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
-import { syncEditorToPickedChapter } from "@/app/ui/hooks/save/shared.ts";
 import {
     type UseActionsHook,
     useWorkspaceActions,
@@ -130,6 +131,12 @@ export interface WorkSpaceContextType {
      * live editor DOM.
      */
     searchHighlightStore: SearchHighlightStore;
+    /**
+     * sous content findings (segments + findings per book), written by the
+     * parallel sous pipeline. The editor zips these into the annotation popover
+     * alongside onion lint. PoC (Phase 3).
+     */
+    sousFindingsStore: SousFindingsStore;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -229,6 +236,7 @@ export const ProjectProvider = ({
             ),
     );
     // Workspace-scoped lint snapshot store. Seeded once from the route loader.
+    const sousFindingsStore = useStableInstance(() => new SousFindingsStore());
     const lintStore = useStableInstance(
         () => new LintStore(initialLintErrorsByBook),
     );
@@ -265,6 +273,7 @@ export const ProjectProvider = ({
         authSessionProvider,
         storageRoots,
         usfmOnionService,
+        sousService,
         gitProvider,
     } = useRouter().options.context;
     // Workspace-scoped reactive pipelines. These are *effects* the workspace
@@ -282,6 +291,19 @@ export const ProjectProvider = ({
                 usfmOnionService,
             }),
         [workingFilesStore, lintStore, usfmOnionService],
+    );
+
+    // sous content findings: a PARALLEL subscriber to the same store the lint
+    // pipeline rides (NOT a tee on lint), on its own calmer debounce. Writes the
+    // segment map + findings into SousFindingsStore for the editor zip.
+    useForkedPipeline(
+        () =>
+            makeSousPipeline({
+                workingFilesStore,
+                sousFindingsStore,
+                sousService,
+            }),
+        [workingFilesStore, sousFindingsStore, sousService],
     );
 
     // Save-status: flips SaveStatusStore to `dirty` on every text-changing commit.
@@ -353,12 +375,34 @@ export const ProjectProvider = ({
         queryChapterOverride,
     );
 
-    // Refs read by the structure pipeline at fire time. Kept in sync below so
-    // edits made after the fiber forks still see current settings/book.
+    // Refs read by the structure + editor-sync pipelines at fire time. Kept in
+    // sync below so edits made after the fibers fork still see current
+    // settings/book/chapter.
     const appSettingsRef = useRef<Settings>(project.appSettings);
     appSettingsRef.current = project.appSettings;
     const visibleBookCodeRef = useRef<string>(project.pickedFile.bookCode);
     visibleBookCodeRef.current = project.pickedFile.bookCode;
+    const visibleChapterRef = useRef<number>(
+        project.pickedChapter?.chapterNumber ?? project.currentChapter,
+    );
+    visibleChapterRef.current =
+        project.pickedChapter?.chapterNumber ?? project.currentChapter;
+
+    // Editor-sync: the commit-driven entry path of the editor-sync chokepoint.
+    // Programmatic commits (fix-its, imports, reverts) touching the visible
+    // chapter render their committed content into the editor; view-driven
+    // swaps (navigation, mode switch) call `setEditorContent` directly.
+    useForkedPipeline(
+        () =>
+            makeEditorSyncPipeline({
+                workingFilesStore,
+                mainEditorDeferred,
+                getVisibleBookCode: () => visibleBookCodeRef.current,
+                getVisibleChapter: () => visibleChapterRef.current,
+                layoutTickStore,
+            }),
+        [workingFilesStore, mainEditorDeferred, layoutTickStore],
+    );
 
     // Fork the structure-maintenance pipeline as a workspace-scoped fiber.
     // Filters `userEdit && dirtyTextContent`, debounces, awaits the editor
@@ -440,6 +484,7 @@ export const ProjectProvider = ({
         editorRef,
         mainEditorDeferred,
         workingFilesStore,
+        layoutTickStore,
         interactionGate,
         loadedProject,
         currentChapter:
@@ -451,7 +496,6 @@ export const ProjectProvider = ({
         appSettings: project.appSettings,
         pickedFile: project.pickedFile,
         toggleDiffModal: save.diff.open,
-        updateDiffMapForChapter: save.diff.refreshChapter,
         commitBookLintResults: lint.commitBookLintResults,
         referenceResource,
         setIsProcessing: project.setIsProcessing,
@@ -473,39 +517,6 @@ export const ProjectProvider = ({
         pickedChapter: project.pickedChapter,
         history,
     });
-
-    // Keep lint state in sync after history replay (undo/redo), including
-    // entries that touch chapters outside the currently visible editor.
-    useEffect(() => {
-        return history.registerPostUndoRedoAction((event) => {
-            void (async () => {
-                const touchedBooks = new Set(
-                    event.touchedChapters.map((chapter) => chapter.bookCode),
-                );
-                const currentFiles = workingFilesStore.read();
-                const touchedFiles: ScriptureBookState[] = [];
-                for (const bookCode of touchedBooks) {
-                    const file = currentFiles.find(
-                        (candidate) => candidate.bookCode === bookCode,
-                    );
-                    if (file) touchedFiles.push(file);
-                }
-
-                if (!touchedFiles.length) return;
-
-                const lintResultsByBook = await relintBookFiles(
-                    touchedFiles,
-                    usfmOnionService,
-                );
-
-                for (const file of touchedFiles) {
-                    lint.commitBookLintResults({
-                        [file.bookCode]: lintResultsByBook[file.bookCode] ?? [],
-                    });
-                }
-            })();
-        });
-    }, [history, lint, usfmOnionService, workingFilesStore]);
 
     // Thin wrapper binding the pure `bookCodeToTitle` (see ./bookTitle.ts) to this
     // project's book list — the only thing the context actually adds is scope to
@@ -542,14 +553,11 @@ export const ProjectProvider = ({
 
     // Discard: revert the restored chapters back to their disk baseline and drop
     // the tracker. Wrapped in `history.runTransaction` for undoability. The
-    // commit is `kind: "import"` (an ordinary programmatic content mutation —
-    // the same class as a version revert), NOT "undo": `undo`/`redo` are
-    // reserved for actual history replay, and lint filters them on the
-    // assumption that the post-undo/redo listener re-lints. `runTransaction`
-    // does NOT fire that listener, so an "undo" commit here would leave
-    // recovered-content diagnostics stale. As an ordinary content commit, the
-    // lint + save-status pipelines react normally. The dirty-buffer pipeline
-    // then observes the chapters clean and clears the backups.
+    // commit is `kind: "import"` + `action: "discardRecoveredWork"` (an
+    // ordinary programmatic content mutation, same class as a version revert);
+    // the lint/sous/save-status pipelines react to it like any content commit,
+    // and the dirty-buffer pipeline then observes the chapters clean and
+    // clears the backups.
     const dismissRecoveryReport = useCallback(() => {
         setIsRecoveryReportOpen(false);
     }, []);
@@ -580,25 +588,15 @@ export const ProjectProvider = ({
                     );
                     if (chapter) revertChapterToLoadedState(chapter);
                 }
-                // Push the reverted state into the visible editor. Without this
-                // the store reverts but the mounted Lexical instance keeps
-                // showing the recovered content (off-screen chapters refresh on
-                // navigation, since they re-read the store). Mirrors the normal
-                // revert paths in useSaveAndRevert.
-                syncEditorToPickedChapter({
-                    editorRef,
-                    workingFiles: draft,
-                    pickedFile: project.pickedFile,
-                    pickedChapter: project.pickedChapter || null,
-                });
-                workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
+                workingFilesStore.commit({
+                    patch: { kind: "bulk", files: draft },
+                    meta: {
                         kind: "import",
+                        action: "discardRecoveredWork",
                         scope: { project: true },
                         dirtyTextContent: true,
                     },
-                );
+                });
             },
         });
         recoveredConflictTracker.clearAll();
@@ -610,8 +608,6 @@ export const ProjectProvider = ({
         recoveredConflictTracker,
         interactionGate,
         history,
-        project.pickedFile,
-        project.pickedChapter,
     ]);
 
     return (
@@ -657,6 +653,7 @@ export const ProjectProvider = ({
                 mainEditorDeferred,
                 layoutTickStore,
                 searchHighlightStore,
+                sousFindingsStore,
             }}
         >
             {children}

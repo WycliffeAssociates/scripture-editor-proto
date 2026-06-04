@@ -4,7 +4,11 @@ import {
     collectWorkingFileTokens,
 } from "@/app/ui/hooks/utils/editorUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
-import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type {
+    LintIssue,
+    Token,
+    TokenLintOptions,
+} from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 /**
  * Re-run linting against the token view of the current scripture workspace.
@@ -41,11 +45,13 @@ export async function relintBookFile(
 
 /**
  * Re-lint many scripture books in one batch so workspace-level refreshes can
- * update diagnostics without issuing one USFM service call per chapter.
+ * update diagnostics without issuing one USFM service call (IPC round-trip on
+ * Tauri) per book.
  */
 export async function relintBookFiles(
     files: ScriptureBookState[],
     usfmOnionService: IUsfmOnionService,
+    tokenOptions?: TokenLintOptions,
 ): Promise<Record<string, LintIssue[]>> {
     if (!files.length) return {};
 
@@ -54,6 +60,7 @@ export async function relintBookFiles(
             files,
             options: { structuralParagraphBreaks: true },
         }).map(({ tokens }) => ({ tokens })),
+        tokenOptions ? { tokenOptions } : {},
     );
 
     const next: Record<string, LintIssue[]> = {};

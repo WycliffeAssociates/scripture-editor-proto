@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import type { LexicalEditor } from "lexical";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { prepareRemoteBaseForReconciliation } from "@/app/domain/project/prepareRemoteBaseForReconciliation.ts";
 import type {
@@ -87,13 +87,6 @@ export function useSave({
     const { usfmOnionService, settingsManager, authSessionProvider } =
         useRouter().options.context;
     const [, setDirtyVersion] = useState(0);
-    const refreshUnsavedChaptersRef = useRef<
-        (
-            chapters: Array<{ bookCode: string; chapterNum: number }>,
-        ) => Promise<void>
-    >(async () => {
-        bumpDirtyVersion();
-    });
 
     /**
      * Lightweight invalidation knob for memoized derived save/diff state.
@@ -135,8 +128,6 @@ export function useSave({
         authSessionProvider,
         autoAcceptIncomingWork: settingsManager.get("autoAcceptIncomingWork"),
         bumpDirtyVersion,
-        refreshUnsavedChapters: (chapters) =>
-            refreshUnsavedChaptersRef.current(chapters),
         onGitRemoteStatusChanged,
     });
 
@@ -146,9 +137,7 @@ export function useSave({
         ensureVersionsLoaded: versions.actions.ensureLoaded,
         closeVersions: versions.actions.close,
         closeCompare: compare.actions.reset,
-        bumpDirtyVersion,
     });
-    refreshUnsavedChaptersRef.current = diff.actions.refreshChapters;
 
     const saveAndRevert = useSaveAndRevert({
         workingFilesStore,
@@ -177,7 +166,6 @@ export function useSave({
         clearUnsavedDiffs: diff.actions.resetUnsavedDiffs,
         setUnsavedDiffsByChapter: diff.actions.setUnsavedDiffsByChapter,
         bumpDirtyVersion,
-        refreshUnsavedChapter: diff.actions.refreshChapter,
         rerunCompareForChapters: compare.actions.rerunForChapters,
         onGitRemoteStatusChanged,
         prepareRemoteBaseForSave: (() => {
@@ -327,8 +315,6 @@ export function useSave({
             diffsByChapter: activeDiffsByChapter,
             open: saveReview.open,
             close: diff.actions.close,
-            refreshChapter: diff.actions.refreshChapter,
-            refreshChapters: diff.actions.refreshChapters,
         },
         save: {
             saveProjectToDisk: saveAndRevert.actions.saveProjectToDisk,

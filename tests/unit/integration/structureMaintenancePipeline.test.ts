@@ -91,10 +91,10 @@ function setupPipeline(opts?: { editorMode?: string }) {
 }
 
 function userEdit(text: string) {
-    return [
-        makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
-        makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
-    ] as const;
+    return {
+        patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text }),
+        meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
+    };
 }
 
 describe("structureMaintenancePipeline (integration)", () => {
@@ -106,7 +106,7 @@ describe("structureMaintenancePipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...userEdit("edit"));
+                wf.commit(userEdit("edit"));
                 yield* passTime(DEBOUNCE_MS - 10);
                 expect(maintainStructureMock).not.toHaveBeenCalled();
                 expect(maintainMetadataMock).not.toHaveBeenCalled();
@@ -126,18 +126,18 @@ describe("structureMaintenancePipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(
-                    makeChapterPatch({
+                wf.commit({
+                    patch: makeChapterPatch({
                         bookCode: "GEN",
                         chapter: 1,
                         text: "fix",
                     }),
-                    makeCommitMeta({
+                    meta: makeCommitMeta({
                         kind: "structuralFixup",
                         bookCode: "GEN",
                         chapter: 1,
                     }),
-                );
+                });
                 yield* passTime(DEBOUNCE_MS * 3);
 
                 expect(maintainStructureMock).not.toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe("structureMaintenancePipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...userEdit("edit"));
+                wf.commit(userEdit("edit"));
                 yield* passTime(DEBOUNCE_MS + 20);
 
                 // Filter + debounce fire (the commit is still
@@ -176,9 +176,9 @@ describe("structureMaintenancePipeline (integration)", () => {
                 yield* Effect.forkChild(pipeline);
                 yield* drainYields();
 
-                wf.commit(...userEdit("a"));
-                wf.commit(...userEdit("ab"));
-                wf.commit(...userEdit("abc"));
+                wf.commit(userEdit("a"));
+                wf.commit(userEdit("ab"));
+                wf.commit(userEdit("abc"));
                 yield* passTime(DEBOUNCE_MS + 10);
 
                 expect(maintainStructureMock).toHaveBeenCalledTimes(1);

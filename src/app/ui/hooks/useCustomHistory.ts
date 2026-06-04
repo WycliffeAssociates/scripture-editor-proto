@@ -63,12 +63,6 @@ type TransactionArgs<T> = {
     run: () => Promise<T> | T;
 };
 
-export type UndoRedoEvent = {
-    action: "undo" | "redo";
-    label: string;
-    touchedChapters: HistoryChapterRef[];
-};
-
 type UseCustomHistoryArgs = {
     workingFilesStore: WorkingFilesStore;
     interactionGate: WorkspaceGateStore;
@@ -157,9 +151,6 @@ export function useCustomHistory({
         label: string;
         forceNewEntry: boolean;
     } | null>(null);
-    const undoRedoListenersRef = useRef(
-        new Set<(event: UndoRedoEvent) => void>(),
-    );
     const [version, setVersion] = useState(0);
 
     const bumpVersion = useCallback(() => {
@@ -366,25 +357,9 @@ export function useCustomHistory({
         [currentFileBibleIdentifier, currentChapter, setBaselineSelection],
     );
 
-    const emitUndoRedoEvent = useCallback((event: UndoRedoEvent) => {
-        for (const listener of undoRedoListenersRef.current) {
-            listener(event);
-        }
-    }, []);
-
-    const registerPostUndoRedoAction = useCallback(
-        (listener: (event: UndoRedoEvent) => void) => {
-            undoRedoListenersRef.current.add(listener);
-            return () => {
-                undoRedoListenersRef.current.delete(listener);
-            };
-        },
-        [],
-    );
-
     const applyEntry = useCallback(
         (
-            action: UndoRedoEvent["action"],
+            action: "undo" | "redo",
             direction: "before" | "after",
             labelPrefix: "Undid" | "Redid",
             chapterChanges: Array<{
@@ -448,14 +423,16 @@ export function useCustomHistory({
             }
 
             if (draftMutated) {
-                workingFilesStore.commit(
-                    { kind: "bulk", files: draft },
-                    {
+                workingFilesStore.commit({
+                    patch: { kind: "bulk", files: draft },
+                    meta: {
                         kind: action,
-                        scope: { project: true },
+                        scope: {
+                            chapters: dedupeChapterRefs(touchedChapterRefs),
+                        },
                         dirtyTextContent: true,
                     },
-                );
+                });
             }
 
             if (touchedChapters.size) {
@@ -494,12 +471,6 @@ export function useCustomHistory({
                         },
                     });
                 }
-
-                emitUndoRedoEvent({
-                    action,
-                    label,
-                    touchedChapters: dedupeChapterRefs(touchedChapterRefs),
-                });
             }
             bumpVersion();
         },
@@ -513,7 +484,6 @@ export function useCustomHistory({
             setBaselineSelection,
             refreshVisibleEditorIfTouched,
             bumpVersion,
-            emitUndoRedoEvent,
             t,
         ],
     );
@@ -772,7 +742,6 @@ export function useCustomHistory({
             captureEditorSelection,
             runTransaction,
             setNextTypingLabel,
-            registerPostUndoRedoAction,
             undo,
             redo,
             clearHistory,
@@ -783,7 +752,6 @@ export function useCustomHistory({
             captureEditorSelection,
             runTransaction,
             setNextTypingLabel,
-            registerPostUndoRedoAction,
             undo,
             redo,
             clearHistory,

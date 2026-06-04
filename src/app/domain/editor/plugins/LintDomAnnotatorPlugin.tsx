@@ -1,3 +1,5 @@
+// TODO: long file — findings-store-unification should shorten it; DOM utils
+// could be extracted so the JSX reads cleaner.
 /**
  * Snapshot-driven lint overlay.
  *
@@ -17,12 +19,31 @@
  * Both open the same fix popover on hover.
  */
 import type { LexicalEditor } from "lexical";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
+import {
+    type ChapterLabelTally,
+    findChapterLabelEntries,
+    tallyChapterLabels,
+} from "@/app/domain/editor/annotations/chapterLabelTally.ts";
+import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
+import { lintIssuesToAnnotations } from "@/app/domain/editor/annotations/onionAnnotationProvider.tsx";
+import { resolveContentRange } from "@/app/domain/editor/annotations/resolveContentRange.ts";
+import { sousFindingsToAnnotations } from "@/app/domain/editor/annotations/sousAnnotationProvider.ts";
 import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
-import { LintFixPopover } from "@/app/ui/components/blocks/LintFixPopover.tsx";
+import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
+import { ChapterLabelPicker } from "@/app/ui/components/blocks/ChapterLabelPicker.tsx";
 import { getLintIssueKey } from "@/app/ui/hooks/lintState.ts";
 import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -37,6 +58,10 @@ type HighlightEntry = {
     dataId: string | null;
     dataSid: string | null;
     rects: Rect[];
+    // Set for sous content findings: the rect itself is the hover target (it
+    // carries `data-annotation-id`), keyed to this finding's exact range rather
+    // than the shared underlying token.
+    annotationId?: string;
 };
 
 type BadgeEntry = {
@@ -346,9 +371,13 @@ function publishEntries(
     records: Map<string, AnchorRecord>,
     setEntries: (entries: OverlayEntry[]) => void,
     activeHitpointsRef: { current: Set<HTMLElement> },
+    // sous content findings resolve to their own highlight entries + hover
+    // hitpoints (the underlying token elements); merge them with the lint set.
+    extraEntries: OverlayEntry[] = [],
+    extraHitpoints: Set<HTMLElement> = new Set(),
 ) {
-    const entries: OverlayEntry[] = [];
-    const nextHitpoints = new Set<HTMLElement>();
+    const entries: OverlayEntry[] = [...extraEntries];
+    const nextHitpoints = new Set<HTMLElement>(extraHitpoints);
 
     for (const record of records.values()) {
         if (record.stale || !record.element || record.kind === "none") continue;
@@ -398,22 +427,155 @@ type LintDomAnnotatorPluginProps = {
 export function LintDomAnnotatorPlugin({
     editor,
 }: LintDomAnnotatorPluginProps) {
-    const { actions, lint, project, layoutTickStore } = useWorkspaceContext();
+    const {
+        actions,
+        lint,
+        project,
+        layoutTickStore,
+        workingFilesStore,
+        sousFindingsStore,
+    } = useWorkspaceContext();
     const editorMode = project.appSettings.editorMode;
     const tick = useLayoutTick(layoutTickStore);
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
+    const rootElRef = useRef<HTMLElement | null>(null);
+    rootElRef.current = rootEl;
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
     const editorModeRef = useRef(editorMode);
     editorModeRef.current = editorMode;
     const recordsRef = useRef<Map<string, AnchorRecord>>(new Map());
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
     const resolveAnchorsRef = useRef<(() => void) | null>(null);
+    // Project-wide chapter-label standardize picker. The tally is derived from
+    // the committed working files only when the user opens the picker (a click,
+    // not a hover), so the hover path stays cheap.
+    const [chapterLabelTally, setChapterLabelTally] =
+        useState<ChapterLabelTally | null>(null);
+    const openChapterLabelPicker = useCallback(() => {
+        const tokens = workingFilesStore.read().flatMap((book) =>
+            book.chapters.flatMap((chapter) =>
+                lexicalToTokens(chapter.lexicalState, {
+                    bookCode: book.bookCode,
+                }),
+            ),
+        );
+        setChapterLabelTally(
+            tallyChapterLabels(findChapterLabelEntries(tokens)),
+        );
+    }, [workingFilesStore]);
+
+    // --- the annotation zip (Phase 3): onion lint + sous content findings ---
+    //
+    // Both sources normalize to `EditorAnnotation` and merge by the token-ids
+    // each touches; the hover lookup then returns both streams for a hovered
+    // token. onion lint issues for the visible scope, normalized once and held
+    // in a ref the (event-time) hover lookup reads.
+    const lintAnnotations = useMemo(
+        () =>
+            lintIssuesToAnnotations(lint.filteredVisibleIssues, {
+                applyFix: actions.fixLintError,
+                onStandardizeChapterLabels: openChapterLabelPicker,
+            }),
+        [
+            lint.filteredVisibleIssues,
+            actions.fixLintError,
+            openChapterLabelPicker,
+        ],
+    );
+    const lintAnnotationsRef = useRef(lintAnnotations);
+    lintAnnotationsRef.current = lintAnnotations;
+
+    // sous content findings for the visible book + the vref segment map that
+    // resolves their ranges to DOM rects.
+    const sousResults = useSyncExternalStore(
+        sousFindingsStore.subscribe,
+        sousFindingsStore.getSnapshot,
+    );
+    const sousResult = sousResults[project.pickedFile.bookCode.toUpperCase()];
+    const sousAnnotations = useMemo(
+        () =>
+            sousResult ? sousFindingsToAnnotations(sousResult.findings) : [],
+        [sousResult],
+    );
+    const sousAnnotationsRef = useRef(sousAnnotations);
+    sousAnnotationsRef.current = sousAnnotations;
+    const sousSegmentsRef = useRef(sousResult?.segments ?? {});
+    sousSegmentsRef.current = sousResult?.segments ?? {};
+    // finding-id -> annotation, for the hover lookup. Content findings hover off
+    // their own highlight rect (which carries `data-annotation-id`), so the
+    // lookup keys by finding id — not the shared token — keeping multiple
+    // findings in one token independently hoverable.
+    const sousByIdRef = useRef<Map<string, EditorAnnotation>>(new Map());
+    sousByIdRef.current = new Map(sousAnnotations.map((a) => [a.id, a]));
+
+    // The hover zip. A content finding's highlight carries `data-annotation-id`
+    // → return just that finding. Otherwise it's a token hitpoint: onion lint by
+    // touched token-id, sid as the fallback (the pre-zip behavior).
+    const lookupAnnotationsForTarget = useCallback(
+        (target: HTMLElement): EditorAnnotation[] => {
+            const annotationId = target.getAttribute("data-annotation-id");
+            if (annotationId) {
+                const found = sousByIdRef.current.get(annotationId);
+                return found ? [found] : [];
+            }
+            const dataId = target.getAttribute("data-id");
+            const dataSid = target.getAttribute("data-sid");
+            const out: EditorAnnotation[] = [];
+            if (dataId) {
+                for (const annotation of lintAnnotationsRef.current) {
+                    if (annotation.touchedTokenIds?.includes(dataId)) {
+                        out.push(annotation);
+                    }
+                }
+                if (out.length > 0) return out;
+            }
+            if (dataSid) {
+                for (const annotation of lintAnnotationsRef.current) {
+                    if (
+                        annotation.anchor.kind === "token" &&
+                        annotation.anchor.sid === dataSid
+                    ) {
+                        out.push(annotation);
+                    }
+                }
+            }
+            return out;
+        },
+        [],
+    );
+
+    // Content highlights are click-through, so hover is found geometrically:
+    // hit-test the cursor against the rendered content-finding rects (their
+    // live `getBoundingClientRect`, so scroll stays correct). Few per chapter.
+    const findContentHit = useCallback(
+        (clientX: number, clientY: number): HTMLElement | null => {
+            const root = rootElRef.current;
+            if (!root) return null;
+            const candidates = root.querySelectorAll<HTMLElement>(
+                "[data-content-finding]",
+            );
+            for (const el of candidates) {
+                const r = el.getBoundingClientRect();
+                if (
+                    clientX >= r.left &&
+                    clientX <= r.right &&
+                    clientY >= r.top &&
+                    clientY <= r.bottom
+                ) {
+                    return el;
+                }
+            }
+            return null;
+        },
+        [],
+    );
+
     const {
-        hoveredErrors,
+        hoveredAnnotations,
         hoveredAnchorEl,
         onTooltipMouseEnter,
         onTooltipMouseLeave,
-    } = useEditorLintTooltip(lint.filteredVisibleIssues);
+    } = useEditorLintTooltip(lookupAnnotationsForTarget, findContentHit);
 
     useEffect(() => {
         const editorRoot = editor.getRootElement();
@@ -504,7 +666,39 @@ export function LintDomAnnotatorPlugin({
                 }
             }
 
-            publishEntries(recordsRef.current, setEntries, hitpointsRef);
+            // sous content findings: resolve each `(sid, range)` to its precise
+            // rects. The rect itself is the hover target (it carries
+            // `data-annotation-id`), so several findings sharing one rendered
+            // token each hover independently — keyed to the range, not the
+            // token. No token hitpoint tagging here (cf. lint's click-through
+            // highlight, which hovers off the underlying token).
+            const sousEntries: OverlayEntry[] = [];
+            const segments = sousSegmentsRef.current;
+            for (const annotation of sousAnnotationsRef.current) {
+                if (annotation.anchor.kind !== "content") continue;
+                const resolved = resolveContentRange(
+                    annotation.anchor.sid,
+                    annotation.anchor.range,
+                    segments,
+                    rootEl,
+                );
+                if (resolved.rects.length === 0) continue;
+                sousEntries.push({
+                    kind: "highlight",
+                    key: annotation.id,
+                    dataId: null,
+                    dataSid: null,
+                    rects: resolved.rects,
+                    annotationId: annotation.id,
+                });
+            }
+
+            publishEntries(
+                recordsRef.current,
+                setEntries,
+                hitpointsRef,
+                sousEntries,
+            );
         };
 
         resolveAnchorsRef.current = resolveAnchors;
@@ -549,6 +743,13 @@ export function LintDomAnnotatorPlugin({
         resolveAnchorsRef.current?.();
     }, [lint.filteredVisibleIssues]);
 
+    // sous findings arrive on the store's own (calmer) clock, outside the
+    // layout-tick pulse — re-resolve so their highlights + hitpoints redraw.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the ref body reads sousAnnotationsRef; sousAnnotations is the trigger.
+    useEffect(() => {
+        resolveAnchorsRef.current?.();
+    }, [sousAnnotations]);
+
     // biome-ignore lint/correctness/useExhaustiveDependencies: <We intentionally want this to run when editorMode changes>
     useEffect(() => {
         for (const record of recordsRef.current.values()) {
@@ -573,12 +774,28 @@ export function LintDomAnnotatorPlugin({
             <div className={styles.host} aria-hidden="true">
                 {entries.map((entry) =>
                     entry.kind === "highlight" ? (
-                        // Click-through visual only; the underlying token is the
-                        // hover target (data-lint-hitpoint), so no data-* here.
+                        // Lint highlights are click-through (the underlying token
+                        // is the hover target). Content (sous) highlights ARE the
+                        // hover target — keyed to the finding via
+                        // `data-annotation-id`, so multiple findings on one token
+                        // hover independently.
                         entry.rects.map((rect, i) => (
                             <span
                                 key={`${entry.key}:${i}`}
-                                className={styles.highlight}
+                                className={
+                                    entry.annotationId
+                                        ? styles.contentHighlight
+                                        : styles.highlight
+                                }
+                                // Content highlights are click-through; the hover
+                                // is found geometrically by `data-content-finding`
+                                // rect, keyed to the finding by data-annotation-id.
+                                data-content-finding={
+                                    entry.annotationId ? "true" : undefined
+                                }
+                                data-annotation-id={
+                                    entry.annotationId ?? undefined
+                                }
                                 style={{
                                     left: `${rect.left}px`,
                                     top: `${rect.top}px`,
@@ -606,10 +823,9 @@ export function LintDomAnnotatorPlugin({
     }, [entries, shouldRender]);
 
     const popover = (
-        <LintFixPopover
+        <AnnotationPopover
             anchor={hoveredAnchorEl}
-            errors={hoveredErrors}
-            onApplyFix={actions.fixLintError}
+            annotations={hoveredAnnotations}
             onMouseEnter={onTooltipMouseEnter}
             onMouseLeave={onTooltipMouseLeave}
             side="top"
@@ -617,11 +833,34 @@ export function LintDomAnnotatorPlugin({
         />
     );
 
-    if (!rootEl || !rendered) return popover;
+    const chapterLabelPicker = (
+        <ChapterLabelPicker
+            isOpen={chapterLabelTally !== null}
+            tally={chapterLabelTally}
+            onClose={() => setChapterLabelTally(null)}
+            onConfirm={(targetStem) => {
+                // Fabricate the per-book stem swap (preserving each chapter's
+                // number), commit across books via a workspace-scope
+                // `withWorkingFilesDraft`, then relint the affected books.
+                actions.standardizeChapterLabels(targetStem);
+                setChapterLabelTally(null);
+            }}
+        />
+    );
+
+    if (!rootEl || !rendered) {
+        return (
+            <>
+                {popover}
+                {chapterLabelPicker}
+            </>
+        );
+    }
     return (
         <>
             {createPortal(rendered, rootEl)}
             {popover}
+            {chapterLabelPicker}
         </>
     );
 }

@@ -195,7 +195,9 @@ export function makeCommitMeta(args: {
 }): CommitMetaInput {
     return {
         kind: args.kind,
-        scope: { bookCode: args.bookCode, chapter: args.chapter },
+        scope: {
+            chapters: [{ bookCode: args.bookCode, chapterNum: args.chapter }],
+        },
         dirtyTextContent:
             args.dirtyTextContent ?? args.kind !== "metadataOnly",
     };

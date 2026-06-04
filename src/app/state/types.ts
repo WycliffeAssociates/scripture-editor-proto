@@ -26,13 +26,60 @@ export type CommitKind =
     | "structuralFixup"
     | "metadataOnly";
 
-export type CommitScope =
-    | { bookCode: string; chapter: number }
-    | { project: true };
+/**
+ * Structurally identical to `ChapterRef` (domain/project) — duplicated here so
+ * the state layer's event types don't import from the domain layer. TS
+ * structural typing makes the two interchangeable at call sites.
+ */
+export type CommitChapterRef = { bookCode: string; chapterNum: number };
+
+/**
+ * WHAT a commit changed — a fact, not a reaction policy. Subscribers own their
+ * expansion (lint widens chapters→books, sous may widen to the whole project,
+ * diff stays per-chapter).
+ *
+ * `{ chapters }`      — exactly these chapters' content may have changed;
+ *                       everything else is untouched.
+ * `{ project: true }` — whole-snapshot semantics: reconcile against the entire
+ *                       post-commit snapshot INCLUDING absences. Kept as a
+ *                       sentinel (not "list of every chapter") because a list
+ *                       cannot express removal — version switch / import can
+ *                       drop books, and consumers must know to wipe their
+ *                       state for books no longer present.
+ */
+export type CommitScope = { chapters: CommitChapterRef[] } | { project: true };
+
+/**
+ * WHICH named verb produced a commit — the granular channel beside the coarse
+ * `kind`. `kind` serves whole-class discrimination (skip `metadataOnly`,
+ * skip `structuralFixup`); `action` serves per-verb policies (e.g. sous maps
+ * `chapterLabelStandardize` → project-wide re-analysis because chapter-label
+ * consistency is a cross-book statistical judgment).
+ *
+ * Granularity principle: `action` names the VERB; `scope` carries the EXTENT.
+ * Just `"prettify"` — never `prettifyBook` / `prettifyProject`, which would
+ * encode the same fact twice and drift.
+ */
+export type CommitAction =
+    | "chapterLabelStandardize"
+    | "lintFix"
+    | "prettify"
+    | "formatMatch"
+    | "modeSwitch"
+    | "versionRevert"
+    | "revertHunk"
+    | "revertChapter"
+    | "revertAll"
+    | "applyIncoming"
+    | "incomingReconciliation"
+    | "discardRecoveredWork"
+    | "saveCleanMark";
 
 export type CommitMeta = {
     kind: CommitKind;
     scope: CommitScope;
+    /** Granular verb identity; present on programmatic mutations. */
+    action?: CommitAction;
     /**
      * True iff this commit changed visible text content. Selection-only commits
      * and dirty-flag flips set this to false so e.g. lint can filter them out

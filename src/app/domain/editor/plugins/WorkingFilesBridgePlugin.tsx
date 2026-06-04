@@ -83,28 +83,32 @@ export function WorkingFilesBridgePlugin() {
 
                 const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
                 if (!dirty) {
-                    workingFilesStore.commit(
-                        { kind: "selectionOnly", bookCode, chapter },
-                        {
+                    workingFilesStore.commit({
+                        patch: { kind: "selectionOnly", bookCode, chapter },
+                        meta: {
                             kind: "metadataOnly",
-                            scope: { bookCode, chapter },
+                            scope: {
+                                chapters: [{ bookCode, chapterNum: chapter }],
+                            },
                             dirtyTextContent: false,
                         },
-                    );
+                    });
                     return;
                 }
 
                 const kind = getCommitKind(tags);
                 const lexicalState = editorState.toJSON();
 
-                workingFilesStore.commit(
-                    { kind: "chapter", bookCode, chapter, lexicalState },
-                    {
+                workingFilesStore.commit({
+                    patch: { kind: "chapter", bookCode, chapter, lexicalState },
+                    meta: {
                         kind,
-                        scope: { bookCode, chapter },
+                        scope: {
+                            chapters: [{ bookCode, chapterNum: chapter }],
+                        },
                         dirtyTextContent: true,
                     },
-                );
+                });
             },
         );
 
