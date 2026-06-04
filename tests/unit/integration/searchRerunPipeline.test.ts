@@ -57,7 +57,7 @@ function makeEvent(kind: CommitKind, dirty: boolean): CommitEvent {
             dirtyTextContent: dirty,
             generation: 1,
         },
-        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
         snapshot: [],
     };
 }
@@ -209,7 +209,7 @@ describe("makeSearchRerunPipeline (integration)", () => {
                 yield* drainYields();
 
                 wf.commit({
-                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
                     meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",

@@ -117,6 +117,87 @@ describe("HistoryManager", () => {
         });
     });
 
+    it("seals the run when selectionsContiguous reports a repositioned cursor", () => {
+        let nowMs = 0;
+        const manager = new HistoryManager<Snapshot>({
+            maxEntries: 200,
+            coalesceWindowMs: 2500,
+            now: () => nowMs,
+            selectionsContiguous: (after, before) =>
+                after === undefined ||
+                before === undefined ||
+                (after as Selection).anchorOffset ===
+                    (before as Selection).anchorOffset,
+        });
+
+        manager.recordTypingChange({
+            label: "Edit",
+            change: {
+                ...makeChange("a", "ab"),
+                selectionBefore: { anchorOffset: 1 } satisfies Selection,
+                selectionAfter: { anchorOffset: 2 } satisfies Selection,
+            },
+        });
+
+        // Contiguous keystroke: before-cursor = previous after-cursor.
+        nowMs = 500;
+        manager.recordTypingChange({
+            label: "Edit",
+            change: {
+                ...makeChange("ab", "abc"),
+                selectionBefore: { anchorOffset: 2 } satisfies Selection,
+                selectionAfter: { anchorOffset: 3 } satisfies Selection,
+            },
+        });
+
+        // Repositioned cursor: still inside the time window, but the
+        // before-cursor no longer matches → new entry.
+        nowMs = 1000;
+        manager.recordTypingChange({
+            label: "Edit",
+            change: {
+                ...makeChange("abc", "aXbc"),
+                selectionBefore: { anchorOffset: 1 } satisfies Selection,
+                selectionAfter: { anchorOffset: 2 } satisfies Selection,
+            },
+        });
+
+        // Two undos: first pops the repositioned edit, second the run.
+        const first = manager.undo();
+        expect(first?.changes[0]?.before.value).toBe("abc");
+        const second = manager.undo();
+        expect(second?.changes[0]?.before.value).toBe("a");
+        expect(second?.changes[0]?.after.value).toBe("abc");
+    });
+
+    it("merges on the time window alone when a selection side is unreadable", () => {
+        let nowMs = 0;
+        const manager = new HistoryManager<Snapshot>({
+            maxEntries: 200,
+            coalesceWindowMs: 2500,
+            now: () => nowMs,
+            selectionsContiguous: (after, before) =>
+                after === undefined ||
+                before === undefined ||
+                (after as Selection).anchorOffset ===
+                    (before as Selection).anchorOffset,
+        });
+
+        manager.recordTypingChange({
+            label: "Edit",
+            change: makeChange("a", "ab"),
+        });
+        nowMs = 1000;
+        manager.recordTypingChange({
+            label: "Edit",
+            change: makeChange("ab", "abc"),
+        });
+
+        const undoEntry = manager.undo();
+        expect(undoEntry?.changes[0]?.before.value).toBe("a");
+        expect(undoEntry?.changes[0]?.after.value).toBe("abc");
+    });
+
     it("does not coalesce when forceNewEntry is true", () => {
         let nowMs = 0;
         const manager = new HistoryManager<Snapshot>({

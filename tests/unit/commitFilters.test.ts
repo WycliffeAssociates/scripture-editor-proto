@@ -44,7 +44,7 @@ function makeEvent(kind: CommitKind, dirtyTextContent: boolean): CommitEvent {
             dirtyTextContent,
             generation: 1,
         },
-        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+        patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
         snapshot: [],
     };
 }
@@ -137,7 +137,7 @@ describe("scope policies — expansion shape", () => {
                 dirtyTextContent: true,
                 generation: 1,
             },
-            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
             snapshot: [],
         };
     }
@@ -198,6 +198,7 @@ describe("isDirtyBufferRelevant", () => {
         kind: "selectionOnly",
         bookCode: "GEN",
         chapter: 1,
+        selection: null,
     };
 
     it("reacts to a user edit (could make a book dirty)", () => {

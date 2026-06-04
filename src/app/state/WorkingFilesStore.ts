@@ -6,6 +6,7 @@ import type {
 } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type {
+    CapturedSelection,
     CommitEvent,
     CommitMeta,
     SerializedLexicalChapterState,
@@ -14,6 +15,17 @@ import type {
 
 type CommitMetaInput = Omit<CommitMeta, "generation">;
 type Listener = () => void;
+
+/** A selection that rode a commit, stamped with that commit's generation. */
+export type ChapterSelectionFact = {
+    generation: number;
+    selection: CapturedSelection | null;
+};
+
+export type ChapterSelectionFacts = {
+    latest: ChapterSelectionFact;
+    previous: ChapterSelectionFact | null;
+};
 
 /**
  * Single source of live current truth for working-files state.
@@ -32,6 +44,16 @@ export class WorkingFilesStore {
     private gen = 0;
     private readonly tickListeners = new Set<Listener>();
     private readonly pubsub: PubSub.PubSub<CommitEvent>;
+    /**
+     * Per-chapter selection facts (keyed `bookCode:chapterNum`). Selection is
+     * a producer fact riding commits (see `CapturedSelection` in types.ts);
+     * retention is deliberately tiny — latest + previous. `previous` exists
+     * because history's capture listener and the bridge observe the same
+     * Lexical update: depending on listener order, `latest` may already be
+     * THIS update's commit, and the before-fact the reader wants is then one
+     * back (the reader disambiguates — see `useCustomHistory`).
+     */
+    private readonly selectionFacts = new Map<string, ChapterSelectionFacts>();
 
     constructor(initial: ScriptureBookState[]) {
         this.state = initial;
@@ -114,6 +136,7 @@ export class WorkingFilesStore {
         const { patch, meta } = input;
         this.state = applyPatch(this.state, patch);
         const fullMeta: CommitMeta = { ...meta, generation: ++this.gen };
+        this.recordSelectionFacts(patch, fullMeta.generation);
         const event: CommitEvent = {
             meta: fullMeta,
             patch,
@@ -125,6 +148,55 @@ export class WorkingFilesStore {
     }
 
     /**
+     * Record the selection fact(s) a patch carries. Patches WITHOUT a
+     * selection field (programmatic chapter writes, plain bulk commits)
+     * leave the facts untouched — absence means "this producer doesn't know
+     * the cursor", not "there is no cursor".
+     */
+    private recordSelectionFacts(
+        patch: WorkingFilesPatch,
+        generation: number,
+    ): void {
+        const record = (
+            bookCode: string,
+            chapter: number,
+            selection: CapturedSelection | null,
+        ) => {
+            const key = `${bookCode}:${chapter}`;
+            const existing = this.selectionFacts.get(key);
+            this.selectionFacts.set(key, {
+                latest: { generation, selection },
+                previous: existing?.latest ?? null,
+            });
+        };
+        switch (patch.kind) {
+            case "selectionOnly":
+                record(patch.bookCode, patch.chapter, patch.selection);
+                return;
+            case "chapter":
+                if (patch.selection !== undefined) {
+                    record(patch.bookCode, patch.chapter, patch.selection);
+                }
+                return;
+            case "bulk":
+                for (const entry of patch.selections ?? []) {
+                    record(entry.bookCode, entry.chapter, entry.selection);
+                }
+                return;
+            case "metadata":
+                return;
+        }
+    }
+
+    /** Latest + previous selection fact for a chapter (null if never recorded). */
+    readSelectionFacts(
+        bookCode: string,
+        chapter: number,
+    ): ChapterSelectionFacts | null {
+        return this.selectionFacts.get(`${bookCode}:${chapter}`) ?? null;
+    }
+
+    /**
      * Replace state wholesale without publishing a commit event. Used by the
      * shadow-mirror bootstrap when the workspace reloads a project. Subscribers
      * that need to react to a fresh project should listen for the route-level
@@ -132,6 +204,7 @@ export class WorkingFilesStore {
      */
     reset(next: ScriptureBookState[]): void {
         this.state = next;
+        this.selectionFacts.clear();
     }
 
     /** React-side `useSyncExternalStore` subscribe (used by `useSave`). */

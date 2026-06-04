@@ -378,7 +378,7 @@ describe("runIncomingMutation", () => {
 
         // selectionOnly preserves the state array → not a state change.
         store.commit({
-            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+            patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
             meta: {
                 kind: "metadataOnly",
                 scope: { chapters: [{ bookCode: "GEN", chapterNum: 1 }] },

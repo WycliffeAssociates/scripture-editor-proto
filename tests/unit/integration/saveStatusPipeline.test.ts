@@ -142,7 +142,7 @@ describe("saveStatusPipeline (integration)", () => {
                 yield* drainYields();
 
                 wf.commit({
-                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1 },
+                    patch: { kind: "selectionOnly", bookCode: "GEN", chapter: 1, selection: null },
                     meta: makeCommitMeta({
                         kind: "metadataOnly",
                         bookCode: "GEN",

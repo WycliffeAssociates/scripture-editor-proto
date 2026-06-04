@@ -25,6 +25,20 @@ type HistoryManagerOptions = {
     maxEntries: number;
     coalesceWindowMs: number;
     now?: () => number;
+    /**
+     * Decides whether an incoming typing change continues the latest entry's
+     * run: given the entry's `selectionAfter` and the incoming change's
+     * `selectionBefore`/`selectionAfter`, return false to seal the entry and
+     * start a new one. Contiguous keystrokes match by construction (each
+     * keystroke's before-cursor is the previous one's after-cursor), so this
+     * breaks runs exactly when the user repositioned between edits. Omitted =
+     * the time window alone decides (selections stay opaque to this class).
+     */
+    selectionsContiguous?: (
+        latestSelectionAfter: unknown,
+        nextSelectionBefore: unknown,
+        nextSelectionAfter: unknown,
+    ) => boolean;
 };
 
 type RecordTypingChangeArgs<TSnapshot> = {
@@ -50,6 +64,11 @@ export class HistoryManager<TSnapshot> {
     private readonly maxEntries: number;
     private readonly coalesceWindowMs: number;
     private readonly now: () => number;
+    private readonly selectionsContiguous?: (
+        latestSelectionAfter: unknown,
+        nextSelectionBefore: unknown,
+        nextSelectionAfter: unknown,
+    ) => boolean;
     private entries: HistoryEntry<TSnapshot>[] = [];
     private cursor = 0;
     private idCounter = 0;
@@ -58,6 +77,7 @@ export class HistoryManager<TSnapshot> {
         this.maxEntries = options.maxEntries;
         this.coalesceWindowMs = options.coalesceWindowMs;
         this.now = options.now ?? Date.now;
+        this.selectionsContiguous = options.selectionsContiguous;
     }
 
     canUndo() {
@@ -92,7 +112,13 @@ export class HistoryManager<TSnapshot> {
             latest.changes[0]?.chapter.bookCode ===
                 args.change.chapter.bookCode &&
             latest.changes[0]?.chapter.chapterNum ===
-                args.change.chapter.chapterNum;
+                args.change.chapter.chapterNum &&
+            (this.selectionsContiguous?.(
+                latest.changes[0]?.selectionAfter,
+                args.change.selectionBefore,
+                args.change.selectionAfter,
+            ) ??
+                true);
 
         if (canMerge && latest) {
             latest.timestamp = timestamp;

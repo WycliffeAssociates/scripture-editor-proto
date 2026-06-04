@@ -204,7 +204,6 @@ function createHistory(): CustomHistoryHook {
         peekUndoLabel: () => null,
         peekRedoLabel: () => null,
         captureEditorUpdate: vi.fn(),
-        captureEditorSelection: vi.fn(),
         runTransaction: async ({ run }) => {
             return await run();
         },

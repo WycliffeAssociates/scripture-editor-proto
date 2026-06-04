@@ -3,6 +3,7 @@ import { Deferred, Effect, Fiber, Stream } from "effect";
 import { HISTORIC_TAG, HISTORY_MERGE_TAG } from "lexical";
 import { useEffect } from "react";
 import { EDITOR_TAGS_USED } from "@/app/data/editor.ts";
+import { $captureCurrentSelection } from "@/app/domain/history/historySelection.ts";
 import type { CommitKind } from "@/app/state/types.ts";
 import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
@@ -26,6 +27,15 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * `dirtyTextContent: false`. Cost is bounded (no `toJSON`, no token recompute);
  * future selection-aware consumers (synced scrolling, action palette context)
  * pick them up by filter.
+ *
+ * Every published patch carries the captured selection (the commit's
+ * after-selection fact — see `CapturedSelection` in state/types.ts). The
+ * bridge is the correct capture point: it builds patches inside the Lexical
+ * update listener, so "set selection fact, then commit" is atomic by
+ * construction. One consequence of the skip rules: the post-undo/redo
+ * selection restore is a `programaticIgnore` update, so it never republishes
+ * — that's fine only because undo/redo's bulk commit already carries the
+ * restored selection per chapter (`useCustomHistory.applyEntry`).
  *
  * Dev-only commit logger uses the store's `changes: Stream<CommitEvent>` to
  * surface every commit on the console; tree-shaken from prod.
@@ -81,10 +91,17 @@ export function WorkingFilesBridgePlugin() {
                     project.pickedChapter?.chapterNumber ??
                     project.currentChapter;
 
+                const selection = editorState.read($captureCurrentSelection);
+
                 const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
                 if (!dirty) {
                     workingFilesStore.commit({
-                        patch: { kind: "selectionOnly", bookCode, chapter },
+                        patch: {
+                            kind: "selectionOnly",
+                            bookCode,
+                            chapter,
+                            selection,
+                        },
                         meta: {
                             kind: "metadataOnly",
                             scope: {
@@ -100,7 +117,13 @@ export function WorkingFilesBridgePlugin() {
                 const lexicalState = editorState.toJSON();
 
                 workingFilesStore.commit({
-                    patch: { kind: "chapter", bookCode, chapter, lexicalState },
+                    patch: {
+                        kind: "chapter",
+                        bookCode,
+                        chapter,
+                        lexicalState,
+                        selection,
+                    },
                     meta: {
                         kind,
                         scope: {
