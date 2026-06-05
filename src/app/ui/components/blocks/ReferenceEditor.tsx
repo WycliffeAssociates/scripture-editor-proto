@@ -25,6 +25,7 @@ import {
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
@@ -366,6 +367,7 @@ function getIntialConfig(): InitialConfigType {
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
+            USFMNumberedMarkerNode,
             {
                 replace: TextNode,
                 with: (node: TextNode) => {

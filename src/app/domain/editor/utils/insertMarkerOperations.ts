@@ -13,6 +13,7 @@ import {
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
 import { $createUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { $createUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
     $createUSFMParagraphNode,
     $isUSFMParagraphNode,
@@ -27,6 +28,7 @@ import { type ParsedReference, parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
+    isChapterMarker,
     isValidParaMarker,
     VALID_CHAR_MARKERS,
     VALID_NOTE_MARKERS,
@@ -270,7 +272,72 @@ export function $insertEndMarker(args: BaseInsertArgs): void {
     }
 }
 
+/**
+ * Regular-shape chapter/verse insertion: ONE numbered-marker node carrying
+ * synthesized marker bytes (`\\v ` — name + required delimiter, per the
+ * onion delimiter contract) with the number as content. Fresh inserts mint
+ * fresh token ids. Content defaults to a lone terminator space so the caret
+ * lands at offset 0 and the first typed digit becomes the number (`"6 "`),
+ * mirroring the two-stage-delete empty-state affordance.
+ *
+ * A live-inserted chapter node sits inline in the current container; the
+ * byte-less chapter shell appears at the next regular rebuild (mode flip /
+ * reload). Bytes are correct either way — the shell is layout, not bytes.
+ */
+function $insertNumberedMarkerRegularMode(
+    args: BaseInsertArgs,
+    numberText: string | undefined,
+): void {
+    const { anchorNode, marker, isStartOfLine, isTypedInsertion } = args;
+    const context = $getInsertionContext(anchorNode);
+
+    const isChapter = isChapterMarker(marker);
+    const content = numberText ? `${numberText} ` : " ";
+    const node = $createUSFMNumberedMarkerNode(content, {
+        numberId: guidGenerator(),
+        openId: guidGenerator(),
+        openBytes: `\\${marker} `,
+        marker,
+        sid: isChapter ? context.currentSidAsString : context.newSid,
+        inPara: context.nearestParaMarker,
+    });
+
+    if (!isStartOfLine) {
+        const [left, right] = anchorNode.splitText(args.anchorOffsetToUse);
+        const textContent = left.getTextContent().trimEnd();
+        const woMarker = isTypedInsertion
+            ? `${textContent.slice(0, -`\\${marker}`.length)}`
+            : textContent;
+        left.setTextContent(woMarker);
+        if (isChapter) {
+            // Chapters live at line starts; break before the node.
+            const lineBreakNode = $createLineBreakNode();
+            left.insertAfter(lineBreakNode);
+            lineBreakNode.insertAfter(node);
+        } else {
+            if ($isUSFMTextNode(right)) right.setSid(context.newSid);
+            left.insertAfter(node);
+            right?.setTextContent(` ${right.getTextContent().trimStart()}`);
+        }
+    } else {
+        if (isChapter) $ensureLineBreakBefore(anchorNode);
+        if (isTypedInsertion) {
+            anchorNode.replace(node);
+        } else {
+            anchorNode.insertBefore(node);
+        }
+    }
+
+    // Caret before the trailing terminator: typing immediately renumbers.
+    const digits = content.trimEnd().length;
+    node.select(digits, digits);
+}
+
 export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
+    if (args.editorMode === EDITOR_MODES.regular) {
+        $insertNumberedMarkerRegularMode(args, verseNumber);
+        return;
+    }
     const { anchorNode, marker, isStartOfLine, isTypedInsertion } = args;
 
     const context = $getInsertionContext(anchorNode);
@@ -343,6 +410,10 @@ export function $insertVerse(args: BaseInsertArgs, verseNumber?: string): void {
 // ============================================================================
 // todo: we actually shouldn't allow inserting chapters since we break on as a ux division of edit per chapter
 export function $insertChapter(args: BaseInsertArgs): void {
+    if (args.editorMode === EDITOR_MODES.regular) {
+        $insertNumberedMarkerRegularMode(args, undefined);
+        return;
+    }
     const { anchorNode, marker, isStartOfLine, isTypedInsertion } = args;
 
     const context = $getInsertionContext(anchorNode);

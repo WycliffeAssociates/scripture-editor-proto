@@ -23,6 +23,11 @@ const chapterMarker = `${marker}[data-marker="c"]`;
 const chapterLabelMarker = `${marker}[data-marker="cl"]`;
 const endMarker = `span[data-token-type="endMarker"]`;
 const numberRange = `[data-token-type="numberRange"]`;
+// One numbered-marker node = the whole \v/\c marker+number unit; the visible
+// content is the number. Regular mode renders these; usfm/plain modes stay
+// flat tokens, so the legacy marker/numberRange selectors below still cover
+// those modes.
+const numberedMarker = `[data-token-type="numberedMarker"]`;
 const textToken = `[data-token-type="text"]`;
 const dataIsStructuralEmpty = `[data-is-structural-empty="true"]`;
 // Verse & Chapter Numbers
@@ -47,6 +52,71 @@ globalStyle(
 );
 globalStyle(`${regularMode}  [data-marker="c"] > ${numberRange}`, {
     display: "block",
+});
+
+// ============================================
+// Numbered-marker nodes (regular mode)
+// ============================================
+
+// Verse number: the node IS the visible number — chip look matching the old
+// verse-number treatment. pre-wrap keeps junk whitespace parked in the
+// number content visible and editable (the delimiter contract flows excess
+// forward precisely so it isn't hidden in markup).
+globalStyle(`${anyModeButPlain} ${numberedMarker}`, {
+    color: vars.color.brandBase,
+    fontWeight: "bold",
+    fontSize: "0.85em",
+    padding: "0 2px",
+    whiteSpace: "pre-wrap",
+});
+
+// Chapter number: big serif block line (inside its byte-less shell).
+globalStyle(`${anyModeButPlain} ${numberedMarker}[data-marker="c"]`, {
+    display: "block",
+    fontSize: "2em",
+    textAlign: "center",
+    margin: `${vars.spacing.sm} 0`,
+    fontFamily: vars.typography.fontFamilySerif,
+});
+
+// Empty node (the transient bad state): give the zero-width node a visible
+// footprint so the caret has somewhere to live; the lint finding's
+// annotation is the primary affordance on top of this.
+globalStyle(`${regularMode} ${numberedMarker}[data-empty="true"]`, {
+    display: "inline-block",
+    minWidth: "0.7ch",
+    minHeight: "1em",
+});
+
+// Caret ownership affordances (set by NumberedCaretPlugin from the MODEL
+// selection). Explicit currentColor default — Chrome's caret repaint under
+// `auto` is unreliable on rule-set changes and retains the previous color;
+// currentColor tracks the theme's text color in light/dark.
+globalStyle(`[data-mode]`, {
+    caretColor: "currentColor",
+});
+// Native caret hides while the painted bar carries the signal; it still
+// exists underneath for IME anchoring/focus semantics.
+globalStyle(`[data-mode][data-caret-in-number="true"]`, {
+    caretColor: "transparent",
+});
+// Ghost chip tint: the caret says WHERE, the tint whispers the extent of
+// what's being edited.
+globalStyle(`${numberedMarker}[data-caret-inside="true"]`, {
+    background: `color-mix(in srgb, ${vars.color.brandBase} 8%, transparent)`,
+    borderRadius: "3px",
+});
+// The painted bar caret (portaled by NumberedCaretPlugin into the editor
+// container). Solid, no blink — blink-free reads as "mode", which is the
+// message.
+globalStyle(".usfm-numbered-caret", {
+    position: "absolute",
+    width: "3px",
+    borderRadius: "2px",
+    background: vars.color.brandBase,
+    boxShadow: `0 0 6px color-mix(in srgb, ${vars.color.brandBase} 60%, transparent)`,
+    pointerEvents: "none",
+    zIndex: 5,
 });
 
 globalStyle(
@@ -117,8 +187,10 @@ globalStyle(poetryContainer, {
     },
 });
 
-// Only hang verse numbers when the verse marker starts a new visual line.
-globalStyle(`${poetryContainer} br + ${verseMarker} + ${numberRange}`, {
+// Only hang verse numbers when the verse node starts a new visual line.
+// (Simpler than the old three-element chain — the numbered node is one
+// element, so the hang is just `br + node`.)
+globalStyle(`${poetryContainer} br + ${numberedMarker}[data-marker="v"]`, {
     display: "inline-block",
     textAlign: "end",
     marginInlineStart: "calc(-0.25 * var(--poetry-indent))",

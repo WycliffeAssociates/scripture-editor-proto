@@ -30,6 +30,7 @@ import {
     textNodeTransform,
 } from "@/app/domain/editor/listeners/manageUsfmMarkers.ts";
 import { redirectParaInsertionToLineBreak } from "@/app/domain/editor/listeners/useLineBreaksNotParas.ts";
+import { registerNumberedMarkerBehaviors } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
     $createUSFMParagraphNode,
     $isUSFMParagraphNode,
@@ -88,6 +89,13 @@ export function useEditorInput(editor: LexicalEditor) {
         // Redirect paragraph insertion to line break
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
+
+        // Numbered-marker node behaviors: two-stage delete, double-stop
+        // arrow boundaries (+ their canonicalization defense), space-at-end
+        // caret jump. Self-gating — they only act when the selection is in
+        // a numbered node, which only exists in the regular shape.
+        const numberedMarkerBehaviorsUnregister =
+            registerNumberedMarkerBehaviors(editor);
 
         const normalizeSelectionAtHiddenMarkerBoundaryUnregister =
             editor.registerCommand(
@@ -465,6 +473,7 @@ export function useEditorInput(editor: LexicalEditor) {
         const cleanup = () => {
             unregisterTransformWhileTyping();
             redirectParaInsertionToLineBreakUnregister();
+            numberedMarkerBehaviorsUnregister();
             normalizeSelectionAtHiddenMarkerBoundaryUnregister();
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();

@@ -19,6 +19,7 @@ import {
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { USFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
@@ -27,6 +28,7 @@ import {
 import { NodeContextMenuPlugin } from "@/app/domain/editor/plugins/ContextMenuPlugin.tsx";
 import { CustomHistoryPlugin } from "@/app/domain/editor/plugins/CustomHistoryPlugin.tsx";
 import { HighlightSink } from "@/app/domain/editor/plugins/HighlightSink.tsx";
+import { NumberedCaretPlugin } from "@/app/domain/editor/plugins/NumberedCaretPlugin.tsx";
 import { USFMPlugin } from "@/app/domain/editor/plugins/USFMPlugin.tsx";
 import { UsfmStylesPlugin } from "@/app/domain/editor/plugins/UsfmStylesPlugin.tsx";
 import { WorkingFilesBridgePlugin } from "@/app/domain/editor/plugins/WorkingFilesBridgePlugin.tsx";
@@ -169,6 +171,7 @@ export function MainEditor() {
             /> */}
                 <USFMPlugin />
                 <UsfmStylesPlugin />
+                <NumberedCaretPlugin />
                 <NodeContextMenuPlugin />
                 <HighlightSink />
                 <WorkingFilesBridgePlugin />
@@ -189,6 +192,7 @@ function getIntialConfig(): InitialConfigType {
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
+            USFMNumberedMarkerNode,
             {
                 replace: TextNode,
                 with: (node: TextNode) => {
