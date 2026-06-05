@@ -217,8 +217,15 @@ describe("typingRunContiguous", () => {
         ).toBe(false);
     });
 
-    it("defers to the time window when selections are unreadable", () => {
-        expect(typingRunContiguous(null, at("t1", 3), at("t1", 4))).toBe(true);
+    it("seals when the run is selectionless but the keystroke knows its position", () => {
+        // Load-time fixup write-backs record selectionless entries; user
+        // typing must not merge into one (it would lose selectionBefore).
+        expect(typingRunContiguous(null, at("t1", 3), at("t1", 4))).toBe(
+            false,
+        );
+    });
+
+    it("defers to the time window when there is no selection signal at all", () => {
         expect(typingRunContiguous(at("t1", 3), null, null)).toBe(true);
         expect(typingRunContiguous(undefined, undefined, undefined)).toBe(
             true,

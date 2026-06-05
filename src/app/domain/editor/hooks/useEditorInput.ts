@@ -61,8 +61,7 @@ import { isValidParaMarker } from "@/core/domain/usfm/onionMarkers.ts";
  * paragraphs, verse behavior, and paste normalization.
  */
 export function useEditorInput(editor: LexicalEditor) {
-    const { project, projectLanguageDirection, search, history } =
-        useWorkspaceContext();
+    const { project, projectLanguageDirection, search } = useWorkspaceContext();
     const { usfmOnionService } = useRouter().options.context;
     const { appSettings } = project;
     const editorModeSetting = appSettings.editorMode;
@@ -488,27 +487,11 @@ export function useEditorInput(editor: LexicalEditor) {
     //   FIND HOTKEY TO OPEN PANEL
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            const rootEl = editor.getRootElement();
-            const isEditorFocused =
-                !!rootEl && rootEl.contains(document.activeElement);
-            const isUndo =
-                (event.metaKey || event.ctrlKey) && event.key === "z";
-            const isRedo =
-                (event.metaKey || event.ctrlKey) &&
-                ((event.shiftKey && event.key === "Z") || event.key === "y");
-
-            // Route undo/redo through custom history so post-undo listeners
-            // (search highlight/result rerun) always execute on keyboard shortcuts.
-            if (isEditorFocused && isUndo) {
-                event.preventDefault();
-                history.undo();
-                return;
-            }
-            if (isEditorFocused && isRedo) {
-                event.preventDefault();
-                history.redo();
-                return;
-            }
+            // Undo/redo shortcuts are NOT handled here: Lexical's root
+            // keydown dispatches UNDO_COMMAND/REDO_COMMAND, which
+            // `CustomHistoryPlugin` routes into custom history. A duplicate
+            // document-level route would double-pop — keydown bubbles past
+            // Lexical's preventDefault, so both handlers fire.
             if (
                 (event.metaKey || event.ctrlKey) &&
                 event.key.toLowerCase() === "f"
@@ -537,5 +520,5 @@ export function useEditorInput(editor: LexicalEditor) {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [editor, history, search]);
+    }, [search]);
 }

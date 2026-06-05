@@ -102,9 +102,9 @@ export type CommitMeta = {
  *
  * Selection is a commit fact: patches carry it (`null` = no readable
  * selection at commit time — an honest "unknown", never a stale guess), and
- * the store retains the latest + previous fact per chapter. Consumers:
- * undo/redo's selection-restore fallback; anticipated — action palette
- * context, synced scrolling.
+ * the store retains the latest fact per chapter. Consumers: undo/redo's
+ * selection-restore fallback; anticipated — action palette context, synced
+ * scrolling.
  */
 export type CapturedSelection = {
     anchorId: string;

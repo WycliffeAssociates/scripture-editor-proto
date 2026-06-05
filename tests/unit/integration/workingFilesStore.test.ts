@@ -219,7 +219,7 @@ describe("WorkingFilesStore — selection facts", () => {
             dirtyTextContent: false,
         });
 
-    it("records latest + previous per chapter, stamped with the commit generation", () => {
+    it("keeps the latest fact per chapter, stamped with the commit generation", () => {
         const wf = new WorkingFilesStore([makeBook({ bookCode: "GEN" })]);
 
         wf.commit({
@@ -241,15 +241,9 @@ describe("WorkingFilesStore — selection facts", () => {
             meta: selectionOnlyMeta("GEN", 1),
         });
 
-        const facts = wf.readSelectionFacts("GEN", 1);
-        expect(facts).not.toBeNull();
-        expect(facts?.latest).toEqual({
+        expect(wf.readSelectionFact("GEN", 1)).toEqual({
             generation: 2,
             selection: cursorAt("t2", 0),
-        });
-        expect(facts?.previous).toEqual({
-            generation: 1,
-            selection: cursorAt("t1", 3),
         });
     });
 
@@ -275,9 +269,7 @@ describe("WorkingFilesStore — selection facts", () => {
             meta: selectionOnlyMeta("GEN", 1),
         });
 
-        const facts = wf.readSelectionFacts("GEN", 1);
-        expect(facts?.latest.selection).toBeNull();
-        expect(facts?.previous?.selection).toEqual(cursorAt("t1", 3));
+        expect(wf.readSelectionFact("GEN", 1)?.selection).toBeNull();
     });
 
     it("chapter patch WITH selection records; WITHOUT selection leaves facts untouched", () => {
@@ -293,8 +285,8 @@ describe("WorkingFilesStore — selection facts", () => {
             } as WorkingFilesPatch,
             meta: makeCommitMeta({ kind: "userEdit", bookCode: "GEN", chapter: 1 }),
         });
-        const afterRiding = wf.readSelectionFacts("GEN", 1);
-        expect(afterRiding?.latest).toEqual({
+        const afterRiding = wf.readSelectionFact("GEN", 1);
+        expect(afterRiding).toEqual({
             generation: 1,
             selection: cursorAt("t1", 1),
         });
@@ -305,7 +297,7 @@ describe("WorkingFilesStore — selection facts", () => {
             patch: makeChapterPatch({ bookCode: "GEN", chapter: 1, text: "Yo." }),
             meta: makeCommitMeta({ kind: "import", bookCode: "GEN", chapter: 1 }),
         });
-        expect(wf.readSelectionFacts("GEN", 1)).toEqual(afterRiding);
+        expect(wf.readSelectionFact("GEN", 1)).toEqual(afterRiding);
     });
 
     it("bulk patch records per-chapter selections (undo/redo replay)", () => {
@@ -323,17 +315,17 @@ describe("WorkingFilesStore — selection facts", () => {
             meta: makeCommitMeta({ kind: "undo", bookCode: "GEN", chapter: 1 }),
         });
 
-        expect(wf.readSelectionFacts("GEN", 1)?.latest.selection).toEqual(
+        expect(wf.readSelectionFact("GEN", 1)?.selection).toEqual(
             cursorAt("t9", 4),
         );
-        expect(wf.readSelectionFacts("GEN", 2)?.latest.selection).toBeNull();
+        expect(wf.readSelectionFact("GEN", 2)?.selection).toBeNull();
         // Plain bulk (no selections field) leaves facts untouched.
-        const before = wf.readSelectionFacts("GEN", 1);
+        const before = wf.readSelectionFact("GEN", 1);
         wf.commit({
             patch: { kind: "bulk", files: wf.read() },
             meta: makeCommitMeta({ kind: "import", bookCode: "GEN", chapter: 1 }),
         });
-        expect(wf.readSelectionFacts("GEN", 1)).toEqual(before);
+        expect(wf.readSelectionFact("GEN", 1)).toEqual(before);
     });
 
     it("facts are isolated per chapter and cleared by reset()", () => {
@@ -349,10 +341,10 @@ describe("WorkingFilesStore — selection facts", () => {
             meta: selectionOnlyMeta("GEN", 1),
         });
 
-        expect(wf.readSelectionFacts("GEN", 2)).toBeNull();
-        expect(wf.readSelectionFacts("EXO", 1)).toBeNull();
+        expect(wf.readSelectionFact("GEN", 2)).toBeNull();
+        expect(wf.readSelectionFact("EXO", 1)).toBeNull();
 
         wf.reset(wf.read());
-        expect(wf.readSelectionFacts("GEN", 1)).toBeNull();
+        expect(wf.readSelectionFact("GEN", 1)).toBeNull();
     });
 });

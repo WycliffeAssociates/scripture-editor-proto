@@ -5,10 +5,10 @@
 // decision is testable without a mounted editor, and so the (subtle) ordering
 // lives as a single table.
 //
-// NOTE the `history-merge` fall-through: a `historyMerge` commit that is NOT
-// also `programaticIgnore` merges into the latest entry AND then records a
-// typing change (`alsoRecordTyping: true`). It is not a clean single-dispatch,
-// so the dispatcher must honor `alsoRecordTyping`.
+// `history-merge` is single-dispatch: guardrail write-backs ride the typing
+// entry they guarded (so undo doesn't discard guardrail work) and NEVER
+// record an entry of their own — a fixup with no entry to ride stays out of
+// undo entirely (it re-derives from content, so replay doesn't need it).
 //
 // The selection-only path (no dirty content) is handled UPSTREAM of this
 // classifier — it returns before snapshots are computed — so it is not modeled
@@ -17,7 +17,7 @@
 export type EditorContentUpdateAction =
     | { kind: "first-snapshot" }
     | { kind: "no-op" }
-    | { kind: "history-merge"; alsoRecordTyping: boolean }
+    | { kind: "history-merge" }
     | { kind: "programmatic-ignore" }
     | { kind: "record-typing" };
 
@@ -37,13 +37,10 @@ export function classifyEditorContentUpdate(input: {
     // Content didn't actually change (e.g. a re-serialization round-trip): just
     // refresh the baseline selection upstream.
     if (input.snapshotsEqual) return { kind: "no-op" };
-    // Merge tag: fold into the latest entry. Without programaticIgnore the
-    // original flow ALSO falls through to record a typing change.
+    // Merge tag: fold into the latest entry (when one exists for the
+    // chapter); never an entry of its own.
     if (input.isHistoryMerge) {
-        return {
-            kind: "history-merge",
-            alsoRecordTyping: !input.isProgrammaticIgnore,
-        };
+        return { kind: "history-merge" };
     }
     // Programmatic edit we don't want in history: advance baseline, no entry.
     if (input.isProgrammaticIgnore) return { kind: "programmatic-ignore" };

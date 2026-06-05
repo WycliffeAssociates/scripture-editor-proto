@@ -22,11 +22,6 @@ export type ChapterSelectionFact = {
     selection: CapturedSelection | null;
 };
 
-export type ChapterSelectionFacts = {
-    latest: ChapterSelectionFact;
-    previous: ChapterSelectionFact | null;
-};
-
 /**
  * Single source of live current truth for working-files state.
  *
@@ -47,13 +42,12 @@ export class WorkingFilesStore {
     /**
      * Per-chapter selection facts (keyed `bookCode:chapterNum`). Selection is
      * a producer fact riding commits (see `CapturedSelection` in types.ts);
-     * retention is deliberately tiny — latest + previous. `previous` exists
-     * because history's capture listener and the bridge observe the same
-     * Lexical update: depending on listener order, `latest` may already be
-     * THIS update's commit, and the before-fact the reader wants is then one
-     * back (the reader disambiguates — see `useCustomHistory`).
+     * retention is deliberately tiny — latest only. Latest is sufficient
+     * because the single lexical→app listener captures BEFORE it publishes
+     * (`WorkingFilesBridgePlugin`), so at capture time the latest fact always
+     * describes the world before the in-flight commit.
      */
-    private readonly selectionFacts = new Map<string, ChapterSelectionFacts>();
+    private readonly selectionFacts = new Map<string, ChapterSelectionFact>();
 
     constructor(initial: ScriptureBookState[]) {
         this.state = initial;
@@ -162,11 +156,9 @@ export class WorkingFilesStore {
             chapter: number,
             selection: CapturedSelection | null,
         ) => {
-            const key = `${bookCode}:${chapter}`;
-            const existing = this.selectionFacts.get(key);
-            this.selectionFacts.set(key, {
-                latest: { generation, selection },
-                previous: existing?.latest ?? null,
+            this.selectionFacts.set(`${bookCode}:${chapter}`, {
+                generation,
+                selection,
             });
         };
         switch (patch.kind) {
@@ -188,11 +180,11 @@ export class WorkingFilesStore {
         }
     }
 
-    /** Latest + previous selection fact for a chapter (null if never recorded). */
-    readSelectionFacts(
+    /** Latest selection fact for a chapter (null if never recorded). */
+    readSelectionFact(
         bookCode: string,
         chapter: number,
-    ): ChapterSelectionFacts | null {
+    ): ChapterSelectionFact | null {
         return this.selectionFacts.get(`${bookCode}:${chapter}`) ?? null;
     }
 

@@ -9,18 +9,31 @@ import { requireGateOpen } from "@/app/state/WorkspaceInteractionGate.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
 
 /**
- * Editor-side push bridge into the WorkingFilesStore.
+ * THE single entry point for "something happened inside Lexical that the app
+ * responds to". One update listener, three steps in a fixed order:
  *
- * On every Lexical update, decide whether the commit should be published and,
- * if so, classify it via `CommitKind` based on the update's tags. This is the
- * inversion of `saveCurrentDirtyLexical` — instead of consumers pulling the
- * latest editor state on demand, the editor pushes here once per commit and
- * consumers read from the store.
+ *  1. Capture the selection once (data-id-keyed; shared by steps 2 and 3).
+ *  2. Feed the history capture. This MUST run before step 3 publishes:
+ *     history resolves its selection fallbacks from the store's selection
+ *     facts, and those facts must still describe the world BEFORE this
+ *     update's commit. Running capture first makes that ordering structural
+ *     — no registration-order subtlety, nothing to defend against. History
+ *     also processes updates step 3 skips (programmatic write-backs adopt
+ *     baselines; structural fixups merge into the latest entry), so it sees
+ *     every update, unfiltered.
+ *  3. Decide whether to publish a commit into the WorkingFilesStore, and
+ *     classify it via `CommitKind` from the update's tags. This is the
+ *     inversion of `saveCurrentDirtyLexical` — the editor pushes once per
+ *     commit and consumers read from the store.
  *
- * Skip rules:
+ * Anything new that needs to react to raw editor updates (another store,
+ * another capture) gets added HERE, in sequence — not as a sibling listener.
+ *
+ * Publish skip rules (step 3 only):
  *  - `programaticIgnore` tag — write-backs *from* the store via
  *    `setEditorContent`; republishing would round-trip our own output.
  *  - `HISTORY_MERGE_TAG` (unless structural-fixup) — pure history-replay glue.
+ *  - Gate closed — save in flight or a recovery decision pending.
  *
  * Selection-only updates (no dirty elements/leaves) DO publish, as a
  * `selectionOnly` patch with `kind: "metadataOnly"` and
@@ -29,21 +42,26 @@ import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
  * pick them up by filter.
  *
  * Every published patch carries the captured selection (the commit's
- * after-selection fact — see `CapturedSelection` in state/types.ts). The
- * bridge is the correct capture point: it builds patches inside the Lexical
- * update listener, so "set selection fact, then commit" is atomic by
- * construction. One consequence of the skip rules: the post-undo/redo
- * selection restore is a `programaticIgnore` update, so it never republishes
- * — that's fine only because undo/redo's bulk commit already carries the
- * restored selection per chapter (`useCustomHistory.applyEntry`).
+ * after-selection fact — see `CapturedSelection` in state/types.ts), so
+ * "set selection fact, then commit" is atomic by construction. One
+ * consequence of the skip rules: the post-undo/redo selection restore is a
+ * `programaticIgnore` update, so it never republishes — that's fine only
+ * because undo/redo's bulk commit already carries the restored selection per
+ * chapter (`useCustomHistory.applyEntry`).
  *
  * Dev-only commit logger uses the store's `changes: Stream<CommitEvent>` to
  * surface every commit on the console; tree-shaken from prod.
  */
 export function WorkingFilesBridgePlugin() {
     const [editor] = useLexicalComposerContext();
-    const { workingFilesStore, project, mainEditorDeferred, interactionGate } =
-        useWorkspaceContext();
+    const {
+        workingFilesStore,
+        project,
+        mainEditorDeferred,
+        interactionGate,
+        history,
+    } = useWorkspaceContext();
+    const { captureEditorUpdate } = history;
 
     // Resolve the workspace-scoped Deferred<LexicalEditor> as soon as the
     // editor is available. Effect-side pipelines that write back to the
@@ -60,7 +78,6 @@ export function WorkingFilesBridgePlugin() {
             ? Effect.runFork(
                   Stream.runForEach(workingFilesStore.changes, (event) =>
                       Effect.sync(() => {
-                          // eslint-disable-next-line no-console
                           console.log("[workingFilesStore commit]", {
                               generation: event.meta.generation,
                               kind: event.meta.kind,
@@ -73,10 +90,28 @@ export function WorkingFilesBridgePlugin() {
             : null;
 
         const unregisterUpdate = editor.registerUpdateListener(
-            ({ editorState, dirtyElements, dirtyLeaves, tags }) => {
+            ({
+                editorState,
+                prevEditorState,
+                dirtyElements,
+                dirtyLeaves,
+                tags,
+            }) => {
+                // Step 1 — one capture, shared below.
+                const selection = editorState.read($captureCurrentSelection);
+
+                // Step 2 — history capture, before publish (see header).
+                captureEditorUpdate({
+                    editorState,
+                    prevEditorState,
+                    dirtyElements,
+                    dirtyLeaves,
+                    tags,
+                    nextSelection: selection,
+                });
+
+                // Step 3 — publish decision.
                 if (tags.has(EDITOR_TAGS_USED.programaticIgnore)) return;
-                // Don't push commits into the store while the workspace is
-                // gated (save in flight or a recovery decision pending).
                 if (!requireGateOpen(interactionGate.get())) return;
                 // structuralFixup classifies before HISTORY_MERGE_TAG so the
                 // structure pipeline's writebacks still publish — the
@@ -90,8 +125,6 @@ export function WorkingFilesBridgePlugin() {
                 const chapter =
                     project.pickedChapter?.chapterNumber ??
                     project.currentChapter;
-
-                const selection = editorState.read($captureCurrentSelection);
 
                 const dirty = dirtyElements.size > 0 || dirtyLeaves.size > 0;
                 if (!dirty) {
@@ -139,7 +172,13 @@ export function WorkingFilesBridgePlugin() {
             unregisterUpdate();
             if (loggerFiber) Effect.runFork(Fiber.interrupt(loggerFiber));
         };
-    }, [editor, workingFilesStore, project, interactionGate]);
+    }, [
+        editor,
+        workingFilesStore,
+        project,
+        interactionGate,
+        captureEditorUpdate,
+    ]);
 
     return null;
 }

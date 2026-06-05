@@ -3,25 +3,25 @@ export type HistoryChapterRef = {
     chapterNum: number;
 };
 
-export type HistorySnapshotChange<TSnapshot> = {
+export type HistorySnapshotChange<TSnapshot, TSelection> = {
     chapter: HistoryChapterRef;
     before: TSnapshot;
     after: TSnapshot;
-    selectionBefore?: unknown;
-    selectionAfter?: unknown;
+    selectionBefore?: TSelection;
+    selectionAfter?: TSelection;
 };
 
 type HistoryEntrySource = "typing" | "transaction";
 
-export type HistoryEntry<TSnapshot> = {
+export type HistoryEntry<TSnapshot, TSelection> = {
     id: string;
     label: string;
     source: HistoryEntrySource;
     timestamp: number;
-    changes: HistorySnapshotChange<TSnapshot>[];
+    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
-type HistoryManagerOptions = {
+type HistoryManagerOptions<TSelection> = {
     maxEntries: number;
     coalesceWindowMs: number;
     now?: () => number;
@@ -35,21 +35,21 @@ type HistoryManagerOptions = {
      * the time window alone decides (selections stay opaque to this class).
      */
     selectionsContiguous?: (
-        latestSelectionAfter: unknown,
-        nextSelectionBefore: unknown,
-        nextSelectionAfter: unknown,
+        latestSelectionAfter: TSelection | undefined,
+        nextSelectionBefore: TSelection | undefined,
+        nextSelectionAfter: TSelection | undefined,
     ) => boolean;
 };
 
-type RecordTypingChangeArgs<TSnapshot> = {
+type RecordTypingChangeArgs<TSnapshot, TSelection> = {
     label: string;
-    change: HistorySnapshotChange<TSnapshot>;
+    change: HistorySnapshotChange<TSnapshot, TSelection>;
     forceNewEntry?: boolean;
 };
 
-type PushTransactionArgs<TSnapshot> = {
+type PushTransactionArgs<TSnapshot, TSelection> = {
     label: string;
-    changes: HistorySnapshotChange<TSnapshot>[];
+    changes: HistorySnapshotChange<TSnapshot, TSelection>[];
 };
 
 /**
@@ -60,20 +60,20 @@ type PushTransactionArgs<TSnapshot> = {
  * coalescing, redo-branch truncation, and label bookkeeping without depending on
  * any one snapshot format.
  */
-export class HistoryManager<TSnapshot> {
+export class HistoryManager<TSnapshot, TSelection> {
     private readonly maxEntries: number;
     private readonly coalesceWindowMs: number;
     private readonly now: () => number;
     private readonly selectionsContiguous?: (
-        latestSelectionAfter: unknown,
-        nextSelectionBefore: unknown,
-        nextSelectionAfter: unknown,
+        latestSelectionAfter: TSelection | undefined,
+        nextSelectionBefore: TSelection | undefined,
+        nextSelectionAfter: TSelection | undefined,
     ) => boolean;
-    private entries: HistoryEntry<TSnapshot>[] = [];
+    private entries: HistoryEntry<TSnapshot, TSelection>[] = [];
     private cursor = 0;
     private idCounter = 0;
 
-    constructor(options: HistoryManagerOptions) {
+    constructor(options: HistoryManagerOptions<TSelection>) {
         this.maxEntries = options.maxEntries;
         this.coalesceWindowMs = options.coalesceWindowMs;
         this.now = options.now ?? Date.now;
@@ -98,7 +98,7 @@ export class HistoryManager<TSnapshot> {
         return this.entries[this.cursor]?.label ?? null;
     }
 
-    recordTypingChange(args: RecordTypingChangeArgs<TSnapshot>) {
+    recordTypingChange(args: RecordTypingChangeArgs<TSnapshot, TSelection>) {
         this.truncateRedoBranch();
         const timestamp = this.now();
         const latest = this.entries[this.cursor - 1];
@@ -141,7 +141,7 @@ export class HistoryManager<TSnapshot> {
     mergeLatestChapterAfter(
         chapter: HistoryChapterRef,
         after: TSnapshot,
-        selectionAfter?: unknown,
+        selectionAfter?: TSelection,
     ): boolean {
         if (!this.canUndo()) return false;
         const latest = this.entries[this.cursor - 1];
@@ -158,7 +158,7 @@ export class HistoryManager<TSnapshot> {
         return true;
     }
 
-    pushTransaction(args: PushTransactionArgs<TSnapshot>) {
+    pushTransaction(args: PushTransactionArgs<TSnapshot, TSelection>) {
         if (!args.changes.length) return null;
         this.truncateRedoBranch();
         return this.pushEntry({
@@ -169,13 +169,13 @@ export class HistoryManager<TSnapshot> {
         });
     }
 
-    undo(): HistoryEntry<TSnapshot> | null {
+    undo(): HistoryEntry<TSnapshot, TSelection> | null {
         if (!this.canUndo()) return null;
         this.cursor -= 1;
         return this.entries[this.cursor] ?? null;
     }
 
-    redo(): HistoryEntry<TSnapshot> | null {
+    redo(): HistoryEntry<TSnapshot, TSelection> | null {
         if (!this.canRedo()) return null;
         const entry = this.entries[this.cursor] ?? null;
         if (entry) {
@@ -198,9 +198,9 @@ export class HistoryManager<TSnapshot> {
         label: string;
         source: HistoryEntrySource;
         timestamp: number;
-        changes: HistorySnapshotChange<TSnapshot>[];
-    }): HistoryEntry<TSnapshot> {
-        const entry: HistoryEntry<TSnapshot> = {
+        changes: HistorySnapshotChange<TSnapshot, TSelection>[];
+    }): HistoryEntry<TSnapshot, TSelection> {
+        const entry: HistoryEntry<TSnapshot, TSelection> = {
             id: `history-entry-${this.idCounter++}`,
             label: args.label,
             source: args.source,

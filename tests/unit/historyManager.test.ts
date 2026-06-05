@@ -14,7 +14,7 @@ type Selection = {
 function makeChange(
     before: string,
     after: string,
-): HistorySnapshotChange<Snapshot> {
+): HistorySnapshotChange<Snapshot, Selection> {
     return {
         chapter: { bookCode: "GEN", chapterNum: 1 },
         before: { value: before },
@@ -25,7 +25,7 @@ function makeChange(
 describe("HistoryManager", () => {
     it("coalesces typing updates within configured window", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -56,7 +56,7 @@ describe("HistoryManager", () => {
     });
 
     it("merges guardrail after-state into latest chapter change", () => {
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
         });
@@ -83,7 +83,7 @@ describe("HistoryManager", () => {
 
     it("coalesces typing selection before and after", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -119,7 +119,7 @@ describe("HistoryManager", () => {
 
     it("seals the run when selectionsContiguous reports a repositioned cursor", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -172,7 +172,7 @@ describe("HistoryManager", () => {
 
     it("merges on the time window alone when a selection side is unreadable", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -200,7 +200,7 @@ describe("HistoryManager", () => {
 
     it("does not coalesce when forceNewEntry is true", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -230,7 +230,7 @@ describe("HistoryManager", () => {
 
     it("clears redo branch when a new edit is recorded after undo", () => {
         let nowMs = 0;
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
             now: () => nowMs,
@@ -260,7 +260,7 @@ describe("HistoryManager", () => {
     });
 
     it("pushes transactions as a single labeled entry", () => {
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
         });
@@ -283,7 +283,7 @@ describe("HistoryManager", () => {
     });
 
     it("resets undo/redo stacks", () => {
-        const manager = new HistoryManager<Snapshot>({
+        const manager = new HistoryManager<Snapshot, Selection>({
             maxEntries: 200,
             coalesceWindowMs: 2500,
         });

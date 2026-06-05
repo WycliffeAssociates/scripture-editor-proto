@@ -25,20 +25,20 @@ describe("classifyEditorContentUpdate", () => {
         ).toEqual({ kind: "no-op" });
     });
 
-    it("history-merge WITHOUT programaticIgnore also records typing (fall-through)", () => {
+    it("history-merge is single-dispatch — never records an entry of its own", () => {
+        // Guardrail write-backs ride the latest typing entry when one
+        // exists; with no entry to ride they stay out of undo entirely
+        // (a fixup re-derives from content, so replay doesn't need it).
         expect(
             classifyEditorContentUpdate({ ...base, isHistoryMerge: true }),
-        ).toEqual({ kind: "history-merge", alsoRecordTyping: true });
-    });
-
-    it("history-merge WITH programaticIgnore stops after merge", () => {
+        ).toEqual({ kind: "history-merge" });
         expect(
             classifyEditorContentUpdate({
                 ...base,
                 isHistoryMerge: true,
                 isProgrammaticIgnore: true,
             }),
-        ).toEqual({ kind: "history-merge", alsoRecordTyping: false });
+        ).toEqual({ kind: "history-merge" });
     });
 
     it("programmatic-ignore (no merge) advances baseline without an entry", () => {

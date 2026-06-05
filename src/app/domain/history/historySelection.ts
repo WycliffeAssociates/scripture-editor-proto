@@ -29,7 +29,7 @@ export type { CapturedSelection };
 
 export type ChapterCursor = CapturedSelection | null;
 
-export function cursorsEqual(a: ChapterCursor, b: ChapterCursor): boolean {
+function cursorsEqual(a: ChapterCursor, b: ChapterCursor): boolean {
     if (a === null || b === null) return a === b;
     return (
         a.anchorId === b.anchorId &&
@@ -55,15 +55,25 @@ export function cursorsEqual(a: ChapterCursor, b: ChapterCursor): boolean {
  * to the time window alone rather than fragmenting runs on capture gaps.
  */
 export function typingRunContiguous(
-    latestSelectionAfter: unknown,
-    nextSelectionBefore: unknown,
-    nextSelectionAfter: unknown,
+    latestSelectionAfter: ChapterCursor | undefined,
+    nextSelectionBefore: ChapterCursor | undefined,
+    nextSelectionAfter: ChapterCursor | undefined,
 ): boolean {
-    const runEnd = (latestSelectionAfter ?? null) as ChapterCursor;
-    if (runEnd === null) return true;
-    const before = (nextSelectionBefore ?? null) as ChapterCursor;
+    const runEnd = latestSelectionAfter ?? null;
+    const before = nextSelectionBefore ?? null;
+    if (runEnd === null) {
+        // An entry that doesn't know where it left the cursor can't claim a
+        // keystroke that knows where it began. This covers EVERY
+        // selectionless run-end, deliberately: load-time fixup write-backs
+        // that record selectionless entries, and mid-run capture failures
+        // (IME/composition states). Sealing costs at most a finer undo
+        // unit; merging would leave the combined run's selectionBefore
+        // unknown — the asymmetry favors sealing. Only when BOTH sides are
+        // unreadable does the time window alone decide.
+        return before === null;
+    }
     if (before !== null && !cursorsEqual(runEnd, before)) return false;
-    const editSite = (nextSelectionAfter ?? null) as ChapterCursor;
+    const editSite = nextSelectionAfter ?? null;
     if (editSite !== null && editSite.anchorId !== runEnd.anchorId) {
         return false;
     }
@@ -97,10 +107,20 @@ export function findScrollAncestor(
  */
 function debugCaptureNull(reason: string): null {
     if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.debug(`[historySelection] capture returned null: ${reason}`);
     }
     return null;
+}
+
+/**
+ * Dev-only visibility into restore give-ups — same lost-fidelity class as
+ * capture-null: when every restore strategy fails the caret silently stays
+ * at chapter start, and without this log there is no trace of why.
+ */
+export function debugRestoreGaveUp(reason: string): void {
+    if (import.meta.env.DEV) {
+        console.debug(`[historySelection] restore gave up: ${reason}`);
+    }
 }
 
 function $lastUsfmTextWithin(node: LexicalNode): USFMTextNode | null {
