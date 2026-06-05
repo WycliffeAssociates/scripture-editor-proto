@@ -39,30 +39,33 @@ export function deriveVerseNumberForInsertionFromTokens(args: {
     const { tokens, anchorIndex } = args;
     if (anchorIndex < 0 || anchorIndex >= tokens.length) return "1";
 
+    // A verse arrives either as one numbered-marker tokenlike (regular
+    // shape — the number is its text) or as a legacy marker + numberRange
+    // pair (flat shapes).
+    const verseRangeAt = (i: number): VerseNumberRange | null | "skip" => {
+        const t = tokens[i];
+        if (t.tokenType === "numberedMarker" && t.marker === "v") {
+            return parseVerseNumberRange(t.text);
+        }
+        if (t.tokenType !== "marker" || t.marker !== "v") return "skip";
+        const maybeNum = tokens[i + 1];
+        if (!maybeNum) return null;
+        if (maybeNum.tokenType !== "numberRange") return "skip";
+        return parseVerseNumberRange(maybeNum.text);
+    };
+
     const findPrevVerse = (): VerseNumberRange | null => {
         for (let i = anchorIndex - 1; i >= 0; i--) {
-            const t = tokens[i];
-            if (t.tokenType !== "marker") continue;
-            if (t.marker !== "v") continue;
-
-            const maybeNum = tokens[i + 1];
-            if (!maybeNum) return null;
-            if (maybeNum.tokenType !== "numberRange") continue;
-            return parseVerseNumberRange(maybeNum.text);
+            const result = verseRangeAt(i);
+            if (result !== "skip") return result;
         }
         return null;
     };
 
     const findNextVerse = (): VerseNumberRange | null => {
         for (let i = anchorIndex + 1; i < tokens.length; i++) {
-            const t = tokens[i];
-            if (t.tokenType !== "marker") continue;
-            if (t.marker !== "v") continue;
-
-            const maybeNum = tokens[i + 1];
-            if (!maybeNum) return null;
-            if (maybeNum.tokenType !== "numberRange") continue;
-            return parseVerseNumberRange(maybeNum.text);
+            const result = verseRangeAt(i);
+            if (result !== "skip") return result;
         }
         return null;
     };

@@ -127,13 +127,20 @@ function buildDomLookup(root: HTMLElement): DomLookup {
         "[data-id], [data-sid]",
     );
 
+    const index = (id: string | null, element: HTMLElement) => {
+        if (!id) return;
+        const previous = byDataId.get(id);
+        if (previous) previous.push(element);
+        else byDataId.set(id, [element]);
+    };
+
     for (const element of candidates) {
-        const dataId = element.getAttribute("data-id");
-        if (dataId) {
-            const previous = byDataId.get(dataId);
-            if (previous) previous.push(element);
-            else byDataId.set(dataId, [element]);
-        }
+        index(element.getAttribute("data-id"), element);
+        // Numbered-marker nodes answer for every token id they emit: the
+        // base data-id is the Number token; these are the marker/endMarker
+        // ids, so a finding anchored to "\v" itself highlights the node.
+        index(element.getAttribute("data-open-id"), element);
+        index(element.getAttribute("data-close-id"), element);
 
         const sid = element.getAttribute("data-sid");
         if (sid) {

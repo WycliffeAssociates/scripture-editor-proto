@@ -169,3 +169,34 @@ describe("tree→flat emission", () => {
         );
     });
 });
+
+describe("sid recompute over numbered tokenlikes (mutAddSids)", () => {
+    it("derives chapter/verse sids from single numbered tokenlikes", async () => {
+        const { mutAddSids } = await import(
+            "@/core/domain/usfm/parseUtils.ts"
+        );
+        // The metadata pass projects each numbered node as ONE tokenlike
+        // (marker identity + number content) so the write-back stays 1:1
+        // with nodes.
+        const tokens = [
+            { tokenType: "numberedMarker", marker: "c", text: "1" },
+            { tokenType: "numberedMarker", marker: "v", text: "1 " },
+            { tokenType: "text", text: "In the beginning" },
+            { tokenType: "numberedMarker", marker: "v", text: "2 " },
+            { tokenType: "text", text: "God" },
+        ] as Array<{
+            tokenType: string;
+            marker?: string;
+            text: string;
+            sid?: string;
+        }>;
+        mutAddSids(tokens, "GEN");
+        expect(tokens.map((t) => t.sid)).toEqual([
+            "GEN 1:0",
+            "GEN 1:1",
+            "GEN 1:1",
+            "GEN 1:2",
+            "GEN 1:2",
+        ]);
+    });
+});

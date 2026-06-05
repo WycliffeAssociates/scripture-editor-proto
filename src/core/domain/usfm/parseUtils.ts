@@ -1,5 +1,6 @@
 import { makeSid, parseSid } from "@/core/data/bible/bible.ts";
 import { numRangeRe } from "@/core/domain/usfm/lex.ts";
+import { isChapterMarker } from "@/core/domain/usfm/onionMarkers.ts";
 
 /**
  * Shared token-level parsing helpers used while projecting raw/serialized USFM into
@@ -103,6 +104,43 @@ export function mutAddSids<T extends TokenForSidCalculation>(
     for (let i = 0; i < tokens.length; i++) {
         const t = tokens[i];
         if (!t) continue;
+
+        // A numbered-marker node projects as ONE tokenlike carrying both the
+        // marker identity and the number content (regular shape; flat shapes
+        // still produce the marker + numberRange pairs handled below). The
+        // chapter/verse split answers from the catalog, not a name list.
+        if (t.tokenType === "numberedMarker" && t.marker) {
+            const numberStr = t.text.trim();
+            if (numberStr && numRangeRe.test(numberStr)) {
+                if (isChapterMarker(t.marker)) {
+                    const chapNum = Number.parseInt(numberStr, 10);
+                    if (Number.isFinite(chapNum)) {
+                        currentChapter = chapNum;
+                        verseDupCounters = new Map<string, number>();
+                        currentSid = makeSid({
+                            bookId: bookCode,
+                            chapter: currentChapter,
+                            verseStart: 0,
+                            verseEnd: 0,
+                        });
+                    }
+                } else {
+                    const baseSid = makeVerseSid(
+                        bookCode,
+                        currentChapter,
+                        numberStr,
+                    );
+                    const seenCount = verseDupCounters.get(baseSid) ?? 0;
+                    if (seenCount === 0) {
+                        verseDupCounters.set(baseSid, 1);
+                        currentSid = baseSid;
+                    } else {
+                        verseDupCounters.set(baseSid, seenCount + 1);
+                        currentSid = `${baseSid}_dup_${seenCount}`;
+                    }
+                }
+            }
+        }
 
         if (t.tokenType === "marker" && t.marker === "c") {
             const chapStr = getNumRangeAfterMarker(tokens, i);

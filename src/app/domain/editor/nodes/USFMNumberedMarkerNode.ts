@@ -178,6 +178,13 @@ export class USFMNumberedMarkerNode extends USFMTextNode {
     createDOM(config: EditorConfig): HTMLElement {
         const element = super.createDOM(config);
         element.classList.add("usfm-numbered-marker");
+        // The node answers for ALL its token ids: data-id (base) carries the
+        // Number token id; these carry the marker/endMarker ids so findings
+        // anchored to any of the 2–3 emitted tokens resolve to this element
+        // (FindingsOverlayPlugin indexes them alongside data-id).
+        element.dataset.openId = this.getOpenId();
+        const closeId = this.getCloseId();
+        if (closeId) element.dataset.closeId = closeId;
         if (this.getTextContent() === "") {
             element.dataset.empty = "true";
         }
