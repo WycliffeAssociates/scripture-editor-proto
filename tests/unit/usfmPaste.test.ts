@@ -9,13 +9,16 @@ import {
     ParagraphNode,
     TextNode,
 } from "lexical";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import {
+    $isUSFMNumberedMarkerNode,
+    USFMNumberedMarkerNode,
+} from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { USFMParagraphNode } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     $createUSFMTextNode,
-    $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import {
@@ -25,6 +28,7 @@ import {
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { webUsfmOnionService } from "@/web/domain/usfm/WebUsfmOnionService.ts";
 
 function createMockUsfmOnionService(): IUsfmOnionService {
@@ -42,6 +46,7 @@ function createEditor(): LexicalEditor {
         nodes: [
             USFMParagraphNode,
             USFMTextNode,
+            USFMNumberedMarkerNode,
             {
                 replace: TextNode,
                 with: (node: TextNode) =>
@@ -58,6 +63,12 @@ function createEditor(): LexicalEditor {
         ],
     });
 }
+
+// Detection (ALL_USFM_MARKERS membership) and regular-shape pairing both
+// answer from the catalog registry.
+beforeAll(async () => {
+    initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
+});
 
 describe("usfmPaste", () => {
     it("detects USFM-like marker blocks and ignores plain prose", () => {
@@ -86,10 +97,11 @@ describe("usfmPaste", () => {
         editor.update(() => {
             if (result.ok) {
                 const nodes = parsedUsfmTokensToInsertableNodes(result.tokens);
+                // Regular shape (the default): the verse arrives as ONE
+                // numbered-marker node carrying the marker bytes + number.
                 hasVerseMarker = nodes.some(
                     (node) =>
-                        $isUSFMTextNode(node) &&
-                        node.getTokenType() === UsfmTokenTypes.marker &&
+                        $isUSFMNumberedMarkerNode(node) &&
                         node.getMarker() === "v",
                 );
             }
@@ -105,7 +117,9 @@ describe("usfmPaste", () => {
         expect(hasVerseMarker).toBe(true);
     });
 
-    it("rejects invalid USFM-like paste with a structured parse failure", async () => {
+    it("accepts a malformed verse number as bytes — lint owns flagging it", async () => {
+        // Policy: bad states are surfaced, never rejected (plan §3/§12.2).
+        // The paste arrives, the missing/invalid number is a lint finding.
         const result = await parseClipboardUsfmToTokens({
             text: "\\v xyz Not a valid verse marker range",
             bookCode: "GEN",
@@ -113,9 +127,13 @@ describe("usfmPaste", () => {
             usfmOnionService: createMockUsfmOnionService(),
         });
 
-        expect(result.ok).toBe(false);
-        if (result.ok) return;
-        expect(result.reason).toBe("parse-failed");
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(
+            result.tokens.some(
+                (token) => token.kind === "marker" && token.marker === "v",
+            ),
+        ).toBe(true);
     });
 
     it("supports insertion into current selection (including chapter markers)", async () => {
@@ -159,8 +177,7 @@ describe("usfmPaste", () => {
             const allText = $getRoot().getAllTextNodes();
             const hasChapterMarker = allText.some(
                 (node) =>
-                    $isUSFMTextNode(node) &&
-                    node.getTokenType() === UsfmTokenTypes.marker &&
+                    $isUSFMNumberedMarkerNode(node) &&
                     node.getMarker() === "c",
             );
             expect(hasChapterMarker).toBe(true);

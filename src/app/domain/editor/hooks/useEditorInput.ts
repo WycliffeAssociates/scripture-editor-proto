@@ -14,7 +14,11 @@ import {
 } from "lexical";
 import { useEffect } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
-import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
+import {
+    EDITOR_MODES,
+    editorModeToShape,
+    UsfmTokenTypes,
+} from "@/app/data/editor.ts";
 import {
     moveToAdjacentNodesWhenSeemsAppropriate,
     normalizeSelectionAtHiddenMarkerBoundary,
@@ -36,6 +40,7 @@ import {
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
+import { registerUsfmCopy } from "@/app/domain/editor/utils/usfmCopy.ts";
 import {
     isUsfmLikePaste,
     parseClipboardUsfmToTokens,
@@ -90,6 +95,13 @@ export function useEditorInput(editor: LexicalEditor) {
         // a numbered node, which only exists in the regular shape.
         const numberedMarkerBehaviorsUnregister =
             registerNumberedMarkerBehaviors(editor);
+
+        // Regular-mode copy/cut: text/plain = USFM bytes via the token
+        // waist (flat modes' default copy is already the bytes).
+        const usfmCopyUnregister =
+            editorModeSetting === EDITOR_MODES.regular
+                ? registerUsfmCopy(editor)
+                : null;
 
         const normalizeSelectionAtHiddenMarkerBoundaryUnregister =
             editor.registerCommand(
@@ -305,6 +317,7 @@ export function useEditorInput(editor: LexicalEditor) {
                             selection.insertNodes(
                                 parsedUsfmTokensToInsertableNodes(
                                     parsed.tokens,
+                                    editorModeToShape(editorModeSetting),
                                 ),
                             );
                         },
@@ -327,6 +340,7 @@ export function useEditorInput(editor: LexicalEditor) {
             removeStructuralEmptyParaOnBackspaceUnregister();
             insertParagraphAfterStructuralEmptyMarkerUnregister();
             usfmAwarePasteUnregister();
+            usfmCopyUnregister?.();
         };
 
         return cleanup;

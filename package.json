@@ -27,6 +27,7 @@
         "check:architecture": "node scripts/checkArchitecture.mjs"
     },
     "dependencies": {
+        "@lexical/clipboard": "0.35.0",
         "@lexical/headless": "0.35.0",
         "@lexical/react": "0.35.0",
         "@lexical/utils": "0.35.0",

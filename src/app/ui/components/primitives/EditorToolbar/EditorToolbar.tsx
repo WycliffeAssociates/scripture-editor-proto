@@ -23,6 +23,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { TESTING_IDS } from "@/app/data/constants.ts";
+import { editorModeToShape } from "@/app/data/editor.ts";
 import { insertUsfmMarkerAtCursor } from "@/app/domain/editor/utils/insertUsfmMarkerAtCursor.ts";
 import {
     isUsfmLikePaste,
@@ -147,7 +148,12 @@ export function EditorToolbar(props: EditorToolbarProps) {
                         const selection = $getSelection();
                         if (!$isRangeSelection(selection)) return;
                         selection.insertNodes(
-                            parsedUsfmTokensToInsertableNodes(parsed.tokens),
+                            parsedUsfmTokensToInsertableNodes(
+                                parsed.tokens,
+                                editorModeToShape(
+                                    project.appSettings.editorMode,
+                                ),
+                            ),
                         );
                     },
                     { discrete: true },
