@@ -1,5 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import { useSyncExternalStore } from "react";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import type { SettingsManager } from "@/app/data/settings.ts";
 import type {
     DiffsByChapter,
@@ -73,6 +74,7 @@ export function useSaveAndRevert(args: {
     fileSystem: FileSystem;
     storageRoots: StorageRoots;
     usfmOnionService: IUsfmOnionService;
+    editorMode: EditorModeSetting;
     isViewingOlderVersion: boolean;
     selectedVersionHash: string | null;
     refreshVersions: () => Promise<void>;
@@ -94,6 +96,9 @@ export function useSaveAndRevert(args: {
     const hasUnsavedChanges = files.some((file) =>
         file.chapters.some((chapter) => chapter.dirty),
     );
+
+    const workingShape = () =>
+        shapeForSurface("workingRebuild", args.editorMode);
 
     // Save is orchestrated by the UI-free `runSavePipeline`; this hook hands it
     // the workspace nouns/sinks (the hook `args` is a superset of
@@ -160,7 +165,7 @@ export function useSaveAndRevert(args: {
                 ref.bookCode,
                 ref.chapterNum,
             );
-            if (chapter) revertChapterToLoadedState(chapter);
+            if (chapter) revertChapterToLoadedState(chapter, workingShape());
         }
         args.setUnsavedDiffsByChapter({});
         args.bumpDirtyVersion();
@@ -203,6 +208,7 @@ export function useSaveAndRevert(args: {
                     chapter: changedChapter,
                     diffBlockId: diffToRevert.uniqueKey,
                     usfmOnionService: args.usfmOnionService,
+                    shape: workingShape(),
                 });
                 args.workingFilesStore.commit({
                     patch: {
@@ -250,7 +256,7 @@ export function useSaveAndRevert(args: {
                     chapterNum,
                 );
                 if (!changedChapter) return;
-                revertChapterToLoadedState(changedChapter);
+                revertChapterToLoadedState(changedChapter, workingShape());
                 args.workingFilesStore.commit({
                     patch: {
                         kind: "chapter",

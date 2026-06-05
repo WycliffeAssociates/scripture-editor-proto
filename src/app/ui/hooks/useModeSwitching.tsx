@@ -1,12 +1,12 @@
 import type { LexicalEditor } from "lexical";
 import { useEffect, useRef } from "react";
 import {
-    type ContentEditorModeSetting,
     EDITOR_MODES,
     type EditorModeSetting,
+    shapeForSurface,
 } from "@/app/data/editor.ts";
 import type { Settings } from "@/app/data/settings.ts";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { walkChapters } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import type { ScriptureChapterState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
@@ -167,20 +167,12 @@ export function useModeSwitching({
             pendingModeCompleteRef.current = null;
         }
 
-        // Perf shortcut: nothing to re-transform when the mode hasn't
-        // actually changed. The previous code documented a "clobber"
-        // concern here (saveCurrentDirtyLexical reading a stale editor and
-        // overwriting a pre-staged programmatic mutation). That clobber is
-        // gone: programmatic producers (match-formatting, prettify) now
-        // commit to the store via Option D rather than mutating
-        // mutWorkingFilesRef in place, and this function reads from the
-        // store. The guard stays only to skip O(books × chapters) work
-        // when there is no work to do.
+        // nothing to re-transform when the mode hasn't actually changed.
         if (next === resolvedEditorMode) {
             return;
         }
 
-        // Discovery flow: transformToMode returns the same ref on a no-op
+        // Discovery flow: transformToShape returns the same ref on a no-op
         // and a new ref when the shape needs to change. We can't know
         // which chapters will change without running the transform, so
         // draft every chapter writable up front — shallow object spreads
@@ -197,15 +189,12 @@ export function useModeSwitching({
         let thisChapterUpdated: ScriptureChapterState | undefined;
         let anyChanged = false;
 
-        const targetTransformMode: ContentEditorModeSetting =
-            next === EDITOR_MODES.view
-                ? EDITOR_MODES.regular
-                : (next as ContentEditorModeSetting);
+        const targetShape = shapeForSurface("mainEditor", next);
 
         for (const { file, chapter } of walkChapters(filesToUse)) {
-            const transformed = transformToMode(
+            const transformed = transformToShape(
                 chapter.lexicalState,
-                targetTransformMode,
+                targetShape,
             );
 
             if (transformed !== chapter.lexicalState) {

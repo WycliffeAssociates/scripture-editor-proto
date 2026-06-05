@@ -1,4 +1,3 @@
-import type { EditorModeSetting } from "@/app/data/editor.ts";
 import type { CompareMetadataSummary } from "@/app/domain/project/compare/compareService.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -23,7 +22,6 @@ export async function buildRemoteLatestCompareSource(args: {
         GitProvider,
         "fetchRemoteHeads" | "readProjectSnapshotAtCommit"
     >;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 }): Promise<{
     parsedFiles: Awaited<ReturnType<typeof snapshotToScriptureBookStates>>;
@@ -53,7 +51,6 @@ export async function buildRemoteLatestCompareSource(args: {
     const parsedFiles = await snapshotToScriptureBookStates({
         loadedProject: args.loadedProject,
         snapshot,
-        editorMode: args.editorMode,
         usfmOnionService: args.usfmOnionService,
     });
 

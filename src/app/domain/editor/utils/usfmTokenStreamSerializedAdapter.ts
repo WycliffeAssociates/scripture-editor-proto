@@ -4,8 +4,7 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 import {
-    EDITOR_MODES,
-    type EditorModeSetting,
+    EDITOR_SHAPES,
     type EditorShape,
     UsfmTokenTypes,
 } from "@/app/data/editor.ts";
@@ -19,7 +18,7 @@ import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializ
 import {
     isFormModeRootChildren,
     isRegularModeRootChildren,
-    transformToMode,
+    transformToShape,
     unwrapFlatTokensFromRootChildren,
     wrapFlatTokensInLexicalParagraph,
 } from "@/app/domain/editor/utils/modeTransforms.ts";
@@ -148,7 +147,7 @@ export function usfmTokenStreamToLexicalRootChildren(
     ) as SerializedLexicalNode[];
 
     if (shape === "regularTree" || shape === "formTree") {
-        return transformToMode(
+        return transformToShape(
             {
                 root: {
                     children: [
@@ -164,7 +163,7 @@ export function usfmTokenStreamToLexicalRootChildren(
                     indent: 0,
                 },
             },
-            shape === "formTree" ? "form" : "regular",
+            shape === "formTree" ? EDITOR_SHAPES.form : EDITOR_SHAPES.regular,
         ).root.children as SerializedLexicalNode[];
     }
 
@@ -181,17 +180,6 @@ export function usfmTokenStreamToLexicalRootChildren(
 
     return [wrapFlatTokensInLexicalParagraph(serializedFlat, direction)];
 }
-// Returns an *editor mode* (the "usfm" string is `EDITOR_MODES.usfm`),
-// not a tree shape. The mode-vs-shape distinction is real: "usfm"
-// mode loads with the "flat" tree shape. Callers that need a shape
-// value should run `editorModeToShape` on this result.
-export function inferContentEditorModeFromRootChildren(
-    rootChildren: SerializedLexicalNode[],
-): Extract<EditorModeSetting, "regular" | "form" | "usfm"> {
-    if (isFormModeRootChildren(rootChildren)) return "form";
-    return isRegularModeRootChildren(rootChildren) ? "regular" : "usfm";
-}
-
 export type LexicalToTokensOptions = {
     structuralParagraphBreaks?: boolean;
     bookCode?: string;
@@ -461,11 +449,9 @@ export function tokensToLexical(args: {
         },
     };
 
-    if (args.mode === EDITOR_MODES.regular || args.mode === EDITOR_MODES.form) {
-        return transformToMode(base, args.mode);
-    }
-
-    return base;
+    // The base above is already the wrapped-flat shape, so this is a no-op
+    // for `mode: "flat"` and a rebuild for the structured shapes.
+    return transformToShape(base, args.mode);
 }
 
 function lexicalNodeToPrettifyToken(

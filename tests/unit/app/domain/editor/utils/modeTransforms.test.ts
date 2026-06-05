@@ -4,7 +4,7 @@ import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { isSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import { materializeFlatTokensArray } from "@/app/domain/editor/utils/materializeFlatTokensFromSerialized.ts";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
 import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import { serializeToUsfmString } from "@tests/helpers/serializeToUsfmString.ts";
 import { createTestEditor } from "@tests/helpers/testEditor.ts";
@@ -70,8 +70,8 @@ describe("modeTransforms form-mode round-trip", () => {
                 start.root.children as SerializedLexicalNode[],
             );
 
-            const toForm = transformToMode(structuredClone(start), "form");
-            const backToRegular = transformToMode(
+            const toForm = transformToShape(structuredClone(start), "form");
+            const backToRegular = transformToShape(
                 structuredClone(toForm),
                 "regular",
             );
@@ -102,8 +102,8 @@ describe("modeTransforms nested editor round-trip", () => {
             start.root.children as SerializedLexicalNode[],
         );
 
-        const toUsfmMode = transformToMode(structuredClone(start), "usfm");
-        const backToRegular = transformToMode(
+        const toUsfmMode = transformToShape(structuredClone(start), "flat");
+        const backToRegular = transformToShape(
             structuredClone(toUsfmMode),
             "regular",
         );
@@ -144,7 +144,7 @@ describe("modeTransforms nested editor round-trip", () => {
         const start = editor
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
-        const toRegular = transformToMode(structuredClone(start), "regular");
+        const toRegular = transformToShape(structuredClone(start), "regular");
         const usfm = serializeToUsfmString(toRegular.root.children);
 
         expect(usfm).toContain("\\f*");
@@ -169,7 +169,7 @@ describe("modeTransforms nested editor round-trip", () => {
         const start = editor
             .getEditorState()
             .toJSON() as SerializedEditorState<SerializedLexicalNode>;
-        const toUsfmMode = transformToMode(structuredClone(start), "usfm");
+        const toUsfmMode = transformToShape(structuredClone(start), "flat");
         const usfm = serializeToUsfmString(
             toUsfmMode.root.children as SerializedLexicalNode[],
         );

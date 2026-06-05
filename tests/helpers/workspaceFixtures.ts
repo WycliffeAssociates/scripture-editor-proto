@@ -26,8 +26,9 @@
 //      store assigns `generation`; tests must not pre-set it.
 
 import type { SerializedEditorState, SerializedLexicalNode } from "lexical";
-import { UsfmTokenTypes } from "@/app/data/editor.ts";
+import { type EditorShape, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { tokensToLexical } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type {
     ScriptureBookState,
     ScriptureChapterState,
@@ -45,22 +46,40 @@ function identDefaults(opts: TokenIdent | undefined, fallbackId: string) {
 }
 
 /**
- * Single text-kind `Token` array. Default sid `"GEN 1:1"`.
+ * Single text-kind `Token` array (optionally led by a `\p` marker token so
+ * shape-aware consumers have a paragraph-class block to build from).
+ * Default sid `"GEN 1:1"`.
  *
  * @knipignore — part of the helper module's stable surface; kept
  * exported even when only used transitively via `makeChapter` so
  * future store-seam tests can compose `Token[]` directly without
  * re-deriving the shape.
  */
-export function makeTokens(text: string, opts?: TokenIdent): Token[] {
+export function makeTokens(
+    text: string,
+    opts?: TokenIdent & { withParagraphMarker?: boolean },
+): Token[] {
     const { sid, id } = identDefaults(opts, "text");
+    const textToken = {
+        id,
+        kind: "text",
+        span: { start: 0, end: text.length },
+        sid,
+        source: text,
+    } as Token;
+    if (!opts?.withParagraphMarker) return [textToken];
     return [
         {
-            id,
-            kind: "text",
-            span: { start: 0, end: text.length },
+            id: `${id}-p`,
+            kind: "marker",
+            marker: "p",
+            span: { start: 0, end: 3 },
             sid,
-            source: text,
+            source: "\\p ",
+        } as Token,
+        {
+            ...textToken,
+            span: { start: 3, end: 3 + text.length },
         } as Token,
     ];
 }
@@ -118,6 +137,15 @@ export type MakeChapterOptions = {
      * argument.
      */
     dirty?: boolean;
+    /**
+     * When set, materialize `lexicalState` through the production
+     * `tokensToLexical` adapter in this tree shape (and the saved baseline
+     * as flat) instead of the plain-paragraph `makeFlatRegularState` stub —
+     * for tests where the tree shape IS the contract (resolves caveat 1).
+     * Tokens get a leading `\p` marker so form/regular shapes have a
+     * paragraph-class block to build from.
+     */
+    shape?: EditorShape;
 };
 
 export function makeChapter(
@@ -129,20 +157,43 @@ export function makeChapter(
     const sourceText = opts.sourceText ?? text;
     const sid = `${bookCode} ${chapterNumber}:1`;
     const dirty = opts.dirty ?? sourceText !== text;
+    const withParagraphMarker = opts.shape !== undefined;
+    const sourceTokens = makeTokens(sourceText, {
+        sid,
+        id: `${sid}-source`,
+        withParagraphMarker,
+    });
+    const currentTokens = makeTokens(text, {
+        sid,
+        id: `${sid}-current`,
+        withParagraphMarker,
+    });
     return {
         chapterNumber,
         dirty,
         eol: "\n",
-        sourceTokens: makeTokens(sourceText, { sid, id: `${sid}-source` }),
-        currentTokens: makeTokens(text, { sid, id: `${sid}-current` }),
-        loadedLexicalState: makeFlatRegularState(sourceText, {
-            sid,
-            id: `${sid}-source`,
-        }),
-        lexicalState: makeFlatRegularState(text, {
-            sid,
-            id: `${sid}-current`,
-        }),
+        sourceTokens,
+        currentTokens,
+        loadedLexicalState: opts.shape
+            ? tokensToLexical({
+                  tokens: sourceTokens,
+                  direction: "ltr",
+                  mode: "flat",
+              })
+            : makeFlatRegularState(sourceText, {
+                  sid,
+                  id: `${sid}-source`,
+              }),
+        lexicalState: opts.shape
+            ? tokensToLexical({
+                  tokens: currentTokens,
+                  direction: "ltr",
+                  mode: opts.shape,
+              })
+            : makeFlatRegularState(text, {
+                  sid,
+                  id: `${sid}-current`,
+              }),
     };
 }
 

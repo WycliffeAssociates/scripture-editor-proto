@@ -1,7 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import {
+    type EditorModeSetting,
+    type EditorShape,
+    shapeForSurface,
+} from "@/app/data/editor.ts";
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import type { LibraryService } from "@/app/library/LibraryService.ts";
 import { loadTranslationNotesForAnchor } from "@/app/reference/translationNotes.ts";
@@ -26,6 +30,7 @@ type Props = {
     fileSystem: FileSystem;
     pickedFileIdentifier: string;
     pickedChapterNumber: number;
+    editorMode: EditorModeSetting;
     gitProvider: GitProvider;
 };
 
@@ -47,7 +52,7 @@ async function loadReferenceScriptureByPath(args: {
     resourcePath: string;
     fileSystem: FileSystem;
     gitProvider: GitProvider;
-    editorMode: EditorModeSetting;
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
 }) {
     const item = await loadReferenceResourceByPath({
@@ -64,7 +69,7 @@ async function loadReferenceScriptureByPath(args: {
         project: args.resourcePath,
         fileSystem: args.fileSystem,
         gitProvider: args.gitProvider,
-        editorMode: args.editorMode,
+        shape: args.shape,
         usfmOnionService: args.usfmOnionService,
     });
 }
@@ -87,7 +92,7 @@ function useActiveReferenceResourceQuery(args: {
 function useReferenceScriptureQuery(args: {
     activeReferenceResourcePath: string | undefined;
     supportsScriptureNavigation: boolean;
-    editorMode: EditorModeSetting;
+    shape: EditorShape;
     libraryService: LibraryService;
     fileSystem: FileSystem;
     gitProvider: GitProvider;
@@ -97,7 +102,7 @@ function useReferenceScriptureQuery(args: {
         queryKey: [
             "referenceScriptureFiles",
             args.activeReferenceResourcePath,
-            args.editorMode,
+            args.shape,
         ],
         queryFn: async () =>
             loadReferenceScriptureByPath({
@@ -105,7 +110,7 @@ function useReferenceScriptureQuery(args: {
                 resourcePath: args.activeReferenceResourcePath ?? "",
                 fileSystem: args.fileSystem,
                 gitProvider: args.gitProvider,
-                editorMode: args.editorMode,
+                shape: args.shape,
                 usfmOnionService: args.usfmOnionService,
             }),
         enabled: Boolean(
@@ -226,6 +231,7 @@ export const useReferenceItem = ({
     fileSystem,
     pickedFileIdentifier,
     pickedChapterNumber,
+    editorMode,
     gitProvider,
 }: Props) => {
     const queryClient = useQueryClient();
@@ -238,8 +244,11 @@ export const useReferenceItem = ({
     const [isReferenceNavSynced, setIsReferenceNavSynced] = useState(true);
     const [isReferenceScrollSynced, setIsReferenceScrollSynced] =
         useState(false);
-    const { settingsManager, usfmOnionService } = useRouter().options.context;
-    const editorMode = settingsManager.get("editorMode") as EditorModeSetting;
+    const { usfmOnionService } = useRouter().options.context;
+    // Reference scripture materializes (and react-query caches) by SHAPE, so
+    // mode flips that share a shape (regular<->view, usfm<->plain) reuse the
+    // cached files instead of refetching.
+    const referenceShape = shapeForSurface("referencePane", editorMode);
 
     const referenceResourcesQuery = useQuery({
         queryKey: ["referenceResources"],
@@ -265,7 +274,7 @@ export const useReferenceItem = ({
     const referenceScriptureQuery = useReferenceScriptureQuery({
         activeReferenceResourcePath,
         supportsScriptureNavigation,
-        editorMode,
+        shape: referenceShape,
         libraryService,
         fileSystem,
         gitProvider,
@@ -539,14 +548,14 @@ export const useReferenceItem = ({
         }
 
         return await queryClient.fetchQuery({
-            queryKey: ["referenceScriptureFiles", resourcePath, editorMode],
+            queryKey: ["referenceScriptureFiles", resourcePath, referenceShape],
             queryFn: async () =>
                 loadReferenceScriptureByPath({
                     libraryService,
                     resourcePath,
                     fileSystem,
                     gitProvider,
-                    editorMode,
+                    shape: referenceShape,
                     usfmOnionService: usfmOnionService as IUsfmOnionService,
                 }),
         });

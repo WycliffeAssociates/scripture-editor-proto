@@ -175,6 +175,7 @@ describe("applyLintFixToFile (scratch compute)", () => {
             targetBookCode: "GEN",
             targetChapterNumber: 2,
             usfmOnionService: service,
+            shape: "regular",
         });
 
         expect(result.applied).toBe(true);
@@ -252,6 +253,7 @@ describe("applyLintFixToFile (scratch compute)", () => {
             targetBookCode: "GEN",
             targetChapterNumber: 2,
             usfmOnionService: service,
+            shape: "regular",
         });
 
         expect(result.applied).toBe(true);
@@ -283,6 +285,7 @@ describe("applyLintFixToFile (scratch compute)", () => {
             targetBookCode: "GEN",
             targetChapterNumber: 2,
             usfmOnionService: service,
+            shape: "regular",
         });
 
         expect(result.applied).toBe(false);

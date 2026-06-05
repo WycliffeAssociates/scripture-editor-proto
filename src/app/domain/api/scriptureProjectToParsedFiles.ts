@@ -1,8 +1,4 @@
-import {
-    type EditorModeSetting,
-    type EditorShape,
-    editorModeToShape,
-} from "@/app/data/editor.ts";
+import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import { groupFlatTokensByChapter } from "@/app/domain/editor/serialization/flatTokensByChapter.ts";
 import {
     detectLineEnding,
@@ -119,7 +115,8 @@ async function projectEntriesForApp(args: {
  */
 export async function scriptureProjectToParsedFiles(args: {
     loadedProject: Project;
-    editorMode: EditorModeSetting;
+    /** Surface-resolved shape for `lexicalState` (see `shapeForSurface`). */
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
     /**
      * When true, the parser also returns each book's source md5 (hashed where
@@ -169,7 +166,6 @@ export async function scriptureProjectToParsedFiles(args: {
         if (!projection) continue;
         const mergedTokens = projection.tokens;
         const lintIssues = projection.lintIssues ?? [];
-        const initialLoadMode: EditorShape = editorModeToShape(args.editorMode);
         const bookCode = getBookSlug(book.code);
         if (projection.sourceMd5 !== undefined) {
             diskMd5ByBook.set(bookCode, projection.sourceMd5);
@@ -197,12 +193,12 @@ export async function scriptureProjectToParsedFiles(args: {
                     const lexicalState = tokensToLexical({
                         tokens: sourceTokens,
                         direction,
-                        mode: initialLoadMode,
+                        mode: args.shape,
                     });
                     const loadedLexicalState = tokensToLexical({
                         tokens: sourceTokens,
                         direction,
-                        mode: "flat",
+                        mode: shapeForSurface("savedBaseline"),
                     });
 
                     return {

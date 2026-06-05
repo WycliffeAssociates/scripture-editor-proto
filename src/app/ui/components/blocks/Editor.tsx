@@ -11,7 +11,11 @@ import { LineBreakNode, ParagraphNode, TextNode } from "lexical";
 import { Lock } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import {
+    domPresentationMode,
+    EDITOR_MODES,
+    isEditableEditorMode,
+} from "@/app/data/editor.ts";
 import { BookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { FormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { USFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
@@ -56,7 +60,7 @@ function GateEditablePlugin() {
     );
     const mode = project?.appSettings.editorMode ?? EDITOR_MODES.regular;
     useEffect(() => {
-        editor.setEditable(requireGateOpen(gate) && mode !== EDITOR_MODES.view);
+        editor.setEditable(requireGateOpen(gate) && isEditableEditorMode(mode));
     }, [editor, gate, mode]);
     return null;
 }
@@ -95,11 +99,10 @@ export function MainEditor() {
                                         : ""
                                 }`}
                                 aria-label="USFM Editor"
-                                data-mode={
-                                    project?.appSettings.editorMode === "view"
-                                        ? "regular"
-                                        : project?.appSettings.editorMode
-                                }
+                                data-mode={domPresentationMode(
+                                    project?.appSettings.editorMode ??
+                                        EDITOR_MODES.regular,
+                                )}
                                 data-form-pane="source"
                                 spellCheck={false}
                             />

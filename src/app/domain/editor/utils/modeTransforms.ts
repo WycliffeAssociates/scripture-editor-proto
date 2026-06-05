@@ -4,8 +4,6 @@ import type {
     SerializedLexicalNode,
 } from "lexical";
 import {
-    type ContentEditorModeSetting,
-    EDITOR_MODES,
     EDITOR_SHAPES,
     type EditorShape,
     UsfmTokenTypes,
@@ -238,22 +236,21 @@ function rewrapNestedEditorNodesFromFlatTokens(
 }
 
 /**
- * Rematerialize one serialized chapter state for a different editor mode.
+ * Rematerialize one serialized chapter state into a different tree shape.
  *
- * Mode switches do not reparse scripture from disk. They reinterpret the
+ * Shape changes do not reparse scripture from disk. They reinterpret the
  * already-loaded token/serialized structure into the presentation needed by the
- * next mode, including rebuilding nested note nodes when moving back toward
- * regular mode.
+ * target shape, including rebuilding nested note nodes when moving back toward
+ * the regular shape.
  */
-export function transformToMode(
+export function transformToShape(
     state: SerializedEditorState,
-    targetMode: ContentEditorModeSetting,
+    targetShape: EditorShape,
 ): SerializedEditorState {
     const direction = state.root.direction ?? LanguageDirection.LTR;
     const rootChildren = state.root.children as SerializedLexicalNode[];
 
     const currentShape = detectCurrentShape(rootChildren);
-    const targetShape = targetShapeForMode(targetMode);
 
     // Chapter 0 (book frontmatter) renders the same dedicated form on
     // both Regular and Form modes — we never want to break out the
@@ -279,6 +276,14 @@ export function transformToMode(
 
     // Always reduce to a flat token list first, then rebuild for the target shape.
     const flatTokens = flattenToTokens(rootChildren);
+
+    // Empty content has no meaningful shape. Keep whatever valid state the
+    // chapter already has rather than emitting a childless root (the form and
+    // regular rebuilds below would produce zero root children, which is not a
+    // usable Lexical document).
+    if (flatTokens.length === 0) {
+        return state;
+    }
 
     // Frontmatter detection runs before the form/regular split so
     // both paths produce the BookFrontmatterFormNode shape.
@@ -355,12 +360,6 @@ function detectCurrentShape(
 ): EditorShape {
     if (isFormModeRootChildren(rootChildren)) return "form";
     if (isRegularModeRootChildren(rootChildren)) return "regular";
-    return "flat";
-}
-
-function targetShapeForMode(mode: ContentEditorModeSetting): EditorShape {
-    if (mode === EDITOR_MODES.form) return "form";
-    if (mode === EDITOR_MODES.regular) return "regular";
     return "flat";
 }
 

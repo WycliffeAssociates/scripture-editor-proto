@@ -219,6 +219,7 @@ function HookHarness(props: {
     const state = useReferenceItem({
         projectsService: props.services.projectsService,
         libraryService: props.services.libraryService as LibraryService,
+        editorMode: "regular",
         fileSystem: { exists: vi.fn() } as never,
         pickedFileIdentifier: "MAT",
         pickedChapterNumber: 1,

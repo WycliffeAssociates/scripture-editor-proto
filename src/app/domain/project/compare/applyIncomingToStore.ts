@@ -20,6 +20,7 @@
 //      so concurrent commits to them survive).
 //   7. Side effects (remote-accept/status) run only after a validated commit.
 
+import type { EditorShape } from "@/app/data/editor.ts";
 import {
     applyIncomingChapter,
     applyIncomingHunk,
@@ -214,6 +215,8 @@ export async function applyIncomingToStore(args: {
     fullChapterApplies: ChapterRef[];
     hunkApplies: ProjectDiff[];
     sourceFiles: ScriptureBookState[];
+    /** The `workingRebuild` shape (see `shapeForSurface`). */
+    shape: EditorShape;
 }): Promise<IncomingMutationResult<ScriptureBookState[]>> {
     const affectedRefs: ChapterRef[] = [
         ...args.fullChapterApplies,
@@ -243,6 +246,7 @@ export async function applyIncomingToStore(args: {
                     sourceFiles: args.sourceFiles,
                     bookCode: chapter.bookCode,
                     chapterNum: chapter.chapterNum,
+                    shape: args.shape,
                 });
             }
             for (const diff of args.hunkApplies) {
@@ -251,6 +255,7 @@ export async function applyIncomingToStore(args: {
                     sourceFiles: args.sourceFiles,
                     diff,
                     usfmOnionService: args.usfmOnionService,
+                    shape: args.shape,
                 });
             }
             return scratch;

@@ -2,6 +2,7 @@ import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { Deferred, Effect } from "effect";
 import type { LexicalEditor } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
@@ -445,7 +446,7 @@ export const ProjectProvider = ({
         fileSystem,
         storageRoots,
         gitProvider,
-        editorMode: settingsManager.get("editorMode"),
+        editorMode: project.appSettings.editorMode,
         allProjects: projects,
         currentProjectRoute,
         onGitRemoteStatusChanged: (status) =>
@@ -477,6 +478,7 @@ export const ProjectProvider = ({
         fileSystem,
         pickedFileIdentifier: project.pickedFile.bookCode,
         pickedChapterNumber: project.pickedChapter?.chapterNumber || 0,
+        editorMode: project.appSettings.editorMode,
         gitProvider,
     });
 
@@ -580,13 +582,20 @@ export const ProjectProvider = ({
             candidates: refs,
             run: async () => {
                 const draft = workingFilesStore.draftWithChapters(refs);
+                // Mode read off the ref at fire time — same contract as the
+                // pipeline refs above.
+                const workingShape = shapeForSurface(
+                    "workingRebuild",
+                    appSettingsRef.current.editorMode,
+                );
                 for (const ref of refs) {
                     const chapter = findChapterInDraft(
                         draft,
                         ref.bookCode,
                         ref.chapterNum,
                     );
-                    if (chapter) revertChapterToLoadedState(chapter);
+                    if (chapter)
+                        revertChapterToLoadedState(chapter, workingShape);
                 }
                 workingFilesStore.commit({
                     patch: { kind: "bulk", files: draft },

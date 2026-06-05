@@ -1,10 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
-import { EDITOR_MODES } from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
     bookLineEnding,
-    inferContentEditorModeFromRootChildren,
     tokensToLexical,
     tokensToUsfm,
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
@@ -42,6 +41,7 @@ export function useFormatOperations({
     interactionGate,
     currentFileBibleIdentifier,
     currentChapter,
+    editorMode,
     setIsProcessing,
     history,
 }: {
@@ -49,6 +49,7 @@ export function useFormatOperations({
     interactionGate: WorkspaceGateStore;
     currentFileBibleIdentifier: string;
     currentChapter: number;
+    editorMode: EditorModeSetting;
     setIsProcessing: (isProcessing: boolean) => void;
     history: CustomHistoryHook;
 }) {
@@ -56,6 +57,8 @@ export function useFormatOperations({
     const { usfmOnionService } = useRouter().options.context;
 
     type FormatScope = MatchFormattingScope;
+
+    const workingShape = () => shapeForSurface("workingRebuild", editorMode);
 
     const chapterTokensForFormatting = (chapter: ScriptureChapterState) =>
         chapter.currentTokens;
@@ -79,22 +82,10 @@ export function useFormatOperations({
             (chapter.lexicalState.root.direction ?? "ltr") === "rtl"
                 ? "rtl"
                 : "ltr";
-        const targetMode = inferContentEditorModeFromRootChildren(
-            chapter.lexicalState.root.children,
-        );
-        // Preserve the chapter's current presentation mode through the format
-        // pass; collapsing non-`regular` modes to `flat` would kick form mode
-        // into a USFM-shaped state on every Format Chapter run.
-        const rebuildMode =
-            targetMode === EDITOR_MODES.regular
-                ? "regular"
-                : targetMode === EDITOR_MODES.form
-                  ? "form"
-                  : "flat";
         chapter.lexicalState = tokensToLexical({
             tokens: result.tokens,
             direction,
-            mode: rebuildMode,
+            mode: workingShape(),
         });
         chapter.currentTokens = result.tokens;
         chapter.dirty =
@@ -117,6 +108,7 @@ export function useFormatOperations({
             targetFile: file,
             sourceUsfm: nextBookUsfm,
             usfmOnionService,
+            shape: workingShape(),
         });
         return { changed: true as const };
     };
@@ -353,6 +345,7 @@ export function useFormatOperations({
                                         bookLineEnding(file),
                                     ),
                                     usfmOnionService,
+                                    shape: workingShape(),
                                 });
                                 modifiedFiles.push(file);
                                 affected.push(...chapterRefsForBook(file));

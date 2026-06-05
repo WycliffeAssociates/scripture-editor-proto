@@ -25,7 +25,7 @@
 //      every token.
 //   2. MODE-FLIP round-trip: load into shape A, transform to shape
 //      B, transform back to shape A, serialize. Confirms
-//      `transformToMode` preserves bytes across the user's mode-
+//      `transformToShape` preserves bytes across the user's mode-
 //      switch action.
 //
 // CURRENT DIVERGENCES (locked in as `it.fails` so the suite stays
@@ -70,13 +70,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SerializedEditorState } from "lexical";
 import { describe, expect, it } from "vitest";
-import {
-  type ContentEditorModeSetting,
-  EDITOR_MODES,
-  type EditorShape,
-  EDITOR_SHAPES,
-} from "@/app/data/editor.ts";
-import { transformToMode } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
+import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
 import {
   lexicalToTokens,
   tokensToLexical,
@@ -100,16 +95,6 @@ const FIXTURES: Array<{ name: FixtureName; file: string }> = [
 ];
 
 const SHAPES: EditorShape[] = [EDITOR_SHAPES.regular, EDITOR_SHAPES.form, EDITOR_SHAPES.flat];
-
-// `transformToMode` works in mode-space (regular / usfm / plain /
-// form), not shape-space. Map each shape to a representative mode
-// for the mode-flip tests below — "usfm" is the canonical mode that
-// loads with the flat shape.
-const REPRESENTATIVE_MODE: Record<EditorShape, ContentEditorModeSetting> = {
-  regular: EDITOR_MODES.regular,
-  form: EDITOR_MODES.form,
-  flat: EDITOR_MODES.usfm,
-};
 
 // Lock in the divergences we know exist as of 2026-05-14 so the
 // suite stays green and any future improvement lights up as a
@@ -200,13 +185,13 @@ describe("synthetic fixture round-trip", () => {
             async () => {
               const { usfm, initialState } = await loadFixture(fixture.file);
               const source = initialState(sourceShape);
-              const intermediate = transformToMode(
+              const intermediate = transformToShape(
                 structuredClone(source),
-                REPRESENTATIVE_MODE[targetShape],
+                targetShape,
               );
-              const back = transformToMode(
+              const back = transformToShape(
                 structuredClone(intermediate),
-                REPRESENTATIVE_MODE[sourceShape],
+                sourceShape,
               );
               expect(serializeState(back)).toBe(usfm);
             },

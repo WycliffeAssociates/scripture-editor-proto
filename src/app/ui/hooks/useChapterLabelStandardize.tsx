@@ -1,6 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
 import {
+    type EditorModeSetting,
+    type EditorShape,
+    shapeForSurface,
+} from "@/app/data/editor.ts";
+import {
     applyChapterLabelRewrites,
     fabricateChapterLabelRewrites,
 } from "@/app/domain/editor/annotations/chapterLabelRewrite.ts";
@@ -31,6 +36,8 @@ async function applyChapterLabelToFile(args: {
     file: ScriptureBookState;
     targetStem: string;
     usfmOnionService: IUsfmOnionService;
+    /** The `workingRebuild` shape (see `shapeForSurface`). */
+    shape: EditorShape;
 }): Promise<boolean> {
     const tokens = args.file.chapters.flatMap((chapter) =>
         lexicalToTokens(chapter.lexicalState, {
@@ -48,6 +55,7 @@ async function applyChapterLabelToFile(args: {
         targetFile: args.file,
         sourceUsfm: nextUsfm,
         usfmOnionService: args.usfmOnionService,
+        shape: args.shape,
     });
     return true;
 }
@@ -66,10 +74,12 @@ async function applyChapterLabelToFile(args: {
 export function useChapterLabelStandardize({
     workingFilesStore,
     interactionGate,
+    editorMode,
     history,
 }: {
     workingFilesStore: WorkingFilesStore;
     interactionGate: WorkspaceGateStore;
+    editorMode: EditorModeSetting;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -139,6 +149,10 @@ export function useChapterLabelStandardize({
                                 file,
                                 targetStem,
                                 usfmOnionService,
+                                shape: shapeForSurface(
+                                    "workingRebuild",
+                                    editorMode,
+                                ),
                             });
                             if (changed) changedBookCodes.push(bookCode);
                         }

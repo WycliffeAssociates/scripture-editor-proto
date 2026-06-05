@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
@@ -97,7 +96,6 @@ describe("snapshotToScriptureBookStates", () => {
         await snapshotToScriptureBookStates({
             loadedProject,
             snapshot: new Map([["01-GEN.usfm", "\\id GEN Snapshot\n"]]),
-            editorMode: "regular" as EditorModeSetting,
             usfmOnionService,
         });
 

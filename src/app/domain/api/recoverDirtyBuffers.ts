@@ -20,7 +20,7 @@
 //   present(X)      | present(X)    -> restore (baseline match -> no tracker)
 //   present(X)      | present(Y!=X) -> restore (baseline mismatch -> tracker)
 
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
 import {
     detectLineEnding,
@@ -92,7 +92,8 @@ export async function recoverDirtyBuffers(args: {
     recoveredConflictTracker: RecoveredConflictTracker;
     workspaceKey: string;
     direction: LanguageDirection;
-    editorMode: EditorModeSetting;
+    /** The `mainEditor` shape (see `shapeForSurface`). */
+    shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
     initialLintErrorsByBook: LintMessagesByBook;
 }): Promise<RecoveryResult> {
@@ -179,7 +180,7 @@ export async function recoverDirtyBuffers(args: {
                 bookCode,
                 content: result.entry.content,
                 direction: args.direction,
-                editorMode: args.editorMode,
+                shape: args.shape,
                 usfmOnionService: args.usfmOnionService,
             });
         } catch (error) {
@@ -236,7 +237,7 @@ export async function recoverDirtyBuffers(args: {
                       loadedLexicalState: tokensToLexical({
                           tokens: [],
                           direction: args.direction,
-                          mode: "flat",
+                          mode: shapeForSurface("savedBaseline"),
                       }),
                       dirty: true,
                       eol,
@@ -263,10 +264,13 @@ export async function recoverDirtyBuffers(args: {
                 chapter: {
                     ...diskChapter,
                     currentTokens: [],
+                    // Empty content materializes the same under every shape
+                    // (tokensToLexical keeps the wrapped-flat empty paragraph),
+                    // so the user's shape is correct AND Lexical-valid here.
                     lexicalState: tokensToLexical({
                         tokens: [],
                         direction: args.direction,
-                        mode: "flat",
+                        mode: args.shape,
                     }),
                     dirty: true,
                 },

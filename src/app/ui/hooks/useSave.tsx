@@ -156,6 +156,7 @@ export function useSave({
         fileSystem,
         storageRoots,
         usfmOnionService,
+        editorMode,
         isViewingOlderVersion: versions.state.isViewingOlderVersion,
         selectedVersionHash: versions.state.selectedHash,
         refreshVersions: versions.actions.refresh,

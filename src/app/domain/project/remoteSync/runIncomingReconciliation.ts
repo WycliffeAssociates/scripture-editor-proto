@@ -22,6 +22,7 @@
 // `deps`; everything the body reads off the workspace nouns is on `deps.args`.
 
 import type { LexicalEditor } from "lexical";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import {
     applyIncomingToStore,
     runIncomingMutation,
@@ -103,6 +104,7 @@ export type IncomingReconciliationArgs = {
     editorRef: React.RefObject<LexicalEditor | null>;
     pickedFile: ScriptureBookState | null;
     pickedChapter: ScriptureChapterState | null;
+    editorMode: EditorModeSetting;
     bumpDirtyVersion: () => void;
     onGitRemoteStatusChanged?: (status: GitRemoteProjectStatus | null) => void;
 };
@@ -281,6 +283,8 @@ export async function runIncomingReconciliation(
         listCompareChapterRefs,
     } = deps;
 
+    const workingShape = shapeForSurface("workingRebuild", args.editorMode);
+
     // Mutation-boundary recheck: the source load that precedes this call
     // awaits the network, and a save can flip the gate to `saving` in that
     // window. The entry checks on the public actions only guard at action
@@ -385,6 +389,7 @@ export async function runIncomingReconciliation(
         applyVersionSnapshotToWorkingFiles({
             workingFiles: workingDraft,
             sourceFiles: argsForAuto.sourceFiles,
+            shape: workingShape,
         });
         // workingDraft is mutated below (book entries replaced in place),
         // so any future bookCode→book index must be rebuilt AFTER this loop.
@@ -549,6 +554,7 @@ export async function runIncomingReconciliation(
         applyVersionSnapshotToWorkingFiles({
             workingFiles: behindDraft,
             sourceFiles: argsForAuto.sourceFiles,
+            shape: workingShape,
         });
         args.workingFilesStore.commit({
             patch: { kind: "bulk", files: behindDraft },
@@ -639,6 +645,7 @@ export async function runIncomingReconciliation(
                 fullChapterApplies,
                 hunkApplies,
                 sourceFiles: argsForAuto.sourceFiles,
+                shape: workingShape,
             });
             autoAcceptApplied = result.kind === "committed";
         },
@@ -693,6 +700,7 @@ export async function runIncomingReconciliation(
                 applyVersionSnapshotToWorkingFiles({
                     workingFiles: cleanDraft,
                     sourceFiles: argsForAuto.sourceFiles,
+                    shape: workingShape,
                 });
                 args.workingFilesStore.commit({
                     patch: { kind: "bulk", files: cleanDraft },

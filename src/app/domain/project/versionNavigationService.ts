@@ -1,3 +1,4 @@
+import type { EditorShape } from "@/app/data/editor.ts";
 import { applyIncomingChapterAll } from "@/app/domain/project/compare/compareMutations.ts";
 import { markFilesAsSaved } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -10,10 +11,13 @@ import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState
 export function applyVersionSnapshotToWorkingFiles(args: {
     workingFiles: ScriptureBookState[];
     sourceFiles: ScriptureBookState[];
+    /** The `workingRebuild` shape (see `shapeForSurface`). */
+    shape: EditorShape;
 }) {
     applyIncomingChapterAll({
         workingFiles: args.workingFiles,
         sourceFiles: args.sourceFiles,
+        shape: args.shape,
     });
     // Version navigation should establish a clean baseline at the selected snapshot.
     markFilesAsSaved(args.workingFiles);

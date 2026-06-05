@@ -1,5 +1,5 @@
 import { type Unzipped, unzip } from "fflate";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { shapeForSurface } from "@/app/data/editor.ts";
 import { scriptureProjectToParsedFiles } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import { buildRemoteLatestCompareSource } from "@/app/domain/project/compare/remoteCompareSource.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -32,7 +32,6 @@ type CompareSourceLoaderArgs = {
     projectsService: ReadOnlyOpenProjectService;
     fileSystem: FileSystem;
     storageRoots: StorageRoots;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
     authSessionProvider: AuthSessionProvider;
     gitProvider: GitProvider;
@@ -50,7 +49,6 @@ export class CompareSourceLoader {
     private readonly projectsService: ReadOnlyOpenProjectService;
     private readonly fileSystem: FileSystem;
     private readonly storageRoots: StorageRoots;
-    private readonly editorMode: EditorModeSetting;
     private readonly usfmOnionService: IUsfmOnionService;
     private readonly authSessionProvider: AuthSessionProvider;
     private readonly gitProvider: GitProvider;
@@ -59,7 +57,6 @@ export class CompareSourceLoader {
         this.projectsService = args.projectsService;
         this.fileSystem = args.fileSystem;
         this.storageRoots = args.storageRoots;
-        this.editorMode = args.editorMode;
         this.usfmOnionService = args.usfmOnionService;
         this.authSessionProvider = args.authSessionProvider;
         this.gitProvider = args.gitProvider;
@@ -75,7 +72,7 @@ export class CompareSourceLoader {
         }
         const parsed = await scriptureProjectToParsedFiles({
             loadedProject: opened,
-            editorMode: this.editorMode,
+            shape: shapeForSurface("compareSource"),
             usfmOnionService: this.usfmOnionService,
         });
         return {
@@ -95,7 +92,7 @@ export class CompareSourceLoader {
         const loaded = await this.loadProjectFromDirectory(projectRoot);
         const parsed = await scriptureProjectToParsedFiles({
             loadedProject: loaded,
-            editorMode: this.editorMode,
+            shape: shapeForSurface("compareSource"),
             usfmOnionService: this.usfmOnionService,
         });
 
@@ -123,7 +120,7 @@ export class CompareSourceLoader {
         const loaded = await this.loadProjectFromDirectory(projectRoot);
         const parsed = await scriptureProjectToParsedFiles({
             loadedProject: loaded,
-            editorMode: this.editorMode,
+            shape: shapeForSurface("compareSource"),
             usfmOnionService: this.usfmOnionService,
         });
         return {
@@ -164,7 +161,6 @@ export class CompareSourceLoader {
                 token: session.token,
             },
             gitProvider: this.gitProvider,
-            editorMode: this.editorMode,
             usfmOnionService: this.usfmOnionService,
         });
 

@@ -18,7 +18,7 @@ import {
     canonicalSnapshotToChapterState,
     chapterSnapshotsAreEqual,
     chapterStateToCanonicalSnapshot,
-    inferChapterModeFromState,
+    inferChapterShapeFromState,
 } from "@/app/domain/history/canonicalChapterState.ts";
 import { classifyEditorContentUpdate } from "@/app/domain/history/classifyEditorUpdate.ts";
 import {
@@ -455,13 +455,13 @@ export function useCustomHistory({
                         ? change.selectionBefore
                         : change.selectionAfter
                 ) as ChapterCursor | undefined;
-                const targetMode = inferChapterModeFromState(
+                const targetShape = inferChapterShapeFromState(
                     record.chapter.lexicalState,
                 );
 
                 record.chapter.lexicalState = canonicalSnapshotToChapterState({
                     snapshot: targetSnapshot,
-                    targetMode,
+                    targetShape,
                 });
                 markChapterDirty(record.chapter);
 

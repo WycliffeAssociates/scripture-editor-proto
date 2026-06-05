@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
 import { snapshotToScriptureBookStates } from "@/app/domain/project/versionSnapshotAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -26,7 +25,6 @@ function versionPreviewQueryOptions(args: {
     commitHash: string;
     loadedProject: Project;
     gitProvider: GitProvider;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 }) {
     return {
@@ -39,7 +37,6 @@ function versionPreviewQueryOptions(args: {
             const parsedFiles = await snapshotToScriptureBookStates({
                 loadedProject: args.loadedProject,
                 snapshot,
-                editorMode: args.editorMode,
                 usfmOnionService: args.usfmOnionService,
             });
 
@@ -82,7 +79,6 @@ export async function prefetchVersionPreview(args: {
     commitHash: string;
     loadedProject: Project;
     gitProvider: GitProvider;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 }) {
     await args.queryClient.prefetchQuery(
@@ -91,7 +87,6 @@ export async function prefetchVersionPreview(args: {
             commitHash: args.commitHash,
             loadedProject: args.loadedProject,
             gitProvider: args.gitProvider,
-            editorMode: args.editorMode,
             usfmOnionService: args.usfmOnionService,
         }),
     );
@@ -104,7 +99,6 @@ export async function fetchVersionPreview(args: {
     commitHash: string;
     loadedProject: Project;
     gitProvider: GitProvider;
-    editorMode: EditorModeSetting;
     usfmOnionService: IUsfmOnionService;
 }) {
     const result = await args.queryClient.fetchQuery(
@@ -113,7 +107,6 @@ export async function fetchVersionPreview(args: {
             commitHash: args.commitHash,
             loadedProject: args.loadedProject,
             gitProvider: args.gitProvider,
-            editorMode: args.editorMode,
             usfmOnionService: args.usfmOnionService,
         }),
     );

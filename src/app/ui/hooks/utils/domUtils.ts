@@ -1,4 +1,10 @@
-import { EDITOR_MODES, type EditorModeSetting } from "@/app/data/editor.ts";
+import {
+    domPresentationMode,
+    EDITOR_MODES,
+    type EditorModeSetting,
+    isEditableEditorMode,
+    markersHiddenInMode,
+} from "@/app/data/editor.ts";
 
 /**
  * Mirror the current editor mode onto top-level DOM classes and attributes so the
@@ -14,12 +20,10 @@ export function updateDomForEditorMode({
     if (root) {
         // View mode should *look* like Regular mode (same CSS selectors),
         // but we keep an explicit read-only flag for targeted styling if needed.
-        root.dataset.editorMode =
-            editorMode === EDITOR_MODES.view
-                ? EDITOR_MODES.regular
-                : editorMode;
-        root.dataset.editorReadOnly =
-            editorMode === EDITOR_MODES.view ? "true" : "false";
+        root.dataset.editorMode = domPresentationMode(editorMode);
+        root.dataset.editorReadOnly = isEditableEditorMode(editorMode)
+            ? "false"
+            : "true";
     }
 
     if (editorMode === EDITOR_MODES.plain) {
@@ -31,10 +35,7 @@ export function updateDomForEditorMode({
     const appRoot = document.body.firstElementChild;
     if (!appRoot) return;
 
-    if (
-        editorMode === EDITOR_MODES.regular ||
-        editorMode === EDITOR_MODES.view
-    ) {
+    if (markersHiddenInMode(editorMode)) {
         appRoot.classList.add("markers-hidden");
         appRoot.classList.remove("markers-shown");
     } else {
@@ -57,6 +58,7 @@ export function timeInDev(fn: () => void, label?: string) {
         return fn();
     }
 }
+// todo: should likely get rid if we can't change that it kills the stacktrace to always come from herer
 export async function timeInDevAsync<T>(
     fn: () => Promise<T>,
     label?: string,

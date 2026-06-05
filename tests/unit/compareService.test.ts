@@ -309,6 +309,7 @@ describe("compareService apply incoming", () => {
             sourceFiles: source,
             diff,
             usfmOnionService,
+            shape: "flat",
         });
 
         const after = await buildCompareResultAsync({
@@ -338,6 +339,7 @@ describe("compareService apply incoming", () => {
             sourceFiles: source,
             bookCode: "GEN",
             chapterNum: 1,
+            shape: "flat",
         });
 
         const after = await buildCompareResultAsync({
@@ -375,6 +377,7 @@ describe("compareService apply incoming", () => {
         applyIncomingChapterAll({
             workingFiles: current,
             sourceFiles: source,
+            shape: "flat",
         });
 
         const after = await buildCompareResultAsync({

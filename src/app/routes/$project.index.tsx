@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { shapeForSurface } from "@/app/data/editor.ts";
 import { projectParamToParsedScripture } from "@/app/domain/api/projectToParsed.tsx";
 import { recoverDirtyBuffers } from "@/app/domain/api/recoverDirtyBuffers.ts";
 import { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
@@ -48,14 +49,19 @@ export const Route = createFileRoute("/$project/")({
             usfmOnionService,
         } = context;
         const { project } = params;
-        const editorMode = settingsManager.get("editorMode");
+        // The loader is boot wiring — the one place mode is read straight off
+        // the settings manager and resolved to a shape for the load.
+        const editorShape = shapeForSurface(
+            "mainEditor",
+            settingsManager.get("editorMode"),
+        );
         const result = await projectParamToParsedScripture({
             projectsService,
             libraryService,
             project,
             fileSystem,
             gitProvider,
-            editorMode,
+            shape: editorShape,
             usfmOnionService,
             // Ask the parser for per-book source md5s so crash recovery can
             // baseline without re-reading or re-serializing.
@@ -135,7 +141,7 @@ export const Route = createFileRoute("/$project/")({
             recoveredConflictTracker,
             workspaceKey,
             direction: loadedProject.language.direction,
-            editorMode,
+            shape: editorShape,
             usfmOnionService,
             initialLintErrorsByBook,
         });

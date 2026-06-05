@@ -1,5 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
 import { useRouter } from "@tanstack/react-router";
+import {
+    type EditorModeSetting,
+    type EditorShape,
+    shapeForSurface,
+} from "@/app/data/editor.ts";
 import { rebuildParsedFileFromUsfm } from "@/app/domain/editor/services/rebuildParsedFileFromUsfm.ts";
 import {
     bookLineEnding,
@@ -101,6 +106,8 @@ export async function applyLintFixToFile(args: {
     targetBookCode: string;
     targetChapterNumber: number;
     usfmOnionService: IUsfmOnionService;
+    /** The `workingRebuild` shape (see `shapeForSurface`). */
+    shape: EditorShape;
 }): Promise<LintFixComputeResult> {
     const baselineTokens = args.file.chapters.flatMap((c) =>
         lexicalToTokens(c.lexicalState, {
@@ -147,6 +154,7 @@ export async function applyLintFixToFile(args: {
         targetFile: args.file,
         sourceUsfm: nextUsfm,
         usfmOnionService: args.usfmOnionService,
+        shape: args.shape,
     });
 
     return { applied: true, fallbackIssues };
@@ -163,11 +171,13 @@ export function useLintFixing({
     workingFilesStore,
     interactionGate,
     commitBookLintResults,
+    editorMode,
     history,
 }: {
     workingFilesStore: WorkingFilesStore;
     interactionGate: WorkspaceGateStore;
     commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
+    editorMode: EditorModeSetting;
     history: CustomHistoryHook;
 }) {
     const { t } = useLingui();
@@ -243,6 +253,10 @@ export function useLintFixing({
                             targetBookCode: file.bookCode,
                             targetChapterNumber,
                             usfmOnionService,
+                            shape: shapeForSurface(
+                                "workingRebuild",
+                                editorMode,
+                            ),
                         });
                         return {
                             affected: computed.applied

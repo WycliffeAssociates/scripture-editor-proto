@@ -1,6 +1,6 @@
 import type { LexicalEditor } from "lexical";
 import { useMemo, useRef, useState } from "react";
-import type { EditorModeSetting } from "@/app/data/editor.ts";
+import { type EditorModeSetting, shapeForSurface } from "@/app/data/editor.ts";
 import { acceptRemoteLatestReview } from "@/app/domain/project/acceptRemoteLatestReview.ts";
 import { applyIncomingToStore } from "@/app/domain/project/compare/applyIncomingToStore.ts";
 import {
@@ -131,11 +131,12 @@ export function useExternalCompare(args: {
         projectsService: args.projectsService,
         fileSystem: args.fileSystem,
         storageRoots: args.storageRoots,
-        editorMode: args.editorMode,
         usfmOnionService: args.usfmOnionService,
         authSessionProvider: args.authSessionProvider,
         gitProvider: args.gitProvider,
     });
+    const workingShape = () =>
+        shapeForSurface("workingRebuild", args.editorMode);
 
     async function computeExternalDiffs(
         sourceFiles: ScriptureBookState[],
@@ -368,7 +369,6 @@ export function useExternalCompare(args: {
                 const parsedFiles = await snapshotToScriptureBookStates({
                     loadedProject: args.loadedProject,
                     snapshot,
-                    editorMode: args.editorMode,
                     usfmOnionService: args.usfmOnionService,
                 });
                 return {
@@ -515,6 +515,7 @@ export function useExternalCompare(args: {
                     fullChapterApplies: [],
                     hunkApplies: [diff],
                     sourceFiles: compareResult.sourceFiles ?? [],
+                    shape: workingShape(),
                 });
                 if (applied.kind !== "committed") return;
                 args.bumpDirtyVersion();
@@ -545,6 +546,7 @@ export function useExternalCompare(args: {
                     sourceFiles: compareResult.sourceFiles ?? [],
                     bookCode,
                     chapterNum,
+                    shape: workingShape(),
                 });
                 // Sync applier (no await between draft and commit), so only the
                 // gate recheck is needed at the commit boundary.
@@ -579,6 +581,7 @@ export function useExternalCompare(args: {
                 applyIncomingChapterAll({
                     workingFiles: draft,
                     sourceFiles: compareResult.sourceFiles ?? [],
+                    shape: workingShape(),
                 });
                 if (
                     compareResult.remoteSync?.relationship ===
@@ -587,6 +590,7 @@ export function useExternalCompare(args: {
                     applyVersionSnapshotToWorkingFiles({
                         workingFiles: draft,
                         sourceFiles: compareResult.sourceFiles ?? [],
+                        shape: workingShape(),
                     });
                 }
                 // Sync appliers (no await between draft and commit); gate-recheck

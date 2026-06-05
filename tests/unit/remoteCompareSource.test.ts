@@ -81,7 +81,6 @@ describe("buildRemoteLatestCompareSource", () => {
                 token: "secret-token",
             },
             gitProvider,
-            editorMode: "regular",
             usfmOnionService,
         });
 
@@ -149,7 +148,6 @@ describe("buildRemoteLatestCompareSource", () => {
                     token: "secret-token",
                 },
                 gitProvider,
-                editorMode: "regular",
                 usfmOnionService,
             }),
         ).rejects.toThrow(/remote head/u);

@@ -168,6 +168,7 @@ export const useWorkspaceActions = ({
         interactionGate,
         currentFileBibleIdentifier,
         currentChapter,
+        editorMode: appSettings.editorMode,
         setIsProcessing,
         history,
     });
@@ -190,12 +191,14 @@ export const useWorkspaceActions = ({
         workingFilesStore,
         interactionGate,
         commitBookLintResults,
+        editorMode: appSettings.editorMode,
         history,
     });
 
     const chapterLabelStandardize = useChapterLabelStandardize({
         workingFilesStore,
         interactionGate,
+        editorMode: appSettings.editorMode,
         history,
     });
 

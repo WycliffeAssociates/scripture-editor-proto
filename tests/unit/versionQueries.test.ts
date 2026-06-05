@@ -37,7 +37,6 @@ describe("versionQueries", () => {
             commitHash: "abc123",
             loadedProject: loadedProject as never,
             gitProvider: gitProvider as never,
-            editorMode: "regular",
             usfmOnionService: usfmOnionService as never,
         });
         const second = await fetchVersionPreview({
@@ -46,7 +45,6 @@ describe("versionQueries", () => {
             commitHash: "abc123",
             loadedProject: loadedProject as never,
             gitProvider: gitProvider as never,
-            editorMode: "regular",
             usfmOnionService: usfmOnionService as never,
         });
 
@@ -86,7 +84,6 @@ describe("versionQueries", () => {
                 commitHash: `hash-${index}`,
                 loadedProject: loadedProject as never,
                 gitProvider: gitProvider as never,
-                editorMode: "regular",
                 usfmOnionService: usfmOnionService as never,
             });
         }
