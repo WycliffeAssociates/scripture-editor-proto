@@ -21,9 +21,13 @@ test.describe("Format Feature", () => {
         await actionPaletteSearch.fill("Format Book");
         await editorPage.keyboard.press("Enter");
 
-        // 4. Verify content contains the inserted marker payload.
-        // Firefox can merge the typed chapter token differently, so assert the stable verse payload.
-        await expect(editor).toContainText(/99\s*\\v\s*1\s*test/i);
+        // 4. Verify the typed payload survived the format. Typed marker
+        // bytes become REAL structure now (upstream format extracts the
+        // markers, the editor pairs them into numbered nodes), so the
+        // literal "\v" is no longer visible text in regular mode — assert
+        // the chapter number and verse payload render instead.
+        await expect(editor).toContainText(/99/);
+        await expect(editor).toContainText(/1\s*test/i);
 
         // Check for a formatting success notification.
         await expect(
