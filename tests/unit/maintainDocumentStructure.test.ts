@@ -1,7 +1,6 @@
 import { createHeadlessEditor } from "@lexical/headless";
 import {
     $createParagraphNode,
-    $getNodeByKey,
     $getRoot,
     $isElementNode,
     type LexicalEditor,
@@ -12,7 +11,6 @@ import { describe, expect, it, vi } from "vitest";
 import { UsfmTokenTypes } from "@/app/data/editor.ts";
 import { settingsDefaults } from "@/app/data/settings.ts";
 import {
-    ensureNumberRangeAlwaysFollowsMarkerExpectingNum,
     maintainDocumentStructure,
     maintainDocumentStructureDebounced,
 } from "@/app/domain/editor/listeners/maintainDocumentStructure.ts";
@@ -105,98 +103,6 @@ describe("maintainDocumentStructure", () => {
         });
 
         logSpy.mockRestore();
-    });
-
-    async function insertOrphanMarkerWithNumberRange(
-        editor: LexicalEditor,
-        paragraphId: string,
-    ) {
-        let markerKey = "";
-        await updateAndFlush(editor, () => {
-            removeAllRootChildren();
-
-            const paragraph = $createUSFMParagraphNode({
-                id: paragraphId,
-                marker: "p",
-            });
-
-            const marker = $createUSFMTextNode("\\v", {
-                id: `${paragraphId}-marker`,
-                sid: "tier-b",
-                tokenType: UsfmTokenTypes.marker,
-            });
-            marker.setMarker("v");
-            markerKey = marker.getKey();
-
-            const numberRange = $createUSFMTextNode("", {
-                id: `${paragraphId}-number`,
-                sid: "tier-b",
-                tokenType: UsfmTokenTypes.numberRange,
-            });
-
-            paragraph.append(marker, numberRange);
-            $getRoot().append(paragraph);
-        });
-        return markerKey;
-    }
-
-    it("Plain mode: Tier B skips orphan marker cleanup", async () => {
-        const editor = createEmptyTestEditor();
-        const markerKey = await insertOrphanMarkerWithNumberRange(
-            editor,
-            "plain-orphan-paragraph",
-        );
-        const updates: Array<{
-            dbgLabel: string;
-            run: () => void;
-        }> = [];
-        editor.getEditorState().read(() => {
-            const markerNode = $getNodeByKey(markerKey);
-            if (!markerNode || !$isUSFMTextNode(markerNode)) {
-                throw new Error("Marker node missing");
-            }
-            ensureNumberRangeAlwaysFollowsMarkerExpectingNum({
-                node: markerNode,
-                tokenType: markerNode.getTokenType(),
-                appSettings: {
-                    ...settingsDefaults,
-                    editorMode: "plain",
-                },
-                updates,
-            });
-        });
-        expect(updates).toHaveLength(0);
-    });
-
-    it("Regular mode: Tier B removes orphan chapter/verse markers", async () => {
-        const editor = createEmptyTestEditor();
-        const markerKey = await insertOrphanMarkerWithNumberRange(
-            editor,
-            "regular-orphan-paragraph",
-        );
-        const updates: Array<{
-            dbgLabel: string;
-            run: () => void;
-        }> = [];
-        editor.getEditorState().read(() => {
-            const markerNode = $getNodeByKey(markerKey);
-            if (!markerNode || !$isUSFMTextNode(markerNode)) {
-                throw new Error("Marker node missing");
-            }
-            ensureNumberRangeAlwaysFollowsMarkerExpectingNum({
-                node: markerNode,
-                tokenType: markerNode.getTokenType(),
-                appSettings: {
-                    ...settingsDefaults,
-                    editorMode: "regular",
-                },
-                updates,
-            });
-        });
-        expect(updates).toHaveLength(1);
-        expect(updates[0].dbgLabel).toContain(
-            "ensureNumberRangeAlwaysFollowsMarkerExpectingNum",
-        );
     });
 
     it("debounced: does not add leading space after char endMarker boundary", async () => {

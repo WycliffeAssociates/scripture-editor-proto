@@ -4,8 +4,6 @@ import {
     $getSelection,
     $isRangeSelection,
     COMMAND_PRIORITY_HIGH,
-    COPY_COMMAND,
-    CUT_COMMAND,
     KEY_BACKSPACE_COMMAND,
     KEY_DOWN_COMMAND,
     KEY_ENTER_COMMAND,
@@ -18,9 +16,6 @@ import { useEffect } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
 import { EDITOR_MODES, UsfmTokenTypes } from "@/app/data/editor.ts";
 import {
-    handleBackslashOnStartOfVerse,
-    handleBackspaceToRemoveLinebreakBeforeVerse,
-    handleEnterOnStartOfVerse,
     moveToAdjacentNodesWhenSeemsAppropriate,
     normalizeSelectionAtHiddenMarkerBoundary,
     redirectPrintableTypingAtHiddenMarkerBoundary,
@@ -40,7 +35,6 @@ import {
     $isUSFMTextNode,
     USFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
-import { expandSelectionToIncludePrecedingVerseMarker } from "@/app/domain/editor/utils/expandSelectionToIncludeVerseMarker.ts";
 import { calculateIsStartOfLine } from "@/app/domain/editor/utils/nodePositionUtils.ts";
 import {
     isUsfmLikePaste,
@@ -129,14 +123,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 (event: KeyboardEvent) => {
                     if (editorModeSetting !== EDITOR_MODES.regular)
                         return false;
-                    if (
-                        handleBackspaceToRemoveLinebreakBeforeVerse(
-                            editor,
-                            event,
-                        )
-                    ) {
-                        return true;
-                    }
                     const selection = $getSelection();
                     if (
                         !$isRangeSelection(selection) ||
@@ -280,130 +266,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
-        const expandVerseCopySelectionUnregister = editor.registerCommand(
-            COPY_COMMAND,
-            (payload) => {
-                if (editorModeSetting !== EDITOR_MODES.regular) return false;
-
-                const event =
-                    payload instanceof Event
-                        ? (payload as ClipboardEvent | KeyboardEvent)
-                        : null;
-
-                const restoreRef: {
-                    current: {
-                        anchor: {
-                            key: string;
-                            offset: number;
-                            type: "text" | "element";
-                        };
-                        focus: {
-                            key: string;
-                            offset: number;
-                            type: "text" | "element";
-                        };
-                        format: number;
-                        style: string;
-                    } | null;
-                } = {
-                    current: null,
-                };
-
-                editor.update(
-                    () => {
-                        const selection = $getSelection();
-                        if (
-                            !$isRangeSelection(selection) ||
-                            selection.isCollapsed()
-                        ) {
-                            return;
-                        }
-
-                        const snapshot = selection.clone();
-                        const didExpand =
-                            expandSelectionToIncludePrecedingVerseMarker(
-                                selection,
-                            );
-                        if (!didExpand) return;
-
-                        restoreRef.current = {
-                            anchor: {
-                                key: snapshot.anchor.key,
-                                offset: snapshot.anchor.offset,
-                                type: snapshot.anchor.type,
-                            },
-                            focus: {
-                                key: snapshot.focus.key,
-                                offset: snapshot.focus.offset,
-                                type: snapshot.focus.type,
-                            },
-                            format: snapshot.format,
-                            style: snapshot.style,
-                        };
-                    },
-                    { discrete: true, event },
-                );
-
-                const restoreSelection = restoreRef.current;
-                if (restoreSelection) {
-                    queueMicrotask(() => {
-                        editor.update(
-                            () => {
-                                const selection = $getSelection();
-                                if (!$isRangeSelection(selection)) return;
-
-                                selection.anchor.set(
-                                    restoreSelection.anchor.key,
-                                    restoreSelection.anchor.offset,
-                                    restoreSelection.anchor.type,
-                                );
-                                selection.focus.set(
-                                    restoreSelection.focus.key,
-                                    restoreSelection.focus.offset,
-                                    restoreSelection.focus.type,
-                                );
-                                selection.setFormat(restoreSelection.format);
-                                selection.setStyle(restoreSelection.style);
-                            },
-                            { discrete: true },
-                        );
-                    });
-                }
-
-                return false;
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
-        const expandVerseCutSelectionUnregister = editor.registerCommand(
-            CUT_COMMAND,
-            (payload) => {
-                if (editorModeSetting !== EDITOR_MODES.regular) return false;
-
-                const event =
-                    payload instanceof Event
-                        ? (payload as ClipboardEvent | KeyboardEvent)
-                        : null;
-
-                editor.update(
-                    () => {
-                        const selection = $getSelection();
-                        if (
-                            !$isRangeSelection(selection) ||
-                            selection.isCollapsed()
-                        ) {
-                            return;
-                        }
-                        expandSelectionToIncludePrecedingVerseMarker(selection);
-                    },
-                    { discrete: true, event },
-                );
-
-                return false;
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
         const usfmAwarePasteUnregister = editor.registerCommand(
             PASTE_COMMAND,
             (payload) => {
@@ -455,20 +317,6 @@ export function useEditorInput(editor: LexicalEditor) {
             COMMAND_PRIORITY_HIGH,
         );
 
-        // Register KEY_DOWN_COMMAND for handling Enter at start of verse
-        const handleEnterOnVerseUnregister = editor.registerCommand(
-            KEY_DOWN_COMMAND,
-            (event: KeyboardEvent) => {
-                const backslashHandled = handleBackslashOnStartOfVerse(
-                    editor,
-                    event,
-                );
-                if (backslashHandled) return true;
-                return handleEnterOnStartOfVerse(editor, event);
-            },
-            COMMAND_PRIORITY_HIGH,
-        );
-
         // Cleanup function
         const cleanup = () => {
             unregisterTransformWhileTyping();
@@ -478,10 +326,7 @@ export function useEditorInput(editor: LexicalEditor) {
             moveToAdjacentNodesUnregister();
             removeStructuralEmptyParaOnBackspaceUnregister();
             insertParagraphAfterStructuralEmptyMarkerUnregister();
-            expandVerseCopySelectionUnregister();
-            expandVerseCutSelectionUnregister();
             usfmAwarePasteUnregister();
-            handleEnterOnVerseUnregister();
         };
 
         return cleanup;
