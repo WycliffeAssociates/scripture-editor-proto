@@ -2,11 +2,13 @@ import type {
     AttributeItem as OnionAttributeItem,
     BuildSidBlocksOptions as OnionBuildSidBlocksOptions,
     ChapterTokenDiff as OnionChapterTokenDiff,
+    ClosingBehavior as OnionClosingBehavior,
     DiffUndoSide as OnionDiffUndoSide,
     LintCode as OnionLintCode,
     LintIssue as OnionLintIssue,
     LintOptions as OnionLintOptions,
     MarkerInfo as OnionMarkerInfo,
+    MarkerPayload as OnionMarkerPayload,
     ParagraphCategory as OnionParagraphCategory,
     ParsedUsfm as OnionParsedUsfm,
     Token as OnionToken,
@@ -33,6 +35,23 @@ export type MarkerInfo = OnionMarkerInfo;
  * from — `"poetry"` distinguishes poetic lines (which `family` does not).
  */
 export type ParagraphCategory = OnionParagraphCategory;
+/**
+ * What argument token a marker's tag consumes, straight from usfm-onion
+ * (v0.0.6+): `"numberRange"` for the chapter/verse-number family
+ * (c, cp, ca, v, vp, va), `"bookCode"` for `\id`. Single-sourced upstream
+ * with the lexer's pending-payload table, so tokenization and catalog cannot
+ * disagree. This is the axis numbered-marker node membership derives from —
+ * never marker-name lists.
+ */
+export type MarkerPayload = OnionMarkerPayload;
+/**
+ * Whether/how a marker closes (v0.0.6+): `"none"` (never closes — c, v, cp,
+ * paragraphs) · `"requiredExplicit"` (\\nd…\\nd*, ca/va/vp) ·
+ * `"optionalExplicitUntilNoteEnd"` (note submarkers) ·
+ * `"selfClosingMilestone"`. Close *expectation* answers from this; close
+ * *bytes* are whatever the lexer actually saw.
+ */
+export type ClosingBehavior = OnionClosingBehavior;
 export type RawUsfmMarkerCatalog = OnionUsfmMarkerCatalog;
 export type DiffUndoSide = OnionDiffUndoSide;
 export type DiffTokenAlignment = OnionTokenAlignment;

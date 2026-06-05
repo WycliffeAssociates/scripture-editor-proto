@@ -35,12 +35,7 @@ export function makeLintPipeline(args: {
                 : latest.filter((file) => scope.books.has(file.bookCode));
             if (files.length === 0) return;
             const results = yield* Effect.tryPromise(() =>
-                // PoC (Phase 3): sous-chef now owns content whitespace, so
-                // disable onion's structural rule to avoid double-flagging
-                // the same span. TODO: removable once onion drops that rule.
-                relintBookFiles(files, args.usfmOnionService, {
-                    disabledRules: ["excess-whitespace-in-content"],
-                }),
+                relintBookFiles(files, args.usfmOnionService),
             );
             for (const [bookCode, issues] of Object.entries(results)) {
                 args.findingsStore.commitBookFindings(

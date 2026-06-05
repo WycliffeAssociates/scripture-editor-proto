@@ -57,10 +57,9 @@ export const LOCALIZED_LINT_CODES = [
     "missing-whitespace-before-marker",
     "missing-horizontal-whitespace-after-marker-name",
     "missing-tag-end-delimiter-after-marker",
-    "excess-whitespace-around-marker",
-    "excess-whitespace-in-content",
     "missing-content-space-after-close-marker",
     "verse-in-section-or-other-paragraph",
+    "content-after-blank-marker",
 ] as const;
 
 export function formatLintIssueMessage(issue: LintIssue): string {
@@ -72,7 +71,6 @@ export function formatLintIssueMessage(issue: LintIssue): string {
     const context = getParam(issue.messageParams, "context");
     const kind = getParam(issue.messageParams, "kind");
     const target = getParam(issue.messageParams, "target");
-    const position = getParam(issue.messageParams, "position");
     const closer = getParam(issue.messageParams, "closer");
     const form = getParam(issue.messageParams, "form");
     const category = getParam(issue.messageParams, "category");
@@ -183,16 +181,6 @@ export function formatLintIssueMessage(issue: LintIssue): string {
             return t`\\${marker} needs a space after the marker name.`;
         case "missing-tag-end-delimiter-after-marker":
             return t`\\${marker} needs a space before the text that follows.`;
-        case "excess-whitespace-around-marker":
-            if (position === "before") {
-                return t`Too much whitespace before \\${marker}.`;
-            }
-            if (position === "after") {
-                return t`Too much whitespace after \\${marker}.`;
-            }
-            return t`Too much whitespace around \\${marker}.`;
-        case "excess-whitespace-in-content":
-            return t`Multiple spaces or a stray newline inside this text — collapse to a single space.`;
         case "missing-content-space-after-close-marker":
             return t`\\${marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this.`;
         case "verse-in-section-or-other-paragraph":
@@ -200,6 +188,8 @@ export function formatLintIssueMessage(issue: LintIssue): string {
                 return t`\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables.`;
             }
             return t`\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables.`;
+        case "content-after-blank-marker":
+            return t`\\${marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …).`;
         default:
             return fallbackMessage;
     }

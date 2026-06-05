@@ -1,4 +1,6 @@
 import type {
+    ClosingBehavior,
+    MarkerPayload,
     ParagraphCategory,
     UsfmMarkerCatalog,
 } from "@/core/domain/usfm/usfmOnionTypes.ts";
@@ -35,6 +37,8 @@ type MarkerRegistry = {
     chapterVerseMarkers: Set<string>;
     documentMarkers: Set<string>;
     paragraphCategoryByMarker: Map<string, ParagraphCategory>;
+    payloadByMarker: Map<string, MarkerPayload>;
+    closingBehaviorByMarker: Map<string, ClosingBehavior>;
 };
 
 let registry: MarkerRegistry | null = null;
@@ -96,9 +100,17 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
     ]);
 
     const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
+    const payloadByMarker = new Map<string, MarkerPayload>();
+    const closingBehaviorByMarker = new Map<string, ClosingBehavior>();
     for (const [marker, info] of Object.entries(catalog.infoByMarker)) {
         if (info.paragraphCategory) {
             paragraphCategoryByMarker.set(marker, info.paragraphCategory);
+        }
+        if (info.payload) {
+            payloadByMarker.set(marker, info.payload);
+        }
+        if (info.closingBehavior) {
+            closingBehaviorByMarker.set(marker, info.closingBehavior);
         }
     }
 
@@ -111,6 +123,8 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         chapterVerseMarkers: new Set(catalog.chapterVerseMarkers),
         documentMarkers: new Set(catalog.documentMarkers),
         paragraphCategoryByMarker,
+        payloadByMarker,
+        closingBehaviorByMarker,
     };
 }
 
@@ -162,4 +176,40 @@ export function getParagraphCategory(
 
 export function isValidParaMarker(marker: string) {
     return VALID_PARA_MARKERS.has(marker);
+}
+
+/**
+ * The marker's tag-argument payload (`"numberRange"` / `"bookCode"`), or
+ * `undefined` for markers without one OR before the catalog is initialized.
+ * Graceful like `getParagraphCategory` — read on load/serialize paths where
+ * falling back to flat-token behavior is safer than a throw.
+ */
+export function getMarkerPayload(marker: string): MarkerPayload | undefined {
+    return registry?.payloadByMarker.get(marker);
+}
+
+/**
+ * The marker's close expectation from the catalog, or `undefined` when the
+ * catalog doesn't enumerate it / isn't initialized. Expectation only — the
+ * bytes a close actually arrived with live on tokens/nodes.
+ */
+export function getClosingBehavior(
+    marker: string,
+): ClosingBehavior | undefined {
+    return registry?.closingBehaviorByMarker.get(marker);
+}
+
+/**
+ * Membership in the marker+number-payload family that materializes as a
+ * numbered-marker node TODAY: payload says "numberRange" (the catalog fact
+ * that defines the family — c, cp, ca, v, vp, va) AND the marker is in the
+ * catalog's chapter/verse set (the shipped subset — c, v). The second
+ * condition is the rollout gate: cp/ca/va/vp share the node shape and join
+ * by widening this to the payload check alone.
+ */
+export function isEnabledNumberedMarker(marker: string): boolean {
+    return (
+        getMarkerPayload(marker) === "numberRange" &&
+        (registry?.chapterVerseMarkers.has(marker) ?? false)
+    );
 }

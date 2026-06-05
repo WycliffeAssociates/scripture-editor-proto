@@ -15,6 +15,7 @@ import { makeRecoveredConflictTrackerSubscriber } from "@/app/domain/editor/pipe
 import { makeSaveStatusPipeline } from "@/app/domain/editor/pipelines/saveStatusPipeline.ts";
 import { makeSousPipeline } from "@/app/domain/editor/pipelines/sousPipeline.ts";
 import { makeStructureMaintenancePipeline } from "@/app/domain/editor/pipelines/structureMaintenancePipeline.ts";
+import { makeTokenFixpointPipeline } from "@/app/domain/editor/pipelines/tokenFixpointPipeline.ts";
 import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
@@ -321,6 +322,20 @@ export const ProjectProvider = ({
                 usfmOnionService,
             }),
         [workingFilesStore, findingsStore, usfmOnionService],
+    );
+
+    // Dev-only I2 re-lex fixpoint alarm: flags any commit whose token stream
+    // no longer matches a fresh lex of its own bytes. Diagnostics only — it
+    // never mutates state (see makeTokenFixpointPipeline).
+    useForkedPipeline(
+        () =>
+            import.meta.env.DEV
+                ? makeTokenFixpointPipeline({
+                      workingFilesStore,
+                      usfmOnionService,
+                  })
+                : Effect.void,
+        [workingFilesStore, usfmOnionService],
     );
 
     // sous content findings: a PARALLEL subscriber to the same store the lint

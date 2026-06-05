@@ -108,8 +108,11 @@ describe("Prettify Feature Integration", () => {
                     node.tokenType === UsfmTokenTypes.text &&
                     node.text.includes("My soul makes its boast"),
             ) as SerializedUSFMTextNode;
+            // Delimiter parking: the verse number absorbs its own argument
+            // terminator, so following text arrives content-pure (no leading
+            // space).
             expect(v2TextNode.text).toBe(
-                " My soul makes its boast in the Lord; let the humble hear and be glad. ",
+                "My soul makes its boast in the Lord; let the humble hear and be glad. ",
             );
 
             const vMarkers = flattened.filter(
