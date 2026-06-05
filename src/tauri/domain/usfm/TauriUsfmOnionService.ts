@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
-import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -118,7 +117,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             paths,
             options: toTauriLintOptions(options),
         });
-        return results.map((batch) => batch.filter(shouldKeepLintIssue));
+        return results;
     }
 
     private async lintTokenBatches(
@@ -133,7 +132,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                     options: toTauriTokenLintOptions(options),
                 },
             );
-            return results.map((batch) => batch.filter(shouldKeepLintIssue));
+            return results;
         }, `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`);
     }
 
@@ -190,11 +189,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                     options: toTauriProjectOptions(options),
                 },
             );
-            return {
-                ...projection,
-                lintIssues:
-                    projection.lintIssues?.filter(shouldKeepLintIssue) ?? null,
-            };
+            return projection;
         }, `[tauri] parseUsfm (sourceLength: ${source.length})`);
     }
 
@@ -213,11 +208,7 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
                     options: toTauriProjectOptions(options),
                 },
             );
-            return projections.map((projection) => ({
-                ...projection,
-                lintIssues:
-                    projection.lintIssues?.filter(shouldKeepLintIssue) ?? null,
-            }));
+            return projections;
         }, `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`);
     }
 

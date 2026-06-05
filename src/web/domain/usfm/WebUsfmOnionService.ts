@@ -1,6 +1,5 @@
 import * as onion from "usfm-onion-web";
 import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
-import { shouldKeepLintIssue } from "@/app/utils/sharedPlatformLogic.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
@@ -125,9 +124,7 @@ function parsedToProjectedDocument(
     options: ProjectUsfmOptions,
 ): ProjectedUsfmDocument {
     const lintIssues = options.lintOptions
-        ? parsed
-              .lint(toWebProjectLintOptions(options.lintOptions))
-              .issues.filter(shouldKeepLintIssue)
+        ? parsed.lint(toWebProjectLintOptions(options.lintOptions)).issues
         : null;
     return {
         tokens: parsed.tokens(),
@@ -264,7 +261,7 @@ export class WebUsfmOnionService implements IUsfmOnionService {
                 tokens,
                 toWebTokenLintOptions(options),
             );
-            return result.issues.filter(shouldKeepLintIssue);
+            return result.issues;
         }, "web:lintExisting");
     }
 
@@ -281,10 +278,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
                 options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
             const webLintOptions = toWebTokenLintOptions(lintOptions);
             return Promise.all(
-                scope.map(async (item) =>
-                    onion
-                        .lintTokens(item.tokens ?? [], webLintOptions)
-                        .issues.filter(shouldKeepLintIssue),
+                scope.map(
+                    async (item) =>
+                        onion.lintTokens(item.tokens ?? [], webLintOptions)
+                            .issues,
                 ),
             );
         }, "web:lintScope");

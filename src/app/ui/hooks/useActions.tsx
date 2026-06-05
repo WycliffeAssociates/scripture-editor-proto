@@ -14,11 +14,8 @@ import {
     type WorkspaceGateStore,
 } from "@/app/state/WorkspaceInteractionGate.ts";
 import type { FormatMatchingRunReport } from "@/app/ui/data/formatMatching.ts";
-// TODO: action ids likely namespace under findings-store-unification (action-id → action map).
-import { useChapterLabelStandardize } from "@/app/ui/hooks/useChapterLabelStandardize.tsx";
 import type { CustomHistoryHook } from "@/app/ui/hooks/useCustomHistory.ts";
 import { useFormatMatching } from "@/app/ui/hooks/useFormatMatching.tsx";
-import { useLintFixing } from "@/app/ui/hooks/useLintFixing.tsx";
 import type { SetEditorModeOptions } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useModeSwitching } from "@/app/ui/hooks/useModeSwitching.tsx";
 import { useNavigation } from "@/app/ui/hooks/useNavigation.tsx";
@@ -27,7 +24,7 @@ import type { ReferenceItemHook } from "@/app/ui/hooks/useReferenceItem.tsx";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import type { TargetMarkerPreservationMode } from "@/core/domain/usfm/matchFormattingByVerseAnchors.ts";
-import type { LintIssue, Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { Token } from "@/core/domain/usfm/usfmOnionTypes.ts";
 import type { Project } from "@/core/persistence/ScriptureWorkspace.ts";
 import { useEditorState } from "./useEditorState.tsx";
 
@@ -48,7 +45,6 @@ type Props = {
     updateAppSettings: (newSettings: Partial<Settings>) => void;
     pickedFile: ScriptureBookState | null;
     toggleDiffModal: () => void;
-    commitBookLintResults: (resultsByBook: Record<string, LintIssue[]>) => void;
     referenceResource: ReferenceItemHook;
     setIsProcessing: (isProcessing: boolean) => void;
     setFormatMatchReport: Dispatch<
@@ -64,9 +60,11 @@ type Props = {
  * palette.
  *
  * This hook is intentionally an orchestration layer. It gathers narrower hooks
- * for navigation, mode switching, prettify, format matching, lint fixing, and
- * editor state so the rest of the UI can call one coherent set of workspace
- * verbs instead of manually stitching those concerns together.
+ * for navigation, mode switching, prettify, format matching, and editor state
+ * so the rest of the UI can call one coherent set of workspace verbs instead
+ * of manually stitching those concerns together. (Finding-attached verbs —
+ * lint fixes, chapter-label standardize — live as domain functions beside
+ * their decorators instead; see annotations/decorators/.)
  */
 export const useWorkspaceActions = ({
     workingFilesStore,
@@ -82,7 +80,6 @@ export const useWorkspaceActions = ({
     updateAppSettings,
     pickedFile,
     toggleDiffModal: toggleDiffModalCallback,
-    commitBookLintResults,
     referenceResource,
     setIsProcessing,
     setFormatMatchReport,
@@ -187,21 +184,6 @@ export const useWorkspaceActions = ({
         history,
     });
 
-    const lintFixing = useLintFixing({
-        workingFilesStore,
-        interactionGate,
-        commitBookLintResults,
-        editorMode: appSettings.editorMode,
-        history,
-    });
-
-    const chapterLabelStandardize = useChapterLabelStandardize({
-        workingFilesStore,
-        interactionGate,
-        editorMode: appSettings.editorMode,
-        history,
-    });
-
     /**
      * Collect the current file's flat token view for downstream operations such
      * as linting/format matching, saving the current editor state first so the
@@ -274,12 +256,6 @@ export const useWorkspaceActions = ({
         matchFormattingChapter: gated(formatMatching.matchFormattingChapter),
         matchFormattingBook: gated(formatMatching.matchFormattingBook),
         matchFormattingProject: gated(formatMatching.matchFormattingProject),
-
-        // Lint fixing
-        fixLintError: gated(lintFixing.fixLintError),
-        standardizeChapterLabels: gated(
-            chapterLabelStandardize.standardizeChapterLabels,
-        ),
 
         // Utility functions
         getFlatFileTokens,

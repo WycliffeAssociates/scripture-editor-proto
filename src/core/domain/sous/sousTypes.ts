@@ -7,7 +7,7 @@
 
 import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
 
-/** sous severities are already lowercase and 1:1 with `EditorAnnotation`. */
+/** sous severities are already lowercase and 1:1 with `Finding`. */
 export type SousSeverity = "error" | "warning" | "info";
 
 /** One content anomaly. `code` is a sous `RuleId` (e.g. `lex.excess-h-whitespace`). */

@@ -40,7 +40,8 @@ import {
     useRef,
     useState,
 } from "react";
-import { lintIssueToAnnotation } from "@/app/domain/editor/annotations/onionAnnotationProvider.tsx";
+import { decorateFindingInert } from "@/app/domain/editor/annotations/decorators/decorateFinding.tsx";
+import { lintIssuesToFindings } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import {
     consumePendingFocus,
     deriveBlockKind,
@@ -612,17 +613,16 @@ function FragmentRow(props: FragmentRowProps) {
     // the shared popover and its localized message. See formModeSyntheticLint.
     const [errIconEl, setErrIconEl] = useState<HTMLElement | null>(null);
     const [errHovered, setErrHovered] = useState(false);
-    // The synthetic issue carries no fix, so it normalizes to a message-only
-    // annotation (no action button) — same as it rendered under the old
-    // lint-mode popover.
-    const emptyVerseAnnotation = useMemo(
-        () =>
-            lintIssueToAnnotation(
-                emptyVerseSyntheticIssue(fragmentSid || undefined),
-                { applyFix: () => undefined },
-            ),
-        [fragmentSid],
-    );
+    // The synthetic issue carries no fix, so it decorates to a message-only
+    // finding (no action button) — same as it rendered under the old
+    // lint-mode popover. Inert decoration: form mode's per-card affordance
+    // offers no capabilities, so no ctx is assembled.
+    const emptyVerseAnnotation = useMemo(() => {
+        const [finding] = lintIssuesToFindings([
+            emptyVerseSyntheticIssue(fragmentSid || undefined),
+        ]);
+        return decorateFindingInert(finding);
+    }, [fragmentSid]);
     const fieldClassName = [
         styles.field,
         isInvalid ? styles.fieldInvalid : "",

@@ -11,7 +11,7 @@ const popIn = keyframes({
     to: { opacity: 1, transform: "translateY(0) scale(1)" },
 });
 
-// Floating surface — mirrors LintIssuesPopover.popover, sized down for an inline
+// Floating surface — mirrors FindingsPopover.popover, sized down for an inline
 // affordance rather than a full panel. Shared by lint mode and custom content.
 export const popup = style({
     minWidth: "16rem",

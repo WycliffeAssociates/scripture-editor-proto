@@ -6,10 +6,6 @@ import {
 } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import {
-    buildLintMessagesByBook,
-    type LintMessagesByBook,
-} from "@/app/ui/hooks/lintState.ts";
-import {
     getBookSlug,
     sortUsfmFilesByCanonicalOrder,
 } from "@/core/data/bible/bible.ts";
@@ -107,6 +103,12 @@ async function projectEntriesForApp(args: {
 }
 
 /**
+ * Initial per-book lint results from the project load — the seed for the
+ * findings store's onion slice (normalized at the workspace boundary).
+ */
+export type InitialLintByBook = Record<string, LintIssue[]>;
+
+/**
  * Build the editable scripture workspace state from a loaded scripture noun.
  *
  * This is the final step before the editor UI takes over. It batches parsing,
@@ -127,7 +129,7 @@ export async function scriptureProjectToParsedFiles(args: {
     includeSourceMd5?: boolean;
 }): Promise<{
     parsedFiles: ScriptureBookState[];
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
     diskMd5ByBook: Map<string, string>;
 }> {
     const entries = args.usfmOnionService.supportsPathIo
@@ -157,7 +159,7 @@ export async function scriptureProjectToParsedFiles(args: {
               usfmOnionService: args.usfmOnionService,
               projectionOptions,
           });
-    const allInitialLintErrors: LintIssue[] = [];
+    const initialLintErrorsByBook: InitialLintByBook = {};
     const parsed: ScriptureBookState[] = [];
     const diskMd5ByBook = new Map<string, string>();
     for (let i = 0; i < sorted.length; i++) {
@@ -173,7 +175,10 @@ export async function scriptureProjectToParsedFiles(args: {
         const normalizedTokens = normalizeTokenSids(mergedTokens, bookCode);
         const sourceTokensByChapter =
             groupFlatTokensByChapter(normalizedTokens);
-        allInitialLintErrors.push(...lintIssues);
+        // Keyed by the LOOP's book — the authoritative scope — so issues with
+        // no/odd sids (front matter) still seed under their book instead of
+        // being dropped by sid parsing.
+        initialLintErrorsByBook[bookCode] = lintIssues;
         const nextBookCode =
             i === sorted.length - 1
                 ? null
@@ -216,7 +221,7 @@ export async function scriptureProjectToParsedFiles(args: {
     }
     return {
         parsedFiles: parsed,
-        initialLintErrorsByBook: buildLintMessagesByBook(allInitialLintErrors),
+        initialLintErrorsByBook,
         diskMd5ByBook,
     };
 }

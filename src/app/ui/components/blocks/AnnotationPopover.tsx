@@ -1,7 +1,7 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { AlertCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
+import type { DecoratedFinding } from "@/app/domain/editor/annotations/finding.ts";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
 import * as styles from "@/app/ui/styles/modules/AnnotationPopover.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
@@ -9,10 +9,10 @@ import { zLayer } from "@/app/ui/styles/zLayers.ts";
 /**
  * Inline annotation popover (formerly `LintFixPopover`).
  *
- * A dumb renderer for the source-agnostic annotation spine: each
- * `EditorAnnotation` shows as an icon + message and one button per
- * `action`. It knows nothing about onion vs sous vs app — providers normalize
- * raw findings into `EditorAnnotation` upstream (see `onionAnnotationProvider`).
+ * A dumb renderer for the findings spine: each `DecoratedFinding` shows as an
+ * icon + message and one button per `action`. It knows nothing about onion vs
+ * sous — normalizers produce `Finding`s and the decorator registry attaches
+ * message + actions upstream (see annotations/decorators/decorateFinding.tsx).
  *
  * A real Base-UI Popover so placement gets automatic flip/shift collision
  * handling (the old hand-rolled tooltip used an unconditional
@@ -30,7 +30,7 @@ export type AnnotationPopoverProps = {
     /** The element to anchor against. */
     anchor: HTMLElement | null;
     /** Annotation mode: items to show. Ignored when `children` is provided. */
-    annotations?: EditorAnnotation[] | null;
+    annotations?: DecoratedFinding[] | null;
     /**
      * Custom-content mode: render arbitrary content in the same popover shell.
      * When set, `annotations` is ignored and you control visibility via `open`.
@@ -90,7 +90,7 @@ export function AnnotationPopover({
 }
 
 // Icon + message per annotation, then one full-width button per action.
-function AnnotationList({ annotations }: { annotations: EditorAnnotation[] }) {
+function AnnotationList({ annotations }: { annotations: DecoratedFinding[] }) {
     return (
         <div className={styles.body}>
             {annotations.map((annotation) => (
@@ -103,7 +103,7 @@ function AnnotationList({ annotations }: { annotations: EditorAnnotation[] }) {
                             {annotation.message}
                         </span>
                     </div>
-                    {annotation.actions?.map((action) => (
+                    {annotation.actions.map((action) => (
                         <Button
                             key={action.id}
                             variant={

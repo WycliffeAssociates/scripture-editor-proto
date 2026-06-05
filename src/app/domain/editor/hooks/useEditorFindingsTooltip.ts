@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DATA_JS } from "@/app/data/constants.ts";
-import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
 
 type ScrollSnapshot = {
     left: number;
@@ -8,8 +7,10 @@ type ScrollSnapshot = {
     element: HTMLElement;
 };
 
-export type UseEditorLintTooltipReturn = {
-    hoveredAnnotations: EditorAnnotation[] | null;
+// Generic over the annotation item type — this hook owns hover timing and the
+// state machine, not what an annotation IS; the caller's lookup decides that.
+export type UseEditorFindingsTooltipReturn<T> = {
+    hoveredAnnotations: T[] | null;
     /** The hovered overlay element (badge or highlight box) to anchor against. */
     hoveredAnchorEl: HTMLElement | null;
     onTooltipMouseEnter: () => void;
@@ -65,23 +66,23 @@ function getDocumentScrollElement(element: HTMLElement): HTMLElement {
  * (onion lint by token-id + sous content findings by their touched token-ids,
  * the hover zip).
  */
-export function useEditorLintTooltip(
-    lookupForTarget: (target: HTMLElement) => EditorAnnotation[],
+export function useEditorFindingsTooltip<T>(
+    lookupForTarget: (target: HTMLElement) => T[],
     // Geometric hit-test for content findings: their highlights are
     // click-through (so the editor stays clickable underneath), so they can't be
     // pointer hitpoints — instead we hit-test the cursor against their rects on
     // mousemove and treat the matched highlight element (carrying
     // `data-annotation-id`) as the hover target.
     findContentHit?: (clientX: number, clientY: number) => HTMLElement | null,
-): UseEditorLintTooltipReturn {
+): UseEditorFindingsTooltipReturn<T> {
     const SCROLL_CLOSE_THRESHOLD = 7;
-    const [hoveredAnnotations, setHoveredAnnotations] = useState<
-        EditorAnnotation[] | null
-    >(null);
+    const [hoveredAnnotations, setHoveredAnnotations] = useState<T[] | null>(
+        null,
+    );
     const [hoveredAnchorEl, setHoveredAnchorEl] = useState<HTMLElement | null>(
         null,
     );
-    const hoverAnnotationsRef = useRef<EditorAnnotation[] | null>(null);
+    const hoverAnnotationsRef = useRef<T[] | null>(null);
     // Identity of the issue currently shown or pending (data-id / sid). Lets us
     // ignore repeat mouseovers across the same issue's boxes so the popover
     // anchors once and stays put instead of jittering as the pointer moves.

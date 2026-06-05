@@ -1,10 +1,11 @@
 import { Effect } from "effect";
+import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import {
     type FoldedBookScope,
     makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import { lintScopeFor } from "@/app/state/commitFilters.ts";
-import type { LintStore } from "@/app/state/LintStore.ts";
+import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
@@ -17,13 +18,12 @@ const DEFAULT_LINT_DEBOUNCE_MS = 100;
  * Relevance + expansion live in `lintScopeFor` (book granularity); scopes
  * accumulated across the debounce window are drained as ONE pass — a single
  * `lintScope` service call carries every book as a token batch (one IPC
- * round-trip on Tauri), and all results land in the LintStore as a single
- * commit. The previous lint pass for each book is wiped (matches legacy
- * `commitBookLintResults` semantics).
+ * round-trip on Tauri). Each book's result then supersedes that book's node
+ * in the findings store's onion slice wholesale — a clean book commits `{}`.
  */
 export function makeLintPipeline(args: {
     workingFilesStore: WorkingFilesStore;
-    lintStore: LintStore;
+    findingsStore: FindingsStore;
     usfmOnionService: IUsfmOnionService;
     debounceMs?: number;
 }): Effect.Effect<void> {
@@ -42,7 +42,13 @@ export function makeLintPipeline(args: {
                     disabledRules: ["excess-whitespace-in-content"],
                 }),
             );
-            args.lintStore.commitBookLintResults(results);
+            for (const [bookCode, issues] of Object.entries(results)) {
+                args.findingsStore.commitBookFindings(
+                    "onion",
+                    bookCode,
+                    onionFindingsByChapter(issues),
+                );
+            }
         }).pipe(
             Effect.catch((error: unknown) =>
                 Effect.sync(() => {

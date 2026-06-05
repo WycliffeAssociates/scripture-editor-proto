@@ -30,7 +30,7 @@ import {
     parsedUsfmTokensToInsertableNodes,
 } from "@/app/domain/editor/utils/usfmPaste.ts";
 import { CloudStatusPopover } from "@/app/ui/components/blocks/CloudStatusPopover.tsx";
-import { LintIssuesPopover } from "@/app/ui/components/blocks/LintIssuesPopover.tsx";
+import { FindingsPopover } from "@/app/ui/components/blocks/FindingsPopover.tsx";
 import { ReferencePicker } from "@/app/ui/components/blocks/ReferencePicker.tsx";
 import { VersionsPopover } from "@/app/ui/components/blocks/VersionsPopover.tsx";
 import { Button } from "@/app/ui/components/primitives/Button/Button.tsx";
@@ -367,7 +367,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                             active={props.isReferencePaneOpen}
                             icon={<BookCopy size={16} />}
                         />
-                        <LintIssuesPopover />
+                        <FindingsPopover />
                         <ToolbarTooltipButton
                             label={
                                 props.isSearchPaneOpen

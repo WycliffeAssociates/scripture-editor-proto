@@ -4,11 +4,11 @@ import { expect, test } from "../helpers/e2e/fixtures.ts";
 test.describe("LintPopover Component", () => {
     test("opens and lists lint issues", async ({ editorPage }) => {
         const triggerButton = editorPage.getByTestId(
-            TESTING_IDS.lintPopover.triggerButton,
+            TESTING_IDS.findingsPopover.triggerButton,
         );
         await triggerButton.click();
         await expect(
-            editorPage.getByTestId(TESTING_IDS.lintPopover.container),
+            editorPage.getByTestId(TESTING_IDS.findingsPopover.container),
         ).toBeVisible();
 
         // Default scope is the current chapter, which may have no issues. The
@@ -22,7 +22,7 @@ test.describe("LintPopover Component", () => {
         }
 
         const errorItems = editorPage.getByTestId(
-            TESTING_IDS.lintPopover.errorItem,
+            TESTING_IDS.findingsPopover.errorItem,
         );
         await expect(errorItems.first()).toBeVisible();
         const itemCount = await errorItems.count();
@@ -30,10 +30,10 @@ test.describe("LintPopover Component", () => {
 
         const firstItem = errorItems.first();
         await expect(
-            firstItem.getByTestId(TESTING_IDS.lintPopover.errorSid),
+            firstItem.getByTestId(TESTING_IDS.findingsPopover.errorSid),
         ).toBeVisible();
         await expect(
-            firstItem.getByTestId(TESTING_IDS.lintPopover.errorMessage),
+            firstItem.getByTestId(TESTING_IDS.findingsPopover.errorMessage),
         ).toBeVisible();
     });
 
@@ -41,11 +41,11 @@ test.describe("LintPopover Component", () => {
         editorPage,
     }) => {
         const triggerButton = editorPage.getByTestId(
-            TESTING_IDS.lintPopover.triggerButton,
+            TESTING_IDS.findingsPopover.triggerButton,
         );
         await triggerButton.click();
         await expect(
-            editorPage.getByTestId(TESTING_IDS.lintPopover.container),
+            editorPage.getByTestId(TESTING_IDS.findingsPopover.container),
         ).toBeVisible();
 
         // Expand scope to the project so we have at least one issue to click.
@@ -57,12 +57,12 @@ test.describe("LintPopover Component", () => {
         }
 
         const firstErrorItem = editorPage
-            .getByTestId(TESTING_IDS.lintPopover.errorItem)
+            .getByTestId(TESTING_IDS.findingsPopover.errorItem)
             .first();
         await expect(firstErrorItem).toBeVisible();
 
         const sidElement = firstErrorItem.getByTestId(
-            TESTING_IDS.lintPopover.errorSid,
+            TESTING_IDS.findingsPopover.errorSid,
         );
         const sidText = await sidElement.textContent();
         // The issue row now renders a localized book name (e.g. "Maciu 19:30"),

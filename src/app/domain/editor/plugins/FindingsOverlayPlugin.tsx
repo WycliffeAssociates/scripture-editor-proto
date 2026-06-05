@@ -1,22 +1,30 @@
-// TODO: long file — findings-store-unification should shorten it; DOM utils
-// could be extracted so the JSX reads cleaner.
 /**
- * Snapshot-driven lint overlay.
+ * Findings overlay (snapshot-driven).
  *
- * This plugin no longer decides which issues exist. It only takes the already-
- * committed visible lint snapshot, finds the best DOM anchor for each issue,
- * and keeps those affordances positioned while the document scrolls or reflows.
+ * This plugin does not decide which findings exist or which are shown — the
+ * pipelines write the FindingsStore and `useFindings` applies the
+ * presentation policy; this plugin takes the policy-shown set for the
+ * visible chapter, finds the best DOM presentation for each finding, and
+ * keeps those affordances positioned while the document scrolls or reflows.
  *
- * Two affordances, chosen per issue by whether the flagged token is currently
- * rendered as visible text:
- *  - HIGHLIGHT — when the token's own element is on screen (text runs always;
- *    markers too, in USFM/plain mode). We draw a translucent highlight over its
- *    client rects (multi-line aware).
- *  - BADGE — when it isn't (e.g. a USFM marker hidden in regular/view mode). We
- *    fall back to the `!` badge at the next-best visible anchor (the verse
- *    number), exactly as before.
+ * Reconciliation is KEYED by `Finding.id` (deterministic across passes):
+ * a findings commit diffs key sets — removed keys tear down, new keys
+ * resolve + draw, surviving keys keep their rects untouched. Only a layout
+ * tick (commit-settle pulse, resize, scroll, content swap) re-measures
+ * everything: layout is the wholesale invalidator, findings changes are the
+ * incremental one. Editing one thing repaints one finding.
  *
- * Both open the same fix popover on hover.
+ * Two affordances for token-anchored findings, chosen by whether the flagged
+ * token is currently rendered as visible text:
+ *  - HIGHLIGHT — the token's own element is on screen; translucent boxes over
+ *    its client rects (multi-line aware).
+ *  - BADGE — it isn't (e.g. a USFM marker hidden in regular/view mode); the
+ *    `!` badge at the next-best visible anchor. A DOM capability fact, not a
+ *    policy row.
+ * Content-anchored findings (sous) resolve to precise sub-token rects via
+ * `resolveContentRange` against the segment sidecar.
+ *
+ * All affordances open the same decorated-finding popover on hover.
  */
 import type { LexicalEditor } from "lexical";
 import {
@@ -26,29 +34,21 @@ import {
     useMemo,
     useRef,
     useState,
-    useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 import { DATA_JS, TESTING_IDS } from "@/app/data/constants.ts";
 import { EDITOR_MODES } from "@/app/data/editor.ts";
-import {
-    type ChapterLabelTally,
-    findChapterLabelEntries,
-    tallyChapterLabels,
-} from "@/app/domain/editor/annotations/chapterLabelTally.ts";
-import type { EditorAnnotation } from "@/app/domain/editor/annotations/editorAnnotation.ts";
-import { lintIssuesToAnnotations } from "@/app/domain/editor/annotations/onionAnnotationProvider.tsx";
+import type {
+    DecoratedFinding,
+    Finding,
+} from "@/app/domain/editor/annotations/finding.ts";
 import { resolveContentRange } from "@/app/domain/editor/annotations/resolveContentRange.ts";
-import { sousFindingsToAnnotations } from "@/app/domain/editor/annotations/sousAnnotationProvider.ts";
-import { useEditorLintTooltip } from "@/app/domain/editor/hooks/useEditorLintTooltip.ts";
-import { lexicalToTokens } from "@/app/domain/editor/utils/usfmTokenStreamSerializedAdapter.ts";
+import { useEditorFindingsTooltip } from "@/app/domain/editor/hooks/useEditorFindingsTooltip.ts";
 import { AnnotationPopover } from "@/app/ui/components/blocks/AnnotationPopover.tsx";
-import { ChapterLabelPicker } from "@/app/ui/components/blocks/ChapterLabelPicker.tsx";
-import { getLintIssueKey } from "@/app/ui/hooks/lintState.ts";
+import { useDecorateFindings } from "@/app/ui/hooks/useDecorateFindings.ts";
 import { useLayoutTick } from "@/app/ui/hooks/useLayoutTick.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import * as styles from "@/app/ui/styles/modules/LintDomOverlay.css.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import * as styles from "@/app/ui/styles/modules/FindingsOverlay.css.ts";
 
 type Rect = { left: number; top: number; width: number; height: number };
 
@@ -58,9 +58,9 @@ type HighlightEntry = {
     dataId: string | null;
     dataSid: string | null;
     rects: Rect[];
-    // Set for sous content findings: the rect itself is the hover target (it
-    // carries `data-annotation-id`), keyed to this finding's exact range rather
-    // than the shared underlying token.
+    // Set for content findings: the rect itself is the hover target (it
+    // carries `data-annotation-id`), keyed to this finding's exact range
+    // rather than the shared underlying token.
     annotationId?: string;
 };
 
@@ -75,10 +75,9 @@ type BadgeEntry = {
 
 type OverlayEntry = HighlightEntry | BadgeEntry;
 
+/** Per-token-finding resolution state, keyed by `Finding.id` in `recordsRef`. */
 type AnchorRecord = {
-    issueKey: string;
-    anchorKey: string;
-    issue: LintIssue;
+    finding: Finding;
     element: HTMLElement | null;
     kind: "highlight" | "badge" | "none";
     rects: Rect[];
@@ -95,18 +94,11 @@ type DomLookup = {
 
 const LINT_HITPOINT_ATTR = "data-lint-hitpoint";
 
-function getAnchorKey(issue: LintIssue): string {
-    if (issue.tokenId) return `token:${issue.tokenId}`;
-    if (issue.relatedTokenId) return `related:${issue.relatedTokenId}`;
-    if (issue.sid) return `sid:${issue.sid}`;
-    return `fallback:${getLintIssueKey(issue)}`;
-}
-
-function getIssueCandidates(issue: LintIssue): string[] {
-    const candidates: string[] = [];
-    if (issue.tokenId) candidates.push(issue.tokenId);
-    if (issue.relatedTokenId) candidates.push(issue.relatedTokenId);
-    if (issue.sid) candidates.push(issue.sid);
+/** Token-ids (then sid) a finding's affordance can anchor to, best first. */
+function anchorCandidates(finding: Finding): string[] {
+    const candidates: string[] = [...(finding.touchedTokenIds ?? [])];
+    const sid = finding.anchor.sid;
+    if (sid) candidates.push(sid);
     return candidates;
 }
 
@@ -158,10 +150,9 @@ function buildDomLookup(root: HTMLElement): DomLookup {
 // Presence of this is what decides highlight (here) vs badge (fallback).
 function findDirectTokenElement(
     lookup: DomLookup,
-    issue: LintIssue,
+    finding: Finding,
 ): HTMLElement | null {
-    for (const id of [issue.tokenId, issue.relatedTokenId]) {
-        if (!id) continue;
+    for (const id of finding.touchedTokenIds ?? []) {
         for (const el of lookup.byDataId.get(id) ?? []) {
             if (isRenderedElementCached(lookup.renderedState, el)) return el;
         }
@@ -247,13 +238,13 @@ function adjustAnchorForMode(
 // itself isn't rendered. Walks markers → siblings → sid matches.
 function findBestVisibleTarget(
     lookup: DomLookup,
-    issue: LintIssue,
+    finding: Finding,
     editorMode: string,
 ): HTMLElement | null {
     const isRawMode =
         editorMode === EDITOR_MODES.usfm || editorMode === EDITOR_MODES.plain;
 
-    for (const candidate of getIssueCandidates(issue)) {
+    for (const candidate of anchorCandidates(finding)) {
         const directMatches = lookup.byDataId.get(candidate) ?? [];
         for (const match of directMatches) {
             const visible = isRenderedElementCached(lookup.renderedState, match)
@@ -367,27 +358,70 @@ function syncHitpointAttributes(
     }
 }
 
+/** Resolve one token-anchored record against the current DOM lookup. */
+function resolveRecord(
+    record: AnchorRecord,
+    lookup: DomLookup,
+    rootEl: HTMLElement,
+    editorMode: string,
+): void {
+    // Preferred path: the flagged token is visible text → highlight it.
+    // Prose (text tokens) highlights per line; numbers/markers use one
+    // bounding box. An empty/hidden element (e.g. a \m empty-paragraph marker
+    // in regular mode) yields no usable rects, so it falls through to the
+    // badge.
+    const direct = findDirectTokenElement(lookup, record.finding);
+    const perLine = direct?.getAttribute("data-token-type") === "text";
+    const rects = direct ? measureHighlightRects(rootEl, direct, perLine) : [];
+    if (direct && rects.length > 0) {
+        record.element = direct;
+        record.kind = "highlight";
+        record.rects = rects;
+        record.left = 0;
+        record.top = 0;
+        record.stale = false;
+        return;
+    }
+
+    // Fallback path: token isn't rendered as usable text (hidden or empty
+    // marker) → badge at the next-best visible anchor.
+    const fallback = findBestVisibleTarget(lookup, record.finding, editorMode);
+    const rect = fallback ? measureAnchorRect(rootEl, fallback) : null;
+    if (fallback && rect) {
+        record.element = fallback;
+        record.kind = "badge";
+        record.rects = [];
+        record.left = Math.max(rect.left - 18, 0);
+        record.top = Math.max(rect.top + Math.min(rect.height / 2 - 8, 4), 0);
+        record.stale = false;
+    } else {
+        record.element = null;
+        record.kind = "none";
+        record.rects = [];
+        record.stale = true;
+    }
+}
+
 function publishEntries(
     records: Map<string, AnchorRecord>,
     setEntries: (entries: OverlayEntry[]) => void,
     activeHitpointsRef: { current: Set<HTMLElement> },
-    // sous content findings resolve to their own highlight entries + hover
-    // hitpoints (the underlying token elements); merge them with the lint set.
+    // Content findings resolve to their own highlight entries; merged with
+    // the token-anchored set.
     extraEntries: OverlayEntry[] = [],
-    extraHitpoints: Set<HTMLElement> = new Set(),
 ) {
     const entries: OverlayEntry[] = [...extraEntries];
-    const nextHitpoints = new Set<HTMLElement>(extraHitpoints);
+    const nextHitpoints = new Set<HTMLElement>();
 
-    for (const record of records.values()) {
+    for (const [id, record] of records) {
         if (record.stale || !record.element || record.kind === "none") continue;
 
+        const anchor = record.finding.anchor;
         const dataId =
             record.element.getAttribute("data-id") ??
-            record.issue.tokenId ??
-            null;
+            (anchor.kind === "token" ? anchor.tokenId : null);
         const dataSid =
-            record.element.getAttribute("data-sid") ?? record.issue.sid ?? null;
+            record.element.getAttribute("data-sid") ?? anchor.sid ?? null;
 
         if (record.kind === "highlight" && record.rects.length > 0) {
             // The highlight box is click-through, so the underlying token is
@@ -395,7 +429,7 @@ function publishEntries(
             nextHitpoints.add(record.element);
             entries.push({
                 kind: "highlight",
-                key: record.issueKey,
+                key: id,
                 dataId,
                 dataSid,
                 rects: record.rects,
@@ -406,7 +440,7 @@ function publishEntries(
             // hitpoint, so hovering it doesn't open an unrelated issue.
             entries.push({
                 kind: "badge",
-                key: record.issueKey,
+                key: id,
                 dataId,
                 dataSid,
                 left: record.left,
@@ -420,21 +454,12 @@ function publishEntries(
     setEntries(entries);
 }
 
-type LintDomAnnotatorPluginProps = {
+type FindingsOverlayPluginProps = {
     editor: LexicalEditor;
 };
 
-export function LintDomAnnotatorPlugin({
-    editor,
-}: LintDomAnnotatorPluginProps) {
-    const {
-        actions,
-        lint,
-        project,
-        layoutTickStore,
-        workingFilesStore,
-        sousFindingsStore,
-    } = useWorkspaceContext();
+export function FindingsOverlayPlugin({ editor }: FindingsOverlayPluginProps) {
+    const { findings, project, layoutTickStore } = useWorkspaceContext();
     const editorMode = project.appSettings.editorMode;
     const tick = useLayoutTick(layoutTickStore);
     const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
@@ -443,97 +468,69 @@ export function LintDomAnnotatorPlugin({
     const [entries, setEntries] = useState<OverlayEntry[]>([]);
     const editorModeRef = useRef(editorMode);
     editorModeRef.current = editorMode;
+    // Token-anchored resolution state, keyed by Finding.id — the keyed
+    // reconciliation map. A plain Map (string keys; must be iterable to
+    // diff); torn down explicitly with the root / on findings changes.
     const recordsRef = useRef<Map<string, AnchorRecord>>(new Map());
     const hitpointsRef = useRef<Set<HTMLElement>>(new Set());
-    const resolveAnchorsRef = useRef<(() => void) | null>(null);
-    // Project-wide chapter-label standardize picker. The tally is derived from
-    // the committed working files only when the user opens the picker (a click,
-    // not a hover), so the hover path stays cheap.
-    const [chapterLabelTally, setChapterLabelTally] =
-        useState<ChapterLabelTally | null>(null);
-    const openChapterLabelPicker = useCallback(() => {
-        const tokens = workingFilesStore.read().flatMap((book) =>
-            book.chapters.flatMap((chapter) =>
-                lexicalToTokens(chapter.lexicalState, {
-                    bookCode: book.bookCode,
-                }),
-            ),
-        );
-        setChapterLabelTally(
-            tallyChapterLabels(findChapterLabelEntries(tokens)),
-        );
-    }, [workingFilesStore]);
+    const resolveAllRef = useRef<(() => void) | null>(null);
 
-    // --- the annotation zip (Phase 3): onion lint + sous content findings ---
-    //
-    // Both sources normalize to `EditorAnnotation` and merge by the token-ids
-    // each touches; the hover lookup then returns both streams for a hovered
-    // token. onion lint issues for the visible scope, normalized once and held
-    // in a ref the (event-time) hover lookup reads.
-    const lintAnnotations = useMemo(
-        () =>
-            lintIssuesToAnnotations(lint.filteredVisibleIssues, {
-                applyFix: actions.fixLintError,
-                onStandardizeChapterLabels: openChapterLabelPicker,
-            }),
-        [
-            lint.filteredVisibleIssues,
-            actions.fixLintError,
-            openChapterLabelPicker,
-        ],
+    // The policy-shown set for the visible chapter, decorated at this edge.
+    // Token-anchored findings go through the record map; content-anchored
+    // ones resolve to sub-token rects against the segment sidecar.
+    const decorate = useDecorateFindings();
+    const decorated = useMemo(
+        () => findings.overlayFindings.map(decorate),
+        [findings.overlayFindings, decorate],
     );
-    const lintAnnotationsRef = useRef(lintAnnotations);
-    lintAnnotationsRef.current = lintAnnotations;
-
-    // sous content findings for the visible book + the vref segment map that
-    // resolves their ranges to DOM rects.
-    const sousResults = useSyncExternalStore(
-        sousFindingsStore.subscribe,
-        sousFindingsStore.getSnapshot,
+    const tokenFindings = useMemo(
+        () => decorated.filter((d) => d.finding.anchor.kind === "token"),
+        [decorated],
     );
-    const sousResult = sousResults[project.pickedFile.bookCode.toUpperCase()];
-    const sousAnnotations = useMemo(
-        () =>
-            sousResult ? sousFindingsToAnnotations(sousResult.findings) : [],
-        [sousResult],
+    const contentFindings = useMemo(
+        () => decorated.filter((d) => d.finding.anchor.kind === "content"),
+        [decorated],
     );
-    const sousAnnotationsRef = useRef(sousAnnotations);
-    sousAnnotationsRef.current = sousAnnotations;
-    const sousSegmentsRef = useRef(sousResult?.segments ?? {});
-    sousSegmentsRef.current = sousResult?.segments ?? {};
-    // finding-id -> annotation, for the hover lookup. Content findings hover off
-    // their own highlight rect (which carries `data-annotation-id`), so the
-    // lookup keys by finding id — not the shared token — keeping multiple
+    const tokenFindingsRef = useRef(tokenFindings);
+    tokenFindingsRef.current = tokenFindings;
+    const contentFindingsRef = useRef(contentFindings);
+    contentFindingsRef.current = contentFindings;
+    const segmentsRef = useRef(findings.sousSegments);
+    segmentsRef.current = findings.sousSegments;
+    // finding-id -> decorated, for the hover lookup. Content findings hover
+    // off their own highlight rect (which carries `data-annotation-id`), so
+    // the lookup keys by finding id — not the shared token — keeping multiple
     // findings in one token independently hoverable.
-    const sousByIdRef = useRef<Map<string, EditorAnnotation>>(new Map());
-    sousByIdRef.current = new Map(sousAnnotations.map((a) => [a.id, a]));
+    const contentByIdRef = useRef<Map<string, DecoratedFinding>>(new Map());
+    contentByIdRef.current = new Map(contentFindings.map((d) => [d.id, d]));
 
-    // The hover zip. A content finding's highlight carries `data-annotation-id`
-    // → return just that finding. Otherwise it's a token hitpoint: onion lint by
-    // touched token-id, sid as the fallback (the pre-zip behavior).
+    // The hover zip. A content finding's highlight carries
+    // `data-annotation-id` → return just that finding. Otherwise it's a token
+    // hitpoint: token-anchored findings by touched token-id, sid as the
+    // fallback (the pre-zip behavior).
     const lookupAnnotationsForTarget = useCallback(
-        (target: HTMLElement): EditorAnnotation[] => {
+        (target: HTMLElement): DecoratedFinding[] => {
             const annotationId = target.getAttribute("data-annotation-id");
             if (annotationId) {
-                const found = sousByIdRef.current.get(annotationId);
+                const found = contentByIdRef.current.get(annotationId);
                 return found ? [found] : [];
             }
             const dataId = target.getAttribute("data-id");
             const dataSid = target.getAttribute("data-sid");
-            const out: EditorAnnotation[] = [];
+            const out: DecoratedFinding[] = [];
             if (dataId) {
-                for (const annotation of lintAnnotationsRef.current) {
-                    if (annotation.touchedTokenIds?.includes(dataId)) {
+                for (const annotation of tokenFindingsRef.current) {
+                    if (annotation.finding.touchedTokenIds?.includes(dataId)) {
                         out.push(annotation);
                     }
                 }
                 if (out.length > 0) return out;
             }
             if (dataSid) {
-                for (const annotation of lintAnnotationsRef.current) {
+                for (const annotation of tokenFindingsRef.current) {
                     if (
-                        annotation.anchor.kind === "token" &&
-                        annotation.anchor.sid === dataSid
+                        annotation.finding.anchor.kind === "token" &&
+                        annotation.finding.anchor.sid === dataSid
                     ) {
                         out.push(annotation);
                     }
@@ -575,7 +572,7 @@ export function LintDomAnnotatorPlugin({
         hoveredAnchorEl,
         onTooltipMouseEnter,
         onTooltipMouseLeave,
-    } = useEditorLintTooltip(lookupAnnotationsForTarget, findContentHit);
+    } = useEditorFindingsTooltip(lookupAnnotationsForTarget, findContentHit);
 
     useEffect(() => {
         const editorRoot = editor.getRootElement();
@@ -590,21 +587,55 @@ export function LintDomAnnotatorPlugin({
         setRootEl(nextRoot);
     }, [editor]);
 
-    // Install resolveAnchors against the current root. Teardown clears
-    // overlay state only when the root changes (project switch / unmount),
-    // not on every tick.
+    // Content findings: resolve each `(sid, range)` to its precise rects.
+    // The rect itself is the hover target (it carries `data-annotation-id`),
+    // so several findings sharing one rendered token each hover
+    // independently — keyed to the range, not the token. Cheap (few per
+    // chapter), so re-resolved whole on every publish.
+    const resolveContentEntries = useCallback((): OverlayEntry[] => {
+        const root = rootElRef.current;
+        if (!root) return [];
+        const out: OverlayEntry[] = [];
+        const segments = segmentsRef.current;
+        for (const annotation of contentFindingsRef.current) {
+            const anchor = annotation.finding.anchor;
+            if (anchor.kind !== "content") continue;
+            const resolved = resolveContentRange(
+                anchor.sid,
+                anchor.range,
+                segments,
+                root,
+            );
+            if (resolved.rects.length === 0) continue;
+            out.push({
+                kind: "highlight",
+                key: annotation.id,
+                dataId: null,
+                dataSid: null,
+                rects: resolved.rects,
+                annotationId: annotation.id,
+            });
+        }
+        return out;
+    }, []);
+
+    // Install the wholesale resolver against the current root. Teardown
+    // clears overlay state only when the root changes (project switch /
+    // unmount), not on every tick.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: resolveContentEntries is a stable useCallback([]) binding.
     useLayoutEffect(() => {
         if (!rootEl) {
-            resolveAnchorsRef.current = null;
+            resolveAllRef.current = null;
             return;
         }
 
-        const resolveAnchors = () => {
-            // Form mode renders verses inside decorator-node cards on the
-            // right; the underlying USFMTextNode DOM may be off-screen or
-            // unrendered, so anchor resolution produces stale or
-            // 0,0-clamped rects. Hide the overlay entirely in form mode —
-            // form mode has its own per-card lint affordance.
+        // Resolve EVERYTHING against a fresh DOM lookup — the layout-tick
+        // path (commit settle, resize, scroll, content swap, mode change).
+        // Re-measuring from a fresh lookup is also what releases references
+        // to detached DOM after a content swap.
+        const resolveAll = () => {
+            // Defensive: the policy hides everything in form shape, so the
+            // shown set is already empty — but a transition can race a frame.
             if (editorModeRef.current === EDITOR_MODES.form) {
                 if (hitpointsRef.current.size > 0) {
                     syncHitpointAttributes(hitpointsRef.current, new Set());
@@ -615,97 +646,22 @@ export function LintDomAnnotatorPlugin({
             }
 
             const lookup = buildDomLookup(rootEl);
-
             for (const record of recordsRef.current.values()) {
-                // Preferred path: the flagged token is visible text → highlight
-                // it. Prose (text tokens) highlights per line; numbers/markers
-                // use one bounding box. An empty/hidden element (e.g. a \m
-                // empty-paragraph marker in regular mode) yields no usable
-                // rects, so we let it fall through to the badge.
-                const direct = findDirectTokenElement(lookup, record.issue);
-                const perLine =
-                    direct?.getAttribute("data-token-type") === "text";
-                const rects = direct
-                    ? measureHighlightRects(rootEl, direct, perLine)
-                    : [];
-                if (direct && rects.length > 0) {
-                    record.element = direct;
-                    record.kind = "highlight";
-                    record.rects = rects;
-                    record.left = 0;
-                    record.top = 0;
-                    record.stale = false;
-                    continue;
-                }
-
-                // Fallback path: token isn't rendered as usable text (hidden or
-                // empty marker) → badge at the next-best visible anchor.
-                const fallback = findBestVisibleTarget(
-                    lookup,
-                    record.issue,
-                    editorModeRef.current,
-                );
-                const rect = fallback
-                    ? measureAnchorRect(rootEl, fallback)
-                    : null;
-                if (fallback && rect) {
-                    record.element = fallback;
-                    record.kind = "badge";
-                    record.rects = [];
-                    record.left = Math.max(rect.left - 18, 0);
-                    record.top = Math.max(
-                        rect.top + Math.min(rect.height / 2 - 8, 4),
-                        0,
-                    );
-                    record.stale = false;
-                } else {
-                    record.element = null;
-                    record.kind = "none";
-                    record.rects = [];
-                    record.stale = true;
-                }
+                resolveRecord(record, lookup, rootEl, editorModeRef.current);
             }
-
-            // sous content findings: resolve each `(sid, range)` to its precise
-            // rects. The rect itself is the hover target (it carries
-            // `data-annotation-id`), so several findings sharing one rendered
-            // token each hover independently — keyed to the range, not the
-            // token. No token hitpoint tagging here (cf. lint's click-through
-            // highlight, which hovers off the underlying token).
-            const sousEntries: OverlayEntry[] = [];
-            const segments = sousSegmentsRef.current;
-            for (const annotation of sousAnnotationsRef.current) {
-                if (annotation.anchor.kind !== "content") continue;
-                const resolved = resolveContentRange(
-                    annotation.anchor.sid,
-                    annotation.anchor.range,
-                    segments,
-                    rootEl,
-                );
-                if (resolved.rects.length === 0) continue;
-                sousEntries.push({
-                    kind: "highlight",
-                    key: annotation.id,
-                    dataId: null,
-                    dataSid: null,
-                    rects: resolved.rects,
-                    annotationId: annotation.id,
-                });
-            }
-
             publishEntries(
                 recordsRef.current,
                 setEntries,
                 hitpointsRef,
-                sousEntries,
+                resolveContentEntries(),
             );
         };
 
-        resolveAnchorsRef.current = resolveAnchors;
-        resolveAnchors();
+        resolveAllRef.current = resolveAll;
+        resolveAll();
 
         return () => {
-            resolveAnchorsRef.current = null;
+            resolveAllRef.current = null;
             syncHitpointAttributes(hitpointsRef.current, new Set());
             hitpointsRef.current = new Set();
             recordsRef.current = new Map();
@@ -713,43 +669,89 @@ export function LintDomAnnotatorPlugin({
         };
     }, [rootEl]);
 
-    // Tick-driven remeasure: commit-settle pulses, window resize, and
-    // scroll bumps all flow through `useLayoutTick`. No MutationObserver —
-    // editor DOM changes ride the bridge → commit → overlay-tick pipeline.
+    // Tick-driven remeasure: commit-settle pulses, window resize, scroll, and
+    // post-content-swap pulses all flow through `useLayoutTick`. No
+    // MutationObserver — editor DOM changes ride the bridge → commit →
+    // overlay-tick pipeline.
     // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the trigger; body reads via ref.
     useLayoutEffect(() => {
-        resolveAnchorsRef.current?.();
+        resolveAllRef.current?.();
     }, [tick]);
 
+    // Findings-change reconciliation: diff the keyed record map against the
+    // shown set. Removed keys tear down; NEW keys resolve against one fresh
+    // lookup; surviving keys keep their rects (no DOM work) until the next
+    // layout tick. This is the O(changed) path — WE4 in the findings plan.
+    //
+    // Content findings are key-diffed too (by id set + segments identity):
+    // their store commit arrives AFTER the edit's layout tick (the sous
+    // debounce), so this effect is the ONLY repaint that clears a removed
+    // content highlight — including the remove-to-zero case. Decorated array
+    // identities churn with provider renders, so the diff is by value, never
+    // by array identity.
+    const prevContentKeyRef = useRef<string>("");
+    const prevSegmentsRef = useRef<unknown>(null);
     useEffect(() => {
-        const nextRecords = new Map<string, AnchorRecord>();
-        for (const issue of lint.filteredVisibleIssues) {
-            const issueKey = getLintIssueKey(issue);
-            const previous = recordsRef.current.get(issueKey);
-            nextRecords.set(issueKey, {
-                issueKey,
-                anchorKey: getAnchorKey(issue),
-                issue,
-                element: previous?.element ?? null,
-                kind: previous?.kind ?? "none",
-                rects: previous?.rects ?? [],
-                left: previous?.left ?? 0,
-                top: previous?.top ?? 0,
-                stale: previous?.stale ?? false,
-            });
+        const records = recordsRef.current;
+        const nextIds = new Set(tokenFindings.map((d) => d.id));
+
+        let changed = false;
+        for (const id of [...records.keys()]) {
+            if (!nextIds.has(id)) {
+                records.delete(id);
+                changed = true;
+            }
         }
 
-        recordsRef.current = nextRecords;
-        resolveAnchorsRef.current?.();
-    }, [lint.filteredVisibleIssues]);
+        const added: AnchorRecord[] = [];
+        for (const decoratedFinding of tokenFindings) {
+            if (records.has(decoratedFinding.id)) continue;
+            const record: AnchorRecord = {
+                finding: decoratedFinding.finding,
+                element: null,
+                kind: "none",
+                rects: [],
+                left: 0,
+                top: 0,
+                stale: false,
+            };
+            records.set(decoratedFinding.id, record);
+            added.push(record);
+            changed = true;
+        }
 
-    // sous findings arrive on the store's own (calmer) clock, outside the
-    // layout-tick pulse — re-resolve so their highlights + hitpoints redraw.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: the ref body reads sousAnnotationsRef; sousAnnotations is the trigger.
-    useEffect(() => {
-        resolveAnchorsRef.current?.();
-    }, [sousAnnotations]);
+        const root = rootElRef.current;
+        if (added.length > 0 && root) {
+            const lookup = buildDomLookup(root);
+            for (const record of added) {
+                resolveRecord(record, lookup, root, editorModeRef.current);
+            }
+        }
 
+        const contentKey = contentFindings.map((d) => d.id).join("|");
+        const contentChanged =
+            contentKey !== prevContentKeyRef.current ||
+            findings.sousSegments !== prevSegmentsRef.current;
+        prevContentKeyRef.current = contentKey;
+        prevSegmentsRef.current = findings.sousSegments;
+
+        if (changed || contentChanged) {
+            publishEntries(
+                records,
+                setEntries,
+                hitpointsRef,
+                resolveContentEntries(),
+            );
+        }
+    }, [
+        tokenFindings,
+        contentFindings,
+        findings.sousSegments,
+        resolveContentEntries,
+    ]);
+
+    // Mode switch changes what's rendered wholesale — stale everything and
+    // re-resolve (the policy may also have emptied the shown set).
     // biome-ignore lint/correctness/useExhaustiveDependencies: <We intentionally want this to run when editorMode changes>
     useEffect(() => {
         for (const record of recordsRef.current.values()) {
@@ -758,12 +760,12 @@ export function LintDomAnnotatorPlugin({
             record.rects = [];
             record.stale = true;
         }
-        resolveAnchorsRef.current?.();
+        resolveAllRef.current?.();
     }, [editorMode]);
 
-    // Belt-and-suspenders: resolveAnchors clears entries on form-mode entry,
-    // but a transition can leave a frame of stale entries painted. Skip
-    // rendering entirely in form mode.
+    // Belt-and-suspenders: the policy empties the shown set in form mode and
+    // resolveAll clears on entry, but a transition can leave a frame of stale
+    // entries painted. Skip rendering entirely in form mode.
     const shouldRender =
         rootEl !== null &&
         entries.length > 0 &&
@@ -774,11 +776,11 @@ export function LintDomAnnotatorPlugin({
             <div className={styles.host} aria-hidden="true">
                 {entries.map((entry) =>
                     entry.kind === "highlight" ? (
-                        // Lint highlights are click-through (the underlying token
-                        // is the hover target). Content (sous) highlights ARE the
-                        // hover target — keyed to the finding via
-                        // `data-annotation-id`, so multiple findings on one token
-                        // hover independently.
+                        // Token highlights are click-through (the underlying
+                        // token is the hover target). Content highlights ARE
+                        // the hover target — keyed to the finding via
+                        // `data-annotation-id`, so multiple findings on one
+                        // token hover independently.
                         entry.rects.map((rect, i) => (
                             <span
                                 key={`${entry.key}:${i}`}
@@ -833,34 +835,13 @@ export function LintDomAnnotatorPlugin({
         />
     );
 
-    const chapterLabelPicker = (
-        <ChapterLabelPicker
-            isOpen={chapterLabelTally !== null}
-            tally={chapterLabelTally}
-            onClose={() => setChapterLabelTally(null)}
-            onConfirm={(targetStem) => {
-                // Fabricate the per-book stem swap (preserving each chapter's
-                // number), commit across books via a workspace-scope
-                // `withWorkingFilesDraft`, then relint the affected books.
-                actions.standardizeChapterLabels(targetStem);
-                setChapterLabelTally(null);
-            }}
-        />
-    );
-
     if (!rootEl || !rendered) {
-        return (
-            <>
-                {popover}
-                {chapterLabelPicker}
-            </>
-        );
+        return popover;
     }
     return (
         <>
             {createPortal(rendered, rootEl)}
             {popover}
-            {chapterLabelPicker}
         </>
     );
 }

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { shapeForSurface } from "@/app/data/editor.ts";
 import type { Settings, SettingsManager } from "@/app/data/settings.ts";
 import type { RecoveryReportEntry } from "@/app/domain/api/recoverDirtyBuffers.ts";
+import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
+import { onionFindingsByChapter } from "@/app/domain/editor/annotations/normalizeFindings.ts";
 import { makeDirtyBufferPipeline } from "@/app/domain/editor/pipelines/dirtyBufferPipeline.ts";
 import { makeEditorSyncPipeline } from "@/app/domain/editor/pipelines/editorSyncPipeline.ts";
 import { makeLintPipeline } from "@/app/domain/editor/pipelines/lintPipeline.ts";
@@ -17,20 +19,20 @@ import { bookCodeToTitle } from "@/app/domain/project/bookTitle.ts";
 import { revertChapterToLoadedState } from "@/app/domain/project/saveAndRevertService.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import type { DirtyBufferStore } from "@/app/state/DirtyBufferStore.ts";
+import { FindingsStore } from "@/app/state/FindingsStore.ts";
 import { LayoutTickStore } from "@/app/state/LayoutTickStore.ts";
-import { LintStore } from "@/app/state/LintStore.ts";
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import { SaveStatusStore } from "@/app/state/SaveStatusStore.ts";
 import { SearchHighlightStore } from "@/app/state/SearchHighlightStore.ts";
-import { SousFindingsStore } from "@/app/state/SousFindingsStore.ts";
 import {
     findChapterInDraft,
     WorkingFilesStore,
 } from "@/app/state/WorkingFilesStore.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { WorkspaceGateStore } from "@/app/state/WorkspaceInteractionGate.ts";
+import { WorkspaceModalStore } from "@/app/state/WorkspaceModalStore.ts";
+import { WorkspaceModalOutlet } from "@/app/ui/components/blocks/WorkspaceModalOutlet.tsx";
 import { WorkspaceContext } from "@/app/ui/contexts/_workspaceContext.ts";
-import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import {
     type UseActionsHook,
     useWorkspaceActions,
@@ -43,8 +45,11 @@ import {
     type UseDynamicStylesheetHook,
     useDynamicStylesheet,
 } from "@/app/ui/hooks/useDynamicStyles.tsx";
+import {
+    type UseFindingsReturn,
+    useFindings,
+} from "@/app/ui/hooks/useFindings.ts";
 import { useForkedPipeline } from "@/app/ui/hooks/useForkedPipeline.ts";
-import { type UseLintReturn, useLint } from "@/app/ui/hooks/useLint.tsx";
 import {
     type ReferenceItemHook,
     useReferenceItem,
@@ -89,7 +94,8 @@ export interface WorkSpaceContextType {
     actions: UseActionsHook;
     referenceResource: ReferenceItemHook;
     search: UseSearchReturn;
-    lint: UseLintReturn;
+    /** Policy-filtered findings views + the user's sticky filter state. */
+    findings: UseFindingsReturn;
     cssStyleSheet: UseDynamicStylesheetHook;
     save: UseSaveReturn;
     history: CustomHistoryHook;
@@ -133,11 +139,17 @@ export interface WorkSpaceContextType {
      */
     searchHighlightStore: SearchHighlightStore;
     /**
-     * sous content findings (segments + findings per book), written by the
-     * parallel sous pipeline. The editor zips these into the annotation popover
-     * alongside onion lint. PoC (Phase 3).
+     * THE findings store: every producer's findings, namespace-partitioned
+     * (`onion` / `sous-chef`), book→chapter hierarchical within. Written by
+     * the lint + sous pipelines; read via `useSyncExternalStore` selectors.
      */
-    sousFindingsStore: SousFindingsStore;
+    findingsStore: FindingsStore;
+    /**
+     * Workspace modal outlet: decorator actions (and future command surfaces)
+     * open modals here via `openModal(Component, props)`; the provider mounts
+     * the one `WorkspaceModalOutlet` that renders the slot.
+     */
+    workspaceModalStore: WorkspaceModalStore;
     remote: {
         status: GitRemoteProjectStatus | null;
         projectInfo: GitRemoteProjectInfo | null;
@@ -175,7 +187,7 @@ export interface WorkSpaceContextType {
 type ProjectProviderProps = {
     currentProjectRoute: string;
     projectFiles: ScriptureBookState[];
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
     children: React.ReactNode;
     loadedProject: Project;
     workspaceBaselineStore: WorkspaceBaselineStore;
@@ -236,10 +248,26 @@ export const ProjectProvider = ({
                     : { kind: "open" },
             ),
     );
-    // Workspace-scoped lint snapshot store. Seeded once from the route loader.
-    const sousFindingsStore = useStableInstance(() => new SousFindingsStore());
-    const lintStore = useStableInstance(
-        () => new LintStore(initialLintErrorsByBook),
+    // THE findings store (all producers, namespace-partitioned). Onion slice
+    // seeded once from the route loader's initial lint pass; normalization at
+    // this boundary keeps the store producer-agnostic (and the chapter-0
+    // bucketing means front-matter findings survive the seed, too).
+    const findingsStore = useStableInstance(() => {
+        const store = new FindingsStore();
+        for (const [bookCode, issues] of Object.entries(
+            initialLintErrorsByBook,
+        )) {
+            store.commitBookFindings(
+                "onion",
+                bookCode,
+                onionFindingsByChapter(issues),
+            );
+        }
+        return store;
+    });
+    // One workspace-level modal slot; rendered by the outlet below.
+    const workspaceModalStore = useStableInstance(
+        () => new WorkspaceModalStore(),
     );
     // Workspace-scoped save-lifecycle store. Initial status follows the
     // working files: dirty if any chapter is dirty (crash-recovery cache),
@@ -282,29 +310,30 @@ export const ProjectProvider = ({
     // `useForkedPipeline` codifies that. (Not every effect has to live inline in
     // the kernel; this keeps the wiring declarative.)
     //
-    // Lint: subscribes to `workingFilesStore.changes`, debounces, switchMaps to
-    // `lintExisting`, writes into LintStore. See `makeLintPipeline` for the filter.
+    // Lint: subscribes to `workingFilesStore.changes`, debounces, switchMaps
+    // to one batched lint pass, commits each book into the findings store's
+    // onion slice. See `makeLintPipeline` for the filter.
     useForkedPipeline(
         () =>
             makeLintPipeline({
                 workingFilesStore,
-                lintStore,
+                findingsStore,
                 usfmOnionService,
             }),
-        [workingFilesStore, lintStore, usfmOnionService],
+        [workingFilesStore, findingsStore, usfmOnionService],
     );
 
     // sous content findings: a PARALLEL subscriber to the same store the lint
-    // pipeline rides (NOT a tee on lint), on its own calmer debounce. Writes the
-    // segment map + findings into SousFindingsStore for the editor zip.
+    // pipeline rides (NOT a tee on lint), on its own calmer debounce. Commits
+    // findings + the segment-map sidecar into the sous slice.
     useForkedPipeline(
         () =>
             makeSousPipeline({
                 workingFilesStore,
-                sousFindingsStore,
+                findingsStore,
                 sousService,
             }),
-        [workingFilesStore, sousFindingsStore, sousService],
+        [workingFilesStore, findingsStore, sousService],
     );
 
     // Save-status: flips SaveStatusStore to `dirty` on every text-changing commit.
@@ -465,11 +494,12 @@ export const ProjectProvider = ({
     });
     remoteStatusSetterRef.current = remote.setStatus;
 
-    const lint = useLint({
-        lintStore,
+    const findings = useFindings({
+        findingsStore,
         visibleBookCode: project.pickedFile.bookCode,
         visibleChapter:
             project.pickedChapter?.chapterNumber || project.currentChapter,
+        editorMode: project.appSettings.editorMode,
     });
 
     const referenceResource = useReferenceItem({
@@ -498,7 +528,6 @@ export const ProjectProvider = ({
         appSettings: project.appSettings,
         pickedFile: project.pickedFile,
         toggleDiffModal: save.diff.open,
-        commitBookLintResults: lint.commitBookLintResults,
         referenceResource,
         setIsProcessing: project.setIsProcessing,
         setFormatMatchReport: project.setFormatMatchReport,
@@ -632,7 +661,7 @@ export const ProjectProvider = ({
                 actions,
                 referenceResource,
                 search,
-                lint,
+                findings,
                 cssStyleSheet,
                 save,
                 history,
@@ -662,10 +691,12 @@ export const ProjectProvider = ({
                 mainEditorDeferred,
                 layoutTickStore,
                 searchHighlightStore,
-                sousFindingsStore,
+                findingsStore,
+                workspaceModalStore,
             }}
         >
             {children}
+            <WorkspaceModalOutlet store={workspaceModalStore} />
         </WorkspaceContext.Provider>
     );
 };

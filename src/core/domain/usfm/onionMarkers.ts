@@ -13,8 +13,8 @@ import type {
 // Markers we accept at the editor boundary that the upstream catalog does not
 // enumerate. `s5` is USFM 2.x legacy: a chunk-delimiter used heavily in WA
 // source data. USFM 3.x caps `s#` at level 4, so upstream will not add it. We
-// accept it here and suppress its `unknown-marker` lint via
-// `shouldKeepLintIssue` (see src/app/utils/sharedPlatformLogic.ts).
+// accept it here; its `unknown-marker` finding flows into the findings store
+// unfiltered and is hidden by the app-default policy row in `presentFinding`.
 const LOCAL_ONLY_MARKERS = ["s5"] as const;
 
 const LOCAL_ONLY_PARAGRAPH_MARKERS = ["s5"] as const;

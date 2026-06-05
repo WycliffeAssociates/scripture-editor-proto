@@ -1,3 +1,10 @@
+// The workspace findings panel ("Content errors"): every producer's findings
+// — onion USFM structure and sous-chef content — in one policy-filtered,
+// navigable triage list. Rows render the same decorated message every other
+// surface shows (one formatter, no popover/panel divergence), and counts ride
+// the policy-filtered views, so a stored-but-hidden finding (e.g. `\s5`)
+// never increments a badge.
+
 import { Menu } from "@base-ui/react/menu";
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
@@ -14,80 +21,82 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TESTING_IDS } from "@/app/data/constants.ts";
-import { LintFilterMenu } from "@/app/ui/components/blocks/lintFilters.tsx";
+import type { DecoratedFinding } from "@/app/domain/editor/annotations/finding.ts";
+import type { FlatFinding } from "@/app/state/findingsSelectors.ts";
+import { FindingsFilterMenu } from "@/app/ui/components/blocks/findingsFilters.tsx";
 import {
-    buildLintBookOptions,
-    buildLintCodeOptions,
-    getLintIssueBookCode,
-    type LintFilterLabels,
+    buildFindingBookOptions,
+    buildFindingCodeOptions,
+    type FindingsFilterLabels,
     summarizeSelection,
     toggleSelection,
-} from "@/app/ui/components/blocks/lintFilters.utils.ts";
+} from "@/app/ui/components/blocks/findingsFilters.utils.ts";
 import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
 import { joinClassNames } from "@/app/ui/components/primitives/classNames.ts";
+import { useDecorateFindings } from "@/app/ui/hooks/useDecorateFindings.ts";
+import type { FindingCategoryFilter } from "@/app/ui/hooks/useFindings.ts";
 import { useWorkspaceContext } from "@/app/ui/hooks/useWorkspaceContext.tsx";
-import * as styles from "@/app/ui/styles/modules/LintIssuesPopover.css.ts";
+import * as styles from "@/app/ui/styles/modules/FindingsPopover.css.ts";
 import * as projectViewStyles from "@/app/ui/styles/modules/Projectview.css.ts";
 import { zLayer } from "@/app/ui/styles/zLayers.ts";
 import { parseSid, sortListByBookCanonical } from "@/core/data/bible/bible.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
 
 type Scope = "local" | "all";
-type IssueTypeFilter = "all" | "usfm" | "content";
 
-export function LintIssuesPopover() {
+export function FindingsPopover() {
     const { t } = useLingui();
-    const { actions, bookCodeToProjectLocalizedTitle, lint, project } =
+    const { actions, bookCodeToProjectLocalizedTitle, findings, project } =
         useWorkspaceContext();
+    const decorate = useDecorateFindings();
 
     const [opened, setOpened] = useState(false);
     const {
         scope,
         setScope,
-        issueTypeFilter,
-        setIssueTypeFilter,
+        categoryFilter,
+        setCategoryFilter,
         selectedCodes,
         setSelectedCodes,
         selectedBooks,
         setSelectedBooks,
-        typeFilteredAllIssues,
-        filteredVisibleIssues,
-        filteredAllIssues,
-    } = lint;
+        categoryFilteredAll,
+        shownVisible,
+        shownAll,
+        categoryCounts,
+        baseScopeCount,
+    } = findings;
 
-    const filterLabels: LintFilterLabels = useMemo(
+    const filterLabels: FindingsFilterLabels = useMemo(
         () => ({ all: t`All`, none: t`None` }),
         [t],
     );
 
     const codeOptions = useMemo(
-        () => buildLintCodeOptions(typeFilteredAllIssues, filterLabels),
-        [typeFilteredAllIssues, filterLabels],
+        () => buildFindingCodeOptions(categoryFilteredAll, filterLabels),
+        [categoryFilteredAll, filterLabels],
     );
     const bookOptions = useMemo(
         () =>
-            buildLintBookOptions(
-                typeFilteredAllIssues,
+            buildFindingBookOptions(
+                categoryFilteredAll,
                 bookCodeToProjectLocalizedTitle,
                 filterLabels,
             ),
-        [bookCodeToProjectLocalizedTitle, typeFilteredAllIssues, filterLabels],
+        [bookCodeToProjectLocalizedTitle, categoryFilteredAll, filterLabels],
     );
 
     const currentBookCode = project.pickedFile.bookCode;
     const currentChapter =
         project.pickedChapter?.chapterNumber ?? project.currentChapter;
 
-    const localCount = filteredVisibleIssues.length;
-    const allCount = filteredAllIssues.length;
+    const localCount = shownVisible.length;
+    const allCount = shownAll.length;
     const badgeCount = scope === "local" ? localCount : allCount;
 
-    const sortedIssues = useMemo(
+    const sortedFindings = useMemo(
         () =>
-            sortIssuesForDisplay(
-                scope === "local" ? filteredVisibleIssues : filteredAllIssues,
-            ),
-        [scope, filteredVisibleIssues, filteredAllIssues],
+            sortFindingsForDisplay(scope === "local" ? shownVisible : shownAll),
+        [scope, shownVisible, shownAll],
     );
 
     const codeSummary = summarizeSelection(
@@ -115,31 +124,12 @@ export function LintIssuesPopover() {
         currentBookCode;
 
     const distinctBookCount = useMemo(
-        () =>
-            new Set(
-                typeFilteredAllIssues.map((issue) =>
-                    getLintIssueBookCode(issue),
-                ),
-            ).size,
-        [typeFilteredAllIssues],
+        () => new Set(categoryFilteredAll.map((entry) => entry.bookCode)).size,
+        [categoryFilteredAll],
     );
 
-    // Count of issues in the active scope before code/book filters apply,
-    // used to decide whether the empty state should say "no issues" vs
-    // "filters exclude everything."
-    const baseScopeCount = useMemo(() => {
-        if (scope === "local") {
-            return lint.visibleIssues.filter(
-                (issue) =>
-                    issueTypeFilter === "all" ||
-                    issue.issueType === issueTypeFilter,
-            ).length;
-        }
-        return typeFilteredAllIssues.length;
-    }, [scope, issueTypeFilter, lint.visibleIssues, typeFilteredAllIssues]);
-
-    const handleJump = (issue: LintIssue) => {
-        navigateToLintIssue(issue, {
+    const handleJump = (entry: FlatFinding) => {
+        navigateToFinding(entry, {
             currentBookCode,
             currentChapter,
             switchBookOrChapter: actions.switchBookOrChapter,
@@ -155,7 +145,7 @@ export function LintIssuesPopover() {
                         count={badgeCount}
                         active={opened}
                         ariaLabel={t`Content errors (${badgeCount})`}
-                        data-testid={TESTING_IDS.lintPopover.triggerButton}
+                        data-testid={TESTING_IDS.findingsPopover.triggerButton}
                     />
                 }
             />
@@ -168,7 +158,7 @@ export function LintIssuesPopover() {
                 >
                     <BasePopover.Popup
                         className={styles.popover}
-                        data-testid={TESTING_IDS.lintPopover.container}
+                        data-testid={TESTING_IDS.findingsPopover.container}
                     >
                         <div className={styles.header}>
                             <div className={styles.headerText}>
@@ -210,20 +200,20 @@ export function LintIssuesPopover() {
                         </div>
 
                         <div className={styles.filterRibbon}>
-                            <IssueTypeSelect
-                                value={issueTypeFilter}
-                                onChange={setIssueTypeFilter}
-                                counts={countByIssueType(lint.allIssues)}
+                            <CategorySelect
+                                value={categoryFilter}
+                                onChange={setCategoryFilter}
+                                counts={categoryCounts}
                                 label={t`Type`}
                                 labels={{
                                     all: t`All`,
                                     content: t`Content`,
-                                    usfm: t`USFM`,
+                                    structure: t`USFM`,
                                 }}
                             />
                             {baseScopeCount > 0 ? (
                                 <>
-                                    <LintFilterMenu
+                                    <FindingsFilterMenu
                                         label={t`Filter`}
                                         options={codeOptions}
                                         activeValues={selectedCodes}
@@ -231,7 +221,7 @@ export function LintIssuesPopover() {
                                         onToggle={toggleCode}
                                     />
                                     {scope === "all" ? (
-                                        <LintFilterMenu
+                                        <FindingsFilterMenu
                                             label={t`Books`}
                                             options={bookOptions}
                                             activeValues={selectedBooks}
@@ -243,7 +233,7 @@ export function LintIssuesPopover() {
                             ) : null}
                         </div>
 
-                        {sortedIssues.length === 0 ? (
+                        {sortedFindings.length === 0 ? (
                             <div className={styles.listViewport}>
                                 <EmptyState
                                     scope={scope}
@@ -251,7 +241,7 @@ export function LintIssuesPopover() {
                                     allCount={allCount}
                                     filterExcludesEverything={
                                         baseScopeCount > 0 &&
-                                        sortedIssues.length === 0
+                                        sortedFindings.length === 0
                                     }
                                     onSwitchScope={() =>
                                         setScope(
@@ -261,8 +251,9 @@ export function LintIssuesPopover() {
                                 />
                             </div>
                         ) : (
-                            <VirtualizedIssueList
-                                issues={sortedIssues}
+                            <VirtualizedFindingList
+                                entries={sortedFindings}
+                                decorate={decorate}
                                 getLocalizedBookName={(bookCode) =>
                                     bookCodeToProjectLocalizedTitle({
                                         bookCode,
@@ -309,14 +300,14 @@ function TriggerButton(props: {
     );
 }
 
-function IssueTypeSelect(props: {
-    value: IssueTypeFilter;
-    onChange: (next: IssueTypeFilter) => void;
-    counts: Record<IssueTypeFilter, number>;
+function CategorySelect(props: {
+    value: FindingCategoryFilter;
+    onChange: (next: FindingCategoryFilter) => void;
+    counts: Record<FindingCategoryFilter, number>;
     label: string;
-    labels: Record<IssueTypeFilter, string>;
+    labels: Record<FindingCategoryFilter, string>;
 }) {
-    const order: IssueTypeFilter[] = ["content", "usfm", "all"];
+    const order: FindingCategoryFilter[] = ["content", "structure", "all"];
     const triggerClassName = [
         buttonStyles.buttonBase,
         buttonStyles.buttonVariants.secondary,
@@ -349,7 +340,7 @@ function IssueTypeSelect(props: {
                         <Menu.RadioGroup
                             value={props.value}
                             onValueChange={(next) =>
-                                props.onChange(next as IssueTypeFilter)
+                                props.onChange(next as FindingCategoryFilter)
                             }
                             className={projectViewStyles.lintFilterMenuList}
                         >
@@ -385,18 +376,6 @@ function IssueTypeSelect(props: {
     );
 }
 
-function countByIssueType(
-    issues: LintIssue[],
-): Record<IssueTypeFilter, number> {
-    let usfm = 0;
-    let content = 0;
-    for (const issue of issues) {
-        if (issue.issueType === "content") content++;
-        else usfm++;
-    }
-    return { all: issues.length, usfm, content };
-}
-
 function ScopeTab(props: {
     label: string;
     count: number;
@@ -425,34 +404,40 @@ function ScopeTab(props: {
     );
 }
 
-function IssueRow(props: {
-    issue: LintIssue;
+function FindingRow(props: {
+    entry: FlatFinding;
+    decorated: DecoratedFinding;
     localizedBookName: string;
-    onJump: (issue: LintIssue) => void;
+    onJump: (entry: FlatFinding) => void;
 }) {
-    const parsed = props.issue.sid ? parseSid(props.issue.sid) : null;
-    const ref = formatIssueReference(props.localizedBookName, parsed);
+    const sid = props.entry.finding.anchor.sid;
+    const parsed = sid ? parseSid(sid) : null;
+    const ref = formatFindingReference(
+        props.localizedBookName,
+        props.entry.chapter,
+        parsed,
+    );
 
     return (
         <button
             type="button"
             className={styles.issueRow}
-            onClick={() => props.onJump(props.issue)}
-            data-testid={TESTING_IDS.lintPopover.errorItem}
+            onClick={() => props.onJump(props.entry)}
+            data-testid={TESTING_IDS.findingsPopover.errorItem}
         >
             <span className={styles.issueContent}>
                 <span
                     className={styles.issueRef}
-                    data-testid={TESTING_IDS.lintPopover.errorSid}
+                    data-testid={TESTING_IDS.findingsPopover.errorSid}
                 >
                     {ref}
                 </span>
                 <span className={styles.issueSeparator}>&mdash;</span>
                 <span
                     className={styles.issueMessage}
-                    data-testid={TESTING_IDS.lintPopover.errorMessage}
+                    data-testid={TESTING_IDS.findingsPopover.errorMessage}
                 >
-                    {props.issue.message}
+                    {props.decorated.message}
                 </span>
             </span>
             <ChevronRight size={16} className={styles.chevronIcon} />
@@ -460,21 +445,22 @@ function IssueRow(props: {
     );
 }
 
-function VirtualizedIssueList(props: {
-    issues: LintIssue[];
+function VirtualizedFindingList(props: {
+    entries: FlatFinding[];
+    decorate: (finding: FlatFinding["finding"]) => DecoratedFinding;
     getLocalizedBookName: (bookCode: string) => string;
-    onJump: (issue: LintIssue) => void;
+    onJump: (entry: FlatFinding) => void;
     opened: boolean;
 }) {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const virtualizer = useVirtualizer({
-        count: props.issues.length,
+        count: props.entries.length,
         getScrollElement: () => scrollRef.current,
         estimateSize: () => 44,
         overscan: 8,
         measureElement: (el) => el.getBoundingClientRect().height,
-        getItemKey: (index) => issueRowKey(props.issues[index], index),
+        getItemKey: (index) => props.entries[index].finding.id,
     });
 
     // Re-measure when the popover opens or the list changes
@@ -489,11 +475,11 @@ function VirtualizedIssueList(props: {
                 style={{ height: `${virtualizer.getTotalSize()}px` }}
             >
                 {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const issue = props.issues[virtualRow.index];
-                    if (!issue) return null;
+                    const entry = props.entries[virtualRow.index];
+                    if (!entry) return null;
                     return (
                         <div
-                            key={issueRowKey(issue, virtualRow.index)}
+                            key={entry.finding.id}
                             ref={virtualizer.measureElement}
                             data-index={virtualRow.index}
                             className={styles.virtualRow}
@@ -501,10 +487,14 @@ function VirtualizedIssueList(props: {
                                 transform: `translateY(${virtualRow.start}px)`,
                             }}
                         >
-                            <IssueRow
-                                issue={issue}
+                            <FindingRow
+                                entry={entry}
+                                // Decorated per rendered row (virtualized), so
+                                // a project-wide list never formats messages
+                                // it isn't showing.
+                                decorated={props.decorate(entry.finding)}
                                 localizedBookName={props.getLocalizedBookName(
-                                    getLintIssueBookCode(issue),
+                                    entry.bookCode,
                                 )}
                                 onJump={props.onJump}
                             />
@@ -538,11 +528,15 @@ function SubtitleText(props: {
     );
 }
 
-function formatIssueReference(
+function formatFindingReference(
     localizedBookName: string,
+    chapter: number,
     parsed: ReturnType<typeof parseSid>,
 ): string {
-    if (!parsed) return localizedBookName;
+    // The sid contributes the verse; the chapter is the store address (so
+    // front-matter findings — chapter 0, possibly no sid — still get a
+    // sensible "Book 0" reference).
+    if (!parsed) return `${localizedBookName} ${chapter}`;
     if (parsed.isBookChapOnly) {
         return `${localizedBookName} ${parsed.chapter}`;
     }
@@ -666,83 +660,88 @@ function AllClearEmptyState() {
     );
 }
 
-function issueRowKey(issue: LintIssue, index: number) {
-    return [
-        issue.code,
-        issue.sid ?? "unknown",
-        issue.tokenId ?? "",
-        issue.relatedTokenId ?? "",
-        issue.message,
-        issue.severity,
-        index,
-    ].join(":");
-}
-
-function sortIssuesForDisplay(issues: LintIssue[]): LintIssue[] {
-    // canonical book order, then chapter, then verse
-    const bookCodes = Array.from(
-        new Set(issues.map((i) => getLintIssueBookCode(i))),
-    );
+function sortFindingsForDisplay(entries: FlatFinding[]): FlatFinding[] {
+    // canonical book order, then chapter (store address), then verse (sid)
+    const bookCodes = Array.from(new Set(entries.map((e) => e.bookCode)));
     const canonical = sortListByBookCanonical(bookCodes, (b) => b);
     const order = new Map<string, number>();
     canonical.forEach((code, idx) => {
         order.set(code, idx);
     });
 
-    return issues.toSorted((a, b) => {
-        const aBook = order.get(getLintIssueBookCode(a)) ?? 9999;
-        const bBook = order.get(getLintIssueBookCode(b)) ?? 9999;
+    return entries.toSorted((a, b) => {
+        const aBook = order.get(a.bookCode) ?? 9999;
+        const bBook = order.get(b.bookCode) ?? 9999;
         if (aBook !== bBook) return aBook - bBook;
-        const ap = a.sid ? parseSid(a.sid) : null;
-        const bp = b.sid ? parseSid(b.sid) : null;
-        const aChap = ap?.chapter ?? 0;
-        const bChap = bp?.chapter ?? 0;
-        if (aChap !== bChap) return aChap - bChap;
+        if (a.chapter !== b.chapter) return a.chapter - b.chapter;
+        const aSid = a.finding.anchor.sid;
+        const bSid = b.finding.anchor.sid;
+        const ap = aSid ? parseSid(aSid) : null;
+        const bp = bSid ? parseSid(bSid) : null;
         const aVerse = ap?.verseStart ?? 0;
         const bVerse = bp?.verseStart ?? 0;
         return aVerse - bVerse;
     });
 }
 
-function navigateToLintIssue(
-    issue: LintIssue,
+/**
+ * Jump from a panel row to the finding in the editor. The store address
+ * always gives a navigable book+chapter (even for no-sid front-matter
+ * findings); the scroll target degrades anchor-appropriately: token anchors
+ * scroll to the token element, content anchors to their highlight rect, and
+ * either falls back to the verse element when the precise target isn't
+ * rendered yet.
+ */
+function navigateToFinding(
+    entry: FlatFinding,
     ctx: {
         currentBookCode: string;
         currentChapter: number;
         switchBookOrChapter: (bookCode: string, chapter: number) => unknown;
     },
 ) {
-    if (!issue.sid) return;
-    const parsed = parseSid(issue.sid);
-    if (!parsed) return;
-    const tokenId = issue.tokenId ?? issue.relatedTokenId;
+    const { finding } = entry;
 
-    const scrollToToken = () => {
-        if (!tokenId) return false;
-        const el = document.querySelector(
-            `[data-id="${tokenId}"]`,
-        ) as HTMLElement | null;
+    const scrollTo = (): boolean => {
+        const anchor = finding.anchor;
+        let el: HTMLElement | null = null;
+        if (anchor.kind === "token") {
+            const tokenId = finding.touchedTokenIds?.[0] ?? anchor.tokenId;
+            el = document.querySelector(
+                `[data-id="${tokenId}"]`,
+            ) as HTMLElement | null;
+        } else {
+            // Content highlight rect drawn by the overlay, keyed by id.
+            el = document.querySelector(
+                `[data-annotation-id="${finding.id}"]`,
+            ) as HTMLElement | null;
+        }
+        // Verse-level fallback when the precise target isn't rendered.
+        if (!el && anchor.sid) {
+            el = document.querySelector(
+                `[data-sid="${anchor.sid}"]`,
+            ) as HTMLElement | null;
+        }
         if (!el) return false;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("selected");
+        if (finding.anchor.kind === "token") el.classList.add("selected");
         return true;
     };
 
     if (
-        parsed.book === ctx.currentBookCode &&
-        parsed.chapter === ctx.currentChapter
+        entry.bookCode === ctx.currentBookCode &&
+        entry.chapter === ctx.currentChapter
     ) {
-        scrollToToken();
+        scrollTo();
         return;
     }
 
-    ctx.switchBookOrChapter(parsed.book, parsed.chapter);
-    if (!tokenId) return;
+    ctx.switchBookOrChapter(entry.bookCode, entry.chapter);
     let attempts = 0;
     const maxAttempts = 50;
     const interval = setInterval(() => {
         attempts++;
-        if (scrollToToken() || attempts >= maxAttempts) {
+        if (scrollTo() || attempts >= maxAttempts) {
             clearInterval(interval);
         }
     }, 100);

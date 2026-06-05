@@ -62,7 +62,7 @@ export const highlight = style({
 // can share one rendered token (e.g. several double-spaces in one verse). Like
 // the lint highlight it's CLICK-THROUGH (so the editor text under it stays
 // clickable); the hover is keyed to THIS range — not the whole token — by
-// geometric hit-testing on mousemove (see `useEditorLintTooltip`'s
+// geometric hit-testing on mousemove (see `useEditorFindingsTooltip`'s
 // `findContentHit`), with `data-annotation-id` identifying the finding.
 export const contentHighlight = style({
     position: "absolute",

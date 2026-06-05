@@ -1,15 +1,15 @@
 import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown, Filter } from "lucide-react";
 import {
+    type FindingsFilterOption,
     isOptionChecked,
-    type LintFilterOption,
-} from "@/app/ui/components/blocks/lintFilters.utils.ts";
+} from "@/app/ui/components/blocks/findingsFilters.utils.ts";
 import * as buttonStyles from "@/app/ui/components/primitives/Button/button.css.ts";
 import * as styles from "@/app/ui/styles/modules/Projectview.css.ts";
 
-export function LintFilterMenu(props: {
+export function FindingsFilterMenu(props: {
     label: string;
-    options: LintFilterOption[];
+    options: FindingsFilterOption[];
     activeValues: string[];
     summary: string;
     onToggle: (value: string) => void;

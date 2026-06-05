@@ -1,11 +1,15 @@
 import { Effect } from "effect";
 import {
+    groupFindingsByChapter,
+    sousFindingsToFindings,
+} from "@/app/domain/editor/annotations/normalizeFindings.ts";
+import {
     type FoldedBookScope,
     makeFoldedScopePipeline,
 } from "@/app/domain/editor/pipelines/foldedScopePipeline.ts";
 import type { ScriptureBookState } from "@/app/scripture/ScriptureWorkspaceState.ts";
 import { sousScopeFor } from "@/app/state/commitFilters.ts";
-import type { SousFindingsStore } from "@/app/state/SousFindingsStore.ts";
+import type { FindingsStore } from "@/app/state/FindingsStore.ts";
 import type { WorkingFilesStore } from "@/app/state/WorkingFilesStore.ts";
 import { collectFileTokens } from "@/app/ui/hooks/utils/editorUtils.ts";
 import type { ISousService } from "@/core/domain/sous/ISousService.ts";
@@ -16,8 +20,9 @@ import type { ISousService } from "@/core/domain/sous/ISousService.ts";
 const DEFAULT_SOUS_DEBOUNCE_MS = 200;
 
 /**
- * Analyze one book against the latest store state and write the result
- * (segments + findings) into the SousFindingsStore.
+ * Analyze one book against the latest store state and commit the result into
+ * the findings store's sous slice — findings chapter-bucketed, segment map
+ * riding the same commit as the sidecar.
  *
  * `ISousService.analyze` is single-book (Rust `sous_analyze`), so a
  * multi-book pass is a sequential loop of service calls — batching it like
@@ -25,7 +30,7 @@ const DEFAULT_SOUS_DEBOUNCE_MS = 200;
  */
 function analyzeOneBook(args: {
     file: ScriptureBookState;
-    sousFindingsStore: SousFindingsStore;
+    findingsStore: FindingsStore;
     sousService: ISousService;
 }): Effect.Effect<void> {
     return Effect.gen(function* () {
@@ -33,16 +38,21 @@ function analyzeOneBook(args: {
             structuralParagraphBreaks: true,
         });
         if (tokens.length === 0) {
-            args.sousFindingsStore.commitBookResult(args.file.bookCode, {
-                segments: {},
-                findings: [],
-            });
+            args.findingsStore.commitSousBookFindings(
+                args.file.bookCode,
+                {},
+                {},
+            );
             return;
         }
         const result = yield* Effect.tryPromise(() =>
             args.sousService.analyze(tokens),
         );
-        args.sousFindingsStore.commitBookResult(args.file.bookCode, result);
+        args.findingsStore.commitSousBookFindings(
+            args.file.bookCode,
+            groupFindingsByChapter(sousFindingsToFindings(result.findings)),
+            result.segments,
+        );
     }).pipe(
         Effect.catch((error: unknown) =>
             Effect.sync(() => {
@@ -65,7 +75,7 @@ function analyzeOneBook(args: {
  */
 export function makeSousPipeline(args: {
     workingFilesStore: WorkingFilesStore;
-    sousFindingsStore: SousFindingsStore;
+    findingsStore: FindingsStore;
     sousService: ISousService;
     debounceMs?: number;
 }): Effect.Effect<void> {
@@ -78,7 +88,7 @@ export function makeSousPipeline(args: {
             for (const file of files) {
                 yield* analyzeOneBook({
                     file,
-                    sousFindingsStore: args.sousFindingsStore,
+                    findingsStore: args.findingsStore,
                     sousService: args.sousService,
                 });
             }

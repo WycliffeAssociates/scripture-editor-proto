@@ -1,21 +1,19 @@
-import { parseSid, sortListByBookCanonical } from "@/core/data/bible/bible.ts";
-import type { LintIssue } from "@/core/domain/usfm/usfmOnionTypes.ts";
+import type { FlatFinding } from "@/app/state/findingsSelectors.ts";
+import { sortListByBookCanonical } from "@/core/data/bible/bible.ts";
 
 const ALL_FILTER_VALUE = "all";
 
-export type LintFilterOption = { value: string; label: string };
+export type FindingsFilterOption = { value: string; label: string };
 
-export type LintFilterLabels = {
+export type FindingsFilterLabels = {
     all: string;
     none: string;
 };
 
-const lintIssueBookCodeCache = new Map<string, string>();
-
 export function isOptionChecked(
-    option: LintFilterOption,
+    option: FindingsFilterOption,
     activeValues: string[],
-    options: LintFilterOption[],
+    options: FindingsFilterOption[],
 ): boolean {
     if (option.value === ALL_FILTER_VALUE) {
         return activeValues.length === options.length - 1;
@@ -25,7 +23,7 @@ export function isOptionChecked(
 
 export function toggleSelection(
     current: string[],
-    options: LintFilterOption[],
+    options: FindingsFilterOption[],
     value: string,
 ) {
     const allValues: string[] = [];
@@ -42,8 +40,8 @@ export function toggleSelection(
 
 export function summarizeSelection(
     selected: string[],
-    options: LintFilterOption[],
-    labels: LintFilterLabels,
+    options: FindingsFilterOption[],
+    labels: FindingsFilterLabels,
 ) {
     const allCount = options.length - 1;
     if (selected.length === allCount) return labels.all;
@@ -51,13 +49,13 @@ export function summarizeSelection(
     return `${selected.length}`;
 }
 
-export function buildLintCodeOptions(
-    messages: LintIssue[],
-    labels: LintFilterLabels,
-): LintFilterOption[] {
+export function buildFindingCodeOptions(
+    entries: FlatFinding[],
+    labels: FindingsFilterLabels,
+): FindingsFilterOption[] {
     const codeSet = new Set<string>();
-    for (const issue of messages) {
-        if (issue.code) codeSet.add(issue.code);
+    for (const entry of entries) {
+        if (entry.finding.code) codeSet.add(entry.finding.code);
     }
     const uniqueCodes = Array.from(codeSet).sort((left, right) =>
         left.localeCompare(right),
@@ -72,13 +70,15 @@ export function buildLintCodeOptions(
     ];
 }
 
-export function buildLintBookOptions(
-    messages: LintIssue[],
+export function buildFindingBookOptions(
+    entries: FlatFinding[],
     localizeBook: (input: { bookCode: string }) => string,
-    labels: LintFilterLabels,
-): LintFilterOption[] {
+    labels: FindingsFilterLabels,
+): FindingsFilterOption[] {
+    // Book comes from the store address (the commit's authoritative scope),
+    // not from re-parsing sids.
     const uniqueBooks = Array.from(
-        new Set(messages.map((issue) => getLintIssueBookCode(issue))),
+        new Set(entries.map((entry) => entry.bookCode)),
     );
     const canonicalBooks = sortListByBookCanonical(uniqueBooks, (book) => book);
 
@@ -94,15 +94,4 @@ export function buildLintBookOptions(
 function formatLintCodeLabel(code: string) {
     const words = code.replace(/[-_]/g, " ").trim();
     return words ? words[0].toUpperCase() + words.slice(1) : code;
-}
-
-export function getLintIssueBookCode(issue: LintIssue) {
-    const sid = issue.sid ?? "";
-    if (lintIssueBookCodeCache.has(sid)) {
-        return lintIssueBookCodeCache.get(sid) ?? "UNKNOWN";
-    }
-
-    const bookCode = (sid ? parseSid(sid)?.book : null) ?? "UNKNOWN";
-    lintIssueBookCodeCache.set(sid, bookCode);
-    return bookCode;
 }

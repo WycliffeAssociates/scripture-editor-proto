@@ -22,6 +22,7 @@
 
 import { type EditorShape, shapeForSurface } from "@/app/data/editor.ts";
 import { parseRecoveredBookContents } from "@/app/domain/api/parseRecoveredBookContents.ts";
+import type { InitialLintByBook } from "@/app/domain/api/scriptureProjectToParsedFiles.ts";
 import {
     detectLineEnding,
     tokensToLexical,
@@ -38,7 +39,6 @@ import type {
 import type { RecoveredConflictTracker } from "@/app/state/RecoveredConflictTracker.ts";
 import type { WorkspaceBaselineStore } from "@/app/state/WorkspaceBaselineStore.ts";
 import { relintBookFiles } from "@/app/ui/hooks/linting.ts";
-import type { LintMessagesByBook } from "@/app/ui/hooks/lintState.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 
@@ -75,7 +75,7 @@ export type RecoveryResult = {
      */
     conflictedBookCodes: string[];
     recoveryReportEntries: RecoveryReportEntry[];
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
 };
 
 export async function recoverDirtyBuffers(args: {
@@ -95,7 +95,7 @@ export async function recoverDirtyBuffers(args: {
     /** The `mainEditor` shape (see `shapeForSurface`). */
     shape: EditorShape;
     usfmOnionService: IUsfmOnionService;
-    initialLintErrorsByBook: LintMessagesByBook;
+    initialLintErrorsByBook: InitialLintByBook;
 }): Promise<RecoveryResult> {
     const {
         workspaceBaselineStore,
@@ -334,7 +334,7 @@ export async function recoverDirtyBuffers(args: {
         restoredFiles,
         args.usfmOnionService,
     );
-    const initialLintErrorsByBook: LintMessagesByBook = {
+    const initialLintErrorsByBook: InitialLintByBook = {
         ...args.initialLintErrorsByBook,
         ...relinted,
     };

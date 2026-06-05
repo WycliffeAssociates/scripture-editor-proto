@@ -22,7 +22,7 @@
 
 import type { SegmentsBySid, Utf16Span } from "@/core/domain/usfm/vrefTypes.ts";
 
-/** Overlay-space rect (root-relative), matching `LintDomAnnotatorPlugin`. */
+/** Overlay-space rect (root-relative), matching `FindingsOverlayPlugin`. */
 export type OverlayRect = {
     left: number;
     top: number;
