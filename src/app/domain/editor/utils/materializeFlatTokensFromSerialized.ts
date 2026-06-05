@@ -3,6 +3,7 @@ import { USFM_PARAGRAPH_NODE_TYPE, UsfmTokenTypes } from "@/app/data/editor.ts";
 import { isSerializedBookFrontmatterFormNode } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import { isSerializedFormBlockNode } from "@/app/domain/editor/nodes/FormBlockNode.tsx";
 import { isSerializedUSFMNestedEditorNode } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import {
     createSerializedUSFMTextNode,
@@ -34,11 +35,14 @@ function isSerializedUSFMParagraphContainer(
  */
 function createSyntheticParagraphMarkerToken(
     paragraphNode: USFMParagraphNodeJSON,
-): SerializedUSFMTextNode {
+): SerializedUSFMTextNode | null {
     const marker = paragraphNode.marker ?? "p";
     // Use original marker text if available, otherwise construct without trailing space
     // (old paragraph containers don't have markerText, so no-space avoids spurious diffs)
     const text = paragraphNode.markerText ?? `\\${marker}`;
+    // Byte-less shell containers (the chapter shell around a numbered \c
+    // node) own no bytes — their children carry the whole token stream.
+    if (text === "") return null;
 
     const token = createSerializedUSFMTextNode({
         text,
@@ -92,16 +96,50 @@ function* materializeFlatTokensFromSerialized(
     const { nested = "flatten", frontmatter = "flatten" } = options;
     for (const node of rootChildren) {
         if (isSerializedUSFMParagraphContainer(node)) {
-            // Emit synthetic paragraph marker token
+            // Emit synthetic paragraph marker token (byte-less shells yield
+            // nothing of their own)
             const children = node.children ?? [];
             const markerTokenBase = createSyntheticParagraphMarkerToken(node);
 
-            yield markerTokenBase;
+            if (markerTokenBase) yield markerTokenBase;
 
             if (children.length === 0) continue;
 
             // Then recursively yield children
             yield* materializeFlatTokensFromSerialized(children, options);
+        } else if (isSerializedUSFMNumberedMarkerNode(node)) {
+            // Numbered-marker node: token emission derives from node shape —
+            // open marker token · Number token · [endMarker token]. The
+            // Number token only exists when there is number content: an
+            // empty node emits its marker alone, exactly what the lexer
+            // would produce for the same bytes (the I2 fixpoint).
+            yield createSerializedUSFMTextNode({
+                text: node.openBytes,
+                id: node.openId,
+                sid: node.sid ?? "",
+                tokenType: UsfmTokenTypes.marker,
+                marker: node.marker,
+                inPara: node.inPara,
+            });
+            if ((node.text ?? "") !== "") {
+                yield createSerializedUSFMTextNode({
+                    text: node.text,
+                    id: node.id,
+                    sid: node.sid ?? "",
+                    tokenType: UsfmTokenTypes.numberRange,
+                    inPara: node.inPara,
+                });
+            }
+            if (node.closeBytes != null) {
+                yield createSerializedUSFMTextNode({
+                    text: node.closeBytes,
+                    id: node.closeId ?? guidGenerator(),
+                    sid: node.sid ?? "",
+                    tokenType: UsfmTokenTypes.endMarker,
+                    marker: node.marker,
+                    inPara: node.inPara,
+                });
+            }
         } else if (isSerializedBookFrontmatterFormNode(node)) {
             if (frontmatter === "preserve") {
                 yield node;

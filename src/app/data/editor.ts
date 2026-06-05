@@ -5,6 +5,7 @@ import {
 } from "lexical";
 import type { BookFrontmatterFormNodeJSON } from "@/app/domain/editor/nodes/BookFrontmatterFormNode.tsx";
 import type { USFMNestedEditorNodeJSON } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import type { SerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import type { USFMParagraphNodeJSON } from "@/app/domain/editor/nodes/USFMParagraphNode.ts";
 import type { SerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 
@@ -143,6 +144,13 @@ export const UsfmTokenTypes = {
     numberRange: "numberRange",
     verticalWhitespace: "nl",
     error: "error",
+    /**
+     * A whole marker+number unit held by one USFMNumberedMarkerNode (\c, \v;
+     * later cp/ca/va/vp). Deliberately NOT "numberRange": the node IS the
+     * marker-and-number pair, not a number token beside a hidden marker, and
+     * no adjacency logic should treat it as one.
+     */
+    numberedMarker: "numberedMarker",
 } as const;
 
 /**
@@ -171,5 +179,6 @@ export type USFMNodeJSON =
     | BookFrontmatterFormNodeJSON
     | USFMParagraphNodeJSON
     | SerializedUSFMTextNode
+    | SerializedUSFMNumberedMarkerNode
     | SerializedLineBreakNode
     | USFMNestedEditorNodeJSON;

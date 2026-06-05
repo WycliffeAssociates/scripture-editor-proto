@@ -367,18 +367,20 @@ export function tokensToUsfm(tokens: Token[], eol: LineEnding): string {
 }
 
 /**
- * Serialize a book's chapters to the exact bytes a save would persist: chapters
- * in ascending number order, each token stream joined, books concatenated.
- * `selectTokens` picks the field — `currentTokens` for the working/save bytes,
- * `sourceTokens` for the on-disk baseline. Shared so the save path, the backup
- * pipeline, and the reopen baseline can't drift in ordering/joining (a drift
- * would turn every clean restore into a false "disk moved" forced review).
+ * Serialize a book's chapters to the exact bytes a save would persist:
+ * chapters in DISK ORDER (the order they were loaded — invariant I1: the
+ * system never reorders disk bytes; a file that arrives with out-of-order
+ * chapters is represented and saved out of order; flagging it is lint's
+ * job). `selectTokens` picks the field — `currentTokens` for the
+ * working/save bytes, `sourceTokens` for the on-disk baseline. Shared so the
+ * save path, the backup pipeline, and the reopen baseline can't drift in
+ * ordering/joining (a drift would turn every clean restore into a false
+ * "disk moved" forced review).
  */
 export function serializeChaptersToUsfm<
     C extends { chapterNumber: number; eol: LineEnding },
 >(chapters: readonly C[], selectTokens: (chapter: C) => Token[]): string {
     return chapters
-        .toSorted((a, b) => a.chapterNumber - b.chapterNumber)
         .map((chapter) => tokensToUsfm(selectTokens(chapter), chapter.eol))
         .join("");
 }

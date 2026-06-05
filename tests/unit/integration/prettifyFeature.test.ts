@@ -6,6 +6,7 @@ import {
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
+import { isSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { walkNodes } from "@/app/domain/editor/utils/serializedTraversal.ts";
 import {
     lexicalRootChildrenToUsfmTokenStream,
@@ -92,12 +93,14 @@ describe("Prettify Feature Integration", () => {
             expect(chapterPara).toBeTruthy();
             const chapterChildren = (chapterPara as { children?: unknown })
                 .children as SerializedLexicalNode[];
+            // The chapter is one numbered-marker node (marker bytes in node
+            // state, number as content) inside a byte-less shell container.
             const chapterNumberIndex = chapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(chapterNumberIndex).toBeGreaterThanOrEqual(0);
             expect(chapterChildren[chapterNumberIndex + 1]?.type).toBe(
                 "linebreak",
             );
@@ -261,10 +264,10 @@ These are the   names`,
             ).children as SerializedLexicalNode[];
             const genChapterIndex = genChapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(genChapterIndex).toBeGreaterThanOrEqual(0);
             expect(genChapterChildren[genChapterIndex + 1]?.type).toBe(
                 "linebreak",
             );
@@ -291,10 +294,10 @@ These are the   names`,
             ).children as SerializedLexicalNode[];
             const exoChapterIndex = exoChapterChildren.findIndex(
                 (node) =>
-                    isSerializedUSFMTextNode(node) &&
-                    node.tokenType === UsfmTokenTypes.numberRange &&
+                    isSerializedUSFMNumberedMarkerNode(node) &&
                     node.text.trim() === "1",
             );
+            expect(exoChapterIndex).toBeGreaterThanOrEqual(0);
             expect(exoChapterChildren[exoChapterIndex + 1]?.type).toBe(
                 "linebreak",
             );

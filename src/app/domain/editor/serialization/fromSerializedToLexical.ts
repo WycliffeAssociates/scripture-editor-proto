@@ -10,10 +10,12 @@ import {
     getSerializedNestedEditorNode,
     nestedEditorMarkers,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { isSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import { createSerializedUSFMTextNode } from "@/app/domain/editor/nodes/USFMTextNode.ts";
 import type { LexicalHydrationToken } from "@/app/domain/editor/utils/lexicalHydrationToken.ts";
 import type { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
+    isChapterMarker,
     isDocumentMarker,
     isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
@@ -178,6 +180,25 @@ export function groupFlatNodesIntoParagraphContainers(
                 containerStartMarker.sid,
                 containerStartMarker.text,
             );
+            continue;
+        }
+
+        // A chapter's numbered node gets its own line container — but a
+        // BYTE-LESS one (markerText ""): the node itself carries all the
+        // chapter bytes, the shell exists only because Lexical roots can't
+        // hold text nodes directly and the chapter line needs block layout.
+        if (
+            isSerializedUSFMNumberedMarkerNode(node) &&
+            isChapterMarker(node.marker ?? "")
+        ) {
+            dropLeadingEmptyDefaultParagraphIfNeeded();
+            const shell = startParagraph(
+                node.marker ?? "c",
+                `chapter-shell-${node.openId}`,
+                node.sid ?? "",
+                "",
+            );
+            shell.children.push(node);
             continue;
         }
 

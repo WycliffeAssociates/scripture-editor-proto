@@ -69,9 +69,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SerializedEditorState } from "lexical";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { type EditorShape, EDITOR_SHAPES } from "@/app/data/editor.ts";
 import { transformToShape } from "@/app/domain/editor/utils/modeTransforms.ts";
+import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import {
   lexicalToTokens,
   tokensToLexical,
@@ -161,6 +162,13 @@ function scenarioId(fixture: FixtureName, kind: "load" | "flip", parts: string):
 function maybeFails(scenario: string): typeof it | typeof it.fails {
   return KNOWN_DIVERGENT.has(scenario) ? it.fails : it;
 }
+
+// The regular-shape rebuild pairs marker+number tokens into numbered nodes
+// via the catalog registry (isEnabledNumberedMarker); without initialization
+// the pairing no-ops and the suite would silently exercise the legacy path.
+beforeAll(async () => {
+  initializeUsfmMarkerCatalog(await webUsfmOnionService.getMarkerCatalog());
+});
 
 describe("synthetic fixture round-trip", () => {
   for (const fixture of FIXTURES) {

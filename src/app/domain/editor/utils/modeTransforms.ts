@@ -22,6 +22,7 @@ import {
     USFM_NESTED_DECORATOR_TYPE,
     type USFMNestedEditorNodeJSON,
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
+import { createSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
     createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
@@ -34,7 +35,9 @@ import { parseSid } from "@/core/data/bible/bible.ts";
 import { guidGenerator } from "@/core/data/utils/generic.ts";
 import { LanguageDirection } from "@/core/domain/project/project.ts";
 import {
+    getClosingBehavior,
     isDocumentMarker,
+    isEnabledNumberedMarker,
     isValidParaMarker,
 } from "@/core/domain/usfm/onionMarkers.ts";
 
@@ -236,6 +239,86 @@ function rewrapNestedEditorNodesFromFlatTokens(
 }
 
 /**
+ * Pair flat marker + number tokens into numbered-marker nodes for the
+ * regular shape (the flat→tree twin of the numbered branch in
+ * `materializeFlatTokensFromSerialized`). Runs at load, mode-switch-in, and
+ * paste — every regular rebuild flows through here.
+ *
+ * The rule is total over the enabled family (catalog payload fact + the
+ * c/v rollout gate in `isEnabledNumberedMarker`):
+ * - adjacent `marker · number` → one node carrying both token ids;
+ * - an unpaired marker (e.g. `\v\n13` — the newline token breaks adjacency)
+ *   → a node with EMPTY content. The load-time bad state is the same
+ *   representation as the edit-time bad state; lint owns surfacing it. The
+ *   orphaned number token stays a flat numberRange text node — its `number`
+ *   kind survives a re-lex (the lexer's pending payload crosses the
+ *   newline), so leaving it flat preserves the I2 fixpoint.
+ * - when the catalog says the marker closes (`requiredExplicit` — ca/va/vp,
+ *   none of which are enabled yet), an immediately following `\marker*`
+ *   endMarker is absorbed as closeBytes.
+ */
+function pairNumberedMarkerNodesFromFlatTokens(
+    flatTokens: SerializedLexicalNode[],
+): SerializedLexicalNode[] {
+    const out: SerializedLexicalNode[] = [];
+    for (let i = 0; i < flatTokens.length; i++) {
+        const node = flatTokens[i];
+        if (!isSerializedMarkerToken(node)) {
+            out.push(node);
+            continue;
+        }
+        const marker = node.marker ?? markerFromUsfmTokenText(node.text);
+        if (!marker || !isEnabledNumberedMarker(marker)) {
+            out.push(node);
+            continue;
+        }
+
+        const next = flatTokens[i + 1];
+        const isNumber =
+            next !== undefined &&
+            isSerializedUSFMTextNode(next) &&
+            next.tokenType === UsfmTokenTypes.numberRange;
+
+        let closeBytes: string | null = null;
+        let closeId: string | null = null;
+        if (isNumber && getClosingBehavior(marker) === "requiredExplicit") {
+            const maybeClose = flatTokens[i + 2];
+            if (
+                maybeClose !== undefined &&
+                isSerializedEndMarkerToken(maybeClose) &&
+                (maybeClose.marker ??
+                    markerFromUsfmTokenText(
+                        (maybeClose.text ?? "").replace("*", ""),
+                    )) === marker
+            ) {
+                closeBytes = maybeClose.text ?? `\\${marker}*`;
+                closeId = maybeClose.id ?? null;
+            }
+        }
+
+        out.push(
+            createSerializedUSFMNumberedMarkerNode(
+                isNumber ? (next.text ?? "") : "",
+                {
+                    numberId: isNumber
+                        ? (next.id ?? guidGenerator())
+                        : guidGenerator(),
+                    openId: node.id ?? guidGenerator(),
+                    closeId,
+                    openBytes: node.text ?? `\\${marker} `,
+                    closeBytes,
+                    marker,
+                    sid: (isNumber ? next.sid : undefined) || node.sid || "",
+                    inPara: node.inPara,
+                },
+            ),
+        );
+        if (isNumber) i += closeBytes != null ? 2 : 1;
+    }
+    return out;
+}
+
+/**
  * Rematerialize one serialized chapter state into a different tree shape.
  *
  * Shape changes do not reparse scripture from disk. They reinterpret the
@@ -329,16 +412,20 @@ export function transformToShape(
     }
 
     if (targetShape === "regular") {
+        // Order matters: note rewrap first (its unclosed-note boundary
+        // inference reads flat \c marker tokens), then numbered pairing,
+        // then container grouping.
         const withNested = rewrapNestedEditorNodesFromFlatTokens(
             flatTokens,
             direction,
         );
+        const withNumbered = pairNumberedMarkerNodesFromFlatTokens(withNested);
         return {
             ...state,
             root: {
                 ...state.root,
                 children: groupFlatNodesIntoParagraphContainers(
-                    withNested,
+                    withNumbered,
                     direction,
                 ),
             },

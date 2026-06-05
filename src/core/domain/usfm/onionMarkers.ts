@@ -39,6 +39,7 @@ type MarkerRegistry = {
     paragraphCategoryByMarker: Map<string, ParagraphCategory>;
     payloadByMarker: Map<string, MarkerPayload>;
     closingBehaviorByMarker: Map<string, ClosingBehavior>;
+    chapterMarkers: Set<string>;
 };
 
 let registry: MarkerRegistry | null = null;
@@ -102,6 +103,7 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
     const paragraphCategoryByMarker = new Map<string, ParagraphCategory>();
     const payloadByMarker = new Map<string, MarkerPayload>();
     const closingBehaviorByMarker = new Map<string, ClosingBehavior>();
+    const chapterMarkers = new Set<string>();
     for (const [marker, info] of Object.entries(catalog.infoByMarker)) {
         if (info.paragraphCategory) {
             paragraphCategoryByMarker.set(marker, info.paragraphCategory);
@@ -111,6 +113,9 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         }
         if (info.closingBehavior) {
             closingBehaviorByMarker.set(marker, info.closingBehavior);
+        }
+        if (info.category === "chapter") {
+            chapterMarkers.add(marker);
         }
     }
 
@@ -125,6 +130,7 @@ function buildRegistry(catalog: UsfmMarkerCatalog): MarkerRegistry {
         paragraphCategoryByMarker,
         payloadByMarker,
         closingBehaviorByMarker,
+        chapterMarkers,
     };
 }
 
@@ -212,4 +218,13 @@ export function isEnabledNumberedMarker(marker: string): boolean {
         getMarkerPayload(marker) === "numberRange" &&
         (registry?.chapterVerseMarkers.has(marker) ?? false)
     );
+}
+
+/**
+ * Catalog `category === "chapter"` membership. The regular-shape grouping
+ * pass uses this to give a chapter's numbered node its own (byte-less)
+ * line container.
+ */
+export function isChapterMarker(marker: string): boolean {
+    return registry?.chapterMarkers.has(marker) ?? false;
 }
