@@ -24,7 +24,6 @@ import {
 } from "@/app/domain/editor/nodes/USFMNestedEditorNode.tsx";
 import { createSerializedUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 import {
-    createSerializedUSFMTextNode,
     isSerializedUSFMTextNode,
     type SerializedUSFMTextNode,
 } from "@/app/domain/editor/nodes/USFMTextNode.ts";
@@ -140,9 +139,35 @@ function rewrapNestedEditorNodesFromFlatTokens(
             continue;
         }
 
-        // Find the matching `\\marker*` end marker. If not found, leave as-is.
-        let endIndex = -1;
+        // A note is inline content: it cannot legally cross a paragraph/line
+        // boundary, so its scope ends no later than the next linebreak or
+        // container-start marker. Compute that ceiling first, then only look
+        // for the matching `\\marker*` *within* it. Without the ceiling the
+        // search would greedily pair an unclosed `\\f` with the next `\\f*`
+        // many verses downstream, swallowing every verse in between.
+        //
+        // TODO: once usfm-onion's resolved nesting drives Regular mode (walk
+        // `ParsedUsfm.cst()` roots/children, or honor `Token.nested`), this
+        // hand-rolled boundary becomes redundant — the close site comes from
+        // the parser instead of being re-derived here from marker text.
+        let boundaryStop = flatTokens.length;
         for (let j = i + 1; j < flatTokens.length; j++) {
+            const t = flatTokens[j];
+            if (t?.type === "linebreak") {
+                boundaryStop = j;
+                break;
+            }
+            if (!isSerializedMarkerToken(t)) continue;
+            const m = t.marker ?? markerFromUsfmTokenText(t.text);
+            if (m && isContainerStartMarker(m)) {
+                boundaryStop = j;
+                break;
+            }
+        }
+
+        // Find the matching `\\marker*` end marker within the note's scope.
+        let endIndex = -1;
+        for (let j = i + 1; j < boundaryStop; j++) {
             const maybeEnd = flatTokens[j];
             if (!isSerializedEndMarkerToken(maybeEnd)) continue;
 
@@ -158,40 +183,15 @@ function rewrapNestedEditorNodesFromFlatTokens(
             }
         }
 
-        // If end marker is missing, infer closure at the next paragraph boundary.
-        // This mirrors the parser lint autofix behavior which inserts `\\marker*`
-        // at the next paragraph marker or newline.
-        const boundaryIndex =
-            endIndex !== -1
-                ? endIndex + 1
-                : (() => {
-                      for (let j = i + 1; j < flatTokens.length; j++) {
-                          const t = flatTokens[j];
-                          if (t?.type === "linebreak") return j;
-                          if (!isSerializedMarkerToken(t)) continue;
-                          const m = t.marker ?? markerFromUsfmTokenText(t.text);
-                          if (m && isContainerStartMarker(m)) return j;
-                      }
-                      return flatTokens.length;
-                  })();
+        // When the close is missing, the note ends at the boundary ceiling.
+        // The decorator's extent (the children we slice below) is what defines
+        // where the note ends in the editor — we deliberately do NOT synthesize
+        // a `\\marker*` token here. Injecting one would round-trip back out as a
+        // byte the source never had, corrupting save/diff against an unclosed
+        // (malformed-but-real) note. Byte-faithful: render closed, emit nothing.
+        const boundaryIndex = endIndex !== -1 ? endIndex + 1 : boundaryStop;
 
-        const nestedChildren = flatTokens.slice(
-            i + 1,
-            endIndex !== -1 ? endIndex + 1 : boundaryIndex,
-        );
-        if (endIndex === -1) {
-            nestedChildren.push(
-                createSerializedUSFMTextNode({
-                    text: `\\${marker}*`,
-                    id: guidGenerator(),
-                    sid: node.sid ?? "",
-                    tokenType: UsfmTokenTypes.endMarker,
-                    marker,
-                    inPara: node.inPara,
-                    inChars: node.inChars,
-                }),
-            );
-        }
+        const nestedChildren = flatTokens.slice(i + 1, boundaryIndex);
 
         const paragraph: SerializedElementNode = {
             type: "paragraph",

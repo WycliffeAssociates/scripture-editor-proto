@@ -1,10 +1,12 @@
 import {
     $create,
+    $createRangeSelection,
     $getNodeByKey,
     $getSelection,
     $getState,
     $isRangeSelection,
     $isTextNode,
+    $setSelection,
     $setState,
     COMMAND_PRIORITY_LOW,
     CONTROLLED_TEXT_INSERTION_COMMAND,
@@ -13,6 +15,7 @@ import {
     type EditorConfig,
     KEY_ARROW_LEFT_COMMAND,
     KEY_ARROW_RIGHT_COMMAND,
+    KEY_DOWN_COMMAND,
     KEY_SPACE_COMMAND,
     type LexicalEditor,
     SELECTION_CHANGE_COMMAND,
@@ -299,16 +302,61 @@ export function isSerializedUSFMNumberedMarkerNode(
  * just-emptied node and the replacement digit would land in the previous
  * text node.
  */
-function registerDeletion(
-    editor: LexicalEditor,
-    setAffinity: (key: string | null) => void,
-) {
+function registerDeletion(editor: LexicalEditor, clearProseEdge: () => void) {
     return editor.registerCommand<boolean>(
         DELETE_CHARACTER_COMMAND,
         (isBackward) => {
             const selection = $getSelection();
             if (!$isRangeSelection(selection)) return false;
             const anchorNode = selection.anchor.getNode();
+
+            // Backspace at the prose edge (`text@0` held by the arrow defense,
+            // previous sibling a number). The number's SOLE trailing space is
+            // onion's argument delimiter — deleting it natively would strand
+            // the digits ("8The" — model diverges from bytes, I2). But EXTRA
+            // trailing spaces (from disk) are ordinary content: delete those
+            // one at a time. So only intervene when the delete would remove the
+            // last remaining delimiter.
+            if (
+                selection.isCollapsed() &&
+                isBackward &&
+                selection.anchor.offset === 0 &&
+                $isTextNode(anchorNode) &&
+                !$isUSFMNumberedMarkerNode(anchorNode)
+            ) {
+                const prev = anchorNode.getPreviousSibling();
+                if ($isUSFMNumberedMarkerNode(prev)) {
+                    const ptext = prev.getTextContent();
+                    const digits = ptext.replace(/\s+$/u, "");
+                    if (digits === "") {
+                        // Empty placeholder — backspace removes the whole
+                        // number (stage 2 from the prose side; the empty inline
+                        // node can't be deleted natively).
+                        clearProseEdge();
+                        prev.remove();
+                        anchorNode.select(0, 0);
+                        return true;
+                    }
+                    const raw = ptext.slice(0, -1); // native: drop prev's last char
+                    if (/\s$/u.test(ptext) && !/\s$/u.test(raw)) {
+                        // That last char was the sole delimiter — don't strand
+                        // the digits; drop the last digit instead.
+                        clearProseEdge();
+                        const next = raw.slice(0, -1); // raw == digits, no WS
+                        if (next.trim() === "") {
+                            prev.setTextContent("");
+                            prev.select(0, 0);
+                        } else {
+                            prev.setTextContent(`${next} `);
+                            prev.select(next.length, next.length);
+                        }
+                        return true;
+                    }
+                    // Excess trailing space — let native delete one of them.
+                    return false;
+                }
+            }
+
             if (!$isUSFMNumberedMarkerNode(anchorNode)) return false;
 
             const text = anchorNode.getTextContent();
@@ -318,7 +366,6 @@ function registerDeletion(
                 const prev = anchorNode.getPreviousSibling();
                 const parent = anchorNode.getParent();
                 const index = anchorNode.getIndexWithinParent();
-                setAffinity(null);
                 anchorNode.remove();
                 if ($isTextNode(prev)) {
                     prev.selectEnd();
@@ -328,289 +375,311 @@ function registerDeletion(
                 return true;
             }
 
-            // Determine the span this delete would remove, and require it to
-            // sit entirely within this node.
-            let start: number;
-            let end: number;
+            // Empty the node to its I2-clean placeholder ("" — no lone
+            // terminator, which would re-lex as part of the next word) and
+            // keep the caret inside. The empty inline node can't host a DOM
+            // caret, but $typeIntoEmptyNumber catches the retype keystroke and
+            // the painted caret (NumberedCaretPlugin) reads the model anchor,
+            // so the affordance + retype work without an affinity defense.
+            const $emptyInPlace = (): true => {
+                anchorNode.setTextContent("");
+                anchorNode.select(0, 0);
+                return true;
+            };
+
+            // The number's content is "<digits><WS terminator>". The terminator
+            // is onion's argument delimiter (railroad: VERSE then `'' | WS`),
+            // which the lexer collapses into the number token — so stranding
+            // the digits without ANY trailing space ("6" before "Then") makes
+            // the bytes re-lex as "6Then" (an I2 divergence). But only the LAST
+            // remaining space is that delimiter: extra trailing spaces (from
+            // disk) are ordinary, deletable one at a time. So we step in only
+            // when a delete would remove the final space and strand the digits.
             if (selection.isCollapsed()) {
                 const offset = selection.anchor.offset;
                 if (isBackward) {
-                    if (offset === 0) return false; // boundary → default
-                    start = offset - 1;
-                    end = offset;
-                } else {
-                    if (offset >= text.length) return false;
-                    start = offset;
-                    end = offset + 1;
+                    if (offset === 0) return false; // boundary → prev sibling
+                    const raw = text.slice(0, offset - 1) + text.slice(offset);
+                    if (raw.trim() === "") return $emptyInPlace();
+                    // Removing the sole delimiter strands the digits — drop the
+                    // last digit instead (keep one terminator).
+                    if (/\s$/u.test(text) && !/\s$/u.test(raw)) {
+                        const next = raw.slice(0, -1); // raw == digits, no WS
+                        if (next.trim() === "") return $emptyInPlace();
+                        anchorNode.setTextContent(`${next} `);
+                        anchorNode.select(next.length, next.length);
+                        return true;
+                    }
+                    return false; // digit, or one of several excess spaces
                 }
-            } else {
-                const focusNode = selection.focus.getNode();
-                if (focusNode !== anchorNode) return false; // multi-node → default
-                start = Math.min(
-                    selection.anchor.offset,
-                    selection.focus.offset,
-                );
-                end = Math.max(selection.anchor.offset, selection.focus.offset);
+
+                // Forward delete (mirror): swallow only when it would strip the
+                // sole delimiter; excess spaces / digits delete natively.
+                if (offset >= text.length) return false; // boundary → default
+                const raw = text.slice(0, offset) + text.slice(offset + 1);
+                if (raw.trim() === "") return $emptyInPlace();
+                if (/\s$/u.test(text) && !/\s$/u.test(raw)) return true;
+                return false;
             }
 
+            // Non-collapsed: only handle a range fully inside this node;
+            // empty out when it would clear every digit, else defer.
+            const focusNode = selection.focus.getNode();
+            if (focusNode !== anchorNode) return false; // multi-node → default
+            const start = Math.min(
+                selection.anchor.offset,
+                selection.focus.offset,
+            );
+            const end = Math.max(
+                selection.anchor.offset,
+                selection.focus.offset,
+            );
             const remaining = text.slice(0, start) + text.slice(end);
-            if (remaining.trim() !== "") return false; // digits survive → default
-
-            // Stage 1: the last number content is going — clear the whole
-            // content (terminator space included) and keep the caret inside.
-            anchorNode.setTextContent("");
-            anchorNode.select(0, 0);
-            setAffinity(anchorNode.getKey());
-            return true;
+            return remaining.trim() === "" ? $emptyInPlace() : false;
         },
         COMMAND_PRIORITY_LOW,
     );
 }
 
-function $placeCaret(
-    node: TextNode,
-    offset: number,
-    event: KeyboardEvent,
-): true {
-    event.preventDefault();
-    node.select(offset, offset);
-    return true;
-}
-
 /**
- * Double-stop caret movement at numbered-marker boundaries.
+ * All numbered-marker caret/editing behavior: boundary arrow stops (direction-
+ * agnostic, RTL-safe), the prose-edge canonicalization defenses, two-stage
+ * delete, empty-node retype, and the space-jump.
  *
- * @0 placements need defending — Lexical canonicalizes them away in TWO
- * places, neither with a subclass hook:
+ * The boundary has two model positions at one pixel — the number's end
+ * (`num@end`, blue, model-stable) and the prose start (`text@0`, black).
+ * Native arrowing only ever rests at ONE of them per direction, so we force
+ * the missing stop and defend `text@0` (which Lexical canonicalizes to
+ * `prevSibling@end`) on both SELECTION_CHANGE and CONTROLLED_TEXT_INSERTION.
  *
- * 1. DOM-selection ingestion (`resolveSelectionPointOnBoundary`) rewrites a
- *    text point at offset 0 to prevSibling@end when the previous sibling is
- *    a TextNode. After we place node@0 and the reconciler moves the DOM
- *    caret, the resulting selectionchange silently reverts the model.
- * 2. `beforeinput` (`selection.applyDOMRange(targetRange)`) re-resolves the
- *    event's target range through the same normalizer right before a text
- *    insertion — so even a surviving model placement gets reverted at the
- *    moment of typing. (Keydown-driven commands — arrows, backspace — read
- *    the model directly and don't hit this.)
- *
- * Defense: a sticky affinity key recording the node we placed the caret
- * into at @0. The SELECTION_CHANGE correction restores the placement after
- * ingestion (it converges — the re-set reconciles to a DOM position the
- * caret already occupies, so no further selectionchange fires), and a
- * CONTROLLED_TEXT_INSERTION handler (running before rich-text's inserter)
- * restores it after applyDOMRange so the keystroke lands in the placed
- * node. The affinity clears as soon as the selection genuinely moves
- * elsewhere.
- *
- * A node edge is one visual position with two model positions (prev@end ≡
- * next@0); the browser canonicalizes to prev@end, so the @0 side of a
- * numbered boundary is never reachable by default — you cannot put the caret
- * before the "2" to type "12". These handlers make BOTH sides of every
- * numbered-node edge explicit caret stops: crossing a number boundary takes
- * two presses at the same visual spot, with the caret's owning node (and
- * therefore the edit target — caret position IS the edit target, nothing
- * redirects keystrokes) flipping between the presses. CSS caret-color makes
- * the flip visible.
- *
- * Stops exist only where at least one side of the boundary is a numbered
- * node; plain-text↔plain-text seams keep default (invisible) behavior.
- * Bypassed: modified arrows (shift/alt/meta/ctrl — selection extension and
- * word/line jumps stay native), IME composition, non-collapsed selections,
- * and non-text siblings (linebreak crossing stays native; line starts don't
- * alias anyway).
+ * Both directions then expose two stops at the boundary pixel: the number's
+ * end (`num@end`, blue — model-stable) and the prose start (`text@0`, black).
+ * `text@0` is the catch: Lexical canonicalizes it to `prevSibling@end` (the
+ * number is a TextNode subclass), so it needs two defenses — one on
+ * SELECTION_CHANGE (navigation) and one on CONTROLLED_TEXT_INSERTION (so a
+ * typed char lands in the prose, not the number). While the prose edge is
+ * armed, the root carries `data-prose-edge` so NumberedCaretPlugin keeps the
+ * caret black through the transient canonicalization (no blue flicker).
  */
 export function registerNumberedMarkerBehaviors(editor: LexicalEditor) {
-    // Sticky affinity: key of the node we last explicitly placed the caret
-    // into at offset 0 (arrow stops AND the delete guard's stage-1 empty).
-    // Cleared when the selection genuinely leaves the spot.
-    let affinityKey: string | null = null;
+    const isPlain = (e: KeyboardEvent) =>
+        !(e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) &&
+        !editor.isComposing();
 
-    const $place = (
+    // The prose-edge stop (`text@0`): armed with the text node's key while the
+    // caret holds that edge. Mirrored onto the root as `data-prose-edge` so the
+    // caret affordance stays black there even while the model momentarily
+    // canonicalizes to the number's end. Cleared when the selection leaves.
+    let proseEdgeKey: string | null = null;
+    const setProseEdge = (key: string | null) => {
+        proseEdgeKey = key;
+        const root = editor.getRootElement();
+        if (key) root?.setAttribute("data-prose-edge", "true");
+        else root?.removeAttribute("data-prose-edge");
+    };
+
+    const $stop = (node: TextNode, offset: number, event: KeyboardEvent) => {
+        event.preventDefault();
+        node.select(offset, offset);
+        return true;
+    };
+
+    // Map a physical arrow key to a LOGICAL direction (toward the start/prev
+    // vs the end/next) using the element's computed text direction, so RTL
+    // needs no special-casing. String offsets are already logical (0 = start),
+    // so all the boundary math below is direction-neutral.
+    const logicalDir = (
+        physicalKey: "left" | "right",
         node: TextNode,
-        offset: number,
+    ): "backward" | "forward" => {
+        const el = editor.getElementByKey(node.getKey());
+        const rtl = el ? getComputedStyle(el).direction === "rtl" : false;
+        const forwardKey = rtl ? "left" : "right";
+        return physicalKey === forwardKey ? "forward" : "backward";
+    };
+
+    const $handleArrow = (
         event: KeyboardEvent,
-    ): true => {
-        affinityKey = offset === 0 ? node.getKey() : null;
-        return $placeCaret(node, offset, event);
-    };
-
-    /**
-     * Is the current collapsed selection sitting on the alias of the
-     * affinity placement (prev@end whose next sibling is the placed node)?
-     * Returns the placed node when so.
-     */
-    const $aliasedAffinityTarget = (): TextNode | null => {
-        if (affinityKey === null) return null;
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-            return null;
-        }
-        const node = selection.anchor.getNode();
-        if (
-            $isTextNode(node) &&
-            selection.anchor.offset === node.getTextContentSize() &&
-            node.getNextSibling()?.getKey() === affinityKey
-        ) {
-            const target = $getNodeByKey(affinityKey);
-            return $isTextNode(target) ? target : null;
-        }
-        return null;
-    };
-
-    const $handle = (event: KeyboardEvent, isLeft: boolean): boolean => {
-        if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
-            return false;
-        }
-        if (editor.isComposing()) return false;
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-            return false;
-        }
-        const node = selection.anchor.getNode();
+        physicalKey: "left" | "right",
+    ): boolean => {
+        if (!isPlain(event)) return false;
+        const sel = $getSelection();
+        if (!$isRangeSelection(sel) || !sel.isCollapsed()) return false;
+        const node = sel.anchor.getNode();
         if (!$isTextNode(node)) return false;
-        const offset = selection.anchor.offset;
-        const size = node.getTextContentSize();
-        const isNumbered = $isUSFMNumberedMarkerNode(node);
+        const offset = sel.anchor.offset;
 
-        if (isLeft) {
-            if (isNumbered && offset > 0) {
-                // Interior move — explicit, because a default move to @0
-                // would canonicalize out of the node entirely.
-                return $place(node, offset - 1, event);
-            }
-            if (isNumbered && offset === 0) {
-                const prev = node.getPreviousSibling();
-                if ($isTextNode(prev)) {
-                    return $place(prev, prev.getTextContentSize(), event);
-                }
+        if (logicalDir(physicalKey, node) === "backward") {
+            // Toward the start: inside a number, native walks the interior and
+            // crosses the leading linebreak.
+            if ($isUSFMNumberedMarkerNode(node)) {
+                setProseEdge(null);
                 return false;
             }
             const prev = node.getPreviousSibling();
-            if ($isUSFMNumberedMarkerNode(prev)) {
-                // Give text@0 its own stop (default would skip straight to
-                // the number), then hand off to the number's end.
-                if (offset === 1) return $place(node, 0, event);
-                if (offset === 0) {
-                    return $place(prev, prev.getTextContentSize(), event);
-                }
+            if (!$isUSFMNumberedMarkerNode(prev)) return false;
+            // The prose start gets its own stop (arm it)...
+            if (offset === 1) {
+                setProseEdge(node.getKey());
+                return $stop(node, 0, event);
+            }
+            // ...then step to the number's end (its blue edge — model-stable).
+            if (offset === 0) {
+                setProseEdge(null);
+                return $stop(prev, prev.getTextContentSize(), event);
             }
             return false;
         }
 
-        // Rightward. Interior numbered moves are fine by default — the
-        // canonical name of the end boundary is the number's own @end.
-        if (offset !== size) return false;
+        // Toward the end: at a number's end with prose next, force the
+        // prose-edge stop (text@0) the browser would otherwise skip.
+        if (!$isUSFMNumberedMarkerNode(node)) return false;
+        if (offset !== node.getTextContentSize()) return false;
         const next = node.getNextSibling();
-        if (isNumbered && $isTextNode(next)) return $place(next, 0, event);
-        if ($isUSFMNumberedMarkerNode(next)) return $place(next, 0, event);
-        return false;
+        if (!$isTextNode(next) || $isUSFMNumberedMarkerNode(next)) return false;
+        setProseEdge(next.getKey());
+        return $stop(next, 0, event);
     };
 
-    const $correctIngestion = (): boolean => {
-        if (affinityKey === null) return false;
-        const selection = $getSelection();
-        if ($isRangeSelection(selection) && selection.isCollapsed()) {
-            const node = selection.anchor.getNode();
-            // Placement intact — keep the affinity armed (typing still
-            // needs it; see the beforeinput note above).
-            if (
-                node.getKey() === affinityKey &&
-                selection.anchor.offset === 0
-            ) {
-                return false;
-            }
-            // Ingestion rewrote the placement to its alias — restore it.
-            const target = $aliasedAffinityTarget();
-            if (target) {
-                target.select(0, 0);
-                return true;
+    const left = editor.registerCommand<KeyboardEvent>(
+        KEY_ARROW_LEFT_COMMAND,
+        (event) => $handleArrow(event, "left"),
+        COMMAND_PRIORITY_LOW,
+    );
+    const right = editor.registerCommand<KeyboardEvent>(
+        KEY_ARROW_RIGHT_COMMAND,
+        (event) => $handleArrow(event, "right"),
+        COMMAND_PRIORITY_LOW,
+    );
+
+    // Restore the held `text@0` if the current selection is its canonicalized
+    // alias (the previous number's @end). Returns:
+    //   "intact"   — already at text@0, nothing to do
+    //   "restored" — was the alias, put back via a fresh selection (node.select
+    //                would mutate the possibly-frozen committed selection here)
+    //   "gone"     — selection genuinely moved elsewhere; caller disarms
+    const $reassertProseEdge = (): "intact" | "restored" | "gone" => {
+        const sel = $getSelection();
+        if (!$isRangeSelection(sel) || !sel.isCollapsed()) return "gone";
+        const node = sel.anchor.getNode();
+        if (node.getKey() === proseEdgeKey && sel.anchor.offset === 0) {
+            return "intact";
+        }
+        if (
+            $isUSFMNumberedMarkerNode(node) &&
+            sel.anchor.offset === node.getTextContentSize() &&
+            node.getNextSibling()?.getKey() === proseEdgeKey
+        ) {
+            const target = $getNodeByKey(proseEdgeKey ?? "");
+            if ($isTextNode(target)) {
+                const restored = $createRangeSelection();
+                restored.anchor.set(target.getKey(), 0, "text");
+                restored.focus.set(target.getKey(), 0, "text");
+                $setSelection(restored);
+                return "restored";
             }
         }
-        // The selection genuinely moved elsewhere — affinity over.
-        affinityKey = null;
-        return false;
+        return "gone";
     };
 
-    const $correctInsertionTarget = (): boolean => {
-        // beforeinput's applyDOMRange has already re-canonicalized the
-        // selection within this very update; put it back so rich-text's
-        // inserter (next in line) lands the keystroke in the placed node.
-        const target = $aliasedAffinityTarget();
-        if (target) target.select(0, 0);
-        return false;
-    };
+    // Navigation defense: DOM-selection ingestion rewrites our held `text@0`
+    // to the previous number's @end. Put it back. Converges because the DOM
+    // caret never actually moved (text@0 and num@end share the pixel) — the
+    // re-set reconciles to a position already occupied, firing no new event.
+    const defend = editor.registerCommand(
+        SELECTION_CHANGE_COMMAND,
+        () => {
+            if (proseEdgeKey === null) return false;
+            if ($reassertProseEdge() === "gone") setProseEdge(null);
+            return false;
+        },
+        COMMAND_PRIORITY_LOW,
+    );
 
-    /**
-     * Space-at-end caret jump (the one kept interceptor from the old
-     * editor, node-scoped): the number's required whitespace already
-     * exists, so another space would be superfluous bytes — move the caret
-     * to where typing belongs instead. Pure caret move, no byte change.
-     * When the terminator is genuinely absent, the space is allowed in —
-     * it IS the terminator.
-     *
-     * Keydown-level (KEY_SPACE_COMMAND), not CONTROLLED_TEXT_INSERTION:
-     * same-node typing takes Lexical's uncontrolled fast path, which never
-     * dispatches the insertion command.
-     */
+    // Typing defense: `beforeinput` re-canonicalizes the selection to the
+    // number's @end immediately before inserting (a separate trap from the
+    // selectionchange one), so a character typed at the prose edge would land
+    // in the NUMBER. Re-assert text@0 here, before rich-text's inserter (which
+    // runs at COMMAND_PRIORITY_EDITOR, below this), so the char lands in prose.
+    const insert = editor.registerCommand(
+        CONTROLLED_TEXT_INSERTION_COMMAND,
+        () => {
+            if (proseEdgeKey !== null) $reassertProseEdge();
+            return false; // never consume — rich-text still does the insert
+        },
+        COMMAND_PRIORITY_LOW,
+    );
+
+    // Two-stage delete (backspace last digit → empty placeholder; backspace
+    // again → remove the whole node), terminator-aware so the number's WS
+    // delimiter is never orphaned (see registerDeletion).
+    const del = registerDeletion(editor, () => setProseEdge(null));
+
+    // Type the first character into an EMPTY numbered node. An empty inline
+    // node can't host a DOM caret, so the browser would route the keystroke to
+    // the adjacent prose; the model anchor is correct, so write the char (plus
+    // the restored terminator) straight into the number.
+    const $typeIntoEmptyNumber = (event: KeyboardEvent): boolean => {
+        if (event.ctrlKey || event.metaKey || event.altKey) return false;
+        if (editor.isComposing()) return false;
+        if (event.key.length !== 1 || event.key === " ") return false;
+        const sel = $getSelection();
+        if (!$isRangeSelection(sel) || !sel.isCollapsed()) return false;
+        const node = sel.anchor.getNode();
+        if (!$isUSFMNumberedMarkerNode(node) || node.getTextContent() !== "") {
+            return false;
+        }
+        event.preventDefault();
+        node.setTextContent(`${event.key} `);
+        node.select(1, 1);
+        return true;
+    };
+    const typeEmpty = editor.registerCommand<KeyboardEvent>(
+        KEY_DOWN_COMMAND,
+        $typeIntoEmptyNumber,
+        COMMAND_PRIORITY_LOW,
+    );
+
+    // Space at the number's end: the terminator already exists, so another
+    // space would be superfluous bytes — jump the caret to the prose instead.
     const $spaceJump = (event: KeyboardEvent): boolean => {
         if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
             return false;
         }
         if (editor.isComposing()) return false;
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-            return false;
-        }
-        const node = selection.anchor.getNode();
+        const sel = $getSelection();
+        if (!$isRangeSelection(sel) || !sel.isCollapsed()) return false;
+        const node = sel.anchor.getNode();
         if (!$isUSFMNumberedMarkerNode(node)) return false;
         const text = node.getTextContent();
-        const rest = text.slice(selection.anchor.offset);
+        const rest = text.slice(sel.anchor.offset);
         const terminatorPresent =
-            rest.length > 0 ? /^\s+$/.test(rest) : /\s$/.test(text);
+            rest.length > 0 ? /^\s+$/u.test(rest) : /\s$/u.test(text);
         const next = node.getNextSibling();
         if (terminatorPresent && $isTextNode(next)) {
             event.preventDefault();
+            // Arm the prose edge so the jump HOLDS at text@0 (otherwise the
+            // model bounces text@0 ↔ num@end and the caret cycles custom/native).
+            setProseEdge(next.getKey());
             next.select(0, 0);
-            affinityKey = next.getKey();
-            return true; // swallow the space
+            return true;
         }
         return false;
     };
-
-    const unregisterLeft = editor.registerCommand<KeyboardEvent>(
-        KEY_ARROW_LEFT_COMMAND,
-        (event) => $handle(event, true),
-        COMMAND_PRIORITY_LOW,
-    );
-    const unregisterRight = editor.registerCommand<KeyboardEvent>(
-        KEY_ARROW_RIGHT_COMMAND,
-        (event) => $handle(event, false),
-        COMMAND_PRIORITY_LOW,
-    );
-    const unregisterCorrection = editor.registerCommand(
-        SELECTION_CHANGE_COMMAND,
-        $correctIngestion,
-        COMMAND_PRIORITY_LOW,
-    );
-    const unregisterInsertion = editor.registerCommand(
-        CONTROLLED_TEXT_INSERTION_COMMAND,
-        $correctInsertionTarget,
-        COMMAND_PRIORITY_LOW,
-    );
-    const unregisterDeletion = registerDeletion(editor, (key) => {
-        affinityKey = key;
-    });
-    const unregisterSpace = editor.registerCommand<KeyboardEvent>(
+    const space = editor.registerCommand<KeyboardEvent>(
         KEY_SPACE_COMMAND,
         $spaceJump,
         COMMAND_PRIORITY_LOW,
     );
+
     return () => {
-        unregisterSpace();
-        unregisterLeft();
-        unregisterRight();
-        unregisterCorrection();
-        unregisterInsertion();
-        unregisterDeletion();
+        left();
+        right();
+        defend();
+        insert();
+        del();
+        typeEmpty();
+        space();
+        editor.getRootElement()?.removeAttribute("data-prose-edge");
     };
 }

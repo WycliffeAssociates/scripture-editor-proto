@@ -206,12 +206,38 @@ function findContextForVerseInsert(anchorNode: LexicalNode): {
     let nearestParaMarker: string | null = null;
     let prevSidInfo: ParsedReference | null = null;
 
+    // Regular mode: paragraph identity is the enclosing container, not a flat
+    // marker token. Prefer the nearest paragraph ancestor (the byte-less
+    // chapter shell's marker "c" is not a paragraph, so isValidParaMarker
+    // skips it). Source/plain mode has no containers and falls through to the
+    // flat-token scan below.
+    for (
+        let ancestor = anchorNode.getParent();
+        ancestor;
+        ancestor = ancestor.getParent()
+    ) {
+        if ($isUSFMParagraphNode(ancestor)) {
+            const marker = ancestor.getMarker() ?? "";
+            if (isValidParaMarker(marker)) {
+                nearestParaMarker = marker;
+                break;
+            }
+        }
+    }
+
     //   todo: what if this is verse one? or at start of blank chap. We could just I guess return a default #, but that could be annoying to delete as opposed ot knowing the pickedBook andChapter
     for (const { node } of $reverseDfsIterator(anchorNode, $getRoot())) {
         if ($isUSFMTextNode(node)) {
             const tokenType = node.getTokenType();
 
-            if (!prevSidInfo && tokenType === UsfmTokenTypes.numberRange) {
+            // Prior verse/chapter context lives on a flat `numberRange` token
+            // (source mode) OR a `numberedMarker` node (regular mode) — both
+            // carry the SID we step forward from.
+            if (
+                !prevSidInfo &&
+                (tokenType === UsfmTokenTypes.numberRange ||
+                    tokenType === UsfmTokenTypes.numberedMarker)
+            ) {
                 prevSidInfo = parseSid(node.getSid() ?? "");
             }
 

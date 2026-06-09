@@ -42,19 +42,19 @@ describe("formatLintIssueMessage ICU interpolation", () => {
         i18n.activate("en");
     });
 
-    it("substitutes the chapter-label placeholders (not literal braces)", () => {
-        // Regression: the message wrapped the placeholders in straight single
-        // quotes, which ICU MessageFormat treats as escaping — so '{found}'
-        // rendered literally instead of substituting. Double quotes fix it.
+    it("substitutes a double-quoted placeholder (not literal braces)", () => {
+        // Regression: a message that wraps a placeholder in straight single
+        // quotes has ICU MessageFormat treat them as escaping — so '{text}'
+        // renders literally instead of substituting. Double quotes fix it.
+        // (Originally guarded the dropped `inconsistent-chapter-label` case;
+        // repointed to `unknown-token`, which still double-quotes its param.)
         const message = formatLintIssueMessage(
             makeIssue({
-                code: "inconsistent-chapter-label",
-                messageParams: { found: "Marika", expected: "Wase" },
+                code: "unknown-token",
+                messageParams: { text: "Marika" },
             }),
         );
         expect(message).toContain("Marika");
-        expect(message).toContain("Wase");
-        expect(message).not.toContain("{found}");
-        expect(message).not.toContain("{expected}");
+        expect(message).not.toContain("{text}");
     });
 });

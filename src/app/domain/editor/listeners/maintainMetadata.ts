@@ -78,6 +78,15 @@ export function maintainDocumentMetaData(
         // Carry paragraph context forward so inline tokens know which
         // paragraph run they currently belong to. Paragraph-ness answers
         // from the catalog registry; number validity is lint's job.
+        //
+        // Two shapes feed this pass. In source/plain mode paragraph markers
+        // are flat `marker` tokens, so context flows left-to-right via
+        // `lastPara`. In regular mode paragraphs are `USFMParagraphNode`
+        // containers and the chapter/verse markers are numbered nodes — there
+        // is no inline para marker to pick up — so the enclosing container IS
+        // the paragraph context. Prefer container ancestry when present; the
+        // byte-less chapter shell carries marker "c", which isValidParaMarker
+        // rejects, so chapter-line nodes correctly fall back to lastPara.
         let lastPara: string | null = null;
         for (const node of filteredNodes) {
             const tokenType = node.getTokenType();
@@ -91,7 +100,22 @@ export function maintainDocumentMetaData(
                 lastPara = marker;
             }
 
-            const targetInPara = lastPara || "";
+            let containerPara: string | null = null;
+            for (
+                let ancestor = node.getParent();
+                ancestor;
+                ancestor = ancestor.getParent()
+            ) {
+                if ($isUSFMParagraphNode(ancestor)) {
+                    const containerMarker = ancestor.getMarker() ?? "";
+                    if (isValidParaMarker(containerMarker)) {
+                        containerPara = containerMarker;
+                        break;
+                    }
+                }
+            }
+
+            const targetInPara = containerPara || lastPara || "";
             const currentInPara = node.getInPara() ?? "";
             if (currentInPara !== targetInPara) {
                 inParaUpdates.push({

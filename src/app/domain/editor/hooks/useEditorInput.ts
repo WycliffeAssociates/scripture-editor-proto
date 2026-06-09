@@ -89,10 +89,12 @@ export function useEditorInput(editor: LexicalEditor) {
         const redirectParaInsertionToLineBreakUnregister =
             redirectParaInsertionToLineBreak(editor);
 
-        // Numbered-marker node behaviors: two-stage delete, double-stop
-        // arrow boundaries (+ their canonicalization defense), space-at-end
-        // caret jump. Self-gating — they only act when the selection is in
-        // a numbered node, which only exists in the regular shape.
+        // Numbered-marker (\c/\v) caret + editing behavior: direction-agnostic
+        // boundary stops (the prose-edge `text@0` and the number's end are both
+        // reachable, color-distinguished by NumberedCaretPlugin), the
+        // canonicalization defenses that hold `text@0`, two-stage delete,
+        // empty-node retype, and the space-jump. Self-gating — acts only when the
+        // selection is in a numbered node, which exists only in the regular shape.
         const numberedMarkerBehaviorsUnregister =
             registerNumberedMarkerBehaviors(editor);
 
@@ -103,6 +105,9 @@ export function useEditorInput(editor: LexicalEditor) {
                 ? registerUsfmCopy(editor)
                 : null;
 
+        // Hidden-byte char/note markers (flat `marker` tokens): nudge the caret
+        // past their bytes to the adjacent content. These skip numbered nodes
+        // (tokenType `numberedMarker`), which own their boundary behavior above.
         const normalizeSelectionAtHiddenMarkerBoundaryUnregister =
             editor.registerCommand(
                 SELECTION_CHANGE_COMMAND,
@@ -114,7 +119,6 @@ export function useEditorInput(editor: LexicalEditor) {
                 COMMAND_PRIORITY_HIGH,
             );
 
-        // Register KEY_DOWN_COMMAND for moving to adjacent nodes
         const moveToAdjacentNodesUnregister = editor.registerCommand(
             KEY_DOWN_COMMAND,
             (event: KeyboardEvent) => {

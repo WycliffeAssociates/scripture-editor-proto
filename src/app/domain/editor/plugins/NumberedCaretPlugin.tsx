@@ -4,11 +4,31 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { $isUSFMNumberedMarkerNode } from "@/app/domain/editor/nodes/USFMNumberedMarkerNode.ts";
 
+// The caret affordance is purely model-driven: if the selection anchor is in
+// a numbered node, the caret reads as "in the number" (blue bar, tint, native
+// caret hidden); empty → red bar. If it's anywhere else (incl. the prose at
+// `text@0`, the same pixel as the number's end), it's the plain native caret.
+// The COLOR is what distinguishes the two stops that share the boundary pixel:
+// number-edge = blue, prose-edge = native. No placement, no boundary logic.
+type CaretState = {
+    key: string;
+    empty: boolean;
+};
+
 type CaretBox = {
     left: number;
     top: number;
     height: number;
+    empty: boolean;
 };
+
+function $numberCaretState(): CaretState | null {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) return null;
+    const node = selection.anchor.getNode();
+    if (!$isUSFMNumberedMarkerNode(node)) return null;
+    return { key: node.getKey(), empty: node.getTextContentSize() === 0 };
+}
 
 /**
  * Caret affordances for numbered-marker nodes: when the caret is inside a
@@ -39,14 +59,16 @@ export function NumberedCaretPlugin() {
         // DOM attributes survive.
         let prevKey: string | null | "__init__" = "__init__";
         const apply = (editorState: EditorState) => {
-            const nextKey = editorState.read(() => {
-                const selection = $getSelection();
-                if (!$isRangeSelection(selection) || !selection.isCollapsed())
-                    return null;
-                const node = selection.anchor.getNode();
-                return $isUSFMNumberedMarkerNode(node) ? node.getKey() : null;
-            });
             const root = editor.getRootElement();
+            // While the prose edge is armed (registerNumberedMarkerBehaviors),
+            // the caret is black there even though the model momentarily
+            // canonicalizes into the number — suppress the in-number affordance
+            // so it doesn't flash blue.
+            const atProseEdge = root?.hasAttribute("data-prose-edge") === true;
+            const state = atProseEdge
+                ? null
+                : editorState.read(() => $numberCaretState());
+            const nextKey = state?.key ?? null;
             if (nextKey === prevKey) return;
             if (prevKey === "__init__") {
                 root?.querySelectorAll("[data-caret-inside]").forEach((el) => {
@@ -80,12 +102,16 @@ export function NumberedCaretPlugin() {
                 const root = editor.getRootElement();
                 const container = root?.parentElement;
                 const selection = $getSelection();
+                const atProseEdge =
+                    root?.hasAttribute("data-prose-edge") === true;
+                const state = atProseEdge ? null : $numberCaretState();
                 if (
+                    atProseEdge ||
                     !root ||
                     !container ||
                     document.activeElement !== root || // native carets hide on blur; so do we
-                    !$isRangeSelection(selection) ||
-                    !selection.isCollapsed()
+                    !state ||
+                    !$isRangeSelection(selection)
                 ) {
                     setBox(null);
                     return;
@@ -137,6 +163,7 @@ export function NumberedCaretPlugin() {
                     left: x - containerRect.left,
                     top: top - containerRect.top,
                     height,
+                    empty: state.empty,
                 });
             });
         };
@@ -160,7 +187,11 @@ export function NumberedCaretPlugin() {
     if (!box || !container) return null;
     return createPortal(
         <div
-            className="usfm-numbered-caret"
+            className={
+                box.empty
+                    ? "usfm-numbered-caret usfm-numbered-caret--empty"
+                    : "usfm-numbered-caret"
+            }
             style={{
                 left: box.left - 1.5,
                 top: box.top - 3,

@@ -50,13 +50,18 @@ function throwPathIoUnsupported(): never {
     throw new UnsupportedError("Path I/O is desktop-only");
 }
 
+// scope is required by the library and gates the document-level rules. The
+// editor doesn't thread chapter-grain scope yet, so we lint the whole book —
+// preserving today's behavior. See usfm_onion plans/plan-lint-scope.md §11.
+const WHOLE_BOOK_SCOPE: onion.LintScope = "book";
+
 function toWebTokenLintOptions(
     options?: TokenLintOptions | null,
-): onion.LintOptions | undefined {
-    if (!options) return undefined;
+): onion.LintOptions {
     return {
-        disabledCodes: (options.disabledRules ?? []) as onion.LintCode[],
-        suppressed: (options.suppressions ?? []).map((suppression) => ({
+        scope: WHOLE_BOOK_SCOPE,
+        disabledCodes: (options?.disabledRules ?? []) as onion.LintCode[],
+        suppressed: (options?.suppressions ?? []).map((suppression) => ({
             code: suppression.code as onion.LintCode,
             sid: suppression.sid,
         })),
@@ -69,6 +74,7 @@ function toWebProjectLintOptions(
 ): onion.LintOptions | undefined {
     if (!options) return undefined;
     return {
+        scope: options.scope ?? WHOLE_BOOK_SCOPE,
         enabledCodes: options.enabledCodes,
         disabledCodes: options.disabledCodes ?? [],
         suppressed: options.suppressed ?? [],
@@ -124,7 +130,11 @@ function parsedToProjectedDocument(
     options: ProjectUsfmOptions,
 ): ProjectedUsfmDocument {
     const lintIssues = options.lintOptions
-        ? parsed.lint(toWebProjectLintOptions(options.lintOptions)).issues
+        ? parsed.lint(
+              toWebProjectLintOptions(options.lintOptions) ?? {
+                  scope: WHOLE_BOOK_SCOPE,
+              },
+          ).issues
         : null;
     return {
         tokens: parsed.tokens(),

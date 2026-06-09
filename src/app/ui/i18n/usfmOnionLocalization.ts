@@ -48,10 +48,7 @@ export const LOCALIZED_LINT_CODES = [
     "implicitly-closed-marker",
     "unclosed-marker",
     "duplicate-chapter-number",
-    "chapter-expected-increase-by-one",
-    "inconsistent-chapter-label",
     "duplicate-verse-number",
-    "verse-expected-increase-by-one",
     "invalid-number-range",
     "number-range-not-preceded-by-marker-expecting-number",
     "missing-whitespace-before-marker",
@@ -65,7 +62,6 @@ export const LOCALIZED_LINT_CODES = [
 export function formatLintIssueMessage(issue: LintIssue): string {
     const marker = markerForIssue(issue);
     const expected = getParam(issue.messageParams, "expected");
-    const found = getParam(issue.messageParams, "found");
     const chapter = getParam(issue.messageParams, "chapter");
     const verse = getParam(issue.messageParams, "verse");
     const context = getParam(issue.messageParams, "context");
@@ -155,20 +151,12 @@ export function formatLintIssueMessage(issue: LintIssue): string {
         }
         case "duplicate-chapter-number":
             return t`Chapter ${chapter} appears more than once.`;
-        case "chapter-expected-increase-by-one":
-            if (!expected || !found) return fallbackMessage;
-            return t`Chapters should count up by one: expected chapter ${expected}, found chapter ${found}.`;
-        case "inconsistent-chapter-label":
-            if (!expected || !found) return fallbackMessage;
-            // Double quotes, not '…': an apostrophe is ICU MessageFormat's
-            // escape char, so '{found}' renders the placeholder literally
-            // instead of substituting it (matches the `unknown-token` case).
-            return t`Chapter label "${found}" does not match the label "${expected}" used elsewhere in this file.`;
+        // chapter-expected-increase-by-one, inconsistent-chapter-label, and
+        // verse-expected-increase-by-one were dropped from the library: they
+        // are consistency heuristics, not USFM validity, and now live as a
+        // consumer-side token-space reduce. See usfm_onion plans/plan-lint-scope.md §2.
         case "duplicate-verse-number":
             return t`Verse ${verse} appears more than once in chapter ${chapter}.`;
-        case "verse-expected-increase-by-one":
-            if (!expected || !found) return fallbackMessage;
-            return t`Verses should count up by one: expected verse ${expected}, found verse ${found}.`;
         case "invalid-number-range":
             return verse
                 ? t`'${verse}' is not a valid verse range.`

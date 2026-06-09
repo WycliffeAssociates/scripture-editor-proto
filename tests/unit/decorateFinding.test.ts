@@ -10,6 +10,7 @@ import {
     decorateFindingInert,
     type FindingDecorationContext,
 } from "@/app/domain/editor/annotations/decorators/decorateFinding.tsx";
+import type { Finding } from "@/app/domain/editor/annotations/finding.ts";
 import {
     lintIssuesToFindings,
     sousFindingsToFindings,
@@ -120,10 +121,21 @@ describe("decorateFinding (per-code override: chapter label)", () => {
         i18n.activate("en");
     });
 
-    function chapterLabelFinding() {
-        return lintIssuesToFindings([
-            makeIssue({
-                code: "inconsistent-chapter-label",
+    // `inconsistent-chapter-label` is no longer an onion LintCode — the library
+    // dropped it as a consistency heuristic (usfm_onion plan-lint-scope.md §2);
+    // the editor will re-emit it from its own token-space reduce. The decorator
+    // registry keys on the string `finding.code`, decoupled from onion's union,
+    // so we build the onion Finding directly rather than route a dropped code
+    // through a LintIssue (whose `code` is the strict onion union).
+    function chapterLabelFinding(): Finding {
+        return {
+            id: "chapter-label-1",
+            source: "onion",
+            code: "inconsistent-chapter-label",
+            severity: "warning",
+            category: "structure",
+            anchor: { kind: "token", tokenId: "n1", sid: "GEN 1:1" },
+            issue: makeIssue({
                 fix: undefined,
                 messageParams: {
                     expected: "Wase",
@@ -131,7 +143,7 @@ describe("decorateFinding (per-code override: chapter label)", () => {
                     marker: "cl",
                 },
             }),
-        ])[0];
+        };
     }
 
     it("adds a project-wide standardize action that tallies and opens the picker via the outlet", () => {

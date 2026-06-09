@@ -53,17 +53,15 @@
 //     variant and round-trip it. Once that lands these kitchen-sink
 //     entries unlock automatically.
 //
-//   - common-errors × regular shape: regular-mode load auto-closes
-//     the unclosed `\f` footnote (appends `\f*` on serialize). Form
-//     and flat shapes preserve the unclosed marker as-is.
-//     **INTENTIONAL**: leaving the footnote unclosed in regular mode
-//     would let the WYSIWYG renderer swallow the rest of the chapter
-//     into the footnote body. Auto-close at load + lint notification
-//     is the safe default the editor opts into. The `it.fails` here
-//     is *not* a bug-tracker; it's a guard that the auto-close
-//     behavior doesn't accidentally regress to "preserve verbatim".
-//   - Any flip THROUGH regular shape inherits the auto-close above,
-//     for the same reason.
+//   - common-errors × regular shape: USED to diverge — regular-mode
+//     load auto-closed the unclosed `\f` footnote (appended `\f*`) so
+//     the WYSIWYG renderer wouldn't swallow the rest of the chapter
+//     into the footnote body. That is RESOLVED: the note rewrap now
+//     bounds an unclosed note to its structural scope (the next
+//     linebreak / container marker) rather than synthesizing a close,
+//     so regular mode preserves the unclosed marker byte-for-byte like
+//     form and flat. The renderer no longer swallows; lint still flags
+//     the unclosed marker as a separate concern.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -115,14 +113,13 @@ const KNOWN_DIVERGENT: Set<string> = new Set([
   "kitchen-sink flip form→flat",
   "kitchen-sink flip flat→regular",
   "kitchen-sink flip flat→form",
-  // Common-errors: regular-mode load auto-closes the unclosed `\f`
-  // footnote; any flip THROUGH regular inherits the close.
-  // **Intentional** auto-format behavior — see header comment.
-  "common-errors load regular",
-  "common-errors flip regular→form",
-  "common-errors flip regular→flat",
-  "common-errors flip form→regular",
-  "common-errors flip flat→regular",
+  // Common-errors regular-shape scenarios used to live here: regular
+  // mode auto-closed the unclosed `\f` footnote (appended `\f*`) to
+  // stop the WYSIWYG renderer from swallowing the rest of the chapter.
+  // That workaround is gone — the note rewrap now bounds an unclosed
+  // note to its structural scope (next linebreak / container marker)
+  // instead of synthesizing a close, so regular mode round-trips the
+  // unclosed footnote byte-for-byte like form and flat already did.
 ]);
 
 async function loadFixture(fileName: string): Promise<{

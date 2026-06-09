@@ -95,6 +95,13 @@ globalStyle(`${regularMode} ${numberedMarker}[data-empty="true"]`, {
 globalStyle(`[data-mode]`, {
     caretColor: "currentColor",
 });
+// The number renders in the brand color, so a native caret inside it would
+// inherit that blue via currentColor. Pin it to the themed text color instead:
+// the caret's blue/red "in number" / "empty" signal is carried entirely by the
+// painted bar (our own element), never by the native caret's color.
+globalStyle(`${numberedMarker}`, {
+    caretColor: vars.color.onSurfacePrimary,
+});
 // Native caret hides while the painted bar carries the signal; it still
 // exists underneath for IME anchoring/focus semantics.
 globalStyle(`[data-mode][data-caret-in-number="true"]`, {
@@ -117,6 +124,14 @@ globalStyle(".usfm-numbered-caret", {
     boxShadow: `0 0 6px color-mix(in srgb, ${vars.color.brandBase} 60%, transparent)`,
     pointerEvents: "none",
     zIndex: 5,
+});
+
+// Empty number: the caret turns the error color so "type the number here"
+// reads at a glance, distinct from the brand-colored caret on a live number
+// and legible on top of the faint empty-slot tint.
+globalStyle(".usfm-numbered-caret--empty", {
+    background: vars.color.onSurfaceError,
+    boxShadow: `0 0 6px color-mix(in srgb, ${vars.color.onSurfaceError} 70%, transparent)`,
 });
 
 globalStyle(

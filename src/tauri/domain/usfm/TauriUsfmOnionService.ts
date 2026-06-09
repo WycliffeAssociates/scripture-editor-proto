@@ -42,6 +42,10 @@ function toTauriTokenLintOptions(options?: TokenLintOptions) {
 function toTauriLintOptions(options?: LintOptions | null) {
     if (!options) return null;
     return {
+        // scope gates the document-level rules in the library; the editor
+        // doesn't thread chapter-grain scope yet, so lint the whole book.
+        // See usfm_onion plans/plan-lint-scope.md §11.
+        scope: options.scope ?? "book",
         enabledCodes: options.enabledCodes,
         disabledCodes: options.disabledCodes,
         suppressed: options.suppressed,
