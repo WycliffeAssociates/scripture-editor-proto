@@ -246,14 +246,6 @@ export function $isUSFMTextNode(
 ): node is USFMTextNode {
     return node instanceof USFMTextNode;
 }
-export function $isVerseRangeTextNode(
-    node: LexicalNode | null | undefined,
-): node is USFMTextNode {
-    return (
-        $isUSFMTextNode(node) &&
-        node.getTokenType() === UsfmTokenTypes.numberRange
-    );
-}
 export function isSerializedUSFMTextNode(
     node: SerializedLexicalNode,
 ): node is SerializedUSFMTextNode {

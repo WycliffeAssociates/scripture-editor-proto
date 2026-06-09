@@ -190,7 +190,7 @@ export function isValidParaMarker(marker: string) {
  * Graceful like `getParagraphCategory` — read on load/serialize paths where
  * falling back to flat-token behavior is safer than a throw.
  */
-export function getMarkerPayload(marker: string): MarkerPayload | undefined {
+function getMarkerPayload(marker: string): MarkerPayload | undefined {
     return registry?.payloadByMarker.get(marker);
 }
 

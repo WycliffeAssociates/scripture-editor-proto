@@ -6,7 +6,6 @@
 const markerWithoutBackslash = (text: string) => text.replace(/^\\/, "");
 export const markerTrimNoSlash = (text: string) =>
     markerWithoutBackslash(text.trim());
-export const markerRegex = /\\[a-z-\d]+(?=\s+)/u;
 export const numRangeRe = /[1-9][0-9]*(?:-[1-9])*[1-9]*[1-9]*/u;
 
 export const TokenMap = {

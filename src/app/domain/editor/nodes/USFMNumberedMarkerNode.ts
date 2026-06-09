@@ -34,11 +34,10 @@ import {
     tokenTypeState,
 } from "@/app/domain/editor/states.ts";
 
-export const USFM_NUMBERED_MARKER_NODE_TYPE =
-    "usfm-numbered-marker-node" as const;
+const USFM_NUMBERED_MARKER_NODE_TYPE = "usfm-numbered-marker-node" as const;
 
 /** Token type carried by numbered-marker nodes — see UsfmTokenTypes. */
-export const NUMBERED_MARKER_TOKEN_TYPE = UsfmTokenTypes.numberedMarker;
+const NUMBERED_MARKER_TOKEN_TYPE = UsfmTokenTypes.numberedMarker;
 
 // --- Node-specific NodeState ---
 // These states exist only on numbered-marker nodes, so they live here rather
