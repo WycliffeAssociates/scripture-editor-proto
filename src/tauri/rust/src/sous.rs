@@ -1,14 +1,12 @@
 // sous.rs
 //
-// PoC (Phase 3): scripture-sous-chef content analysis over onion's vref_index.
+// scripture-sous-chef content analysis over onion's vref_index.
 //
-// Takes the editor's flat tokens, builds the per-verse vref projection (onion
-// `master`'s `vref` module — the published v0.0.4 tag lacked it, hence the
-// local path dep in Cargo.toml), runs sous over each verse's projected text,
-// and returns the segment map + UTF-16 findings the editor zips into the
-// annotation popover. Sibling of the lint command, NOT a tee on it.
-//
-// REVERT BEFORE MERGE alongside the Cargo path deps.
+// Takes the editor's flat tokens, builds the per-verse vref projection (onion's
+// `vref` module), runs sous over each verse's projected text, and returns the
+// segment map + UTF-16 findings the editor zips into the annotation popover.
+// Sibling of the lint command, NOT a tee on it. The web/wasm twin is
+// `WebSousService`, which composes the same two libraries in the browser.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

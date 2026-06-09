@@ -4101,6 +4101,7 @@ dependencies = [
 [[package]]
 name = "ssc-core"
 version = "0.1.0"
+source = "git+https://github.com/WycliffeAssociates/scripture-sous-chef.git?tag=v0.0.1#65e88b6d47c70da14644260433b162748d62ec64"
 dependencies = [
  "serde",
  "unicode-script",
@@ -5143,6 +5144,7 @@ dependencies = [
 [[package]]
 name = "usfm_onion"
 version = "0.1.0"
+source = "git+https://github.com/WycliffeAssociates/usfm-onion.git?tag=v0.0.7#52748a3eb151ca77d7057004ed34320c96b8f2ce"
 dependencies = [
  "logos",
  "quick-xml 0.37.5",

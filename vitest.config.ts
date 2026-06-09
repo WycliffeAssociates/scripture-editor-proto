@@ -27,7 +27,7 @@ export default defineConfig({
         setupFiles: ["./tests/helpers/vitest.setup.ts"],
         server: {
             deps: {
-                inline: ["usfm-onion-web"],
+                inline: ["usfm-onion-web", "scripture-sous-chef-web"],
             },
         },
     },
