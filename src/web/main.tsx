@@ -7,6 +7,7 @@ import {
     buildProjectIndexDbName,
     DexieProjectIndex,
 } from "@/app/persistence/DexieProjectIndex.ts";
+import { installDevTimerLogger } from "@/app/ui/hooks/utils/domUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
@@ -37,6 +38,7 @@ import { WebOpener } from "@/web/persistence/WebOpener.ts";
  */
 const settingsManager = createBrowserSettingsManager();
 applyColorSchemeToDocument(settingsManager.get("colorScheme") ?? "light");
+installDevTimerLogger();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

@@ -8,6 +8,7 @@ import {
     buildProjectIndexDbName,
     DexieProjectIndex,
 } from "@/app/persistence/DexieProjectIndex.ts";
+import { installDevTimerLogger } from "@/app/ui/hooks/utils/domUtils.ts";
 import { applyColorSchemeToDocument } from "@/app/ui/theme/appTheme.ts";
 import { initializeUsfmMarkerCatalog } from "@/core/domain/usfm/onionMarkers.ts";
 import { FsBackedAuthSessionProvider } from "@/core/persistence/FsBackedAuthSessionProvider.ts";
@@ -34,6 +35,7 @@ import { TauriStorageRoots } from "@/tauri/persistence/TauriStorageRoots.ts";
  */
 const settingsManager = createTauriSettingsManager();
 applyColorSchemeToDocument(settingsManager.get("colorScheme") ?? "light");
+installDevTimerLogger();
 const giteaHostBaseUrl = normalizeGiteaHostBaseUrl(
     import.meta.env.VITE_GITEA_DESKTOP_HOST,
 );
