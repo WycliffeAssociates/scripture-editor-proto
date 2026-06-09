@@ -58,18 +58,21 @@ export function timeInDev(fn: () => void, label?: string) {
         return fn();
     }
 }
-// todo: should likely get rid if we can't change that it kills the stacktrace to always come from herer
-export async function timeInDevAsync<T>(
-    fn: () => Promise<T>,
-    label?: string,
-): Promise<T> {
-    if (import.meta.env.DEV) {
-        const start = performance.now();
-        const result = await fn();
-        const end = performance.now();
-        console.log(`Label: ${label}, Time: ${end - start}ms`);
-        return result;
-    } else {
-        return await fn();
-    }
+/**
+ * Dev-only timing via the User Timing API. Use with `using` so disposal (the
+ * measure) fires at scope exit without a wrapper frame:
+ *
+ *   using _t = devTimer("web:parseUsfm");
+ *
+ * The measure shows in DevTools → Performance → User Timing, labeled by name —
+ * no console attribution, no extra stack frame. No-op in production.
+ */
+export function devTimer(label: string): Disposable {
+    if (!import.meta.env.DEV) return { [Symbol.dispose]() {} };
+    const start = performance.now();
+    return {
+        [Symbol.dispose]() {
+            performance.measure(label, { start, end: performance.now() });
+        },
+    };
 }

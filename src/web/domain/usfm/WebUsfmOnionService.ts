@@ -1,5 +1,5 @@
 import * as onion from "usfm-onion-web";
-import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
+import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import { webMd5Service } from "@/core/domain/md5/webMd5.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
@@ -220,10 +220,9 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument> {
-        return timeInDevAsync(async () => {
-            const parsed = onion.parse(source);
-            return parsedToProjectedDocument(parsed, options);
-        }, "web:parseUsfm");
+        using _timer = devTimer("web:parseUsfm");
+        const parsed = onion.parse(source);
+        return parsedToProjectedDocument(parsed, options);
     }
 
     async parseUsfmBatchFromPaths(
@@ -243,36 +242,30 @@ export class WebUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument[]> {
-        return timeInDevAsync(async () => {
-            return Promise.all(
-                sources.map(async (source) => {
-                    const doc = parsedToProjectedDocument(
-                        onion.parse(source),
-                        options,
-                    );
-                    // Hash the source string we already hold in JS — the single
-                    // read happened upstream (loadForWeb), so no extra IO.
-                    if (options.includeSourceMd5) {
-                        doc.sourceMd5 =
-                            await webMd5Service.calculateMd5(source);
-                    }
-                    return doc;
-                }),
-            );
-        }, "web:parseUsfmBatchFromContents");
+        using _timer = devTimer("web:parseUsfmBatchFromContents");
+        return Promise.all(
+            sources.map(async (source) => {
+                const doc = parsedToProjectedDocument(
+                    onion.parse(source),
+                    options,
+                );
+                // Hash the source string we already hold in JS — the single
+                // read happened upstream (loadForWeb), so no extra IO.
+                if (options.includeSourceMd5) {
+                    doc.sourceMd5 = await webMd5Service.calculateMd5(source);
+                }
+                return doc;
+            }),
+        );
     }
 
     async lintExisting(
         tokens: Token[],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[]> {
-        return timeInDevAsync(async () => {
-            const result = onion.lintTokens(
-                tokens,
-                toWebTokenLintOptions(options),
-            );
-            return result.issues;
-        }, "web:lintExisting");
+        using _timer = devTimer("web:lintExisting");
+        const result = onion.lintTokens(tokens, toWebTokenLintOptions(options));
+        return result.issues;
     }
 
     async lintScope(
@@ -283,18 +276,16 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return timeInDevAsync(async () => {
-            const lintOptions =
-                options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
-            const webLintOptions = toWebTokenLintOptions(lintOptions);
-            return Promise.all(
-                scope.map(
-                    async (item) =>
-                        onion.lintTokens(item.tokens ?? [], webLintOptions)
-                            .issues,
-                ),
-            );
-        }, "web:lintScope");
+        using _timer = devTimer("web:lintScope");
+        const lintOptions =
+            options.lintOptions?.tokenRules ?? options.tokenOptions ?? {};
+        const webLintOptions = toWebTokenLintOptions(lintOptions);
+        return Promise.all(
+            scope.map(
+                async (item) =>
+                    onion.lintTokens(item.tokens ?? [], webLintOptions).issues,
+            ),
+        );
     }
 
     async formatScope(
@@ -305,49 +296,47 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         if (scope.some((item) => item.tokens === undefined)) {
             return throwPathIoUnsupported();
         }
-        return timeInDevAsync(async () => {
-            return Promise.all(
-                scope.map(async (item) => {
-                    const tokens = item.tokens ?? [];
-                    return formatTokensToTransformResult(
-                        tokens,
-                        onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
-                    );
-                }),
-            );
-        }, "web:formatScope");
+        using _timer = devTimer("web:formatScope");
+        return Promise.all(
+            scope.map(async (item) => {
+                const tokens = item.tokens ?? [];
+                return formatTokensToTransformResult(
+                    tokens,
+                    onion.formatTokens(tokens, WYSIWYG_FORMAT_OPTIONS),
+                );
+            }),
+        );
     }
 
     async applyTokenFixes(
         tokens: Token[],
         fixes: TokenFix[],
     ): Promise<TokenTransformResult> {
-        return timeInDevAsync(async () => {
-            if (!fixes.length) {
-                return {
-                    tokens,
-                    appliedChanges: [],
-                    skippedChanges: [],
-                };
-            }
-            let nextTokens = tokens;
-            const appliedChanges: TokenTransformResult["appliedChanges"] = [];
-            for (const fix of fixes) {
-                nextTokens = onion.applyTokenFix(nextTokens, fix);
-                appliedChanges.push({
-                    kind: "applyTokenFix",
-                    code: fix.code,
-                    label: fix.label,
-                    labelParams: fix.labelParams,
-                    targetTokenId: fix.targetTokenId ?? null,
-                });
-            }
+        using _timer = devTimer("web:applyTokenFixes");
+        if (!fixes.length) {
             return {
-                tokens: nextTokens,
-                appliedChanges,
+                tokens,
+                appliedChanges: [],
                 skippedChanges: [],
             };
-        }, "web:applyTokenFixes");
+        }
+        let nextTokens = tokens;
+        const appliedChanges: TokenTransformResult["appliedChanges"] = [];
+        for (const fix of fixes) {
+            nextTokens = onion.applyTokenFix(nextTokens, fix);
+            appliedChanges.push({
+                kind: "applyTokenFix",
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.labelParams,
+                targetTokenId: fix.targetTokenId ?? null,
+            });
+        }
+        return {
+            tokens: nextTokens,
+            appliedChanges,
+            skippedChanges: [],
+        };
     }
 
     async diffScope(
@@ -374,11 +363,10 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        return timeInDevAsync(async () => {
-            return onion
-                .diffTokens(baselineTokens, currentTokens, buildOptions)
-                .map(fromRawDiff);
-        }, "web:diffTokens");
+        using _timer = devTimer("web:diffTokens");
+        return onion
+            .diffTokens(baselineTokens, currentTokens, buildOptions)
+            .map(fromRawDiff);
     }
 
     async revertDiffBlock(
@@ -387,14 +375,13 @@ export class WebUsfmOnionService implements IUsfmOnionService {
         blockId: string,
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Token[]> {
-        return timeInDevAsync(async () => {
-            return onion.revertDiffBlock(
-                baselineTokens,
-                currentTokens,
-                blockId,
-                buildOptions,
-            );
-        }, "web:revertDiffBlock");
+        using _timer = devTimer("web:revertDiffBlock");
+        return onion.revertDiffBlock(
+            baselineTokens,
+            currentTokens,
+            blockId,
+            buildOptions,
+        );
     }
 }
 

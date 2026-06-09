@@ -1,6 +1,6 @@
 import * as ssc from "scripture-sous-chef-web";
 import * as onion from "usfm-onion-web";
-import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
+import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { ISousService } from "@/core/domain/sous/ISousService.ts";
 import type {
     SousAnalyzeResult,
@@ -28,37 +28,36 @@ import type { SegmentsBySid } from "@/core/domain/usfm/vrefTypes.ts";
  */
 export class WebSousService implements ISousService {
     async analyze(tokens: Token[]): Promise<SousAnalyzeResult> {
-        return timeInDevAsync(async () => {
-            const index = onion.vrefIndexTokens(tokens);
+        using _timer = devTimer("web:sousAnalyze");
+        const index = onion.vrefIndexTokens(tokens);
 
-            const segments: SegmentsBySid = {};
-            const vrefMap: Record<string, string> = {};
-            for (const [sid, projection] of Object.entries(index)) {
-                // Strip onion's `sourceSpan` (raw-buffer anchor) — the editor
-                // resolves ranges by `tokenId` + `textSpan`, matching the
-                // SegmentDto the native command serializes.
-                segments[sid] = projection.segments.map((segment) => ({
-                    tokenId: segment.tokenId,
-                    textSpan: segment.textSpan,
-                }));
-                // Pass every sid through; `analyze_vref` parses sids and skips
-                // any that don't resolve, exactly as sous.rs does.
-                vrefMap[sid] = projection.text;
-            }
+        const segments: SegmentsBySid = {};
+        const vrefMap: Record<string, string> = {};
+        for (const [sid, projection] of Object.entries(index)) {
+            // Strip onion's `sourceSpan` (raw-buffer anchor) — the editor
+            // resolves ranges by `tokenId` + `textSpan`, matching the
+            // SegmentDto the native command serializes.
+            segments[sid] = projection.segments.map((segment) => ({
+                tokenId: segment.tokenId,
+                textSpan: segment.textSpan,
+            }));
+            // Pass every sid through; `analyze_vref` parses sids and skips
+            // any that don't resolve, exactly as sous.rs does.
+            vrefMap[sid] = projection.text;
+        }
 
-            const findings: SousFinding[] = ssc
-                .analyze_vref(vrefMap, null)
-                .map((finding) => ({
-                    sid: finding.sid,
-                    code: finding.code,
-                    severity: finding.severity as SousSeverity,
-                    start: finding.start,
-                    end: finding.end,
-                    // wasm scores null for binary rules; the JS shape omits it.
-                    score: finding.score ?? undefined,
-                }));
+        const findings: SousFinding[] = ssc
+            .analyze_vref(vrefMap, null)
+            .map((finding) => ({
+                sid: finding.sid,
+                code: finding.code,
+                severity: finding.severity as SousSeverity,
+                start: finding.start,
+                end: finding.end,
+                // wasm scores null for binary rules; the JS shape omits it.
+                score: finding.score ?? undefined,
+            }));
 
-            return { segments, findings };
-        }, "web:sousAnalyze");
+        return { segments, findings };
     }
 }

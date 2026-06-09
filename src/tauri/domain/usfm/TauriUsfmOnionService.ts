@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { timeInDevAsync } from "@/app/ui/hooks/utils/domUtils.ts";
+import { devTimer } from "@/app/ui/hooks/utils/domUtils.ts";
 import type { IUsfmOnionService } from "@/core/domain/usfm/IUsfmOnionService.ts";
 import { defaultBuildSidBlocksOptions } from "@/core/domain/usfm/usfmOnionAdapters.ts";
 import type {
@@ -128,16 +128,17 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         tokenBatches: Token[][],
         options: TokenLintOptions = {},
     ): Promise<LintIssue[][]> {
-        return timeInDevAsync(async () => {
-            const results = await invoke<LintIssue[][]>(
-                "usfm_onion_lint_token_batches",
-                {
-                    tokenBatches,
-                    options: toTauriTokenLintOptions(options),
-                },
-            );
-            return results;
-        }, `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`);
+        using _timer = devTimer(
+            `[tauri] lintTokenBatches (batches: ${tokenBatches.length})`,
+        );
+        const results = await invoke<LintIssue[][]>(
+            "usfm_onion_lint_token_batches",
+            {
+                tokenBatches,
+                options: toTauriTokenLintOptions(options),
+            },
+        );
+        return results;
     }
 
     private async formatBatchFromPaths(
@@ -153,17 +154,18 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
     private async formatTokenBatches(
         tokenBatches: Token[][],
     ): Promise<TokenTransformResult[]> {
-        return timeInDevAsync(async () => {
-            const results = await invoke<TokenTransformResult[]>(
-                "usfm_onion_format_token_batches",
-                {
-                    tokenBatches,
-                },
-            );
-            return results.map((result, index) =>
-                withFormatChangeFlag(tokenBatches[index] ?? [], result),
-            );
-        }, `[tauri] formatTokenBatches (batches: ${tokenBatches.length})`);
+        using _timer = devTimer(
+            `[tauri] formatTokenBatches (batches: ${tokenBatches.length})`,
+        );
+        const results = await invoke<TokenTransformResult[]>(
+            "usfm_onion_format_token_batches",
+            {
+                tokenBatches,
+            },
+        );
+        return results.map((result, index) =>
+            withFormatChangeFlag(tokenBatches[index] ?? [], result),
+        );
     }
 
     private async diffBatchFromPathPairs(
@@ -185,16 +187,17 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument> {
-        return timeInDevAsync(async () => {
-            const projection = await invoke<ProjectedUsfmDocument>(
-                "usfm_onion_project_usfm",
-                {
-                    source,
-                    options: toTauriProjectOptions(options),
-                },
-            );
-            return projection;
-        }, `[tauri] parseUsfm (sourceLength: ${source.length})`);
+        using _timer = devTimer(
+            `[tauri] parseUsfm (sourceLength: ${source.length})`,
+        );
+        const projection = await invoke<ProjectedUsfmDocument>(
+            "usfm_onion_project_usfm",
+            {
+                source,
+                options: toTauriProjectOptions(options),
+            },
+        );
+        return projection;
     }
 
     async parseUsfmBatchFromPaths(
@@ -204,16 +207,17 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             lintOptions: null,
         },
     ): Promise<ProjectedUsfmDocument[]> {
-        return timeInDevAsync(async () => {
-            const projections = await invoke<ProjectedUsfmDocument[]>(
-                "usfm_onion_project_paths",
-                {
-                    paths,
-                    options: toTauriProjectOptions(options),
-                },
-            );
-            return projections;
-        }, `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`);
+        using _timer = devTimer(
+            `[tauri] parseUsfmBatchFromPaths (paths: ${paths.length})`,
+        );
+        const projections = await invoke<ProjectedUsfmDocument[]>(
+            "usfm_onion_project_paths",
+            {
+                paths,
+                options: toTauriProjectOptions(options),
+            },
+        );
+        return projections;
     }
 
     async parseUsfmBatchFromContents(
@@ -355,29 +359,30 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
             };
         }
 
-        return timeInDevAsync(async () => {
-            let nextTokens = tokens;
-            const appliedChanges: TokenTransformResult["appliedChanges"] = [];
-            for (const fix of fixes) {
-                nextTokens = await invoke("usfm_onion_apply_token_fix", {
-                    tokens: nextTokens,
-                    fix,
-                });
-                appliedChanges.push({
-                    kind: "applyTokenFix",
-                    code: fix.code,
-                    label: fix.label,
-                    labelParams: fix.labelParams,
-                    targetTokenId: fix.targetTokenId ?? null,
-                });
-            }
+        using _timer = devTimer(
+            `[tauri] applyTokenFixes (tokens: ${tokens.length}, fixes: ${fixes.length})`,
+        );
+        let nextTokens = tokens;
+        const appliedChanges: TokenTransformResult["appliedChanges"] = [];
+        for (const fix of fixes) {
+            nextTokens = await invoke("usfm_onion_apply_token_fix", {
+                tokens: nextTokens,
+                fix,
+            });
+            appliedChanges.push({
+                kind: "applyTokenFix",
+                code: fix.code,
+                label: fix.label,
+                labelParams: fix.labelParams,
+                targetTokenId: fix.targetTokenId ?? null,
+            });
+        }
 
-            return {
-                tokens: nextTokens as Token[],
-                appliedChanges,
-                skippedChanges: [],
-            };
-        }, `[tauri] applyTokenFixes (tokens: ${tokens.length}, fixes: ${fixes.length})`);
+        return {
+            tokens: nextTokens as Token[],
+            appliedChanges,
+            skippedChanges: [],
+        };
     }
 
     async diffScope(
@@ -459,13 +464,14 @@ export class TauriUsfmOnionService implements IUsfmOnionService {
         currentTokens: Token[],
         buildOptions: BuildSidBlocksOptions = defaultBuildSidBlocksOptions(),
     ): Promise<Diff[]> {
-        return timeInDevAsync(async () => {
-            return invoke("usfm_onion_diff_tokens", {
-                baselineTokens,
-                currentTokens,
-                buildOptions,
-            });
-        }, `[tauri] diffTokens (baseline: ${baselineTokens.length}, current: ${currentTokens.length})`);
+        using _timer = devTimer(
+            `[tauri] diffTokens (baseline: ${baselineTokens.length}, current: ${currentTokens.length})`,
+        );
+        return invoke("usfm_onion_diff_tokens", {
+            baselineTokens,
+            currentTokens,
+            buildOptions,
+        });
     }
 
     async revertDiffBlock(
