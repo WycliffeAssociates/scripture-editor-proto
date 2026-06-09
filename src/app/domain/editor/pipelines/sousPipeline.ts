@@ -27,6 +27,9 @@ const DEFAULT_SOUS_DEBOUNCE_MS = 200;
  * `ISousService.analyze` is single-book (Rust `sous_analyze`), so a
  * multi-book pass is a sequential loop of service calls — batching it like
  * lint's `lintScope` needs an interface + Rust command change.
+ *
+ * TODO: revisit batching/cadence once the findings providers (app/sous/onion)
+ * gain web workers + granularity controls.
  */
 function analyzeOneBook(args: {
     file: ScriptureBookState;

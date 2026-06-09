@@ -44,6 +44,7 @@ function toTauriLintOptions(options?: LintOptions | null) {
     return {
         // scope gates the document-level rules in the library; the editor
         // doesn't thread chapter-grain scope yet, so lint the whole book.
+        // TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
         scope: options.scope ?? "book",
         enabledCodes: options.enabledCodes,
         disabledCodes: options.disabledCodes,

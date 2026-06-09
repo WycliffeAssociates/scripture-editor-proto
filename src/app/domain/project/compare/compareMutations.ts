@@ -57,6 +57,9 @@ function ensureWorkingChapterFromSource(args: {
     }
 
     if (!existing.chapter) {
+        // Clone from source: this seeds an editable working chapter. Aliasing
+        // the source's state would let edits mutate the read-only baseline the
+        // compare is measured against.
         const newChapter: ScriptureChapterState = {
             chapterNumber: args.chapterNum,
             lexicalState: structuredClone(sourceChapter.lexicalState),

@@ -47,7 +47,8 @@ function finalizeFindings(protos: ProtoFinding[]): Finding[] {
                 protos[a].baseKey.localeCompare(protos[b].baseKey) || a - b,
         );
     const counts = new Map<string, number>();
-    const out: Finding[] = new Array(protos.length);
+    // sortedIndices is a permutation of every index, so each slot is filled.
+    const out: Finding[] = [];
     for (const i of sortedIndices) {
         const { baseKey, build } = protos[i];
         const occurrence = counts.get(baseKey) ?? 0;

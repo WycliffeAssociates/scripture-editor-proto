@@ -117,6 +117,8 @@ export type LintOptions = Omit<OnionLintOptions, "scope"> & {
      * not yet thread chapter-grain scope, so the service layer defaults this to
      * whole-book (`"book"`) — preserving today's lint behavior. Chapter-level
      * keying/caching is the eventual upgrade path.
+     *
+     * TODO(lint-scope): thread chapter-grain scope (deferred; see agent-tmp/ideas).
      */
     scope?: LintScope;
     includeParseRecoveries?: boolean;
