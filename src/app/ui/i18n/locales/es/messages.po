@@ -23,9 +23,9 @@ msgstr "Error al guardar ajustes"
 msgid "Settings could not be applied."
 msgstr "No se pudieron aplicar los ajustes."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:176
+#: src/app/ui/i18n/usfmOnionLocalization.ts:162
 msgid "'{verse}' is not a valid verse range."
-msgstr ""
+msgstr "'{verse}' no es un rango de versículos válido."
 
 #: src/app/ui/components/blocks/Toolbar.tsx:642
 #~ msgid "(Current)"
@@ -38,7 +38,7 @@ msgstr ""
 
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:82
 msgid "(most used)"
-msgstr ""
+msgstr "(más usado)"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:328
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:390
@@ -96,19 +96,19 @@ msgstr "{completedBooks}/{0} libros"
 
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:87
 msgid "{count}×"
-msgstr ""
+msgstr "{count}×"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:154
+#: src/app/ui/i18n/usfmOnionLocalization.ts:148
 msgid "{kindLabel} \\{marker} was opened but never closed before a new block began."
-msgstr ""
+msgstr "{kindLabel} \\{marker} se abrió pero nunca se cerró antes de que comenzara un nuevo bloque."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:151
+#: src/app/ui/i18n/usfmOnionLocalization.ts:145
 msgid "{kindLabel} \\{marker} was opened but never closed before the file ended."
-msgstr ""
+msgstr "{kindLabel} \\{marker} se abrió pero nunca se cerró antes de que terminara el archivo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:156
+#: src/app/ui/i18n/usfmOnionLocalization.ts:150
 msgid "{kindLabel} \\{marker} was opened but never closed."
-msgstr ""
+msgstr "{kindLabel} \\{marker} se abrió pero nunca se cerró."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:304
 msgid "{visibleChapterCount} chapters"
@@ -118,97 +118,101 @@ msgstr "{visibleChapterCount} capítulos"
 msgid "{visibleDiffCount} diffs"
 msgstr "{visibleDiffCount} diferencias"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:113
+#: src/app/ui/i18n/usfmOnionLocalization.ts:107
 msgid "\\{marker} appears before the first \\c."
-msgstr ""
+msgstr "\\{marker} aparece antes del primer \\c."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:131
-msgid "\\{marker} is a milestone and needs to end with \\*."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:103
-msgid "\\{marker} is not a known USFM marker."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:129
-msgid "\\{marker} is not allowed in this context."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:128
-msgid "\\{marker} is not allowed inside a {context}."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:117
-msgid "\\{marker} is part of a footnote or cross-reference and must appear inside one."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:120
-msgid "\\{marker} must follow a \\c chapter marker."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:123
-msgid "\\{marker} must follow a \\v verse marker."
-msgstr ""
+#: src/app/ui/i18n/usfmOnionLocalization.ts:180
+msgid "\\{marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …)."
+msgstr "\\{marker} es una línea en blanco y no admite contenido; coloca este contenido en su propio párrafo (\\p, \\q, …)."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:125
+msgid "\\{marker} is a milestone and needs to end with \\*."
+msgstr "\\{marker} es un hito y debe terminar con \\*."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:97
+msgid "\\{marker} is not a known USFM marker."
+msgstr "\\{marker} no es un marcador USFM conocido."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:123
+msgid "\\{marker} is not allowed in this context."
+msgstr "\\{marker} no está permitido en este contexto."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:122
+msgid "\\{marker} is not allowed inside a {context}."
+msgstr "\\{marker} no está permitido dentro de un {context}."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:111
+msgid "\\{marker} is part of a footnote or cross-reference and must appear inside one."
+msgstr "\\{marker} es parte de una nota al pie o referencia cruzada y debe aparecer dentro de una."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:114
+msgid "\\{marker} must follow a \\c chapter marker."
+msgstr "\\{marker} debe seguir a un marcador de capítulo \\c."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:117
+msgid "\\{marker} must follow a \\v verse marker."
+msgstr "\\{marker} debe seguir a un marcador de versículo \\v."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:119
 msgid "\\{marker} must follow its target marker."
-msgstr ""
+msgstr "\\{marker} debe seguir a su marcador de destino."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:183
+#: src/app/ui/i18n/usfmOnionLocalization.ts:169
 msgid "\\{marker} needs a space after the marker name."
-msgstr ""
+msgstr "\\{marker} necesita un espacio después del nombre del marcador."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:185
+#: src/app/ui/i18n/usfmOnionLocalization.ts:171
 msgid "\\{marker} needs a space before the text that follows."
-msgstr ""
+msgstr "\\{marker} necesita un espacio antes del texto que sigue."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:181
+#: src/app/ui/i18n/usfmOnionLocalization.ts:167
 msgid "\\{marker} needs a space or newline before it."
-msgstr ""
+msgstr "\\{marker} necesita un espacio o salto de línea antes de él."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:91
+#: src/app/ui/i18n/usfmOnionLocalization.ts:85
 msgid "\\{marker} starts an empty paragraph — the next paragraph begins right after, with no content in between."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:142
-msgid "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:140
-msgid "\\{marker}* does not match the marker that is currently open."
-msgstr ""
+msgstr "\\{marker} inicia un párrafo vacío: el siguiente párrafo comienza justo después, sin contenido intermedio."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:136
+msgid "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
+msgstr "\\{marker} nunca se cerró; \\{closer}* lo cerró indirectamente. Agrega un \\{marker}* explícito antes de \\{closer}*."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+msgid "\\{marker}* does not match the marker that is currently open."
+msgstr "\\{marker}* no coincide con el marcador que está actualmente abierto."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:130
 msgid "\\{marker}* has no matching opening \\{marker}."
-msgstr ""
+msgstr "\\{marker}* no tiene un \\{marker} de apertura correspondiente."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:197
+#: src/app/ui/i18n/usfmOnionLocalization.ts:173
 msgid "\\{marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
-msgstr ""
+msgstr "\\{marker}* va seguido directamente de texto sin espacio. Si es una contracción intencional (p. ej. \\nd Señor\\nd*'s), puedes ignorarlo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:105
+#: src/app/ui/i18n/usfmOnionLocalization.ts:99
 msgid "\\{marker}* is not a known closing marker."
-msgstr ""
+msgstr "\\{marker}* no es un marcador de cierre conocido."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:93
+#: src/app/ui/i18n/usfmOnionLocalization.ts:87
 msgid "\\c needs a chapter number after it."
-msgstr ""
+msgstr "\\c necesita un número de capítulo a continuación."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:83
+msgid "\\id must come before any other content."
+msgstr "\\id debe aparecer antes que cualquier otro contenido."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:178
+msgid "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
+msgstr "\\v no está permitido dentro de un párrafo sin contenido; los versículos deben aparecer dentro de párrafos de cuerpo, listas o tablas."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:176
+msgid "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
+msgstr "\\v no está permitido dentro de un encabezado de sección; los versículos deben aparecer dentro de párrafos de cuerpo, listas o tablas."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:89
-msgid "\\id must come before any other content."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:202
-msgid "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:200
-msgid "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
-msgstr ""
-
-#: src/app/ui/i18n/usfmOnionLocalization.ts:95
 msgid "\\v needs a verse number after it."
-msgstr ""
+msgstr "\\v necesita un número de versículo a continuación."
 
 #: src/app/routes/$project.index.tsx:19
 #~ msgid "<0>Loading...</0>"
@@ -224,7 +228,7 @@ msgstr "Ya existe un proyecto en la nube con este nombre en tu cuenta. En su lug
 
 #: src/app/ui/i18n/sousLocalization.ts:15
 msgid "A tab character in the text — use a space instead."
-msgstr ""
+msgstr "Hay un carácter de tabulación en el texto: usa un espacio en su lugar."
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:86
 msgid "Abbreviated book name."
@@ -251,13 +255,13 @@ msgstr "Aceptar automáticamente los cambios entrantes de la nube, a menos que e
 msgid "Add"
 msgstr "Agregar"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:247
+#: src/app/ui/i18n/usfmOnionLocalization.ts:225
 msgid "Add a space after {marker}"
-msgstr ""
+msgstr "Agregar un espacio después de {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:245
+#: src/app/ui/i18n/usfmOnionLocalization.ts:223
 msgid "Add a space before {marker}"
-msgstr ""
+msgstr "Agregar un espacio antes de {marker}"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:300
 msgid "Add it"
@@ -266,15 +270,15 @@ msgstr "Añadirlo"
 #: src/app/ui/components/blocks/FormBlockCard.tsx:868
 #: src/app/ui/components/blocks/FormBlockCard.tsx:869
 msgid "Add line below"
-msgstr ""
+msgstr "Agregar línea abajo"
 
 #: src/app/ui/components/import/LanguageApiImporter.tsx:275
 #~ msgid "Add project"
 #~ msgstr "Agregar proyecto"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:249
+#: src/app/ui/i18n/usfmOnionLocalization.ts:227
 msgid "Add required space after {marker}"
-msgstr ""
+msgstr "Agregar espacio obligatorio después de {marker}"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:371
 msgid "Adjust the overall application zoom when supported."
@@ -316,11 +320,11 @@ msgstr "Todo limpio"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:665
 msgid "Already at deepest indent"
-msgstr ""
+msgstr "Ya está en la sangría más profunda"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:660
 msgid "Already at left edge"
-msgstr ""
+msgstr "Ya está en el borde izquierdo"
 
 #: src/app/routes/scaffold.tsx:100
 #: src/app/routes/scaffold.tsx:108
@@ -333,7 +337,7 @@ msgstr "Apariencia de la aplicación"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:144
 msgid "App updates"
-msgstr ""
+msgstr "Actualizaciones de la aplicación"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:412
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:1044
@@ -441,13 +445,13 @@ msgstr "Regresar a proyectos"
 #. placeholder {1}: entry.path
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:16
 msgid "Backup could not be read ({0}): {1}"
-msgstr ""
+msgstr "No se pudo leer la copia de seguridad ({0}): {1}"
 
 #. placeholder {0}: entry.bookCode
 #. placeholder {1}: entry.path
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:18
 msgid "Backup for {0} could not be parsed: {1}"
-msgstr ""
+msgstr "No se pudo analizar la copia de seguridad de {0}: {1}"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:235
 #~ msgid "Behind"
@@ -457,7 +461,7 @@ msgstr ""
 #. placeholder {1}: entry.path
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:22
 msgid "Book {0} is no longer in this project: {1}"
-msgstr ""
+msgstr "El libro {0} ya no está en este proyecto: {1}"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:21
 msgid "Book abbreviation"
@@ -504,7 +508,7 @@ msgstr "Por versículo"
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:96
 #: src/app/ui/components/blocks/ProjectRow.tsx:177
 #: src/app/ui/components/blocks/ProjectRow.tsx:219
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:431
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:437
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -525,9 +529,9 @@ msgstr "Cambios aún no publicados"
 msgid "Chapter"
 msgstr "Capítulo"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:159
+#: src/app/ui/i18n/usfmOnionLocalization.ts:153
 msgid "Chapter {chapter} appears more than once."
-msgstr ""
+msgstr "El capítulo {chapter} aparece más de una vez."
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:220
 #~ msgid "Chapter {currentChapterLabel}"
@@ -550,8 +554,8 @@ msgstr "Etiqueta del capítulo"
 #~ msgstr ""
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:168
-msgid "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
-msgstr ""
+#~ msgid "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
+#~ msgstr ""
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:145
 #~ msgid "Chapter label {found} does not match the expected chapter number {expected}."
@@ -559,7 +563,7 @@ msgstr ""
 
 #: src/app/domain/editor/annotations/decorators/chapterLabelStandardize.ts:204
 msgid "Chapter labels standardized"
-msgstr ""
+msgstr "Etiquetas de capítulo estandarizadas"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:107
 #~ msgid "Chapter marker {marker} is missing its chapter number."
@@ -595,8 +599,8 @@ msgstr "Selector de capítulos"
 #~ msgstr "Vista de capítulo"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:162
-msgid "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
-msgstr ""
+#~ msgid "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
+#~ msgstr ""
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:13
 msgid "Character encoding"
@@ -606,9 +610,9 @@ msgstr "Codificación de caracteres"
 msgid "Character encoding scheme used for the file contents."
 msgstr "Esquema de codificación de caracteres usado para el contenido del archivo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:148
+#: src/app/ui/i18n/usfmOnionLocalization.ts:142
 msgid "Character marker"
-msgstr ""
+msgstr "Marcador de carácter"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:91
 #~ msgid "Character marker {marker} was not closed."
@@ -621,7 +625,7 @@ msgstr "Buscar actualizaciones de la nube automáticamente al abrir un proyecto 
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:166
 msgid "Check for updates"
-msgstr ""
+msgstr "Buscar actualizaciones"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:218
 #~ msgid "Check now"
@@ -638,19 +642,19 @@ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:276
 msgid "Checking the update server…"
-msgstr ""
+msgstr "Comprobando el servidor de actualizaciones…"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:165
 msgid "Checking…"
-msgstr ""
+msgstr "Comprobando…"
 
 #: src/app/ui/components/blocks/BookChapterPickerSidebar/BookChapterPickerSidebar.tsx:79
 msgid "Choose a chapter"
 msgstr "Elegir un capítulo"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:418
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:424
 msgid "Choose a scripture reference before matching formatting."
-msgstr ""
+msgstr "Elige una referencia bíblica antes de igualar el formato."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:266
 msgid "Choose a source"
@@ -671,7 +675,7 @@ msgstr "Elegir cómo se abre la revisión de cambios de forma predeterminada."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:284
 msgid "Choose the display language for Zephyr."
-msgstr ""
+msgstr "Elige el idioma de visualización de Zephyr."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:313
 msgid "Choose the theme used throughout the application."
@@ -726,7 +730,7 @@ msgstr "Cerrar"
 #~ msgid "Close marker {marker} is not recognized."
 #~ msgstr "El marcador de cierre {marker} no es reconocido."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:374
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:380
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:40
 msgid "Close search"
 msgstr "Cerrar búsqueda"
@@ -829,25 +833,25 @@ msgstr "¡Proyecto de nube importado con éxito!"
 msgid "Cloud updates available"
 msgstr "Actualizaciones en la nube disponibles"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:243
+#: src/app/ui/i18n/usfmOnionLocalization.ts:221
 msgid "Collapse extra spaces"
-msgstr ""
+msgstr "Contraer espacios adicionales"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:242
+#: src/app/ui/i18n/usfmOnionLocalization.ts:220
 msgid "Collapse spaces around {marker}"
-msgstr ""
+msgstr "Contraer espacios alrededor de {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:239
+#: src/app/ui/i18n/usfmOnionLocalization.ts:217
 msgid "Collapse to a single space"
-msgstr ""
+msgstr "Contraer a un solo espacio"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:246
 msgid "Combine"
-msgstr ""
+msgstr "Combinar"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:243
 msgid "Combine these two paragraphs into one"
-msgstr ""
+msgstr "Combinar estos dos párrafos en uno"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:360
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:576
@@ -926,13 +930,13 @@ msgstr "Errores de contenido ({badgeCount})"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:727
 msgid "Continuation line…"
-msgstr ""
+msgstr "Línea de continuación…"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:438
 #~ msgid "Controls"
 #~ msgstr "Controles"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:328
 msgid "Copy"
 msgstr "Copiar"
 
@@ -942,7 +946,7 @@ msgstr "Copiar diferencias (JSON)"
 
 #: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:52
 msgid "Copy editor JSON"
-msgstr ""
+msgstr "Copiar JSON del editor"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:245
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:246
@@ -969,15 +973,15 @@ msgstr "No se pudo desconectar la cuenta de nube"
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:111
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:122
 msgid "Could not install v{selectedVersion}."
-msgstr ""
+msgstr "No se pudo instalar v{selectedVersion}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:100
+#: src/app/ui/i18n/usfmOnionLocalization.ts:94
 msgid "Couldn't recognize \"{text}\"."
-msgstr ""
+msgstr "No se pudo reconocer «{text}»."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:101
+#: src/app/ui/i18n/usfmOnionLocalization.ts:95
 msgid "Couldn't recognize this token."
-msgstr ""
+msgstr "No se pudo reconocer este token."
 
 #: src/app/ui/components/blocks/ProjectCreator.tsx:42
 #~ msgid "Create a new project"
@@ -1048,9 +1052,9 @@ msgstr "Proyectos actuales"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:147
 msgid "Current version: v{currentVersion} ({currentChannel})"
-msgstr ""
+msgstr "Versión actual: v{currentVersion} ({currentChannel})"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:315
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:321
 msgid "Cut"
 msgstr "Cortar"
 
@@ -1073,7 +1077,7 @@ msgstr "Eliminar"
 #: src/app/ui/components/blocks/FormBlockCard.tsx:769
 #: src/app/ui/components/blocks/FormBlockCard.tsx:774
 msgid "Delete line"
-msgstr ""
+msgstr "Eliminar línea"
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:268
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:269
@@ -1083,7 +1087,7 @@ msgstr "Eliminar marcador"
 #: src/app/ui/components/blocks/FormBlockCard.tsx:768
 #: src/app/ui/components/blocks/FormBlockCard.tsx:773
 msgid "Delete paragraph"
-msgstr ""
+msgstr "Eliminar párrafo"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:202
 msgid "Delete project"
@@ -1142,7 +1146,7 @@ msgstr "Descartar"
 
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:49
 msgid "Dismiss"
-msgstr ""
+msgstr "Descartar"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:55
 #~ msgid "Display"
@@ -1232,7 +1236,7 @@ msgstr "Inglés"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:726
 msgid "Enter verse text…"
-msgstr ""
+msgstr "Ingresa el texto del versículo…"
 
 #: src/app/ui/hooks/useGiteaLogin.ts:34
 #: src/app/ui/hooks/useGiteaLogin.ts:43
@@ -1255,9 +1259,9 @@ msgstr "Español"
 #~ msgid "Existing project"
 #~ msgstr "Proyecto existente"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:139
+#: src/app/ui/i18n/usfmOnionLocalization.ts:133
 msgid "Expected \\{expected}* here, but found \\{marker}*."
-msgstr ""
+msgstr "Se esperaba \\{expected}* aquí, pero se encontró \\{marker}*."
 
 #: src/app/domain/project/cloudProjectActions.ts:17
 msgid "Failed to attach cloud project"
@@ -1297,7 +1301,7 @@ msgstr "No se pudo importar el archivo"
 msgid "Failed to load cloud projects"
 msgstr "Error al cargar proyectos de nube"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:112
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:113
 msgid "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 msgstr "Error al cargar notas de traducción para {referenceBookCode} {referenceChapterNumber}"
 
@@ -1310,9 +1314,9 @@ msgstr "No se pudo preparar la descarga"
 msgid "File imported successfully!"
 msgstr "¡Archivo importado con éxito!"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:85
+#: src/app/ui/i18n/usfmOnionLocalization.ts:79
 msgid "File is missing its \\id (book identifier)."
-msgstr ""
+msgstr "Al archivo le falta su \\id (identificador de libro)."
 
 #: src/app/ui/components/blocks/FindingsPopover.tsx:217
 msgid "Filter"
@@ -1376,9 +1380,9 @@ msgstr "Formateando proyecto"
 #~ msgid "Formatting Suggestion"
 #~ msgstr "Sugerencia de formato"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+#: src/app/ui/i18n/usfmOnionLocalization.ts:128
 msgid "Found \\* with no open milestone to close."
-msgstr ""
+msgstr "Se encontró \\* sin ningún hito abierto que cerrar."
 
 #: src/app/ui/components/import/CloudProjectImporter.tsx:47
 msgid "From my cloud projects"
@@ -1398,9 +1402,9 @@ msgstr "Agrupar desajustes de mayúsculas"
 
 #: src/app/ui/i18n/sousLocalization.ts:17
 msgid "Hidden control character(s) in this text."
-msgstr ""
+msgstr "Caracteres de control ocultos en este texto."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:363
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:369
 msgid "Hide reference panel"
 msgstr "Ocultar panel de referencia"
 
@@ -1476,13 +1480,13 @@ msgstr "Cambios entrantes de la nube"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:662
 msgid "Indent"
-msgstr ""
+msgstr "Sangría"
 
 #: src/app/ui/components/blocks/MatchFormattingSuggestionsPanel.tsx:312
 #~ msgid "Insert \\{0} Here"
 #~ msgstr "Insertar \\{0} aquí"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:237
+#: src/app/ui/i18n/usfmOnionLocalization.ts:215
 msgid "Insert close marker for {marker}"
 msgstr "Insertar marcador de cierre para {marker}"
 
@@ -1491,7 +1495,7 @@ msgstr "Insertar marcador de cierre para {marker}"
 msgid "Insert marker here"
 msgstr "Insertar marcador aquí"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:229
+#: src/app/ui/i18n/usfmOnionLocalization.ts:207
 msgid "Insert separator after {marker}"
 msgstr "Insertar separador después de {marker}"
 
@@ -1502,16 +1506,16 @@ msgstr "Insertar separador después de {marker}"
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:189
 #: src/app/ui/components/blocks/UpdateBanner.tsx:55
 msgid "Install"
-msgstr ""
+msgstr "Instalar"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:201
 msgid "Install a specific release for this channel. Older picks will downgrade the app."
-msgstr ""
+msgstr "Instala una versión específica para este canal. Las versiones anteriores degradarán la aplicación."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:189
 #: src/app/ui/components/blocks/UpdateBanner.tsx:55
 msgid "Installing…"
-msgstr ""
+msgstr "Instalando…"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:38
 msgid "Intentional line break"
@@ -1542,11 +1546,11 @@ msgstr "Introducción"
 
 #: src/app/ui/components/blocks/UpdateBanner.tsx:40
 msgid "is ready to install."
-msgstr ""
+msgstr "está listo para instalar."
 
 #: src/app/ui/components/blocks/RestoredBuffersBanner.tsx:49
 msgid "Keep"
-msgstr ""
+msgstr "Conservar"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:248
 #~ msgid "Keep all target paragraph markers"
@@ -1570,7 +1574,7 @@ msgstr "Último commit remoto"
 
 #: src/app/ui/components/blocks/UpdateBanner.tsx:48
 msgid "Later"
-msgstr ""
+msgstr "Más tarde"
 
 #: src/app/ui/components/views/bottom-panel/CloudPanel.tsx:327
 #~ msgid "Latest changes are from {latestIncomingAuthorName}. {fallback}"
@@ -1634,7 +1638,7 @@ msgstr "Cargando proyectos descargables..."
 msgid "Loading remote projects..."
 msgstr "Cargando proyectos remotos..."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:108
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
 msgid "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 msgstr "Cargando notas de traducción para {referenceBookCode} {referenceChapterNumber}..."
 
@@ -1645,7 +1649,7 @@ msgstr "Cargando..."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:214
 msgid "Loading…"
-msgstr ""
+msgstr "Cargando…"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:111
 msgid "Local and cloud are aligned."
@@ -1709,7 +1713,7 @@ msgstr "Título principal que se muestra antes de que comience el texto de las E
 #~ msgid "Margin"
 #~ msgstr "Margen"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:149
+#: src/app/ui/i18n/usfmOnionLocalization.ts:143
 msgid "Marker"
 msgstr "Marcador"
 
@@ -1749,9 +1753,9 @@ msgstr "Coincidir mayúsculas"
 msgid "Match Case"
 msgstr "Coincidir mayúsculas/minúsculas"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:450
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:456
 msgid "Match formatting"
-msgstr ""
+msgstr "Igualar formato"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:358
 #~ msgid "Match Formatting"
@@ -1769,9 +1773,9 @@ msgstr "Coincidir formato (Capítulo {currentFileBibleIdentifier} {currentChapte
 msgid "Match Formatting (Project)"
 msgstr "Coincidir formato (Proyecto)"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:420
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:426
 msgid "Match formatting can replace paragraph and poetry markers in the current chapter."
-msgstr ""
+msgstr "Igualar formato puede reemplazar los marcadores de párrafo y poesía en el capítulo actual."
 
 #: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:196
 #~ msgid "Match formatting from the selected reference? This can replace paragraph and poetry markers in the current chapter."
@@ -1779,7 +1783,7 @@ msgstr ""
 
 #: src/app/ui/components/primitives/ToolbarOverflowMenu/ToolbarOverflowMenu.tsx:43
 msgid "Match formatting to source"
-msgstr ""
+msgstr "Igualar formato al origen"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:108
 #: src/app/ui/components/blocks/Toolbar.tsx:113
@@ -1798,7 +1802,7 @@ msgstr "Palabra completa"
 #. placeholder {0}: modifiedBooks.size
 #: src/app/ui/hooks/useFormatMatching.tsx:335
 msgid "Matched formatting across {0} books"
-msgstr ""
+msgstr "Formato igualado en {0} libros"
 
 #: src/app/ui/hooks/useFormatMatching.tsx:622
 #~ msgid "Matched formatting across {modifiedBooksCount} books"
@@ -1844,12 +1848,12 @@ msgid "Most projects should stay UTF-8. Change this only when the source text tr
 msgstr "La mayoría de los proyectos deben seguir en UTF-8. Cambia esto solo cuando el texto fuente realmente dependa de otra codificación."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:195
-msgid "Multiple spaces or a stray newline inside this text — collapse to a single space."
-msgstr ""
+#~ msgid "Multiple spaces or a stray newline inside this text — collapse to a single space."
+#~ msgstr ""
 
 #: src/app/ui/i18n/sousLocalization.ts:13
 msgid "Multiple spaces or a stray tab here — collapse to a single space."
-msgstr ""
+msgstr "Varios espacios o una tabulación aquí: contraer a un solo espacio."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:359
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:453
@@ -1884,9 +1888,9 @@ msgstr "Nuevo proyecto"
 #~ msgstr "Siguiente"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:457
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:242
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:243
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:240
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:244
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:246
 msgid "Next chapter"
 msgstr "Capítulo siguiente"
 
@@ -1944,7 +1948,7 @@ msgstr "No se encontraron proyectos coincidentes"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:216
 msgid "No other versions available"
-msgstr ""
+msgstr "No hay otras versiones disponibles"
 
 #: src/app/routes/index.tsx:78
 msgid "No projects yet"
@@ -1952,7 +1956,7 @@ msgstr "No hay proyectos aún"
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:133
 msgid "No references found."
-msgstr ""
+msgstr "No se encontraron referencias."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:740
 msgid "No remote projects are available for this account yet."
@@ -1975,7 +1979,7 @@ msgstr "No se encontraron resultados para <0>{0}</0>"
 msgid "No source selected"
 msgstr "No se seleccionó fuente"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:116
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:117
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 msgstr "No hay notas de traducción para {referenceBookCode} {referenceChapterNumber}."
 
@@ -2000,9 +2004,9 @@ msgstr "Ninguno"
 msgid "Not connected"
 msgstr "No conectado"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:146
+#: src/app/ui/i18n/usfmOnionLocalization.ts:140
 msgid "Note"
-msgstr ""
+msgstr "Nota"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:94
 #~ msgid "Note marker {marker} was not closed before the next block boundary."
@@ -2018,7 +2022,7 @@ msgstr ""
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:659
 msgid "Nothing above to merge into"
-msgstr ""
+msgstr "No hay nada arriba con qué combinar"
 
 #: src/app/ui/hooks/usePrettifyOperations.tsx:198
 #: src/app/ui/hooks/usePrettifyOperations.tsx:264
@@ -2069,7 +2073,7 @@ msgstr "Abrir proyecto"
 #~ msgid "Open project drawer"
 #~ msgstr "Abrir el desplegable de proyectos"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:364
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:370
 msgid "Open reference panel"
 msgstr "Abrir panel de referencia"
 
@@ -2077,7 +2081,7 @@ msgstr "Abrir panel de referencia"
 #~ msgid "Open reference picker"
 #~ msgstr "Abrir selector de referencia"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:381
 msgid "Open search"
 msgstr "Abrir búsqueda"
 
@@ -2100,7 +2104,7 @@ msgstr "Original"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:657
 msgid "Outdent"
-msgstr ""
+msgstr "Reducir sangría"
 
 #: src/app/ui/components/import/CloudProjectImporter.tsx:139
 msgid "Owner"
@@ -2126,9 +2130,9 @@ msgstr "Párrafo"
 #~ msgid "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
 #~ msgstr "El marcador de párrafo {marker} crea un párrafo vacío porque el siguiente marcador abre su propio párrafo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:108
+#: src/app/ui/i18n/usfmOnionLocalization.ts:102
 msgid "Paragraph marker \\{marker} appears before the first \\c."
-msgstr ""
+msgstr "El marcador de párrafo \\{marker} aparece antes del primer \\c."
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:748
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:544
@@ -2136,13 +2140,13 @@ msgstr ""
 msgid "Password"
 msgstr "Contraseña"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:329
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:335
 msgid "Paste"
 msgstr "Pegar"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:416
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:422
 msgid "Pick a reference text"
-msgstr ""
+msgstr "Elegir un texto de referencia"
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:292
 msgid "Pick a source"
@@ -2150,7 +2154,7 @@ msgstr "Elegir una fuente"
 
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:58
 msgid "Pick the label to use for every chapter in the project. Each chapter keeps its own number."
-msgstr ""
+msgstr "Elige la etiqueta que se usará para cada capítulo del proyecto. Cada capítulo conserva su propio número."
 
 #: src/app/ui/components/blocks/ProjectSettings/EditorModeToggle.tsx:96
 #~ msgid "Plain"
@@ -2172,11 +2176,11 @@ msgstr "Por favor, intenta de nuevo."
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:722
 msgid "Poetry (level 1)"
-msgstr ""
+msgstr "Poesía (nivel 1)"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:724
 msgid "Poetry (level 2)"
-msgstr ""
+msgstr "Poesía (nivel 2)"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:44
 msgid "Poetry 1"
@@ -2188,7 +2192,7 @@ msgstr "Poesía 2"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:664
 msgid "Poetry 2 must follow Poetry 1"
-msgstr ""
+msgstr "Poesía 2 debe seguir a Poesía 1"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:48
 msgid "Poetry 3"
@@ -2207,9 +2211,9 @@ msgstr "Preparando..."
 #~ msgstr "Anterior"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:433
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:228
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:229
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:234
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:230
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:240
 msgid "Previous chapter"
 msgstr "Capítulo anterior"
 
@@ -2323,7 +2327,7 @@ msgstr "Rehizo última edición en {bookName} {0}"
 msgid "Redid: {label}"
 msgstr "Rehizo: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:353
 msgid "Redo"
 msgstr "Rehacer"
 
@@ -2331,7 +2335,7 @@ msgstr "Rehacer"
 #~ msgid "Redo — {next}"
 #~ msgstr "Rehacer — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:353
 msgid "Redo — {redoLabel}"
 msgstr "Rehacer — {redoLabel}"
 
@@ -2339,9 +2343,9 @@ msgstr "Rehacer — {redoLabel}"
 #~ msgid "Reference has"
 #~ msgstr ""
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:186
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:192
 msgid "Reference is loading"
-msgstr ""
+msgstr "Cargando referencia"
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:150
 msgid "Reference Panel"
@@ -2391,7 +2395,7 @@ msgstr "El inicio de sesión remoto todavía no está configurado para esta comp
 #~ msgid "Remote project connected"
 #~ msgstr "Proyecto remoto conectado"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:231
+#: src/app/ui/i18n/usfmOnionLocalization.ts:209
 msgid "Remove empty {marker} paragraph"
 msgstr "Eliminar párrafo vacío {marker}"
 
@@ -2404,7 +2408,7 @@ msgstr "Eliminar párrafo vacío {marker}"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:656
 msgid "Remove paragraph"
-msgstr ""
+msgstr "Eliminar párrafo"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:212
 msgid "Remove sort"
@@ -2544,7 +2548,7 @@ msgid "S5 chunk marker"
 msgstr "Marcador de fragmento S5"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:336
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:342
 msgid "Save"
 msgstr "Guardar"
 
@@ -2676,7 +2680,7 @@ msgstr "Buscar proyectos"
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:95
 msgid "Search reference resources"
-msgstr ""
+msgstr "Buscar recursos de referencia"
 
 #: src/app/ui/components/views/search-panel/SearchControls.tsx:186
 #~ msgid "Search reference text"
@@ -2684,7 +2688,7 @@ msgstr ""
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:96
 msgid "Search references"
-msgstr ""
+msgstr "Buscar referencias"
 
 #. placeholder {0}: search.searchTerm
 #: src/app/ui/components/views/search-panel/SearchResults.tsx:153
@@ -2698,7 +2702,7 @@ msgstr "Buscando proyectos en la nube vinculados..."
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:288
 msgid "Section heading"
-msgstr ""
+msgstr "Encabezado de sección"
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:53
 msgid "Section title"
@@ -2730,7 +2734,7 @@ msgstr "Selecciona una fuente para continuar."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:217
 msgid "Select a version"
-msgstr ""
+msgstr "Seleccionar una versión"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:503
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:965
@@ -2788,7 +2792,7 @@ msgstr "Seleccionar recurso de referencia"
 
 #: src/app/ui/components/blocks/ReferencePicker.tsx:61
 msgid "Select reference..."
-msgstr ""
+msgstr "Seleccionar referencia..."
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:684
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:883
@@ -2818,9 +2822,9 @@ msgstr "Configura `VITE_GITEA_WEB_HOST` para habilitar el inicio de sesión en l
 #. placeholder {0}: outcome.value.changedBookCodes.length
 #: src/app/domain/editor/annotations/decorators/chapterLabelStandardize.ts:205
 msgid "Set chapter labels to \"{targetStem}\" across {0} book(s)"
-msgstr ""
+msgstr "Establecer etiquetas de capítulo a «{targetStem}» en {0} libro(s)"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:233
+#: src/app/ui/i18n/usfmOnionLocalization.ts:211
 msgid "Set number to {number}"
 msgstr "Establecer número en {number}"
 
@@ -2903,7 +2907,7 @@ msgstr "Omitir la revisión de tus propias ediciones locales y confirmarlas dire
 
 #: src/app/ui/components/blocks/RestoredBuffersBanner.tsx:40
 msgid "Some of these files changed on disk since your last edits. Your changes are kept and layered on top — review them in the review panel before saving."
-msgstr ""
+msgstr "Algunos de estos archivos cambiaron en el disco desde tus últimas ediciones. Tus cambios se conservan y se superponen encima; revísalos en el panel de revisión antes de guardar."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:283
 msgid "Some projects may appear in both lists. Linked cloud keeps the Gitea connection. Download only imports a separate local copy."
@@ -2911,7 +2915,7 @@ msgstr "Algunos proyectos pueden aparecer en ambas listas. La nube vinculada con
 
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:38
 msgid "Some unsaved backups could not be restored automatically:"
-msgstr ""
+msgstr "Algunas copias de seguridad sin guardar no se pudieron restaurar automáticamente:"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerModal.tsx:795
 #~ msgid "Source type"
@@ -2919,13 +2923,13 @@ msgstr ""
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:419
 msgid "Split paragraph"
-msgstr ""
+msgstr "Dividir párrafo"
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:416
 msgid "Split paragraph here"
-msgstr ""
+msgstr "Dividir párrafo aquí"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:235
+#: src/app/ui/i18n/usfmOnionLocalization.ts:213
 msgid "Split unknown token"
 msgstr "Dividir token desconocido"
 
@@ -2944,19 +2948,19 @@ msgstr "Identificador estándar de 3 caracteres del libro bíblico más una desc
 
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:106
 msgid "Standardize"
-msgstr ""
+msgstr "Estandarizar"
 
 #: src/app/domain/editor/annotations/decorators/decorateFinding.tsx:99
 msgid "Standardize across project…"
-msgstr ""
+msgstr "Estandarizar en todo el proyecto…"
 
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:55
 msgid "Standardize chapter labels"
-msgstr ""
+msgstr "Estandarizar etiquetas de capítulo"
 
 #: src/app/domain/editor/annotations/decorators/chapterLabelStandardize.ts:159
 msgid "Standardize chapter labels to \"{targetStem}\""
-msgstr ""
+msgstr "Estandarizar etiquetas de capítulo a «{targetStem}»"
 
 #: src/app/ui/components/blocks/Toolbar.tsx:247
 #~ msgid "Strip all target paragraph markers"
@@ -2969,12 +2973,12 @@ msgstr "Éxito"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:233
 msgid "Switch"
-msgstr ""
+msgstr "Cambiar"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:110
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:118
 msgid "Switch failed"
-msgstr ""
+msgstr "El cambio falló"
 
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:254
 #: src/app/ui/components/blocks/DiffModal/DiffModalListView.tsx:255
@@ -2983,15 +2987,15 @@ msgstr "Cambiar a este capítulo"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:198
 msgid "Switch version"
-msgstr ""
+msgstr "Cambiar versión"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:98
 msgid "Switching to v{selectedVersion} will downgrade from v{currentVersion}. The app will restart. Continue?"
-msgstr ""
+msgstr "Cambiar a v{selectedVersion} degradará desde v{currentVersion}. La aplicación se reiniciará. ¿Continuar?"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:233
 msgid "Switching…"
-msgstr ""
+msgstr "Cambiando…"
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:63
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:430
@@ -3084,7 +3088,7 @@ msgstr "Tamaño del texto"
 
 #: src/app/ui/hooks/useUpdateCheck.ts:88
 msgid "The update could not be installed."
-msgstr ""
+msgstr "No se pudo instalar la actualización."
 
 #: src/app/ui/hooks/usePrettifyOperations.tsx:265
 msgid "This book is already formatted"
@@ -3114,9 +3118,9 @@ msgstr "Este capítulo ya está formateado"
 msgid "This device no longer has access to your cloud session."
 msgstr "Este dispositivo ya no tiene acceso a tu sesión de nube."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:87
+#: src/app/ui/i18n/usfmOnionLocalization.ts:81
 msgid "This file has more than one \\id; only one is allowed."
-msgstr ""
+msgstr "Este archivo tiene más de un \\id; solo se permite uno."
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:329
 msgid "This file is not using UTF-8. Avoid changing the encoding casually because it can corrupt the text."
@@ -3128,9 +3132,9 @@ msgstr "Este archivo no está usando UTF-8. Evita cambiar la codificación sin c
 #~ msgid "This is introductory material for this book"
 #~ msgstr "Este es material introductorio para este libro"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:179
+#: src/app/ui/i18n/usfmOnionLocalization.ts:165
 msgid "This number range is not preceded by a marker that expects a number (like \\c or \\v)."
-msgstr ""
+msgstr "Este rango de números no está precedido por un marcador que espera un número (como \\c o \\v)."
 
 #: src/app/ui/components/blocks/CloudProjectStatus.tsx:79
 msgid "This project has local and cloud changes that need review before the next publish."
@@ -3162,28 +3166,28 @@ msgstr "Esta estructura de pestaña ya está colocada. Los ajustes persistentes 
 
 #: src/app/ui/components/blocks/FormBlockCard.tsx:740
 msgid "This verse has no content"
-msgstr ""
+msgstr "Este versículo no tiene contenido"
 
 #: src/app/ui/i18n/sousLocalization.ts:21
-#: src/app/ui/i18n/usfmOnionLocalization.ts:97
+#: src/app/ui/i18n/usfmOnionLocalization.ts:91
 msgid "This verse has no content."
-msgstr ""
+msgstr "Este versículo no tiene contenido."
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:211
 msgid "This will remove files from disk and delete the project's metadata from the local database."
 msgstr "Esto eliminará archivos del disco y borrará los metadatos del proyecto de la base de datos local."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:191
-msgid "Too much whitespace after \\{marker}."
-msgstr ""
+#~ msgid "Too much whitespace after \\{marker}."
+#~ msgstr ""
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:193
-msgid "Too much whitespace around \\{marker}."
-msgstr ""
+#~ msgid "Too much whitespace around \\{marker}."
+#~ msgstr ""
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:188
-msgid "Too much whitespace before \\{marker}."
-msgstr ""
+#~ msgid "Too much whitespace before \\{marker}."
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/Toolbar.tsx:281
 #~ msgid "Tools"
@@ -3201,9 +3205,9 @@ msgstr ""
 msgid "Try again"
 msgstr "Intentar de nuevo"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:187
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:193
 msgid "Try matching formatting again once the reference chapter is visible."
-msgstr ""
+msgstr "Intenta igualar el formato de nuevo una vez que el capítulo de referencia sea visible."
 
 #: src/app/ui/components/blocks/FindingsPopover.tsx:207
 msgid "Type"
@@ -3232,7 +3236,7 @@ msgstr "Deshizo última edición en {bookName} {0}"
 msgid "Undid: {label}"
 msgstr "Deshizo: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Undo"
 msgstr "Deshacer"
 
@@ -3240,7 +3244,7 @@ msgstr "Deshacer"
 #~ msgid "Undo — {next}"
 #~ msgstr "Deshacer — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Undo — {undoLabel}"
 msgstr "Deshacer — {undoLabel}"
 
@@ -3266,20 +3270,20 @@ msgstr "Cambios sin guardar en {unsavedBooksCount} libro(s)"
 #. placeholder {1}: entry.path
 #: src/app/ui/components/blocks/RecoveryReportBanner.tsx:21
 msgid "Unsaved new book {0} cannot be auto-restored: {1}"
-msgstr ""
+msgstr "El nuevo libro sin guardar {0} no se puede restaurar automáticamente: {1}"
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:175
 msgid "Update available"
-msgstr ""
+msgstr "Actualización disponible"
 
 #. placeholder {0}: result.message
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:283
 msgid "Update check failed: {0}"
-msgstr ""
+msgstr "Error al verificar actualizaciones: {0}"
 
 #: src/app/ui/hooks/useUpdateCheck.ts:84
 msgid "Update install failed"
-msgstr ""
+msgstr "Error al instalar la actualización"
 
 #: src/app/ui/components/blocks/CloudStatusPopover.tsx:114
 msgid "Updates available"
@@ -3309,7 +3313,7 @@ msgstr "USFM"
 #~ msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 #~ msgstr "USFM — muestra metadatos especiales (como marcadores de capítulo y verso) y permite editarlos."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:280
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:281
 msgid "USFM Editor"
 msgstr "Editor USFM"
 
@@ -3325,7 +3329,7 @@ msgstr "Solo estructura USFM"
 #. placeholder {0}: update.version
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:178
 msgid "v{0} is ready to install."
-msgstr ""
+msgstr "v{0} está listo para instalar."
 
 #: src/app/ui/components/blocks/BookFrontmatterForm.tsx:341
 msgid "Value"
@@ -3340,13 +3344,13 @@ msgstr "Verso"
 #. placeholder {0}: note.verseNumber
 #. placeholder {0}: props.number
 #: src/app/ui/components/blocks/FormBlockCard.tsx:399
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:132
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:133
 msgid "Verse {0}"
 msgstr "Versículo {0}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:170
+#: src/app/ui/i18n/usfmOnionLocalization.ts:159
 msgid "Verse {verse} appears more than once in chapter {chapter}."
-msgstr ""
+msgstr "El versículo {verse} aparece más de una vez en el capítulo {chapter}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:95
 #~ msgid "Verse marker {marker} appears before the first chapter marker."
@@ -3364,9 +3368,9 @@ msgstr ""
 #~ msgid "Verse marker {marker} must be followed by a verse number."
 #~ msgstr "El marcador de versículo {marker} debe ser seguido por un número de versículo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:111
+#: src/app/ui/i18n/usfmOnionLocalization.ts:105
 msgid "Verse marker \\v appears before the first \\c."
-msgstr ""
+msgstr "El marcador de versículo \\v aparece antes del primer \\c."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:105
 #~ msgid "Verse metadata appears outside a verse."
@@ -3396,13 +3400,13 @@ msgstr "Verso no disponible en este texto"
 #~ msgid "Verse text appears in an invalid position after the verse number."
 #~ msgstr "El texto del versículo aparece en una posición inválida después del número de versículo."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:115
+#: src/app/ui/i18n/usfmOnionLocalization.ts:109
 msgid "Verses must appear inside a paragraph, list, or table."
-msgstr ""
+msgstr "Los versículos deben aparecer dentro de un párrafo, lista o tabla."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:173
-msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
-msgstr ""
+#~ msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
+#~ msgstr ""
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:846
 msgid "Version"
@@ -3443,7 +3447,7 @@ msgstr "Historial de versiones no disponible"
 
 #: src/app/ui/components/blocks/RestoredBuffersBanner.tsx:36
 msgid "We restored unsaved work from your last session. It will be kept until you save your file, and you can review the changes in the review panel."
-msgstr ""
+msgstr "Restauramos el trabajo sin guardar de tu última sesión. Se conservará hasta que guardes el archivo y puedes revisar los cambios en el panel de revisión."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:413
 #~ msgid "Where it lives"
@@ -3504,7 +3508,7 @@ msgstr "Actualmente tienes trabajo guardado localmente que no está guardado rem
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:280
 msgid "You're on the latest release for this channel."
-msgstr ""
+msgstr "Tienes la última versión de este canal."
 
 #: src/app/ui/components/blocks/ProjectSettings/UpdateSettingsSection.tsx:75
 #~ msgid "You're up to date"
@@ -3542,7 +3546,7 @@ msgstr "Tu búsqueda devolvió resultados, pero ninguno era un proyecto en la nu
 
 #: src/app/ui/i18n/sousLocalization.ts:19
 msgid "Zero-width character(s) here that may not belong."
-msgstr ""
+msgstr "Caracteres de ancho cero aquí que podrían no ser correctos."
 
 #: src/app/ui/components/blocks/ProjectImportHub/ProjectImportHub.tsx:329
 msgid "ZIP"

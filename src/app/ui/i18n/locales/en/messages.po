@@ -23,7 +23,7 @@ msgstr "Failed to save settings"
 msgid "Settings could not be applied."
 msgstr "Settings could not be applied."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:176
+#: src/app/ui/i18n/usfmOnionLocalization.ts:162
 msgid "'{verse}' is not a valid verse range."
 msgstr "'{verse}' is not a valid verse range."
 
@@ -98,15 +98,15 @@ msgstr "{completedBooks}/{0} books"
 msgid "{count}×"
 msgstr "{count}×"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:154
+#: src/app/ui/i18n/usfmOnionLocalization.ts:148
 msgid "{kindLabel} \\{marker} was opened but never closed before a new block began."
 msgstr "{kindLabel} \\{marker} was opened but never closed before a new block began."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:151
+#: src/app/ui/i18n/usfmOnionLocalization.ts:145
 msgid "{kindLabel} \\{marker} was opened but never closed before the file ended."
 msgstr "{kindLabel} \\{marker} was opened but never closed before the file ended."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:156
+#: src/app/ui/i18n/usfmOnionLocalization.ts:150
 msgid "{kindLabel} \\{marker} was opened but never closed."
 msgstr "{kindLabel} \\{marker} was opened but never closed."
 
@@ -118,95 +118,99 @@ msgstr "{visibleChapterCount} chapters"
 msgid "{visibleDiffCount} diffs"
 msgstr "{visibleDiffCount} diffs"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:113
+#: src/app/ui/i18n/usfmOnionLocalization.ts:107
 msgid "\\{marker} appears before the first \\c."
 msgstr "\\{marker} appears before the first \\c."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:131
+#: src/app/ui/i18n/usfmOnionLocalization.ts:180
+msgid "\\{marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …)."
+msgstr "\\{marker} is a blank line and takes no content; put this content in its own paragraph (\\p, \\q, …)."
+
+#: src/app/ui/i18n/usfmOnionLocalization.ts:125
 msgid "\\{marker} is a milestone and needs to end with \\*."
 msgstr "\\{marker} is a milestone and needs to end with \\*."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:103
+#: src/app/ui/i18n/usfmOnionLocalization.ts:97
 msgid "\\{marker} is not a known USFM marker."
 msgstr "\\{marker} is not a known USFM marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:129
+#: src/app/ui/i18n/usfmOnionLocalization.ts:123
 msgid "\\{marker} is not allowed in this context."
 msgstr "\\{marker} is not allowed in this context."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:128
+#: src/app/ui/i18n/usfmOnionLocalization.ts:122
 msgid "\\{marker} is not allowed inside a {context}."
 msgstr "\\{marker} is not allowed inside a {context}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:117
+#: src/app/ui/i18n/usfmOnionLocalization.ts:111
 msgid "\\{marker} is part of a footnote or cross-reference and must appear inside one."
 msgstr "\\{marker} is part of a footnote or cross-reference and must appear inside one."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:120
+#: src/app/ui/i18n/usfmOnionLocalization.ts:114
 msgid "\\{marker} must follow a \\c chapter marker."
 msgstr "\\{marker} must follow a \\c chapter marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:123
+#: src/app/ui/i18n/usfmOnionLocalization.ts:117
 msgid "\\{marker} must follow a \\v verse marker."
 msgstr "\\{marker} must follow a \\v verse marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:125
+#: src/app/ui/i18n/usfmOnionLocalization.ts:119
 msgid "\\{marker} must follow its target marker."
 msgstr "\\{marker} must follow its target marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:183
+#: src/app/ui/i18n/usfmOnionLocalization.ts:169
 msgid "\\{marker} needs a space after the marker name."
 msgstr "\\{marker} needs a space after the marker name."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:185
+#: src/app/ui/i18n/usfmOnionLocalization.ts:171
 msgid "\\{marker} needs a space before the text that follows."
 msgstr "\\{marker} needs a space before the text that follows."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:181
+#: src/app/ui/i18n/usfmOnionLocalization.ts:167
 msgid "\\{marker} needs a space or newline before it."
 msgstr "\\{marker} needs a space or newline before it."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:91
+#: src/app/ui/i18n/usfmOnionLocalization.ts:85
 msgid "\\{marker} starts an empty paragraph — the next paragraph begins right after, with no content in between."
 msgstr "\\{marker} starts an empty paragraph — the next paragraph begins right after, with no content in between."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:142
+#: src/app/ui/i18n/usfmOnionLocalization.ts:136
 msgid "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
 msgstr "\\{marker} was never closed; \\{closer}* closed it indirectly. Add an explicit \\{marker}* before \\{closer}*."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:140
+#: src/app/ui/i18n/usfmOnionLocalization.ts:134
 msgid "\\{marker}* does not match the marker that is currently open."
 msgstr "\\{marker}* does not match the marker that is currently open."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:136
+#: src/app/ui/i18n/usfmOnionLocalization.ts:130
 msgid "\\{marker}* has no matching opening \\{marker}."
 msgstr "\\{marker}* has no matching opening \\{marker}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:197
+#: src/app/ui/i18n/usfmOnionLocalization.ts:173
 msgid "\\{marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
 msgstr "\\{marker}* is directly followed by text with no space. If this is an intentional contraction (e.g. \\nd Lord\\nd*'s) you can ignore this."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:105
+#: src/app/ui/i18n/usfmOnionLocalization.ts:99
 msgid "\\{marker}* is not a known closing marker."
 msgstr "\\{marker}* is not a known closing marker."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:93
+#: src/app/ui/i18n/usfmOnionLocalization.ts:87
 msgid "\\c needs a chapter number after it."
 msgstr "\\c needs a chapter number after it."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:89
+#: src/app/ui/i18n/usfmOnionLocalization.ts:83
 msgid "\\id must come before any other content."
 msgstr "\\id must come before any other content."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:202
+#: src/app/ui/i18n/usfmOnionLocalization.ts:178
 msgid "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
 msgstr "\\v is not allowed inside a non-content paragraph; verses must appear inside body paragraphs, lists, or tables."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:200
+#: src/app/ui/i18n/usfmOnionLocalization.ts:176
 msgid "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
 msgstr "\\v is not allowed inside a section heading; verses must appear inside body paragraphs, lists, or tables."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:95
+#: src/app/ui/i18n/usfmOnionLocalization.ts:89
 msgid "\\v needs a verse number after it."
 msgstr "\\v needs a verse number after it."
 
@@ -251,11 +255,11 @@ msgstr "Accept incoming cloud changes automatically unless the same verse alread
 msgid "Add"
 msgstr "Add"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:247
+#: src/app/ui/i18n/usfmOnionLocalization.ts:225
 msgid "Add a space after {marker}"
 msgstr "Add a space after {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:245
+#: src/app/ui/i18n/usfmOnionLocalization.ts:223
 msgid "Add a space before {marker}"
 msgstr "Add a space before {marker}"
 
@@ -272,7 +276,7 @@ msgstr "Add line below"
 #~ msgid "Add project"
 #~ msgstr "Add project"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:249
+#: src/app/ui/i18n/usfmOnionLocalization.ts:227
 msgid "Add required space after {marker}"
 msgstr "Add required space after {marker}"
 
@@ -504,7 +508,7 @@ msgstr "By verse"
 #: src/app/ui/components/blocks/ChapterLabelPicker.tsx:96
 #: src/app/ui/components/blocks/ProjectRow.tsx:177
 #: src/app/ui/components/blocks/ProjectRow.tsx:219
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:431
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:437
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -525,7 +529,7 @@ msgstr "Changes not yet published"
 msgid "Chapter"
 msgstr "Chapter"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:159
+#: src/app/ui/i18n/usfmOnionLocalization.ts:153
 msgid "Chapter {chapter} appears more than once."
 msgstr "Chapter {chapter} appears more than once."
 
@@ -550,8 +554,8 @@ msgstr "Chapter label"
 #~ msgstr "Chapter label '{found}' does not match the label '{expected}' used elsewhere in this file."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:168
-msgid "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
-msgstr "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
+#~ msgid "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
+#~ msgstr "Chapter label \"{found}\" does not match the label \"{expected}\" used elsewhere in this file."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:145
 #~ msgid "Chapter label {found} does not match the expected chapter number {expected}."
@@ -595,8 +599,8 @@ msgstr "Chapter picker"
 #~ msgstr "Chapter view"
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:162
-msgid "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
-msgstr "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
+#~ msgid "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
+#~ msgstr "Chapters should count up by one: expected chapter {expected}, found chapter {found}."
 
 #: src/app/ui/i18n/usfmMarkerLocalization.ts:13
 msgid "Character encoding"
@@ -606,7 +610,7 @@ msgstr "Character encoding"
 msgid "Character encoding scheme used for the file contents."
 msgstr "Character encoding scheme used for the file contents."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:148
+#: src/app/ui/i18n/usfmOnionLocalization.ts:142
 msgid "Character marker"
 msgstr "Character marker"
 
@@ -648,7 +652,7 @@ msgstr "Checking…"
 msgid "Choose a chapter"
 msgstr "Choose a chapter"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:418
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:424
 msgid "Choose a scripture reference before matching formatting."
 msgstr "Choose a scripture reference before matching formatting."
 
@@ -726,7 +730,7 @@ msgstr "Close"
 #~ msgid "Close marker {marker} is not recognized."
 #~ msgstr "Close marker {marker} is not recognized."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:374
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:380
 #: src/app/ui/components/views/search-panel/SearchPanel.tsx:40
 msgid "Close search"
 msgstr "Close search"
@@ -829,15 +833,15 @@ msgstr "Cloud project imported successfully!"
 msgid "Cloud updates available"
 msgstr "Cloud updates available"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:243
+#: src/app/ui/i18n/usfmOnionLocalization.ts:221
 msgid "Collapse extra spaces"
 msgstr "Collapse extra spaces"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:242
+#: src/app/ui/i18n/usfmOnionLocalization.ts:220
 msgid "Collapse spaces around {marker}"
 msgstr "Collapse spaces around {marker}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:239
+#: src/app/ui/i18n/usfmOnionLocalization.ts:217
 msgid "Collapse to a single space"
 msgstr "Collapse to a single space"
 
@@ -932,7 +936,7 @@ msgstr "Continuation line…"
 #~ msgid "Controls"
 #~ msgstr "Controls"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:322
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:328
 msgid "Copy"
 msgstr "Copy"
 
@@ -971,11 +975,11 @@ msgstr "Could not disconnect cloud account"
 msgid "Could not install v{selectedVersion}."
 msgstr "Could not install v{selectedVersion}."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:100
+#: src/app/ui/i18n/usfmOnionLocalization.ts:94
 msgid "Couldn't recognize \"{text}\"."
 msgstr "Couldn't recognize \"{text}\"."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:101
+#: src/app/ui/i18n/usfmOnionLocalization.ts:95
 msgid "Couldn't recognize this token."
 msgstr "Couldn't recognize this token."
 
@@ -1050,7 +1054,7 @@ msgstr "Current Projects"
 msgid "Current version: v{currentVersion} ({currentChannel})"
 msgstr "Current version: v{currentVersion} ({currentChannel})"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:315
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:321
 msgid "Cut"
 msgstr "Cut"
 
@@ -1255,7 +1259,7 @@ msgstr "Español"
 #~ msgid "Existing project"
 #~ msgstr "Existing project"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:139
+#: src/app/ui/i18n/usfmOnionLocalization.ts:133
 msgid "Expected \\{expected}* here, but found \\{marker}*."
 msgstr "Expected \\{expected}* here, but found \\{marker}*."
 
@@ -1297,7 +1301,7 @@ msgstr "Failed to import file"
 msgid "Failed to load cloud projects"
 msgstr "Failed to load cloud projects"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:112
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:113
 msgid "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 msgstr "Failed to load translation notes for {referenceBookCode} {referenceChapterNumber}"
 
@@ -1310,7 +1314,7 @@ msgstr "Failed to prepare download"
 msgid "File imported successfully!"
 msgstr "File imported successfully!"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:85
+#: src/app/ui/i18n/usfmOnionLocalization.ts:79
 msgid "File is missing its \\id (book identifier)."
 msgstr "File is missing its \\id (book identifier)."
 
@@ -1376,7 +1380,7 @@ msgstr "Formatting Project"
 #~ msgid "Formatting Suggestion"
 #~ msgstr "Formatting Suggestion"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:134
+#: src/app/ui/i18n/usfmOnionLocalization.ts:128
 msgid "Found \\* with no open milestone to close."
 msgstr "Found \\* with no open milestone to close."
 
@@ -1400,7 +1404,7 @@ msgstr "Group case mismatches"
 msgid "Hidden control character(s) in this text."
 msgstr "Hidden control character(s) in this text."
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:363
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:369
 msgid "Hide reference panel"
 msgstr "Hide reference panel"
 
@@ -1482,7 +1486,7 @@ msgstr "Indent"
 #~ msgid "Insert \\{0} Here"
 #~ msgstr "Insert \\{0} Here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:237
+#: src/app/ui/i18n/usfmOnionLocalization.ts:215
 msgid "Insert close marker for {marker}"
 msgstr "Insert close marker for {marker}"
 
@@ -1491,7 +1495,7 @@ msgstr "Insert close marker for {marker}"
 msgid "Insert marker here"
 msgstr "Insert marker here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:229
+#: src/app/ui/i18n/usfmOnionLocalization.ts:207
 msgid "Insert separator after {marker}"
 msgstr "Insert separator after {marker}"
 
@@ -1634,7 +1638,7 @@ msgstr "Loading downloadable projects..."
 msgid "Loading remote projects..."
 msgstr "Loading remote projects..."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:108
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:109
 msgid "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 msgstr "Loading translation notes for {referenceBookCode} {referenceChapterNumber}..."
 
@@ -1709,7 +1713,7 @@ msgstr "Major title shown before the scripture text begins."
 #~ msgid "Margin"
 #~ msgstr "Margin"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:149
+#: src/app/ui/i18n/usfmOnionLocalization.ts:143
 msgid "Marker"
 msgstr "Marker"
 
@@ -1749,7 +1753,7 @@ msgstr "Match case"
 msgid "Match Case"
 msgstr "Match Case"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:450
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:456
 msgid "Match formatting"
 msgstr "Match formatting"
 
@@ -1769,7 +1773,7 @@ msgstr "Match Formatting (Chapter {currentFileBibleIdentifier} {currentChapter})
 msgid "Match Formatting (Project)"
 msgstr "Match Formatting (Project)"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:420
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:426
 msgid "Match formatting can replace paragraph and poetry markers in the current chapter."
 msgstr "Match formatting can replace paragraph and poetry markers in the current chapter."
 
@@ -1844,8 +1848,8 @@ msgid "Most projects should stay UTF-8. Change this only when the source text tr
 msgstr "Most projects should stay UTF-8. Change this only when the source text truly depends on another encoding."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:195
-msgid "Multiple spaces or a stray newline inside this text — collapse to a single space."
-msgstr "Multiple spaces or a stray newline inside this text — collapse to a single space."
+#~ msgid "Multiple spaces or a stray newline inside this text — collapse to a single space."
+#~ msgstr "Multiple spaces or a stray newline inside this text — collapse to a single space."
 
 #: src/app/ui/i18n/sousLocalization.ts:13
 msgid "Multiple spaces or a stray tab here — collapse to a single space."
@@ -1884,9 +1888,9 @@ msgstr "New Project"
 #~ msgstr "Next"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:457
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:242
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:243
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:240
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:244
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:246
 msgid "Next chapter"
 msgstr "Next chapter"
 
@@ -1975,7 +1979,7 @@ msgstr "No results found for <0>{0}</0>"
 msgid "No source selected"
 msgstr "No source selected"
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:116
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:117
 msgid "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 msgstr "No translation notes for {referenceBookCode} {referenceChapterNumber}."
 
@@ -2000,7 +2004,7 @@ msgstr "None"
 msgid "Not connected"
 msgstr "Not connected"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:146
+#: src/app/ui/i18n/usfmOnionLocalization.ts:140
 msgid "Note"
 msgstr "Note"
 
@@ -2069,7 +2073,7 @@ msgstr "Open project"
 #~ msgid "Open project drawer"
 #~ msgstr "Open project drawer"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:364
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:370
 msgid "Open reference panel"
 msgstr "Open reference panel"
 
@@ -2077,7 +2081,7 @@ msgstr "Open reference panel"
 #~ msgid "Open reference picker"
 #~ msgstr "Open reference picker"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:375
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:381
 msgid "Open search"
 msgstr "Open search"
 
@@ -2126,7 +2130,7 @@ msgstr "Paragraph"
 #~ msgid "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
 #~ msgstr "Paragraph marker {marker} creates an empty paragraph since the next marker opens its own paragraph."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:108
+#: src/app/ui/i18n/usfmOnionLocalization.ts:102
 msgid "Paragraph marker \\{marker} appears before the first \\c."
 msgstr "Paragraph marker \\{marker} appears before the first \\c."
 
@@ -2136,11 +2140,11 @@ msgstr "Paragraph marker \\{marker} appears before the first \\c."
 msgid "Password"
 msgstr "Password"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:329
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:335
 msgid "Paste"
 msgstr "Paste"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:416
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:422
 msgid "Pick a reference text"
 msgstr "Pick a reference text"
 
@@ -2207,9 +2211,9 @@ msgstr "Preparing..."
 #~ msgstr "Prev"
 
 #: src/app/ui/components/blocks/DiffModal/DiffViewerToolbar.tsx:433
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:228
 #: src/app/ui/components/blocks/ReferenceEditor.tsx:229
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:234
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:230
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:240
 msgid "Previous chapter"
 msgstr "Previous chapter"
 
@@ -2323,7 +2327,7 @@ msgstr "Redid last edit in {bookName} {0}"
 msgid "Redid: {label}"
 msgstr "Redid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:353
 msgid "Redo"
 msgstr "Redo"
 
@@ -2331,7 +2335,7 @@ msgstr "Redo"
 #~ msgid "Redo — {next}"
 #~ msgstr "Redo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:353
 msgid "Redo — {redoLabel}"
 msgstr "Redo — {redoLabel}"
 
@@ -2339,7 +2343,7 @@ msgstr "Redo — {redoLabel}"
 #~ msgid "Reference has"
 #~ msgstr "Reference has"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:186
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:192
 msgid "Reference is loading"
 msgstr "Reference is loading"
 
@@ -2391,7 +2395,7 @@ msgstr "Remote login is not configured for this build yet."
 #~ msgid "Remote project connected"
 #~ msgstr "Remote project connected"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:231
+#: src/app/ui/i18n/usfmOnionLocalization.ts:209
 msgid "Remove empty {marker} paragraph"
 msgstr "Remove empty {marker} paragraph"
 
@@ -2544,7 +2548,7 @@ msgid "S5 chunk marker"
 msgstr "S5 chunk marker"
 
 #: src/app/ui/components/blocks/ProjectRow.tsx:167
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:336
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:342
 msgid "Save"
 msgstr "Save"
 
@@ -2820,7 +2824,7 @@ msgstr "Set `VITE_GITEA_WEB_HOST` to enable cloud login in this web build."
 msgid "Set chapter labels to \"{targetStem}\" across {0} book(s)"
 msgstr "Set chapter labels to \"{targetStem}\" across {0} book(s)"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:233
+#: src/app/ui/i18n/usfmOnionLocalization.ts:211
 msgid "Set number to {number}"
 msgstr "Set number to {number}"
 
@@ -2925,7 +2929,7 @@ msgstr "Split paragraph"
 msgid "Split paragraph here"
 msgstr "Split paragraph here"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:235
+#: src/app/ui/i18n/usfmOnionLocalization.ts:213
 msgid "Split unknown token"
 msgstr "Split unknown token"
 
@@ -3114,7 +3118,7 @@ msgstr "This chapter is already formatted"
 msgid "This device no longer has access to your cloud session."
 msgstr "This device no longer has access to your cloud session."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:87
+#: src/app/ui/i18n/usfmOnionLocalization.ts:81
 msgid "This file has more than one \\id; only one is allowed."
 msgstr "This file has more than one \\id; only one is allowed."
 
@@ -3128,7 +3132,7 @@ msgstr "This file is not using UTF-8. Avoid changing the encoding casually becau
 #~ msgid "This is introductory material for this book"
 #~ msgstr "This is introductory material for this book"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:179
+#: src/app/ui/i18n/usfmOnionLocalization.ts:165
 msgid "This number range is not preceded by a marker that expects a number (like \\c or \\v)."
 msgstr "This number range is not preceded by a marker that expects a number (like \\c or \\v)."
 
@@ -3165,7 +3169,7 @@ msgid "This verse has no content"
 msgstr "This verse has no content"
 
 #: src/app/ui/i18n/sousLocalization.ts:21
-#: src/app/ui/i18n/usfmOnionLocalization.ts:97
+#: src/app/ui/i18n/usfmOnionLocalization.ts:91
 msgid "This verse has no content."
 msgstr "This verse has no content."
 
@@ -3174,16 +3178,16 @@ msgid "This will remove files from disk and delete the project's metadata from t
 msgstr "This will remove files from disk and delete the project's metadata from the local database."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:191
-msgid "Too much whitespace after \\{marker}."
-msgstr "Too much whitespace after \\{marker}."
+#~ msgid "Too much whitespace after \\{marker}."
+#~ msgstr "Too much whitespace after \\{marker}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:193
-msgid "Too much whitespace around \\{marker}."
-msgstr "Too much whitespace around \\{marker}."
+#~ msgid "Too much whitespace around \\{marker}."
+#~ msgstr "Too much whitespace around \\{marker}."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:188
-msgid "Too much whitespace before \\{marker}."
-msgstr "Too much whitespace before \\{marker}."
+#~ msgid "Too much whitespace before \\{marker}."
+#~ msgstr "Too much whitespace before \\{marker}."
 
 #: src/app/ui/components/blocks/Toolbar.tsx:281
 #~ msgid "Tools"
@@ -3201,7 +3205,7 @@ msgstr "Too much whitespace before \\{marker}."
 msgid "Try again"
 msgstr "Try again"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:187
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:193
 msgid "Try matching formatting again once the reference chapter is visible."
 msgstr "Try matching formatting again once the reference chapter is visible."
 
@@ -3232,7 +3236,7 @@ msgstr "Undid last edit in {bookName} {0}"
 msgid "Undid: {label}"
 msgstr "Undid: {label}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Undo"
 msgstr "Undo"
 
@@ -3240,7 +3244,7 @@ msgstr "Undo"
 #~ msgid "Undo — {next}"
 #~ msgstr "Undo — {next}"
 
-#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:341
+#: src/app/ui/components/primitives/EditorToolbar/EditorToolbar.tsx:347
 msgid "Undo — {undoLabel}"
 msgstr "Undo — {undoLabel}"
 
@@ -3309,7 +3313,7 @@ msgstr "USFM"
 #~ msgid "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 #~ msgstr "USFM — shows special metadata (such as chapter and verse markers) and allows editing it."
 
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:280
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:281
 msgid "USFM Editor"
 msgstr "USFM Editor"
 
@@ -3340,11 +3344,11 @@ msgstr "Verse"
 #. placeholder {0}: note.verseNumber
 #. placeholder {0}: props.number
 #: src/app/ui/components/blocks/FormBlockCard.tsx:399
-#: src/app/ui/components/blocks/ReferenceEditor.tsx:132
+#: src/app/ui/components/blocks/ReferenceEditor.tsx:133
 msgid "Verse {0}"
 msgstr "Verse {0}"
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:170
+#: src/app/ui/i18n/usfmOnionLocalization.ts:159
 msgid "Verse {verse} appears more than once in chapter {chapter}."
 msgstr "Verse {verse} appears more than once in chapter {chapter}."
 
@@ -3364,7 +3368,7 @@ msgstr "Verse {verse} appears more than once in chapter {chapter}."
 #~ msgid "Verse marker {marker} must be followed by a verse number."
 #~ msgstr "Verse marker {marker} must be followed by a verse number."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:111
+#: src/app/ui/i18n/usfmOnionLocalization.ts:105
 msgid "Verse marker \\v appears before the first \\c."
 msgstr "Verse marker \\v appears before the first \\c."
 
@@ -3396,13 +3400,13 @@ msgstr "Verse not available in this text"
 #~ msgid "Verse text appears in an invalid position after the verse number."
 #~ msgstr "Verse text appears in an invalid position after the verse number."
 
-#: src/app/ui/i18n/usfmOnionLocalization.ts:115
+#: src/app/ui/i18n/usfmOnionLocalization.ts:109
 msgid "Verses must appear inside a paragraph, list, or table."
 msgstr "Verses must appear inside a paragraph, list, or table."
 
 #: src/app/ui/i18n/usfmOnionLocalization.ts:173
-msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
-msgstr "Verses should count up by one: expected verse {expected}, found verse {found}."
+#~ msgid "Verses should count up by one: expected verse {expected}, found verse {found}."
+#~ msgstr "Verses should count up by one: expected verse {expected}, found verse {found}."
 
 #: src/app/ui/components/blocks/ProjectSettings/Settings.tsx:846
 msgid "Version"
